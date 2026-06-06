@@ -6,7 +6,7 @@ import { Section, SectionHeader, LongForm, PillarLinks } from '@/components/seo/
 export const metadata: Metadata = {
   title: 'Livesov Docs: Help Center, Getting Started & API Reference',
   description:
-    'Documentation for Livesov — the AI visibility tracker. Setup guides, prompt configuration, alerts, exports, API reference, and integration walkthroughs.',
+    'Documentation for Livesov - the AI visibility tracker. Setup guides, prompt configuration, alerts, exports, API reference, and integration walkthroughs.',
   keywords:
     'livesov docs, livesov help, livesov api docs, ai visibility tracker docs, geo tool docs, llm tracking docs',
   alternates: { canonical: '/docs' },
@@ -31,7 +31,7 @@ const DOC_SECTIONS: DocSection[] = [
       { title: 'Quickstart in 5 minutes', description: 'Create your account, add your first brand, run your first measurement.', href: '/docs#quickstart' },
       { title: 'Add a brand', description: 'Brand setup, competitors, category, and tracked URLs.', href: '/docs#add-brand' },
       { title: 'Build your prompt panel', description: 'Generate, import, or write the prompts that define your measurement scope.', href: '/docs#prompts' },
-      { title: 'Pick which LLMs to track', description: 'ChatGPT, Claude, Gemini, Perplexity, and Grok — model tiers and grounding options.', href: '/docs#llms' },
+      { title: 'Pick which LLMs to track', description: 'ChatGPT, Claude, Gemini, Perplexity, and Grok - model tiers and grounding options.', href: '/docs#llms' },
     ],
   },
   {
@@ -40,7 +40,7 @@ const DOC_SECTIONS: DocSection[] = [
       { title: 'Mention rate', description: 'How we calculate per-platform and per-prompt mention rate.', href: '/docs#mention-rate' },
       { title: 'Citation share', description: 'How citations are detected and attributed on grounded surfaces.', href: '/docs#citation-share' },
       { title: 'Sentiment', description: 'Our 5-point sentiment scale and how it is scored.', href: '/docs#sentiment' },
-      { title: 'Rank in answer', description: 'First-paragraph, mid-answer, last-mention — the three rank tiers.', href: '/docs#rank' },
+      { title: 'Rank in answer', description: 'First-paragraph, mid-answer, last-mention - the three rank tiers.', href: '/docs#rank' },
     ],
   },
   {
@@ -157,7 +157,7 @@ export default function DocsHubPage() {
           <h2 id="quickstart">Quickstart in 5 minutes</h2>
           <ol>
             <li>
-              <strong>Create your account.</strong> <a href="/signup">Sign up free</a> — no
+              <strong>Create your account.</strong> <a href="/signup">Sign up free</a> - no
               credit card required.
             </li>
             <li>
@@ -206,7 +206,7 @@ export default function DocsHubPage() {
 
           <p>
             Looking for something not covered here? Email{' '}
-            <a href="mailto:hello@livesov.com">hello@livesov.com</a> — we read everything.
+            <a href="mailto:hello@livesov.com">hello@livesov.com</a> - we read everything.
           </p>
         </LongForm>
       </Section>
@@ -217,7 +217,7 @@ export default function DocsHubPage() {
           { href: '/learn/llm-seo', label: 'LLM SEO: the 2026 guide', description: 'The conceptual playbook the product is built on.' },
           { href: '/case-studies', label: 'Case studies', description: 'Real teams running the workflows in this doc.' },
           { href: '/integrations', label: 'All integrations', description: 'Slack, Zapier, API, webhooks, and exports.' },
-          { href: '/pricing', label: 'Pricing', description: 'Plan that fits — from solo to multi-brand agency.' },
+          { href: '/pricing', label: 'Pricing', description: 'Plan that fits - from solo to multi-brand agency.' },
         ]}
       />
     </SeoLayout>

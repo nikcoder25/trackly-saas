@@ -55,16 +55,16 @@ const recipes = [
 const steps = [
   { title: 'Find Livesov on Zapier', description: 'In Zapier, search "Livesov" and click Connect.' },
   { title: 'Authenticate with your API key', description: 'Grab your API key from Settings → API in your Livesov dashboard.' },
-  { title: 'Pick a trigger', description: 'Choose from the six event triggers — mention rate, citation, sentiment, etc.' },
+  { title: 'Pick a trigger', description: 'Choose from the six event triggers - mention rate, citation, sentiment, etc.' },
   { title: 'Pick an action', description: 'Connect the trigger to any of Zapier\'s 5,000+ apps. Done.' },
 ];
 
 const faqs = [
-  { question: 'Is the Zapier integration free?', answer: 'The Livesov side is included on every paid plan. Zapier itself bills you for task runs — most teams stay on the free Zapier tier for 1–2 critical Zaps.' },
-  { question: 'Do I need a developer to set up Zaps?', answer: 'No. The integration uses standard Zapier triggers and actions — no code required.' },
+  { question: 'Is the Zapier integration free?', answer: 'The Livesov side is included on every paid plan. Zapier itself bills you for task runs - most teams stay on the free Zapier tier for 1–2 critical Zaps.' },
+  { question: 'Do I need a developer to set up Zaps?', answer: 'No. The integration uses standard Zapier triggers and actions - no code required.' },
   { question: 'What is the polling frequency?', answer: 'Triggers fire near real-time (within 60 seconds) for paid Zapier tiers; up to 15 minutes for the Zapier free tier.' },
   { question: 'How do I get an API key?', answer: 'Settings → API in your Livesov dashboard. Keys are per-workspace; rotate them anytime.' },
-  { question: 'Can I use Zapier for white-label client reporting?', answer: 'Yes — many agencies trigger Livesov report generation via Zapier on a per-client cadence and email the PDFs through Zapier\'s Gmail or SMTP actions.' },
+  { question: 'Can I use Zapier for white-label client reporting?', answer: 'Yes - many agencies trigger Livesov report generation via Zapier on a per-client cadence and email the PDFs through Zapier\'s Gmail or SMTP actions.' },
 ];
 
 export default function ZapierIntegrationPage() {
@@ -81,7 +81,7 @@ export default function ZapierIntegrationPage() {
             </span>
           </>
         }
-        subtitle="Connect AI visibility data to 5,000+ apps. Six triggers, four actions, infinite workflows — no code required."
+        subtitle="Connect AI visibility data to 5,000+ apps. Six triggers, four actions, infinite workflows - no code required."
         ctaText="Get an API key"
         ctaHref="/signup"
       />
@@ -111,7 +111,7 @@ export default function ZapierIntegrationPage() {
           <h2>Why Zapier?</h2>
           <p>
             Most marketing stacks are 30+ tools deep. The integrations that matter for AI
-            visibility — CRM, project tracking, analytics, internal comms — are exactly the ones
+            visibility - CRM, project tracking, analytics, internal comms - are exactly the ones
             Zapier already speaks. Zapier lets you wire Livesov into the workflows you already
             have, with no engineering ticket.
           </p>

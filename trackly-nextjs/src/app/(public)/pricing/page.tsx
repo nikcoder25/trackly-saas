@@ -190,7 +190,7 @@ const FAQ = [
   },
   {
     q: 'Economy vs. Premium AI models - what changes?',
-    a: 'Economy uses fast, cost-efficient models (gpt-4o-mini-search-preview, claude-haiku, gemini-flash-lite, sonar, grok-3-mini). Premium tier (Agency) unlocks Claude Sonnet, Gemini Pro, sonar-pro, and grok-4 for deeper reasoning.',
+    a: 'Economy uses fast, cost-efficient models (GPT-5 mini, Claude Haiku 4.5, Gemini 3 Flash-Lite, Perplexity Sonar, Grok 4 Mini). Premium tier (Agency) unlocks Claude Sonnet 4.5, Gemini 3 Pro, Sonar Pro, and Grok 5 for deeper reasoning.',
   },
   {
     q: 'How does annual billing work?',

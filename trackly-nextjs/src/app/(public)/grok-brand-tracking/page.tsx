@@ -85,9 +85,9 @@ const features = [
 ];
 
 const supportedModels = [
-  ['Grok 4', 'Latest flagship reasoning model', 'Used in premium X subscriptions and the Grok app'],
-  ['Grok 3', 'Mainstream balanced tier', 'Default for most consumer Grok interactions'],
-  ['Grok 3 Mini', 'Faster, cheaper variant', 'Embedded in many free-tier and high-volume Grok surfaces'],
+  ['Grok 5', 'Latest flagship reasoning model', 'Used in premium X subscriptions and the Grok app'],
+  ['Grok 4', 'Mainstream balanced tier', 'Default for most consumer Grok interactions'],
+  ['Grok 4 Mini', 'Faster, cheaper variant', 'Embedded in many free-tier and high-volume Grok surfaces'],
   ['Grok with live search', 'Real-time X + web grounding', 'Where social-influenced answers are generated'],
 ];
 
@@ -144,7 +144,7 @@ const faqs = [
   {
     question: 'Which Grok models does Livesov support?',
     answer:
-      'The current xAI lineup: Grok 4, Grok 3, Grok 3 Mini, plus the live-search variant that grounds answers in real-time X and web data. We add new Grok releases as xAI ships them.',
+      'The current xAI lineup: Grok 5, Grok 4, Grok 4 Mini, plus the live-search variant that grounds answers in real-time X and web data. We add new Grok releases as xAI ships them.',
   },
   {
     question: 'Does Livesov need access to my X account?',
@@ -159,7 +159,7 @@ const faqs = [
   {
     question: 'How fresh is Grok data?',
     answer:
-      'Grok itself queries live X data continuously. Livesov re-runs your tracked prompts on your plan&rsquo;s schedule (daily on Agency, every 2 days on Pro, weekly on Starter), with manual runs available at any time within your daily cap.',
+      'Grok itself queries live X data continuously. Livesov re-runs your tracked prompts on your plan&rsquo;s schedule (daily on Pro and Agency, every 2 days on Starter, weekly on Free), with manual runs available at any time within your daily cap.',
   },
   {
     question: 'Does Grok use a different tone than other AI models?',
@@ -174,7 +174,7 @@ const faqs = [
 ];
 
 const comparisonRows = [
-  ['Tracks Grok 4, 3, 3 Mini, live-search', '✓ All models', 'Single model', 'Not supported'],
+  ['Tracks Grok 5, 4, 4 Mini, live-search', '✓ All models', 'Single model', 'Not supported'],
   ['Real-time X signal correlation', '✓ Native', 'Not supported', 'Not supported'],
   ['Citation capture (X posts + URLs)', '✓ Full ranked list', 'Partial', 'Not supported'],
   ['Multi-run aggregation per prompt', '✓ 3–10× per run', 'Single shot', 'Single shot'],
@@ -255,7 +255,7 @@ export default function GrokBrandTrackingPage() {
         <SectionHeader
           label="Model coverage"
           title="Every Grok variant your audience actually sees"
-          subtitle="From the free Grok 3 Mini tier to the live-search variant that drives the most volatile rank shifts - all tracked in parallel."
+          subtitle="From the free Grok 4 Mini tier to the live-search variant that drives the most volatile rank shifts - all tracked in parallel."
         />
         <ComparisonTable
           headers={['Grok model', 'What it is', 'Where it lives']}

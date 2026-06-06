@@ -48,7 +48,7 @@ const platforms = [
     name: 'ChatGPT (OpenAI)',
     color: '#10a37f',
     href: '/chatgpt-brand-tracking',
-    models: 'GPT-4o · GPT-4o-mini · GPT-4o Search Preview · o1 / o3-mini',
+    models: 'GPT-5 · GPT-5 mini · GPT-5 Search · o-series reasoning',
     desc: 'Track brand visibility across every ChatGPT model OpenAI ships. Direct API access with full request/response logging.',
     surfaces: ['ChatGPT consumer app', 'ChatGPT Enterprise', 'ChatGPT Search', 'API-embedded apps'],
   },
@@ -56,7 +56,7 @@ const platforms = [
     name: 'Claude (Anthropic)',
     color: '#d97706',
     href: '/claude-brand-tracking',
-    models: 'Claude Opus 4 · Sonnet 4 · Haiku 4 · 3.5 Sonnet (legacy)',
+    models: 'Claude Opus 4.5 · Sonnet 4.5 · Haiku 4.5 · Sonnet 4 (legacy)',
     desc: 'Track every Claude tier from Opus to Haiku. Direct Anthropic API access with model-tier comparison built in.',
     surfaces: ['Claude.ai', 'Claude in Notion / Slack / Quora', 'Claude API integrations', 'Claude in Cursor / Windsurf'],
   },
@@ -64,7 +64,7 @@ const platforms = [
     name: 'Gemini (Google)',
     color: '#4285f4',
     href: '/gemini-brand-tracking',
-    models: 'Gemini 2.5 Pro · 2.5 Flash · Flash-Lite · grounded variants',
+    models: 'Gemini 3 Pro · 3 Flash · Flash-Lite · grounded variants',
     desc: 'Track Gemini API responses plus grounded variants that simulate Google AI Overviews. Vertex and AI Studio supported.',
     surfaces: ['Google AI Overviews', 'Gemini app (mobile + web)', 'Workspace AI (Gmail / Docs / Meet)', 'Android assistant'],
   },
@@ -80,7 +80,7 @@ const platforms = [
     name: 'Grok (xAI)',
     color: '#1d9bf0',
     href: '/grok-brand-tracking',
-    models: 'Grok 4 · Grok 3 · Grok 3 Mini · live-search variant',
+    models: 'Grok 5 · Grok 4 · Grok 4 Mini · live-search variant',
     desc: 'Direct xAI API with real-time X (Twitter) signal correlation. Surface social-driven visibility shifts as they happen.',
     surfaces: ['Grok inside X (Twitter)', 'Grok standalone app', 'Grok web (grok.com)', 'xAI API integrations'],
   },
@@ -163,7 +163,7 @@ const faqs = [
   {
     question: 'Will Livesov add support for new AI platforms as they launch?',
     answer:
-      'Yes. We track the LLM landscape continuously and add new platforms or models within days of release. Recent additions: Claude 4 family, Gemini 2.5 family, Grok 4, Perplexity Sonar Deep Research.',
+      'Yes. We track the LLM landscape continuously and add new platforms or models within days of release. Recent additions: Claude 4.5 family, Gemini 3 family, Grok 5, Perplexity Sonar Deep Research.',
   },
 ];
 
@@ -477,7 +477,7 @@ export default function IntegrationsPage() {
           {
             href: '/chatgpt-brand-tracking',
             label: 'ChatGPT brand tracking',
-            description: 'GPT-4o, GPT-4o-mini, ChatGPT Search - all tracked.',
+            description: 'GPT-5, GPT-5 mini, ChatGPT Search - all tracked.',
           },
           {
             href: '/perplexity-brand-tracking',

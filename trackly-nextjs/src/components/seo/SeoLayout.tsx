@@ -69,7 +69,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
                 <span>Newsletter</span>
               </div>
               <h3>Get the GEO playbook in your inbox</h3>
-              <p>Weekly insights on AI search, brand visibility tactics, and product updates. No spam, unsubscribe anytime.</p>
+              <p>Insights on AI search, brand visibility tactics, and product updates straight to your inbox. No spam, unsubscribe anytime.</p>
             </div>
             <form
               className="land-footer-newsletter-form"
@@ -96,7 +96,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/" className="land-footer-logo" aria-label="Livesov - Home" style={{ textDecoration: 'none' }}>
               Live<span>sov</span>
             </Link>
-            <div className="land-footer-desc">AI Visibility Tracker &mdash; Track how AI platforms mention your brand across ChatGPT, Perplexity, Claude, Gemini &amp; Grok.</div>
+            <div className="land-footer-desc">AI Visibility Tracker &ndash; Track how AI platforms mention your brand across ChatGPT, Perplexity, Claude, Gemini &amp; Grok.</div>
             <div className="land-footer-tracking" aria-label="Platforms tracked">
               <span className="land-footer-tracking-label">Tracking on</span>
               <div className="land-footer-tracking-chips">

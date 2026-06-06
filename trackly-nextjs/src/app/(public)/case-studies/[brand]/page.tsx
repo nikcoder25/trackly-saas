@@ -100,7 +100,7 @@ export default async function CaseStudyPage({ params }: PageProps) {
         <SectionHeader
           label="The playbook"
           title="What actually moved the numbers"
-          subtitle="The same five-step approach we use with every Livesov client — adapted to this team's stack and category."
+          subtitle="The same five-step approach we use with every Livesov client - adapted to this team's stack and category."
         />
         <ProcessSteps steps={c.approach.map((title) => ({ title, description: '' }))} />
       </Section>
@@ -121,7 +121,7 @@ export default async function CaseStudyPage({ params }: PageProps) {
                 &ldquo;{c.quote.text}&rdquo;
               </blockquote>
               <div style={{ marginTop: 14, fontSize: 13, color: 'var(--text-secondary)' }}>
-                <strong style={{ color: 'var(--text-primary)' }}>{c.quote.author}</strong> —{' '}
+                <strong style={{ color: 'var(--text-primary)' }}>{c.quote.author}</strong> -{' '}
                 {c.quote.title}
               </div>
             </Callout>
@@ -133,14 +133,14 @@ export default async function CaseStudyPage({ params }: PageProps) {
         <LongForm>
           <h2>The takeaway</h2>
           <p>
-            {c.brand}&apos;s win was not a single tactic — it was the diagnostic plus the
+            {c.brand}&apos;s win was not a single tactic - it was the diagnostic plus the
             measurement loop. Most teams that try to compete inside ChatGPT and Perplexity skip
             the diagnostic and ship content. The diagnostic determines which lever actually
             moves the needle.
           </p>
           <p>
-            If you want to baseline your own brand the same way {c.brand} did — in under an hour,
-            free — start with the <a href="/geo-audit">free GEO audit</a> or skip straight to a{' '}
+            If you want to baseline your own brand the same way {c.brand} did - in under an hour,
+            free - start with the <a href="/geo-audit">free GEO audit</a> or skip straight to a{' '}
             <a href="/signup">free Livesov account</a>. The full diagnostic plus continuous
             tracking across all five LLMs is included.
           </p>

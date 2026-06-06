@@ -4,12 +4,12 @@ import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 import { Section, SectionHeader } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Learn AI Visibility & GEO — Pillar Guides | Livesov',
+  title: 'Learn AI Visibility & GEO - Pillar Guides | Livesov',
   description:
     'In-depth pillar guides on LLM SEO, AI search optimization, AI Overviews optimization, and the full GEO playbook. Free, no signup, written by the team behind Livesov.',
   alternates: { canonical: '/learn' },
   openGraph: {
-    title: 'Learn AI Visibility & GEO — Pillar Guides | Livesov',
+    title: 'Learn AI Visibility & GEO - Pillar Guides | Livesov',
     description:
       'In-depth pillar guides on LLM SEO, AI search optimization, AI Overviews optimization, and the full GEO playbook.',
     url: 'https://livesov.com/learn',
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Learn AI Visibility & GEO — Pillar Guides | Livesov',
+        alt: 'Learn AI Visibility & GEO - Pillar Guides | Livesov',
       },
     ],
   },
@@ -38,7 +38,7 @@ const GUIDES: Guide[] = [
     slug: 'llm-seo',
     title: 'LLM SEO: The Complete 2026 Guide',
     description:
-      'How Large Language Models rank, retrieve, and cite content — and how to make sure they cite yours.',
+      'How Large Language Models rank, retrieve, and cite content - and how to make sure they cite yours.',
     readingTime: '12 min read',
   },
   {
@@ -52,7 +52,7 @@ const GUIDES: Guide[] = [
     slug: 'ai-overviews-optimization',
     title: 'AI Overviews Optimization (Google)',
     description:
-      'How to win — and hold — a citation inside Google AI Overviews. Ranking factors, on-page patterns, measurement.',
+      'How to win - and hold - a citation inside Google AI Overviews. Ranking factors, on-page patterns, measurement.',
     readingTime: '9 min read',
   },
 ];

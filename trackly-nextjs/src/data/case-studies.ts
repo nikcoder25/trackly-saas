@@ -23,7 +23,7 @@ export const CASE_STUDIES: CaseStudy[] = [
   {
     slug: 'northwind-saas',
     brand: 'Northwind',
-    industry: 'B2B SaaS — project management',
+    industry: 'B2B SaaS - project management',
     segment: 'B2B SaaS',
     summary:
       'How Northwind grew its ChatGPT mention rate from 12% to 64% on "best project management tool" prompts in 90 days.',
@@ -31,7 +31,7 @@ export const CASE_STUDIES: CaseStudy[] = [
       'Northwind ranked top-10 organically on most of its category keywords but was invisible inside ChatGPT, Claude, and Perplexity. Buyers who started in AI search never reached the website. Conversions from AI-referred traffic were effectively zero.',
     approach: [
       'Ran a 60-prompt baseline across ChatGPT, Claude, Gemini, Perplexity, and Grok using Livesov',
-      'Identified the four diagnostic causes for each missed prompt — 78% of misses traced to weak cross-source consensus',
+      'Identified the four diagnostic causes for each missed prompt - 78% of misses traced to weak cross-source consensus',
       'Earned five new placements on G2, Capterra, and three category roundups in 6 weeks',
       'Restructured the homepage and three core comparison pages for extractability (direct answer in first 200 words, FAQ schema, llms.txt)',
       'Set up daily Livesov alerts for mention-rate drops above 5%',
@@ -52,7 +52,7 @@ export const CASE_STUDIES: CaseStudy[] = [
   {
     slug: 'meridian-commerce',
     brand: 'Meridian',
-    industry: 'E-commerce — sustainable home goods',
+    industry: 'E-commerce - sustainable home goods',
     segment: 'E-commerce',
     summary:
       'A DTC brand recovered 31% of revenue lost to AI Overviews by becoming the brand cited inside the answer.',
@@ -72,7 +72,7 @@ export const CASE_STUDIES: CaseStudy[] = [
       { value: '11 weeks', label: 'Time to first material lift' },
     ],
     quote: {
-      text: 'AI Overviews were eating us alive. Two quarters later we are the brand it cites — and our AOV on those sessions is materially higher than classic organic.',
+      text: 'AI Overviews were eating us alive. Two quarters later we are the brand it cites - and our AOV on those sessions is materially higher than classic organic.',
       author: 'Priya M.',
       title: 'VP of Growth, Meridian',
     },
@@ -81,7 +81,7 @@ export const CASE_STUDIES: CaseStudy[] = [
   {
     slug: 'oakline-agency',
     brand: 'Oakline',
-    industry: 'B2B Agency — SEO + GEO',
+    industry: 'B2B Agency - SEO + GEO',
     segment: 'Agency',
     summary:
       'A 14-person agency added a GEO retainer to every existing SEO client and grew MRR by 41% in two quarters.',
@@ -110,14 +110,14 @@ export const CASE_STUDIES: CaseStudy[] = [
   {
     slug: 'lumen-fintech',
     brand: 'Lumen Finance',
-    industry: 'Fintech — small business banking',
+    industry: 'Fintech - small business banking',
     segment: 'B2B SaaS',
     summary:
       'How a fintech became the default ChatGPT recommendation for &quot;best business bank account for startups&quot; in 16 weeks.',
     challenge:
-      'Lumen was a credible top-5 contender by every objective measure — yet ChatGPT consistently recommended two competitors and an incumbent bank. Cross-source consensus was the blocker.',
+      'Lumen was a credible top-5 contender by every objective measure - yet ChatGPT consistently recommended two competitors and an incumbent bank. Cross-source consensus was the blocker.',
     approach: [
-      'Diagnosed mention failure with Livesov — Lumen was named in 18% of relevant prompts, vs. 71% for the #1 competitor',
+      'Diagnosed mention failure with Livesov - Lumen was named in 18% of relevant prompts, vs. 71% for the #1 competitor',
       'Identified that competitors had 4× more third-party review coverage on Reddit, NerdWallet, and Fintech press',
       'Ran a targeted PR + Reddit engagement push over 10 weeks, plus structured-data overhaul on 14 product pages',
       'Built a citable founder thought-leadership presence (X, podcast appearances, two op-eds)',
@@ -141,7 +141,7 @@ export const CASE_STUDIES: CaseStudy[] = [
     challenge:
       'Voyageur\'s organic traffic plateaued in 2024 as Perplexity and ChatGPT Search became the new starting point for trip planning. The company was not cited in either.',
     approach: [
-      'Used Livesov to identify the 200 highest-volume Perplexity prompts in travel — &quot;best 7-day Italy itinerary&quot;, &quot;Tokyo with kids&quot;, etc.',
+      'Used Livesov to identify the 200 highest-volume Perplexity prompts in travel - &quot;best 7-day Italy itinerary&quot;, &quot;Tokyo with kids&quot;, etc.',
       'Found that Perplexity cited blog posts and Reddit threads but not their destination pages',
       'Restructured 1,200 destination pages around the extractable Q&amp;A pattern (TripAdvisor + Perplexity-style)',
       'Ensured PerplexityBot, OAI-SearchBot, and Google-Extended were explicitly allowed',

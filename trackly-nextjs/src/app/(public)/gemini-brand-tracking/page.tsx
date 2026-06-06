@@ -85,9 +85,9 @@ const features = [
 ];
 
 const supportedModels = [
-  ['Gemini 2.5 Pro', 'Highest reasoning & longest context', 'Used in Workspace, AI Studio, and high-stakes consumer queries'],
-  ['Gemini 2.5 Flash', 'Mainstream balanced tier', 'Powers most Gemini app and consumer Search interactions'],
-  ['Gemini 2.5 Flash-Lite', 'Latency-optimized, low-cost', 'Embedded in Android, smart features, and high-volume Google products'],
+  ['Gemini 3 Pro', 'Highest reasoning & longest context', 'Used in Workspace, AI Studio, and high-stakes consumer queries'],
+  ['Gemini 3 Flash', 'Mainstream balanced tier', 'Powers most Gemini app and consumer Search interactions'],
+  ['Gemini 3 Flash-Lite', 'Latency-optimized, low-cost', 'Embedded in Android, smart features, and high-volume Google products'],
   ['Gemini with Search grounding', 'Live-grounded responses with citations', 'Equivalent to AI Overviews - the most visible surface'],
 ];
 
@@ -144,7 +144,7 @@ const faqs = [
   {
     question: 'Which Gemini models does Livesov support?',
     answer:
-      'The full 2.5 family - Pro, Flash, and Flash-Lite - plus grounded variants. We add new Gemini releases as Google ships them, typically within days, with continuous historical data.',
+      'The full Gemini 3 family - Pro, Flash, and Flash-Lite - plus grounded variants. We add new Gemini releases as Google ships them, typically within days, with continuous historical data.',
   },
   {
     question: 'Does Livesov require a Google API key?',
@@ -159,7 +159,7 @@ const faqs = [
   {
     question: 'How often does Livesov re-query Gemini?',
     answer:
-      'Free plans run manually, Starter weekly, Pro every 2 days, Agency daily - and you can trigger manual runs at any time within your plan&rsquo;s daily cap.',
+      'Free runs weekly, Starter every 2 days, and Pro and Agency run daily - and you can trigger manual runs at any time within your plan&rsquo;s daily cap.',
   },
   {
     question: 'Can I track AI Overviews for specific Google queries?',
@@ -174,7 +174,7 @@ const faqs = [
 ];
 
 const comparisonRows = [
-  ['Tracks Gemini 2.5 Pro, Flash, Flash-Lite', '✓ All models', 'Single model', 'Not supported'],
+  ['Tracks Gemini 3 Pro, Flash, Flash-Lite', '✓ All models', 'Single model', 'Not supported'],
   ['Grounded / AI Overviews simulation', '✓ Native', 'Manual', 'Manual'],
   ['Citation capture for grounded responses', '✓ Full ranked list', 'Partial', 'Not supported'],
   ['Multi-run aggregation per prompt', '✓ 3–10× per run', 'Single shot', 'Single shot'],
@@ -198,7 +198,7 @@ export default function GeminiBrandTrackingPage() {
             </span>
           </>
         }
-        subtitle="Monitor how Google's Gemini - 2.5 Pro, 2.5 Flash, Flash-Lite, and the grounded variants that power AI Overviews - mentions, ranks, and recommends your brand across Search, Workspace, and Android."
+        subtitle="Monitor how Google's Gemini - 3 Pro, 3 Flash, Flash-Lite, and the grounded variants that power AI Overviews - mentions, ranks, and recommends your brand across Search, Workspace, and Android."
         ctaText="Start tracking Gemini - free"
       />
 

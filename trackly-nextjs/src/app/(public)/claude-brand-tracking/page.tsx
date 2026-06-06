@@ -85,10 +85,10 @@ const features = [
 ];
 
 const supportedModels = [
-  ['Claude Opus 4', 'Highest reasoning, longest context', 'Used for deep B2B research and analytical buying'],
-  ['Claude Sonnet 4', 'Balanced performance, mainstream default', 'Most prevalent in production deployments'],
-  ['Claude Haiku 4', 'Fast, cheap, latency-sensitive', 'Powers many embedded Claude experiences and agents'],
-  ['Claude 3.5 Sonnet (legacy)', 'Previous-generation mainstream model', 'Still widely deployed - tracked for compatibility'],
+  ['Claude Opus 4.5', 'Highest reasoning, longest context', 'Used for deep B2B research and analytical buying'],
+  ['Claude Sonnet 4.5', 'Balanced performance, mainstream default', 'Most prevalent in production deployments'],
+  ['Claude Haiku 4.5', 'Fast, cheap, latency-sensitive', 'Powers many embedded Claude experiences and agents'],
+  ['Claude Sonnet 4 (legacy)', 'Previous-generation mainstream model', 'Still widely deployed - tracked for compatibility'],
 ];
 
 const steps = [
@@ -144,7 +144,7 @@ const faqs = [
   {
     question: 'Which Claude models does Livesov support?',
     answer:
-      'Livesov tracks the full Claude 4 family (Opus, Sonnet, Haiku) plus Claude 3.5 Sonnet for legacy comparison. We add new Claude releases as Anthropic ships them, typically within days, with no historical data loss.',
+      'Livesov tracks the full Claude 4.5 family (Opus, Sonnet, Haiku) plus Sonnet 4 for legacy comparison. We add new Claude releases as Anthropic ships them, typically within days, with no historical data loss.',
   },
   {
     question: 'Does Livesov use the Anthropic API directly?',
@@ -169,7 +169,7 @@ const faqs = [
   {
     question: 'How fresh is Claude tracking data?',
     answer:
-      'Claude has a fixed knowledge cutoff per model. Livesov re-queries on your plan&rsquo;s schedule (daily on Agency, every 2 days on Pro, weekly on Starter), so even though Claude itself doesn&rsquo;t browse the web by default, your measurement of its current opinions stays current.',
+      'Claude has a fixed knowledge cutoff per model. Livesov re-queries on your plan&rsquo;s schedule (daily on Pro and Agency, every 2 days on Starter, weekly on Free), so even though Claude itself doesn&rsquo;t browse the web by default, your measurement of its current opinions stays current.',
   },
 ];
 

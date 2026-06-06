@@ -50,7 +50,7 @@ export default function BestIndexPage() {
       <Section pad="40px 24px 80px" width={1080}>
         <SectionHeader
           label="Browse by category"
-          title={`${BEST_CATEGORIES.length} categories ranked — more added weekly`}
+          title={`${BEST_CATEGORIES.length} categories ranked, refreshed continuously`}
           subtitle="Each list is generated from a 40+ prompt panel and refreshed continuously."
         />
         <div
@@ -119,13 +119,13 @@ export default function BestIndexPage() {
           <p>
             More than 1 billion people now ask ChatGPT for product recommendations every month. The
             brands ChatGPT names in the first paragraph of an answer are the ones that win the
-            click — or in many cases, the deal itself.
+            click - or in many cases, the deal itself.
           </p>
           <p>
             These lists make ChatGPT&apos;s recommendation set transparent: which brands are
             cited most, in which positioning, and <em>why</em> ChatGPT cites them. If your brand
             should be on a list and isn&apos;t, our <a href="/learn/llm-seo">LLM SEO guide</a>{' '}
-            covers the four reasons LLMs ignore brands — and the playbook to fix it.
+            covers the four reasons LLMs ignore brands - and the playbook to fix it.
           </p>
         </LongForm>
       </Section>
@@ -137,7 +137,7 @@ export default function BestIndexPage() {
           { href: '/learn/ai-search-optimization', label: 'AI search optimization', description: 'The companion pillar for AI search surfaces.' },
           { href: '/ai-search-statistics-2026', label: 'AI search statistics 2026', description: '120+ data points on AI search adoption and citations.' },
           { href: '/geo-audit', label: 'Free GEO audit', description: 'Score any URL for LLM citation-readiness in under 30 seconds.' },
-          { href: '/generative-engine-optimization-tool', label: 'GEO tool', description: 'Continuous AI visibility measurement — purpose-built.' },
+          { href: '/generative-engine-optimization-tool', label: 'GEO tool', description: 'Continuous AI visibility measurement - purpose-built.' },
           { href: '/pricing', label: 'Pricing', description: 'Plans that scale from one brand to multi-brand programs.' },
         ]}
       />

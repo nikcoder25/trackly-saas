@@ -14,14 +14,14 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Generative Engine Optimization Tool — Livesov GEO Platform (2026)',
+  title: 'Generative Engine Optimization Tool - Livesov GEO Platform (2026)',
   description:
-    'Livesov is the generative engine optimization (GEO) tool teams use to track and improve brand mentions across ChatGPT, Claude, Gemini, Perplexity, and Grok. Free audit, daily monitoring, 7-day trial — no credit card.',
+    'Livesov is the generative engine optimization (GEO) tool teams use to track and improve brand mentions across ChatGPT, Claude, Gemini, Perplexity, and Grok. Free audit, daily monitoring, 7-day trial - no credit card.',
   keywords:
     'generative engine optimization tool, geo tool, geo platform, ai visibility tool, ai mention tracking tool, llm visibility tool, ai brand monitoring software, chatgpt brand tracking tool, perplexity tracking tool',
   alternates: { canonical: '/generative-engine-optimization-tool' },
   openGraph: {
-    title: 'Generative Engine Optimization Tool — Livesov GEO Platform',
+    title: 'Generative Engine Optimization Tool - Livesov GEO Platform',
     description:
       'Track and improve brand mentions across ChatGPT, Claude, Gemini, Perplexity, and Grok. Free audit, daily monitoring.',
     url: 'https://livesov.com/generative-engine-optimization-tool',
@@ -32,13 +32,13 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Livesov — Generative Engine Optimization Tool',
+        alt: 'Livesov - Generative Engine Optimization Tool',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Generative Engine Optimization Tool — Livesov',
+    title: 'Generative Engine Optimization Tool - Livesov',
     description:
       'Track and improve brand mentions across ChatGPT, Claude, Gemini, Perplexity, and Grok.',
     images: ['https://livesov.com/og-image.png'],
@@ -86,7 +86,7 @@ const capabilities = [
 
 const livesovVsManual = [
   ['Platforms covered', 'ChatGPT, Claude, Gemini, Perplexity, Grok', 'Whatever you have time to copy-paste'],
-  ['Cadence', 'Daily, automated', 'Weekly at best — usually slips'],
+  ['Cadence', 'Daily, automated', 'Weekly at best - usually slips'],
   ['Mention rate', 'Computed across all queries / all runs', 'Manual tally that drifts'],
   ['Citation share', 'Per-URL extraction, per-platform', 'Hard to compute reliably'],
   ['Sentiment', 'Per-mention sentiment scoring', 'Subjective, ad-hoc'],
@@ -98,12 +98,12 @@ const faqs = [
   {
     question: 'What is a generative engine optimization (GEO) tool?',
     answer:
-      'A GEO tool is software that measures how generative engines — ChatGPT, Claude, Gemini, Perplexity, Grok — talk about your brand, and gives you the diagnostics to improve. The core jobs are: running real prompts against each LLM, extracting mentions and citations from the answers, computing mention rate, citation share, and rank, and showing how those metrics move over time. Livesov is one of the few GEO tools that covers all five major LLMs in a single dashboard.',
+      'A GEO tool is software that measures how generative engines - ChatGPT, Claude, Gemini, Perplexity, Grok - talk about your brand, and gives you the diagnostics to improve. The core jobs are: running real prompts against each LLM, extracting mentions and citations from the answers, computing mention rate, citation share, and rank, and showing how those metrics move over time. Livesov is one of the few GEO tools that covers all five major LLMs in a single dashboard.',
   },
   {
     question: 'How is Livesov different from a SERP tracker like Ahrefs or Semrush?',
     answer:
-      'SERP trackers measure keyword positions in Google. Livesov measures whether AI platforms name and cite your brand. Different surface, different metric stack, different ranking signals. We use both internally — they answer different questions. For the deep comparison, see /vs/ahrefs and /vs/semrush.',
+      'SERP trackers measure keyword positions in Google. Livesov measures whether AI platforms name and cite your brand. Different surface, different metric stack, different ranking signals. We use both internally - they answer different questions. For the deep comparison, see /vs/ahrefs and /vs/semrush.',
   },
   {
     question: 'Do I need technical skills to use Livesov?',
@@ -154,7 +154,7 @@ export default function GenerativeEngineOptimizationToolPage() {
             tool teams actually use
           </>
         }
-        subtitle="Livesov tracks how ChatGPT, Claude, Gemini, Perplexity, and Grok talk about your brand — daily. Mention rate, citation share, rank, sentiment, competitor benchmarks, and the diagnostics that let you move them. Free audit, 7-day trial, no credit card."
+        subtitle="Livesov tracks how ChatGPT, Claude, Gemini, Perplexity, and Grok talk about your brand - daily. Mention rate, citation share, rank, sentiment, competitor benchmarks, and the diagnostics that let you move them. Free audit, 7-day trial, no credit card."
         ctaText="Start free 7-day trial"
       />
 
@@ -164,7 +164,7 @@ export default function GenerativeEngineOptimizationToolPage() {
             { value: '5', label: 'LLMs tracked daily in one dashboard' },
             { value: '500+', label: 'Prompts trackable per brand' },
             { value: '10', label: 'Competitors per brand, automatic' },
-            { value: '$39/mo', label: 'Starting plan — 7-day free trial' },
+            { value: '$39/mo', label: 'Starting plan - 7-day free trial' },
           ]}
         />
       </Section>
@@ -173,7 +173,7 @@ export default function GenerativeEngineOptimizationToolPage() {
         <SectionHeader
           label="What it does"
           title="Everything you need to run a serious GEO program"
-          subtitle="Most GEO tools cover one or two LLMs and stop at mention rate. Livesov covers all five major LLMs and the full metric stack — including the citation-level data that tells you how to fix the gap."
+          subtitle="Most GEO tools cover one or two LLMs and stop at mention rate. Livesov covers all five major LLMs and the full metric stack - including the citation-level data that tells you how to fix the gap."
         />
         <FeatureGrid items={capabilities} columns={3} />
       </Section>
@@ -184,8 +184,8 @@ export default function GenerativeEngineOptimizationToolPage() {
           <p>
             You can run a generative engine optimization program with spreadsheets and copy-paste
             for a week. You cannot run one for a quarter. The work is too fragmented across too
-            many surfaces — five LLMs, hundreds of prompts, dozens of competitors, all of them
-            re-indexing on different schedules — and the metrics that matter (mention rate,
+            many surfaces - five LLMs, hundreds of prompts, dozens of competitors, all of them
+            re-indexing on different schedules - and the metrics that matter (mention rate,
             citation share, rank, sentiment) are not computable from a notebook.
           </p>
           <p>
@@ -197,7 +197,7 @@ export default function GenerativeEngineOptimizationToolPage() {
 
           <h2>How Livesov compares to a manual GEO workflow</h2>
           <p>
-            The honest comparison is not Livesov vs. another tool — it is Livesov vs. the
+            The honest comparison is not Livesov vs. another tool - it is Livesov vs. the
             spreadsheet most teams start with.
           </p>
         </LongForm>
@@ -220,7 +220,7 @@ export default function GenerativeEngineOptimizationToolPage() {
               (we provide them out of the box).
             </li>
             <li>
-              <strong>Add competitors</strong> — up to 10 per brand. They get tracked
+              <strong>Add competitors</strong> - up to 10 per brand. They get tracked
               automatically against the same prompt set.
             </li>
             <li>
@@ -240,7 +240,7 @@ export default function GenerativeEngineOptimizationToolPage() {
           </ol>
 
           <Callout title="Start with the free tools if you are not ready to commit" variant="tip">
-            We give away nine free tools at <a href="/tools">/tools</a> — llms.txt generator, AI
+            We give away nine free tools at <a href="/tools">/tools</a> - llms.txt generator, AI
             crawler checker, ChatGPT mention checker, share-of-voice calculator, citation
             finder, AI readiness audit, GEO score checker, prompt generator, and competitor
             finder. They will give you a real first read on where you stand without a signup.
@@ -271,36 +271,36 @@ export default function GenerativeEngineOptimizationToolPage() {
 
           <h2>The free GEO toolkit alongside Livesov</h2>
           <p>
-            Every Livesov customer also gets the free toolkit — and the free toolkit alone is
+            Every Livesov customer also gets the free toolkit - and the free toolkit alone is
             already more than most GEO tools ship paid:
           </p>
           <ul>
             <li>
-              <a href="/geo-audit">Free GEO Audit</a> — score any URL across the six GEO ranking
+              <a href="/geo-audit">Free GEO Audit</a> - score any URL across the six GEO ranking
               signals.
             </li>
             <li>
-              <a href="/tools/llms-txt-generator">llms.txt Generator</a> — produce a valid
+              <a href="/tools/llms-txt-generator">llms.txt Generator</a> - produce a valid
               llms.txt file in 30 seconds.
             </li>
             <li>
-              <a href="/tools/ai-crawler-checker">AI Crawler Checker</a> — verify GPTBot,
+              <a href="/tools/ai-crawler-checker">AI Crawler Checker</a> - verify GPTBot,
               ClaudeBot, PerplexityBot, and friends can reach your site.
             </li>
             <li>
-              <a href="/tools/chatgpt-mention-checker">ChatGPT Mention Checker</a> — instant
+              <a href="/tools/chatgpt-mention-checker">ChatGPT Mention Checker</a> - instant
               spot-check.
             </li>
             <li>
-              <a href="/tools/citation-finder">Citation Finder</a> — extract the URLs AI
+              <a href="/tools/citation-finder">Citation Finder</a> - extract the URLs AI
               actually cites for a query.
             </li>
             <li>
-              <a href="/tools/share-of-voice-calculator">Share of Voice Calculator</a> — quick
+              <a href="/tools/share-of-voice-calculator">Share of Voice Calculator</a> - quick
               math for category share.
             </li>
             <li>
-              <a href="/tools/competitor-finder">AI Competitor Finder</a> — find the brands AI
+              <a href="/tools/competitor-finder">AI Competitor Finder</a> - find the brands AI
               recommends in your category.
             </li>
           </ul>

@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Livesov Case Studies: AI Visibility Wins',
     description:
-      'Real brands, real numbers — how teams moved their share of AI answers and recovered revenue.',
+      'Real brands, real numbers - how teams moved their share of AI answers and recovered revenue.',
     url: 'https://livesov.com/case-studies',
     siteName: 'Livesov',
     type: 'website',
@@ -146,15 +146,15 @@ export default function CaseStudiesIndexPage() {
         <LongForm>
           <h2>Where these numbers come from</h2>
           <p>
-            Every case study on this page tracks live, panel-measured metrics — mention rate,
-            citation share, branded search lift, and revenue impact — across ChatGPT, Claude,
+            Every case study on this page tracks live, panel-measured metrics - mention rate,
+            citation share, branded search lift, and revenue impact - across ChatGPT, Claude,
             Gemini, Perplexity, and Grok. Where brand names appear with permission, we say so.
             Where customers asked to stay private, we generalise the brand and keep the methodology
             verbatim.
           </p>
           <p>
             If you would like to see your own program tracked the same way,{' '}
-            <a href="/signup">start free</a> — most teams baseline in under an hour.
+            <a href="/signup">start free</a> - most teams baseline in under an hour.
           </p>
         </LongForm>
       </Section>

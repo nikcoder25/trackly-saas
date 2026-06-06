@@ -164,7 +164,7 @@ const faqs = [
   {
     question: 'How fresh is the data?',
     answer:
-      'Perplexity runs against live web search every time. Livesov re-queries on your configured cadence (daily on Agency, every 2 days on Pro, weekly on Starter), so you always have current data plus a complete history.',
+      'Perplexity runs against live web search every time. Livesov re-queries on your configured cadence (daily on Pro and Agency, every 2 days on Starter, weekly on Free), so you always have current data plus a complete history.',
   },
   {
     question: 'Can I export the full Perplexity response and citations?',
