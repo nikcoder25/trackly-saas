@@ -6,8 +6,8 @@ export const metadata: Metadata = {
   keywords: 'ai crawler checker, gptbot checker, claudebot, perplexitybot, google-extended, robots.txt ai',
   alternates: { canonical: '/tools/ai-crawler-checker' },
   openGraph: {
-    title: 'AI Crawler URL Checker | Livesov',
-    description: 'See whether GPTBot, ClaudeBot, PerplexityBot and Google-Extended can crawl your URL.',
+    title: 'AI Crawler Checker | Test GPTBot & ClaudeBot Access',
+    description: 'Free AI crawler checker. Test whether GPTBot, ClaudeBot, PerplexityBot, and Google-Extended can reach your URL. Reads your live robots.txt.',
     url: 'https://livesov.com/tools/ai-crawler-checker',
     siteName: 'Livesov',
     type: 'website',
@@ -15,8 +15,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'AI Crawler URL Checker | Livesov',
-    description: 'See whether AI crawlers can access your URL. Free, no signup.',
+    title: 'AI Crawler Checker | Test GPTBot & ClaudeBot Access',
+    description: 'Free AI crawler checker. Test whether GPTBot, ClaudeBot, PerplexityBot, and Google-Extended can reach your URL. Reads your live robots.txt.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

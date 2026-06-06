@@ -6,8 +6,8 @@ export const metadata: Metadata = {
   keywords: 'ai competitor finder, ai recommendations, who does chatgpt recommend',
   alternates: { canonical: '/tools/competitor-finder' },
   openGraph: {
-    title: 'AI Competitor Finder | Livesov',
-    description: 'See which brands AI recommends in your industry.',
+    title: 'AI Competitor Finder | See Who AI Recommends',
+    description: 'Free AI competitor finder. Enter your industry to see the top 10 brands AI recommends in your vertical. No signup needed.',
     url: 'https://livesov.com/tools/competitor-finder',
     siteName: 'Livesov',
     type: 'website',
@@ -15,8 +15,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'AI Competitor Finder | Livesov',
-    description: 'See which brands AI recommends in your industry.',
+    title: 'AI Competitor Finder | See Who AI Recommends',
+    description: 'Free AI competitor finder. Enter your industry to see the top 10 brands AI recommends in your vertical. No signup needed.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

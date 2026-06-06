@@ -19,9 +19,9 @@ export const metadata: Metadata = {
     'ai visibility use cases, brand tracking for saas, ai monitoring for agencies, ecommerce ai tracking, enterprise ai visibility, pr ai monitoring, seo ai tools',
   alternates: { canonical: '/use-cases' },
   openGraph: {
-    title: 'Use Cases — How Teams Use Livesov for AI Visibility | Livesov',
+    title: 'AI Visibility Tracker Use Cases | Livesov',
     description:
-      'Real-world use cases for AI visibility tracking across SaaS, agencies, e-commerce, enterprise, PR, and SEO teams.',
+      'How agencies, SaaS, e-commerce, and local businesses use Livesov\'s AI visibility tracker to grow brand mentions across the 5 major AI engines.',
     url: 'https://livesov.com/use-cases',
     siteName: 'Livesov',
     type: 'website',
@@ -36,9 +36,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Use Cases — How Teams Use Livesov for AI Visibility | Livesov',
+    title: 'AI Visibility Tracker Use Cases | Livesov',
     description:
-      'See how SaaS, agencies, e-commerce, enterprise, PR, and SEO teams use Livesov to track AI visibility.',
+      'How agencies, SaaS, e-commerce, and local businesses use Livesov\'s AI visibility tracker to grow brand mentions across the 5 major AI engines.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

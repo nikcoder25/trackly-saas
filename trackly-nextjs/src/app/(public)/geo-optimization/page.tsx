@@ -21,9 +21,9 @@ export const metadata: Metadata = {
     'generative engine optimization, geo seo, ai search optimization, llm optimization, ai visibility optimization, geo guide, how to rank in chatgpt, how to rank in perplexity, llms.txt, ai citation optimization',
   alternates: { canonical: '/geo-optimization' },
   openGraph: {
-    title: 'Generative Engine Optimization (GEO) — The Complete Guide | Livesov',
+    title: 'Generative Engine Optimization (GEO) Guide 2026',
     description:
-      'The full GEO playbook: how to optimize your brand for ChatGPT, Claude, Gemini, Perplexity, and Grok.',
+      'What is generative engine optimization? Learn the GEO strategy to get ChatGPT, Perplexity, Claude, and Gemini to mention and cite your brand.',
     url: 'https://livesov.com/geo-optimization',
     siteName: 'Livesov',
     type: 'website',
@@ -38,9 +38,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Generative Engine Optimization (GEO) — The Complete Guide | Livesov',
+    title: 'Generative Engine Optimization (GEO) Guide 2026',
     description:
-      'How to optimize your brand for ChatGPT, Claude, Gemini, Perplexity, and Grok. Content, schema, citations, llms.txt, and more.',
+      'What is generative engine optimization? Learn the GEO strategy to get ChatGPT, Perplexity, Claude, and Gemini to mention and cite your brand.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

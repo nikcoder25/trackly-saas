@@ -6,8 +6,8 @@ export const metadata: Metadata = {
   keywords: 'geo score checker, free geo score, generative engine optimization score',
   alternates: { canonical: '/tools/geo-score-checker' },
   openGraph: {
-    title: 'Free GEO Score Checker | Livesov',
-    description: 'Get your generative engine optimization score in seconds. No signup.',
+    title: 'Free GEO Score Checker | AI Readiness | Livesov',
+    description: 'Free GEO score checker. Get a generative engine optimization score for any page in seconds. Per-category scoring, no signup.',
     url: 'https://livesov.com/tools/geo-score-checker',
     siteName: 'Livesov',
     type: 'website',
@@ -15,8 +15,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Free GEO Score Checker | Livesov',
-    description: 'Get your generative engine optimization score in seconds.',
+    title: 'Free GEO Score Checker | AI Readiness | Livesov',
+    description: 'Free GEO score checker. Get a generative engine optimization score for any page in seconds. Per-category scoring, no signup.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

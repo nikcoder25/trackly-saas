@@ -21,9 +21,9 @@ export const metadata: Metadata = {
     'perplexity brand tracking, perplexity ai monitoring, ai search visibility, perplexity citation tracking, perplexity sonar tracking, perplexity rank tracking, ai search seo',
   alternates: { canonical: '/perplexity-brand-tracking' },
   openGraph: {
-    title: 'Perplexity Brand Tracking — Monitor AI Search Citations | Livesov',
+    title: 'Perplexity Brand Tracking | AI Citation Tracker',
     description:
-      'Track how Perplexity AI mentions and cites your brand. Capture source URLs, measure share of voice, and benchmark competitors.',
+      'Track how Perplexity cites and mentions your brand. An AI citation tracker that captures every source URL and your share of voice. Free plan.',
     url: 'https://livesov.com/perplexity-brand-tracking',
     siteName: 'Livesov',
     type: 'website',
@@ -38,9 +38,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Perplexity Brand Tracking — Monitor AI Search Citations | Livesov',
+    title: 'Perplexity Brand Tracking | AI Citation Tracker',
     description:
-      'Track how Perplexity AI mentions and cites your brand across Sonar models. Capture citations, share of voice, and competitor analysis.',
+      'Track how Perplexity cites and mentions your brand. An AI citation tracker that captures every source URL and your share of voice. Free plan.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

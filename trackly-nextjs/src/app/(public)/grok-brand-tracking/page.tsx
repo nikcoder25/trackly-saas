@@ -21,9 +21,9 @@ export const metadata: Metadata = {
     'grok brand tracking, xai monitoring, grok visibility, x ai brand mentions, twitter ai tracking, grok-3 brand tracking, grok-4 monitoring, real-time ai tracking',
   alternates: { canonical: '/grok-brand-tracking' },
   openGraph: {
-    title: 'Grok Brand Tracking — Monitor xAI Grok Mentions | Livesov',
+    title: 'Grok Brand Tracking | Monitor xAI Grok Mentions',
     description:
-      'Track how xAI&rsquo;s Grok mentions and recommends your brand with real-time X data. Share of voice, sentiment, and competitor benchmarking.',
+      'Track how xAI\'s Grok mentions your brand using real-time X data. Monitor share of voice, sentiment, and competitors. Lowest competition of the 5.',
     url: 'https://livesov.com/grok-brand-tracking',
     siteName: 'Livesov',
     type: 'website',
@@ -38,9 +38,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Grok Brand Tracking — Monitor xAI Grok Mentions | Livesov',
+    title: 'Grok Brand Tracking | Monitor xAI Grok Mentions',
     description:
-      'Track xAI&rsquo;s Grok brand mentions with real-time X data. Share of voice, sentiment, social influence, and competitor benchmarking.',
+      'Track how xAI\'s Grok mentions your brand using real-time X data. Monitor share of voice, sentiment, and competitors. Lowest competition of the 5.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

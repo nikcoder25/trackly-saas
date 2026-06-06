@@ -8,8 +8,8 @@ export const metadata: Metadata = {
   description: 'Reach the Livesov team for support, enterprise plans, or partnerships. We respond within 24 hours.',
   alternates: { canonical: '/contact' },
   openGraph: {
-    title: 'Contact Us - Livesov',
-    description: 'Get in touch with the Livesov team for support, enterprise inquiries, partnerships, or feedback.',
+    title: 'Contact Livesov | Support, Sales & Partnerships',
+    description: 'Reach the Livesov team for support, enterprise plans, or partnerships. We respond within 24 hours.',
     url: 'https://livesov.com/contact',
     siteName: 'Livesov',
     type: 'website',
@@ -17,8 +17,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Contact Us - Livesov',
-    description: 'Get in touch with the Livesov team for support, enterprise inquiries, partnerships, or feedback.',
+    title: 'Contact Livesov | Support, Sales & Partnerships',
+    description: 'Reach the Livesov team for support, enterprise plans, or partnerships. We respond within 24 hours.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

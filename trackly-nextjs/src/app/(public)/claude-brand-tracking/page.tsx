@@ -21,9 +21,9 @@ export const metadata: Metadata = {
     'claude brand tracking, anthropic ai monitoring, claude visibility, claude brand mentions, claude opus tracking, claude sonnet tracking, claude haiku tracking, claude rank tracking',
   alternates: { canonical: '/claude-brand-tracking' },
   openGraph: {
-    title: 'Claude Brand Tracking — Monitor Anthropic AI Mentions | Livesov',
+    title: 'Claude Brand Tracking | Track Mentions on Claude AI',
     description:
-      'Track how Anthropic\'s Claude mentions your brand. Monitor share of voice, sentiment, and competitor visibility across Opus, Sonnet, and Haiku.',
+      'Track how Anthropic\'s Claude mentions and recommends your brand. An LLM visibility tracker for share of voice, sentiment, and hallucinations.',
     url: 'https://livesov.com/claude-brand-tracking',
     siteName: 'Livesov',
     type: 'website',
@@ -38,9 +38,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Claude Brand Tracking — Monitor Anthropic AI Mentions | Livesov',
+    title: 'Claude Brand Tracking | Track Mentions on Claude AI',
     description:
-      'Track how Claude (Opus, Sonnet, Haiku) mentions, ranks, and recommends your brand. Monitor share of voice and detect hallucinations.',
+      'Track how Anthropic\'s Claude mentions and recommends your brand. An LLM visibility tracker for share of voice, sentiment, and hallucinations.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

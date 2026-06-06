@@ -8,8 +8,8 @@ export const metadata: Metadata = {
   description: 'Partner with Livesov. Offer AI visibility tracking to clients with white-label reports, plus affiliate and reseller options.',
   alternates: { canonical: '/partners' },
   openGraph: {
-    title: 'Agency Partner Program - Livesov AI Visibility Tracker',
-    description: 'Partner with Livesov to offer AI visibility tracking to your clients. Earn recurring commissions, get white-label reports, and grow your agency.',
+    title: 'Livesov Partners | Agency & Affiliate Program',
+    description: 'Partner with Livesov. Offer AI visibility tracking to clients with white-label reports, plus affiliate and reseller options.',
     url: 'https://livesov.com/partners',
     siteName: 'Livesov',
     type: 'website',
@@ -17,8 +17,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Agency Partner Program - Livesov AI Visibility Tracker',
-    description: 'Partner with Livesov to offer AI visibility tracking to your clients. Earn recurring commissions, get white-label reports, and grow your agency.',
+    title: 'Livesov Partners | Agency & Affiliate Program',
+    description: 'Partner with Livesov. Offer AI visibility tracking to clients with white-label reports, plus affiliate and reseller options.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

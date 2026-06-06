@@ -20,9 +20,9 @@ export const metadata: Metadata = {
     'livesov vs ahrefs, ai visibility vs seo, ai brand tracking tool, ahrefs alternative for ai, ahrefs vs livesov, ai search vs google seo, geo vs seo',
   alternates: { canonical: '/vs/ahrefs' },
   openGraph: {
-    title: 'Livesov vs Ahrefs — AI Visibility vs Backlink SEO Compared',
+    title: 'Livesov vs Ahrefs Brand Radar | AI Visibility',
     description:
-      'Livesov tracks AI visibility. Ahrefs leads in backlink and traditional SEO. Detailed feature comparison.',
+      'Compare Livesov and Ahrefs Brand Radar for AI visibility. Pricing, features, and AI platforms covered. A cheaper Ahrefs Brand Radar alternative.',
     url: 'https://livesov.com/vs/ahrefs',
     siteName: 'Livesov',
     type: 'website',
@@ -37,9 +37,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Livesov vs Ahrefs — AI Visibility vs Backlink SEO Compared',
+    title: 'Livesov vs Ahrefs Brand Radar | AI Visibility',
     description:
-      'AI visibility vs backlink SEO. Detailed comparison of Livesov vs Ahrefs and why teams run both.',
+      'Compare Livesov and Ahrefs Brand Radar for AI visibility. Pricing, features, and AI platforms covered. A cheaper Ahrefs Brand Radar alternative.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

@@ -20,9 +20,9 @@ export const metadata: Metadata = {
     'livesov vs semrush, ai seo tool, chatgpt tracking vs semrush, ai visibility tool comparison, semrush alternative for ai, ai search vs google seo, geo vs seo, semrush vs livesov',
   alternates: { canonical: '/vs/semrush' },
   openGraph: {
-    title: 'Livesov vs Semrush — AI Visibility vs Traditional SEO Compared',
+    title: 'Livesov vs Semrush AI Toolkit | Compare Features',
     description:
-      'Livesov tracks AI visibility. Semrush leads in Google SEO. Detailed feature comparison and combined workflow.',
+      'Compare Livesov and the Semrush AI Toolkit. Side by side features, pricing, and AI coverage. A focused Semrush AI Toolkit alternative.',
     url: 'https://livesov.com/vs/semrush',
     siteName: 'Livesov',
     type: 'website',
@@ -37,9 +37,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Livesov vs Semrush — AI Visibility vs Traditional SEO Compared',
+    title: 'Livesov vs Semrush AI Toolkit | Compare Features',
     description:
-      'AI visibility vs traditional SEO. Detailed comparison of Livesov vs Semrush and why teams run both.',
+      'Compare Livesov and the Semrush AI Toolkit. Side by side features, pricing, and AI coverage. A focused Semrush AI Toolkit alternative.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

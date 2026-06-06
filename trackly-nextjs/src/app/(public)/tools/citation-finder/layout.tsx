@@ -6,8 +6,8 @@ export const metadata: Metadata = {
   keywords: 'ai citation finder, ai citation tracker, find ai citations, perplexity citations',
   alternates: { canonical: '/tools/citation-finder' },
   openGraph: {
-    title: 'AI Citation Finder | Livesov',
-    description: 'See which URLs AI cites in answers about your brand.',
+    title: 'AI Citation Finder | See Where AI Cites You | Livesov',
+    description: 'Free AI citation finder. See which URLs Perplexity and ChatGPT cite when discussing your brand, with your domain highlighted.',
     url: 'https://livesov.com/tools/citation-finder',
     siteName: 'Livesov',
     type: 'website',
@@ -15,8 +15,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'AI Citation Finder | Livesov',
-    description: 'See which URLs AI cites in answers about your brand.',
+    title: 'AI Citation Finder | See Where AI Cites You | Livesov',
+    description: 'Free AI citation finder. See which URLs Perplexity and ChatGPT cite when discussing your brand, with your domain highlighted.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

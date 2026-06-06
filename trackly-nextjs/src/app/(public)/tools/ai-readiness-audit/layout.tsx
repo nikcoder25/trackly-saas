@@ -6,8 +6,8 @@ export const metadata: Metadata = {
   keywords: 'free ai readiness audit, ai readiness, ai search audit, geo readiness',
   alternates: { canonical: '/tools/ai-readiness-audit' },
   openGraph: {
-    title: 'Free AI Readiness Audit | Livesov',
-    description: 'Test your site for ChatGPT, Perplexity, and Gemini visibility. 50+ checkpoints.',
+    title: 'Free AI Readiness Audit | Test Your Site | Livesov',
+    description: 'Free AI readiness audit across 50+ checkpoints. Test your site for ChatGPT, Perplexity, and Gemini visibility. PDF report.',
     url: 'https://livesov.com/tools/ai-readiness-audit',
     siteName: 'Livesov',
     type: 'website',
@@ -15,8 +15,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Free AI Readiness Audit | Livesov',
-    description: 'Test your site for ChatGPT, Perplexity, and Gemini visibility.',
+    title: 'Free AI Readiness Audit | Test Your Site | Livesov',
+    description: 'Free AI readiness audit across 50+ checkpoints. Test your site for ChatGPT, Perplexity, and Gemini visibility. PDF report.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

@@ -5,8 +5,8 @@ export const metadata: Metadata = {
   description: 'Guides on LLM SEO, AI search optimization, GEO strategy, and AI share of voice across ChatGPT, Perplexity, Claude, Gemini, and Grok.',
   alternates: { canonical: '/blog' },
   openGraph: {
-    title: 'Blog - AI Visibility Insights & GEO Strategies | Livesov',
-    description: 'Learn about AI visibility tracking, generative engine optimization (GEO), and how to get your brand recommended by AI platforms.',
+    title: 'Livesov Blog | LLM SEO & AI Search Optimization',
+    description: 'Guides on LLM SEO, AI search optimization, GEO strategy, and AI share of voice across ChatGPT, Perplexity, Claude, Gemini, and Grok.',
     url: 'https://livesov.com/blog',
     siteName: 'Livesov',
     type: 'website',
@@ -14,8 +14,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Blog - AI Visibility Insights | Livesov',
-    description: 'Learn about AI visibility tracking, GEO strategies, and how to optimize your brand for AI platforms.',
+    title: 'Livesov Blog | LLM SEO & AI Search Optimization',
+    description: 'Guides on LLM SEO, AI search optimization, GEO strategy, and AI share of voice across ChatGPT, Perplexity, Claude, Gemini, and Grok.',
     images: ['https://livesov.com/og-image.png'],
   },
 };
