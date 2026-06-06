@@ -77,6 +77,9 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <h4>Resources</h4>
             <Link href="/blog">Blog</Link>
             <Link href="/geo-optimization">GEO Guide</Link>
+            <Link href="/learn/llm-seo">LLM SEO Guide</Link>
+            <Link href="/learn/ai-search-optimization">AI Search Optimization</Link>
+            <Link href="/learn/ai-overviews-optimization">AI Overviews Guide</Link>
             <Link href="/about">About</Link>
             <Link href="/contact">Contact</Link>
             <Link href="/changelog">Changelog</Link>
