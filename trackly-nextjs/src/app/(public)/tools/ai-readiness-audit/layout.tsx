@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Free AI Readiness Audit | Test Your Site for AI Search',
-  description: 'Run a free AI readiness audit. Test your site for ChatGPT, Perplexity, and Gemini visibility.',
+  title: 'Free AI Readiness Audit | Test Your Site | Livesov',
+  description: 'Free AI readiness audit across 50+ checkpoints. Test your site for ChatGPT, Perplexity, and Gemini visibility. PDF report.',
   keywords: 'free ai readiness audit, ai readiness, ai search audit, geo readiness',
   alternates: { canonical: '/tools/ai-readiness-audit' },
   openGraph: {

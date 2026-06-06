@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'AI Crawler Checker | Test GPTBot, ClaudeBot, PerplexityBot Access',
-  description: 'Check if AI crawlers (GPTBot, ClaudeBot, PerplexityBot, Google-Extended) can access your URL. Free, no signup.',
+  title: 'AI Crawler Checker | Test GPTBot & ClaudeBot Access',
+  description: 'Free AI crawler checker. Test whether GPTBot, ClaudeBot, PerplexityBot, and Google-Extended can reach your URL. Reads your live robots.txt.',
   keywords: 'ai crawler checker, gptbot checker, claudebot, perplexitybot, google-extended, robots.txt ai',
   alternates: { canonical: '/tools/ai-crawler-checker' },
   openGraph: {

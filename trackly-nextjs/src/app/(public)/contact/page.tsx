@@ -4,8 +4,8 @@ import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 import ContactForm from '@/components/ContactForm';
 
 export const metadata: Metadata = {
-  title: 'Contact Us - Livesov',
-  description: 'Get in touch with the Livesov team for support, enterprise inquiries, partnerships, or feedback.',
+  title: 'Contact Livesov | Support, Sales & Partnerships',
+  description: 'Reach the Livesov team for support, enterprise plans, or partnerships. We respond within 24 hours.',
   alternates: { canonical: '/contact' },
   openGraph: {
     title: 'Contact Us - Livesov',

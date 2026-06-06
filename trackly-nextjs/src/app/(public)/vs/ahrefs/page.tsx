@@ -13,9 +13,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Livesov vs Ahrefs — AI Visibility vs Backlink SEO Compared',
+  title: 'Livesov vs Ahrefs Brand Radar | AI Visibility',
   description:
-    'A complete comparison of Livesov vs Ahrefs. Livesov tracks AI visibility across ChatGPT, Claude, Gemini, Perplexity, and Grok. Ahrefs leads in backlinks and traditional SEO. Use both — here&apos;s how and why.',
+    'Compare Livesov and Ahrefs Brand Radar for AI visibility. Pricing, features, and AI platforms covered. A cheaper Ahrefs Brand Radar alternative.',
   keywords:
     'livesov vs ahrefs, ai visibility vs seo, ai brand tracking tool, ahrefs alternative for ai, ahrefs vs livesov, ai search vs google seo, geo vs seo',
   alternates: { canonical: '/vs/ahrefs' },

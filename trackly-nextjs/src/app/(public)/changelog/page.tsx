@@ -3,8 +3,8 @@ import { Rocket, ShieldCheck, Cpu, BarChart3, Globe, Zap, FileText } from 'lucid
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
-  title: 'Changelog - What\'s New | Livesov',
-  description: 'Latest updates and improvements to Livesov AI visibility tracker.',
+  title: 'Livesov Changelog | Product Updates & Features',
+  description: 'Latest Livesov updates: new AI platforms, features, and improvements shipped to the AI visibility tracker.',
   alternates: { canonical: '/changelog' },
   openGraph: {
     title: 'Changelog - What\'s New | Livesov',

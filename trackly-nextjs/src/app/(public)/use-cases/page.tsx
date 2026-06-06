@@ -12,9 +12,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Use Cases — How Teams Use Livesov for AI Visibility | Livesov',
+  title: 'AI Visibility Tracker Use Cases | Livesov',
   description:
-    'See how SaaS founders, marketing agencies, e-commerce brands, enterprise marketing teams, PR firms, and SEO professionals use Livesov to track and optimize AI visibility across ChatGPT, Claude, Gemini, Perplexity, and Grok.',
+    'How agencies, SaaS, e-commerce, and local businesses use Livesov\'s AI visibility tracker to grow brand mentions across the 5 major AI engines.',
   keywords:
     'ai visibility use cases, brand tracking for saas, ai monitoring for agencies, ecommerce ai tracking, enterprise ai visibility, pr ai monitoring, seo ai tools',
   alternates: { canonical: '/use-cases' },

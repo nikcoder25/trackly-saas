@@ -14,9 +14,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Gemini Brand Tracking — Monitor Google AI Mentions | Livesov',
+  title: 'Gemini Brand Tracking & AI Overviews Monitor',
   description:
-    'Track how Google Gemini (2.5 Pro, 2.5 Flash, Flash-Lite) mentions and recommends your brand across Search, Workspace, and Android. Monitor AI Overviews, share of voice, and competitor visibility. 7-day free trial.',
+    'Track how Google Gemini and AI Overviews mention your brand. Monitor share of voice and see how to rank in AI Overviews. 7-day free trial.',
   keywords:
     'gemini brand tracking, google ai monitoring, gemini visibility, google ai brand mentions, ai overviews tracking, gemini pro tracking, gemini flash tracking, google sge tracking',
   alternates: { canonical: '/gemini-brand-tracking' },

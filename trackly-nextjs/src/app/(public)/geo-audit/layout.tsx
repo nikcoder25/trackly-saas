@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Free GEO Audit - Check Your Page\'s AI Readiness | Livesov',
-  description: 'Analyze any URL for AI visibility optimization. Get a free GEO audit score with actionable recommendations to improve how AI platforms reference your content.',
+  title: 'Free GEO Audit Tool | AI Readiness Score | Livesov',
+  description: 'Run a free GEO audit and get your page\'s AI readiness score in seconds. No signup. See how citable your content is for AI search.',
   keywords: 'geo audit, ai seo audit, generative engine optimization audit, ai readiness check, geo score checker',
   alternates: { canonical: '/geo-audit' },
   openGraph: {

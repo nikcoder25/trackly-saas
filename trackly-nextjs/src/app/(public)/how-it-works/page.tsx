@@ -13,9 +13,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'How Livesov Works — AI Brand Tracking Methodology Explained',
+  title: 'How AI Visibility Tracking Works | Livesov',
   description:
-    'A full walkthrough of how Livesov tracks your brand across ChatGPT, Claude, Gemini, Perplexity, and Grok. Methodology, parsing, scoring, and the data pipeline behind every metric you see.',
+    'See how Livesov\'s AI visibility tracker queries ChatGPT, Perplexity, Claude, Gemini, and Grok daily, then scores your brand\'s share of voice.',
   keywords:
     'how livesov works, ai brand tracking methodology, ai visibility measurement, llm brand monitoring, ai share of voice methodology, ai citation tracking explained',
   alternates: { canonical: '/how-it-works' },

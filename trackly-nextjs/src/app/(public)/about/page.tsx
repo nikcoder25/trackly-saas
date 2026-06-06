@@ -11,9 +11,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'About Livesov — The AI Visibility Tracking Platform',
+  title: 'About Livesov | AI Visibility Platform for Brands',
   description:
-    'Livesov is the AI visibility tracking platform for ChatGPT, Claude, Gemini, Perplexity, and Grok. Learn about our mission, methodology, and why we&apos;re building the analytics layer for the post-search internet.',
+    'Livesov is the AI visibility platform that tracks how ChatGPT, Perplexity, Claude, Gemini, and Grok mention and recommend your brand.',
   keywords:
     'about livesov, livesov company, ai visibility platform, ai brand tracking company, generative engine optimization platform, livesov team',
   alternates: { canonical: '/about' },

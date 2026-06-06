@@ -14,8 +14,8 @@ export interface BlogPost {
 export const blogPosts: BlogPost[] = [
   {
     slug: 'what-is-generative-engine-optimization-geo',
-    title: 'What is Generative Engine Optimization (GEO)?',
-    description: 'GEO is the new SEO. Learn how to optimize your brand to appear in AI-generated answers from ChatGPT, Perplexity, Claude, and more.',
+    title: 'What Is Generative Engine Optimization (GEO)? 2026',
+    description: 'What is generative engine optimization? Learn what GEO means, how it works, GEO vs SEO, and how to start ranking in AI answers.',
     tag: 'GEO',
     date: '2026-03-25',
     readTime: '8 min read',
@@ -96,8 +96,8 @@ The first step? [Check your AI visibility](https://livesov.com/signup) across al
   },
   {
     slug: 'ai-visibility-vs-traditional-seo',
-    title: 'AI Visibility vs Traditional SEO: What\'s the Difference?',
-    description: 'Ranking #1 on Google doesn\'t mean AI will recommend you. Understand why AI visibility tracking is a completely different game from SEO.',
+    title: 'AI Visibility vs Traditional SEO: 2026 Comparison',
+    description: 'Ranking #1 on Google does not mean AI recommends you. Compare AI visibility and traditional SEO, and learn AI search optimization basics.',
     tag: 'Strategy',
     date: '2026-03-20',
     readTime: '6 min read',
@@ -179,8 +179,8 @@ The brands that win in 2026 will be those that master both traditional SEO **and
   },
   {
     slug: 'how-to-track-brand-across-ai-platforms',
-    title: 'How to Track Your Brand Across ChatGPT, Perplexity & More',
-    description: 'A step-by-step guide to monitoring your brand\'s presence across 5 AI platforms and measuring your share of voice.',
+    title: 'How to Track Your Brand on ChatGPT, Perplexity & More',
+    description: 'A step-by-step guide to tracking your brand across 5 AI platforms. Tools, prompts, and best practices to measure your AI share of voice.',
     tag: 'Guide',
     date: '2026-03-15',
     readTime: '7 min read',
@@ -286,8 +286,8 @@ The sooner you start tracking, the sooner you can improve. [Sign up for Livesov]
   },
   {
     slug: 'share-of-voice-ai-complete-guide',
-    title: 'Share of Voice in AI: The Complete Guide for 2026',
-    description: 'Learn what AI Share of Voice means, how to measure it, and why it\'s the most important metric for brand visibility in the AI era.',
+    title: 'AI Share of Voice: The Complete Guide for 2026',
+    description: 'Learn what AI share of voice means, how to calculate it with a simple formula, and why it is the key metric for brand visibility in AI.',
     tag: 'Analytics',
     date: '2026-03-10',
     readTime: '9 min read',
@@ -410,8 +410,8 @@ You can't improve what you can't measure. [Start tracking your Share of Voice](h
   },
   {
     slug: 'ai-brand-monitoring-for-agencies',
-    title: 'AI Brand Monitoring for Agencies: A New Revenue Stream',
-    description: 'How digital marketing agencies can offer AI visibility audits as a premium service and win more clients with data-backed reports.',
+    title: 'AI Brand Monitoring for Agencies: 2026 Playbook',
+    description: 'How agencies can offer AI brand monitoring as a premium service. Pricing, deliverables, and white-label report templates.',
     tag: 'Agency',
     date: '2026-03-05',
     readTime: '6 min read',

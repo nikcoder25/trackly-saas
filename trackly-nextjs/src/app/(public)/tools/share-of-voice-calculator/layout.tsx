@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Free AI Share of Voice Calculator | Livesov',
-  description: 'Calculate your AI share of voice. Input mentions and total responses. Free tool, no signup.',
+  description: 'Free AI share of voice calculator. Enter mentions and total responses, add competitors, and see live percentages. Export to CSV.',
   keywords: 'ai share of voice calculator, ai share of voice, sov calculator, brand share of voice ai',
   alternates: { canonical: '/tools/share-of-voice-calculator' },
   openGraph: {

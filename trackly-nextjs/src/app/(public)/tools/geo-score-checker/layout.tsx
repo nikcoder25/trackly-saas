@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Free GEO Score Checker | AI Readiness Audit',
-  description: 'Check your generative engine optimization score. Free instant audit. No signup.',
+  title: 'Free GEO Score Checker | AI Readiness | Livesov',
+  description: 'Free GEO score checker. Get a generative engine optimization score for any page in seconds. Per-category scoring, no signup.',
   keywords: 'geo score checker, free geo score, generative engine optimization score',
   alternates: { canonical: '/tools/geo-score-checker' },
   openGraph: {

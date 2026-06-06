@@ -12,9 +12,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Integrations — AI Platforms, Alerts & Exports | Livesov',
+  title: 'Livesov Integrations | AI Visibility Tracker & API',
   description:
-    'Livesov integrates directly with ChatGPT, Claude, Gemini, Perplexity, and Grok APIs. Plus email alerts, webhooks, scheduled reports, CSV / JSON / PDF exports, and bring-your-own-key support on Agency plans.',
+    'Connect Livesov\'s AI visibility tracker to ChatGPT, Perplexity, Claude, Gemini, and Grok, with alerts, webhooks, and CSV, JSON, and PDF exports.',
   keywords:
     'livesov integrations, ai api integrations, chatgpt api integration, anthropic api integration, gemini api integration, perplexity api integration, xai api integration, webhook alerts, ai brand tracking integrations',
   alternates: { canonical: '/integrations' },

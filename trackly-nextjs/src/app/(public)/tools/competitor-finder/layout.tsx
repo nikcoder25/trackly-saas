@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'AI Competitor Finder | See Who AI Recommends | Livesov',
-  description: 'Find which competitors AI platforms recommend in your industry. Free tool. No signup.',
+  title: 'AI Competitor Finder | See Who AI Recommends',
+  description: 'Free AI competitor finder. Enter your industry to see the top 10 brands AI recommends in your vertical. No signup needed.',
   keywords: 'ai competitor finder, ai recommendations, who does chatgpt recommend',
   alternates: { canonical: '/tools/competitor-finder' },
   openGraph: {

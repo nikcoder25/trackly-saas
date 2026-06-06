@@ -14,9 +14,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'ChatGPT Brand Tracking — Monitor Your AI Visibility in OpenAI ChatGPT | Livesov',
+  title: 'ChatGPT Brand Tracker | Track Mentions | Livesov',
   description:
-    'Track how ChatGPT mentions, ranks, and recommends your brand. Monitor share of voice, sentiment, citations, and competitor co-occurrence across GPT-4o, GPT-4o-mini, and ChatGPT Search. Free 7-day trial — no credit card.',
+    'The ChatGPT brand tracker that shows how ChatGPT mentions, ranks, and recommends your brand. Track share of voice, sentiment, and citations. Free.',
   keywords:
     'chatgpt brand tracking, chatgpt brand monitoring, chatgpt seo, ai visibility chatgpt, openai brand mentions, chatgpt rank tracking, chatgpt share of voice, gpt-4o brand tracking',
   alternates: { canonical: '/chatgpt-brand-tracking' },

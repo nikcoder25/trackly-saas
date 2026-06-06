@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'AI Citation Finder | Find Where AI Cites You | Livesov',
-  description: 'Find which URLs AI platforms cite when discussing your brand. Free instant check.',
+  title: 'AI Citation Finder | See Where AI Cites You | Livesov',
+  description: 'Free AI citation finder. See which URLs Perplexity and ChatGPT cite when discussing your brand, with your domain highlighted.',
   keywords: 'ai citation finder, ai citation tracker, find ai citations, perplexity citations',
   alternates: { canonical: '/tools/citation-finder' },
   openGraph: {

@@ -14,9 +14,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Grok Brand Tracking — Monitor xAI Grok Mentions | Livesov',
+  title: 'Grok Brand Tracking | Monitor xAI Grok Mentions',
   description:
-    'Track how xAI\'s Grok mentions and recommends your brand, powered by real-time X (Twitter) signal. Monitor share of voice, sentiment, social influence, and competitor visibility. 7-day free trial.',
+    'Track how xAI\'s Grok mentions your brand using real-time X data. Monitor share of voice, sentiment, and competitors. Lowest competition of the 5.',
   keywords:
     'grok brand tracking, xai monitoring, grok visibility, x ai brand mentions, twitter ai tracking, grok-3 brand tracking, grok-4 monitoring, real-time ai tracking',
   alternates: { canonical: '/grok-brand-tracking' },

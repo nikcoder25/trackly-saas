@@ -14,9 +14,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Claude Brand Tracking — Monitor Anthropic AI Mentions | Livesov',
+  title: 'Claude Brand Tracking | Track Mentions on Claude AI',
   description:
-    'Track how Anthropic\'s Claude (Opus, Sonnet, Haiku) mentions and recommends your brand. Monitor share of voice, sentiment, hallucinations, and competitor visibility in Claude responses. 7-day free trial.',
+    'Track how Anthropic\'s Claude mentions and recommends your brand. An LLM visibility tracker for share of voice, sentiment, and hallucinations.',
   keywords:
     'claude brand tracking, anthropic ai monitoring, claude visibility, claude brand mentions, claude opus tracking, claude sonnet tracking, claude haiku tracking, claude rank tracking',
   alternates: { canonical: '/claude-brand-tracking' },

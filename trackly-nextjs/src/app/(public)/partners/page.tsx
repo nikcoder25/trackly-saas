@@ -4,8 +4,8 @@ import { DollarSign, BarChart3, HeadphonesIcon } from 'lucide-react';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
-  title: 'Agency Partner Program - Livesov AI Visibility Tracker',
-  description: 'Partner with Livesov to offer AI visibility tracking to your clients. Earn recurring commissions, get white-label reports, and grow your agency.',
+  title: 'Livesov Partners | Agency & Affiliate Program',
+  description: 'Partner with Livesov. Offer AI visibility tracking to clients with white-label reports, plus affiliate and reseller options.',
   alternates: { canonical: '/partners' },
   openGraph: {
     title: 'Agency Partner Program - Livesov AI Visibility Tracker',

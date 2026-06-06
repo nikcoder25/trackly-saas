@@ -14,9 +14,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Perplexity Brand Tracking — Monitor AI Search Citations | Livesov',
+  title: 'Perplexity Brand Tracking | AI Citation Tracker',
   description:
-    'Track how Perplexity AI mentions and cites your brand across Sonar models. Capture every source URL, measure share of voice, and benchmark competitors in AI-powered search. 7-day free trial.',
+    'Track how Perplexity cites and mentions your brand. An AI citation tracker that captures every source URL and your share of voice. Free plan.',
   keywords:
     'perplexity brand tracking, perplexity ai monitoring, ai search visibility, perplexity citation tracking, perplexity sonar tracking, perplexity rank tracking, ai search seo',
   alternates: { canonical: '/perplexity-brand-tracking' },
