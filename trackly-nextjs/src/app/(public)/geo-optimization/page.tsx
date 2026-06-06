@@ -91,7 +91,7 @@ const steps = [
       'Run a baseline measurement across ChatGPT, Claude, Gemini, Perplexity, and Grok. You can&rsquo;t optimize what you don&rsquo;t measure.',
   },
   {
-    title: 'Identify highest-leverage prompts',
+    title: 'Identify highest-impact prompts',
     description:
       'Cluster the prompts that drive your category (comparison, &quot;best for,&quot; alternatives). Prioritize the prompts with highest commercial intent and lowest current rank.',
   },
@@ -201,7 +201,7 @@ export default function GeoOptimizationPage() {
             your brand&apos;s digital footprint so that AI platforms (ChatGPT, Claude, Gemini,
             Perplexity, Grok) accurately mention, recommend, and cite your brand in their
             generated answers. It is to AI search what SEO was to the early Google index - a
-            young, fast-moving, high-leverage discipline that compounds for the brands that
+            young, fast-moving, high-impact discipline that compounds for the brands that
             adopt it early.
           </p>
           <p>

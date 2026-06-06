@@ -297,7 +297,7 @@ export default function VsAhrefsPage() {
             Early-stage SaaS, AI-native startups, and brands whose buyers heavily use AI for
             research often have very limited traditional SEO surface area (few backlinks,
             limited keyword traffic) but real, immediate AI visibility gaps. For these teams,
-            Livesov is the higher-leverage first investment. Ahrefs adds value once you have
+            Livesov is the higher-impact first investment. Ahrefs adds value once you have
             enough surface area to optimise traditional rankings.
           </p>
 

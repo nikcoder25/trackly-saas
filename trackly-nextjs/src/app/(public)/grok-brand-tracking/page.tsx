@@ -306,7 +306,7 @@ export default function GrokBrandTrackingPage() {
           </p>
 
           <Callout title="Pro tip" variant="tip">
-            For Grok specifically, your highest-leverage move is rarely an SEO change - it&apos;s
+            For Grok specifically, your highest-impact move is rarely an SEO change - it&apos;s
             making sure your most credible accounts (founders, exec team, key customer voices)
             post substantive content on X about your category. Grok&apos;s real-time retrieval
             disproportionately surfaces high-engagement, recent threads from credible accounts.

@@ -310,7 +310,7 @@ export default function HowItWorksPage() {
             You define a small set of canonical facts about your brand: pricing tiers, founders,
             supported regions, integrations, certifications. Every AI response is automatically
             checked against your facts; contradictions trigger an alert with the exact quote
-            attached. This is the highest-leverage feature in Livesov for PR and customer
+            attached. This is the highest-impact feature in Livesov for PR and customer
             success teams - it catches AI-spread misinformation about your brand before a
             buyer ever sees it.
           </p>
@@ -331,7 +331,7 @@ export default function HowItWorksPage() {
             likely to move the next cycle.
           </p>
           <p>
-            For a deeper dive into what to optimise, read our{' '}
+            For a deeper look at what to optimise, read our{' '}
             <a href="/geo-optimization">GEO optimization guide</a> or run a free{' '}
             <a href="/geo-audit">GEO audit</a> on the pages you most want AI to cite.
           </p>

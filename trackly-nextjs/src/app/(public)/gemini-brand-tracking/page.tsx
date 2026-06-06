@@ -308,7 +308,7 @@ export default function GeminiBrandTrackingPage() {
           </p>
 
           <Callout title="Pro tip" variant="tip">
-            The single highest-leverage move for Gemini visibility is improving the
+            The single highest-impact move for Gemini visibility is improving the
             top 1–3 pages on your site that Google already ranks for your most valuable
             commercial queries. Add a short, scannable FAQ block, mark up dates and author
             attribution, and ensure the first 100 words clearly answer the question. Gemini

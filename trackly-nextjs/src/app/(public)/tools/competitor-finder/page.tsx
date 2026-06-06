@@ -286,7 +286,7 @@ export default function CompetitorFinderPage() {
             },
             {
               q: 'Can I use this for vertical research before launching a new product?',
-              a: 'Yes - and it is one of the highest-leverage uses. Before committing to a category, run this tool to see the AI-defined competitive set. If the list is dominated by 5 well-funded incumbents, you are entering a hard market.',
+              a: 'Yes - and it is one of the highest-impact uses. Before committing to a category, run this tool to see the AI-defined competitive set. If the list is dominated by 5 well-funded incumbents, you are entering a hard market.',
             },
           ]}
         />

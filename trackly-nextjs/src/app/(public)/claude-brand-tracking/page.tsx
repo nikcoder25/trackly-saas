@@ -319,7 +319,7 @@ export default function ClaudeBrandTrackingPage() {
           </p>
 
           <Callout title="Pro tip" variant="tip">
-            For Claude specifically, the highest-leverage source to correct hallucinations is
+            For Claude specifically, the highest-impact source to correct hallucinations is
             usually your own documentation site. Claude weights well-structured docs heavily.
             A clean, dated, schema-marked-up doc page with the correct fact will out-pull a
             blog post or marketing page in Claude&rsquo;s next training cycle.

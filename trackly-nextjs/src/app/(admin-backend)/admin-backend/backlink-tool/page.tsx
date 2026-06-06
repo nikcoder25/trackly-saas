@@ -478,7 +478,7 @@ WRITING RULES
 ================================================================
 - Write a 100% UNIQUE article. Topic angle: ${angle}.
 - Topic must be informational and helpful related to the niche, NOT a direct sales pitch for the brand.
-- NEVER use the em dash (the "-" character). Use commas, periods, or parentheses instead.
+- NEVER use the em dash character (Unicode U+2014). Use commas, periods, or parentheses instead.
 - BANNED WORDS (do not use any): unleash, leverage, optimize, elevate, transform, delve, dive into, navigate, robust, seamless, cutting-edge, game-changer.
 - Conclusion heading must be specific and contextual (NOT "Conclusion", "Final Thoughts", "Wrapping Up", "Final Word", "In Closing"). Example: "What This Means for Your Home" or "Making Your Next Move".
 

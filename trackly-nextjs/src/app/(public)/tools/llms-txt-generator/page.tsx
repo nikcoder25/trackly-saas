@@ -193,14 +193,14 @@ export default function LlmsTxtGeneratorPage() {
         </p>
 
         <ExpertQuote
-          quote="Most teams discover their sitemap was the problem only after they sit down to write llms.txt. The exercise of choosing 200 URLs that actually represent the business is the highest-leverage information architecture audit you'll do all year."
+          quote="Most teams discover their sitemap was the problem only after they sit down to write llms.txt. The exercise of choosing 200 URLs that actually represent the business is the highest-impact information architecture audit you'll do all year."
           name="Nik Sov"
           title="Founder, Livesov"
         />
 
         <h2>How this llms.txt generator works</h2>
         <p>
-          The generator does the boring part - fetching your sitemap, normalising URLs, grouping them by intent. You do the high-leverage part - editing, reordering, sharpening titles. End to end, most teams finish in 20 minutes.
+          The generator does the boring part - fetching your sitemap, normalising URLs, grouping them by intent. You do the high-impact part - editing, reordering, sharpening titles. End to end, most teams finish in 20 minutes.
         </p>
         <ol>
           <li><strong>You enter a root domain.</strong> Either <code>example.com</code> or <code>https://example.com</code> works. We strip paths and query strings.</li>
