@@ -285,7 +285,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
   const [compInput, setCompInput] = useState('');
   // Livesov v2 plan caps. The setup page enforces these client-side
   // (greying disabled platforms, trimming overflow on save) and the
-  // server re-validates in /api/brands/[id] PUT — defence in depth.
+  // server re-validates in /api/brands/[id] PUT - defence in depth.
   const v2 = getPlanCredits(user?.plan || 'free');
   const platformLimit = v2.maxPlatforms
     || (user?.limits as Record<string, number>)?.platforms

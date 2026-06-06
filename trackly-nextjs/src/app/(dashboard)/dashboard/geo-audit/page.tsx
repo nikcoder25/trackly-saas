@@ -214,7 +214,7 @@ export default function DashboardGeoAuditPage() {
                       bad={cat.score < 40}
                     >
                       <b>{cat.name || cat.label}</b> scored <b>{cat.score}</b>
-                      {cat.findings && cat.findings[0] ? ` — ${cat.findings[0]}` : ''}
+                      {cat.findings && cat.findings[0] ? ` - ${cat.findings[0]}` : ''}
                     </Find>
                   ))}
                 </div>

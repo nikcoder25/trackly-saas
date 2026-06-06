@@ -31,7 +31,7 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'How Livesov Works — AI Brand Tracking Methodology',
+        alt: 'How Livesov Works - AI Brand Tracking Methodology',
       },
     ],
   },
@@ -81,7 +81,7 @@ const dataSources = [
   {
     icon: 'ChatGPT',
     title: 'OpenAI ChatGPT',
-    description: 'Direct API access to GPT-4o, GPT-4o-mini, and GPT-4o Search Preview — including o1/o3-mini reasoning models.',
+    description: 'Direct API access to GPT-4o, GPT-4o-mini, and GPT-4o Search Preview - including o1/o3-mini reasoning models.',
   },
   {
     icon: 'Claude',
@@ -96,7 +96,7 @@ const dataSources = [
   {
     icon: 'Perplexity',
     title: 'Perplexity Sonar',
-    description: 'Direct Perplexity API for Sonar, Sonar Pro, Sonar Reasoning, and Deep Research — with full citation capture.',
+    description: 'Direct Perplexity API for Sonar, Sonar Pro, Sonar Reasoning, and Deep Research - with full citation capture.',
   },
   {
     icon: 'Grok',
@@ -106,7 +106,7 @@ const dataSources = [
   {
     icon: 'Audit',
     title: 'GEO Audit engine',
-    description: 'Headless fetcher + structural analyzer that scores any URL for AI-citation readiness — schema, freshness, attribution, and 30+ other signals.',
+    description: 'Headless fetcher + structural analyzer that scores any URL for AI-citation readiness - schema, freshness, attribution, and 30+ other signals.',
   },
 ];
 
@@ -119,7 +119,7 @@ const metrics = [
   {
     icon: '◑',
     title: 'Share of voice',
-    description: 'Your mentions divided by total brand mentions in the same prompts — the AI-era equivalent of market share.',
+    description: 'Your mentions divided by total brand mentions in the same prompts - the AI-era equivalent of market share.',
   },
   {
     icon: '#',
@@ -162,7 +162,7 @@ const faqs = [
   {
     question: 'How does sentiment analysis actually work?',
     answer:
-      'Each AI platform has a different writing style — Claude is qualified, Grok is irreverent, Gemini is list-heavy. We run a per-platform classifier tuned on platform-specific responses, surfacing stance, comparative framing, and implicit recommendation — not just a +/− score.',
+      'Each AI platform has a different writing style - Claude is qualified, Grok is irreverent, Gemini is list-heavy. We run a per-platform classifier tuned on platform-specific responses, surfacing stance, comparative framing, and implicit recommendation - not just a +/− score.',
   },
   {
     question: 'What is the hallucination detector?',
@@ -197,8 +197,8 @@ export default function HowItWorksPage() {
             How <span className="text-[var(--brand)]">Livesov</span> works
           </>
         }
-        subtitle="A systematic, multi-platform, multi-run measurement system for AI brand visibility — built from the API up to give you defensible numbers, not screenshots."
-        ctaText="Try it free — no card"
+        subtitle="A systematic, multi-platform, multi-run measurement system for AI brand visibility - built from the API up to give you defensible numbers, not screenshots."
+        ctaText="Try it free - no card"
       />
 
       <Section pad="0 24px 56px" width={1000}>
@@ -224,7 +224,7 @@ export default function HowItWorksPage() {
       <Section pad="80px 24px">
         <SectionHeader
           label="Data sources"
-          title="Direct API access — every model, every run"
+          title="Direct API access - every model, every run"
           subtitle="No scraping, no simulation. Every metric in Livesov comes from a real, billable call to the AI platform&rsquo;s official API."
         />
         <FeatureGrid items={dataSources} />
@@ -244,7 +244,7 @@ export default function HowItWorksPage() {
           <h2>The methodology in detail</h2>
           <p>
             AI brand tracking sounds easy until you build it. The complications are the
-            interesting part — and they&apos;re why naive screenshot tools and one-off prompt
+            interesting part - and they&apos;re why naive screenshot tools and one-off prompt
             checkers produce noise that looks like data. Here&apos;s how Livesov handles each one.
           </p>
 
@@ -252,20 +252,20 @@ export default function HowItWorksPage() {
           <p>
             Every modern LLM samples from a probability distribution. Run the same prompt twice
             and you get different wording, sometimes different brands, sometimes a different
-            rank order. The naive solution — sample once — gives you a snapshot of noise.
+            rank order. The naive solution - sample once - gives you a snapshot of noise.
           </p>
           <p>
             Livesov solves this by running every tracked prompt multiple times per cycle (3–10×
             depending on plan), with controlled temperature and explicit per-run seeding where
             the API supports it. We aggregate to mention rate, rank distribution, and confidence
-            intervals — so a one-time fluke can&apos;t move your dashboard.
+            intervals - so a one-time fluke can&apos;t move your dashboard.
           </p>
 
           <h3>Mention detection: aliases, variants, and ambiguity</h3>
           <p>
             &quot;Stripe&quot; could mean the payments company or a strip of paint. &quot;Apple&quot;
             could mean the company or the fruit. &quot;Notion&quot; is sometimes a synonym for
-            &quot;idea.&quot; And every brand has multiple legitimate variants — product names,
+            &quot;idea.&quot; And every brand has multiple legitimate variants - product names,
             abbreviations, casual references.
           </p>
           <p>
@@ -282,15 +282,15 @@ export default function HowItWorksPage() {
             &quot;Stripe and Adyen lead the space, with Braintree as a strong third-place
             option&quot; means rank 1 for Stripe, rank 2 for Adyen, and rank 3 for Braintree
             requires parsing the actual prose, including hedging language and comparative
-            framing. Livesov&apos;s parser is trained per-platform — Claude and Gemini phrase
-            recommendations very differently from ChatGPT and Grok — and the results are
+            framing. Livesov&apos;s parser is trained per-platform - Claude and Gemini phrase
+            recommendations very differently from ChatGPT and Grok - and the results are
             verifiable against the linked raw response.
           </p>
 
           <h3>Sentiment: stance, not polarity</h3>
           <p>
             Generic +/− sentiment misses what matters in AI brand mentions. The actual risk
-            isn&apos;t Claude calling you bad — it&apos;s Claude calling you &quot;solid for
+            isn&apos;t Claude calling you bad - it&apos;s Claude calling you &quot;solid for
             small teams but typically replaced at enterprise scale,&quot; or Grok endorsing you
             with a sarcastic aside that reads as positive to a human but negative to a
             classifier. Our per-platform sentiment models capture stance, qualifiers, and
@@ -301,7 +301,7 @@ export default function HowItWorksPage() {
           <p>
             For Perplexity, ChatGPT Search, and Gemini&apos;s grounded variants, we log every
             citation URL in rank order, the snippet it informed, and the domain. This is the
-            most diagnostic data we collect — it tells you exactly which pages drive AI answers
+            most diagnostic data we collect - it tells you exactly which pages drive AI answers
             in your category, and which competitor pages are stealing your slot.
           </p>
 
@@ -311,14 +311,14 @@ export default function HowItWorksPage() {
             supported regions, integrations, certifications. Every AI response is automatically
             checked against your facts; contradictions trigger an alert with the exact quote
             attached. This is the highest-leverage feature in Livesov for PR and customer
-            success teams — it catches AI-spread misinformation about your brand before a
+            success teams - it catches AI-spread misinformation about your brand before a
             buyer ever sees it.
           </p>
 
           <Callout title="Why direct API access matters" variant="info">
             Tools that screenshot the ChatGPT or Perplexity web UI break constantly, get rate-
             limited, and capture stale data because of caching. Direct API access gives Livesov
-            a clean, reproducible, audit-grade measurement — and lets us run dozens of prompts
+            a clean, reproducible, audit-grade measurement - and lets us run dozens of prompts
             per minute without anyone noticing.
           </Callout>
 
@@ -339,7 +339,7 @@ export default function HowItWorksPage() {
       </Section>
 
       <FaqSection
-        title="How Livesov works — FAQ"
+        title="How Livesov works - FAQ"
         subtitle="The most common questions from teams evaluating Livesov&rsquo;s methodology."
         items={faqs}
       />

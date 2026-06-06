@@ -73,9 +73,9 @@ function mapHistoryRow(h: Record<string, unknown>): ActivityEntry {
 }
 
 function fmtBillDate(iso: string | null | undefined): string {
-  if (!iso) return '—';
+  if (!iso) return '-';
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
@@ -115,7 +115,7 @@ export default function BillingPage() {
 
   // Page-level fetch only pulls the small period summary we need for the
   // top card's day-of-period progress bar. The full UsageBreakdown is
-  // also fetched inside <UsageSection /> — both calls share the
+  // also fetched inside <UsageSection /> - both calls share the
   // same HTTP cache window (max-age=15) so the dedupe is transparent.
   useEffect(() => {
     let cancelled = false;
@@ -145,7 +145,7 @@ export default function BillingPage() {
       .catch(() => {});
   }, []);
 
-  // Owner-only API cost breakdown stays — admin operator view.
+  // Owner-only API cost breakdown stays - admin operator view.
   useEffect(() => {
     if (currentPlan !== 'owner') return;
     fetch('/api/api-logs', { credentials: 'include' })
@@ -228,7 +228,7 @@ export default function BillingPage() {
     ? currentPlanPricing.price === 'Custom'
       ? 'Custom'
       : `${currentPlanPricing.price}/mo`
-    : '—';
+    : '-';
   const cycleSuffix = currentPlan === 'free'
     ? 'free tier'
     : currentPlan === 'owner'
@@ -247,7 +247,7 @@ export default function BillingPage() {
     else setShowPlanModal(true);
   };
 
-  // Hide the Usage section + invoice/alerts row entirely for owner —
+  // Hide the Usage section + invoice/alerts row entirely for owner -
   // the credit caps are unlimited and the invoice is N/A. Owner still
   // sees their plan card and the API cost breakdown.
   const isOwner = currentPlan === 'owner';
@@ -274,7 +274,7 @@ export default function BillingPage() {
     <div className="lvx">
       <PageHead
         title="Billing & Usage"
-        sub="Your plan, what you've used this cycle, and your billing activity — all in one place."
+        sub="Your plan, what you've used this cycle, and your billing activity - all in one place."
         actions={(
           <>
             <button className="btn-d" onClick={handleManagePlan}>Manage plan</button>
@@ -385,12 +385,12 @@ export default function BillingPage() {
           </Card>
         )}
 
-        {/* Queries by engine — owner-only, real API cost data */}
+        {/* Queries by engine - owner-only, real API cost data */}
         {engineCosts.length > 0 && (
           <Card
             title="Queries by engine · this period"
             info="engine"
-            lede="Where your query budget went — totals run against each AI engine this cycle."
+            lede="Where your query budget went - totals run against each AI engine this cycle."
             right={<span className="mono dim" style={{ fontSize: 11 }}>${engineCosts.reduce((a, [, c]) => a + c, 0).toFixed(2)} TOTAL</span>}
           >
             <div className="bill-engines">
@@ -426,7 +426,7 @@ export default function BillingPage() {
                   <tr key={i}>
                     <td className="num">{fmtBillDate(row.date)}</td>
                     <td><b>{row.event}</b></td>
-                    <td className="right num">{row.amount || '—'}</td>
+                    <td className="right num">{row.amount || '-'}</td>
                     <td>
                       <Badge tone={/fail|declin|error/i.test(row.status) ? 'neg' : 'pos'}>
                         {(row.status || 'PROCESSED').toUpperCase()}
@@ -472,7 +472,7 @@ export default function BillingPage() {
         )}
       </div>
 
-      {/* Change-Plan modal — kept for any caller that still calls
+      {/* Change-Plan modal - kept for any caller that still calls
           setShowPlanModal(true). The new design routes Manage plan to
           the in-page #plan-comparison anchor, but the modal stays as
           a fallback for any narrower viewport flow that needs it. */}

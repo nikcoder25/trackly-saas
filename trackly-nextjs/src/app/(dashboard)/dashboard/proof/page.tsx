@@ -93,7 +93,7 @@ export default function ProofPage() {
     return true;
   }), [allResults, platFilter, resultFilter]);
 
-  // Grouped by query — sorted by coverage descending so wins lead.
+  // Grouped by query - sorted by coverage descending so wins lead.
   const grouped = useMemo(() => {
     const map: Record<string, Result[]> = {};
     filtered.forEach(r => { if (!map[r.query]) map[r.query] = []; map[r.query].push(r); });
@@ -150,7 +150,7 @@ export default function ProofPage() {
 
   if (loading) return (
     <div className="lvx">
-      <PageHead title="Evidence & Proof" sub="Every AI response about your brand — verified, organized, exportable." />
+      <PageHead title="Evidence & Proof" sub="Every AI response about your brand - verified, organized, exportable." />
       <div className="page-body">
         <KpiCardsSkeleton count={4} />
         <CardsSkeleton count={4} />
@@ -163,7 +163,7 @@ export default function ProofPage() {
       <LockedBrandBanner />
       <PageHead
         title="Evidence & Proof"
-        sub="Every AI response about your brand — verified, organized, exportable."
+        sub="Every AI response about your brand - verified, organized, exportable."
         actions={
           <>
             {showLive && (
@@ -178,7 +178,7 @@ export default function ProofPage() {
           <select className="sel" value={selectedRunId} onChange={e => setSelectedRunId(e.target.value)} aria-label="Select run" disabled={showLive} title={showLive ? 'Live run in progress - showing current run' : undefined}>
             {runs.map((r, i) => {
               const d = new Date(r.time || r.date || 0);
-              const label = isNaN(d.getTime()) ? `Run ${i + 1}` : `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} — SOV ${r.sov || 0}%`;
+              const label = isNaN(d.getTime()) ? `Run ${i + 1}` : `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - SOV ${r.sov || 0}%`;
               return <option key={r.id || i} value={r.id || ''}>{label}</option>;
             })}
             {runs.length === 0 && <option value="">No runs yet</option>}
@@ -229,7 +229,7 @@ export default function ProofPage() {
                 {proof && (
                   <Card
                     title="Verbatim model output"
-                    lede="The featured AI answer — your evidence, exactly as the model wrote it."
+                    lede="The featured AI answer - your evidence, exactly as the model wrote it."
                     right={<Badge tone={proofTone}>{proof.error ? 'ERROR' : proof.mentioned ? `FOUND${proofPos ? ' · #' + proofPos : ''}` : 'NOT FOUND'}</Badge>}
                     style={{ gridColumn: 'span 2' }}
                   >
@@ -262,7 +262,7 @@ export default function ProofPage() {
                           <span className="proof-stat-div" />
                           <span className="proof-stat">
                             <span className="proof-stat-label mono">POSITION</span>
-                            <span className="proof-stat-val">{proofPos ? `#${proofPos}` : '—'}</span>
+                            <span className="proof-stat-val">{proofPos ? `#${proofPos}` : '-'}</span>
                           </span>
                           <span className="proof-stat-div" />
                           <span className="proof-stat">
@@ -336,7 +336,7 @@ export default function ProofPage() {
                   Object.keys(platStats).length > 0 && (
                     <Card
                       title="Coverage by engine"
-                      lede="Where you’re visible — and where you have room to grow."
+                      lede="Where you’re visible - and where you have room to grow."
                       right={<Pill>{uniquePlats.length} engines</Pill>}
                     >
                       <ul className="eng-cov-list">
@@ -416,7 +416,7 @@ export default function ProofPage() {
                 ) : (
                   <Card
                     title="All results"
-                    lede="Every AI response in this run — one row per engine × query."
+                    lede="Every AI response in this run - one row per engine × query."
                     right={<Pill>{filtered.length} rows</Pill>}
                     padding={false}
                     style={{ gridColumn: 'span 2' }}
@@ -427,14 +427,14 @@ export default function ProofPage() {
                         {filtered.map((r, i) => {
                           const tone = r.error ? 'warn' : r.mentioned ? 'pos' : 'neg';
                           const verdict = r.error ? 'ERROR' : r.mentioned ? 'FOUND' : 'NOT FOUND';
-                          const rp = r.mentioned && (r.listPosition || r.position) ? `${r.listPosition || r.position}` : '—';
+                          const rp = r.mentioned && (r.listPosition || r.position) ? `${r.listPosition || r.position}` : '-';
                           return (
                             <tr key={i}>
                               <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><PlatformTile p={platformFor(r.platform)} size={20} /> <b>{r.platform}</b></span></td>
                               <td><span style={{ color: 'var(--text)' }}>&ldquo;{r.query}&rdquo;</span></td>
                               <td><Badge tone={tone}>{verdict}</Badge></td>
                               <td className="num">{rp}</td>
-                              <td><span className="mono dim" style={{ fontSize: 11 }}>{r.error ? '—' : (r.sentiment || 'neutral')}</span></td>
+                              <td><span className="mono dim" style={{ fontSize: 11 }}>{r.error ? '-' : (r.sentiment || 'neutral')}</span></td>
                             </tr>
                           );
                         })}

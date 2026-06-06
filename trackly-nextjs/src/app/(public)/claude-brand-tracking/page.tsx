@@ -32,7 +32,7 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Claude Brand Tracking — Monitor Anthropic AI Mentions | Livesov',
+        alt: 'Claude Brand Tracking - Monitor Anthropic AI Mentions | Livesov',
       },
     ],
   },
@@ -62,7 +62,7 @@ const features = [
     icon: '✺',
     title: 'Nuanced sentiment analysis',
     description:
-      'Claude writes carefully — its descriptions are nuanced and qualified. We classify the actual stance taken about your brand, not just polarity.',
+      'Claude writes carefully - its descriptions are nuanced and qualified. We classify the actual stance taken about your brand, not just polarity.',
   },
   {
     icon: '⚔',
@@ -88,7 +88,7 @@ const supportedModels = [
   ['Claude Opus 4', 'Highest reasoning, longest context', 'Used for deep B2B research and analytical buying'],
   ['Claude Sonnet 4', 'Balanced performance, mainstream default', 'Most prevalent in production deployments'],
   ['Claude Haiku 4', 'Fast, cheap, latency-sensitive', 'Powers many embedded Claude experiences and agents'],
-  ['Claude 3.5 Sonnet (legacy)', 'Previous-generation mainstream model', 'Still widely deployed — tracked for compatibility'],
+  ['Claude 3.5 Sonnet (legacy)', 'Previous-generation mainstream model', 'Still widely deployed - tracked for compatibility'],
 ];
 
 const steps = [
@@ -100,7 +100,7 @@ const steps = [
   {
     title: 'Curate tracked prompts',
     description:
-      'Review the AI-generated prompt set. Claude users skew analytical — add the &quot;why,&quot; &quot;compare,&quot; and &quot;recommend for&quot; prompts your buyers actually ask.',
+      'Review the AI-generated prompt set. Claude users skew analytical - add the &quot;why,&quot; &quot;compare,&quot; and &quot;recommend for&quot; prompts your buyers actually ask.',
   },
   {
     title: 'Automated Claude runs',
@@ -125,7 +125,7 @@ const useCases = [
     icon: '◑',
     title: 'Professional services',
     description:
-      'Consulting, law, finance — Claude&rsquo;s nuanced tone makes it the default for high-stakes research. Showing up well in Claude shapes RFP shortlists.',
+      'Consulting, law, finance - Claude&rsquo;s nuanced tone makes it the default for high-stakes research. Showing up well in Claude shapes RFP shortlists.',
   },
   {
     icon: '✸',
@@ -139,7 +139,7 @@ const faqs = [
   {
     question: 'Why track Claude separately from ChatGPT?',
     answer:
-      'Claude and ChatGPT are trained differently, fine-tuned differently, and aligned by different teams. They produce meaningfully different answers to the same prompt — especially for nuanced B2B research. If you only track one, you have only half the picture.',
+      'Claude and ChatGPT are trained differently, fine-tuned differently, and aligned by different teams. They produce meaningfully different answers to the same prompt - especially for nuanced B2B research. If you only track one, you have only half the picture.',
   },
   {
     question: 'Which Claude models does Livesov support?',
@@ -154,12 +154,12 @@ const faqs = [
   {
     question: 'How does Claude&rsquo;s sentiment differ from ChatGPT\'s?',
     answer:
-      'Claude tends to write longer, more qualified, more balanced descriptions — which means standard polarity sentiment can be misleading. Livesov\'s sentiment model is tuned for Claude&rsquo;s style and reports nuance (e.g. &quot;positive with caveats,&quot; &quot;neutral comparison&quot;) instead of a single +/− score.',
+      'Claude tends to write longer, more qualified, more balanced descriptions - which means standard polarity sentiment can be misleading. Livesov\'s sentiment model is tuned for Claude&rsquo;s style and reports nuance (e.g. &quot;positive with caveats,&quot; &quot;neutral comparison&quot;) instead of a single +/− score.',
   },
   {
     question: 'Does Claude hallucinate about brands?',
     answer:
-      'Less often than other models, but yes — and when it does, the confident, well-written tone makes it more believable to readers. Livesov&rsquo;s canonical facts store lets you flag every drift between Claude&rsquo;s output and your verified brand facts.',
+      'Less often than other models, but yes - and when it does, the confident, well-written tone makes it more believable to readers. Livesov&rsquo;s canonical facts store lets you flag every drift between Claude&rsquo;s output and your verified brand facts.',
   },
   {
     question: 'Can I see the exact Claude response for a metric?',
@@ -198,8 +198,8 @@ export default function ClaudeBrandTrackingPage() {
             </span>
           </>
         }
-        subtitle="Monitor how Anthropic's Claude — Opus, Sonnet, and Haiku — mentions, ranks, and recommends your brand. Track share of voice, nuanced sentiment, and hallucinations across every Claude model release."
-        ctaText="Start tracking Claude — free"
+        subtitle="Monitor how Anthropic's Claude - Opus, Sonnet, and Haiku - mentions, ranks, and recommends your brand. Track share of voice, nuanced sentiment, and hallucinations across every Claude model release."
+        ctaText="Start tracking Claude - free"
       />
 
       <Section pad="0 24px 56px" width={1000}>
@@ -224,7 +224,7 @@ export default function ClaudeBrandTrackingPage() {
             Claude doesn&apos;t have ChatGPT&apos;s consumer scale, but it has something arguably
             more valuable to B2B brands: a reputation for thoughtful, careful, well-reasoned
             answers. That reputation pulls in exactly the buyers most likely to be running formal
-            vendor evaluations — CTOs, principal engineers, partners at professional services
+            vendor evaluations - CTOs, principal engineers, partners at professional services
             firms, and analysts. When Claude lists you (or doesn&apos;t), it shapes their shortlist
             before a sales team ever enters the picture.
           </p>
@@ -242,7 +242,7 @@ export default function ClaudeBrandTrackingPage() {
         <SectionHeader
           label="What we measure"
           title="Six dimensions of Claude visibility"
-          subtitle="Designed for Claude&rsquo;s nuanced, qualified, analytical answer style — not a generic mention checker bolted on."
+          subtitle="Designed for Claude&rsquo;s nuanced, qualified, analytical answer style - not a generic mention checker bolted on."
         />
         <FeatureGrid items={features} />
       </Section>
@@ -277,14 +277,14 @@ export default function ClaudeBrandTrackingPage() {
             Claude&apos;s recommendations are shaped by three forces: Anthropic&apos;s training
             corpus (web pages, books, code, conversations, and licensed data through the model
             cutoff), Anthropic&apos;s constitutional-AI alignment process (which encourages
-            balanced, well-attributed answers), and — increasingly — system-prompt context and
+            balanced, well-attributed answers), and - increasingly - system-prompt context and
             tools wired into the products that embed Claude.
           </p>
           <p>
             In practice this means Claude rewards brands that look <em>well-documented</em> on the
             open web: long, balanced, citation-heavy comparison articles; clearly written
             product documentation; and authoritative third-party reviews. Brands that rely on
-            short, marketing-heavy pages tend to underperform in Claude — even when they
+            short, marketing-heavy pages tend to underperform in Claude - even when they
             dominate Google.
           </p>
 
@@ -292,18 +292,18 @@ export default function ClaudeBrandTrackingPage() {
           <p>
             Most AI sentiment scoring treats &quot;positive,&quot; &quot;negative,&quot; and
             &quot;neutral&quot; as a 3-class problem. That breaks on Claude. Claude almost never
-            writes a flatly negative product description — it qualifies, contextualizes, and
+            writes a flatly negative product description - it qualifies, contextualizes, and
             offers alternatives. The risk isn&apos;t Claude calling you bad; it&apos;s Claude
             calling you &quot;solid for small teams but typically replaced by [competitor] at
             enterprise scale&quot; in an otherwise glowing comparison.
           </p>
           <p>
             Livesov&apos;s sentiment model is tuned for Claude&apos;s style. We surface stance,
-            qualifiers, comparative framing, and the implicit alternatives Claude recommends —
+            qualifiers, comparative framing, and the implicit alternatives Claude recommends -
             so you can fix the actual problem, not just chase a polarity score.
           </p>
 
-          <h2>Hallucination is rare in Claude — and that&rsquo;s exactly the risk</h2>
+          <h2>Hallucination is rare in Claude - and that&rsquo;s exactly the risk</h2>
           <p>
             Claude is one of the most factually careful frontier models. That is good news on
             average and bad news on the tail. Because Claude rarely fabricates, the
@@ -328,7 +328,7 @@ export default function ClaudeBrandTrackingPage() {
           <h2>What to do when Claude rates a competitor higher</h2>
           <p>
             Use Livesov to identify the exact comparison prompts where the competitor wins, then
-            check Claude&apos;s reasoning in the response text — Claude is unusually transparent
+            check Claude&apos;s reasoning in the response text - Claude is unusually transparent
             about <em>why</em> it ranks one brand over another. Take those reasons and address
             them: missing capabilities, weaker third-party reviews, unclear documentation,
             outdated public information. Re-measure after one Claude release cycle.

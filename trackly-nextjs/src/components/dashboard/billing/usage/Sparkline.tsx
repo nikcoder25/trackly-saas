@@ -3,7 +3,7 @@
 /**
  * 14-point sparkline used inside the Tracked Prompts tile.
  *
- * - Hand-rolled SVG polyline (no chart library — 14 points doesn't
+ * - Hand-rolled SVG polyline (no chart library - 14 points doesn't
  *   warrant a recharts import).
  * - Renders an indigo stroke + a soft area fill so the trend reads at
  *   a glance even at small sizes.

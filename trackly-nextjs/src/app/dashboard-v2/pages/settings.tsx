@@ -336,7 +336,7 @@ export function PageBilling() {
   ];
   return (
     <>
-      <PageHead title="Billing & Usage" sub="Your plan, what you've used this cycle, and every invoice — all in one place."
+      <PageHead title="Billing & Usage" sub="Your plan, what you've used this cycle, and every invoice - all in one place."
         actions={<><button className="btn-d">Manage plan</button><button className="btn-g">⇣ Download all invoices</button></>}/>
       <div className="page-body">
 
@@ -408,7 +408,7 @@ export function PageBilling() {
 
         {/* Queries by engine */}
         <Card title="Queries by engine · this period" info="engine"
-          lede="Where your query budget went — totals run against each AI engine this cycle."
+          lede="Where your query budget went - totals run against each AI engine this cycle."
           right={<span className="mono dim" style={{fontSize:11}}>76.0k TOTAL RUNS</span>}>
           <div className="bill-engines">
             {engineRuns.map(({ p, runs }) => (

@@ -45,7 +45,7 @@ export default function PaymentSuccessBanner() {
           }
         }
       } catch {
-        // Network blip — keep polling until ceiling.
+        // Network blip - keep polling until ceiling.
       }
       if (cancelled || attempts >= MAX_ATTEMPTS) return;
       setTimeout(pollOnce, INTERVAL_MS);
@@ -76,7 +76,7 @@ export default function PaymentSuccessBanner() {
             <div>
               <div style={{ fontSize: 16, fontWeight: 700 }}>Payment received, upgrade processing…</div>
               <div style={{ fontSize: 13, opacity: 0.9, marginTop: 4 }}>
-                Your new plan will activate within a minute. You can stay on this page — it&apos;ll refresh automatically.
+                Your new plan will activate within a minute. You can stay on this page - it&apos;ll refresh automatically.
               </div>
             </div>
           </div>

@@ -30,7 +30,7 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Use Cases — How Teams Use Livesov for AI Visibility | Livesov',
+        alt: 'Use Cases - How Teams Use Livesov for AI Visibility | Livesov',
       },
     ],
   },
@@ -48,7 +48,7 @@ const personaFeatures = [
     icon: '⬢',
     title: 'SaaS founders & product marketers',
     description:
-      'Know the day AI starts recommending your product alongside the incumbent — a leading indicator of category entry, weeks before pipeline catches up.',
+      'Know the day AI starts recommending your product alongside the incumbent - a leading indicator of category entry, weeks before pipeline catches up.',
   },
   {
     icon: '◑',
@@ -93,7 +93,7 @@ const faqs = [
   {
     question: 'Does Livesov work for B2B and B2C brands equally well?',
     answer:
-      'Yes. The metrics — mention rate, share of voice, rank, sentiment, citations, hallucinations — are universal. B2B brands typically weight Claude, Perplexity, and ChatGPT (research-heavy buyers); consumer brands weight Gemini (AI Overviews) and Grok (social signal) more heavily. Livesov tracks all five for both.',
+      'Yes. The metrics - mention rate, share of voice, rank, sentiment, citations, hallucinations - are universal. B2B brands typically weight Claude, Perplexity, and ChatGPT (research-heavy buyers); consumer brands weight Gemini (AI Overviews) and Grok (social signal) more heavily. Livesov tracks all five for both.',
   },
   {
     question: 'Is Livesov agency-friendly?',
@@ -108,7 +108,7 @@ const faqs = [
   {
     question: 'How does Livesov fit alongside Ahrefs / Semrush / Google Analytics?',
     answer:
-      'Livesov is the missing AI layer, not a replacement. Ahrefs and Semrush cover backlinks and Google rankings; GA covers on-site analytics. Livesov covers what AI platforms say about you — a measurement none of those tools can produce. Most customers use all three.',
+      'Livesov is the missing AI layer, not a replacement. Ahrefs and Semrush cover backlinks and Google rankings; GA covers on-site analytics. Livesov covers what AI platforms say about you - a measurement none of those tools can produce. Most customers use all three.',
   },
   {
     question: 'How is Livesov priced for agencies managing multiple brands?',
@@ -133,8 +133,8 @@ export default function UseCasesPage() {
             Who uses <span className="text-[var(--brand)]">Livesov</span>?
           </>
         }
-        subtitle="From early-stage SaaS founders to enterprise brand teams, marketing agencies, PR firms, and SEO consultants — every team responsible for AI-era brand visibility uses Livesov as the measurement layer."
-        ctaText="Start free — no card"
+        subtitle="From early-stage SaaS founders to enterprise brand teams, marketing agencies, PR firms, and SEO consultants - every team responsible for AI-era brand visibility uses Livesov as the measurement layer."
+        ctaText="Start free - no card"
       />
 
       <Section pad="0 24px 56px" width={1000}>
@@ -145,7 +145,7 @@ export default function UseCasesPage() {
         <SectionHeader
           label="Personas"
           title="Six teams, one shared problem"
-          subtitle="AI answers now shape buying decisions — and they&rsquo;re invisible without a tool like Livesov. Here&rsquo;s how each persona uses it."
+          subtitle="AI answers now shape buying decisions - and they&rsquo;re invisible without a tool like Livesov. Here&rsquo;s how each persona uses it."
         />
         <FeatureGrid items={personaFeatures} columns={3} />
       </Section>
@@ -157,7 +157,7 @@ export default function UseCasesPage() {
             Modern SaaS buyers ask ChatGPT, Claude, and Perplexity for vendor recommendations
             before they ever land on a comparison site. For early-stage SaaS, the day AI
             starts naming you alongside the incumbent is a leading indicator that
-            category-entry pipeline is coming — usually 4–8 weeks ahead of demo requests.
+            category-entry pipeline is coming - usually 4–8 weeks ahead of demo requests.
           </p>
           <p>
             For mature SaaS, Livesov is the early-warning system for share-of-voice erosion.
@@ -172,7 +172,7 @@ export default function UseCasesPage() {
             Agencies live or die on measurable outcomes. AI visibility tracking is the rare
             new deliverable that&apos;s both novel (most clients have no idea what it is) and
             measurable (mention rate, share of voice, rank, citations). It slots cleanly into
-            content, SEO, and PR retainers — and gives the agency a defensible &quot;why we
+            content, SEO, and PR retainers - and gives the agency a defensible &quot;why we
             shipped this&quot; data point in every monthly review.
           </p>
           <p>
@@ -202,7 +202,7 @@ export default function UseCasesPage() {
           <p>
             Enterprise marketing teams need three things from AI visibility: continuous
             measurement, defensible reporting, and the ability to act on regressions before
-            they appear in earnings calls. Livesov delivers all three — with audit-grade
+            they appear in earnings calls. Livesov delivers all three - with audit-grade
             evidence on every metric, board-ready PDF reports, and email alerts when share-
             of-voice swings outside configured bands.
           </p>
@@ -222,7 +222,7 @@ export default function UseCasesPage() {
             visibility shifts back to specific media moments.
           </p>
           <p>
-            Grok tracking is especially useful here because of the live-X-data grounding —
+            Grok tracking is especially useful here because of the live-X-data grounding -
             it&apos;s the fastest AI to absorb a viral moment and the most diagnostic of which
             social posts drove which AI answers.
           </p>
@@ -232,7 +232,7 @@ export default function UseCasesPage() {
             Traditional SEO measured 10 blue links. The new SERP is one AI Overview at the
             top, then 10 links, then a second AI block. The SEO professionals who win in the
             next five years are the ones who treat AI answers as a first-class ranking
-            target — and that requires a measurement system tracking AI directly, not a
+            target - and that requires a measurement system tracking AI directly, not a
             backlink tool retrofitted with an AI sidebar.
           </p>
           <p>
@@ -251,7 +251,7 @@ export default function UseCasesPage() {
       </Section>
 
       <FaqSection
-        title="Use cases — FAQ"
+        title="Use cases - FAQ"
         subtitle="Common questions from teams evaluating Livesov for their specific role."
         items={faqs}
       />

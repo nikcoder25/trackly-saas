@@ -10,7 +10,7 @@ import { useEffect } from 'react';
  * touch every call site.
  *
  * The lib/fetch-client helper sets the header itself, so this interceptor
- * is a backstop — it only adds the header when none is present.
+ * is a backstop - it only adds the header when none is present.
  */
 
 const CSRF_COOKIE_NAMES = ['__Host-livesov_csrf', 'livesov_csrf'];

@@ -41,7 +41,7 @@ export default function AvatarStack({
   size = 28,
 }: AvatarStackProps) {
   if (!brands.length) {
-    return <span style={{ fontSize: 13, color: '#94a3b8' }}>—</span>;
+    return <span style={{ fontSize: 13, color: '#94a3b8' }}>-</span>;
   }
   const visible = brands.slice(0, maxVisible);
   const overflow = Math.max(0, brands.length - maxVisible);

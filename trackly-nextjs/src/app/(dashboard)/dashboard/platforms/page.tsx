@@ -194,7 +194,7 @@ export default function PlatformsPage() {
                     </div>
                     <div>
                       <div className="eyebrow">SUCCESS RATE</div>
-                      <div className="kpi-v mono" style={{ fontSize: 22 }}>{successRate !== null ? successRate : '—'}{successRate !== null && <i>%</i>}</div>
+                      <div className="kpi-v mono" style={{ fontSize: 22 }}>{successRate !== null ? successRate : '-'}{successRate !== null && <i>%</i>}</div>
                       <div className="mono" style={{ fontSize: 11, color: 'var(--mute)' }}>
                         {stats && stats.totalCalls > 0 ? `last ${stats.totalCalls} calls` : 'no calls yet'}
                       </div>
@@ -213,7 +213,7 @@ export default function PlatformsPage() {
                         </>
                       ) : (
                         <>
-                          <div className="mono" style={{ fontSize: 13 }}>{lastRunLabel || '—'}</div>
+                          <div className="mono" style={{ fontSize: 13 }}>{lastRunLabel || '-'}</div>
                           <div className="mono" style={{ fontSize: 11, color: 'var(--success)' }}>✓ success</div>
                         </>
                       )}

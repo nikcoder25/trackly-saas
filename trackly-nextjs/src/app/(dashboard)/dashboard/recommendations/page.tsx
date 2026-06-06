@@ -102,7 +102,7 @@ export default function RecommendationsPage() {
         toast(
           n > 0
             ? `Generated ${n} recommendation${n === 1 ? '' : 's'}`
-            : 'No new recommendations — your data is up to date',
+            : 'No new recommendations - your data is up to date',
           'success',
         );
       }
@@ -124,7 +124,7 @@ export default function RecommendationsPage() {
   // Auto-generate recommendations on page load if data exists but recommendations are empty
   useEffect(() => {
     if (!selectedBrand || loading || generating || autoGenTriggered || !recsLoaded) return;
-    // Don't auto-generate after a load failure — the user should see the
+    // Don't auto-generate after a load failure - the user should see the
     // error and decide whether to retry, not have the page silently start
     // running an unrelated POST.
     if (loadError || sessionExpired) return;
@@ -239,7 +239,7 @@ export default function RecommendationsPage() {
         </Filter>
 
         {/* Error / session-expired states take precedence over the empty
-            state — falling through to "No Recommendations Yet" on a 500
+            state - falling through to "No Recommendations Yet" on a 500
             was the bug that masked the production failure (see PR #472),
             and a 401 deserves a different CTA from a 500 because Try-again
             would just 401 again. */}

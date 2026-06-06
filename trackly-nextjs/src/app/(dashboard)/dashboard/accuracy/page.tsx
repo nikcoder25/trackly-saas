@@ -225,7 +225,7 @@ function broadcastAccuracyUpdate() {
 // ── Source URL Link (extracted from IIFE) ──────────────────────
 function SourceUrlLink({ issue }: { issue: Issue }) {
   if (!issue.source_url) return null;
-  // source_url comes from AI-citation output — never trust it as an
+  // source_url comes from AI-citation output - never trust it as an
   // <a href>. A `javascript:`/`data:` URL would fire on click.
   const safeUrl = safeExternalUrl(issue.source_url, '');
   if (!safeUrl) return null;
@@ -551,7 +551,7 @@ export default function AccuracyPage() {
       <LockedBrandBanner />
       <PageHead
         title={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>Accuracy Monitor <Badge tone="acc">AI-POWERED</Badge></span>}
-        sub="Uses AI to analyze actual responses from AI platforms against your canonical facts — find inaccurate claims, fix them, prevent them."
+        sub="Uses AI to analyze actual responses from AI platforms against your canonical facts - find inaccurate claims, fix them, prevent them."
         actions={
           <button className="btn-p" onClick={checkNow} disabled={checking}>
             {checking ? (
@@ -565,11 +565,11 @@ export default function AccuracyPage() {
       />
 
       <div className="page-body">
-        {/* KPI rail — real metrics */}
+        {/* KPI rail - real metrics */}
         <KPIRail items={[
           { k: 'OPEN', v: issues.length - issueSummary.fixed, danger: (issues.length - issueSummary.fixed) > 0 },
           { k: 'FIXED', v: issueSummary.fixed },
-          { k: 'ACCURACY RATE', v: accuracyRate != null ? accuracyRate : '—', suffix: accuracyRate != null ? '%' : '' },
+          { k: 'ACCURACY RATE', v: accuracyRate != null ? accuracyRate : '-', suffix: accuracyRate != null ? '%' : '' },
           { k: 'CLAIMS VERIFIED', v: facts.length },
           { k: 'LAST CHECKED', v: lastChecked ? new Date(lastChecked).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Never', info: lastChecked ? new Date(lastChecked).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : undefined },
         ]} />
@@ -587,7 +587,7 @@ export default function AccuracyPage() {
         {/* ── Brand Facts ── */}
         <Card
           title="Your brand facts"
-          lede="Define what's true about your brand — AI accuracy is checked against these."
+          lede="Define what's true about your brand - AI accuracy is checked against these."
           right={
             <button className="btn-g" onClick={autoDiscover} disabled={discovering}>
               {discovering ? (

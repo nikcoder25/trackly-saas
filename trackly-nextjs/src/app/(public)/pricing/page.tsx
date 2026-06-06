@@ -51,7 +51,7 @@ const brandsLabel = (t: Tier) => {
 };
 
 // Mirrors the dashboard's Plan Comparison rows so the public page never
-// drifts from billing/page.tsx — both read from PLAN_CREDITS + PLAN_LIMITS.
+// drifts from billing/page.tsx - both read from PLAN_CREDITS + PLAN_LIMITS.
 // Row order matches the v3 spec exactly (2026-04-27).
 const COMPARISON_ROWS: Array<{
   feature: string;
@@ -182,14 +182,14 @@ const FAQ = [
   },
   {
     q: 'Is there a free trial?',
-    a: 'Yes. Every paid plan starts with a 7-day free trial — no credit card required. You get 200 credits, all 5 AI platforms, and 30 tracked prompts (account-wide) to evaluate the product.',
+    a: 'Yes. Every paid plan starts with a 7-day free trial - no credit card required. You get 200 credits, all 5 AI platforms, and 30 tracked prompts (account-wide) to evaluate the product.',
   },
   {
     q: 'Can I cancel anytime?',
-    a: 'Yes. Cancel in one click from your billing portal. You keep access through the end of the current billing period and then drop to the free tier — no data is lost.',
+    a: 'Yes. Cancel in one click from your billing portal. You keep access through the end of the current billing period and then drop to the free tier - no data is lost.',
   },
   {
-    q: 'Economy vs. Premium AI models — what changes?',
+    q: 'Economy vs. Premium AI models - what changes?',
     a: 'Economy uses fast, cost-efficient models (gpt-4o-mini-search-preview, claude-haiku, gemini-flash-lite, sonar, grok-3-mini). Premium tier (Agency) unlocks Claude Sonnet, Gemini Pro, sonar-pro, and grok-4 for deeper reasoning.',
   },
   {
@@ -198,7 +198,7 @@ const FAQ = [
   },
   {
     q: 'I need more than Agency offers.',
-    a: 'Reach out via the Contact page — we can put together a custom plan with higher credit limits, dedicated support, and custom integrations.',
+    a: 'Reach out via the Contact page - we can put together a custom plan with higher credit limits, dedicated support, and custom integrations.',
   },
 ];
 
@@ -230,7 +230,7 @@ export default function PricingPage() {
             fontSize: 18, color: 'var(--text-secondary)', lineHeight: 1.6,
             margin: '0 auto 8px', maxWidth: 580,
           }}>
-            Every paid plan starts with a 7-day free trial — all 5 AI platforms included, no credit card required.
+            Every paid plan starts with a 7-day free trial - all 5 AI platforms included, no credit card required.
           </p>
           <p style={{ fontSize: 13, color: 'var(--text-muted, #94a3b8)', marginBottom: 36 }}>
             Cancel anytime · 14-day money-back guarantee · No setup fees
@@ -584,7 +584,7 @@ export default function PricingPage() {
               fontSize: 15, color: 'var(--text-secondary)',
               maxWidth: 560, margin: '0 auto', lineHeight: 1.6,
             }}>
-              Built for AI visibility from day one — not bolted on to a legacy SEO suite.
+              Built for AI visibility from day one - not bolted on to a legacy SEO suite.
             </p>
           </div>
 

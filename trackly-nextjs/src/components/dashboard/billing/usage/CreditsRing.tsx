@@ -104,7 +104,7 @@ export default function CreditsRing({
           style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(.16,1,.3,1)' }}
         />
       </svg>
-      {/* Centerpiece — big % or ∞ */}
+      {/* Centerpiece - big % or ∞ */}
       <div
         style={{
           position: 'absolute',

@@ -41,9 +41,9 @@ export const NAV = [
 ];
 
 const GROUP_HELP: Record<string, string> = {
-  Dashboard: 'Your daily at-a-glance — health score, live mentions and engine status.',
+  Dashboard: 'Your daily at-a-glance - health score, live mentions and engine status.',
   Discovery: 'Find new questions buyers ask AI, and where AI agents send traffic.',
-  Analysis: 'Dig deeper — competitors, long-term trends, accuracy and tracked questions.',
+  Analysis: 'Dig deeper - competitors, long-term trends, accuracy and tracked questions.',
   Tools: 'Run an on-demand audit or check how you do by country.',
   Settings: 'Set up brands, the questions you track, billing and alerts.',
 };
@@ -267,7 +267,7 @@ export function Topbar({ brandName = 'Acme PM', brandMeta = '3 / 5' }: { brandNa
         <button className="icon-btn" title="Status">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7L5 10L12 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
-        <button className="icon-btn lv-help-btn" title="Glossary — what the words mean" onClick={() => ex && ex.openGlossary()}>
+        <button className="icon-btn lv-help-btn" title="Glossary - what the words mean" onClick={() => ex && ex.openGlossary()}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.4" /><path d="M5.5 5.5C5.5 4.5 6.2 4 7 4S8.5 4.5 8.5 5.5C8.5 6.5 7 6.5 7 7.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none" /><circle cx="7" cy="9.5" r="0.6" fill="currentColor" /></svg>
         </button>
         <button className="icon-btn" title="Alerts">
@@ -336,7 +336,7 @@ export function StreakChip() {
   const { streak, checkedInToday, openRecap } = ex;
   return (
     <button className={'streak-chip ' + (checkedInToday ? 'lit' : 'cold')} onClick={openRecap}
-      title={checkedInToday ? `${streak}-day streak — checked in today` : 'Check in to keep your streak alive'}>
+      title={checkedInToday ? `${streak}-day streak - checked in today` : 'Check in to keep your streak alive'}>
       <FlameIcon on={checkedInToday} />
       <span className="mono">{streak || 0}</span>
       {!checkedInToday && <span className="streak-dot" />}
@@ -365,7 +365,7 @@ export function WhatChangedRecap() {
         <div className="recap-hd">
           <div className="recap-eyebrow eyebrow">SINCE YOU WERE GONE</div>
           <h2 className="recap-title">Welcome back, Nikhil.</h2>
-          <p className="recap-sub">Here&rsquo;s what moved while you were away — tap any item to jump straight to it.</p>
+          <p className="recap-sub">Here&rsquo;s what moved while you were away - tap any item to jump straight to it.</p>
         </div>
         <ul className="recap-list">
           {changes.map((c, i) => (
@@ -384,7 +384,7 @@ export function WhatChangedRecap() {
             <FlameIcon size={18} on={checkedInToday || streak > 0} />
             <div>
               <div className="recap-streak-n"><b className="mono">{streak || 0}</b> day{streak === 1 ? '' : 's'} in a row</div>
-              <div className="recap-streak-s">{checkedInToday ? 'Checked in today — see you tomorrow!' : `Goal: ${goal.target}% Share of Voice by ${goal.by}`}</div>
+              <div className="recap-streak-s">{checkedInToday ? 'Checked in today - see you tomorrow!' : `Goal: ${goal.target}% Share of Voice by ${goal.by}`}</div>
             </div>
           </div>
           {checkedInToday
@@ -439,8 +439,8 @@ export function GoalCard({ current = 27.4 }: { current?: number }) {
       </div>
       <div className="goal-foot">
         {hit
-          ? <span className="pos" style={{ fontWeight: 600 }}>🎉 Goal reached — set a bolder target!</span>
-          : <span><b className="mono" style={{ color: 'var(--text)' }}>{gap} points</b> to go — about <b>{Math.max(1, Math.ceil(Number(gap) / 0.6))} weeks</b> at your current pace.</span>}
+          ? <span className="pos" style={{ fontWeight: 600 }}>🎉 Goal reached - set a bolder target!</span>
+          : <span><b className="mono" style={{ color: 'var(--text)' }}>{gap} points</b> to go - about <b>{Math.max(1, Math.ceil(Number(gap) / 0.6))} weeks</b> at your current pace.</span>}
         <span className="goal-pct mono">{pct}%</span>
       </div>
     </section>
@@ -458,7 +458,7 @@ function GlossaryPanel({ open, onClose }: { open: boolean; onClose: () => void }
         <header className="drawer-h">
           <div>
             <div style={{ fontWeight: 600, fontSize: 14 }}>What the words mean</div>
-            <div className="quiet" style={{ fontSize: 12, marginTop: 2 }}>Plain-English definitions — no jargon required.</div>
+            <div className="quiet" style={{ fontSize: 12, marginTop: 2 }}>Plain-English definitions - no jargon required.</div>
           </div>
           <button className="icon-btn" onClick={onClose} title="Close">
             <svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 2L12 12M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
@@ -485,12 +485,12 @@ function GlossaryPanel({ open, onClose }: { open: boolean; onClose: () => void }
 
 /* First-run coachmark tour */
 const TOUR_STEPS = [
-  { sel: null, title: 'Welcome to Livesov 👋', body: 'Livesov watches how AI assistants — ChatGPT, Claude, Gemini and others — talk about your brand. Here’s a 20-second tour of the essentials.', cta: 'Show me' },
-  { sel: '.hb', title: 'Your one number: Brand Health', body: 'A single 0–100 score for how you’re doing in AI answers. If you check one thing a day, make it this — and watch it climb.' },
+  { sel: null, title: 'Welcome to Livesov 👋', body: 'Livesov watches how AI assistants - ChatGPT, Claude, Gemini and others - talk about your brand. Here’s a 20-second tour of the essentials.', cta: 'Show me' },
+  { sel: '.hb', title: 'Your one number: Brand Health', body: 'A single 0–100 score for how you’re doing in AI answers. If you check one thing a day, make it this - and watch it climb.' },
   { sel: '.ins-strip', title: 'What needs you today', body: 'The 2–3 things worth acting on right now: a win to celebrate, a fix to make, or a play to run. Click any card to dive in.' },
-  { sel: '.kpi-rail', title: 'Your headline stats', body: 'Share of Voice, mentions, sentiment and more — each with the change since last week. Hover any ⓘ to learn what it means.' },
+  { sel: '.kpi-rail', title: 'Your headline stats', body: 'Share of Voice, mentions, sentiment and more - each with the change since last week. Hover any ⓘ to learn what it means.' },
   { sel: '.sb-run', title: 'Fresh data on demand', body: 'We re-ask every AI engine on a schedule. Want an update right now? Hit “Run all engines.”' },
-  { sel: '.lv-help-btn', title: 'Never stuck on a word', body: 'Tap the ? anytime to open the glossary. That’s it — go win some answers.', cta: 'Start exploring' },
+  { sel: '.lv-help-btn', title: 'Never stuck on a word', body: 'Tap the ? anytime to open the glossary. That’s it - go win some answers.', cta: 'Start exploring' },
 ];
 
 function Tour({ open, onClose }: { open: boolean; onClose: () => void }) {

@@ -101,7 +101,7 @@ export function PageRegional() {
   ];
   return (
     <>
-      <PageHead title="Regional Audits" sub="How Acme performs by country and language — find where you're under-served."
+      <PageHead title="Regional Audits" sub="How Acme performs by country and language - find where you're under-served."
         actions={<><button className="btn-d">+ Add region</button><button className="btn-p">Run all regions</button></>}/>
       <div className="page-body">
         <KPIRail items={[
@@ -149,7 +149,7 @@ export function PageOnboarding() {
         <div>
           <div className="eyebrow" style={{color:'var(--primary)'}}>FIRST-RUN · 2 OF 5 MINUTES</div>
           <h1 className="page-t" style={{marginTop:6}}>Let's get Livesov watching your brand.</h1>
-          <p className="page-s">Drop your domain — we'll detect your competitors, draft 50 buyer-intent prompts, and start tracking before you finish your coffee.</p>
+          <p className="page-s">Drop your domain - we'll detect your competitors, draft 50 buyer-intent prompts, and start tracking before you finish your coffee.</p>
         </div>
         <a href="#overview" className="btn-d">Skip · setup later</a>
       </div>

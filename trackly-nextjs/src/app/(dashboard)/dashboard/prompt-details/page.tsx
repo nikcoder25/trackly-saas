@@ -27,7 +27,7 @@ export default function PromptDetailsPage() {
 
   // Prompt classification (intent / funnel / tags) is a per-query annotation.
   // There is no server endpoint for it, so it is persisted locally per brand+query
-  // and reloaded when the selected query changes — a real save, scoped to this device.
+  // and reloaded when the selected query changes - a real save, scoped to this device.
   const classKey = brand?.id && selectedQuery ? `pd-class:${brand.id}:${selectedQuery}` : '';
   useEffect(() => {
     if (!classKey) { setIntentVal(''); setFunnelVal(''); setTagsVal(''); return; }
@@ -104,7 +104,7 @@ export default function PromptDetailsPage() {
   }, [allRuns, selectedQuery, platFilter, periodDays]);
   const visDelta = prevVisRate != null ? visRate - prevVisRate : null;
 
-  // Per-run visibility series (oldest → newest) for this query — shared by the
+  // Per-run visibility series (oldest → newest) for this query - shared by the
   // "Visibility Over Time" chart and its trend badge so they always agree.
   const runVis = useMemo(() => {
     return allRuns.slice(-10).map(run => {

@@ -108,7 +108,7 @@ export default function TrendsPage() {
 
   if (loading) return (
     <div className="lvx">
-      <PageHead title="SOV Trends" sub="Share of Voice over time — track how AI platforms mention your brand." />
+      <PageHead title="SOV Trends" sub="Share of Voice over time - track how AI platforms mention your brand." />
       <div className="page-body">
         <KpiCardsSkeleton count={4} />
         <ChartSkeleton h={340} />
@@ -124,7 +124,7 @@ export default function TrendsPage() {
         title="SOV Trends"
         sub={
           <>
-            Share of Voice over time — track how AI platforms mention your brand.
+            Share of Voice over time - track how AI platforms mention your brand.
             {history.length > 0 && <span> · {history.length} data points</span>}
           </>
         }
@@ -132,7 +132,7 @@ export default function TrendsPage() {
       <div className="page-body">
         {/* ── KPI rail ── */}
         <KPIRail items={[
-          { k: 'CURRENT SOV', term: 'sov', v: latest ? `${latest.overall}%` : '—', d: sovDelta ?? undefined },
+          { k: 'CURRENT SOV', term: 'sov', v: latest ? `${latest.overall}%` : '-', d: sovDelta ?? undefined },
           { k: 'AVERAGE SOV', v: `${avgSov}%` },
           { k: 'PEAK SOV', v: `${peakSov}%` },
           { k: 'LOWEST SOV', v: `${lowSov}%` },

@@ -7,8 +7,8 @@ import { useCredits } from '@/contexts/CreditsContext';
  * Persistent banner shown at the top of every dashboard page when the
  * user is below 20% of their monthly credit allowance, or completely
  * out of credits. Two visual states:
- *   - Low (orange): "X credits remaining — upgrade to keep auto runs going"
- *   - Empty (red): "Out of credits — auto runs paused until <reset>"
+ *   - Low (orange): "X credits remaining - upgrade to keep auto runs going"
+ *   - Empty (red): "Out of credits - auto runs paused until <reset>"
  */
 export default function LowBalanceBanner() {
   const { status } = useCredits();
@@ -40,7 +40,7 @@ export default function LowBalanceBanner() {
         <strong style={{ color: accent }}>
           {empty ? 'Out of AI credits' : 'AI credits running low'}
         </strong>
-        <span style={{ margin: '0 6px', opacity: 0.5 }}>—</span>
+        <span style={{ margin: '0 6px', opacity: 0.5 }}>-</span>
         <span style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>
           {status.remaining.toLocaleString()} / {status.monthlyCap.toLocaleString()}
           {!empty && <> ({pct}%)</>}

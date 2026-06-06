@@ -39,7 +39,7 @@ interface LedgerResponse {
 
 const PLATFORMS = Object.keys(PLATFORM_COLORS);
 
-/** Default 'from' date: start of the current UTC month — same window
+/** Default 'from' date: start of the current UTC month - same window
  *  the billing-page "credits used this period" tile uses. */
 function currentMonthStartUtc(): Date {
   const n = new Date();
@@ -90,7 +90,7 @@ export default function CreditLedgerPage() {
   const monthStart = useMemo(() => currentMonthStartUtc(), []);
   const [from, setFrom] = useState<string>(toDateInput(monthStart));
   const [to, setTo] = useState<string>(toDateInput(new Date()));
-  // Multi-select platform filter. Empty set = "all platforms" — same as
+  // Multi-select platform filter. Empty set = "all platforms" - same as
   // omitting the param. Initial value comes from /api/credits/usage's
   // `activePlatforms` once it loads, so the picker only offers platforms
   // the tenant has actually enabled.
@@ -121,7 +121,7 @@ export default function CreditLedgerPage() {
   }, [from, to, selectedPlatforms]);
 
   // Hydrate the platform picker with the tenant's actually-enabled
-  // platforms. Falls back to the canonical 5 if the call fails — better
+  // platforms. Falls back to the canonical 5 if the call fails - better
   // to over-offer than to lock the picker to nothing.
   useEffect(() => {
     let cancelled = false;
@@ -309,7 +309,7 @@ export default function CreditLedgerPage() {
             <div style={{ fontSize: 12, color: 'var(--muted)', maxWidth: 380, margin: '0 auto', lineHeight: 1.5 }}>
               Try widening the date range or removing the platform filter.
               Credits are charged when an LLM call is dispatched for a tracked
-              prompt — runs that haven&apos;t triggered yet won&apos;t appear here.
+              prompt - runs that haven&apos;t triggered yet won&apos;t appear here.
             </div>
           </div>
         ) : (
@@ -335,7 +335,7 @@ export default function CreditLedgerPage() {
                     return `Local: ${d.toLocaleString()}`;
                   })();
                   const promptLabel = r.prompts.length === 0
-                    ? '—'
+                    ? '-'
                     : r.prompts.length === 1
                       ? r.prompts[0]
                       : `${r.prompts[0]} +${r.prompts.length - 1}`;
@@ -358,7 +358,7 @@ export default function CreditLedgerPage() {
                             )
                             : <span title={r.runId}>{r.runId.slice(0, 8)}</span>
                           )
-                          : <span style={{ color: 'var(--muted)' }}>—</span>}
+                          : <span style={{ color: 'var(--muted)' }}>-</span>}
                         {r.brandName && (
                           <div style={{ fontFamily: 'var(--font)', fontSize: 11, color: 'var(--muted)' }}>
                             {r.brandName}

@@ -406,7 +406,7 @@ export default function CompetitorsPage() {
                     <td>
                       {c.trend && c.trend.length >= 2
                         ? <Spark data={c.trend} width={120} height={24} color={c.me ? 'var(--primary)' : c.color} />
-                        : <span className="mono dim" style={{ fontSize: 11 }}>—</span>}
+                        : <span className="mono dim" style={{ fontSize: 11 }}>-</span>}
                     </td>
                   </tr>
                 ))}

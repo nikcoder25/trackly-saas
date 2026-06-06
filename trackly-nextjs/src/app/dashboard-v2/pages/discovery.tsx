@@ -38,7 +38,7 @@ export function PagePromptDiscovery() {
         </div>
 
         <Filter>
-          <div className="search-box"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="var(--mute)" strokeWidth="1.5"/><path d="M9.5 9.5L12 12" stroke="var(--mute)" strokeWidth="1.5"/></svg><input placeholder="Discover prompts — try 'project management', 'AI features'…"/></div>
+          <div className="search-box"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="var(--mute)" strokeWidth="1.5"/><path d="M9.5 9.5L12 12" stroke="var(--mute)" strokeWidth="1.5"/></svg><input placeholder="Discover prompts - try 'project management', 'AI features'…"/></div>
           <Seg value={intent} onChange={setIntent} options={[
             { value: 'all', label: 'ALL' },
             { value: 'compare', label: 'COMPARE' },
@@ -209,7 +209,7 @@ function PromptBrief({ item, onClose }: any) {
 
           <div className="eyebrow">RECOMMENDED CONTENT BRIEF</div>
           <div className="brief">
-            <div className="brief-item"><span className="brief-n mono">01</span><div><b>Create a comparison page:</b> "{item.q} — {item.intent === 'compare' ? 'honest review from a customer' : 'who actually wins'}"</div></div>
+            <div className="brief-item"><span className="brief-n mono">01</span><div><b>Create a comparison page:</b> "{item.q} - {item.intent === 'compare' ? 'honest review from a customer' : 'who actually wins'}"</div></div>
             <div className="brief-item"><span className="brief-n mono">02</span><div><b>Target word count:</b> 1,400–1,800 (median for cited PM-tool answers in this engine)</div></div>
             <div className="brief-item"><span className="brief-n mono">03</span><div><b>Required entities:</b> "agile", "GitHub", "AI summaries", "engineering teams", "pricing per seat"</div></div>
             <div className="brief-item"><span className="brief-n mono">04</span><div><b>Sources to cite back:</b> g2.com/products/acme, reddit.com/r/projectmanagement (Perplexity weights Reddit at 47%)</div></div>
@@ -243,7 +243,7 @@ export function PageAgentAnalytics() {
   return (
     <>
       <PageHead title="Agent Analytics"
-        sub="Every AI crawler that fetched a page on acme.com — what they read, when, and how often."
+        sub="Every AI crawler that fetched a page on acme.com - what they read, when, and how often."
         actions={<><button className="btn-g">⇣ CSV</button><button className="btn-d">⚙ Crawler rules</button><button className="btn-p">Verify install</button></>}/>
       <div className="page-body">
         <KPIRail items={[
@@ -321,7 +321,7 @@ export function PageAgentAnalytics() {
           </Card>
 
           <Card title="AI search attribution" right={<Pill tone="acc">Beta</Pill>}>
-            <div className="quiet" style={{fontSize:13,margin:'0 0 14px',lineHeight:1.5}}>When a visitor lands on acme.com after an AI-search session — we attribute it back to the bot that read the page first.</div>
+            <div className="quiet" style={{fontSize:13,margin:'0 0 14px',lineHeight:1.5}}>When a visitor lands on acme.com after an AI-search session - we attribute it back to the bot that read the page first.</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
               <KPIInline k="ATTRIBUTED SESSIONS" v="2,840" d={+24}/>
               <KPIInline k="ATTRIBUTED REVENUE" v="$12,420" d={+18}/>

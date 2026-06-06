@@ -35,7 +35,7 @@ export default function ActivityPage() {
 
   // Re-runs whenever the user picks a different brand from the Topbar so
   // the API Call Logs reflect the currently-selected brand. Account
-  // Activity stays user-scoped (login / register / etc.) — those rows
+  // Activity stays user-scoped (login / register / etc.) - those rows
   // aren't tied to a single brand.
   useEffect(() => {
     let cancelled = false;

@@ -92,7 +92,7 @@ export default function DailyCreditChart({ series }: DailyCreditChartProps) {
                 <strong style={{ color: TEXT_PRIMARY, fontWeight: 600 }}>
                   {stats.peak.toLocaleString()}
                 </strong>{' '}
-                credits on {stats.peakDate ? fmtBucket(stats.peakDate) : '—'}
+                credits on {stats.peakDate ? fmtBucket(stats.peakDate) : '-'}
               </>
             ) : (
               'No credit usage yet in the last 30 days.'

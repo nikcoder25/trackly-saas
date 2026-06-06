@@ -32,7 +32,7 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Grok Brand Tracking — Monitor xAI Grok Mentions | Livesov',
+        alt: 'Grok Brand Tracking - Monitor xAI Grok Mentions | Livesov',
       },
     ],
   },
@@ -62,7 +62,7 @@ const features = [
     icon: '#',
     title: 'Recommendation rank',
     description:
-      'Track where you appear when Grok lists alternatives — position 1, 2, 3, or below — and how rank shifts after a viral moment.',
+      'Track where you appear when Grok lists alternatives - position 1, 2, 3, or below - and how rank shifts after a viral moment.',
   },
   {
     icon: '⚔',
@@ -125,7 +125,7 @@ const useCases = [
     icon: '◑',
     title: 'Crypto, fintech, tech',
     description:
-      'Categories that live on X — crypto, fintech, AI tooling — see the fastest Grok-visibility shifts. Monitoring lets you ride or defend.',
+      'Categories that live on X - crypto, fintech, AI tooling - see the fastest Grok-visibility shifts. Monitoring lets you ride or defend.',
   },
   {
     icon: '✸',
@@ -139,7 +139,7 @@ const faqs = [
   {
     question: 'Why does Grok matter when it&rsquo;s smaller than ChatGPT?',
     answer:
-      'Two reasons. First, Grok has real-time X data baked into its answers — making it uniquely fast to absorb viral moments and social sentiment. Second, Grok is deeply embedded in X itself, which means its recommendations appear directly in front of an audience already engaged with brands. For consumer, crypto, and tech categories, Grok visibility moves on hours, not weeks.',
+      'Two reasons. First, Grok has real-time X data baked into its answers - making it uniquely fast to absorb viral moments and social sentiment. Second, Grok is deeply embedded in X itself, which means its recommendations appear directly in front of an audience already engaged with brands. For consumer, crypto, and tech categories, Grok visibility moves on hours, not weeks.',
   },
   {
     question: 'Which Grok models does Livesov support?',
@@ -149,12 +149,12 @@ const faqs = [
   {
     question: 'Does Livesov need access to my X account?',
     answer:
-      'No. Livesov queries Grok via the official xAI API. Adding your X handle is optional — it lets us correlate your AI visibility shifts with your own X activity, but you can leave it blank and still get full Grok tracking.',
+      'No. Livesov queries Grok via the official xAI API. Adding your X handle is optional - it lets us correlate your AI visibility shifts with your own X activity, but you can leave it blank and still get full Grok tracking.',
   },
   {
     question: 'Can Grok tracking explain why a competitor suddenly outranks me?',
     answer:
-      'Often, yes. Grok&rsquo;s live-search variant cites the X posts and URLs that drove its answer. When you see a rank shift in Livesov, the underlying citations usually point straight to the viral moment — a launch announcement, a thread that took off, a press hit — that caused it.',
+      'Often, yes. Grok&rsquo;s live-search variant cites the X posts and URLs that drove its answer. When you see a rank shift in Livesov, the underlying citations usually point straight to the viral moment - a launch announcement, a thread that took off, a press hit - that caused it.',
   },
   {
     question: 'How fresh is Grok data?',
@@ -164,7 +164,7 @@ const faqs = [
   {
     question: 'Does Grok use a different tone than other AI models?',
     answer:
-      'Yes — Grok skews casual, irreverent, and willing to take positions other models hedge on. That tone affects sentiment scoring. Livesov&rsquo;s sentiment model is tuned for Grok&rsquo;s voice and won&rsquo;t mistake snark for negativity.',
+      'Yes - Grok skews casual, irreverent, and willing to take positions other models hedge on. That tone affects sentiment scoring. Livesov&rsquo;s sentiment model is tuned for Grok&rsquo;s voice and won&rsquo;t mistake snark for negativity.',
   },
   {
     question: 'Can I export the raw Grok response?',
@@ -198,8 +198,8 @@ export default function GrokBrandTrackingPage() {
             </span>
           </>
         }
-        subtitle="Monitor how xAI's Grok — powered by real-time X (Twitter) data — mentions, ranks, and recommends your brand. Track share of voice, social-driven shifts, citations, and competitor visibility across every Grok model."
-        ctaText="Start tracking Grok — free"
+        subtitle="Monitor how xAI's Grok - powered by real-time X (Twitter) data - mentions, ranks, and recommends your brand. Track share of voice, social-driven shifts, citations, and competitor visibility across every Grok model."
+        ctaText="Start tracking Grok - free"
       />
 
       <Section pad="0 24px 56px" width={1000}>
@@ -217,11 +217,11 @@ export default function GrokBrandTrackingPage() {
         <SectionHeader
           label="Why Grok matters"
           title="The only AI whose answers move at the speed of social"
-          subtitle="Grok has live access to X (Twitter) and built-in willingness to take positions. That makes it the fastest indicator of how a viral moment, a launch, or a crisis is reshaping your brand&rsquo;s AI visibility — often within hours."
+          subtitle="Grok has live access to X (Twitter) and built-in willingness to take positions. That makes it the fastest indicator of how a viral moment, a launch, or a crisis is reshaping your brand&rsquo;s AI visibility - often within hours."
         />
         <LongForm>
           <p>
-            Most AI brand tracking discussions focus on stable answers — what does this LLM say
+            Most AI brand tracking discussions focus on stable answers - what does this LLM say
             today, what does it say next week. <strong>Grok breaks that frame</strong>. Because
             Grok grounds many of its answers in real-time X data, its opinions about your brand
             can shift between morning and evening based on a trending thread, a launch
@@ -229,7 +229,7 @@ export default function GrokBrandTrackingPage() {
           </p>
           <p>
             For consumer brands, crypto, fintech, AI tooling, and any category with an active X
-            audience, Grok visibility is the closest thing AI has to a social listening signal —
+            audience, Grok visibility is the closest thing AI has to a social listening signal -
             except it&apos;s baked into the recommendations Grok serves to millions of X users
             every day. Livesov is the measurement layer that turns that volatility into a
             tractable, monitored, alertable system.
@@ -240,7 +240,7 @@ export default function GrokBrandTrackingPage() {
       <Section pad="80px 24px">
         <SectionHeader
           label="What we measure"
-          title="Six dimensions of Grok visibility — social-aware"
+          title="Six dimensions of Grok visibility - social-aware"
           subtitle="Including the real-time X signal that drives the largest day-to-day rank shifts of any AI platform."
         />
         <FeatureGrid items={features} />
@@ -255,7 +255,7 @@ export default function GrokBrandTrackingPage() {
         <SectionHeader
           label="Model coverage"
           title="Every Grok variant your audience actually sees"
-          subtitle="From the free Grok 3 Mini tier to the live-search variant that drives the most volatile rank shifts — all tracked in parallel."
+          subtitle="From the free Grok 3 Mini tier to the live-search variant that drives the most volatile rank shifts - all tracked in parallel."
         />
         <ComparisonTable
           headers={['Grok model', 'What it is', 'Where it lives']}
@@ -273,7 +273,7 @@ export default function GrokBrandTrackingPage() {
         <LongForm>
           <h2>How Grok is different from every other LLM</h2>
           <p>
-            Grok&apos;s defining feature isn&apos;t model size or context window — it&apos;s the
+            Grok&apos;s defining feature isn&apos;t model size or context window - it&apos;s the
             integration with X. Through xAI&apos;s real-time search variant, Grok can ground its
             answers on live X posts, threads, and trending topics. That makes Grok the only major
             AI whose outputs reflect <em>this morning&apos;s</em> conversations, not last
@@ -292,21 +292,21 @@ export default function GrokBrandTrackingPage() {
             Livesov breaks every Grok mention into two buckets: <strong>knowledge-based</strong>
             {' '}(answers grounded in Grok&apos;s training data, stable over time) and{' '}
             <strong>real-time</strong> (answers influenced by live X retrieval, volatile by
-            design). This separation is critical — chasing a real-time spike is a PR job;
+            design). This separation is critical - chasing a real-time spike is a PR job;
             improving a knowledge-based baseline is a content and authority job.
           </p>
 
-          <h2>Sentiment in Grok — beware the snark trap</h2>
+          <h2>Sentiment in Grok - beware the snark trap</h2>
           <p>
             Grok is famously willing to be sarcastic, blunt, and irreverent. Generic sentiment
             classifiers mis-read that voice constantly, flagging witty descriptions as negative
             and balanced critiques as flatly hostile. Livesov&apos;s sentiment model is tuned for
-            Grok&apos;s style — we extract the actual stance and the underlying recommendation,
+            Grok&apos;s style - we extract the actual stance and the underlying recommendation,
             not the rhetorical packaging.
           </p>
 
           <Callout title="Pro tip" variant="tip">
-            For Grok specifically, your highest-leverage move is rarely an SEO change — it&apos;s
+            For Grok specifically, your highest-leverage move is rarely an SEO change - it&apos;s
             making sure your most credible accounts (founders, exec team, key customer voices)
             post substantive content on X about your category. Grok&apos;s real-time retrieval
             disproportionately surfaces high-engagement, recent threads from credible accounts.

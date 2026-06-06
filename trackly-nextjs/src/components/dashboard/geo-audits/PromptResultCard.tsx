@@ -7,13 +7,13 @@ import type { BrandInput } from '@/lib/parser';
 /**
  * One card per prompt on the audit drill-down. Body lists each model
  * (5 fixed) with a status dot, model name, and the response snippet
- * (italic, with brand mention emphasized) — or "No mention" when the
+ * (italic, with brand mention emphasized) - or "No mention" when the
  * call returned nothing matching.
  *
  * Visual language (per spec):
  *   green dot = mentioned
  *   gray dot  = not mentioned
- *   amber dot = partial — shown when the call errored
+ *   amber dot = partial - shown when the call errored
  */
 
 export interface PromptResultRow {
@@ -31,10 +31,10 @@ export interface PromptResultRow {
 interface Props {
   promptText: string;
   /** Exactly the rows for this prompt, one per model. The component
-   *  doesn't filter — the parent applies model/state filters before
+   *  doesn't filter - the parent applies model/state filters before
    *  passing them in. */
   rows: PromptResultRow[];
-  /** Brand info for emphasis matching. Optional — when missing we
+  /** Brand info for emphasis matching. Optional - when missing we
    *  render the snippet without highlighting (no fake matches). */
   brand: BrandInput | null;
 }
@@ -46,7 +46,7 @@ const MODEL_ORDER = ['ChatGPT', 'Perplexity', 'Gemini', 'Claude', 'Grok'];
 export default function PromptResultCard({ promptText, rows, brand }: Props) {
   const matcher = useMemo(() => (brand ? buildBrandMatcher(brand) : null), [brand]);
 
-  // Stable model order — even if the parent passes them in different
+  // Stable model order - even if the parent passes them in different
   // sequences, the card always shows ChatGPT first → Grok last.
   const ordered = useMemo(() => {
     const byPlatform = new Map(rows.map((r) => [r.platform, r]));

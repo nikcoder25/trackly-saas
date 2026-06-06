@@ -32,7 +32,7 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Perplexity Brand Tracking — Monitor AI Search Citations | Livesov',
+        alt: 'Perplexity Brand Tracking - Monitor AI Search Citations | Livesov',
       },
     ],
   },
@@ -62,7 +62,7 @@ const features = [
     icon: '#',
     title: 'Citation rank tracking',
     description:
-      'Track whether your pages are cited first, third, or buried — and how that shifts after you ship new content.',
+      'Track whether your pages are cited first, third, or buried - and how that shifts after you ship new content.',
   },
   {
     icon: '⚔',
@@ -80,14 +80,14 @@ const features = [
     icon: '◈',
     title: 'Sonar model coverage',
     description:
-      'Tracks Sonar, Sonar Pro, and the reasoning variants — every Perplexity model behaves a little differently.',
+      'Tracks Sonar, Sonar Pro, and the reasoning variants - every Perplexity model behaves a little differently.',
   },
 ];
 
 const supportedModels = [
   ['Sonar', 'Default Perplexity model with live web search', 'Where most consumer answers are generated'],
   ['Sonar Pro', 'Larger context, better synthesis, more citations', 'Used by Pro subscribers for deep research'],
-  ['Sonar Reasoning', 'Chain-of-thought reasoning over web context', 'Tracked separately — citation patterns differ'],
+  ['Sonar Reasoning', 'Chain-of-thought reasoning over web context', 'Tracked separately - citation patterns differ'],
   ['Sonar Deep Research', 'Long-form research with extended citation lists', 'High-stakes B2B comparison queries'],
 ];
 
@@ -139,17 +139,17 @@ const faqs = [
   {
     question: 'What makes Perplexity tracking different from ChatGPT tracking?',
     answer:
-      'Perplexity is citation-first — every answer comes with explicit source URLs. That makes it the easiest AI platform to optimise for and the most diagnostic: you can see exactly which pages drive AI visibility. ChatGPT only shows citations in the search-enabled variant, and even then less reliably.',
+      'Perplexity is citation-first - every answer comes with explicit source URLs. That makes it the easiest AI platform to optimise for and the most diagnostic: you can see exactly which pages drive AI visibility. ChatGPT only shows citations in the search-enabled variant, and even then less reliably.',
   },
   {
     question: 'Does Livesov capture every citation Perplexity returns?',
     answer:
-      'Yes. For every tracked prompt and every run, we log the complete ordered citation list — domain, URL, snippet, and rank — so you can build longitudinal citation-share reports.',
+      'Yes. For every tracked prompt and every run, we log the complete ordered citation list - domain, URL, snippet, and rank - so you can build longitudinal citation-share reports.',
   },
   {
     question: 'Which Perplexity models do you support?',
     answer:
-      'Livesov tracks the Sonar family — Sonar, Sonar Pro, Sonar Reasoning, and Sonar Deep Research — through the Perplexity API. We run prompts on the model most representative of consumer Perplexity by default, with optional cross-model comparison on Pro and Agency plans.',
+      'Livesov tracks the Sonar family - Sonar, Sonar Pro, Sonar Reasoning, and Sonar Deep Research - through the Perplexity API. We run prompts on the model most representative of consumer Perplexity by default, with optional cross-model comparison on Pro and Agency plans.',
   },
   {
     question: 'How is share of voice calculated in Perplexity?',
@@ -159,7 +159,7 @@ const faqs = [
   {
     question: 'Can I track competitor domains as well as my own?',
     answer:
-      'Yes — competitor domains are a first-class concept in Livesov. You can configure up to 20 competitor domains (plan-dependent) and see side-by-side citation share, mention share, and sentiment.',
+      'Yes - competitor domains are a first-class concept in Livesov. You can configure up to 20 competitor domains (plan-dependent) and see side-by-side citation share, mention share, and sentiment.',
   },
   {
     question: 'How fresh is the data?',
@@ -199,7 +199,7 @@ export default function PerplexityBrandTrackingPage() {
           </>
         }
         subtitle="Monitor how Perplexity AI mentions and cites your brand across Sonar, Sonar Pro, and Sonar Reasoning models. Capture every citation URL, track competitor share, and benchmark your AI search visibility."
-        ctaText="Start tracking Perplexity — free"
+        ctaText="Start tracking Perplexity - free"
       />
 
       <Section pad="0 24px 56px" width={1000}>
@@ -229,7 +229,7 @@ export default function PerplexityBrandTrackingPage() {
           <p>
             That makes Perplexity the highest-leverage AI search platform to invest in. Wins on
             Perplexity tend to translate to ChatGPT Search, Google AI Overviews, and Bing Copilot
-            — because the underlying optimisation work (publish authoritative, well-structured,
+            - because the underlying optimisation work (publish authoritative, well-structured,
             citable content) is the same. Livesov turns Perplexity into a continuous test bed for
             your entire AI search strategy.
           </p>
@@ -240,7 +240,7 @@ export default function PerplexityBrandTrackingPage() {
         <SectionHeader
           label="What we measure"
           title="Citation-grade visibility for every Perplexity query"
-          subtitle="Not just whether you&rsquo;re mentioned — exactly which of your pages Perplexity trusts and where competitors are stealing your citation slot."
+          subtitle="Not just whether you&rsquo;re mentioned - exactly which of your pages Perplexity trusts and where competitors are stealing your citation slot."
         />
         <FeatureGrid items={features} />
       </Section>
@@ -288,7 +288,7 @@ export default function PerplexityBrandTrackingPage() {
           <p>
             In a traditional Google result, ranking #1 vs #5 is a 3–5× CTR difference. In
             Perplexity, being cited as source #1 vs #5 isn&apos;t directly clickable in the same
-            way — but it is the source the synthesiser leans on hardest, the quote it lifts most
+            way - but it is the source the synthesiser leans on hardest, the quote it lifts most
             prominently, and the brand a reader scrolls back to verify. Livesov tracks your
             citation rank for every monitored prompt so you can prioritise which pages to improve.
           </p>
@@ -301,8 +301,8 @@ export default function PerplexityBrandTrackingPage() {
             in the source list, regardless of whether the answer text names you.
           </p>
           <p>
-            A brand can have high citation share but low mention share — meaning Perplexity reads
-            your content but doesn&apos;t name you — which usually points to weak brand signals on
+            A brand can have high citation share but low mention share - meaning Perplexity reads
+            your content but doesn&apos;t name you - which usually points to weak brand signals on
             the cited pages. Conversely, high mention share with low citation share means the
             web at large talks about you, but your own properties aren&apos;t getting picked up.
             Both gaps are fixable, and you can&apos;t close them without measuring them.
@@ -319,7 +319,7 @@ export default function PerplexityBrandTrackingPage() {
           <p>
             Run a <a href="/geo-audit">free GEO audit</a> on the competitor page Perplexity is
             citing. The audit will show you the specific structural and semantic signals that page
-            is sending — schema, freshness, citation density, internal linking — and which of
+            is sending - schema, freshness, citation density, internal linking - and which of
             them you can match or beat. Then publish, wait one Perplexity cycle, and re-measure
             in Livesov.
           </p>
@@ -335,7 +335,7 @@ export default function PerplexityBrandTrackingPage() {
         <SectionHeader
           label="Why Livesov"
           title="Livesov vs. one-off citation checkers and SEO suites"
-          subtitle="Perplexity citation data is only valuable if you can see it over time — and against your competitors. Livesov is the only tool that gives you both."
+          subtitle="Perplexity citation data is only valuable if you can see it over time - and against your competitors. Livesov is the only tool that gives you both."
         />
         <ComparisonTable
           headers={['Capability', 'Livesov', 'Citation checkers', 'Traditional SEO']}
@@ -355,7 +355,7 @@ export default function PerplexityBrandTrackingPage() {
           {
             href: '/chatgpt-brand-tracking',
             label: 'ChatGPT tracking',
-            description: 'OpenAI&rsquo;s flagship — most-used AI assistant on earth.',
+            description: 'OpenAI&rsquo;s flagship - most-used AI assistant on earth.',
           },
           {
             href: '/claude-brand-tracking',

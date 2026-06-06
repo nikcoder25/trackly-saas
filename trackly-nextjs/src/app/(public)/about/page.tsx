@@ -29,7 +29,7 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'About Livesov — The AI Visibility Tracking Platform',
+        alt: 'About Livesov - The AI Visibility Tracking Platform',
       },
     ],
   },
@@ -47,7 +47,7 @@ const values = [
     icon: '◎',
     title: 'Measurement over vibes',
     description:
-      'Every metric in Livesov links to a raw, billable API response. No screenshots, no simulated data, no hand-waving — just defensible numbers.',
+      'Every metric in Livesov links to a raw, billable API response. No screenshots, no simulated data, no hand-waving - just defensible numbers.',
   },
   {
     icon: '⚙',
@@ -59,13 +59,13 @@ const values = [
     icon: '⌁',
     title: 'Multi-run, not single-shot',
     description:
-      'LLMs are non-deterministic. We run every prompt multiple times per cycle and aggregate — so one noisy run can&rsquo;t move your dashboard.',
+      'LLMs are non-deterministic. We run every prompt multiple times per cycle and aggregate - so one noisy run can&rsquo;t move your dashboard.',
   },
   {
     icon: '⟁',
     title: 'Citation transparency',
     description:
-      'Every Perplexity, ChatGPT Search, and Gemini grounded answer comes with the full citation list — captured and surfaced for you.',
+      'Every Perplexity, ChatGPT Search, and Gemini grounded answer comes with the full citation list - captured and surfaced for you.',
   },
   {
     icon: '⚠',
@@ -77,7 +77,7 @@ const values = [
     icon: '⬢',
     title: 'Built for teams of all sizes',
     description:
-      'Solo founders, in-house marketing teams, multi-brand agencies — Livesov scales from one brand on Free to dozens on Agency.',
+      'Solo founders, in-house marketing teams, multi-brand agencies - Livesov scales from one brand on Free to dozens on Agency.',
   },
 ];
 
@@ -92,7 +92,7 @@ const faqs = [
   {
     question: 'When was Livesov founded?',
     answer:
-      'Livesov was founded in 2024 to build the analytics layer for AI brand visibility — a market segment that essentially didn&apos;t exist as a standalone discipline until ChatGPT, Perplexity, and Claude crossed mass-market scale.',
+      'Livesov was founded in 2024 to build the analytics layer for AI brand visibility - a market segment that essentially didn&apos;t exist as a standalone discipline until ChatGPT, Perplexity, and Claude crossed mass-market scale.',
   },
   {
     question: 'Who is Livesov for?',
@@ -102,7 +102,7 @@ const faqs = [
   {
     question: 'How is Livesov different from a traditional SEO tool?',
     answer:
-      'Traditional SEO tools measure Google search rankings. Livesov measures AI answers — what ChatGPT, Claude, Gemini, Perplexity, and Grok say about your brand. The disciplines are complementary; most customers run Livesov alongside Ahrefs or Semrush.',
+      'Traditional SEO tools measure Google search rankings. Livesov measures AI answers - what ChatGPT, Claude, Gemini, Perplexity, and Grok say about your brand. The disciplines are complementary; most customers run Livesov alongside Ahrefs or Semrush.',
   },
   {
     question: 'How is Livesov different from a ChatGPT mention checker?',
@@ -132,7 +132,7 @@ export default function AboutPage() {
             About <span className="text-[var(--brand)]">Livesov</span>
           </>
         }
-        subtitle="We're building the analytics layer for AI visibility — helping brands measure and improve how ChatGPT, Claude, Gemini, Perplexity, and Grok mention and recommend them."
+        subtitle="We're building the analytics layer for AI visibility - helping brands measure and improve how ChatGPT, Claude, Gemini, Perplexity, and Grok mention and recommend them."
         ctaText="Try Livesov free"
       />
 
@@ -158,7 +158,7 @@ export default function AboutPage() {
             None of this is visible in traditional analytics. Your Google Search Console
             doesn&apos;t tell you whether ChatGPT calls you the leader in your category, lists a
             competitor first, or confidently misstates your pricing. Your SEO suite doesn&apos;t
-            tell you which of your pages Perplexity actually cites — or which competitor pages
+            tell you which of your pages Perplexity actually cites - or which competitor pages
             are stealing your slot. <strong>That gap is the largest blind spot in modern brand
             marketing, and Livesov exists to close it.</strong>
           </p>
@@ -203,7 +203,7 @@ export default function AboutPage() {
             a single AI call, (2) screenshot tools that scrape the ChatGPT or Perplexity UI
             and break every time the platform ships a change, or (3) legacy SEO suites with an
             &quot;AI&quot; sticker on the box. Livesov is none of these. We built from the API
-            up, for the AI era, as a continuous measurement loop — and we cover all five major
+            up, for the AI era, as a continuous measurement loop - and we cover all five major
             AI platforms with the same depth.
           </p>
 
@@ -227,7 +227,7 @@ export default function AboutPage() {
         </LongForm>
       </Section>
 
-      <FaqSection title="About Livesov — FAQ" items={faqs} />
+      <FaqSection title="About Livesov - FAQ" items={faqs} />
 
       <PillarLinks
         title="Get started or go deeper"

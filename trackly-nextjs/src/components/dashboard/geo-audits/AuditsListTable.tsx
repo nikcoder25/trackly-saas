@@ -4,14 +4,14 @@ import { useRouter } from 'next/navigation';
 import MentionRateSparkline from './MentionRateSparkline';
 
 /**
- * Audits list — desktop table / mobile card list (auto-switches at
+ * Audits list - desktop table / mobile card list (auto-switches at
  * 768px via the `is-mobile` class toggle from the parent media-query).
  *
  * Columns:
  *   region · date | run (Px·R × 5) | mentions (X/Y + %) | 4-week trend | status pill
  *
  * Click any row → router.push to drill-down. (Selection / compare
- * was removed in the cleanup PR — no checkboxes, no compare flow.)
+ * was removed in the cleanup PR - no checkboxes, no compare flow.)
  */
 
 export type DerivedStatus =
@@ -90,7 +90,7 @@ export default function AuditsListTable({
 
   return (
     <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-      {/* Table header — hidden on mobile via CSS */}
+      {/* Table header - hidden on mobile via CSS */}
       <div
         className="ral-thead"
         role="row"

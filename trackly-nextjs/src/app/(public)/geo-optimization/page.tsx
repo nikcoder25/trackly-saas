@@ -32,7 +32,7 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Generative Engine Optimization (GEO) — The Complete Guide | Livesov',
+        alt: 'Generative Engine Optimization (GEO) - The Complete Guide | Livesov',
       },
     ],
   },
@@ -50,7 +50,7 @@ const pillars = [
     icon: '◎',
     title: 'Authoritative content',
     description:
-      'Long, well-cited, well-structured pages that LLMs can quote — not short marketing pages. Depth and attribution beat keyword density.',
+      'Long, well-cited, well-structured pages that LLMs can quote - not short marketing pages. Depth and attribution beat keyword density.',
   },
   {
     icon: '⟁',
@@ -68,7 +68,7 @@ const pillars = [
     icon: '⌁',
     title: 'Freshness signals',
     description:
-      'Last-updated dates, recent timestamps, and active editorial cycles tell AI your content is current — a strong citation booster.',
+      'Last-updated dates, recent timestamps, and active editorial cycles tell AI your content is current - a strong citation booster.',
   },
   {
     icon: '⚙',
@@ -98,7 +98,7 @@ const steps = [
   {
     title: 'Reverse-engineer winning citations',
     description:
-      'For each priority prompt, look at the pages AI currently cites. What do they have in common? Schema, depth, freshness, source authority — find the pattern.',
+      'For each priority prompt, look at the pages AI currently cites. What do they have in common? Schema, depth, freshness, source authority - find the pattern.',
   },
   {
     title: 'Ship targeted content & infra',
@@ -118,7 +118,7 @@ const geoVsSeoRows = [
   ['Click model', 'AI cites; reader may never visit', 'Position 1 dominates clicks'],
   ['Measurement unit', 'Mention rate, share of voice, citation share, rank', 'Keyword position, organic traffic, impressions'],
   ['Update cadence', 'Hours (Perplexity / Grok) to weeks (ChatGPT / Claude)', 'Daily-weekly Google index'],
-  ['Hallucination risk', 'High — AI invents facts', 'None — Google links to real pages'],
+  ['Hallucination risk', 'High - AI invents facts', 'None - Google links to real pages'],
   ['Best-in-class tool', 'Livesov (AI-native)', 'Ahrefs / Semrush (SERP-native)'],
 ];
 
@@ -126,12 +126,12 @@ const faqs = [
   {
     question: 'What is Generative Engine Optimization (GEO)?',
     answer:
-      'GEO is the practice of optimizing your brand&rsquo;s digital footprint so that AI platforms — ChatGPT, Claude, Gemini, Perplexity, and Grok — accurately mention, recommend, and cite your brand in their generated answers. Where SEO targets the 10 blue links, GEO targets the AI answer above them.',
+      'GEO is the practice of optimizing your brand&rsquo;s digital footprint so that AI platforms - ChatGPT, Claude, Gemini, Perplexity, and Grok - accurately mention, recommend, and cite your brand in their generated answers. Where SEO targets the 10 blue links, GEO targets the AI answer above them.',
   },
   {
     question: 'Is GEO replacing SEO?',
     answer:
-      'No — it&rsquo;s additive. AI Overviews, ChatGPT Search, and Perplexity all draw on the same authoritative web that SEO helps you build. The fastest brands treat GEO and SEO as one motion: SEO earns the search visibility AI grounds on; GEO measures whether AI actually quotes you.',
+      'No - it&rsquo;s additive. AI Overviews, ChatGPT Search, and Perplexity all draw on the same authoritative web that SEO helps you build. The fastest brands treat GEO and SEO as one motion: SEO earns the search visibility AI grounds on; GEO measures whether AI actually quotes you.',
   },
   {
     question: 'What is llms.txt?',
@@ -151,7 +151,7 @@ const faqs = [
   {
     question: 'Can I do GEO myself or do I need an agency?',
     answer:
-      'Both work. The core loop is measurable and repeatable: audit, identify gaps, ship improvements, re-measure. Livesov is built for solo operators, in-house teams, and agencies alike — see our /partners page for the agency program.',
+      'Both work. The core loop is measurable and repeatable: audit, identify gaps, ship improvements, re-measure. Livesov is built for solo operators, in-house teams, and agencies alike - see our /partners page for the agency program.',
   },
   {
     question: 'What are the biggest GEO mistakes?',
@@ -200,14 +200,14 @@ export default function GeoOptimizationPage() {
             <strong>Generative Engine Optimization (GEO)</strong> is the practice of structuring
             your brand&apos;s digital footprint so that AI platforms (ChatGPT, Claude, Gemini,
             Perplexity, Grok) accurately mention, recommend, and cite your brand in their
-            generated answers. It is to AI search what SEO was to the early Google index — a
+            generated answers. It is to AI search what SEO was to the early Google index - a
             young, fast-moving, high-leverage discipline that compounds for the brands that
             adopt it early.
           </p>
           <p>
             GEO is not a replacement for SEO. It is the layer above SEO that determines whether
-            the work you&apos;ve already done — ranking content, earning backlinks, building
-            authority — actually gets turned into an AI mention. Some of the highest-traffic
+            the work you&apos;ve already done - ranking content, earning backlinks, building
+            authority - actually gets turned into an AI mention. Some of the highest-traffic
             SEO pages on the web are invisible inside ChatGPT and Perplexity, because they were
             optimized for click-throughs, not for AI quotation.
           </p>
@@ -259,8 +259,8 @@ export default function GeoOptimizationPage() {
           <h2>Pillar 3: Third-party authority</h2>
           <p>
             This is the single most under-invested pillar. AI platforms weight third-party
-            sources — G2, Capterra, Wikipedia, Reddit, major news outlets, category roundups,
-            analyst notes — extraordinarily heavily. The cleanest way to win Perplexity
+            sources - G2, Capterra, Wikipedia, Reddit, major news outlets, category roundups,
+            analyst notes - extraordinarily heavily. The cleanest way to win Perplexity
             citations and ChatGPT mentions is to be the brand most often referenced inside
             those sources, not to publish more on your own blog.
           </p>
@@ -274,7 +274,7 @@ export default function GeoOptimizationPage() {
           <h2>Pillar 4: Freshness signals</h2>
           <p>
             Last-updated dates, recent timestamps, and active editorial signals tell AI your
-            content is current — a strong citation booster, especially for the grounded
+            content is current - a strong citation booster, especially for the grounded
             surfaces (Perplexity, ChatGPT Search, Gemini AI Overviews, Grok live-search). A
             three-year-old page with no last-updated date is invisible to most AI grounders.
           </p>
@@ -286,8 +286,8 @@ export default function GeoOptimizationPage() {
 
           <h2>Pillar 5: AI-crawlable infrastructure</h2>
           <p>
-            AI crawlers — GPTBot, ClaudeBot, PerplexityBot, GoogleOther, OAI-SearchBot,
-            xAI-Bot — need permission and a clean route to your content. The infra checklist:
+            AI crawlers - GPTBot, ClaudeBot, PerplexityBot, GoogleOther, OAI-SearchBot,
+            xAI-Bot - need permission and a clean route to your content. The infra checklist:
             allow the major AI crawlers in robots.txt (unless you have a deliberate reason
             not to), serve content as HTML without aggressive JS gating, ship an llms.txt
             file with a curated map of your most important content, and set HTTP cache headers
@@ -306,7 +306,7 @@ export default function GeoOptimizationPage() {
             hallucinations. If your pricing tiers, founder names, supported regions, or
             integrations are listed differently on your homepage, your docs, your G2 profile,
             and a third-party comparison page, AI splits the difference and invents an
-            average — which is almost always wrong.
+            average - which is almost always wrong.
           </p>
           <p>
             Practical actions: define a canonical fact set, audit your top 20–50 most-cited
@@ -314,7 +314,7 @@ export default function GeoOptimizationPage() {
             drift between AI outputs and your verified facts.
           </p>
 
-          <h2>GEO vs. SEO — the head-to-head</h2>
+          <h2>GEO vs. SEO - the head-to-head</h2>
           <p>
             The clearest way to think about GEO is to put it next to SEO and compare every
             dimension.
@@ -382,7 +382,7 @@ export default function GeoOptimizationPage() {
           <Callout title="The most common GEO mistake" variant="note">
             Treating GEO as a one-off project. AI models update, your competitors ship content,
             third-party sources change. The brands that win GEO run the measurement loop
-            weekly — not quarterly. That&apos;s why Livesov is built as a continuous monitor,
+            weekly - not quarterly. That&apos;s why Livesov is built as a continuous monitor,
             not a one-time audit tool.
           </Callout>
 
@@ -392,33 +392,33 @@ export default function GeoOptimizationPage() {
           </p>
           <ul>
             <li>
-              <a href="/geo-audit">Free GEO Audit</a> — score any URL for AI-citation readiness
+              <a href="/geo-audit">Free GEO Audit</a> - score any URL for AI-citation readiness
               in seconds.
             </li>
             <li>
-              <a href="/tools/llms-txt-generator">llms.txt Generator</a> — produce a valid
+              <a href="/tools/llms-txt-generator">llms.txt Generator</a> - produce a valid
               llms.txt for your domain.
             </li>
             <li>
-              <a href="/tools/ai-crawler-checker">AI Crawler Checker</a> — confirm GPTBot,
+              <a href="/tools/ai-crawler-checker">AI Crawler Checker</a> - confirm GPTBot,
               ClaudeBot, PerplexityBot, and GoogleOther can reach your site.
             </li>
             <li>
-              <a href="/tools/chatgpt-mention-checker">ChatGPT Mention Checker</a> — run a one-
+              <a href="/tools/chatgpt-mention-checker">ChatGPT Mention Checker</a> - run a one-
               shot mention check against ChatGPT.
             </li>
             <li>
-              <a href="/tools/share-of-voice-calculator">Share of Voice Calculator</a> — quick
+              <a href="/tools/share-of-voice-calculator">Share of Voice Calculator</a> - quick
               math on AI share of voice in your category.
             </li>
             <li>
-              <a href="/tools">All free GEO tools</a> — the complete library.
+              <a href="/tools">All free GEO tools</a> - the complete library.
             </li>
           </ul>
           <p>
             When you&apos;re ready to move from spot-checks to continuous measurement, that&apos;s
             where <strong>Livesov</strong> comes in. <a href="/pricing">Start a 7-day free
-            trial</a> — no credit card.
+            trial</a> - no credit card.
           </p>
         </LongForm>
       </Section>

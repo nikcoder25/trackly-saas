@@ -360,7 +360,7 @@ function matchSearch(row: GeoAuditRow, search: string): boolean {
  *  mention_rate as a single point (no per-region breakdown stored). */
 function buildTrendMap(audits: GeoAuditRow[]): Record<string, number[]> {
   // Group rates by region key. Only consider rows with a non-null
-  // mention_rate (i.e., terminal completed runs). NO mock data —
+  // mention_rate (i.e., terminal completed runs). NO mock data -
   // an empty array means "no trend data yet" for that region.
   const byRegion = new Map<string, Array<{ at: number; rate: number }>>();
   for (const a of audits) {
@@ -406,7 +406,7 @@ export default function GeoAuditsPage() {
   const brandId: string | null = selectedBrand?.id ?? null;
   const brandName: string | null = (selectedBrand?.name as string | undefined) ?? null;
 
-  // Polling lifecycle — same as the existing page (preserved).
+  // Polling lifecycle - same as the existing page (preserved).
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const inFlight = useRef(false);
 
@@ -485,7 +485,7 @@ export default function GeoAuditsPage() {
       : (a.mentionRate != null ? [a.mentionRate] : []),
   }));
 
-  // Real-data KPI summary (no invented metrics) — counts derived from
+  // Real-data KPI summary (no invented metrics) - counts derived from
   // the loaded audits and the currently-filtered subset.
   const doneCount = allAudits.filter((a) => deriveStatus(a) === 'done').length;
   const activeCount = allAudits.filter((a) => a.status === 'queued' || a.status === 'running').length;

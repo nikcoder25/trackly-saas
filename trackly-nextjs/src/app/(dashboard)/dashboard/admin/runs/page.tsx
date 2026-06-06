@@ -4,14 +4,14 @@
  * Admin operator console for active runs + cron locks.
  *
  * Two tables:
- *   1. Active Runs — every active_runs row at status='running'.
+ *   1. Active Runs - every active_runs row at status='running'.
  *      Per-row "Reap" button calls POST /api/admin/runs/reap with
  *      { runId } (surgical, force=true). Bulk "Reap all stale"
  *      requires an explicit minAgeMinutes (default 30, hard-floor
  *      RUN_WATCHDOG_STALE_MINUTES enforced server-side).
- *   2. Cron Locks — every Redis + Postgres lock holder. Per-row
+ *   2. Cron Locks - every Redis + Postgres lock holder. Per-row
  *      "Force release" button calls POST /api/admin/locks/[name]/release.
- *      Both require confirm() — neither operation has a friendly
+ *      Both require confirm() - neither operation has a friendly
  *      undo and force-release of a live scheduler lock can cause
  *      double dispatch.
  *
@@ -54,7 +54,7 @@ interface CronLock {
 }
 
 function fmtAge(seconds: number | null): string {
-  if (seconds === null || seconds === undefined) return '—';
+  if (seconds === null || seconds === undefined) return '-';
   if (seconds < 60) return `${seconds}s`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
   const h = Math.floor(seconds / 3600);
@@ -63,7 +63,7 @@ function fmtAge(seconds: number | null): string {
 }
 
 function fmtTtl(ms: number | null): string {
-  if (ms === null || ms === undefined) return '—';
+  if (ms === null || ms === undefined) return '-';
   return fmtAge(Math.floor(ms / 1000));
 }
 
@@ -253,7 +253,7 @@ export default function AdminRunsPage() {
                     <div style={{ fontWeight: 600 }}>{r.brandName || '(no name)'}</div>
                     <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>{r.brandId}</div>
                   </td>
-                  <td style={td}>{r.ownerEmail || <span style={{ color: 'var(--muted)' }}>—</span>}</td>
+                  <td style={td}>{r.ownerEmail || <span style={{ color: 'var(--muted)' }}>-</span>}</td>
                   <td style={{ ...td, fontFamily: 'var(--mono)', fontSize: 10 }}>{r.runId}</td>
                   <td style={td}>{fmtAge(r.ageSeconds)}</td>
                   <td style={{ ...td, color: r.stale ? 'var(--red)' : undefined, fontWeight: r.stale ? 700 : undefined }}>
@@ -263,7 +263,7 @@ export default function AdminRunsPage() {
                   <td style={td}>
                     {r.lastPlatformAttempted ? (
                       <span><span style={{ fontWeight: 600 }}>{r.lastPlatformAttempted}</span>{r.lastQueryAttempted ? ` · ${r.lastQueryAttempted.slice(0, 30)}…` : ''}</span>
-                    ) : <span style={{ color: 'var(--muted)' }}>—</span>}
+                    ) : <span style={{ color: 'var(--muted)' }}>-</span>}
                   </td>
                   <td style={td}>{r.received}/{r.totalExpected}</td>
                   <td style={td}>{r.errorCount || 0}</td>
@@ -323,10 +323,10 @@ export default function AdminRunsPage() {
                     </span>
                   </td>
                   <td style={td}>
-                    {l.source === 'redis' ? `TTL ${fmtTtl(l.ttlMs)}` : (l.lockedAt || <span style={{ color: 'var(--muted)' }}>—</span>)}
+                    {l.source === 'redis' ? `TTL ${fmtTtl(l.ttlMs)}` : (l.lockedAt || <span style={{ color: 'var(--muted)' }}>-</span>)}
                   </td>
                   <td style={td}>{fmtAge(l.ageSeconds)}</td>
-                  <td style={{ ...td, fontFamily: 'var(--mono)', fontSize: 10 }}>{l.instanceId || <span style={{ color: 'var(--muted)' }}>—</span>}</td>
+                  <td style={{ ...td, fontFamily: 'var(--mono)', fontSize: 10 }}>{l.instanceId || <span style={{ color: 'var(--muted)' }}>-</span>}</td>
                   <td style={td}>
                     <button
                       onClick={() => releaseLock(l.name)}

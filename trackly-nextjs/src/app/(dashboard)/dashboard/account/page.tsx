@@ -362,7 +362,7 @@ export default function AccountPage() {
             {/* Backup Codes Display */}
             {backupCodes.length > 0 && (
               <div style={{ marginTop: 16, padding: 16, background: 'var(--surface-2)', borderRadius: 8, border: '1px solid var(--line)' }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Backup codes — save these somewhere safe!</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Backup codes - save these somewhere safe!</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
                   {backupCodes.map((code, i) => (
                     <div key={i} className="mono" style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', padding: '6px 10px', background: 'var(--surface)', borderRadius: 4, textAlign: 'center' }}>{code}</div>

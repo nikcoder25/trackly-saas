@@ -30,7 +30,7 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Integrations — AI Platforms, Alerts & Exports | Livesov',
+        alt: 'Integrations - AI Platforms, Alerts & Exports | Livesov',
       },
     ],
   },
@@ -73,7 +73,7 @@ const platforms = [
     color: '#20b8cd',
     href: '/perplexity-brand-tracking',
     models: 'Sonar · Sonar Pro · Sonar Reasoning · Sonar Deep Research',
-    desc: 'Full Sonar-family API access with complete citation capture — every source URL logged in rank order.',
+    desc: 'Full Sonar-family API access with complete citation capture - every source URL logged in rank order.',
     surfaces: ['Perplexity.ai (web)', 'Perplexity mobile apps', 'Perplexity Pages', 'Embedded Perplexity widgets'],
   },
   {
@@ -133,12 +133,12 @@ const faqs = [
   {
     question: 'How does Livesov connect to each AI platform?',
     answer:
-      'Direct API integration. Livesov calls the official OpenAI, Anthropic, Google, Perplexity, and xAI APIs for every query — no scraping, no proxies, no UI automation. That means audit-grade reliability and clean, reproducible measurement.',
+      'Direct API integration. Livesov calls the official OpenAI, Anthropic, Google, Perplexity, and xAI APIs for every query - no scraping, no proxies, no UI automation. That means audit-grade reliability and clean, reproducible measurement.',
   },
   {
     question: 'Do I have to bring my own API keys?',
     answer:
-      'No — Livesov\'s credits cover all AI API calls out of the box. Bring-your-own-key is supported on the Agency plan for compliance, attribution, or to use your own enterprise rate limits.',
+      'No - Livesov\'s credits cover all AI API calls out of the box. Bring-your-own-key is supported on the Agency plan for compliance, attribution, or to use your own enterprise rate limits.',
   },
   {
     question: 'Are there webhook integrations?',
@@ -158,7 +158,7 @@ const faqs = [
   {
     question: 'Is there a public API?',
     answer:
-      'Agency plans include API access for programmatic reading of every metric Livesov computes. Custom integrations and enterprise SLAs are available — contact us for details.',
+      'Agency plans include API access for programmatic reading of every metric Livesov computes. Custom integrations and enterprise SLAs are available - contact us for details.',
   },
   {
     question: 'Will Livesov add support for new AI platforms as they launch?',
@@ -175,11 +175,11 @@ export default function IntegrationsPage() {
       <SeoHero
         title={
           <>
-            Integrated with <span className="text-[var(--brand)]">5 AI platforms</span> — and your stack
+            Integrated with <span className="text-[var(--brand)]">5 AI platforms</span> - and your stack
           </>
         }
         subtitle="Direct API access to ChatGPT, Claude, Gemini, Perplexity, and Grok. Plus email alerts, webhooks for Slack / Teams, CSV / JSON / PDF exports, and bring-your-own-key support on Agency plans."
-        ctaText="Start integrating — free"
+        ctaText="Start integrating - free"
       />
 
       <Section pad="0 24px 56px" width={1000}>
@@ -334,7 +334,7 @@ export default function IntegrationsPage() {
         <SectionHeader
           label="Alerts, exports, & data flow"
           title="Get your AI visibility data where you need it"
-          subtitle="Email, webhooks, CSV, JSON, PDF — every metric Livesov captures can be pushed out to your existing tools."
+          subtitle="Email, webhooks, CSV, JSON, PDF - every metric Livesov captures can be pushed out to your existing tools."
         />
         <div
           style={{
@@ -429,7 +429,7 @@ export default function IntegrationsPage() {
           <h2>Bring your own keys (Agency plan)</h2>
           <p>
             Enterprise and regulated customers often want every AI API call attributed to their
-            own org account — for compliance, cost transparency, or to use a negotiated rate
+            own org account - for compliance, cost transparency, or to use a negotiated rate
             limit. Agency-plan tenants can drop in their own keys for any combination of OpenAI,
             Anthropic, Google, Perplexity, and xAI. All other Livesov functionality (parsing,
             scoring, dashboards, alerts) works identically.
@@ -437,8 +437,8 @@ export default function IntegrationsPage() {
 
           <h2>Webhooks &amp; alerting</h2>
           <p>
-            Every Livesov event — a hallucination flag, a share-of-voice swing, a completed run,
-            a competitor overtake — can be pushed to a webhook endpoint in real time. Payloads
+            Every Livesov event - a hallucination flag, a share-of-voice swing, a completed run,
+            a competitor overtake - can be pushed to a webhook endpoint in real time. Payloads
             are JSON, requests are signed with HMAC for verification, and the dashboard lets
             you re-deliver failed events. Out of the box, the payloads work cleanly with Slack
             incoming webhooks and Microsoft Teams adaptive cards.
@@ -454,7 +454,7 @@ export default function IntegrationsPage() {
           <p>
             Every dashboard view exports to CSV with one click. JSON exports power custom
             downstream pipelines (BI tools, internal dashboards, analyst notebooks). PDF
-            reports are designed for client and stakeholder delivery — white-labeled on Agency
+            reports are designed for client and stakeholder delivery - white-labeled on Agency
             plans with your logo, brand colors, and disclaimer text.
           </p>
           <p>
@@ -477,7 +477,7 @@ export default function IntegrationsPage() {
           {
             href: '/chatgpt-brand-tracking',
             label: 'ChatGPT brand tracking',
-            description: 'GPT-4o, GPT-4o-mini, ChatGPT Search — all tracked.',
+            description: 'GPT-4o, GPT-4o-mini, ChatGPT Search - all tracked.',
           },
           {
             href: '/perplexity-brand-tracking',
@@ -487,7 +487,7 @@ export default function IntegrationsPage() {
           {
             href: '/claude-brand-tracking',
             label: 'Claude brand tracking',
-            description: 'Opus, Sonnet, Haiku — tuned for nuanced answers.',
+            description: 'Opus, Sonnet, Haiku - tuned for nuanced answers.',
           },
           {
             href: '/gemini-brand-tracking',

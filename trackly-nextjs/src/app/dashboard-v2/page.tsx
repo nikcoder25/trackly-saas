@@ -1,6 +1,6 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// Livesov dashboard redesign — full design-system port of Dashboard.html.
+// Livesov dashboard redesign - full design-system port of Dashboard.html.
 // Mounted at /dashboard-v2 so it owns the full-viewport shell without disturbing
 // the production dashboard. All styles are scoped under the `.lvx` root.
 
