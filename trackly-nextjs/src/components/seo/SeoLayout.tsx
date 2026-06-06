@@ -64,6 +64,10 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
         <div className="land-footer-newsletter">
           <div className="land-footer-newsletter-inner">
             <div className="land-footer-newsletter-copy">
+              <div className="land-footer-newsletter-eyebrow">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <span>Newsletter</span>
+              </div>
               <h3>Get the GEO playbook in your inbox</h3>
               <p>Weekly insights on AI search, brand visibility tactics, and product updates. No spam, unsubscribe anytime.</p>
             </div>
@@ -93,6 +97,16 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
               Live<span>sov</span>
             </Link>
             <div className="land-footer-desc">AI Visibility Tracker &mdash; Track how AI platforms mention your brand across ChatGPT, Perplexity, Claude, Gemini &amp; Grok.</div>
+            <div className="land-footer-tracking" aria-label="Platforms tracked">
+              <span className="land-footer-tracking-label">Tracking on</span>
+              <div className="land-footer-tracking-chips">
+                <span className="land-footer-tracking-chip">ChatGPT</span>
+                <span className="land-footer-tracking-chip">Perplexity</span>
+                <span className="land-footer-tracking-chip">Claude</span>
+                <span className="land-footer-tracking-chip">Gemini</span>
+                <span className="land-footer-tracking-chip">Grok</span>
+              </div>
+            </div>
             <div className="land-footer-badges" aria-label="Trust signals">
               <span className="land-footer-badge"><span className="land-footer-badge-dot" /> All systems operational</span>
               <span className="land-footer-badge">SOC 2 ready</span>
@@ -159,7 +173,10 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
           </div>
         </div>
         <div className="land-footer-bottom">
-          <div className="land-footer-text">&copy; {new Date().getFullYear()} Livesov. All rights reserved.</div>
+          <div className="land-footer-bottom-left">
+            <div className="land-footer-text">&copy; {new Date().getFullYear()} Livesov. All rights reserved.</div>
+            <div className="land-footer-tagline">Built for the AI search era.</div>
+          </div>
           <div className="land-footer-legal">
             <Link href="/privacy">Privacy Policy</Link>
             <Link href="/terms">Terms of Service</Link>
