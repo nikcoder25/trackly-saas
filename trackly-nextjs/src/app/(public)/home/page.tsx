@@ -65,30 +65,12 @@ function Reveal({
   return <As ref={ref} className={'reveal ' + className} {...rest}>{children}</As>;
 }
 
-/* Counts up to a value when scrolled into view. */
-function Counter({ to, suffix = '', prefix = '', decimals = 0, duration = 1200 }:
-  { to: number; suffix?: string; prefix?: string; decimals?: number; duration?: number }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const [n, setN] = useState(0);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const io = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) {
-        const start = performance.now();
-        const tick = (t: number) => {
-          const k = Math.min(1, (t - start) / duration);
-          setN(to * (1 - Math.pow(1 - k, 3)));
-          if (k < 1) requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-        io.disconnect();
-      }
-    }, { threshold: 0.5 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [to, duration]);
-  return <span ref={ref}>{prefix}{n.toFixed(decimals)}{suffix}</span>;
+/* Renders the final stat value directly. Earlier versions used a scroll-
+   triggered count-up that initialised at zero, which meant SSR and the
+   no-JS HTML showed "0" to crawlers and to anyone on a slow connection. */
+function Counter({ to, suffix = '', prefix = '', decimals = 0 }:
+  { to: number; suffix?: string; prefix?: string; decimals?: number }) {
+  return <span>{prefix}{to.toFixed(decimals)}{suffix}</span>;
 }
 
 function SecHead({ eyebrow, title, sub, center = false, className = '' }:
@@ -180,14 +162,6 @@ function Hero() {
         </div>
       </div>
 
-      <div className="container logos">
-        <span className="logos-lbl">Trusted by brand &amp; SEO teams at</span>
-        <div className="logos-row">
-          {[104, 84, 120, 92, 78].map((w, i) => (
-            <span key={i} className="logo-ph" style={{ width: w }} aria-hidden="true" />
-          ))}
-        </div>
-      </div>
     </header>
   );
 }
@@ -385,7 +359,7 @@ function Compare() {
     { f: 'Hallucination detection', lv: 'yes', ah: 'no', sm: 'no' },
     { f: 'Sentiment per mention', lv: 'yes', ah: 'no', sm: 'partial' },
     { f: 'Cited-source attribution', lv: 'yes', ah: 'no', sm: 'no' },
-    { f: 'Starting price', lv: { price: '$9' }, ah: '$129', sm: '$139' },
+    { f: 'Starting price', lv: { price: '$9' }, ah: '$99', sm: '$129' },
     { f: 'Setup time', lv: '2 min', ah: '~1 hr', sm: '~1 hr' },
   ];
   return (
@@ -468,12 +442,12 @@ function Pricing() {
   const tiers: { k: string; p: string; credits: string; s: string; f: string[]; cta: string; href: string; pri?: boolean; badge?: string }[] = [
     {
       k: 'Free', p: '$0', credits: '150', s: 'Try it out',
-      f: ['1 brand', '5 tracked prompts', '2 AI platforms (Gemini & Grok)', 'Weekly auto-runs', '3 GEO audits / month'],
+      f: ['1 brand', '5 tracked prompts', '2 AI platforms', 'Weekly auto-runs', '3 GEO audits / month'],
       cta: 'Start free', href: '/signup', pri: false,
     },
     {
       k: 'Starter', p: '$9', credits: '750', s: 'Perfect for getting started',
-      f: ['3 brands', '15 tracked prompts', '2 AI platforms (ChatGPT & Claude)', 'Competitor tracking (3)', 'Auto-runs every 2 days', '20 GEO audits / month'],
+      f: ['3 brands', '15 tracked prompts', '2 AI platforms', 'Competitor tracking (3)', 'Auto-runs every 2 days', '20 GEO audits / month'],
       cta: 'Get started', href: '/signup', pri: false,
     },
     {
@@ -611,7 +585,11 @@ function Footer() {
             <li><Link href="/geo-audit">Free GEO audit</Link></li>
             <li><Link href="/blog">Blog</Link></li>
             <li><Link href="/tools">Free Tools</Link></li>
+            <li><Link href="/glossary">Glossary</Link></li>
+            <li><Link href="/docs">Docs</Link></li>
+            <li><Link href="/resources">Templates &amp; Resources</Link></li>
             <li><Link href="/geo-optimization">GEO guide</Link></li>
+            <li><Link href="/case-studies">Case studies</Link></li>
             <li><Link href="/changelog">Changelog</Link></li>
           </ul>
         </div>

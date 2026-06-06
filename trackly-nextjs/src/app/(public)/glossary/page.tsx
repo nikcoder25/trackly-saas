@@ -56,7 +56,7 @@ export default function GlossaryPage() {
             </span>
           </>
         }
-        subtitle={`${GLOSSARY.length}+ terms defined, plain English. The category itself is new — most teams need shared vocabulary before they can ship a program.`}
+        subtitle={`${GLOSSARY.length}+ terms defined, plain English. The category itself is new - most teams need shared vocabulary before they can ship a program.`}
         ctaText="Track your AI visibility"
       />
 
@@ -186,7 +186,7 @@ export default function GlossaryPage() {
         links={[
           { href: '/learn/llm-seo', label: 'LLM SEO: the 2026 guide', description: 'The complete playbook for ranking inside ChatGPT, Claude, Gemini, Perplexity, and Grok.' },
           { href: '/learn/ai-search-optimization', label: 'AI search optimization', description: 'Companion pillar focused on the AI search surfaces themselves.' },
-          { href: '/learn/ai-overviews-optimization', label: 'AI Overviews optimization', description: 'Google AI Overviews — how to win and hold a citation.' },
+          { href: '/learn/ai-overviews-optimization', label: 'AI Overviews optimization', description: 'Google AI Overviews - how to win and hold a citation.' },
           { href: '/ai-search-statistics-2026', label: 'AI search statistics 2026', description: '120+ data points on AI search adoption and citations.' },
           { href: '/generative-engine-optimization-tool', label: 'GEO tool', description: 'Continuous, multi-platform AI visibility measurement.' },
           { href: '/geo-audit', label: 'Free GEO audit', description: 'Score any URL for LLM citation-readiness in under 30 seconds.' },

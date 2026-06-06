@@ -120,7 +120,7 @@ export default async function BestCategoryPage({ params }: PageProps) {
         <StatsBar
           stats={[
             { value: `${category.brands.length}`, label: 'Brands in the recommendation set' },
-            { value: top?.mentionRate ?? '—', label: `Mention rate for #1 (${top?.name})` },
+            { value: top?.mentionRate ?? '-', label: `Mention rate for #1 (${top?.name})` },
             { value: '5', label: 'LLMs we measure against' },
             { value: 'Live', label: 'Refreshed continuously' },
           ]}
@@ -297,7 +297,7 @@ export default async function BestCategoryPage({ params }: PageProps) {
           <h2>What buyers ask after the initial recommendation</h2>
           <p>
             The first recommendation is rarely the end of the conversation. Buyers almost always
-            ask one of these follow-ups — and the brand that wins the follow-up is the one that
+            ask one of these follow-ups - and the brand that wins the follow-up is the one that
             actually closes the deal.
           </p>
           <ul>
@@ -308,7 +308,7 @@ export default async function BestCategoryPage({ params }: PageProps) {
 
           <Callout title="Track your share of the recommendation set" variant="tip">
             Livesov measures mention rate, citation share, and rank for any brand across
-            ChatGPT, Claude, Gemini, Perplexity, and Grok — continuously. If you want to know
+            ChatGPT, Claude, Gemini, Perplexity, and Grok - continuously. If you want to know
             whether ChatGPT recommends <em>you</em> for {category.category},{' '}
             <a href="/signup">start free</a>.
           </Callout>
@@ -316,7 +316,7 @@ export default async function BestCategoryPage({ params }: PageProps) {
       </Section>
 
       <FaqSection
-        title={`Best ${category.category} — FAQ`}
+        title={`Best ${category.category} - FAQ`}
         subtitle="Common questions about how ChatGPT picks, and how to influence it."
         items={[
           {
@@ -329,7 +329,7 @@ export default async function BestCategoryPage({ params }: PageProps) {
           },
           {
             question: `How is this list different from a Google "best ${category.category}" SERP?`,
-            answer: `Google SERPs are driven by classic ranking signals — backlinks, intent match, and on-page SEO. ChatGPT recommendations are driven by cross-source consensus and extractability. The overlap is roughly 60% — but the rank order and the rationale are different.`,
+            answer: `Google SERPs are driven by classic ranking signals - backlinks, intent match, and on-page SEO. ChatGPT recommendations are driven by cross-source consensus and extractability. The overlap is roughly 60% - but the rank order and the rationale are different.`,
           },
           {
             question: `How often does this ranking change?`,
@@ -341,7 +341,7 @@ export default async function BestCategoryPage({ params }: PageProps) {
           },
           {
             question: `Can I track how often ChatGPT recommends my brand specifically?`,
-            answer: `Yes — Livesov tracks mention rate, citation share, sentiment, and rank for any brand across ChatGPT, Claude, Gemini, Perplexity, and Grok, continuously. Start free and you will see your share of voice for ${category.category} within minutes.`,
+            answer: `Yes - Livesov tracks mention rate, citation share, sentiment, and rank for any brand across ChatGPT, Claude, Gemini, Perplexity, and Grok, continuously. Start free and you will see your share of voice for ${category.category} within minutes.`,
           },
         ]}
       />

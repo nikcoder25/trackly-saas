@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!t) {
     return { title: 'Term not found | Livesov', robots: { index: false, follow: false } };
   }
-  const title = `${t.term}${t.acronym ? ` (${t.acronym})` : ''} — Definition | Livesov AI Search Glossary`;
+  const title = `${t.term}${t.acronym ? ` (${t.acronym})` : ''} - Definition | Livesov AI Search Glossary`;
   return {
     title,
     description: t.shortDef,
@@ -76,7 +76,7 @@ export default async function GlossaryTermPage({ params }: PageProps) {
             ?
           </>
         }
-        subtitle={t.acronym ? `${t.acronym} — ${t.shortDef}` : t.shortDef}
+        subtitle={t.acronym ? `${t.acronym} - ${t.shortDef}` : t.shortDef}
         ctaText="Track your AI visibility"
       />
 
@@ -103,7 +103,7 @@ export default async function GlossaryTermPage({ params }: PageProps) {
                     <a href={`/glossary/${r.slug}`}>
                       <strong>{r.term}</strong>
                     </a>{' '}
-                    — {r.shortDef}
+                    - {r.shortDef}
                   </li>
                 ))}
               </ul>
@@ -114,7 +114,7 @@ export default async function GlossaryTermPage({ params }: PageProps) {
           <p>
             The <a href="/learn/llm-seo">LLM SEO playbook</a> ties every concept in this glossary
             into a single operating model. If you want to see how your brand performs across all
-            the LLMs at once — mention rate, citation share, sentiment, rank — start with the{' '}
+            the LLMs at once - mention rate, citation share, sentiment, rank - start with the{' '}
             <a href="/geo-audit">free GEO audit</a> or skip straight to a{' '}
             <a href="/signup">free Livesov account</a>.
           </p>

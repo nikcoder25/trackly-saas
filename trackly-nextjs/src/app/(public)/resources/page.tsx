@@ -6,7 +6,7 @@ import { Section, SectionHeader, LongForm, PillarLinks } from '@/components/seo/
 export const metadata: Metadata = {
   title: 'AI Visibility Resources, Templates & Free Downloads | Livesov',
   description:
-    'Free templates, calculators, and downloadable playbooks for running an AI visibility program — from board-ready reports to prompt panels and the GEO maturity model.',
+    'Free templates, calculators, and downloadable playbooks for running an AI visibility program - from board-ready reports to prompt panels and the GEO maturity model.',
   keywords:
     'ai visibility report template, geo report template, llm seo template, ai visibility playbook, free seo templates, ai search resources',
   alternates: { canonical: '/resources' },
@@ -49,7 +49,7 @@ const RESOURCES = [
   {
     href: '/tools/ai-readiness-audit',
     title: 'AI Readiness Audit',
-    description: 'Score any URL against the six LLM ranking signals — extractability, schema, crawler access, and more.',
+    description: 'Score any URL against the six LLM ranking signals - extractability, schema, crawler access, and more.',
     badge: 'Audit',
   },
   {
@@ -86,7 +86,7 @@ export default function ResourcesPage() {
             </span>
           </>
         }
-        subtitle="Every template, calculator, and playbook we use internally and with clients — open-sourced. No email gate on the free tools, email-gated downloads for the report templates."
+        subtitle="Every template, calculator, and playbook we use internally and with clients - open-sourced. No email gate on the free tools, email-gated downloads for the report templates."
         ctaText="Start your program"
       />
 
@@ -162,10 +162,10 @@ export default function ResourcesPage() {
           <p>
             The category is new and the playbook is still being written. The fastest way to
             move the field forward is to ship every template, prompt set, and calculator we use
-            so teams can adopt — and improve — them.
+            so teams can adopt - and improve - them.
           </p>
           <p>
-            If you build something on top of one of these resources, tell us — we&apos;ll add it
+            If you build something on top of one of these resources, tell us - we&apos;ll add it
             to the next refresh: <a href="mailto:hello@livesov.com">hello@livesov.com</a>.
           </p>
         </LongForm>

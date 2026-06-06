@@ -81,17 +81,17 @@ const dataSources = [
   {
     icon: 'ChatGPT',
     title: 'OpenAI ChatGPT',
-    description: 'Direct API access to GPT-4o, GPT-4o-mini, and GPT-4o Search Preview - including o1/o3-mini reasoning models.',
+    description: 'Direct API access to GPT-5, GPT-5 mini, and GPT-5 Search - including the o-series reasoning models.',
   },
   {
     icon: 'Claude',
     title: 'Anthropic Claude',
-    description: 'Direct Anthropic API for Claude Opus 4, Sonnet 4, Haiku 4, and the 3.5 family for legacy comparison.',
+    description: 'Direct Anthropic API for Claude Opus 4.5, Sonnet 4.5, Haiku 4.5, and Sonnet 4 for legacy comparison.',
   },
   {
     icon: 'Gemini',
     title: 'Google Gemini',
-    description: 'Direct Google AI / Vertex API for Gemini 2.5 Pro, 2.5 Flash, Flash-Lite, and grounded variants (AI Overviews simulation).',
+    description: 'Direct Google AI / Vertex API for Gemini 3 Pro, 3 Flash, Flash-Lite, and grounded variants (AI Overviews simulation).',
   },
   {
     icon: 'Perplexity',
@@ -101,7 +101,7 @@ const dataSources = [
   {
     icon: 'Grok',
     title: 'xAI Grok',
-    description: 'Direct xAI API for Grok 4, Grok 3, Grok 3 Mini, and the live-search variant grounded on real-time X data.',
+    description: 'Direct xAI API for Grok 5, Grok 4, Grok 4 Mini, and the live-search variant grounded on real-time X data.',
   },
   {
     icon: 'Audit',

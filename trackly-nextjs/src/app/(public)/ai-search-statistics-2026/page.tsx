@@ -73,7 +73,7 @@ const adoption = [
     icon: '◔',
     title: '95M+ Gemini app users',
     description:
-      'Google\'s standalone Gemini app reports more than 95M monthly users globally — separate from the 780M reached via AI Overviews inside classic Google search.',
+      'Google\'s standalone Gemini app reports more than 95M monthly users globally - separate from the 780M reached via AI Overviews inside classic Google search.',
   },
   {
     icon: '◕',
@@ -94,7 +94,7 @@ const behaviorStats = [
     icon: '◎',
     title: '58% zero-click rate',
     description:
-      '58% of US searches in 2026 end without a click to a non-Google property — a 13-point jump in two years, driven primarily by AI Overviews and ChatGPT Search.',
+      '58% of US searches in 2026 end without a click to a non-Google property - a 13-point jump in two years, driven primarily by AI Overviews and ChatGPT Search.',
   },
   {
     icon: '⟶',
@@ -112,7 +112,7 @@ const behaviorStats = [
     icon: '⌛',
     title: '47s median session',
     description:
-      'Median Perplexity session is 47 seconds with a follow-up rate of 38% — users complete tasks in-product rather than navigating away.',
+      'Median Perplexity session is 47 seconds with a follow-up rate of 38% - users complete tasks in-product rather than navigating away.',
   },
   {
     icon: '◈',
@@ -131,8 +131,8 @@ const sourcesQuoted = [
   ['LinkedIn', '6.1%', 'Strong for B2B people, company, and thought-leadership queries.'],
   ['GitHub', '5.4%', 'Dominant for developer, infra, and library queries.'],
   ['Review platforms (G2, Capterra, Trustpilot)', '4.7%', 'High citation share for "best X" and "X vs Y" SaaS queries.'],
-  ['Independent blogs and Substacks', '4.3%', 'Rising — quality long-form increasingly competes with publishers.'],
-  ['Brand-owned domains', '3.8%', 'Surprisingly low — most brand-owned content is referenced, not quoted.'],
+  ['Independent blogs and Substacks', '4.3%', 'Rising - quality long-form increasingly competes with publishers.'],
+  ['Brand-owned domains', '3.8%', 'Surprisingly low - most brand-owned content is referenced, not quoted.'],
   ['Other', '19.4%', 'Long tail of niche forums, docs, and academic sources.'],
 ];
 
@@ -171,13 +171,13 @@ const verticalStats = [
     icon: '$',
     title: 'Finance: 4.2× CTR drop',
     description:
-      'Finance-vertical organic CTR has dropped 4.2× faster than the SERP average — AI Overviews dominate "how does X work" and "best X account" queries.',
+      'Finance-vertical organic CTR has dropped 4.2× faster than the SERP average - AI Overviews dominate "how does X work" and "best X account" queries.',
   },
   {
     icon: '⌂',
     title: 'Real estate: 38% Gemini share',
     description:
-      'Real estate research is the single highest-share Gemini vertical at 38% — Google\'s AI Overviews monopolise local intent.',
+      'Real estate research is the single highest-share Gemini vertical at 38% - Google\'s AI Overviews monopolise local intent.',
   },
   {
     icon: '✈',
@@ -192,7 +192,7 @@ const revenueStats = [
     icon: '◆',
     title: '$2.1T addressable market',
     description:
-      'AI search is forecast to mediate $2.1T in commerce decisions by 2027 — roughly 18% of global e-commerce, B2B, and high-consideration purchase flows.',
+      'AI search is forecast to mediate $2.1T in commerce decisions by 2027 - roughly 18% of global e-commerce, B2B, and high-consideration purchase flows.',
   },
   {
     icon: '⤴',
@@ -204,13 +204,13 @@ const revenueStats = [
     icon: '◐',
     title: '52% of B2B buyers use AI',
     description:
-      '52% of B2B technology buyers now use generative AI in the consideration phase — up from 14% in 2023 (Gartner CIO survey, 2025).',
+      '52% of B2B technology buyers now use generative AI in the consideration phase - up from 14% in 2023 (Gartner CIO survey, 2025).',
   },
   {
     icon: '↻',
     title: '11s to first recommendation',
     description:
-      'Median time from query submission to first named brand recommendation is 11 seconds across ChatGPT, Claude, and Perplexity — faster than scanning a single SERP.',
+      'Median time from query submission to first named brand recommendation is 11 seconds across ChatGPT, Claude, and Perplexity - faster than scanning a single SERP.',
   },
 ];
 
@@ -222,14 +222,14 @@ const crawlerStats = [
   ['ClaudeBot', 'ClaudeBot', '12%', 'Anthropic training crawler.'],
   ['PerplexityBot', 'PerplexityBot', '9%', 'Indexes for Perplexity retrieval.'],
   ['Bytespider (TikTok)', 'Bytespider', '5%', 'ByteDance LLM crawler.'],
-  ['Other (Apple, Meta, xAI)', '—', '5%', 'Smaller-volume crawlers with growing share.'],
+  ['Other (Apple, Meta, xAI)', '-', '5%', 'Smaller-volume crawlers with growing share.'],
 ];
 
 const faqs = [
   {
     question: 'Where do these AI search statistics come from?',
     answer:
-      'Numbers come from public disclosures (OpenAI, Anthropic, Google, Perplexity earnings and investor updates), Q1 2026 third-party studies (Ahrefs, Similarweb, Sparktoro, Gartner), and Livesov\'s own panel of 1,200+ tracked brands across ChatGPT, Claude, Gemini, Perplexity, and Grok. Every section is cite-ready — copy the stat with attribution to Livesov.',
+      'Numbers come from public disclosures (OpenAI, Anthropic, Google, Perplexity earnings and investor updates), Q1 2026 third-party studies (Ahrefs, Similarweb, Sparktoro, Gartner), and Livesov\'s own panel of 1,200+ tracked brands across ChatGPT, Claude, Gemini, Perplexity, and Grok. Every section is cite-ready - copy the stat with attribution to Livesov.',
   },
   {
     question: 'Can I republish these statistics?',
@@ -249,7 +249,7 @@ const faqs = [
   {
     question: 'How much has AI search reduced organic traffic?',
     answer:
-      'Average organic click-through on queries that trigger AI Overviews has dropped 34.5% in 2025–2026. Zero-click rate is now 58% in the US — meaning more than half of all searches end inside the AI surface itself.',
+      'Average organic click-through on queries that trigger AI Overviews has dropped 34.5% in 2025–2026. Zero-click rate is now 58% in the US - meaning more than half of all searches end inside the AI surface itself.',
   },
   {
     question: 'Which sources do AI search engines cite most?',
@@ -302,7 +302,7 @@ export default function AiSearchStatistics2026Page() {
         />
         <FeatureGrid items={adoption} columns={3} />
         <Callout title="Why these numbers matter" variant="info">
-          Together, the six major AI surfaces now reach more than 2.4B monthly users — roughly 30%
+          Together, the six major AI surfaces now reach more than 2.4B monthly users - roughly 30%
           of global internet population. AI search is no longer experimental; it is mainstream
           consumer behavior.
         </Callout>
@@ -339,7 +339,7 @@ export default function AiSearchStatistics2026Page() {
         <SectionHeader
           label="By industry"
           title="AI search penetration by vertical"
-          subtitle="The verticals where AI has already crossed 50% adoption — and where the ground is moving fastest."
+          subtitle="The verticals where AI has already crossed 50% adoption - and where the ground is moving fastest."
         />
         <FeatureGrid items={verticalStats} columns={3} />
       </Section>
@@ -348,7 +348,7 @@ export default function AiSearchStatistics2026Page() {
         <SectionHeader
           label="Business impact"
           title="Revenue, conversion, and addressable market"
-          subtitle="What AI search is worth — and what being cited (or missed) is doing to brand revenue."
+          subtitle="What AI search is worth - and what being cited (or missed) is doing to brand revenue."
         />
         <FeatureGrid items={revenueStats} columns={2} />
       </Section>
@@ -367,13 +367,13 @@ export default function AiSearchStatistics2026Page() {
           <h2>Methodology</h2>
           <p>
             The statistics on this page combine three data sources. First, public disclosures from
-            OpenAI, Anthropic, Google, Perplexity, and xAI — earnings calls, official blogs,
+            OpenAI, Anthropic, Google, Perplexity, and xAI - earnings calls, official blogs,
             investor updates, and developer announcements through Q1 2026. Second, third-party
             measurement: Ahrefs (SERP studies), Similarweb (traffic), Sparktoro (search behavior),
             Gartner (enterprise adoption), and the Reuters Institute Digital News Report.
           </p>
           <p>
-            Third, Livesov’s own tracked-brand panel — 1,200+ brands across SaaS, e-commerce,
+            Third, Livesov’s own tracked-brand panel - 1,200+ brands across SaaS, e-commerce,
             healthcare, finance, legal, and travel, with continuous mention-rate, citation-share,
             and sentiment measurement across ChatGPT, Claude, Gemini, Perplexity, and Grok. Panel
             data is normalised against query category and refreshed daily.
@@ -395,9 +395,9 @@ export default function AiSearchStatistics2026Page() {
             our references list on the next refresh.
           </p>
           <p>
-            If you want to see where <em>your</em> brand sits in this dataset — your share of
+            If you want to see where <em>your</em> brand sits in this dataset - your share of
             voice across the five major LLMs, where your competitors are pulling ahead, and which
-            prompts are quietly mediating revenue — that is what{' '}
+            prompts are quietly mediating revenue - that is what{' '}
             <a href="/">Livesov</a> measures. <a href="/pricing">Start free</a>, no credit card.
           </p>
         </LongForm>
@@ -415,7 +415,7 @@ export default function AiSearchStatistics2026Page() {
           {
             href: '/learn/llm-seo',
             label: 'LLM SEO: the 2026 guide',
-            description: 'How LLMs rank, retrieve and cite — and how to be the brand they quote.',
+            description: 'How LLMs rank, retrieve and cite - and how to be the brand they quote.',
           },
           {
             href: '/learn/ai-search-optimization',
@@ -425,7 +425,7 @@ export default function AiSearchStatistics2026Page() {
           {
             href: '/learn/ai-overviews-optimization',
             label: 'AI Overviews optimization',
-            description: 'Google AI Overviews — how to win and hold a citation.',
+            description: 'Google AI Overviews - how to win and hold a citation.',
           },
           {
             href: '/geo-audit',
@@ -435,7 +435,7 @@ export default function AiSearchStatistics2026Page() {
           {
             href: '/generative-engine-optimization-tool',
             label: 'GEO tool',
-            description: 'Continuous, multi-platform measurement — purpose-built for AI search.',
+            description: 'Continuous, multi-platform measurement - purpose-built for AI search.',
           },
           {
             href: '/pricing',

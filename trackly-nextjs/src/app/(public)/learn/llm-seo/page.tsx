@@ -16,14 +16,14 @@ import {
 export const metadata: Metadata = {
   title: 'LLM SEO: The 2026 Guide to Ranking in ChatGPT, Claude, Gemini & Perplexity | Livesov',
   description:
-    'LLM SEO is the practice of optimizing your brand for Large Language Models — ChatGPT, Claude, Gemini, Perplexity, and Grok. The full 2026 playbook: how LLMs rank pages, what they cite, and how to measure it.',
+    'LLM SEO is the practice of optimizing your brand for Large Language Models - ChatGPT, Claude, Gemini, Perplexity, and Grok. The full 2026 playbook: how LLMs rank pages, what they cite, and how to measure it.',
   keywords:
     'llm seo, llm optimization, large language model seo, chatgpt seo, claude seo, perplexity seo, ranking in llms, how llms rank content, llm visibility, llm search optimization',
   alternates: { canonical: '/learn/llm-seo' },
   openGraph: {
     title: 'LLM SEO: The 2026 Guide to Ranking in ChatGPT, Claude, Gemini & Perplexity',
     description:
-      'How Large Language Models rank, retrieve, and cite content — and how to make sure they cite yours.',
+      'How Large Language Models rank, retrieve, and cite content - and how to make sure they cite yours.',
     url: 'https://livesov.com/learn/llm-seo',
     siteName: 'Livesov',
     type: 'article',
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'LLM SEO: The Complete 2026 Guide',
     description:
-      'How Large Language Models rank, retrieve, and cite content — and how to make sure they cite yours.',
+      'How Large Language Models rank, retrieve, and cite content - and how to make sure they cite yours.',
     images: ['https://livesov.com/og-image.png'],
   },
 };
@@ -62,7 +62,7 @@ const ranking = [
     icon: '◒',
     title: 'Cross-source consensus',
     description:
-      'LLMs deliberately diversify sources. The brand named by 6 different domains beats the brand named only by its own homepage — even if the homepage is more authoritative.',
+      'LLMs deliberately diversify sources. The brand named by 6 different domains beats the brand named only by its own homepage - even if the homepage is more authoritative.',
   },
   {
     icon: '◓',
@@ -88,7 +88,7 @@ const steps = [
   {
     title: 'Map the prompts your buyers actually ask',
     description:
-      'Stop guessing keywords. Cluster the 30–100 prompts that drive purchase decisions in your category — comparison, best-for, alternatives, integrations.',
+      'Stop guessing keywords. Cluster the 30–100 prompts that drive purchase decisions in your category - comparison, best-for, alternatives, integrations.',
   },
   {
     title: 'Baseline mention rate across every LLM',
@@ -116,8 +116,8 @@ const llmSeoVsClassic = [
   ['Ranking signal', 'Cross-source consensus + extractability', 'Backlinks + on-page signals + intent match'],
   ['Update speed', 'Days (retrieval) to months (training)', 'Daily Google index'],
   ['Position concept', 'Mention rate, citation share, rank inside the answer', 'SERP position 1–10'],
-  ['Click path', 'Often zero clicks — AI answers in place', 'Click-through from blue link'],
-  ['Hallucination risk', 'Yes — facts get invented', 'No — Google links to real pages'],
+  ['Click path', 'Often zero clicks - AI answers in place', 'Click-through from blue link'],
+  ['Hallucination risk', 'Yes - facts get invented', 'No - Google links to real pages'],
   ['Best tool category', 'AI-native trackers (Livesov)', 'SERP trackers (Ahrefs, Semrush)'],
 ];
 
@@ -130,17 +130,17 @@ const faqs = [
   {
     question: 'How is LLM SEO different from GEO (Generative Engine Optimization)?',
     answer:
-      'They are largely the same discipline. "LLM SEO" emphasises the model — what the LLM knows about you from training, and how it retrieves you at runtime. "GEO" emphasises the generative answer surface — the box the user reads. In practice the playbook is identical: own the sources LLMs read, structure pages for extraction, and measure mention rate across every platform.',
+      'They are largely the same discipline. "LLM SEO" emphasises the model - what the LLM knows about you from training, and how it retrieves you at runtime. "GEO" emphasises the generative answer surface - the box the user reads. In practice the playbook is identical: own the sources LLMs read, structure pages for extraction, and measure mention rate across every platform.',
   },
   {
     question: 'Can I do LLM SEO without doing classic SEO?',
     answer:
-      'No, and you would not want to. Every grounded LLM surface — Perplexity, ChatGPT Search, Gemini AI Overviews, Google AI Mode — retrieves from the same web that classic SEO ranks. Strong organic rankings are the cheapest LLM-citation input you can buy. LLM SEO sits on top of classic SEO, not next to it.',
+      'No, and you would not want to. Every grounded LLM surface - Perplexity, ChatGPT Search, Gemini AI Overviews, Google AI Mode - retrieves from the same web that classic SEO ranks. Strong organic rankings are the cheapest LLM-citation input you can buy. LLM SEO sits on top of classic SEO, not next to it.',
   },
   {
     question: 'Which LLMs cite sources, and which do not?',
     answer:
-      'Perplexity, ChatGPT Search, Gemini AI Overviews, Google AI Mode, and Grok with live search all cite. The base ChatGPT model, Claude, and Gemini through the API without grounding do not cite — they answer from training memory. For non-citing surfaces, your only lever is being prevalent enough in the training corpus to be remembered.',
+      'Perplexity, ChatGPT Search, Gemini AI Overviews, Google AI Mode, and Grok with live search all cite. The base ChatGPT model, Claude, and Gemini through the API without grounding do not cite - they answer from training memory. For non-citing surfaces, your only lever is being prevalent enough in the training corpus to be remembered.',
   },
   {
     question: 'How long does LLM SEO take to work?',
@@ -155,7 +155,7 @@ const faqs = [
   {
     question: 'How do I measure LLM SEO results?',
     answer:
-      'Mention rate, citation share, sentiment, and rank inside the AI answer — per prompt, per LLM, over time. Livesov measures all four continuously across ChatGPT, Claude, Gemini, Perplexity, and Grok so you can see whether a change actually moved the needle.',
+      'Mention rate, citation share, sentiment, and rank inside the AI answer - per prompt, per LLM, over time. Livesov measures all four continuously across ChatGPT, Claude, Gemini, Perplexity, and Grok so you can see whether a change actually moved the needle.',
   },
 ];
 
@@ -178,7 +178,7 @@ export default function LlmSeoPage() {
             </span>
           </>
         }
-        subtitle="How Large Language Models rank, retrieve, and cite content — and how to make sure they cite yours. The complete playbook for ChatGPT, Claude, Gemini, Perplexity, and Grok."
+        subtitle="How Large Language Models rank, retrieve, and cite content - and how to make sure they cite yours. The complete playbook for ChatGPT, Claude, Gemini, Perplexity, and Grok."
         ctaText="Start tracking LLM mentions"
       />
 
@@ -202,7 +202,7 @@ export default function LlmSeoPage() {
         <LongForm>
           <p>
             <strong>LLM SEO</strong> is the practice of structuring your brand and content so that
-            Large Language Models — ChatGPT, Claude, Gemini, Perplexity, and Grok — accurately
+            Large Language Models - ChatGPT, Claude, Gemini, Perplexity, and Grok - accurately
             mention, recommend, and cite you in their generated answers. It is the natural
             extension of search engine optimization for a world where the search engine is no
             longer a list of links but a sentence written by a model.
@@ -210,7 +210,7 @@ export default function LlmSeoPage() {
           <p>
             Three things make LLM SEO distinct. First, the ranking unit is the citation or the
             mention, not the SERP position. Second, the ranking signal is cross-source consensus,
-            not just on-page or off-page authority — LLMs look for the brand most often
+            not just on-page or off-page authority - LLMs look for the brand most often
             <em> consistently described</em> across many sources, then quote it. Third, the
             click is often gone: an AI answer that names you is the conversion, not the start of
             one. That changes how you measure success.
@@ -246,7 +246,7 @@ export default function LlmSeoPage() {
 
           <h3>ChatGPT (OpenAI)</h3>
           <p>
-            The default model answers from training memory and rewards broad open-web presence —
+            The default model answers from training memory and rewards broad open-web presence -
             Wikipedia, Reddit, GitHub, established publishers, G2, Capterra. ChatGPT Search
             additionally re-ranks live retrieval, where schema, freshness, and explicit
             comparison content matter. If you are invisible in Reddit + G2 + Wikipedia, expect to
@@ -259,7 +259,7 @@ export default function LlmSeoPage() {
           <p>
             Claude rewards depth, attribution, and balance. Marketing-heavy prose tends to be
             quoted less than well-cited, long-form documentation. Claude is also unusually
-            sensitive to fact consistency — contradictions across sources visibly suppress your
+            sensitive to fact consistency - contradictions across sources visibly suppress your
             mention rate. See <a href="/claude-brand-tracking">Claude brand tracking</a>.
           </p>
 
@@ -283,12 +283,12 @@ export default function LlmSeoPage() {
           <h3>Grok (xAI)</h3>
           <p>
             Grok weights real-time X conversation heavily and uses live X search. Active,
-            credible X presence in your category shifts answers within days — even when your
+            credible X presence in your category shifts answers within days - even when your
             website footprint is unchanged. See <a href="/grok-brand-tracking">Grok brand
             tracking</a>.
           </p>
 
-          <h2>LLM SEO vs. classic SEO — head-to-head</h2>
+          <h2>LLM SEO vs. classic SEO - head-to-head</h2>
           <p>
             We get asked which one to invest in. The honest answer is both, sequenced. Classic
             SEO is the cheapest LLM SEO input. Here is how the two disciplines compare on the
@@ -316,7 +316,7 @@ export default function LlmSeoPage() {
           <ol>
             <li>
               <strong>No training-corpus presence.</strong> The model has never reliably seen
-              your brand name. Fix: invest in the canonical third-party sources LLMs scrape —
+              your brand name. Fix: invest in the canonical third-party sources LLMs scrape -
               Wikipedia, Reddit, G2, Capterra, well-trafficked publisher coverage.
             </li>
             <li>
@@ -338,7 +338,7 @@ export default function LlmSeoPage() {
 
           <Callout title="The diagnostic skip is the #1 LLM SEO mistake" variant="note">
             Teams reach for content as the default fix because content is what they know how to
-            ship. But if the cause is (1) — no training-corpus presence — no amount of new blog
+            ship. But if the cause is (1) - no training-corpus presence - no amount of new blog
             posts on your own domain will move it. The diagnostic determines the lever; the
             lever determines the work.
           </Callout>
@@ -350,33 +350,33 @@ export default function LlmSeoPage() {
           </p>
           <ul>
             <li>
-              <a href="/geo-audit">Free GEO Audit</a> — score any URL across the six ranking
+              <a href="/geo-audit">Free GEO Audit</a> - score any URL across the six ranking
               signals.
             </li>
             <li>
-              <a href="/tools/ai-crawler-checker">AI Crawler Checker</a> — confirm GPTBot,
+              <a href="/tools/ai-crawler-checker">AI Crawler Checker</a> - confirm GPTBot,
               ClaudeBot, PerplexityBot, and GoogleOther can reach your site.
             </li>
             <li>
-              <a href="/tools/llms-txt-generator">llms.txt Generator</a> — produce the file LLM
+              <a href="/tools/llms-txt-generator">llms.txt Generator</a> - produce the file LLM
               crawlers increasingly look for.
             </li>
             <li>
-              <a href="/tools/chatgpt-mention-checker">ChatGPT Mention Checker</a> — one-shot
+              <a href="/tools/chatgpt-mention-checker">ChatGPT Mention Checker</a> - one-shot
               check whether ChatGPT names your brand for a specific prompt.
             </li>
             <li>
-              <a href="/tools/citation-finder">Citation Finder</a> — see which URLs Perplexity
+              <a href="/tools/citation-finder">Citation Finder</a> - see which URLs Perplexity
               and ChatGPT cite for a query in your category.
             </li>
             <li>
-              <a href="/tools/share-of-voice-calculator">Share of Voice Calculator</a> — measure
+              <a href="/tools/share-of-voice-calculator">Share of Voice Calculator</a> - measure
               your share against named competitors.
             </li>
           </ul>
           <p>
-            When you need to move from spot-checks to continuous, multi-platform measurement —
-            mention rate, citation share, rank, sentiment, all five LLMs, daily — that is what
+            When you need to move from spot-checks to continuous, multi-platform measurement -
+            mention rate, citation share, rank, sentiment, all five LLMs, daily - that is what
             Livesov was built for. <a href="/pricing">Start free</a>, no credit card.
           </p>
         </LongForm>
@@ -394,12 +394,12 @@ export default function LlmSeoPage() {
           {
             href: '/learn/ai-search-optimization',
             label: 'AI search optimization',
-            description: 'The companion pillar — optimizing for AI-powered search surfaces.',
+            description: 'The companion pillar - optimizing for AI-powered search surfaces.',
           },
           {
             href: '/learn/ai-overviews-optimization',
             label: 'AI Overviews optimization',
-            description: 'Google AI Overviews specifically — how to win and hold a citation.',
+            description: 'Google AI Overviews specifically - how to win and hold a citation.',
           },
           {
             href: '/geo-optimization',
@@ -409,7 +409,7 @@ export default function LlmSeoPage() {
           {
             href: '/generative-engine-optimization-tool',
             label: 'GEO tool',
-            description: 'The tool itself — Livesov, built for LLM SEO programs.',
+            description: 'The tool itself - Livesov, built for LLM SEO programs.',
           },
           {
             href: '/geo-audit',

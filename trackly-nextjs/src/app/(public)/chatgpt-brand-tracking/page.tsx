@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   description:
     'The ChatGPT brand tracker that shows how ChatGPT mentions, ranks, and recommends your brand. Track share of voice, sentiment, and citations. Free.',
   keywords:
-    'chatgpt brand tracking, chatgpt brand monitoring, chatgpt seo, ai visibility chatgpt, openai brand mentions, chatgpt rank tracking, chatgpt share of voice, gpt-4o brand tracking',
+    'chatgpt brand tracking, chatgpt brand monitoring, chatgpt seo, ai visibility chatgpt, openai brand mentions, chatgpt rank tracking, chatgpt share of voice, gpt-5 brand tracking',
   alternates: { canonical: '/chatgpt-brand-tracking' },
   openGraph: {
     title: 'ChatGPT Brand Tracker | Track Mentions | Livesov',
@@ -85,10 +85,10 @@ const features = [
 ];
 
 const supportedModels = [
-  ['GPT-4o', 'Flagship multimodal model', 'Most-used in production traffic'],
-  ['GPT-4o-mini', 'Faster, cheaper variant', 'Default for many embedded ChatGPT experiences'],
-  ['GPT-4o Search Preview', 'Live web-grounded responses', 'Where citations and source URLs appear'],
-  ['o1 / o3-mini reasoning', 'Long-form reasoning chains', 'Tracked separately for analytical queries'],
+  ['GPT-5', 'Flagship multimodal model', 'Most-used in production traffic'],
+  ['GPT-5 mini', 'Faster, cheaper variant', 'Default for many embedded ChatGPT experiences'],
+  ['GPT-5 Search', 'Live web-grounded responses', 'Where citations and source URLs appear'],
+  ['o-series reasoning', 'Long-form reasoning chains', 'Tracked separately for analytical queries'],
 ];
 
 const steps = [
@@ -139,7 +139,7 @@ const faqs = [
   {
     question: 'How does Livesov actually query ChatGPT?',
     answer:
-      'Livesov calls the OpenAI API directly using your tracked prompts. We rotate models (GPT-4o, GPT-4o-mini, GPT-4o Search) and run each prompt multiple times to capture variance, then aggregate results into mention rate, share of voice, and rank metrics.',
+      'Livesov calls the OpenAI API directly using your tracked prompts. We rotate models (GPT-5, GPT-5 mini, GPT-5 Search) and run each prompt multiple times to capture variance, then aggregate results into mention rate, share of voice, and rank metrics.',
   },
   {
     question: 'Do I need my own OpenAI API key?',
@@ -149,7 +149,7 @@ const faqs = [
   {
     question: 'How often is data refreshed?',
     answer:
-      'Free plans run on a manual cadence, Starter runs every 7 days, Pro runs every 2 days, and Agency runs daily. You can also trigger manual runs at any time within your plan\'s daily cap.',
+      'Free runs weekly, Starter runs every 2 days, and Pro and Agency run daily. You can also trigger manual runs at any time within your plan\'s daily cap.',
   },
   {
     question: 'Does ChatGPT give the same answer twice?',
@@ -174,7 +174,7 @@ const faqs = [
 ];
 
 const comparisonRows = [
-  ['Tracks GPT-4o, GPT-4o-mini, ChatGPT Search', '✓ All models', 'Single model only', 'Not supported'],
+  ['Tracks GPT-5, GPT-5 mini, ChatGPT Search', '✓ All models', 'Single model only', 'Not supported'],
   ['Multi-run aggregation per prompt', '✓ 3–10× per run', 'Single shot', 'Single shot'],
   ['Rank tracking in recommendation lists', '✓ Native', 'Manual', 'Manual'],
   ['Sentiment analysis of brand descriptions', '✓ Native', 'Limited', 'Not supported'],
@@ -198,7 +198,7 @@ export default function ChatGPTBrandTrackingPage() {
             </span>
           </>
         }
-        subtitle="Monitor how OpenAI's ChatGPT mentions, ranks, and recommends your brand across GPT-4o, GPT-4o-mini, and ChatGPT Search. Track share of voice, sentiment, citations, and hallucinations - automatically."
+        subtitle="Monitor how OpenAI's ChatGPT mentions, ranks, and recommends your brand across GPT-5, GPT-5 mini, and ChatGPT Search. Track share of voice, sentiment, citations, and hallucinations - automatically."
         ctaText="Start tracking ChatGPT - free"
       />
 
@@ -231,7 +231,7 @@ export default function ChatGPTBrandTrackingPage() {
           <p>
             Livesov queries ChatGPT the way your customers do. We send hundreds of real-world prompts
             (&quot;best CRM for early-stage startups,&quot; &quot;is [your brand] better than [competitor],&quot;
-            &quot;recommend a project management tool for design agencies&quot;) to GPT-4o, GPT-4o-mini, and
+            &quot;recommend a project management tool for design agencies&quot;) to GPT-5, GPT-5 mini, and
             ChatGPT Search on a schedule - then parse every response for mentions, rank, sentiment,
             and citations. The result is a continuous, defensible measurement of your visibility
             inside OpenAI&apos;s ChatGPT.

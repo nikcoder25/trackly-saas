@@ -15,12 +15,12 @@ import {
 export const metadata: Metadata = {
   title: 'AI Visibility Report Template (Free Google Doc + Notion + PDF) | Livesov',
   description:
-    'A board-ready monthly AI visibility report template — mention rate, citation share, sentiment, rank across ChatGPT, Claude, Gemini, Perplexity, and Grok. Free download.',
+    'A board-ready monthly AI visibility report template - mention rate, citation share, sentiment, rank across ChatGPT, Claude, Gemini, Perplexity, and Grok. Free download.',
   keywords:
     'ai visibility report template, ai visibility template, geo report template, llm seo report template, chatgpt mention report, ai search report template',
   alternates: { canonical: '/resources/ai-visibility-report-template' },
   openGraph: {
-    title: 'AI Visibility Report Template — Free Download',
+    title: 'AI Visibility Report Template - Free Download',
     description:
       'Board-ready monthly report covering mention rate, citation share, sentiment, and rank across all five major LLMs.',
     url: 'https://livesov.com/resources/ai-visibility-report-template',
@@ -48,7 +48,7 @@ const inside = [
   {
     icon: '◓',
     title: 'Citation share',
-    description: 'On grounded surfaces, what percentage of cited sources came from your domain — and which competitors took the rest.',
+    description: 'On grounded surfaces, what percentage of cited sources came from your domain - and which competitors took the rest.',
   },
   {
     icon: '◔',
@@ -63,7 +63,7 @@ const inside = [
 ];
 
 const steps = [
-  { title: 'Download the template', description: 'Pick Google Doc, Notion, or PDF — all three contain the same structure.' },
+  { title: 'Download the template', description: 'Pick Google Doc, Notion, or PDF - all three contain the same structure.' },
   { title: 'Fill the cover page', description: 'Brand, reporting period, scope (which LLMs, which competitor set, which prompt panel).' },
   { title: 'Paste in the numbers', description: 'If you use Livesov, every cell auto-fills via CSV export. Manual filling takes 30–45 minutes per month.' },
   { title: 'Write the executive summary', description: 'The single most important page. Headline number, biggest delta, what changed.' },
@@ -74,12 +74,12 @@ const faqs = [
   {
     question: 'Is the template really free?',
     answer:
-      'Yes — Google Doc, Notion duplicate link, and a print-friendly PDF are all free. We ask for an email so we can notify you when the template is updated, but you can opt out.',
+      'Yes - Google Doc, Notion duplicate link, and a print-friendly PDF are all free. We ask for an email so we can notify you when the template is updated, but you can opt out.',
   },
   {
     question: 'Do I need Livesov to use the template?',
     answer:
-      'No. The template is platform-agnostic. If you use Livesov, every cell auto-fills via export; if you use another tool or measure manually, the template still works — you fill it in by hand.',
+      'No. The template is platform-agnostic. If you use Livesov, every cell auto-fills via export; if you use another tool or measure manually, the template still works - you fill it in by hand.',
   },
   {
     question: 'How often should I publish this report?',
@@ -94,7 +94,7 @@ const faqs = [
   {
     question: 'What if my brand is new and the numbers are tiny?',
     answer:
-      'Report them anyway. The trajectory matters more than the absolute number — a brand growing from 4% to 18% mention rate in 90 days has a stronger story than a flat brand sitting at 70%.',
+      'Report them anyway. The trajectory matters more than the absolute number - a brand growing from 4% to 18% mention rate in 90 days has a stronger story than a flat brand sitting at 70%.',
   },
 ];
 
@@ -172,7 +172,7 @@ export default function AiVisibilityReportTemplatePage() {
               </button>
             </form>
             <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '14px 0 0', textAlign: 'center' }}>
-              Already a Livesov user? Sign in — the template is in your{' '}
+              Already a Livesov user? Sign in - the template is in your{' '}
               <Link href="/dashboard/reports" style={{ color: 'var(--brand, #6366f1)' }}>
                 Reports
               </Link>{' '}
@@ -209,13 +209,13 @@ export default function AiVisibilityReportTemplatePage() {
             board-ready single view.
           </p>
           <p>
-            This template is what we wish we had — six pages, plain English, numbers-first.
+            This template is what we wish we had - six pages, plain English, numbers-first.
             Tweak it, fork it, brand it, ship it.
           </p>
 
           <Callout title="Pair the template with continuous tracking" variant="tip">
             The template is data-agnostic, but it sings when you back it with continuous,
-            multi-platform measurement. <a href="/signup">Start Livesov free</a> — every cell in
+            multi-platform measurement. <a href="/signup">Start Livesov free</a> - every cell in
             the template auto-fills from your account.
           </Callout>
         </LongForm>

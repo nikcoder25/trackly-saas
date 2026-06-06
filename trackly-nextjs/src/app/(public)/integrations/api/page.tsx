@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 
 const endpoints = [
   { icon: 'GET', title: '/v1/brands', description: 'List, create, update, and delete tracked brands. Includes competitor sets and tracked URLs.' },
-  { icon: 'GET', title: '/v1/prompts', description: 'Manage the prompt panel for any brand — list, add, update, delete, or bulk-import.' },
+  { icon: 'GET', title: '/v1/prompts', description: 'Manage the prompt panel for any brand - list, add, update, delete, or bulk-import.' },
   { icon: 'GET', title: '/v1/runs', description: 'Trigger a measurement run or fetch results from a previous run, scoped by brand, prompt, or LLM.' },
   { icon: 'GET', title: '/v1/metrics', description: 'Aggregated mention rate, citation share, sentiment, and rank-in-answer over any time range.' },
   { icon: 'GET', title: '/v1/citations', description: 'The full list of cited URLs detected for any brand or prompt across grounded LLM surfaces.' },
@@ -101,7 +101,7 @@ export default function ApiIntegrationPage() {
             </span>
           </>
         }
-        subtitle="Programmatic access to every Livesov surface — brands, prompts, runs, metrics, citations, and reports. REST endpoints plus signed webhooks for real-time events."
+        subtitle="Programmatic access to every Livesov surface - brands, prompts, runs, metrics, citations, and reports. REST endpoints plus signed webhooks for real-time events."
         ctaText="Get an API key"
         ctaHref="/signup"
       />

@@ -50,7 +50,7 @@ const factors = [
     icon: '①',
     title: 'Organic top-10 rank',
     description:
-      'AI Overviews almost always cites pages that already rank in the top 10 organic results. Strong classic SEO is a hard prerequisite — not a nice-to-have.',
+      'AI Overviews almost always cites pages that already rank in the top 10 organic results. Strong classic SEO is a hard prerequisite - not a nice-to-have.',
   },
   {
     icon: '②',
@@ -80,7 +80,7 @@ const factors = [
     icon: '⑥',
     title: 'Query-answer fit',
     description:
-      'The cited page does not just rank for the query — its on-page answer literally matches the question. Question-style H2s with paragraph-length answers dominate.',
+      'The cited page does not just rank for the query - its on-page answer literally matches the question. Question-style H2s with paragraph-length answers dominate.',
   },
 ];
 
@@ -135,7 +135,7 @@ const faqs = [
   {
     question: 'Does AI Overviews always cite the same sources as the organic top 10?',
     answer:
-      'Mostly, but not always. The overlap is typically 70–85%. The 15–30% of citations that come from outside the top 10 are usually pages with unusually strong extractability — a clean direct answer, schema, dated content — that re-rank above pages organically above them. That gap is where focused AI Overviews optimization wins.',
+      'Mostly, but not always. The overlap is typically 70–85%. The 15–30% of citations that come from outside the top 10 are usually pages with unusually strong extractability - a clean direct answer, schema, dated content - that re-rank above pages organically above them. That gap is where focused AI Overviews optimization wins.',
   },
   {
     question: 'How often does AI Overviews refresh its citations?',
@@ -145,7 +145,7 @@ const faqs = [
   {
     question: 'Will AI Overviews kill my organic traffic?',
     answer:
-      'It will reduce it on some queries, especially informational ones where the AI Overview fully answers the question. Commercial queries — comparison, alternatives, best-for, pricing — still drive clicks because users want to verify and choose. The right strategic response is to optimise for the citation, not just the click: being the brand named inside the AI Overview is now a primary conversion event in its own right.',
+      'It will reduce it on some queries, especially informational ones where the AI Overview fully answers the question. Commercial queries - comparison, alternatives, best-for, pricing - still drive clicks because users want to verify and choose. The right strategic response is to optimise for the citation, not just the click: being the brand named inside the AI Overview is now a primary conversion event in its own right.',
   },
   {
     question: 'What schema markup matters most for AI Overviews?',
@@ -155,7 +155,7 @@ const faqs = [
   {
     question: 'How do I measure AI Overviews performance?',
     answer:
-      'Three metrics: (1) AI Overview presence rate — what share of your priority queries trigger an Overview today, (2) citation share — when an Overview shows, are you one of the cited sources, and (3) rank-in-citation — when cited, are you the first, third, or sixth source named. Livesov tracks all three continuously alongside the four other AI surfaces.',
+      'Three metrics: (1) AI Overview presence rate - what share of your priority queries trigger an Overview today, (2) citation share - when an Overview shows, are you one of the cited sources, and (3) rank-in-citation - when cited, are you the first, third, or sixth source named. Livesov tracks all three continuously alongside the four other AI surfaces.',
   },
 ];
 
@@ -178,7 +178,7 @@ export default function AiOverviewsOptimizationPage() {
             </span>
           </>
         }
-        subtitle="How to win — and hold — a citation inside Google AI Overviews. The six ranking factors, the on-page patterns Google quietly favours, and how to measure citation share at the query level."
+        subtitle="How to win - and hold - a citation inside Google AI Overviews. The six ranking factors, the on-page patterns Google quietly favours, and how to measure citation share at the query level."
         ctaText="Start tracking AI Overviews"
       />
 
@@ -220,7 +220,7 @@ export default function AiOverviewsOptimizationPage() {
         <SectionHeader
           label="The six factors"
           title="What decides who AI Overviews cites"
-          subtitle="No single factor wins. AI Overviews stacks all six and rewards the combined score — which is why partial fixes underperform."
+          subtitle="No single factor wins. AI Overviews stacks all six and rewards the combined score - which is why partial fixes underperform."
         />
         <FeatureGrid items={factors} columns={3} />
       </Section>
@@ -235,7 +235,7 @@ export default function AiOverviewsOptimizationPage() {
 
       <Section pad="80px 24px">
         <LongForm>
-          <h2>The classic SERP vs. AI Overviews — what changes</h2>
+          <h2>The classic SERP vs. AI Overviews - what changes</h2>
           <p>
             AI Overviews is a new position with a new economy. Treating it like a classic top-3
             organic listing gives the wrong answers on every operational question: when to
@@ -262,7 +262,7 @@ export default function AiOverviewsOptimizationPage() {
           <ol>
             <li>
               <strong>One-sentence answer up top.</strong> The cited source almost always opens
-              with a 1–2 sentence answer to the literal query — before any preamble, intro
+              with a 1–2 sentence answer to the literal query - before any preamble, intro
               paragraph, or marketing setup.
             </li>
             <li>
@@ -329,13 +329,13 @@ export default function AiOverviewsOptimizationPage() {
             </li>
             <li>
               <strong>Citation churn.</strong> How often does the set of cited sources rotate
-              for the same query? High churn means small wins compound — and small losses
+              for the same query? High churn means small wins compound - and small losses
               compound, too.
             </li>
           </ul>
           <p>
             Livesov tracks all four continuously, alongside ChatGPT Search, Perplexity, Claude,
-            Gemini, and Grok. <a href="/pricing">Start free</a> — no credit card.
+            Gemini, and Grok. <a href="/pricing">Start free</a> - no credit card.
           </p>
         </LongForm>
       </Section>
@@ -357,7 +357,7 @@ export default function AiOverviewsOptimizationPage() {
           {
             href: '/learn/llm-seo',
             label: 'LLM SEO',
-            description: 'The model-side guide — training memory + retrieval together.',
+            description: 'The model-side guide - training memory + retrieval together.',
           },
           {
             href: '/geo-optimization',
@@ -367,7 +367,7 @@ export default function AiOverviewsOptimizationPage() {
           {
             href: '/generative-engine-optimization-tool',
             label: 'GEO tool',
-            description: 'Livesov — built for AI Overviews and the rest of the AI surfaces.',
+            description: 'Livesov - built for AI Overviews and the rest of the AI surfaces.',
           },
           {
             href: '/gemini-brand-tracking',
