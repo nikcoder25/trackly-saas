@@ -12,16 +12,16 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Integrations — AI Platforms, Alerts & Exports | Livesov',
+  title: 'Livesov Integrations | AI Visibility Tracker & API',
   description:
-    'Livesov integrates directly with ChatGPT, Claude, Gemini, Perplexity, and Grok APIs. Plus email alerts, webhooks, scheduled reports, CSV / JSON / PDF exports, and bring-your-own-key support on Agency plans.',
+    'Connect Livesov\'s AI visibility tracker to ChatGPT, Perplexity, Claude, Gemini, and Grok, with alerts, webhooks, and CSV, JSON, and PDF exports.',
   keywords:
     'livesov integrations, ai api integrations, chatgpt api integration, anthropic api integration, gemini api integration, perplexity api integration, xai api integration, webhook alerts, ai brand tracking integrations',
   alternates: { canonical: '/integrations' },
   openGraph: {
-    title: 'Integrations — AI Platforms, Alerts & Exports | Livesov',
+    title: 'Livesov Integrations | AI Visibility Tracker & API',
     description:
-      'Direct API integration with ChatGPT, Claude, Gemini, Perplexity, and Grok. Plus email alerts, webhooks, exports, and bring-your-own-key support.',
+      'Connect Livesov\'s AI visibility tracker to ChatGPT, Perplexity, Claude, Gemini, and Grok, with alerts, webhooks, and CSV, JSON, and PDF exports.',
     url: 'https://livesov.com/integrations',
     siteName: 'Livesov',
     type: 'website',
@@ -36,9 +36,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Integrations — AI Platforms, Alerts & Exports | Livesov',
+    title: 'Livesov Integrations | AI Visibility Tracker & API',
     description:
-      'Direct API integration with all 5 major AI platforms. Webhooks, email alerts, exports, and bring-your-own-key support.',
+      'Connect Livesov\'s AI visibility tracker to ChatGPT, Perplexity, Claude, Gemini, and Grok, with alerts, webhooks, and CSV, JSON, and PDF exports.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

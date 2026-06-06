@@ -11,16 +11,16 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'About Livesov — The AI Visibility Tracking Platform',
+  title: 'About Livesov | AI Visibility Platform for Brands',
   description:
-    'Livesov is the AI visibility tracking platform for ChatGPT, Claude, Gemini, Perplexity, and Grok. Learn about our mission, methodology, and why we&apos;re building the analytics layer for the post-search internet.',
+    'Livesov is the AI visibility platform that tracks how ChatGPT, Perplexity, Claude, Gemini, and Grok mention and recommend your brand.',
   keywords:
     'about livesov, livesov company, ai visibility platform, ai brand tracking company, generative engine optimization platform, livesov team',
   alternates: { canonical: '/about' },
   openGraph: {
-    title: 'About Livesov — The AI Visibility Tracking Platform',
+    title: 'About Livesov | AI Visibility Platform for Brands',
     description:
-      'Livesov is building the analytics layer for AI visibility. Learn our mission, methodology, and approach.',
+      'Livesov is the AI visibility platform that tracks how ChatGPT, Perplexity, Claude, Gemini, and Grok mention and recommend your brand.',
     url: 'https://livesov.com/about',
     siteName: 'Livesov',
     type: 'website',
@@ -35,9 +35,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'About Livesov — The AI Visibility Tracking Platform',
+    title: 'About Livesov | AI Visibility Platform for Brands',
     description:
-      'Building the analytics layer for AI visibility — across ChatGPT, Claude, Gemini, Perplexity, and Grok.',
+      'Livesov is the AI visibility platform that tracks how ChatGPT, Perplexity, Claude, Gemini, and Grok mention and recommend your brand.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

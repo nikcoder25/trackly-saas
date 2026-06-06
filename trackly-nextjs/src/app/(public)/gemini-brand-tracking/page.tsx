@@ -14,16 +14,16 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Gemini Brand Tracking — Monitor Google AI Mentions | Livesov',
+  title: 'Gemini Brand Tracking & AI Overviews Monitor',
   description:
-    'Track how Google Gemini (2.5 Pro, 2.5 Flash, Flash-Lite) mentions and recommends your brand across Search, Workspace, and Android. Monitor AI Overviews, share of voice, and competitor visibility. 7-day free trial.',
+    'Track how Google Gemini and AI Overviews mention your brand. Monitor share of voice and see how to rank in AI Overviews. 7-day free trial.',
   keywords:
     'gemini brand tracking, google ai monitoring, gemini visibility, google ai brand mentions, ai overviews tracking, gemini pro tracking, gemini flash tracking, google sge tracking',
   alternates: { canonical: '/gemini-brand-tracking' },
   openGraph: {
-    title: 'Gemini Brand Tracking — Monitor Google AI Mentions | Livesov',
+    title: 'Gemini Brand Tracking & AI Overviews Monitor',
     description:
-      'Track how Google Gemini mentions and recommends your brand across all Gemini models. Monitor AI Overviews, share of voice, and competitors.',
+      'Track how Google Gemini and AI Overviews mention your brand. Monitor share of voice and see how to rank in AI Overviews. 7-day free trial.',
     url: 'https://livesov.com/gemini-brand-tracking',
     siteName: 'Livesov',
     type: 'website',
@@ -38,9 +38,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Gemini Brand Tracking — Monitor Google AI Mentions | Livesov',
+    title: 'Gemini Brand Tracking & AI Overviews Monitor',
     description:
-      'Track Google Gemini brand mentions across 2.5 Pro, 2.5 Flash, Flash-Lite, and AI Overviews — with share of voice and competitor benchmarking.',
+      'Track how Google Gemini and AI Overviews mention your brand. Monitor share of voice and see how to rank in AI Overviews. 7-day free trial.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Free AI Share of Voice Calculator | Livesov',
-  description: 'Calculate your AI share of voice. Input mentions and total responses. Free tool, no signup.',
+  description: 'Free AI share of voice calculator. Enter mentions and total responses, add competitors, and see live percentages. Export to CSV.',
   keywords: 'ai share of voice calculator, ai share of voice, sov calculator, brand share of voice ai',
   alternates: { canonical: '/tools/share-of-voice-calculator' },
   openGraph: {
     title: 'Free AI Share of Voice Calculator | Livesov',
-    description: 'Calculate your AI share of voice in seconds.',
+    description: 'Free AI share of voice calculator. Enter mentions and total responses, add competitors, and see live percentages. Export to CSV.',
     url: 'https://livesov.com/tools/share-of-voice-calculator',
     siteName: 'Livesov',
     type: 'website',
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Free AI Share of Voice Calculator | Livesov',
-    description: 'Calculate your AI share of voice in seconds.',
+    description: 'Free AI share of voice calculator. Enter mentions and total responses, add competitors, and see live percentages. Export to CSV.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

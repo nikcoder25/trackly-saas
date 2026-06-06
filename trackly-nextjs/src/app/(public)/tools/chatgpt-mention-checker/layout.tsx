@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Free ChatGPT Brand Mention Checker | Livesov',
-  description: 'Check if ChatGPT mentions your brand. Free instant check. No signup required.',
+  description: 'Free ChatGPT brand mention checker. See if ChatGPT mentions your brand and which competitors show up. Instant check, no signup.',
   keywords: 'chatgpt brand mention checker, chatgpt mention checker, chatgpt brand visibility',
   alternates: { canonical: '/tools/chatgpt-mention-checker' },
   openGraph: {
     title: 'Free ChatGPT Brand Mention Checker | Livesov',
-    description: 'Find out if ChatGPT mentions your brand for any question. Free, no signup.',
+    description: 'Free ChatGPT brand mention checker. See if ChatGPT mentions your brand and which competitors show up. Instant check, no signup.',
     url: 'https://livesov.com/tools/chatgpt-mention-checker',
     siteName: 'Livesov',
     type: 'website',
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Free ChatGPT Brand Mention Checker | Livesov',
-    description: 'Check whether ChatGPT mentions your brand. Free, no signup.',
+    description: 'Free ChatGPT brand mention checker. See if ChatGPT mentions your brand and which competitors show up. Instant check, no signup.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

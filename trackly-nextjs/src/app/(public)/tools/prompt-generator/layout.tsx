@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'AI Prompt Generator for Brand Tracking | Free | Livesov',
-  description: 'Generate brand monitoring prompts in seconds. Input your industry and get 50+ tracking prompts.',
+  title: 'AI Prompt Generator for Brand Tracking | Livesov',
+  description: 'Free AI prompt generator. Enter your industry and get 50+ brand monitoring prompts your buyers ask AI. Copy or download CSV.',
   keywords: 'ai prompt generator, brand tracking prompts, ai prompts for brand monitoring',
   alternates: { canonical: '/tools/prompt-generator' },
   openGraph: {
     title: 'AI Prompt Generator for Brand Tracking | Livesov',
-    description: 'Generate 50+ brand monitoring prompts in seconds.',
+    description: 'Free AI prompt generator. Enter your industry and get 50+ brand monitoring prompts your buyers ask AI. Copy or download CSV.',
     url: 'https://livesov.com/tools/prompt-generator',
     siteName: 'Livesov',
     type: 'website',
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'AI Prompt Generator for Brand Tracking | Livesov',
-    description: 'Generate 50+ brand monitoring prompts in seconds.',
+    description: 'Free AI prompt generator. Enter your industry and get 50+ brand monitoring prompts your buyers ask AI. Copy or download CSV.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

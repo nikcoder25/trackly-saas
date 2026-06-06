@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Free GEO & AI Visibility Tools | Livesov',
-  description: 'Free tools for AI visibility: llms.txt generator, GEO audit, share of voice calculator, more.',
+  description: 'Free GEO tools: llms.txt generator, GEO audit tool, AI crawler checker, share of voice calculator, and more. Most need no signup.',
   keywords: 'free geo tools, ai visibility tools, free seo tools, ai search tools, geo tools',
   alternates: { canonical: '/tools' },
   openGraph: {
     title: 'Free GEO & AI Visibility Tools | Livesov',
-    description: 'Free tools for AI visibility: llms.txt generator, GEO audit, share of voice calculator and more.',
+    description: 'Free GEO tools: llms.txt generator, GEO audit tool, AI crawler checker, share of voice calculator, and more. Most need no signup.',
     url: 'https://livesov.com/tools',
     siteName: 'Livesov',
     type: 'website',
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Free GEO & AI Visibility Tools | Livesov',
-    description: 'Free tools for AI visibility - llms.txt generator, GEO audit, more.',
+    description: 'Free GEO tools: llms.txt generator, GEO audit tool, AI crawler checker, share of voice calculator, and more. Most need no signup.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

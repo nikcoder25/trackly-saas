@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Free llms.txt Generator | Build Yours in Seconds | Livesov',
-  description: 'Generate a valid llms.txt file for your site in seconds. Help AI crawlers understand your content. Free, no signup.',
+  title: 'Free llms.txt Generator | Build Yours Fast | Livesov',
+  description: 'Free llms.txt generator. Crawl your sitemap, group URLs, and download a valid llms.txt so AI crawlers understand your site. No signup.',
   keywords: 'llms.txt generator, llms.txt, ai crawler, llms.txt file, generate llms.txt',
   alternates: { canonical: '/tools/llms-txt-generator' },
   openGraph: {
-    title: 'Free llms.txt Generator | Livesov',
-    description: 'Generate a valid llms.txt file for your site in seconds. Free, no signup.',
+    title: 'Free llms.txt Generator | Build Yours Fast | Livesov',
+    description: 'Free llms.txt generator. Crawl your sitemap, group URLs, and download a valid llms.txt so AI crawlers understand your site. No signup.',
     url: 'https://livesov.com/tools/llms-txt-generator',
     siteName: 'Livesov',
     type: 'website',
@@ -15,8 +15,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Free llms.txt Generator | Livesov',
-    description: 'Build a valid llms.txt for your site in seconds. Free, no signup.',
+    title: 'Free llms.txt Generator | Build Yours Fast | Livesov',
+    description: 'Free llms.txt generator. Crawl your sitemap, group URLs, and download a valid llms.txt so AI crawlers understand your site. No signup.',
     images: ['https://livesov.com/og-image.png'],
   },
 };
