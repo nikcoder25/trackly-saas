@@ -35,6 +35,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/use-cases`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
     { url: `${BASE_URL}/integrations`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
     { url: `${BASE_URL}/geo-optimization`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/generative-engine-optimization-tool`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.9 },
+
+    // Learn hub & pillar guides
+    { url: `${BASE_URL}/learn`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/learn/llm-seo`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${BASE_URL}/learn/ai-search-optimization`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${BASE_URL}/learn/ai-overviews-optimization`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.8 },
 
     // Platform-specific tracking pages (programmatic SEO)
     { url: `${BASE_URL}/chatgpt-brand-tracking`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
