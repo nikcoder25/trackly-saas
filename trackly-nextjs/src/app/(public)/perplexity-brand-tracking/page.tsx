@@ -227,7 +227,7 @@ export default function PerplexityBrandTrackingPage() {
             signal. If it isn&apos;t, you can see exactly which domains beat you.
           </p>
           <p>
-            That makes Perplexity the highest-leverage AI search platform to invest in. Wins on
+            That makes Perplexity the highest-impact AI search platform to invest in. Wins on
             Perplexity tend to translate to ChatGPT Search, Google AI Overviews, and Bing Copilot
             - because the underlying optimisation work (publish authoritative, well-structured,
             citable content) is the same. Livesov turns Perplexity into a continuous test bed for

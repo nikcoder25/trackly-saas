@@ -294,7 +294,7 @@ export default function VsSemrushPage() {
           <p>
             Early-stage SaaS, AI-native startups, and brands selling to AI-heavy audiences
             often have limited traditional SEO surface area but real, immediate AI visibility
-            gaps. For these teams, Livesov is the higher-leverage first investment. Semrush
+            gaps. For these teams, Livesov is the higher-impact first investment. Semrush
             adds the most value once you have enough surface area to optimise traditional
             rankings, paid, and content programs.
           </p>

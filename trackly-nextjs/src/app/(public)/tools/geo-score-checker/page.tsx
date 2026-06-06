@@ -148,7 +148,7 @@ export default function GeoScoreCheckerPage() {
           items={[
             'GEO is to AI engines what SEO was to Google search - the structural baseline that decides whether you compete at all.',
             '70+ is the bar for "AI-ready". Most public pages land in the 40-69 range on first audit.',
-            'Schema markup, FAQ blocks, and answer-first prose are the three highest-leverage levers.',
+            'Schema markup, FAQ blocks, and answer-first prose are the three highest-impact fixes.',
             'A high GEO score correlates with - but does not guarantee - higher AI mention rate. It is necessary, not sufficient.',
             'Re-audit after every meaningful page edit. The score moves more responsively than search rankings.',
           ]}
