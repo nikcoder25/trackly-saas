@@ -32,7 +32,7 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'ChatGPT Brand Tracking — Monitor Your AI Visibility | Livesov',
+        alt: 'ChatGPT Brand Tracking - Monitor Your AI Visibility | Livesov',
       },
     ],
   },
@@ -50,7 +50,7 @@ const features = [
     icon: '◎',
     title: 'Mention rate tracking',
     description:
-      'Measure exactly how often ChatGPT names your brand across thousands of relevant prompts — sliced by query type, model, and time period.',
+      'Measure exactly how often ChatGPT names your brand across thousands of relevant prompts - sliced by query type, model, and time period.',
   },
   {
     icon: '#',
@@ -80,7 +80,7 @@ const features = [
     icon: '⟁',
     title: 'Citation capture',
     description:
-      'When ChatGPT Search returns sources, we log every URL — so you know which of your pages (and which competitor pages) feed its answers.',
+      'When ChatGPT Search returns sources, we log every URL - so you know which of your pages (and which competitor pages) feed its answers.',
   },
 ];
 
@@ -105,7 +105,7 @@ const steps = [
   {
     title: 'Automated ChatGPT runs',
     description:
-      'Livesov queries ChatGPT on your schedule — daily, every 2 days, or weekly — using temperature controls that mirror real user sessions.',
+      'Livesov queries ChatGPT on your schedule - daily, every 2 days, or weekly - using temperature controls that mirror real user sessions.',
   },
   {
     title: 'Parse, score, alert',
@@ -154,7 +154,7 @@ const faqs = [
   {
     question: 'Does ChatGPT give the same answer twice?',
     answer:
-      'No — ChatGPT responses are non-deterministic. That\'s why Livesov runs every tracked prompt multiple times and aggregates results into statistically meaningful trends rather than reporting a single snapshot.',
+      'No - ChatGPT responses are non-deterministic. That\'s why Livesov runs every tracked prompt multiple times and aggregates results into statistically meaningful trends rather than reporting a single snapshot.',
   },
   {
     question: 'Will Livesov pick up mentions in ChatGPT Search citations?',
@@ -164,12 +164,12 @@ const faqs = [
   {
     question: 'Can I see the raw ChatGPT response that generated a mention?',
     answer:
-      'Always. Every metric in Livesov links to the underlying ChatGPT response with timestamp, model, and prompt — and you can export the full evidence as CSV or PDF.',
+      'Always. Every metric in Livesov links to the underlying ChatGPT response with timestamp, model, and prompt - and you can export the full evidence as CSV or PDF.',
   },
   {
     question: 'How is this different from a ChatGPT plugin or "Mentions" tool?',
     answer:
-      'Most ChatGPT mention checkers run a single prompt once. Livesov runs hundreds of prompts on a recurring schedule, tracks rank and sentiment, monitors competitors, and detects hallucinations — giving you a continuous brand monitoring system, not a one-off check.',
+      'Most ChatGPT mention checkers run a single prompt once. Livesov runs hundreds of prompts on a recurring schedule, tracks rank and sentiment, monitors competitors, and detects hallucinations - giving you a continuous brand monitoring system, not a one-off check.',
   },
 ];
 
@@ -198,8 +198,8 @@ export default function ChatGPTBrandTrackingPage() {
             </span>
           </>
         }
-        subtitle="Monitor how OpenAI's ChatGPT mentions, ranks, and recommends your brand across GPT-4o, GPT-4o-mini, and ChatGPT Search. Track share of voice, sentiment, citations, and hallucinations — automatically."
-        ctaText="Start tracking ChatGPT — free"
+        subtitle="Monitor how OpenAI's ChatGPT mentions, ranks, and recommends your brand across GPT-4o, GPT-4o-mini, and ChatGPT Search. Track share of voice, sentiment, citations, and hallucinations - automatically."
+        ctaText="Start tracking ChatGPT - free"
       />
 
       {/* ── Trust bar ────────────────────────────── */}
@@ -226,13 +226,13 @@ export default function ChatGPTBrandTrackingPage() {
             Traditional SEO tools tell you where you rank on Google. They cannot tell you whether
             ChatGPT calls your product &quot;the leader in the category,&quot; lists a competitor first, or
             confidently misstates your pricing. That gap is the largest blind spot in modern brand
-            marketing — and it&apos;s exactly what <strong>Livesov</strong> closes.
+            marketing - and it&apos;s exactly what <strong>Livesov</strong> closes.
           </p>
           <p>
             Livesov queries ChatGPT the way your customers do. We send hundreds of real-world prompts
             (&quot;best CRM for early-stage startups,&quot; &quot;is [your brand] better than [competitor],&quot;
             &quot;recommend a project management tool for design agencies&quot;) to GPT-4o, GPT-4o-mini, and
-            ChatGPT Search on a schedule — then parse every response for mentions, rank, sentiment,
+            ChatGPT Search on a schedule - then parse every response for mentions, rank, sentiment,
             and citations. The result is a continuous, defensible measurement of your visibility
             inside OpenAI&apos;s ChatGPT.
           </p>
@@ -244,7 +244,7 @@ export default function ChatGPTBrandTrackingPage() {
         <SectionHeader
           label="What we measure"
           title="Six dimensions of ChatGPT visibility"
-          subtitle="Mention rate is the start, not the finish. Livesov tracks the full picture so you can act on real signal — not vibes."
+          subtitle="Mention rate is the start, not the finish. Livesov tracks the full picture so you can act on real signal - not vibes."
         />
         <FeatureGrid items={features} />
       </Section>
@@ -288,8 +288,8 @@ export default function ChatGPTBrandTrackingPage() {
           <p>
             ChatGPT&apos;s recommendations are a blend of three signals: its pre-training corpus
             (web pages, books, code, and licensed datasets up to its knowledge cutoff), its
-            post-training reinforcement (which shapes which sources it trusts), and — for the
-            search-enabled variants — live web results retrieved at query time.
+            post-training reinforcement (which shapes which sources it trusts), and - for the
+            search-enabled variants - live web results retrieved at query time.
           </p>
           <p>
             That means improving your visibility in ChatGPT is not a single lever. You have to win
@@ -299,7 +299,7 @@ export default function ChatGPTBrandTrackingPage() {
             each of those investments is actually moving the needle.
           </p>
 
-          <h2>Mention rate vs. share of voice — and why both matter</h2>
+          <h2>Mention rate vs. share of voice - and why both matter</h2>
           <p>
             <strong>Mention rate</strong> is the percentage of tracked prompts in which ChatGPT
             names your brand at all. It is the most basic visibility metric.
@@ -307,14 +307,14 @@ export default function ChatGPTBrandTrackingPage() {
           <p>
             <strong>Share of voice</strong> is your mentions divided by total brand mentions in
             the same set of prompts. A 100% mention rate is meaningless if every answer also names
-            five competitors above you. Share of voice corrects for that — it&apos;s the closest
+            five competitors above you. Share of voice corrects for that - it&apos;s the closest
             analogue to traditional market share inside an AI answer.
           </p>
           <p>
             Livesov reports both, segmented by query intent: top-of-funnel (&quot;what is X&quot;),
             mid-funnel (&quot;best X for Y&quot;), and bottom-of-funnel (&quot;X vs Y&quot;). Most teams find
-            their visibility shifts dramatically across the funnel — strong in branded queries, weak in
-            comparison queries — and the prioritisation falls out of the data.
+            their visibility shifts dramatically across the funnel - strong in branded queries, weak in
+            comparison queries - and the prioritisation falls out of the data.
           </p>
 
           <h2>Why ChatGPT hallucinations are a real PR risk</h2>
@@ -326,14 +326,14 @@ export default function ChatGPTBrandTrackingPage() {
           </p>
           <p>
             Livesov&apos;s <strong>canonical facts store</strong> lets you define the truth about your
-            brand — pricing tiers, founding year, supported regions, key integrations — and then
+            brand - pricing tiers, founding year, supported regions, key integrations - and then
             automatically flags every ChatGPT response that contradicts them. You get an alert,
             the evidence, and a workflow to push corrections out into the web sources ChatGPT
             references.
           </p>
 
           <Callout title="Pro tip" variant="tip">
-            The fastest way to fix a ChatGPT hallucination is rarely a takedown request — it&apos;s
+            The fastest way to fix a ChatGPT hallucination is rarely a takedown request - it&apos;s
             updating the high-authority third-party sources ChatGPT trusts (G2, Capterra, Wikipedia,
             comparison roundups). Livesov&apos;s citation tracker shows you exactly which URLs ChatGPT
             references, so you know where to invest.

@@ -20,9 +20,9 @@ interface NextInvoiceCardProps {
 }
 
 function fmtFullDate(iso: string | null): string {
-  if (!iso) return '—';
+  if (!iso) return '-';
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
@@ -64,18 +64,18 @@ export default function NextInvoiceCard({
           Next invoice
         </span>
         <span style={{ fontSize: 13, color: TEXT_SECONDARY }}>
-          {noChargeReason ? '—' : fmtFullDate(nextInvoiceAt)}
+          {noChargeReason ? '-' : fmtFullDate(nextInvoiceAt)}
         </span>
       </div>
 
       {noChargeReason === 'free' && (
         <NoChargeBlock
           headline="No upcoming charge"
-          sub="You're on the Free tier — upgrade for higher caps and scheduled runs."
+          sub="You're on the Free tier - upgrade for higher caps and scheduled runs."
         />
       )}
       {noChargeReason === 'owner' && (
-        <NoChargeBlock headline="—" sub="Owner accounts have no recurring billing." />
+        <NoChargeBlock headline="-" sub="Owner accounts have no recurring billing." />
       )}
       {noChargeReason === 'custom' && (
         <NoChargeBlock

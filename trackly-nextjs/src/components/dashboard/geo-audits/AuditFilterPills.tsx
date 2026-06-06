@@ -7,9 +7,9 @@
  *
  * The Region/Status pills open a native <select>-style dropdown on
  * click. (The Schedule pill placeholder was removed in the cleanup
- * PR — bring it back when scheduled audits actually ship.)
+ * PR - bring it back when scheduled audits actually ship.)
  *
- * NO mock data — region options are fed in by the parent from the
+ * NO mock data - region options are fed in by the parent from the
  * actually-loaded audits list, so users only see regions they have
  * data for.
  */

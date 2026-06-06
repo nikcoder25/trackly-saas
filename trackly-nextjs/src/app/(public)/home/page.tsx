@@ -9,7 +9,7 @@ import { newsreader, hankenGrotesk } from './fonts';
 import '@/styles/livesov-home.css';
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Livesov editorial home page — recreated from the Claude Design handoff
+   Livesov editorial home page - recreated from the Claude Design handoff
    (Livesov.html + home-*.jsx). Visuals match the prototype; CTAs/nav are
    wired to real routes and the canonical MARKETING_NAV_LINKS set.
    ────────────────────────────────────────────────────────────────────────── */
@@ -163,7 +163,7 @@ function Hero() {
         <div className="hero-copy">
           <div className="eyebrow"><span className="dot" /> Generative Engine Optimization</div>
           <h1 className="serif hero-h1">AI is the new search.<br /><em>Are you visible?</em></h1>
-          <p className="hero-sub">See exactly how ChatGPT, Claude, Gemini, Perplexity and Grok answer the questions your buyers ask — and whether your brand gets mentioned, recommended, or ignored.</p>
+          <p className="hero-sub">See exactly how ChatGPT, Claude, Gemini, Perplexity and Grok answer the questions your buyers ask - and whether your brand gets mentioned, recommended, or ignored.</p>
           <div className="hero-cta">
             <Link className="btn btn-pri btn-lg" href="/signup">Start free</Link>
             <Link className="btn-link" href="/geo-audit">Run a free audit <span className="ar">→</span></Link>
@@ -212,7 +212,7 @@ function Problem() {
         <SecHead
           eyebrow="The problem"
           title={<>Your SEO tools are blind <em>to AI search.</em></>}
-          sub="Ahrefs, Semrush and Search Console can't see what an LLM said about your brand last Tuesday at 2:14pm. By the time you find out you weren't mentioned, a competitor already was — twice."
+          sub="Ahrefs, Semrush and Search Console can't see what an LLM said about your brand last Tuesday at 2:14pm. By the time you find out you weren't mentioned, a competitor already was - twice."
         />
         <div className="prob-grid">
           <Reveal className="prob-card prob-old card">
@@ -259,7 +259,7 @@ function HowItWorks() {
   const steps = [
     { n: '01', t: 'Connect your brand', d: 'Add your domain, your competitors, and the prompts your buyers actually ask. We seed 50+ industry queries to get you started in minutes.' },
     { n: '02', t: 'We query the engines', d: 'Livesov asks ChatGPT, Claude, Gemini, Perplexity and Grok on a schedule. Every answer is parsed for mentions, sentiment and sources.' },
-    { n: '03', t: 'Watch your share of voice', d: 'See where you win, where you lose, and exactly which page each engine cites — with proof you can put in front of your CMO on Monday.' },
+    { n: '03', t: 'Watch your share of voice', d: 'See where you win, where you lose, and exactly which page each engine cites - with proof you can put in front of your CMO on Monday.' },
   ];
   return (
     <section className="section how" id="how-it-works">
@@ -267,7 +267,7 @@ function HowItWorks() {
         <SecHead
           eyebrow="How it works"
           title={<>Set up in under <em>two minutes.</em></>}
-          sub="No SDK to install, no script to add. Point Livesov at your domain — we handle the rest, every day, forever."
+          sub="No SDK to install, no script to add. Point Livesov at your domain - we handle the rest, every day, forever."
         />
         <div className="how-grid">
           {steps.map((s, i) => (
@@ -302,7 +302,7 @@ function Features() {
   const feats: { t: string; d: string; icon: FeatIconName }[] = [
     { t: 'Share of voice', d: 'Daily % share across all five engines. Compare any brand to any competitor over any window.', icon: 'bars' },
     { t: 'Evidence & proof', d: 'Every mention links to the verbatim model output, the prompt behind it, and the sources cited.', icon: 'quote' },
-    { t: 'Sentiment', d: 'Positive, neutral or negative — scored per mention, charted over time, with alerts on drops.', icon: 'smile' },
+    { t: 'Sentiment', d: 'Positive, neutral or negative - scored per mention, charted over time, with alerts on drops.', icon: 'smile' },
     { t: 'Hallucination detection', d: 'Catches when an engine invents features, pricing or facts about your brand. Send corrections.', icon: 'flag' },
     { t: 'Competitor benchmarks', d: 'Watch competitors’ mentions in real time. Get alerted the moment they overtake you.', icon: 'compare' },
     { t: 'Custom queries', d: 'Add your own buyer questions. Track variations, intents and long-tail prompts at scale.', icon: 'search' },
@@ -313,7 +313,7 @@ function Features() {
         <SecHead
           eyebrow="What's inside"
           title={<>Everything you need to make sure <em>the answer is you.</em></>}
-          sub="The full GEO stack, built from scratch for how AI engines answer — not bolted onto a 2010 SEO tool."
+          sub="The full GEO stack, built from scratch for how AI engines answer - not bolted onto a 2010 SEO tool."
         />
         <div className="feat-grid">
           {feats.map((f, i) => (
@@ -332,7 +332,7 @@ function Features() {
 /* ─── Showcase ─── */
 function Showcase() {
   const points = [
-    { t: 'One pane of glass', d: 'Every engine, every brand, every query — in a single live workspace.' },
+    { t: 'One pane of glass', d: 'Every engine, every brand, every query - in a single live workspace.' },
     { t: 'Drill to the exact line', d: 'From share-of-voice down to the sentence where an engine named a competitor.' },
     { t: 'Proof, not vibes', d: 'See the prompt, the verbatim answer, and the page each engine cited.' },
   ];
@@ -372,7 +372,7 @@ type CellValue = 'yes' | 'no' | 'partial' | { price: string } | string;
 function Cell({ v, hero }: { v: CellValue; hero?: boolean }) {
   if (typeof v === 'object' && v.price) return <span className="cmp-price serif">{v.price}<i>/mo</i></span>;
   if (v === 'yes') return <span className={'cmp-mark' + (hero ? ' acc' : '')}><svg width="15" height="15" viewBox="0 0 14 14" fill="none"><path d="M2.5 7.5l3 3 6-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>;
-  if (v === 'no') return <span className="cmp-dash">—</span>;
+  if (v === 'no') return <span className="cmp-dash">-</span>;
   if (v === 'partial') return <span className="cmp-partial">partial</span>;
   return <span className="cmp-text">{v as string}</span>;
 }
@@ -394,7 +394,7 @@ function Compare() {
         <SecHead
           eyebrow="How we compare"
           title={<>The SEO tools haven&apos;t <em>caught up yet.</em></>}
-          sub="Ahrefs and Semrush are the best in the world at what they do — but they were built for Google. The five AI engines aren't on their roadmap. They're already on your buyer's screen."
+          sub="Ahrefs and Semrush are the best in the world at what they do - but they were built for Google. The five AI engines aren't on their roadmap. They're already on your buyer's screen."
         />
         <Reveal className="cmp-scroll">
           <table className="cmp">
@@ -429,7 +429,7 @@ function UseCases() {
   const cases = [
     { t: 'SaaS marketing teams', d: 'Track every prompt buyers ask about your category and catch the moment an engine starts recommending a competitor instead of you.', v: '+18%', l: 'avg lift in branded mentions, first 90 days' },
     { t: 'Agencies', d: 'Add GEO to your client deck without hiring an AI team. White-label reports, client workspaces, bulk audits.', v: '12×', l: 'workspaces per agency seat' },
-    { t: 'E-commerce brands', d: 'When a shopper asks an AI “what’s the best running shoe for flat feet”, be in the answer — and track every review-site citation.', v: '5 / 5', l: 'engines tracked for product queries' },
+    { t: 'E-commerce brands', d: 'When a shopper asks an AI “what’s the best running shoe for flat feet”, be in the answer - and track every review-site citation.', v: '5 / 5', l: 'engines tracked for product queries' },
     { t: 'Enterprise brand teams', d: 'Catch hallucinations about your products before they spread, submit corrections, and get alerted when share of voice drops.', v: '<10m', l: 'mean time to detect a hallucination spike' },
   ];
   return (
@@ -494,7 +494,7 @@ function Pricing() {
           center
           eyebrow="Pricing"
           title={<>One coffee a month to see <em>what AI says about you.</em></>}
-          sub="A 7-day free trial on every paid plan — no credit card required. Plans from $9/mo."
+          sub="A 7-day free trial on every paid plan - no credit card required. Plans from $9/mo."
         />
         <div className="price-grid">
           {tiers.map((t, i) => (
@@ -534,7 +534,7 @@ function Testimonials() {
         <SecHead
           eyebrow="Early users"
           title={<>People who already <em>checked their share.</em></>}
-          sub="Anonymized — beta users, May 2026."
+          sub="Anonymized - beta users, May 2026."
         />
         <div className="tst-grid">
           {items.map((it, i) => (
@@ -559,7 +559,7 @@ function CTA() {
     <section className="section cta" id="audit">
       <div className="container">
         <div className="cta-card">
-          <div className="eyebrow"><span className="dot" /> Free GEO audit — no card</div>
+          <div className="eyebrow"><span className="dot" /> Free GEO audit - no card</div>
           <h2 className="serif cta-h">See what AI says about your brand <em>in 90 seconds.</em></h2>
           <p className="cta-sub">Drop your domain. We&apos;ll run 50 buyer-intent queries across all five engines and send you a report with your share of voice, every mention, and where competitors are winning.</p>
           <form className="cta-form" onSubmit={(e) => { e.preventDefault(); router.push('/geo-audit'); }}>
@@ -575,7 +575,7 @@ function CTA() {
 
 /* ─── Footer ─── */
 /* Links written explicitly (not mapped) so the canonical public-footer
-   destinations — including the `/#features` anchor — are pinned in source,
+   destinations - including the `/#features` anchor - are pinned in source,
    mirroring src/components/seo/SeoLayout.tsx (see tests/nav-features-anchor). */
 function Footer() {
   return (
@@ -583,7 +583,7 @@ function Footer() {
       <div className="container ft-grid">
         <div className="ft-brand">
           <Logo size={26} />
-          <p>See what AI says about your brand — across ChatGPT, Claude, Gemini, Perplexity and Grok, every day.</p>
+          <p>See what AI says about your brand - across ChatGPT, Claude, Gemini, Perplexity and Grok, every day.</p>
           <span className="chip"><span className="pulse" /> All engines operational</span>
         </div>
         <div className="ft-col">

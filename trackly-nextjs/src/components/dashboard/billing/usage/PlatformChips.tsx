@@ -7,7 +7,7 @@ import { PLATFORM_COLORS } from '@/lib/constants';
  * portfolio. Each chip carries the platform's brand color as a leading
  * dot so the user can scan ChatGPT / Claude / etc. at a glance.
  *
- * Falls back to a quiet "—" when none are configured so the tile
+ * Falls back to a quiet "-" when none are configured so the tile
  * doesn't render with empty whitespace.
  */
 interface PlatformChipsProps {
@@ -18,7 +18,7 @@ interface PlatformChipsProps {
 
 export default function PlatformChips({ platforms, maxVisible = 4 }: PlatformChipsProps) {
   if (!platforms.length) {
-    return <span style={{ fontSize: 13, color: '#94a3b8' }}>—</span>;
+    return <span style={{ fontSize: 13, color: '#94a3b8' }}>-</span>;
   }
   const visible = platforms.slice(0, maxVisible);
   const overflow = Math.max(0, platforms.length - maxVisible);

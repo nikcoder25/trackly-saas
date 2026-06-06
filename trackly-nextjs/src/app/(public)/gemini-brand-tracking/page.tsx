@@ -32,7 +32,7 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Gemini Brand Tracking — Monitor Google AI Mentions | Livesov',
+        alt: 'Gemini Brand Tracking - Monitor Google AI Mentions | Livesov',
       },
     ],
   },
@@ -56,7 +56,7 @@ const features = [
     icon: '#',
     title: 'AI Overviews share of voice',
     description:
-      'Track how often you appear in Google Search&rsquo;s Gemini-powered AI Overviews — the most visible AI surface on the web.',
+      'Track how often you appear in Google Search&rsquo;s Gemini-powered AI Overviews - the most visible AI surface on the web.',
   },
   {
     icon: '⟁',
@@ -80,7 +80,7 @@ const features = [
     icon: '⚠',
     title: 'Hallucination guardrails',
     description:
-      'Set canonical facts about your brand and get alerted when Gemini contradicts them — before the answer reaches a buyer.',
+      'Set canonical facts about your brand and get alerted when Gemini contradicts them - before the answer reaches a buyer.',
   },
 ];
 
@@ -88,7 +88,7 @@ const supportedModels = [
   ['Gemini 2.5 Pro', 'Highest reasoning & longest context', 'Used in Workspace, AI Studio, and high-stakes consumer queries'],
   ['Gemini 2.5 Flash', 'Mainstream balanced tier', 'Powers most Gemini app and consumer Search interactions'],
   ['Gemini 2.5 Flash-Lite', 'Latency-optimized, low-cost', 'Embedded in Android, smart features, and high-volume Google products'],
-  ['Gemini with Search grounding', 'Live-grounded responses with citations', 'Equivalent to AI Overviews — the most visible surface'],
+  ['Gemini with Search grounding', 'Live-grounded responses with citations', 'Equivalent to AI Overviews - the most visible surface'],
 ];
 
 const steps = [
@@ -119,7 +119,7 @@ const useCases = [
     icon: '⬢',
     title: 'Local & SMB brands',
     description:
-      'Gemini powers Google AI Overviews — the most-visited AI surface on the web. For local and SMB queries, this is the visibility battle that matters.',
+      'Gemini powers Google AI Overviews - the most-visited AI surface on the web. For local and SMB queries, this is the visibility battle that matters.',
   },
   {
     icon: '◑',
@@ -144,7 +144,7 @@ const faqs = [
   {
     question: 'Which Gemini models does Livesov support?',
     answer:
-      'The full 2.5 family — Pro, Flash, and Flash-Lite — plus grounded variants. We add new Gemini releases as Google ships them, typically within days, with continuous historical data.',
+      'The full 2.5 family - Pro, Flash, and Flash-Lite - plus grounded variants. We add new Gemini releases as Google ships them, typically within days, with continuous historical data.',
   },
   {
     question: 'Does Livesov require a Google API key?',
@@ -154,12 +154,12 @@ const faqs = [
   {
     question: 'Why are Gemini answers different from Google search results?',
     answer:
-      'Gemini is a language model — it generates answers using a blend of training data and (for grounded responses) live web search. Traditional Google rankings are one input, but the synthesized answer can name brands that don&rsquo;t rank #1 organically. That&rsquo;s exactly why tracking Gemini directly matters.',
+      'Gemini is a language model - it generates answers using a blend of training data and (for grounded responses) live web search. Traditional Google rankings are one input, but the synthesized answer can name brands that don&rsquo;t rank #1 organically. That&rsquo;s exactly why tracking Gemini directly matters.',
   },
   {
     question: 'How often does Livesov re-query Gemini?',
     answer:
-      'Free plans run manually, Starter weekly, Pro every 2 days, Agency daily — and you can trigger manual runs at any time within your plan&rsquo;s daily cap.',
+      'Free plans run manually, Starter weekly, Pro every 2 days, Agency daily - and you can trigger manual runs at any time within your plan&rsquo;s daily cap.',
   },
   {
     question: 'Can I track AI Overviews for specific Google queries?',
@@ -198,8 +198,8 @@ export default function GeminiBrandTrackingPage() {
             </span>
           </>
         }
-        subtitle="Monitor how Google's Gemini — 2.5 Pro, 2.5 Flash, Flash-Lite, and the grounded variants that power AI Overviews — mentions, ranks, and recommends your brand across Search, Workspace, and Android."
-        ctaText="Start tracking Gemini — free"
+        subtitle="Monitor how Google's Gemini - 2.5 Pro, 2.5 Flash, Flash-Lite, and the grounded variants that power AI Overviews - mentions, ranks, and recommends your brand across Search, Workspace, and Android."
+        ctaText="Start tracking Gemini - free"
       />
 
       <Section pad="0 24px 56px" width={1000}>
@@ -216,7 +216,7 @@ export default function GeminiBrandTrackingPage() {
       <Section background="var(--bg-section, #f7f5f1)" pad="80px 24px">
         <SectionHeader
           label="Why Gemini matters"
-          title="Gemini is the AI surface most users see — whether they know it or not"
+          title="Gemini is the AI surface most users see - whether they know it or not"
           subtitle="Gemini powers Google AI Overviews, the most-visited AI experience on the web, plus Workspace AI in Gmail, Docs, and Meet, plus the Android assistant on more than 3 billion devices."
         />
         <LongForm>
@@ -254,7 +254,7 @@ export default function GeminiBrandTrackingPage() {
         <SectionHeader
           label="Model coverage"
           title="Every Gemini surface your buyers actually touch"
-          subtitle="Tracking only one Gemini model misses the variance that matters. The same prompt can rank you #1 in Pro and #5 in Flash — and you need to know."
+          subtitle="Tracking only one Gemini model misses the variance that matters. The same prompt can rank you #1 in Pro and #5 in Flash - and you need to know."
         />
         <ComparisonTable
           headers={['Gemini model', 'What it is', 'Where it lives']}
@@ -274,14 +274,14 @@ export default function GeminiBrandTrackingPage() {
           <p>
             When Google rolled out AI Overviews globally, click-through rates for traditional
             organic results dropped meaningfully on the queries where AI Overviews appear. The
-            answer at the top of the page is now generated by Gemini — and if your brand isn&apos;t
+            answer at the top of the page is now generated by Gemini - and if your brand isn&apos;t
             in that answer, you can rank #1 organically and still lose the click.
           </p>
           <p>
             Worse, the AI Overview is not deterministic. Two users searching the same query may
             see different summaries, different cited brands, and different competitor mentions.
             Sampling AI Overviews <em>once</em> is misleading. You need continuous, multi-run
-            measurement — which is exactly what Livesov was built for.
+            measurement - which is exactly what Livesov was built for.
           </p>
 
           <h2>How Gemini chooses what to say</h2>
@@ -299,11 +299,11 @@ export default function GeminiBrandTrackingPage() {
             timestamps, and citation-friendly attribution.
           </p>
 
-          <h2>Sentiment in Gemini — and why generic models miss it</h2>
+          <h2>Sentiment in Gemini - and why generic models miss it</h2>
           <p>
             Gemini tends to write balanced, list-style answers. Generic sentiment models treat
             those as neutral, which buries the actual signal. Livesov&apos;s sentiment analysis
-            is tuned to Gemini&apos;s answer style — it surfaces stance, comparative framing,
+            is tuned to Gemini&apos;s answer style - it surfaces stance, comparative framing,
             and the implicit recommendation Gemini is making, not just polarity.
           </p>
 
@@ -320,7 +320,7 @@ export default function GeminiBrandTrackingPage() {
             Use Livesov to identify the AI Overviews prompts where your brand is missing or
             losing position. Run a <a href="/geo-audit">free GEO audit</a> on the pages Gemini
             actually cites. Improve them. Re-measure in the next monitoring cycle. The full
-            framework lives in our <a href="/geo-optimization">GEO optimization guide</a> — but
+            framework lives in our <a href="/geo-optimization">GEO optimization guide</a> - but
             the core loop is measure → fix → re-measure, weekly.
           </p>
         </LongForm>
@@ -330,7 +330,7 @@ export default function GeminiBrandTrackingPage() {
         <SectionHeader
           label="Why Livesov"
           title="Livesov vs. SERP-only SEO tools and one-off Gemini checks"
-          subtitle="AI Overviews aren&rsquo;t SERP positions. Tracking them needs a tool built for AI answers — not a SERP scraper with an AI sticker on the box."
+          subtitle="AI Overviews aren&rsquo;t SERP positions. Tracking them needs a tool built for AI answers - not a SERP scraper with an AI sticker on the box."
         />
         <ComparisonTable
           headers={['Capability', 'Livesov', 'Manual Gemini checks', 'Traditional SEO']}

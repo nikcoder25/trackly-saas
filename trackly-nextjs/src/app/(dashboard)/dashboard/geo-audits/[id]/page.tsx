@@ -101,7 +101,7 @@ export default function AuditDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audit?.status]);
 
-  // Brand input for mention highlighting. Pulled from BrandContext —
+  // Brand input for mention highlighting. Pulled from BrandContext -
   // the audit's brandId always belongs to the current user since the
   // detail endpoint returns 404 otherwise. NO mock data: when the
   // brand isn't in the loaded list (e.g., it was just deleted), we
@@ -147,7 +147,7 @@ export default function AuditDetailPage() {
       byPrompt.set(row.promptText, arr);
     }
     // Preserve audit.prompts ordering, then surface anything else
-    // (defensive — prompt text from results should always match).
+    // (defensive - prompt text from results should always match).
     const ordered: { promptText: string; rows: PromptResultRow[] }[] = [];
     const seen = new Set<string>();
     for (const p of promptOrder) {
@@ -167,7 +167,7 @@ export default function AuditDetailPage() {
   const hiddenPrompts = Math.max(0, totalPrompts - visiblePrompts);
 
   // Mention rate = mentionsCount / received (calls actually made).
-  // Null when received === 0 so the KPI shows "—" instead of "0.0%".
+  // Null when received === 0 so the KPI shows "-" instead of "0.0%".
   const mentionRate = audit && audit.received > 0
     ? audit.mentionsCount / audit.received
     : null;
@@ -235,7 +235,7 @@ export default function AuditDetailPage() {
         // run. Same UX pattern as kicking off a new audit from Screen 01.
         router.push(`/dashboard/geo-audits/${encodeURIComponent(newId)}`);
       } else {
-        // Fallback if the response shape ever changes — at least
+        // Fallback if the response shape ever changes - at least
         // refresh the list.
         router.push('/dashboard/geo-audits');
       }
@@ -319,8 +319,8 @@ export default function AuditDetailPage() {
 
       {results === null || results.length === 0 ? (
         <div className="card" style={{ padding: 32, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
-          {audit.status === 'queued' ? 'Audit queued — results will appear here as the worker starts.'
-           : audit.status === 'running' ? 'Audit running — first results will land momentarily.'
+          {audit.status === 'queued' ? 'Audit queued - results will appear here as the worker starts.'
+           : audit.status === 'running' ? 'Audit running - first results will land momentarily.'
            : 'No results recorded.'}
         </div>
       ) : grouped.length === 0 ? (

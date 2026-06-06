@@ -152,7 +152,7 @@ export default function QueryTrackerPage() {
     return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   }
 
-  // Status derived from real visibility — categorises tracked queries for the badge/filter.
+  // Status derived from real visibility - categorises tracked queries for the badge/filter.
   function statusOf(kw: KTKeyword): 'priority' | 'tracking' | 'losing' | 'none' {
     if (kw.totalRuns === 0) return 'none';
     if (kw.mentionRate >= 30) return 'priority';
@@ -188,7 +188,7 @@ export default function QueryTrackerPage() {
     <div className="lvx">
       <PageHead
         title="Query Tracker"
-        sub="Every buyer-intent prompt you're tracking — and how you perform on each across AI engines."
+        sub="Every buyer-intent prompt you're tracking - and how you perform on each across AI engines."
       />
       <div className="page-body">
         <KPIRail items={[
@@ -261,13 +261,13 @@ export default function QueryTrackerPage() {
                       <td><b title={kw.keyword}>{kw.keyword}</b></td>
                       <td><Badge tone={statusTone}>{statusLabel}</Badge></td>
                       <td className="num"><b>{kw.mentionRate}%</b></td>
-                      <td>{kw.change != null ? <Delta v={kw.change} suffix="%" /> : <span className="dim">—</span>}</td>
+                      <td>{kw.change != null ? <Delta v={kw.change} suffix="%" /> : <span className="dim">-</span>}</td>
                       <td className="num">{kw.totalRuns}</td>
                       <td className="num">{kw.platformCount}/{planPlatforms.length}</td>
                       <td>
                         {kw.sparkline && kw.sparkline.length > 1
                           ? <Spark data={kw.sparkline} width={120} height={24} color={(kw.change ?? 0) >= 0 ? 'var(--primary)' : 'var(--danger)'} />
-                          : <span className="dim">—</span>}
+                          : <span className="dim">-</span>}
                       </td>
                       <td className="right num dim">{formatDate(kw.lastUpdated)}</td>
                     </tr>

@@ -88,7 +88,7 @@ function TrialEndedBanner() {
   }, [storageKey]);
 
   if (!user || user.rawPlan !== 'trial' || !trialEndsAtISO) return null;
-  // Use rawPlan (DB plan, exposed by safeUser) not plan (effective): once the trial expires, effective plan flips to 'free' while rawPlan stays 'trial' — that's exactly the post-trial state we want to detect.
+  // Use rawPlan (DB plan, exposed by safeUser) not plan (effective): once the trial expires, effective plan flips to 'free' while rawPlan stays 'trial' - that's exactly the post-trial state we want to detect.
   const endMs = new Date(trialEndsAtISO).getTime();
   if (isNaN(endMs) || endMs > Date.now()) return null;
   if (dismissed) return null;
@@ -335,7 +335,7 @@ function UsageLimitBanner() {
   const limitSummary = alerts.map(a => `${a.label} ${a.used}/${a.max >= 9999 ? '∞' : a.max}`).join(', ');
 
   // Surface a "Manage prompts" CTA when the tracked-prompt cap is the
-  // alert that's firing — that page lets the user trim prompts back
+  // alert that's firing - that page lets the user trim prompts back
   // into limit instead of forcing a plan upgrade.
   const promptsAlert = alerts.find(a => a.key === 'trackedPrompts');
 

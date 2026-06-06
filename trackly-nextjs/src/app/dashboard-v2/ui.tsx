@@ -328,19 +328,19 @@ export function Cit({ url }: { url: string }) {
 
 export const GLOSSARY: Record<string, { term: string; short: string; why?: string }> = {
   sov: { term: 'Share of Voice (SOV)', short: 'Of every time an AI named a brand in your category, the share that was you.', why: 'Think “market share, but inside AI answers.” Higher means the AIs recommend you more than rivals.' },
-  geo: { term: 'GEO', short: 'Generative Engine Optimization — getting your brand to show up well in AI answers.', why: 'Like SEO, but the audience is ChatGPT, Claude, Gemini & co. instead of Google.' },
+  geo: { term: 'GEO', short: 'Generative Engine Optimization - getting your brand to show up well in AI answers.', why: 'Like SEO, but the audience is ChatGPT, Claude, Gemini & co. instead of Google.' },
   mention: { term: 'Mention', short: 'One instance of an AI engine naming your brand inside an answer.', why: 'More mentions across more questions = more chances a buyer hears about you from the AI.' },
-  engine: { term: 'AI engine', short: 'An AI assistant we ask on your behalf — ChatGPT, Claude, Gemini, Perplexity, Grok.', why: 'We run your tracked questions through each one so you see where you win and where you don’t.' },
-  hallucination: { term: 'Hallucination', short: 'When an AI states something false about you — a wrong price, a made-up feature.', why: 'These mislead buyers. Catch them fast and submit a correction to set the record straight.' },
+  engine: { term: 'AI engine', short: 'An AI assistant we ask on your behalf - ChatGPT, Claude, Gemini, Perplexity, Grok.', why: 'We run your tracked questions through each one so you see where you win and where you don’t.' },
+  hallucination: { term: 'Hallucination', short: 'When an AI states something false about you - a wrong price, a made-up feature.', why: 'These mislead buyers. Catch them fast and submit a correction to set the record straight.' },
   citation: { term: 'Citation', short: 'A web page an AI pulled from to write its answer about you.', why: 'These are the pages AI “trusts.” Strengthen the ones that help and fix the ones that don’t.' },
-  position: { term: 'Position', short: 'Where your brand ranked in the answer’s list — 1st, 2nd, 3rd…', why: 'Lower number = more prominent. Being named 1st gets far more attention than 5th.' },
+  position: { term: 'Position', short: 'Where your brand ranked in the answer’s list - 1st, 2nd, 3rd…', why: 'Lower number = more prominent. Being named 1st gets far more attention than 5th.' },
   sentiment: { term: 'Sentiment', short: 'How positive or negative the AI sounded about you, from −1 to +1.', why: 'Being mentioned is good; being mentioned warmly is better. Watch for dips.' },
   health: { term: 'Brand Health', short: 'One 0–100 score blending visibility, sentiment, accuracy and competitiveness.', why: 'Your single “how am I doing in AI” number. Watch it climb week over week.' },
   prompt: { term: 'Tracked prompt', short: 'A real buyer question we ask the engines on a schedule to see if you come up.', why: 'These are the questions your customers actually type. Track the ones that matter to you.' },
-  coverage: { term: 'Query coverage', short: 'The share of your tracked questions where you got mentioned at all.', why: 'Low coverage means whole topics where AI never brings you up — opportunity to win.' },
+  coverage: { term: 'Query coverage', short: 'The share of your tracked questions where you got mentioned at all.', why: 'Low coverage means whole topics where AI never brings you up - opportunity to win.' },
   pp: { term: 'Percentage points (pp)', short: 'The plain difference between two percentages (22% → 27% is +5 pp).', why: 'Used so “up 5 points” isn’t confused with “up 5 percent of the old number.”' },
-  intent: { term: 'Intent', short: 'What the asker is trying to do — compare, get a price, find a feature, get a pick.', why: 'Winning “comparison” questions matters more when buyers are close to choosing.' },
-  audit: { term: 'GEO Audit', short: 'An on-demand snapshot of how you perform across all engines right now.', why: 'Great for a board deck or a weekly stand-up — one run, one shareable result.' },
+  intent: { term: 'Intent', short: 'What the asker is trying to do - compare, get a price, find a feature, get a pick.', why: 'Winning “comparison” questions matters more when buyers are close to choosing.' },
+  audit: { term: 'GEO Audit', short: 'An on-demand snapshot of how you perform across all engines right now.', why: 'Great for a board deck or a weekly stand-up - one run, one shareable result.' },
 };
 
 function useTip() {

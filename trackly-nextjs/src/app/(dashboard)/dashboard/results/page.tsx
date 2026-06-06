@@ -38,7 +38,7 @@ interface ResultRow {
   id: string;
   timestamp: string;
   prompt: string;
-  // Platform/model identifier — matches PLATFORM_COLORS keys.
+  // Platform/model identifier - matches PLATFORM_COLORS keys.
   model: string;
   mentioned: boolean;
   response: string;
@@ -209,7 +209,7 @@ export default function ResultsPage() {
   if (loading) {
     return (
       <div className="lvx">
-        <PageHead title="Results" sub="The full text of every model response — drill into a single query across all engines." />
+        <PageHead title="Results" sub="The full text of every model response - drill into a single query across all engines." />
         <div className="page-body">
           <Card padding={false}><TableSkeleton rows={6} cols={5} /></Card>
         </div>
@@ -219,7 +219,7 @@ export default function ResultsPage() {
 
   return (
     <div className="lvx">
-      <PageHead title="Results" sub="The full text of every model response — drill into a single query across all engines."
+      <PageHead title="Results" sub="The full text of every model response - drill into a single query across all engines."
         actions={hasFilters ? <button type="button" className="btn-d" onClick={clearFilters}>Clear filters</button> : undefined} />
 
       <div className="page-body">
@@ -228,7 +228,7 @@ export default function ResultsPage() {
             <div style={{ textAlign: 'center', padding: 28 }}>
               <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>No results yet</div>
               <p style={{ color: 'var(--text-2)', fontSize: 13, maxWidth: 360, margin: '0 auto 16px' }}>
-                No results yet — add a tracked prompt to start collecting.
+                No results yet - add a tracked prompt to start collecting.
               </p>
               <a href="/dashboard/prompts" className="btn-p" style={{ textDecoration: 'none' }}>
                 Manage tracked prompts

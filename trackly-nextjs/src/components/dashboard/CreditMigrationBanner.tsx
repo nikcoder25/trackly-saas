@@ -14,7 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
  * already match (or exceed) what the previous quota allowed for each
  * tier (Pro: 100 queries → 2,500 credits ≈ same brand reach, since one
  * brand run consumes queries × platforms credits). Banner is purely
- * informational — there's no choice to make.
+ * informational - there's no choice to make.
  */
 const STORAGE_KEY = 'livesov_credits_v2_seen';
 
@@ -33,7 +33,7 @@ export default function CreditMigrationBanner() {
 
   if (dismissed) return null;
   if (!user) return null;
-  // Free / trial users don't need this — they're seeing the credit
+  // Free / trial users don't need this - they're seeing the credit
   // system as the default, not a migration.
   if (user.plan === 'free' || user.plan === 'trial') return null;
 
@@ -51,7 +51,7 @@ export default function CreditMigrationBanner() {
       <span style={{ fontSize: 14, color: 'var(--primary)' }}>★</span>
       <div style={{ flex: 1, lineHeight: 1.5 }}>
         <strong>We&apos;ve upgraded your plan to a credit-based system.</strong>{' '}
-        You now get monthly AI checks with daily auto-tracking — your
+        You now get monthly AI checks with daily auto-tracking - your
         existing usage carries over, and your scheduled scans keep running.{' '}
         <Link href="/dashboard/billing" style={{ color: 'var(--primary)', fontWeight: 600 }}>
           Learn more →

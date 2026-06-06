@@ -370,14 +370,14 @@ export default function AdminPage() {
                       {/* Username */}
                       <td style={{ padding: '13px 16px', maxWidth: 160 }}>
                         <span style={{ display: 'block', fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {u.username ? `@${u.username}` : <span style={{ opacity: 0.3 }}>—</span>}
+                          {u.username ? `@${u.username}` : <span style={{ opacity: 0.3 }}>-</span>}
                         </span>
                       </td>
                       <td style={{ padding: '13px 16px' }}><PlanBadge plan={u.plan} /></td>
                       <td style={{ padding: '13px 16px' }}><RoleBadge role={u.role} /></td>
                       <td style={{ padding: '13px 16px' }}><VerifiedBadge verified={u.email_verified} /></td>
                       <td style={{ padding: '13px 16px', fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-                        {u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { year: '2-digit', month: 'short', day: 'numeric' }) : '—'}
+                        {u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { year: '2-digit', month: 'short', day: 'numeric' }) : '-'}
                       </td>
                       {/* Actions */}
                       <td style={{ padding: '13px 16px' }}>

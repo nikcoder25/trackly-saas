@@ -16,7 +16,7 @@ export const AUDIT_PLATFORMS_COUNT = STATE_PLATFORMS_COUNT;
 /**
  * Pre-flight credit-confirmation popup for Regional Audits.
  *
- * Sibling of `PreflightModal` in src/contexts/CreditsContext.tsx —
+ * Sibling of `PreflightModal` in src/contexts/CreditsContext.tsx -
  * mirrors its visual pattern (typography, layout, colors, blocked
  * state, upgrade link) so the user feels they're seeing the same
  * popup as the brand-run "Run query" flow. Differs only where the
@@ -31,7 +31,7 @@ export const AUDIT_PLATFORMS_COUNT = STATE_PLATFORMS_COUNT;
  *     so the multiplication is visible.
  *
  * All numeric inputs come from the SAME credit hook the rest of the
- * dashboard uses (`useCredits().status`) — no fabricated values, no
+ * dashboard uses (`useCredits().status`) - no fabricated values, no
  * separate fetch.
  */
 
@@ -41,11 +41,11 @@ interface AuditCreditConfirmModalProps {
   /** Number of prompts selected. Used for the math breakdown only. */
   promptsCount: number;
   /**
-   * Per-unit cost — same constant the brand-run "Run query" popup
+   * Per-unit cost - same constant the brand-run "Run query" popup
    * uses (1 credit per LLM call). Defaults to 1 so callers can omit.
    */
   perUnitCost?: number;
-  /** Number of platforms — fixed at 5 for v1. Surfaced as a prop so
+  /** Number of platforms - fixed at 5 for v1. Surfaced as a prop so
    *  tests can vary it without touching the constant. */
   platformsCount?: number;
   /** User clicked Cancel or hit Escape. */
@@ -74,7 +74,7 @@ export default function AuditCreditConfirmModal({
   const dailyRemaining = status?.manualRemainingToday ?? 0;
   const dailyCap = status?.manualDailyCap ?? 0;
 
-  // ESC closes the modal — same as PreflightModal's overlay onClick.
+  // ESC closes the modal - same as PreflightModal's overlay onClick.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onCancel();

@@ -3,7 +3,7 @@
 /**
  * 4-week mention-rate sparkline. Reads up to 4 chronological
  * `mention_rate` snapshots for the same region from the user's recent
- * audits (passed in by the caller — usually from the loaded list).
+ * audits (passed in by the caller - usually from the loaded list).
  *
  * NO mock data. If we have <2 data points (i.e., a single audit or
  * none at all), we render an honest empty/single-dot state, never a
@@ -35,7 +35,7 @@ export default function MentionRateSparkline({
     (v) => Number.isFinite(v) && v >= 0 && v <= 1,
   );
 
-  // Empty state — no data points at all (e.g., region has only
+  // Empty state - no data points at all (e.g., region has only
   // queued/running audits). Render a flat dim track line.
   if (clean.length === 0) {
     return (
@@ -61,7 +61,7 @@ export default function MentionRateSparkline({
 
   // Single-point state: one data point, render as a dot at the
   // appropriate y-height. Spec: "render a flat line (or just a single
-  // dot)" — single dot is more honest than a flat line.
+  // dot)" - single dot is more honest than a flat line.
   if (clean.length === 1) {
     const y = height - 2 - clean[0] * (height - 4);
     return (

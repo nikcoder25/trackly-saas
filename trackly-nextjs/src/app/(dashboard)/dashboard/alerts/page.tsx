@@ -81,7 +81,7 @@ export default function AlertsPage() {
 
   return (
     <div className="lvx">
-      <PageHead title="Alerts" sub="Manage alert rules, webhook URLs, notification preferences, and report schedules — all in one place."
+      <PageHead title="Alerts" sub="Manage alert rules, webhook URLs, notification preferences, and report schedules - all in one place."
         actions={<button className="btn-p" onClick={() => setShowAddForm(!showAddForm)}>+ Add Alert</button>} />
       <div className="page-body">
         <KPIRail items={[

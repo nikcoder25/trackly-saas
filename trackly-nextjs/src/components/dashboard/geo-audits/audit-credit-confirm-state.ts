@@ -9,7 +9,7 @@
 
 import type { CreditStatus } from '@/contexts/CreditsContext';
 
-/** Per-unit cost — same constant the brand-run "Run query" popup
+/** Per-unit cost - same constant the brand-run "Run query" popup
  *  uses (1 credit per LLM call). */
 export const AUDIT_PER_UNIT_COST = 1;
 
@@ -55,7 +55,7 @@ export interface AuditCreditState {
   isUnlimited: boolean;
   /** True iff Confirm should be replaced with the Upgrade-Plan CTA. */
   blocked: boolean;
-  /** Machine-friendly reason — useful for tests + future telemetry. */
+  /** Machine-friendly reason - useful for tests + future telemetry. */
   blockReason: AuditCreditBlockReason;
   /** Human-friendly copy displayed inside the red error block. */
   blockMessage: string;
@@ -100,7 +100,7 @@ export function computeAuditCreditState(
     return {
       cost, remaining, monthlyCap, remainingAfter, isUnlimited,
       blocked: true, blockReason: 'no_status',
-      blockMessage: 'Could not verify your credit balance — try again in a moment.',
+      blockMessage: 'Could not verify your credit balance - try again in a moment.',
     };
   }
 

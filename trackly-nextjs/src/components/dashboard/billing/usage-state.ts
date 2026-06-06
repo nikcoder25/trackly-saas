@@ -83,13 +83,13 @@ export function forecastState(input: ForecastInput): ForecastState {
 }
 
 /**
- * Pretty date helpers — kept here so tests can assert formatting
+ * Pretty date helpers - kept here so tests can assert formatting
  * without importing the React component.
  */
 export function fmtDate(iso: string | null | undefined): string {
-  if (!iso) return '—';
+  if (!iso) return '-';
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
@@ -101,22 +101,22 @@ export function fmtDate(iso: string | null | undefined): string {
  * Accepts either a YYYY-MM-DD bucket string or a full ISO timestamp.
  */
 export function fmtDateUtc(iso: string | null | undefined): string {
-  if (!iso) return '—';
+  if (!iso) return '-';
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', timeZone: 'UTC',
   });
 }
 
 /**
- * "in 3 days" / "in 2h" / "today" — used by the auto-run card. Negative
+ * "in 3 days" / "in 2h" / "today" - used by the auto-run card. Negative
  * values become "overdue".
  */
 export function fmtRelative(iso: string | null | undefined, now: Date = new Date()): string {
-  if (!iso) return '—';
+  if (!iso) return '-';
   const t = new Date(iso).getTime();
-  if (!Number.isFinite(t)) return '—';
+  if (!Number.isFinite(t)) return '-';
   const diff = t - now.getTime();
   const abs = Math.abs(diff);
   const sign = diff < 0 ? 'overdue ' : 'in ';
@@ -128,7 +128,7 @@ export function fmtRelative(iso: string | null | undefined, now: Date = new Date
 }
 
 /**
- * "On track" / "At risk" copy generators — pulled out so the same
+ * "On track" / "At risk" copy generators - pulled out so the same
  * strings are testable and the component just renders them.
  */
 export interface ForecastCopy {
@@ -156,7 +156,7 @@ export function buildForecastCopy(input: ForecastInput, nextResetAt: string): Fo
     );
     return {
       state,
-      text: `At ~${input.avgDailyCredits} credits/day, you'll reach 0 on ${fmtDate(zeroAt.toISOString())} — ` +
+      text: `At ~${input.avgDailyCredits} credits/day, you'll reach 0 on ${fmtDate(zeroAt.toISOString())} - ` +
         `${daysBeforeReset} day${daysBeforeReset === 1 ? '' : 's'} before reset. ` +
         `Consider upgrading or pausing manual runs.`,
     };
@@ -165,7 +165,7 @@ export function buildForecastCopy(input: ForecastInput, nextResetAt: string): Fo
   return {
     state,
     text: `At ~${input.avgDailyCredits}/day, projected month-end: ` +
-      `${input.projectedMonthEnd.toLocaleString()} — over your ${input.monthlyCap.toLocaleString()} cap. ` +
+      `${input.projectedMonthEnd.toLocaleString()} - over your ${input.monthlyCap.toLocaleString()} cap. ` +
       `Consider upgrading.`,
   };
 }

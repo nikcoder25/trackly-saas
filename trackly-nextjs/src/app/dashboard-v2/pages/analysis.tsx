@@ -11,7 +11,7 @@ export function PageMentions() {
   const filtered = tag === 'all' ? mentions : mentions.filter(m => m.tag === tag);
   return (
     <>
-      <PageHead title="Mentions" sub="Every answer where an AI assistant named Acme — across the 142 buyer questions you track."
+      <PageHead title="Mentions" sub="Every answer where an AI assistant named Acme - across the 142 buyer questions you track."
         actions={<><button className="btn-d">⇣ Export CSV</button><button className="btn-g">⚙ Columns</button></>}/>
       <div className="page-body">
         <KPIRail items={[
@@ -43,7 +43,7 @@ export function PageMentions() {
           padding={false} foot={<><span>Showing {filtered.length} of 1,284</span><span>Auto-refreshing · live</span></>}>
           <table className="tbl">
             <thead><tr>
-              <th>ENGINE</th><th>QUERY</th><th>VERDICT <Info>How you showed up in this answer — named first, mentioned, missed, or a false claim.</Info></th><th>POSITION <Info term="position"/></th><th>SOURCES <Info term="citation"/></th><th>SENTIMENT <Info term="sentiment"/></th><th className="right">TIME</th>
+              <th>ENGINE</th><th>QUERY</th><th>VERDICT <Info>How you showed up in this answer - named first, mentioned, missed, or a false claim.</Info></th><th>POSITION <Info term="position"/></th><th>SOURCES <Info term="citation"/></th><th>SENTIMENT <Info term="sentiment"/></th><th className="right">TIME</th>
             </tr></thead>
             <tbody>
               {filtered.slice(0, 18).map((m,i) => (
@@ -76,9 +76,9 @@ function generateMentions(n: any) {
     { tag: 'pos', label: 'POSITIVE · 2ND', pos: '2/5', sent: 0.71 },
     { tag: 'pos', label: 'POSITIVE · 1ST', pos: '1/4', sent: 0.84 },
     { tag: 'neu', label: 'MENTIONED', pos: '3/6', sent: 0.12 },
-    { tag: 'warn', label: 'FALSE CLAIM', pos: '—', sent: -0.10 },
+    { tag: 'warn', label: 'FALSE CLAIM', pos: '-', sent: -0.10 },
     { tag: 'neg', label: 'NEGATIVE', pos: '4/4', sent: -0.42 },
-    { tag: 'miss', label: 'NOT MENTIONED', pos: '—', sent: 0 },
+    { tag: 'miss', label: 'NOT MENTIONED', pos: '-', sent: 0 },
   ];
   return Array.from({length: n}).map((_, i) => {
     const t = tags[i % tags.length];
@@ -134,7 +134,7 @@ export function PageProof() {
                 <tr><td><b>Linear</b></td><td className="num">1</td><td className="pos num">+0.78</td><td className="mono dim">linear.app/why</td></tr>
                 <tr><td><b style={{color:'var(--accent)'}}>Acme</b> <Badge tone="acc">YOU</Badge></td><td className="num">2</td><td className="pos num">+0.71</td><td className="mono dim">acme.com/customers</td></tr>
                 <tr><td><b>Asana</b></td><td className="num">3</td><td className="pos num">+0.62</td><td className="mono dim">asana.com/eng</td></tr>
-                <tr><td><b>Jira</b></td><td className="num">4</td><td className="neu num">+0.05</td><td className="mono dim">—</td></tr>
+                <tr><td><b>Jira</b></td><td className="num">4</td><td className="neu num">+0.05</td><td className="mono dim">-</td></tr>
               </tbody>
             </table>
           </Card>
@@ -179,7 +179,7 @@ export function PageProof() {
 export function PagePlatforms() {
   return (
     <>
-      <PageHead title="Platform Status" sub="Health of every engine — uptime, latency, queue, and last successful run."
+      <PageHead title="Platform Status" sub="Health of every engine - uptime, latency, queue, and last successful run."
         actions={<><button className="btn-d">Subscribe to status</button><button className="btn-p">Run all engines now</button></>}/>
       <div className="page-body">
         <KPIRail items={[
@@ -197,7 +197,7 @@ export function PagePlatforms() {
               <div className="plat-grid">
                 <div>
                   <div className="eyebrow">LATENCY · 7D</div>
-                  <div className="kpi-v mono" style={{fontSize:22}}>{p.ms || '—'}<i>ms</i></div>
+                  <div className="kpi-v mono" style={{fontSize:22}}>{p.ms || '-'}<i>ms</i></div>
                   <Spark data={[1800,2100,1700,1950,2200,1820,p.ms || 4000]} width={140} height={28} color={p.ok ? 'var(--accent)' : 'var(--mute)'} fill/>
                 </div>
                 <div>
@@ -243,7 +243,7 @@ export function PagePlatforms() {
 }
 
 // ─────────────────────────── COMPETITORS ───────────────────────────
-// Celebratory "you overtook a rival" banner — fires confetti once per session.
+// Celebratory "you overtook a rival" banner - fires confetti once per session.
 function OvertakeBanner() {
   const ex = useExtras();
   const [hidden, setHidden] = React.useState(false);
@@ -261,7 +261,7 @@ function OvertakeBanner() {
       <span className="overtake-ic">★</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="overtake-t">You just overtook Linear for #1 in your category</div>
-        <div className="overtake-d">Acme reached <b>27.4%</b> Share of Voice this week — up <b>4.2 points</b>, your best run yet.</div>
+        <div className="overtake-d">Acme reached <b>27.4%</b> Share of Voice this week - up <b>4.2 points</b>, your best run yet.</div>
       </div>
       <button className="btn-g" onClick={() => ex && ex.celebrate({ count: 90 })}>✦ Celebrate</button>
       <button className="overtake-x" title="Dismiss" onClick={() => setHidden(true)}>
@@ -284,7 +284,7 @@ export function PageCompetitors() {
   ];
   return (
     <>
-      <PageHead title="Competitors" sub="Where Acme stands against the 7 brands you track — across every engine, every question."
+      <PageHead title="Competitors" sub="Where Acme stands against the 7 brands you track - across every engine, every question."
         actions={<><button className="btn-d">+ Add competitor</button><button className="btn-g">⇣ Export</button></>}/>
       <div className="page-body">
         <OvertakeBanner />
@@ -319,7 +319,7 @@ export function PageCompetitors() {
               <React.Fragment key={ri}>
                 <div className="h2h-x mono" style={{color: row.me ? 'var(--accent)':''}}>{row.name}</div>
                 {comps.map((col, ci) => {
-                  if (ri === ci) return <div key={ci} className="h2h-self mono">—</div>;
+                  if (ri === ci) return <div key={ci} className="h2h-self mono">-</div>;
                   const win = (((ri+1) * (ci+3)) % 100) / 100;
                   const op = 0.15 + win * 0.85;
                   return <div key={ci} className="h2h-c mono" style={{ background: `color-mix(in oklch, var(--accent) ${Math.round(op*60)}%, transparent)`, color: win > 0.55 ? 'var(--accent)' : 'var(--text-2)' }}>{Math.round(win*100)}%</div>;
@@ -371,7 +371,7 @@ export function PageTrends() {
   ];
   return (
     <>
-      <PageHead title="SOV Trends" sub="Long-term share of voice — month-over-month and year-over-year."
+      <PageHead title="SOV Trends" sub="Long-term share of voice - month-over-month and year-over-year."
         actions={<><button className="btn-d">Add brand to chart</button><button className="btn-g">⇣ Snapshot</button></>}/>
       <div className="page-body">
         <Filter>
@@ -431,13 +431,13 @@ export function PageAccuracy() {
     { p: PLATFORMS[3], q: 'acme pricing for 50 seats', claim: 'Acme is $79 per user / month',           truth: 'Team plan is $29 per seat',         severity: 'high', age: '12m' },
     { p: PLATFORMS[2], q: 'does acme have native ai',  claim: 'Acme does not have AI features yet',     truth: 'AI Assist GA since Q4 2025',         severity: 'high', age: '54m' },
     { p: PLATFORMS[0], q: 'acme founders',             claim: 'Founded by Jane Doe in 2017',           truth: 'Founded by Sam Kim & Priya R., 2019', severity: 'med',  age: '2h' },
-    { p: PLATFORMS[4], q: 'acme acquisition',          claim: 'Acquired by Atlassian in 2024',         truth: 'No acquisition — Acme is independent', severity: 'high', age: '4h' },
+    { p: PLATFORMS[4], q: 'acme acquisition',          claim: 'Acquired by Atlassian in 2024',         truth: 'No acquisition - Acme is independent', severity: 'high', age: '4h' },
     { p: PLATFORMS[3], q: 'acme github integration',   claim: 'No native GitHub integration',          truth: 'Native GH app since 2023',           severity: 'med',  age: '5h' },
     { p: PLATFORMS[2], q: 'acme enterprise pricing',   claim: 'Enterprise plan starts at $50,000/yr',  truth: 'Starts at $12,000/yr',               severity: 'low',  age: '8h' },
   ];
   return (
     <>
-      <PageHead title="Accuracy Monitor" sub="When engines invent features, prices, or facts about Acme — find them, fix them, prevent them."
+      <PageHead title="Accuracy Monitor" sub="When engines invent features, prices, or facts about Acme - find them, fix them, prevent them."
         actions={<><button className="btn-d">⇣ Audit log</button><button className="btn-p">Send corrections</button></>}/>
       <div className="page-body">
         <KPIRail items={[
@@ -572,7 +572,7 @@ export function PageCitations() {
                   <td><Badge tone={s.kind === 'own' ? 'acc' : s.kind === 'review' ? 'info' : s.kind === 'news' ? 'warn' : 'neu'}>{s.kind.toUpperCase()}</Badge></td>
                   <td className="num"><b>{s.n}</b></td>
                   <td className="num">{s.share}%</td>
-                  <td>{s.trend === 'up' ? <span className="pos mono">▲ rising</span> : s.trend === 'down' ? <span className="neg mono">▼ falling</span> : <span className="mono dim">— flat</span>}</td>
+                  <td>{s.trend === 'up' ? <span className="pos mono">▲ rising</span> : s.trend === 'down' ? <span className="neg mono">▼ falling</span> : <span className="mono dim">- flat</span>}</td>
                   <td><div style={{display:'inline-flex',gap:3}}>{PLATFORMS.slice(0, 3+(i%3)).map(p => <PlatformTile key={p.id} p={p} size={18}/>)}</div></td>
                   <td className="num dim">{(i+1)*3}d</td>
                 </tr>
@@ -608,7 +608,7 @@ export function PageResults() {
   ];
   return (
     <>
-      <PageHead title="Results" sub="The full text of every model response — drill into a single query across all engines."
+      <PageHead title="Results" sub="The full text of every model response - drill into a single query across all engines."
         actions={<><button className="btn-d">↻ Re-run</button><button className="btn-g">⇣ Export run</button></>}/>
       <div className="page-body">
         <Filter>
@@ -669,7 +669,7 @@ export function PageQueryTracker() {
   ];
   return (
     <>
-      <PageHead title="Query Tracker" sub="Every buyer-intent prompt you're tracking — and how Acme performs on each."
+      <PageHead title="Query Tracker" sub="Every buyer-intent prompt you're tracking - and how Acme performs on each."
         actions={<><button className="btn-d">⇣ Export</button><button className="btn-p">+ Add prompt</button></>}/>
       <div className="page-body">
         <KPIRail items={[
@@ -738,12 +738,12 @@ export function PageRecommendations() {
     { p: 'HIGH', t: 'Submit correction to Grok on AI features', d: 'Grok claims Acme has no AI features. Submit the correction via xAI feedback channel.', impact: '+1.8 SOV', eff: '15m', tag: 'correction', e: ['GRK'] },
     { p: 'HIGH', t: 'Publish "Acme vs Linear" comparison', d: 'You appear in 38% of "vs Linear" queries but lose 62% by position. A dedicated page would shift ranking.', impact: '+4.1 SOV', eff: '1d', tag: 'content', e: ['GPT','CLA','PRP'] },
     { p: 'MED',  t: 'Refresh G2 listing screenshots', d: 'G2 is the 3rd most-cited domain and screenshots are 18 months old. Refresh to reflect the AI Assist UI.', impact: '+1.2 SOV', eff: '3h', tag: 'profile', e: ['GPT','PRP'] },
-    { p: 'MED',  t: 'Reply to high-velocity Reddit thread', d: 'r/projectmanagement thread cited 12× this week — official reply would compound exposure.', impact: '+0.9 SOV', eff: '30m', tag: 'social', e: ['CLA','GPT'] },
+    { p: 'MED',  t: 'Reply to high-velocity Reddit thread', d: 'r/projectmanagement thread cited 12× this week - official reply would compound exposure.', impact: '+0.9 SOV', eff: '30m', tag: 'social', e: ['CLA','GPT'] },
     { p: 'LOW',  t: 'Add 50-seat pricing tier page', d: 'Long-tail "acme pricing for 50 seats" gets 0.4% of traffic but currently hallucinates.', impact: '+0.6 SOV', eff: '4h', tag: 'content', e: ['PRP','GEM'] },
   ];
   return (
     <>
-      <PageHead title="Recommendations" sub="What to do this week to win more share of voice — sorted by impact."
+      <PageHead title="Recommendations" sub="What to do this week to win more share of voice - sorted by impact."
         actions={<><button className="btn-d">⇣ Export to ticket</button><button className="btn-g">Refresh recs</button></>}/>
       <div className="page-body">
         <KPIRail items={[
@@ -764,7 +764,7 @@ export function PageRecommendations() {
 
         <div className="recs-explain">
           Each play below is something you can do this week to get named more often by AI. We estimate the
-          <Term term="sov"> Share-of-Voice</Term> lift and the effort — knock out the high-impact ones first, then tick them off.
+          <Term term="sov"> Share-of-Voice</Term> lift and the effort - knock out the high-impact ones first, then tick them off.
         </div>
 
         <div style={{display:'grid',gap:12}}>

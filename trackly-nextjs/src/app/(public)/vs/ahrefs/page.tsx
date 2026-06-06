@@ -31,7 +31,7 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Livesov vs Ahrefs — AI Visibility vs Backlink SEO Compared',
+        alt: 'Livesov vs Ahrefs - AI Visibility vs Backlink SEO Compared',
       },
     ],
   },
@@ -55,7 +55,7 @@ const livesovStrengths = [
     icon: '#',
     title: 'AI recommendation rank',
     description:
-      'Position 1, 2, 3 tracking inside AI-generated lists — the AI-era equivalent of SERP rank.',
+      'Position 1, 2, 3 tracking inside AI-generated lists - the AI-era equivalent of SERP rank.',
   },
   {
     icon: '✺',
@@ -146,7 +146,7 @@ const faqs = [
   {
     question: 'Is Livesov a cheaper alternative to Ahrefs?',
     answer:
-      'Not really a fair comparison — they don&apos;t do the same things. Livesov plans start free and scale by AI credits and tracked brands. Ahrefs prices by SEO seats and backlink data depth. Many teams find Livesov pays for itself by giving them a new measurable channel (AI visibility) that Ahrefs simply cannot see.',
+      'Not really a fair comparison - they don&apos;t do the same things. Livesov plans start free and scale by AI credits and tracked brands. Ahrefs prices by SEO seats and backlink data depth. Many teams find Livesov pays for itself by giving them a new measurable channel (AI visibility) that Ahrefs simply cannot see.',
   },
   {
     question: 'Does Ahrefs track AI mentions at all?',
@@ -166,7 +166,7 @@ const faqs = [
   {
     question: 'Is there a free trial of Livesov?',
     answer:
-      'Yes — every paid Livesov plan starts with a 7-day free trial, no credit card required. The Free tier is permanent and supports tracking a single brand across all 5 AI platforms on a manual cadence.',
+      'Yes - every paid Livesov plan starts with a 7-day free trial, no credit card required. The Free tier is permanent and supports tracking a single brand across all 5 AI platforms on a manual cadence.',
   },
 ];
 
@@ -181,8 +181,8 @@ export default function VsAhrefsPage() {
             Livesov vs <span className="text-[var(--brand)]">Ahrefs</span>
           </>
         }
-        subtitle="One is the leader in AI visibility tracking. The other is the leader in backlink SEO. They&rsquo;re not competitors — they&rsquo;re complements. Here&rsquo;s the full comparison and how to think about running both."
-        ctaText="Try Livesov free — no card"
+        subtitle="One is the leader in AI visibility tracking. The other is the leader in backlink SEO. They&rsquo;re not competitors - they&rsquo;re complements. Here&rsquo;s the full comparison and how to think about running both."
+        ctaText="Try Livesov free - no card"
       />
 
       <Section pad="0 24px 56px" width={1000}>
@@ -225,7 +225,7 @@ export default function VsAhrefsPage() {
         <SectionHeader
           label="Side-by-side feature comparison"
           title="What each tool actually does"
-          subtitle="Honest comparison — including the places Ahrefs is much stronger than Livesov."
+          subtitle="Honest comparison - including the places Ahrefs is much stronger than Livesov."
         />
         <ComparisonTable
           headers={['Capability', 'Livesov', 'Ahrefs']}
@@ -275,7 +275,7 @@ export default function VsAhrefsPage() {
             </li>
             <li>
               <strong>Ship the SEO and GEO improvements together.</strong> Better content,
-              schema, citations — measured in Ahrefs (SERP position) and Livesov (AI citation
+              schema, citations - measured in Ahrefs (SERP position) and Livesov (AI citation
               + mention rate) in parallel.
             </li>
             <li>
@@ -288,7 +288,7 @@ export default function VsAhrefsPage() {
             Assuming Ahrefs&apos; existing AI Overviews coverage is enough. AI Overviews are
             one surface (Gemini-grounded), and Ahrefs sees them as a SERP feature, not as
             generative answers. ChatGPT, Claude, Perplexity, and Grok are completely off
-            Ahrefs&apos; map — and they&apos;re where most B2B research and consumer discovery
+            Ahrefs&apos; map - and they&apos;re where most B2B research and consumer discovery
             now happens.
           </Callout>
 
@@ -323,7 +323,7 @@ export default function VsAhrefsPage() {
         </LongForm>
       </Section>
 
-      <FaqSection title="Livesov vs Ahrefs — FAQ" items={faqs} />
+      <FaqSection title="Livesov vs Ahrefs - FAQ" items={faqs} />
 
       <PillarLinks
         title="Continue evaluating"

@@ -24,7 +24,7 @@ interface PromptRow {
   locked: boolean;
 }
 
-// Stable id for selection — index is appended so duplicate strings
+// Stable id for selection - index is appended so duplicate strings
 // across brands stay independently selectable.
 const rowKey = (r: PromptRow) => `${r.brandId}::${r.index}::${r.query}`;
 
@@ -42,7 +42,7 @@ export default function TrackedPromptsPage() {
   const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // Owned brands only — shared/team brands belong to a different
+  // Owned brands only - shared/team brands belong to a different
   // owner whose quota the caller doesn't control. Trimming those here
   // would also fail server-side ownership checks.
   const ownedBrands: BrandLite[] = useMemo(

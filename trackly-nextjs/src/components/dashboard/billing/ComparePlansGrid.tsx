@@ -111,7 +111,7 @@ function buildBullets(planKey: string): string[] {
 
 function fmtPrice(planKey: string, annualBilling: boolean): string {
   const p = PRICING_PLANS.find((x) => x.name.toLowerCase() === planKey);
-  if (!p) return '—';
+  if (!p) return '-';
   if (p.price === 'Custom') return 'Custom';
   return annualBilling ? p.annualPrice || p.price : p.price;
 }
@@ -221,7 +221,7 @@ export default function ComparePlansGrid({
                   {pricing?.name ?? planKey}
                 </div>
                 <div style={{ fontSize: 12, color: TEXT_SECONDARY }}>
-                  {PLAN_TAGLINES[planKey] ?? '—'}
+                  {PLAN_TAGLINES[planKey] ?? '-'}
                 </div>
               </div>
 

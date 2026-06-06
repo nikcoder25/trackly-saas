@@ -2,8 +2,8 @@
    Livesov editorial home page.
    Ported from the Claude Design handoff (livesov-com/project/Livesov.html +
    home-*.jsx). Every rule is scoped under `.lv-home` so the design tokens and
-   generic class names (.container, .section, .card, .btn …) can't leak into —
-   or be clobbered by — the global / legacy stylesheets.
+   generic class names (.container, .section, .card, .btn …) can't leak into -
+   or be clobbered by - the global / legacy stylesheets.
    Font tokens resolve to the next/font variables set up in the home layout.
    ────────────────────────────────────────────────────────────────────────── */
 
@@ -68,7 +68,7 @@
 .lv-home .serif { font-family: var(--serif); font-weight: 500; letter-spacing: -0.018em; }
 .lv-home .disp { font-family: var(--disp); }
 
-/* eyebrow — small caps sans, indigo */
+/* eyebrow - small caps sans, indigo */
 .lv-home .eyebrow { font-size: 13.5px; font-weight: 600; letter-spacing: 0.01em; color: var(--accent); display: inline-flex; align-items: center; gap: 9px; white-space: nowrap; }
 .lv-home .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); flex-shrink: 0; }
 

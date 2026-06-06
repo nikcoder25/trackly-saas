@@ -27,16 +27,16 @@ interface CurrentPlanCardProps {
 }
 
 function fmtFullDate(iso: string | null): string {
-  if (!iso) return '—';
+  if (!iso) return '-';
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function fmtMonthYear(iso: string | null): string {
-  if (!iso) return '—';
+  if (!iso) return '-';
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
@@ -81,7 +81,7 @@ export default function CurrentPlanCard({
         return;
       }
       await refreshUser();
-      setRefreshMsg(data?.synced ? `Synced — now on ${data.plan}.` : 'Already up to date.');
+      setRefreshMsg(data?.synced ? `Synced - now on ${data.plan}.` : 'Already up to date.');
     } catch {
       setRefreshMsg('Network error while refreshing subscription.');
     } finally {

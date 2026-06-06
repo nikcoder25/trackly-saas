@@ -227,7 +227,7 @@ export default function MentionsPage() {
                       <tr>
                         <th>ENGINE</th>
                         <th>QUERY</th>
-                        <th>VERDICT <Info>How you showed up in this answer — found, not found, or an error.</Info></th>
+                        <th>VERDICT <Info>How you showed up in this answer - found, not found, or an error.</Info></th>
                         <th>SENTIMENT <Info term="sentiment" /></th>
                         <th>POSITION <Info term="position" /></th>
                       </tr>

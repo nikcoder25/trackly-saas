@@ -74,7 +74,7 @@ const jsonLd = {
         { '@type': 'Offer', name: 'Agency', price: '89', priceCurrency: 'USD', url: 'https://livesov.com/signup' },
       ],
     },
-    // NOTE: FAQPage schema intentionally omitted — the editorial homepage has
+    // NOTE: FAQPage schema intentionally omitted - the editorial homepage has
     // no visible FAQ section, and FAQ structured data without matching on-page
     // content violates Google's rich-results guidelines. The full FAQ lives on
     // /how-it-works and the tool pages.

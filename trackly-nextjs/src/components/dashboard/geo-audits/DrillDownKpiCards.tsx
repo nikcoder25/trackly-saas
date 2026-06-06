@@ -5,7 +5,7 @@ interface Props {
   modelsCount: number;
   mentionsCount: number;
   /** Fraction in [0, 1], or null when there's no usable rate (e.g.,
-   *  zero successful calls). The card renders "—" instead of "0.0%"
+   *  zero successful calls). The card renders "-" instead of "0.0%"
    *  in that case so the empty state is honest. */
   mentionRate: number | null;
 }
@@ -27,7 +27,7 @@ export default function DrillDownKpiCards({
       <Card label="Mentions" value={mentionsCount.toLocaleString()} />
       <Card
         label="Mention rate"
-        value={mentionRate == null ? '—' : `${(mentionRate * 100).toFixed(1)}%`}
+        value={mentionRate == null ? '-' : `${(mentionRate * 100).toFixed(1)}%`}
         valueColor={mentionRate == null ? 'var(--muted)' : 'var(--green)'}
       />
     </div>

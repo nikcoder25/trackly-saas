@@ -1,13 +1,13 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// Production dashboard shell — the redesigned (Dashboard.html) chrome wired to
+// Production dashboard shell - the redesigned (Dashboard.html) chrome wired to
 // the app's real auth / brand / run contexts and Next.js routing.
 //
 // The grid host (.lvx-shell) is intentionally NOT `.lvx`: the legacy routed
 // pages it renders keep their own tokens and class rules. Only the chrome
 // (topbar / sidebar / subbar) opts into `.lvx` via `display: contents`
 // wrappers, so the redesign's scoped styles apply to the chrome without
-// leaking into — or being overridden onto — the existing pages.
+// leaking into - or being overridden onto - the existing pages.
 
 import * as React from 'react';
 import Link from 'next/link';
@@ -163,7 +163,7 @@ function ProdSidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <aside className="sidebar">
       <button className="sb-run" onClick={() => startRun(false)} disabled={disabled}
-        title={selectedBrandLocked ? 'This brand is locked — upgrade to run' : undefined}
+        title={selectedBrandLocked ? 'This brand is locked - upgrade to run' : undefined}
         style={disabled ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}>
         {live.running ? <><span className="pulse" /> Running…</> : selectedBrandLocked ? <>🔒 Brand locked</> : <>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 2L10 6L3 10Z" fill="currentColor" /></svg>

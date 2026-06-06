@@ -28,7 +28,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const verified = searchParams.get('verified');
   // Hardened redirect validation. The previous check allowed "/\evil.com",
-  // which Chrome/Firefox normalise to "//evil.com" on navigation — an
+  // which Chrome/Firefox normalise to "//evil.com" on navigation - an
   // open-redirect that also pairs with "javascript:..." tricks.
   const redirect = safeRedirectPath(searchParams.get('redirect'), '/dashboard');
   const googleClientIdRef = useRef<string | null>(null);

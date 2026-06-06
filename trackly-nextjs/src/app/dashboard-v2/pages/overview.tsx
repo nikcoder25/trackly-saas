@@ -1,6 +1,6 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// Overview — the main landing dashboard. Headline numbers, the per-engine grid,
+// Overview - the main landing dashboard. Headline numbers, the per-engine grid,
 // competitor SOV and cited sources are wired to the signed-in user's real brand
 // data (fetched client-side); the design's sample values are used as a clearly
 // temporary fallback where the app does not yet compute a figure.
@@ -107,12 +107,12 @@ function normPlatform(pd: any): { sov: number; total: number; mentions: number; 
 export function useOverviewData(): OverviewData | null {
   // Consume the shared brand hook so the Overview reacts to the brand selected
   // in the topbar (BrandContext), auto-reloads on run completion, and reflects
-  // live runs — exactly like every other dashboard page. Previously this made a
+  // live runs - exactly like every other dashboard page. Previously this made a
   // one-off /api/brands fetch on mount that never re-ran when the brand changed.
   const { brand, loading } = useBrandData({ fullData: true });
   const brandId = (brand as any)?.id as string | undefined;
 
-  // Accuracy data lives behind /api/brands/:id/accuracy — the same endpoint the
+  // Accuracy data lives behind /api/brands/:id/accuracy - the same endpoint the
   // Accuracy Monitor page reads/writes. We fetch it here so the Overview's
   // "Accuracy" health bar and "FALSE CLAIMS" KPI reflect the *real* open/fixed
   // counts, and stay in sync when issues are marked fixed on the monitor page.
@@ -141,7 +141,7 @@ export function useOverviewData(): OverviewData | null {
 
   // Re-fetch whenever a run completes or an accuracy issue is toggled/checked
   // anywhere in the app, so fixing claims updates the Overview right away.
-  // Also revalidate when the tab regains focus/visibility — the Accuracy
+  // Also revalidate when the tab regains focus/visibility - the Accuracy
   // Monitor and Overview are separate routes, so after fixing claims there and
   // switching back here (or across browser tabs) this guarantees fresh numbers.
   React.useEffect(() => {
@@ -204,7 +204,7 @@ function buildFallback(): OverviewData {
       { p: PLATFORMS[0], q: 'linear vs acme for startups', tag: 'neu', meta: 'Acme · mentioned', t: '4m', platform: 'ChatGPT', mentioned: true, brandName: 'Acme PM', answer: 'Both Linear and Acme are popular with startups. Linear is known for speed; Acme for its AI-assisted planning and GitHub integration.', sources: ['linear.app', 'acme.com/startups'], citations: ['linear.app', 'acme.com/startups'] },
       { p: PLATFORMS[2], q: 'cheapest project mgmt with AI', tag: 'neg', meta: 'not mentioned', t: '7m', platform: 'Gemini', mentioned: false, brandName: 'Acme PM', answer: 'The most affordable AI-enabled options include Trello, ClickUp, and Notion. (Acme was not mentioned in this answer.)', sources: ['trello.com', 'clickup.com'], citations: ['trello.com', 'clickup.com'] },
       { p: PLATFORMS[3], q: 'acme pricing for 50 seats', tag: 'warn', meta: 'Hallucination · stale price', t: '12m', platform: 'Perplexity', mentioned: true, brandName: 'Acme PM', answer: 'Acme costs about $8 per seat per month, so 50 seats would be roughly $400/month.', sources: ['acme.com/pricing'], citations: ['acme.com/pricing'] },
-      { p: PLATFORMS[4], q: 'is acme good for product teams', tag: 'pos', meta: 'Acme · 1st', t: '18m', platform: 'Grok', mentioned: true, position: 1, sentiment: 'positive', brandName: 'Acme PM', answer: 'Yes — Acme is frequently cited as a strong choice for product teams thanks to its roadmap views and AI summaries.', sources: ['acme.com/product', 'producthunt.com/products/acme'], citations: ['acme.com/product', 'producthunt.com/products/acme'] },
+      { p: PLATFORMS[4], q: 'is acme good for product teams', tag: 'pos', meta: 'Acme · 1st', t: '18m', platform: 'Grok', mentioned: true, position: 1, sentiment: 'positive', brandName: 'Acme PM', answer: 'Yes - Acme is frequently cited as a strong choice for product teams thanks to its roadmap views and AI summaries.', sources: ['acme.com/product', 'producthunt.com/products/acme'], citations: ['acme.com/product', 'producthunt.com/products/acme'] },
       { p: PLATFORMS[0], q: 'what pm tool does intuit use', tag: 'neu', meta: 'Acme · 3rd of 4', t: '24m', platform: 'ChatGPT', mentioned: true, position: 3, brandName: 'Acme PM', answer: 'Large enterprises like Intuit are often associated with Jira and Asana; Acme is also mentioned as a growing alternative.', sources: ['g2.com/category/pm'], citations: ['g2.com/category/pm'] },
     ],
     insights: [],
@@ -331,7 +331,7 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
   // trend
   const trend = sorted.slice(-14).map(r => Math.round(Number(r.sov) || 0));
 
-  // recent mentions — newest results from the latest run
+  // recent mentions - newest results from the latest run
   const runDate = lastRun.date || lastRun.time || lastRun.created_at;
   const recent: RecentItem[] = results
     .filter(r => r.query && !r.error)
@@ -379,7 +379,7 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
       };
     });
 
-  // top tracked queries — aggregate mention rate / engines across all runs
+  // top tracked queries - aggregate mention rate / engines across all runs
   const qAgg: Record<string, { mentioned: number; total: number; platforms: Set<string>; hist: number[] }> = {};
   for (const run of sorted) {
     const rs: any[] = Array.isArray(run.allResults) ? run.allResults : [];
@@ -412,7 +412,7 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
 
   const prevTotalM = prevRun ? (Number(prevRun.totalM) || 0) : 0;
 
-  // Real "needs you today" insights — derived only from data we actually have.
+  // Real "needs you today" insights - derived only from data we actually have.
   // Cards with no real backing are simply not emitted (the strip hides itself
   // when there are none).
   const realComp = compEntries.length > 0;
@@ -420,12 +420,12 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
   if (trend.length >= 2) {
     const momentum = Math.round((sov - prevSov) * 10) / 10;
     if (momentum >= 1) insights.push({ icon: '▲', tone: 'pos', t: `Share of Voice up ${momentum} pts`, d: `now ${sov}% across the AI engines`, cta: 'See trends', href: '/dashboard/trends' });
-    else if (momentum <= -1) insights.push({ icon: '▼', tone: 'warn', t: `Share of Voice down ${Math.abs(momentum)} pts`, d: `now ${sov}% — see what changed`, cta: 'Investigate', href: '/dashboard/competitors' });
+    else if (momentum <= -1) insights.push({ icon: '▼', tone: 'warn', t: `Share of Voice down ${Math.abs(momentum)} pts`, d: `now ${sov}% - see what changed`, cta: 'Investigate', href: '/dashboard/competitors' });
   }
   if (realComp) {
     const top = competitors[0];
     if (top?.me) insights.push({ icon: '★', tone: 'pos', t: 'You lead your category', d: `#1 of ${competitors.length} at ${sov}% Share of Voice`, cta: 'Compare', href: '/dashboard/competitors' });
-    else if (top) insights.push({ icon: '◆', tone: 'info', t: `${top.name} leads at ${top.sov}%`, d: `you're at ${sov}% — close the gap`, cta: 'Compare', href: '/dashboard/competitors' });
+    else if (top) insights.push({ icon: '◆', tone: 'info', t: `${top.name} leads at ${top.sov}%`, d: `you're at ${sov}% - close the gap`, cta: 'Compare', href: '/dashboard/competitors' });
   }
   if (sentTotal > 0 && sentiment < 60) {
     insights.push({ icon: '⚠', tone: 'warn', t: `Sentiment is ${sentiment}%`, d: 'how the AI engines describe you needs attention', cta: 'Review mentions', href: '/dashboard/mentions' });
@@ -518,7 +518,7 @@ export function PageOverview() {
   return (
     <>
       <PageHead title={<>Welcome back, <span style={{ color: 'var(--primary)' }}>Nikhil</span>.</>}
-        sub={<>{d.brandName} is mentioned across the 5 AI engines — here&rsquo;s what changed in the last 7 days.</>}
+        sub={<>{d.brandName} is mentioned across the 5 AI engines - here&rsquo;s what changed in the last 7 days.</>}
         actions={<>
           <DownloadReportButton />
           {(() => {
@@ -568,12 +568,12 @@ export function PageOverview() {
           { k: 'SHARE OF VOICE', term: 'sov', v: String(d.sov), suffix: '%', d: d.sovDelta, info: 'vs prev. run' },
           { k: 'MENTIONS', term: 'mention', v: fmt(d.totalM), d: d.mentionsDelta, info: '5 engines' },
           { k: 'SENTIMENT', term: 'sentiment', v: String(d.sentiment), suffix: '%', d: d.sentimentDelta ?? undefined, info: d.sentimentDelta != null ? 'vs prev. run' : undefined },
-          { k: 'FALSE CLAIMS', term: 'hallucination', v: d.accuracyRate !== null ? String(d.openIssues) : '—', danger: d.accuracyRate !== null && d.openIssues > 0, info: d.accuracyRate !== null ? (d.fixedIssues > 0 ? `${d.fixedIssues} fixed` : 'none fixed') : 'not set up' },
+          { k: 'FALSE CLAIMS', term: 'hallucination', v: d.accuracyRate !== null ? String(d.openIssues) : '-', danger: d.accuracyRate !== null && d.openIssues > 0, info: d.accuracyRate !== null ? (d.fixedIssues > 0 ? `${d.fixedIssues} fixed` : 'none fixed') : 'not set up' },
           { k: 'COVERAGE', term: 'coverage', v: String(d.totalQ), d: d.coverageDelta ?? undefined, info: 'prompts' },
         ]} />
 
         <div className="g2">
-          <Card title="Share of Voice — 14 days" info="sov"
+          <Card title="Share of Voice - 14 days" info="sov"
             lede="How your slice of AI answers stacks up against rivals, day by day. Up = AI is recommending you more."
             right={<Pill>5 engines · 4 brands</Pill>} style={{ gridColumn: 'span 2' }}>
             <LineChart series={sovSeries} xLabels={xLabels} height={280} />
@@ -675,7 +675,7 @@ function InsightsStrip({ items }: { items: InsightItem[] }) {
     <div>
       <div className="strip-head">
         <span className="eyebrow">NEEDS YOU TODAY</span>
-        <span className="strip-sub">The few things worth acting on right now — tap to dive in.</span>
+        <span className="strip-sub">The few things worth acting on right now - tap to dive in.</span>
       </div>
       <div className="ins-strip">
         {items.map((it, i) => (
@@ -706,7 +706,7 @@ async function downloadBrandReport(brandId: string | undefined, brandName: strin
       return;
     }
     if (res.status === 429) {
-      toast('Too many downloads — please wait a moment and try again.', 'error');
+      toast('Too many downloads - please wait a moment and try again.', 'error');
       return;
     }
     if (!res.ok) {
@@ -739,7 +739,7 @@ function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => voi
   const [added, setAdded] = React.useState(false);
 
   // Strip light markdown and collapse whitespace so the answer reads as a single
-  // clean paragraph in the drawer body — matches the Evidence & Proof excerpt.
+  // clean paragraph in the drawer body - matches the Evidence & Proof excerpt.
   const answerExcerpt = (item.answer || '')
     .replace(/[#*_~`]/g, '')
     .replace(/\n+/g, ' ')
@@ -753,7 +753,7 @@ function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => voi
     : item.mentioned
       ? `FOUND${item.position ? ` · #${item.position}` : ''}`
       : 'NOT FOUND';
-  const sentiment = item.sentiment || (item.mentioned ? 'neutral' : '—');
+  const sentiment = item.sentiment || (item.mentioned ? 'neutral' : '-');
   const modelLine = [item.platform || item.p.name, item.model, item.t].filter(Boolean).join(' · ');
 
   const handleRerun = () => {
@@ -768,7 +768,7 @@ function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => voi
     window.location.href = '/dashboard/accuracy';
   };
   const handleShare = async () => {
-    const text = `${item.platform || item.p?.name} · "${item.q}"\nVerdict: ${verdictLabel} — ${item.meta}\n\n${item.answer || '(no response text captured)'}`;
+    const text = `${item.platform || item.p?.name} · "${item.q}"\nVerdict: ${verdictLabel} - ${item.meta}\n\n${item.answer || '(no response text captured)'}`;
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -866,7 +866,7 @@ function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => voi
 
 function OverviewEngineGrid({ platforms }: { platforms: Platform[] }) {
   return (
-    <Card title="By engine — today" info="sov"
+    <Card title="By engine - today" info="sov"
       lede="Your Share of Voice inside each AI assistant, refreshed this hour."
       right={<span className="mono dim" style={{ fontSize: 11 }}>UPDATED 2 MIN AGO</span>} padding={false}>
       <div className="eg-grid">
@@ -897,12 +897,12 @@ function OverviewEngineGrid({ platforms }: { platforms: Platform[] }) {
 function OverviewRecentMentions({ onOpen, total, items }: { onOpen: (it: RecentItem) => void; total: number; items: RecentItem[] }) {
   return (
     <Card title="Recent mentions" info="mention"
-      lede="The newest AI answers that named you — click any row to read the exact wording."
+      lede="The newest AI answers that named you - click any row to read the exact wording."
       right={<Pill tone="acc"><span className="pulse" /> Live</Pill>} padding={false}
       foot={<><span>{total.toLocaleString()} total · 7 days</span><a className="dim" href="/dashboard/mentions">Open mentions →</a></>}>
       {items.length === 0 ? (
         <div className="quiet" style={{ padding: '24px 16px', fontSize: 13, textAlign: 'center' }}>
-          No mentions yet — run the engines to see how AI answers about this brand.
+          No mentions yet - run the engines to see how AI answers about this brand.
         </div>
       ) : (
       <ul className="feed">
@@ -947,11 +947,11 @@ function OverviewQueriesTable({ rows, totalQ }: { rows: QueryRow[]; totalQ: numb
 
   return (
     <Card title="Top tracked queries" info="prompt"
-      lede="The buyer questions you watch — and how visible you are on each."
+      lede="The buyer questions you watch - and how visible you are on each."
       right={<a href="/dashboard/query-tracker" className="mono dim" style={{ fontSize: 11 }}>ALL {totalQ} →</a>} padding={false}>
       {rows.length === 0 ? (
         <div className="quiet" style={{ padding: '24px 16px', fontSize: 13, textAlign: 'center' }}>
-          No tracked prompts yet — add prompts in Brand Setup to start tracking.
+          No tracked prompts yet - add prompts in Brand Setup to start tracking.
         </div>
       ) : (
       <table className="tbl">
@@ -987,7 +987,7 @@ function OverviewCompetitors({ rows }: { rows: OverviewData['competitors'] }) {
       right={<a href="/dashboard/competitors" className="mono dim" style={{ fontSize: 11 }}>COMPETITORS →</a>}>
       {rows.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--muted)', fontSize: 12.5 }}>
-          No competitor data yet — run queries to see how you compare.
+          No competitor data yet - run queries to see how you compare.
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 14 }}>

@@ -162,7 +162,7 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
   }
   const competitorsCap = limits?.competitors ?? 0;
 
-  // Period start/end derived from the existing payload — no new API.
+  // Period start/end derived from the existing payload - no new API.
   const periodEnd = new Date(status.nextResetAt);
   const periodStartMs = Number.isFinite(periodEnd.getTime())
     ? periodEnd.getTime() - (daysIntoMonth + daysRemaining) * 86_400_000
@@ -171,7 +171,7 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
   const fmtRange = (d: Date) =>
     Number.isFinite(d.getTime())
       ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      : '—';
+      : '-';
 
   // Plan recommendation for the bottom CTA. We surface the most-saturated
   // metric and pair it with the next plan that lifts that cap.
@@ -310,7 +310,7 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
         />
       )}
 
-      {/* Soft upgrade nudge — only when the tightest cap crosses 70%
+      {/* Soft upgrade nudge - only when the tightest cap crosses 70%
           saturation and no harder banner is firing. Same blue CTA
           look as the screenshot's "Running low on brand slots" row. */}
       {!banner && tightestCard && (tightestCard.used / tightestCard.cap) >= 0.7 && nextPlanKey && (
@@ -519,7 +519,7 @@ function AutoTrackingStrip({
           {!scheduled
             ? `${plan} plan doesn't include scheduled runs.`
             : remaining <= 0
-              ? <>Credits exhausted — resumes <strong>{fmtDate(nextResetAt)}</strong>.</>
+              ? <>Credits exhausted - resumes <strong>{fmtDate(nextResetAt)}</strong>.</>
               : 'Currently inactive.'}
         </span>
         <a href="#plan-comparison" style={{
@@ -846,7 +846,7 @@ function SoftUpgradeBanner({
         <div style={{ fontSize: 13, color: BANNER_INFO_FG, opacity: 0.85 }}>
           {nextPlanPrice
             ? <>{capitalize(nextPlanKey)} plan adds {fmtNumOrInf(nextPlanBrands)} brands and {fmtNumOrInf(nextPlanPrompts)} prompts for {nextPlanPrice}/mo.</>
-            : <>{capitalize(nextPlanKey)} plan unlocks higher caps — contact us for pricing.</>}
+            : <>{capitalize(nextPlanKey)} plan unlocks higher caps - contact us for pricing.</>}
         </div>
       </div>
       <a href="#plan-comparison" style={{
@@ -860,6 +860,6 @@ function SoftUpgradeBanner({
 
 function capitalize(s: string) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 function fmtNumOrInf(n: number | undefined): string {
-  if (n === undefined || n === null) return '—';
+  if (n === undefined || n === null) return '-';
   return n >= 9999 ? '∞' : n.toLocaleString();
 }

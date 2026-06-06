@@ -1,6 +1,6 @@
 'use client';
 
-// Dashboard Overview — redesigned per the Dashboard.html design bundle.
+// Dashboard Overview - redesigned per the Dashboard.html design bundle.
 // The presentational page + real-data wiring live in the shared design module;
 // here we just mount it inside a scoped `.lvx` root. Post-checkout payment
 // reconciliation and the locked-brand / live-run banners are rendered by the

@@ -171,7 +171,7 @@ export default function ReportsPage() {
     } finally { setFlag(false); }
   }
 
-  // Standard full AI Visibility report — always available (no draft required).
+  // Standard full AI Visibility report - always available (no draft required).
   function downloadStandard() {
     downloadFrom('report/pdf', `${brand?.name || 'brand'}_AI_Visibility_Report.pdf`, setDownloadingStd);
   }
@@ -179,7 +179,7 @@ export default function ReportsPage() {
   // Custom report assembled from the selected mentions/queries.
   function download() {
     if (!draft.items.length) {
-      toast('Your custom report is empty. Add mentions (open a recent mention on the Overview) or queries ("+ Report") first — or use “Download report” for the full visibility report.', 'error');
+      toast('Your custom report is empty. Add mentions (open a recent mention on the Overview) or queries ("+ Report") first - or use “Download report” for the full visibility report.', 'error');
       // Surface the empty-state guidance below.
       document.getElementById('report-builder')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
@@ -217,12 +217,12 @@ export default function ReportsPage() {
 
       <div className="page-body">
         {/* Automatic reports */}
-        <Card title="Automatic reports" lede="Generate this brand's visibility report on a schedule — it's saved to the history below, ready to download.">
+        <Card title="Automatic reports" lede="Generate this brand's visibility report on a schedule - it's saved to the history below, ready to download.">
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 200 }}>
               <div className="eyebrow" style={{ marginBottom: 4 }}>Frequency</div>
               <select className="sel" style={{ width: '100%', maxWidth: 220 }} value={frequency} onChange={e => saveSchedule(e.target.value as 'off' | 'weekly' | 'monthly')}>
-                <option value="off">Off — manual only</option>
+                <option value="off">Off - manual only</option>
                 <option value="weekly">Weekly (every Monday)</option>
                 <option value="monthly">Monthly (1st of the month)</option>
               </select>
@@ -240,7 +240,7 @@ export default function ReportsPage() {
           <div style={{ display: 'grid', gap: 14 }}>
             <div>
               <div className="eyebrow" style={{ marginBottom: 4 }}>Title</div>
-              <input className="sel" style={{ width: '100%' }} placeholder={`${brand?.name || 'Brand'} — Custom Report`}
+              <input className="sel" style={{ width: '100%' }} placeholder={`${brand?.name || 'Brand'} - Custom Report`}
                 value={title} onChange={e => setTitle(e.target.value)} onBlur={saveMeta} maxLength={80} />
             </div>
             <div>
@@ -322,7 +322,7 @@ export default function ReportsPage() {
 
         {/* Report history */}
         <Card title="Report history" right={history.length ? <Badge tone="neu">{history.length}</Badge> : undefined}
-          lede="Reports you've generated for this brand — re-download anytime." padding={false}>
+          lede="Reports you've generated for this brand - re-download anytime." padding={false}>
           {history.length === 0 ? (
             <div className="quiet" style={{ padding: '24px 16px', fontSize: 13, textAlign: 'center' }}>
               No reports generated yet. Download a report above or from the Overview to see it here.

@@ -45,7 +45,7 @@ const FILTERS: { key: string; label: string; match: (e: ActivityEntry) => boolea
 ];
 
 function fmtFullDate(iso: string): string {
-  if (!iso) return '—';
+  if (!iso) return '-';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -129,7 +129,7 @@ export default function RecentActivityCard({ entries }: RecentActivityCardProps)
                     </span>
                   </Td>
                   <Td>
-                    <span style={{ color: TEXT_SECONDARY }}>{row.event || '—'}</span>
+                    <span style={{ color: TEXT_SECONDARY }}>{row.event || '-'}</span>
                   </Td>
                   <Td align="right">
                     <span
@@ -139,7 +139,7 @@ export default function RecentActivityCard({ entries }: RecentActivityCardProps)
                         fontWeight: 500,
                       }}
                     >
-                      {row.amount || '—'}
+                      {row.amount || '-'}
                     </span>
                   </Td>
                   <Td align="right">

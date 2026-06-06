@@ -31,7 +31,7 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Livesov vs Semrush — AI Visibility vs Traditional SEO Compared',
+        alt: 'Livesov vs Semrush - AI Visibility vs Traditional SEO Compared',
       },
     ],
   },
@@ -73,7 +73,7 @@ const livesovStrengths = [
     icon: '✺',
     title: 'AI sentiment scoring',
     description:
-      'Per-platform sentiment models tuned to each AI&rsquo;s writing style — not a generic +/− classifier.',
+      'Per-platform sentiment models tuned to each AI&rsquo;s writing style - not a generic +/− classifier.',
   },
   {
     icon: '⚙',
@@ -106,7 +106,7 @@ const semrushStrengths = [
     icon: '📊',
     title: 'Paid advertising research',
     description:
-      'Google Ads competitive intelligence — ad copy, keywords, spend estimates, display network data.',
+      'Google Ads competitive intelligence - ad copy, keywords, spend estimates, display network data.',
   },
   {
     icon: '🛠',
@@ -118,7 +118,7 @@ const semrushStrengths = [
     icon: '🧰',
     title: 'All-in-one breadth',
     description:
-      'Semrush is the broadest traditional digital marketing suite — SEO, paid, social, content, all under one roof.',
+      'Semrush is the broadest traditional digital marketing suite - SEO, paid, social, content, all under one roof.',
   },
 ];
 
@@ -141,12 +141,12 @@ const faqs = [
   {
     question: 'Should I replace Semrush with Livesov?',
     answer:
-      'No — they don&apos;t solve the same problems. Semrush is the all-in-one traditional digital marketing suite: SEO, paid, social, content. Livesov is purpose-built for AI visibility across ChatGPT, Claude, Gemini, Perplexity, and Grok. The two are complementary; most customers run both.',
+      'No - they don&apos;t solve the same problems. Semrush is the all-in-one traditional digital marketing suite: SEO, paid, social, content. Livesov is purpose-built for AI visibility across ChatGPT, Claude, Gemini, Perplexity, and Grok. The two are complementary; most customers run both.',
   },
   {
     question: 'Is Livesov a cheaper alternative to Semrush?',
     answer:
-      'They&apos;re priced differently because they do different things. Livesov plans start free and scale by AI credits and tracked brands. Semrush prices by SEO seats and module breadth. Many teams find Livesov pays for itself by giving them a new measurable channel — AI visibility — that Semrush simply doesn&apos;t cover.',
+      'They&apos;re priced differently because they do different things. Livesov plans start free and scale by AI credits and tracked brands. Semrush prices by SEO seats and module breadth. Many teams find Livesov pays for itself by giving them a new measurable channel - AI visibility - that Semrush simply doesn&apos;t cover.',
   },
   {
     question: 'Does Semrush track AI mentions?',
@@ -166,7 +166,7 @@ const faqs = [
   {
     question: 'Does Livesov offer a free trial?',
     answer:
-      'Yes — every paid Livesov plan starts with a 7-day free trial, no credit card required. The Free tier is permanent and supports tracking a single brand across all 5 AI platforms on a manual cadence.',
+      'Yes - every paid Livesov plan starts with a 7-day free trial, no credit card required. The Free tier is permanent and supports tracking a single brand across all 5 AI platforms on a manual cadence.',
   },
 ];
 
@@ -181,8 +181,8 @@ export default function VsSemrushPage() {
             Livesov vs <span className="text-[var(--brand)]">Semrush</span>
           </>
         }
-        subtitle="One is the leader in AI visibility tracking. The other is the leading all-in-one traditional digital marketing suite. They&rsquo;re complements, not competitors — and most modern marketing teams now run both."
-        ctaText="Try Livesov free — no card"
+        subtitle="One is the leader in AI visibility tracking. The other is the leading all-in-one traditional digital marketing suite. They&rsquo;re complements, not competitors - and most modern marketing teams now run both."
+        ctaText="Try Livesov free - no card"
       />
 
       <Section pad="0 24px 56px" width={1000}>
@@ -225,7 +225,7 @@ export default function VsSemrushPage() {
         <SectionHeader
           label="Side-by-side comparison"
           title="What each tool actually does"
-          subtitle="Honest comparison — including the many areas where Semrush is much broader than Livesov."
+          subtitle="Honest comparison - including the many areas where Semrush is much broader than Livesov."
         />
         <ComparisonTable
           headers={['Capability', 'Livesov', 'Semrush']}
@@ -284,7 +284,7 @@ export default function VsSemrushPage() {
 
           <Callout title="The single biggest blind spot" variant="note">
             Assuming Semrush&apos;s AI Overviews coverage is enough. AI Overviews are one
-            surface — and Semrush treats them as a SERP feature, not as a generative answer.
+            surface - and Semrush treats them as a SERP feature, not as a generative answer.
             ChatGPT, Claude, Perplexity, and Grok are completely off Semrush&apos;s map, and
             they&apos;re where most B2B research and an increasing share of consumer discovery
             now happens.
@@ -302,7 +302,7 @@ export default function VsSemrushPage() {
           <h2>When to add Livesov on top of an existing Semrush setup</h2>
           <p>
             Most established marketing teams already have Semrush. Adding Livesov is purely
-            additive — it gives them a measurable new channel (AI visibility) without
+            additive - it gives them a measurable new channel (AI visibility) without
             disrupting any of the existing workflows. The same content investment now has two
             measurable surfaces: traditional SERP (Semrush) and AI answers (Livesov).
           </p>
@@ -320,7 +320,7 @@ export default function VsSemrushPage() {
         </LongForm>
       </Section>
 
-      <FaqSection title="Livesov vs Semrush — FAQ" items={faqs} />
+      <FaqSection title="Livesov vs Semrush - FAQ" items={faqs} />
 
       <PillarLinks
         title="Continue evaluating"

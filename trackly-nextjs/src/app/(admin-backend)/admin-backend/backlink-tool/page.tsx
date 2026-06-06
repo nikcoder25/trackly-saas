@@ -478,7 +478,7 @@ WRITING RULES
 ================================================================
 - Write a 100% UNIQUE article. Topic angle: ${angle}.
 - Topic must be informational and helpful related to the niche, NOT a direct sales pitch for the brand.
-- NEVER use the em dash (the "—" character). Use commas, periods, or parentheses instead.
+- NEVER use the em dash (the "-" character). Use commas, periods, or parentheses instead.
 - BANNED WORDS (do not use any): unleash, leverage, optimize, elevate, transform, delve, dive into, navigate, robust, seamless, cutting-edge, game-changer.
 - Conclusion heading must be specific and contextual (NOT "Conclusion", "Final Thoughts", "Wrapping Up", "Final Word", "In Closing"). Example: "What This Means for Your Home" or "Making Your Next Move".
 
@@ -1036,7 +1036,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     // AI provider/model, concurrency, word count, tone, placement, and the
     // link-count / table / images preferences are intentionally kept since
     // they're more like user defaults than campaign-specific data.
-    setGenStatus({ msg: '✓ Form cleared — ready for a new campaign', type: 'success' });
+    setGenStatus({ msg: '✓ Form cleared - ready for a new campaign', type: 'success' });
     setTimeout(() => setGenStatus(null), 2000);
   }
 
@@ -1045,7 +1045,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
       <div style={{ marginBottom: 20 }}>
         <h1 style={styles.title}>Backlink Content Generate</h1>
         <p style={{ color: 'var(--muted)', fontSize: '0.95rem' }}>
-          Admin tool — GEO-optimized articles for off-page SEO. API keys stay server-side.
+          Admin tool - GEO-optimized articles for off-page SEO. API keys stay server-side.
         </p>
       </div>
 
@@ -1057,7 +1057,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
           onChange={(e) => loadPreset(e.target.value)}
           style={{ ...styles.input, width: 'auto', minWidth: 180 }}
         >
-          <option value="">— Choose a saved preset —</option>
+          <option value="">- Choose a saved preset -</option>
           {Object.keys(presets).sort().map((name) => (
             <option key={name} value={name}>{name}</option>
           ))}
@@ -1184,7 +1184,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
               </div>
               {distributionMode === 'weighted' && (
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={styles.label}>Weight (%) — higher = used more often</label>
+                  <label style={styles.label}>Weight (%) - higher = used more often</label>
                   <input type="number" min={0.1} step={0.1} value={pair.weight} onChange={(e) => updateLinkPair(pair.id, 'weight', parseFloat(e.target.value) || 1)} style={styles.input} />
                 </div>
               )}
@@ -1340,7 +1340,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
                 />
                 <span>
                   <strong>Include a Table</strong>
-                  <span style={styles.toggleHint}> — model adds one comparison/stats/pricing table where it fits.</span>
+                  <span style={styles.toggleHint}> - model adds one comparison/stats/pricing table where it fits.</span>
                 </span>
               </label>
               <label style={styles.toggleRow}>
@@ -1352,7 +1352,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
                 />
                 <span>
                   <strong>Include Placeholder Images</strong>
-                  <span style={styles.toggleHint}> — adds 1-2 &lt;figure&gt; blocks using picsum.photos placeholders. Replace src with your own images later.</span>
+                  <span style={styles.toggleHint}> - adds 1-2 &lt;figure&gt; blocks using picsum.photos placeholders. Replace src with your own images later.</span>
                 </span>
               </label>
             </div>
