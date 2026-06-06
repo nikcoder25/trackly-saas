@@ -350,19 +350,88 @@ a:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radiu
   background:var(--bg-section);
   padding:0;
 }
-.land-footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;padding:48px;max-width:1080px;margin:0 auto;}
-.land-footer-brand{max-width:280px;}
-.land-footer-logo{font-size:20px;font-weight:800;color:var(--text-primary);letter-spacing:-0.5px;margin-bottom:12px;}
+
+/* Newsletter strip */
+.land-footer-newsletter{border-bottom:1px solid var(--card-border);}
+.land-footer-newsletter-inner{
+  max-width:1080px;margin:0 auto;padding:36px 48px;
+  display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;
+}
+.land-footer-newsletter-copy h3{font-size:20px;font-weight:700;color:var(--text-primary);margin:0 0 6px;letter-spacing:-0.3px;}
+.land-footer-newsletter-copy p{font-size:13px;color:var(--text-muted);line-height:1.6;margin:0;}
+.land-footer-newsletter-form{display:flex;gap:8px;width:100%;}
+.land-footer-newsletter-form input{
+  flex:1;min-width:0;padding:11px 14px;font-size:14px;
+  border:1px solid var(--card-border);border-radius:var(--radius);
+  background:var(--card-bg);color:var(--text-primary);
+  transition:border-color .15s, box-shadow .15s;
+}
+.land-footer-newsletter-form input::placeholder{color:var(--text-muted);}
+.land-footer-newsletter-form input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-border);}
+.land-footer-newsletter-form .land-btn{padding:11px 20px;font-size:14px;white-space:nowrap;flex-shrink:0;}
+
+/* Main grid: 5 columns — brand wider, 4 link columns */
+.land-footer-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1.1fr 1fr;gap:40px;padding:56px 48px 40px;max-width:1080px;margin:0 auto;}
+.land-footer-brand{max-width:320px;display:flex;flex-direction:column;gap:18px;}
+.land-footer-logo{font-size:22px;font-weight:800;color:var(--text-primary);letter-spacing:-0.5px;display:inline-block;}
 .land-footer-logo span{color:var(--primary);}
-.land-footer-desc{font-size:13px;color:var(--text-muted);line-height:1.7;}
+.land-footer-desc{font-size:13px;color:var(--text-muted);line-height:1.7;margin:0;}
+
+/* Trust badges */
+.land-footer-badges{display:flex;flex-wrap:wrap;gap:6px;}
+.land-footer-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:11px;font-weight:600;color:var(--text-secondary);
+  padding:4px 10px;border:1px solid var(--card-border);
+  border-radius:999px;background:var(--card-bg);
+  letter-spacing:.1px;
+}
+.land-footer-badge-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--success,#10b981);
+  box-shadow:0 0 0 3px rgba(16,185,129,.15);
+}
+
 .land-footer-col{display:flex;flex-direction:column;gap:10px;}
-.land-footer-col-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-primary);margin-bottom:4px;}
+.land-footer-col h4{
+  font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;
+  color:var(--text-primary);margin:0 0 6px;
+}
 .land-footer-col a{color:var(--text-secondary);font-size:13px;text-decoration:none;transition:color .15s;}
 .land-footer-col a:hover{color:var(--primary);}
-.land-footer-bottom{display:flex;justify-content:space-between;align-items:center;padding:20px 48px;border-top:1px solid var(--card-border);max-width:1080px;margin:0 auto;}
+.land-footer-subhead{
+  font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;
+  color:var(--text-primary);margin:14px 0 2px;
+}
+
+/* Bottom bar */
+.land-footer-bottom{
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;
+  padding:20px 48px;border-top:1px solid var(--card-border);
+  max-width:1080px;margin:0 auto;
+}
 .land-footer-text{font-size:13px;color:var(--text-muted);}
-.land-footer-social{display:flex;gap:16px;}
-.land-footer-social a{color:var(--text-muted);font-size:16px;font-weight:700;text-decoration:none;transition:color .15s;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--card-border);}
+.land-footer-legal{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.land-footer-legal a,
+.land-footer-legal button{
+  font-size:13px;color:var(--text-muted);text-decoration:none;
+  padding:4px 10px;border-radius:6px;transition:color .15s, background .15s;
+  background:transparent;border:none;cursor:pointer;
+}
+.land-footer-legal a:hover,
+.land-footer-legal button:hover{color:var(--primary);background:var(--card-bg);}
+.land-footer-legal > *:not(:last-child)::after{
+  content:'';display:inline-block;width:3px;height:3px;border-radius:50%;
+  background:var(--card-border);margin-left:10px;vertical-align:middle;
+}
+
+/* Social icons */
+.land-footer-social{display:flex;gap:10px;}
+.land-footer-social a{
+  color:var(--text-muted);text-decoration:none;transition:color .15s, border-color .15s, background .15s;
+  width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;
+  border-radius:8px;border:1px solid var(--card-border);background:var(--card-bg);
+}
 .land-footer-social a:hover{color:var(--primary);border-color:var(--primary-border);}
 
 @media(max-width:1023px){
@@ -392,10 +461,19 @@ a:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radiu
   .land-platforms{gap:8px;}
   .land-plat-chip{padding:8px 14px;font-size:12px;}
   .land-testimonials{grid-template-columns:1fr;}
-  .land-footer-grid{grid-template-columns:1fr 1fr;gap:24px;padding:32px 20px;}
-  .land-footer-bottom{flex-direction:column;gap:12px;padding:20px;}
+  .land-footer-newsletter-inner{grid-template-columns:1fr;gap:20px;padding:28px 20px;}
+  .land-footer-grid{grid-template-columns:1fr 1fr;gap:32px 24px;padding:36px 20px 28px;}
+  .land-footer-brand{grid-column:1 / -1;max-width:none;}
+  .land-footer-bottom{flex-direction:column;gap:12px;padding:20px;text-align:center;justify-content:center;}
+  .land-footer-legal{justify-content:center;}
   .land-section{padding:56px 20px;}
   .land-social-proof-stats{gap:24px;}
+}
+
+@media(min-width:769px) and (max-width:1023px){
+  .land-footer-grid{grid-template-columns:1.4fr 1fr 1fr 1fr;gap:32px;padding:48px 32px 36px;}
+  .land-footer-brand{grid-column:1 / -1;max-width:none;display:grid;grid-template-columns:1.5fr 1fr;gap:24px;align-items:start;}
+  .land-footer-newsletter-inner{padding:32px;}
 }
 
 /* ── AUTH PAGES (Split-panel layout) ────── */
