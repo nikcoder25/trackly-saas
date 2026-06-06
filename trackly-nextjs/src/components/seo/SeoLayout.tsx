@@ -139,10 +139,16 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
           <div className="land-footer-col">
             <h4>Resources</h4>
             <Link href="/blog">Blog</Link>
+            <Link href="/glossary">Glossary</Link>
+            <Link href="/case-studies">Case Studies</Link>
+            <Link href="/resources">Templates &amp; Resources</Link>
+            <Link href="/docs">Docs</Link>
+            <Link href="/ai-search-statistics-2026">AI Search Statistics 2026</Link>
             <Link href="/geo-optimization">GEO Guide</Link>
             <Link href="/learn/llm-seo">LLM SEO Guide</Link>
             <Link href="/learn/ai-search-optimization">AI Search Optimization</Link>
             <Link href="/learn/ai-overviews-optimization">AI Overviews Guide</Link>
+            <Link href="/best">What ChatGPT Recommends</Link>
             <Link href="/vs/ahrefs">Livesov vs Ahrefs</Link>
             <Link href="/vs/semrush">Livesov vs Semrush</Link>
           </div>
