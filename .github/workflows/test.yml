@@ -63,3 +63,38 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+  prod-build:
+    # Mirrors the DigitalOcean App Platform build environment, which sets
+    # NODE_ENV=production so `npm ci` SKIPS devDependencies, then runs
+    # `next build`. The "Typecheck and tests" job above installs the full
+    # dependency tree, so a type-only package left in devDependencies (e.g.
+    # @types/pdfkit) passes there but breaks the real deploy with
+    # "Could not find a declaration file for module ...". This job catches
+    # that class of "green CI, failed deploy" bug before merge.
+    name: Production build (DO parity)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: trackly-nextjs
+
+    env:
+      NODE_ENV: production
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: trackly-nextjs/package-lock.json
+
+      - name: Install production dependencies (devDeps omitted, like DO)
+        run: npm ci --omit=dev
+
+      - name: Production build
+        run: npm run build
+
