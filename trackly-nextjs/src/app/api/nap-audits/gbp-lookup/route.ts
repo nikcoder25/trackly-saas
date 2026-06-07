@@ -87,7 +87,17 @@ export async function POST(request: Request): Promise<Response> {
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
       logger.warn('nap_audits.gbp_lookup_upstream', { status: res.status, detail: detail.slice(0, 300) });
-      return Response.json({ error: 'Google lookup failed. Try a more specific query.' }, { status: 502 });
+      // Surface Google's own message — this is the user's dashboard/key, so the
+      // detail (e.g. "API key not valid", "Places API has not been enabled") is
+      // actionable, not sensitive.
+      let msg = '';
+      try {
+        msg = (JSON.parse(detail) as { error?: { message?: string } })?.error?.message || '';
+      } catch { /* non-JSON body */ }
+      return Response.json(
+        { error: msg ? `Google lookup failed: ${msg}` : `Google lookup failed (HTTP ${res.status}). Try a more specific query.` },
+        { status: 502 },
+      );
     }
     const data = (await res.json()) as { places?: Place[] };
     const place = data.places?.[0];
