@@ -270,6 +270,32 @@ export async function setNapAuditSchedule(
   return mapRow(res.rows[0] as NapAuditDbRow);
 }
 
+/**
+ * Edit a saved audit's label, canonical NAP and/or URL list. Preserves the
+ * row (and its score history); the caller re-runs to refresh results against
+ * the new inputs.
+ */
+export async function updateNapAudit(
+  userId: string,
+  id: string,
+  input: { label?: string; canonical?: CanonicalNap; urls?: string[] },
+): Promise<NapAuditRecord | null> {
+  await ensureNapAuditsSchema();
+  const existing = await getNapAudit(userId, id);
+  if (!existing) return null;
+  const label = input.label?.trim() ? input.label.trim().slice(0, 120) : existing.label;
+  const canonical = input.canonical ?? existing.canonical;
+  const urls = input.urls ? input.urls.slice(0, NAP_MAX_URLS) : existing.urls;
+  const res = await pool.query(
+    `UPDATE nap_audits SET label = $3, canonical = $4::jsonb, urls = $5
+      WHERE id = $1 AND user_id = $2
+      RETURNING ${FULL_COLS}`,
+    [id, userId, label, JSON.stringify(canonical), urls],
+  );
+  if (res.rows.length === 0) return null;
+  return mapRow(res.rows[0] as NapAuditDbRow);
+}
+
 export async function deleteNapAudit(userId: string, id: string): Promise<boolean> {
   await ensureNapAuditsSchema();
   const res = await pool.query(`DELETE FROM nap_audits WHERE id = $1 AND user_id = $2`, [id, userId]);
