@@ -1,22 +1,8 @@
 import { NextRequest } from 'next/server';
 import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
-import { safeFetch, SSRFError, ssrfErrorToCopy } from '@/lib/safe-fetch';
 import { logError, serverError } from '@/lib/api-error';
-import {
-  compareNap,
-  consistencyScore,
-  detectDuplicates,
-  extractNap,
-  extractUrlsFromText,
-  type CanonicalNap,
-  type UrlResult,
-} from '@/lib/nap-verify';
-
-const MAX_URLS = 50;
-const FETCH_TIMEOUT_MS = 12_000;
-// Cap simultaneous outbound fetches so a 50-URL bulk batch doesn't open 50
-// sockets at once or hammer a single directory.
-const FETCH_CONCURRENCY = 8;
+import { extractUrlsFromText, type CanonicalNap } from '@/lib/nap-verify';
+import { runNapCheck, NAP_MAX_URLS } from '@/lib/nap-audit-run';
 
 interface NapCheckerBody {
   canonical?: Partial<CanonicalNap>;
@@ -46,75 +32,13 @@ function parseUrls(input: unknown): string[] {
     : typeof input === 'string'
       ? input
       : '';
-  return extractUrlsFromText(text, MAX_URLS);
-}
-
-/** Run `fn` over `items` with at most `limit` in flight, preserving order. */
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let cursor = 0;
-  const worker = async () => {
-    while (cursor < items.length) {
-      const idx = cursor++;
-      results[idx] = await fn(items[idx]);
-    }
-  };
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, () => worker()),
-  );
-  return results;
-}
-
-async function checkUrl(url: string, canonical: CanonicalNap): Promise<UrlResult> {
-  try {
-    const res = await safeFetch(url, {
-      timeoutMs: FETCH_TIMEOUT_MS,
-      headers: {
-        // Some directories 403 a bare fetch; present a normal UA.
-        'User-Agent':
-          'Mozilla/5.0 (compatible; LivesovNAPBot/1.0; +https://livesov.com/tools/nap-verification)',
-        Accept: 'text/html,application/xhtml+xml',
-      },
-    });
-    const reachable = res.status >= 200 && res.status < 400;
-    if (!reachable) {
-      const cmp = compareNap(canonical, { source: {} }, false);
-      return {
-        url,
-        httpStatus: res.status,
-        reachable: false,
-        extracted: { source: {} },
-        ...cmp,
-      };
-    }
-    const html = await res.text();
-    const extracted = extractNap(html);
-    const cmp = compareNap(canonical, extracted, true);
-    return { url, httpStatus: res.status, reachable: true, extracted, ...cmp };
-  } catch (err) {
-    const code = err instanceof SSRFError ? err.code : 'FETCH_FAILED';
-    const error =
-      err instanceof SSRFError ? ssrfErrorToCopy(code) : 'Could not fetch this URL.';
-    const cmp = compareNap(canonical, { source: {} }, false);
-    return {
-      url,
-      httpStatus: null,
-      reachable: false,
-      error,
-      extracted: { source: {} },
-      ...cmp,
-    };
-  }
+  return extractUrlsFromText(text, NAP_MAX_URLS);
 }
 
 export async function POST(req: NextRequest) {
   try {
     const ip = getClientIp(req);
-    // Each run fetches up to 20 external pages, so cap runs per IP per day.
+    // Each run fetches up to 50 external pages, so cap runs per IP per day.
     const { allowed, retryAfter } = await rateLimit(
       `nap-checker:${ip}`,
       24 * 60 * 60 * 1000,
@@ -135,26 +59,10 @@ export async function POST(req: NextRequest) {
 
     const urls = parseUrls(body.urls);
     if (urls.length === 0) {
-      return Response.json(
-        { error: 'Add at least one citation URL.' },
-        { status: 400 },
-      );
+      return Response.json({ error: 'Add at least one citation URL.' }, { status: 400 });
     }
 
-    const results = await mapWithConcurrency(urls, FETCH_CONCURRENCY, (u) =>
-      checkUrl(u, canonical),
-    );
-    const score = consistencyScore(results);
-    const duplicates = detectDuplicates(results);
-
-    const summary = {
-      total: results.length,
-      clean: results.filter((r) => r.reachable && r.tags.length === 0).length,
-      withIssues: results.filter((r) => r.reachable && r.tags.length > 0).length,
-      deadLinks: results.filter((r) => !r.reachable).length,
-      duplicateListings: duplicates.length,
-    };
-
+    const { results, score, summary, duplicates } = await runNapCheck(canonical, urls);
     return Response.json({ canonical, score, summary, duplicates, results });
   } catch (error) {
     logError('tools.nap_checker.failed', error);

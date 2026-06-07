@@ -39,6 +39,7 @@ const NAV: { label: string; items: NavItem[] }[] = [
     { id: 'reports', href: '/dashboard/reports', label: 'Reports' },
     { id: 'geo-audit', href: '/dashboard/geo-audit', label: 'GEO Audit' },
     { id: 'regional', href: '/dashboard/geo-audits', label: 'Regional Audits' },
+    { id: 'nap-audits', href: '/dashboard/nap-audits', label: 'NAP Audits' },
   ] },
   { label: 'Settings', items: [
     { id: 'setup', href: '/dashboard/setup', label: 'Brand Setup' },
@@ -73,6 +74,7 @@ const THEMED_ROUTES = new Set<string>([
   '/dashboard/alerts',
   '/dashboard/geo-audit',
   '/dashboard/geo-audits',
+  '/dashboard/nap-audits',
 ]);
 
 function NavIcon({ id }: { id: string }) {
@@ -91,6 +93,7 @@ function NavIcon({ id }: { id: string }) {
     case 'recommendations': return <svg {...s}><path d="M7 2l1.8 3.6 4 .6-2.9 2.8.7 4-3.6-1.9-3.6 1.9.7-4-2.9-2.8 4-.6z" /></svg>;
     case 'geo-audit': return <svg {...s}><circle cx="7" cy="6" r="3" /><path d="M7 9v3M4 12h6" /></svg>;
     case 'regional': return <svg {...s}><circle cx="7" cy="7" r="5" /><path d="M2 7h10M7 2c2 2 2 8 0 10M7 2c-2 2-2 8 0 10" /></svg>;
+    case 'nap-audits': return <svg {...s}><path d="M7 1.5c-2.5 0-4.5 2-4.5 4.5 0 3 4.5 6.5 4.5 6.5s4.5-3.5 4.5-6.5c0-2.5-2-4.5-4.5-4.5z" /><circle cx="7" cy="6" r="1.6" /></svg>;
     case 'setup': return <svg {...s}><circle cx="7" cy="7" r="2" /><path d="M7 2v1.5M7 10.5V12M2 7h1.5M10.5 7H12M3.5 3.5l1 1M9.5 9.5l1 1M3.5 10.5l1-1M9.5 4.5l1-1" /></svg>;
     case 'prompts': return <svg {...s}><path d="M5 2L3 7l2 5M9 2l2 5-2 5" /></svg>;
     case 'account': return <svg {...s}><circle cx="7" cy="5" r="2.5" /><path d="M3 12c0-2 1.8-3.5 4-3.5s4 1.5 4 3.5" /></svg>;
