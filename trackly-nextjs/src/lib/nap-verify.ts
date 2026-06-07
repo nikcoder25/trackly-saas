@@ -525,6 +525,42 @@ export function compareNap(
   return { fields, tags, matchScore };
 }
 
+// ── Regression detection (scheduled monitoring) ──────────────────────────────
+
+export interface RegressionInput {
+  score: number;
+  deadLinks: number;
+  withIssues: number;
+}
+
+export interface RegressionResult {
+  regressed: boolean;
+  reasons: string[];
+}
+
+/**
+ * Compare a previous run to a new one and decide whether to alert. We flag a
+ * meaningful score drop, any new dead links, or new mismatched citations.
+ */
+export function detectRegression(
+  prev: RegressionInput,
+  next: RegressionInput,
+  scoreDropThreshold = 5,
+): RegressionResult {
+  const reasons: string[] = [];
+  const drop = prev.score - next.score;
+  if (drop >= scoreDropThreshold) {
+    reasons.push(`Consistency score dropped ${drop} points (${prev.score} → ${next.score}).`);
+  }
+  if (next.deadLinks > prev.deadLinks) {
+    reasons.push(`${next.deadLinks - prev.deadLinks} new dead link(s) (${prev.deadLinks} → ${next.deadLinks}).`);
+  }
+  if (next.withIssues > prev.withIssues) {
+    reasons.push(`${next.withIssues - prev.withIssues} more citation(s) with issues (${prev.withIssues} → ${next.withIssues}).`);
+  }
+  return { regressed: reasons.length > 0, reasons };
+}
+
 /** Average per-citation score across every result (dead links count as 0). */
 export function consistencyScore(results: Array<{ matchScore: number }>): number {
   if (results.length === 0) return 0;

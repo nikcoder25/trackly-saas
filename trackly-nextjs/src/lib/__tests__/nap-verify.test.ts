@@ -12,6 +12,7 @@ import {
   extractNap,
   extractUrlsFromText,
   extractWithRegex,
+  detectRegression,
   extractionStrength,
   findCitationGaps,
   isWeakExtraction,
@@ -331,6 +332,23 @@ describe('detectDuplicates', () => {
     expect(
       detectDuplicates([mk('https://a.com/x'), mk('https://b.com/y')]),
     ).toEqual([]);
+  });
+});
+
+describe('detectRegression (scheduled monitoring)', () => {
+  it('flags a meaningful score drop', () => {
+    const r = detectRegression({ score: 90, deadLinks: 0, withIssues: 1 }, { score: 80, deadLinks: 0, withIssues: 1 });
+    expect(r.regressed).toBe(true);
+    expect(r.reasons[0]).toMatch(/dropped/);
+  });
+  it('flags new dead links and new issues', () => {
+    const r = detectRegression({ score: 90, deadLinks: 0, withIssues: 1 }, { score: 90, deadLinks: 2, withIssues: 3 });
+    expect(r.regressed).toBe(true);
+    expect(r.reasons).toHaveLength(2);
+  });
+  it('does not flag a small dip or an improvement', () => {
+    expect(detectRegression({ score: 90, deadLinks: 0, withIssues: 0 }, { score: 88, deadLinks: 0, withIssues: 0 }).regressed).toBe(false);
+    expect(detectRegression({ score: 70, deadLinks: 2, withIssues: 3 }, { score: 95, deadLinks: 0, withIssues: 0 }).regressed).toBe(false);
   });
 });
 
