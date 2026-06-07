@@ -4,13 +4,18 @@ import React, { useState } from 'react';
 import { extractUrlsFromText } from '@/lib/nap-verify';
 
 // Shared create/edit form for a saved NAP audit. Owns all field state, the
-// "Pull from Google" prefill, bulk CSV import, and the over-50 truncation note.
+// "Pull from Google" prefill, bulk CSV import, and the over-cap notice.
 // The parent supplies onSubmit (does the POST/PUT and throws on failure).
 
 // Keep in sync with NAP_MAX_URLS in lib/nap-audit-run.ts. Hard-coded here
 // rather than imported so this client component doesn't pull the
 // server-only fetcher into the bundle.
 const NAP_MAX_URLS = 500;
+// Soft client-side cap so a CSV with thousands of citations imports
+// without truncation; the new-audit flow then chunks the list into
+// NAP_MAX_URLS-sized audits ("Acme (1/4)", "Acme (2/4)", …). Stops
+// pathological "10M-line file" imports from blowing the page up.
+const NAP_PASTE_CAP = 5_000;
 
 export interface NapAuditFormValues {
   label: string;
@@ -36,6 +41,17 @@ interface Props {
   onSubmit: (values: NapAuditFormValues) => Promise<void>;
   onCancel: () => void;
   allowGoogle?: boolean;
+  /**
+   * When true, the form allows up to NAP_PASTE_CAP URLs and shows a
+   * "we'll split into N audits" note instead of the truncation warning.
+   * The parent's onSubmit is responsible for actually chunking the list
+   * into NAP_MAX_URLS-sized audits and posting each one. Used by the
+   * new-audit flow; edit flow leaves it off (you can't split an existing
+   * audit row).
+   */
+  allowAutoSplit?: boolean;
+  /** When the parent is mid-batch this overrides the submit button copy. */
+  submitProgressLabel?: string;
 }
 
 const labelCss: React.CSSProperties = {
@@ -44,7 +60,16 @@ const labelCss: React.CSSProperties = {
 };
 const inputCss: React.CSSProperties = { width: '100%', margin: 0 };
 
-export default function NapAuditForm({ initial, defaultGbpQuery, submitLabel, onSubmit, onCancel, allowGoogle = true }: Props) {
+export default function NapAuditForm({
+  initial,
+  defaultGbpQuery,
+  submitLabel,
+  onSubmit,
+  onCancel,
+  allowGoogle = true,
+  allowAutoSplit = false,
+  submitProgressLabel,
+}: Props) {
   const c = initial?.canonical ?? {};
   const [label, setLabel] = useState(initial?.label ?? '');
   const [name, setName] = useState(c.name ?? '');
@@ -63,16 +88,25 @@ export default function NapAuditForm({ initial, defaultGbpQuery, submitLabel, on
   const [gbpError, setGbpError] = useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
 
-  const parsedCount = extractUrlsFromText(urls, 10_000).length;
-  const overCap = parsedCount > NAP_MAX_URLS;
+  // Hard ceiling that applies to both the paste path and the CSV import.
+  // The new-audit flow lets the parent split into multiple audits below
+  // this cap; the edit flow uses the smaller per-audit cap so we never
+  // silently grow an existing row past NAP_MAX_URLS.
+  const inputCap = allowAutoSplit ? NAP_PASTE_CAP : NAP_MAX_URLS;
+  const parsedCount = extractUrlsFromText(urls, NAP_PASTE_CAP).length;
+  const overPerAuditCap = parsedCount > NAP_MAX_URLS;
+  // Number of audits the parent will create on submit. Always ≥1 once
+  // any URL is present; floor-divided so the last batch carries the
+  // remainder rather than spawning a single-URL audit at the end.
+  const auditChunks = Math.max(1, Math.ceil(parsedCount / NAP_MAX_URLS));
 
   function mergeUrls(incoming: string[]) {
-    const existing = extractUrlsFromText(urls, NAP_MAX_URLS);
+    const existing = extractUrlsFromText(urls, inputCap);
     const seen = new Set(existing);
     const merged = [...existing];
     let added = 0;
     for (const u of incoming) {
-      if (merged.length >= NAP_MAX_URLS) break;
+      if (merged.length >= inputCap) break;
       if (seen.has(u)) continue;
       seen.add(u); merged.push(u); added++;
     }
@@ -84,11 +118,11 @@ export default function NapAuditForm({ initial, defaultGbpQuery, submitLabel, on
     const file = e.target.files?.[0];
     if (file) {
       try {
-        const found = extractUrlsFromText(await file.text(), NAP_MAX_URLS);
+        const found = extractUrlsFromText(await file.text(), inputCap);
         if (found.length === 0) setImportNote('No URLs found in that file.');
         else {
           const { added, total } = mergeUrls(found);
-          setImportNote(`Imported ${added} new URL${added === 1 ? '' : 's'} (${total}/${NAP_MAX_URLS}).`);
+          setImportNote(`Imported ${added} new URL${added === 1 ? '' : 's'} (${total}/${inputCap}).`);
         }
       } catch { setImportNote('Could not read that file.'); }
     }
@@ -181,7 +215,12 @@ export default function NapAuditForm({ initial, defaultGbpQuery, submitLabel, on
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-        <label htmlFor="na-urls" style={{ ...labelCss, marginBottom: 0 }}>Citation URLs — one per line (up to {NAP_MAX_URLS})</label>
+        <label htmlFor="na-urls" style={{ ...labelCss, marginBottom: 0 }}>
+          Citation URLs — one per line
+          {allowAutoSplit
+            ? ` (up to ${NAP_PASTE_CAP.toLocaleString()}; we’ll auto-split into audits of ${NAP_MAX_URLS})`
+            : ` (up to ${NAP_MAX_URLS})`}
+        </label>
         <input ref={fileRef} type="file" accept=".csv,.txt,text/csv,text/plain" onChange={handleFile} style={{ display: 'none' }} />
         <button type="button" className="btn-g" onClick={() => fileRef.current?.click()} style={{ padding: '4px 10px', fontSize: 12 }}>↑ Import CSV</button>
       </div>
@@ -189,7 +228,16 @@ export default function NapAuditForm({ initial, defaultGbpQuery, submitLabel, on
         placeholder={'https://www.yelp.com/biz/...\nhttps://www.yell.com/...'} value={urls}
         onChange={(e) => { setUrls(e.target.value); setImportNote(null); }} />
       {importNote && <div className="quiet" style={{ fontSize: 11.5, marginTop: 6, color: 'var(--green)' }}>{importNote}</div>}
-      {overCap && <div style={{ fontSize: 11.5, marginTop: 6, color: 'var(--amber, #b45309)' }}>You added {parsedCount} URLs — only the first {NAP_MAX_URLS} will be used.</div>}
+      {overPerAuditCap && allowAutoSplit && (
+        <div style={{ fontSize: 11.5, marginTop: 6, color: 'var(--primary)' }}>
+          {parsedCount.toLocaleString()} URLs detected — we’ll create {auditChunks} audits of up to {NAP_MAX_URLS} URLs each, labelled “… (1/{auditChunks})”, “… (2/{auditChunks})”, …
+        </div>
+      )}
+      {overPerAuditCap && !allowAutoSplit && (
+        <div style={{ fontSize: 11.5, marginTop: 6, color: 'var(--amber, #b45309)' }}>
+          You added {parsedCount.toLocaleString()} URLs — only the first {NAP_MAX_URLS} will be used.
+        </div>
+      )}
 
       {error && <div style={{ marginTop: 12, padding: '8px 10px', background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.2)', borderRadius: 'var(--radius-xs)', color: 'var(--red)', fontSize: 12 }}>{error}</div>}
 
@@ -197,7 +245,7 @@ export default function NapAuditForm({ initial, defaultGbpQuery, submitLabel, on
         <button type="button" onClick={onCancel} className="pbtn" style={{ minHeight: 44 }}>Cancel</button>
         <button type="submit" disabled={submitting}
           style={{ minHeight: 44, padding: '8px 18px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-xs)', fontSize: 12, fontWeight: 700, cursor: submitting ? 'wait' : 'pointer', opacity: submitting ? 0.6 : 1 }}>
-          {submitting ? 'Saving…' : submitLabel}
+          {submitting ? (submitProgressLabel ?? 'Saving…') : submitLabel}
         </button>
       </div>
     </form>

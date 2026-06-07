@@ -81,25 +81,98 @@ interface NewAuditModalProps {
   brandName: string | null;
   brandCity: string | null;
   onClose: () => void;
-  onCreated: () => void;
+  onCreated: (msg?: string) => void;
+}
+
+// Mirrors NAP_MAX_URLS in lib/nap-audit-run.ts. Hard-coded here so the
+// chunker can run without importing the server-only fetcher into the
+// client bundle.
+const NEW_AUDIT_CHUNK_SIZE = 500;
+
+/** Tokenise the form's URL textarea into a clean, deduped, ordered list. */
+function parseUrlList(raw: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const line of raw.split(/[\s,;]+/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    // Defensive — `url:` schemes other than http(s) shouldn't reach the
+    // server, but the canonical extractUrlsFromText runs there too so
+    // anything malformed gets dropped by the time the audit is created.
+    if (!/^https?:\/\//i.test(trimmed)) continue;
+    if (seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    out.push(trimmed);
+  }
+  return out;
 }
 
 function NewAuditModal({ brandId, brandName, brandCity, onClose, onCreated }: NewAuditModalProps) {
+  const [submitProgress, setSubmitProgress] = useState<string | undefined>();
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  async function create(values: NapAuditFormValues) {
+  async function postOne(values: NapAuditFormValues): Promise<void> {
     const res = await fetch('/api/nap-audits', {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...values, brandId }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error((typeof data?.error === 'string' && data.error) || `Failed (HTTP ${res.status})`);
-    onCreated();
-    onClose();
+  }
+
+  /**
+   * Submit handler for the new-audit form. If the user pasted/imported
+   * more than NEW_AUDIT_CHUNK_SIZE URLs we slice the list into
+   * NEW_AUDIT_CHUNK_SIZE-sized batches and create one audit per batch,
+   * appending " (i/N)" to the label so the dashboard list shows them as
+   * a coherent set. We post sequentially: the worker behind each audit
+   * already runs in `after()`, so back-to-back POSTs don't pile up
+   * synchronous work — and on a partial failure the user keeps the
+   * audits that did succeed instead of losing the whole batch.
+   */
+  async function create(values: NapAuditFormValues) {
+    const urlList = parseUrlList(values.urls);
+    if (urlList.length <= NEW_AUDIT_CHUNK_SIZE) {
+      await postOne(values);
+      onCreated();
+      onClose();
+      return;
+    }
+    const chunks: string[][] = [];
+    for (let i = 0; i < urlList.length; i += NEW_AUDIT_CHUNK_SIZE) {
+      chunks.push(urlList.slice(i, i + NEW_AUDIT_CHUNK_SIZE));
+    }
+    const base = values.label;
+    let created = 0;
+    try {
+      for (let i = 0; i < chunks.length; i++) {
+        setSubmitProgress(`Creating ${i + 1}/${chunks.length}…`);
+        await postOne({
+          ...values,
+          label: `${base} (${i + 1}/${chunks.length})`,
+          urls: chunks[i].join('\n'),
+        });
+        created++;
+      }
+      onCreated(`Created ${created} audits — watch the live progress below.`);
+      onClose();
+    } catch (err) {
+      // Surface partial-success so the user knows what landed before the
+      // failure — the form's error renderer will show this message and
+      // leave the modal open so they can retry with the remaining URLs.
+      if (created > 0) {
+        onCreated(
+          `Created ${created} of ${chunks.length} audits before "${(err as Error).message}". Remove the imported URLs that already ran and try again for the rest.`,
+        );
+      }
+      throw err;
+    } finally {
+      setSubmitProgress(undefined);
+    }
   }
 
   // Pre-fill the Pull-from-Google query with the selected brand so the
@@ -127,6 +200,8 @@ function NewAuditModal({ brandId, brandName, brandCity, onClose, onCreated }: Ne
           initial={formInitial}
           defaultGbpQuery={gbpQuery}
           submitLabel="Create & run"
+          submitProgressLabel={submitProgress}
+          allowAutoSplit
           onSubmit={create}
           onCancel={onClose}
         />
@@ -149,7 +224,9 @@ export default function NapAuditsPage() {
 
   function flash(msg: string) {
     setToast(msg);
-    setTimeout(() => setToast(null), 2500);
+    // Longer dwell so multi-audit success messages ("Created 4 audits…")
+    // stay on screen long enough to read.
+    setTimeout(() => setToast(null), 4000);
   }
 
   async function fetchAudits(bId: string | null = brandId) {
@@ -337,7 +414,7 @@ export default function NapAuditsPage() {
       </div>
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: 'var(--text)', color: 'var(--surface)', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, zIndex: 1100, boxShadow: 'var(--shadow-2)' }}>{toast}</div>
+        <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: 'var(--text)', color: 'var(--surface)', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, zIndex: 1100, boxShadow: 'var(--shadow-2)', maxWidth: 560, textAlign: 'center' }}>{toast}</div>
       )}
 
       {modalOpen && brandId && (
@@ -346,8 +423,8 @@ export default function NapAuditsPage() {
           brandName={brandName}
           brandCity={brandCity}
           onClose={() => setModalOpen(false)}
-          onCreated={() => {
-            flash('Audit queued — watch the live progress below.');
+          onCreated={(msg) => {
+            flash(msg ?? 'Audit queued — watch the live progress below.');
             fetchAudits(brandId);
           }}
         />
