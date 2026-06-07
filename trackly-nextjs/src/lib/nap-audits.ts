@@ -5,13 +5,14 @@
  * EXISTS pattern used by ensureGeoAuditsSchema etc.).
  *
  * Runs are processed in the background (status queued → running → done/failed)
- * so a 50-URL fetch can't blow the request timeout: the POST returns a queued
+ * so a 500-URL fetch can't blow the request timeout: the POST returns a queued
  * row and processNapAudit() does the work in a Next.js after() callback, with
  * /api/cron/nap-audits-worker as the cold-restart safety net (mirrors the
- * geo-audits lifecycle exactly).
+ * geo-audits lifecycle exactly). During the run the worker writes a throttled
+ * `progress_done` counter so the dashboard can show a live progress bar.
  *
  * The full per-URL results are stored as JSONB on the row — the set is bounded
- * (<=50 URLs) so a child table would be overkill. Each run appends {at, score}
+ * (<=500 URLs) so a child table would be overkill. Each run appends {at, score}
  * to a capped `history` array so the detail view can chart consistency over time.
  */
 import { randomUUID } from 'node:crypto';
@@ -48,12 +49,24 @@ export interface NapAuditRecord {
   history: NapAuditHistoryPoint[];
   /** Manual per-URL verification: { [url]: true } counts that citation as OK. */
   overrides: Record<string, boolean>;
+  /**
+   * URLs the worker has finished for the in-flight run; the UI divides this
+   * by urls.length to render a live progress bar. Reset to 0 when a run
+   * starts and brought up to total when the run terminates so the column
+   * always reflects the most recent run's state.
+   */
+  progressDone: number;
   createdAt: string;
   lastRunAt: string | null;
 }
 
-/** Lightweight shape for the list view (omits the heavy results/duplicates). */
-export type NapAuditListItem = Omit<NapAuditRecord, 'results' | 'duplicates'> & {
+/**
+ * Lightweight shape for the list view. We drop the per-run heavy fields
+ * (`results`, `duplicates`) and the raw `urls` array — at 500 URLs that
+ * would otherwise inflate every row in the dashboard payload — and surface
+ * just the count instead.
+ */
+export type NapAuditListItem = Omit<NapAuditRecord, 'results' | 'duplicates' | 'urls'> & {
   urlCount: number;
 };
 
@@ -63,25 +76,26 @@ export async function ensureNapAuditsSchema(): Promise<void> {
   if (schemaEnsured) return;
   await pool.query(`
     CREATE TABLE IF NOT EXISTS nap_audits (
-      id           UUID PRIMARY KEY,
-      user_id      TEXT NOT NULL,
-      brand_id     TEXT,
-      label        TEXT NOT NULL,
-      canonical    JSONB NOT NULL,
-      urls         TEXT[] NOT NULL,
-      status       TEXT NOT NULL DEFAULT 'done'
-                    CHECK (status IN ('queued','running','done','failed')),
-      error        TEXT,
-      schedule     TEXT NOT NULL DEFAULT 'off',
-      score        INTEGER,
-      summary      JSONB,
-      duplicates   JSONB NOT NULL DEFAULT '[]'::jsonb,
-      results      JSONB NOT NULL DEFAULT '[]'::jsonb,
-      history      JSONB NOT NULL DEFAULT '[]'::jsonb,
-      overrides    JSONB NOT NULL DEFAULT '{}'::jsonb,
-      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      started_at   TIMESTAMPTZ,
-      last_run_at  TIMESTAMPTZ
+      id            UUID PRIMARY KEY,
+      user_id       TEXT NOT NULL,
+      brand_id      TEXT,
+      label         TEXT NOT NULL,
+      canonical     JSONB NOT NULL,
+      urls          TEXT[] NOT NULL,
+      status        TEXT NOT NULL DEFAULT 'done'
+                     CHECK (status IN ('queued','running','done','failed')),
+      error         TEXT,
+      schedule      TEXT NOT NULL DEFAULT 'off',
+      score         INTEGER,
+      summary       JSONB,
+      duplicates    JSONB NOT NULL DEFAULT '[]'::jsonb,
+      results       JSONB NOT NULL DEFAULT '[]'::jsonb,
+      history       JSONB NOT NULL DEFAULT '[]'::jsonb,
+      overrides     JSONB NOT NULL DEFAULT '{}'::jsonb,
+      progress_done INTEGER NOT NULL DEFAULT 0,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      started_at    TIMESTAMPTZ,
+      last_run_at   TIMESTAMPTZ
     )
   `);
   // Backfill columns for installations created before background processing /
@@ -92,6 +106,7 @@ export async function ensureNapAuditsSchema(): Promise<void> {
   await pool.query(`ALTER TABLE nap_audits ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE nap_audits ADD COLUMN IF NOT EXISTS brand_id TEXT`);
   await pool.query(`ALTER TABLE nap_audits ADD COLUMN IF NOT EXISTS overrides JSONB NOT NULL DEFAULT '{}'::jsonb`);
+  await pool.query(`ALTER TABLE nap_audits ADD COLUMN IF NOT EXISTS progress_done INTEGER NOT NULL DEFAULT 0`);
   // FK + cascade-on-brand-delete. Add only if missing — Postgres has no
   // ADD CONSTRAINT IF NOT EXISTS, so we guard via information_schema.
   await pool.query(`
@@ -163,6 +178,7 @@ interface NapAuditDbRow {
   results: UrlResult[] | null;
   history: NapAuditHistoryPoint[] | null;
   overrides: Record<string, boolean> | null;
+  progress_done: number | string | null;
   created_at: Date | string;
   last_run_at: Date | string | null;
 }
@@ -183,15 +199,18 @@ function mapRow(r: NapAuditDbRow): NapAuditRecord {
     results: Array.isArray(r.results) ? r.results : [],
     history: Array.isArray(r.history) ? r.history : [],
     overrides: r.overrides && typeof r.overrides === 'object' ? r.overrides : {},
+    progressDone: Number(r.progress_done ?? 0) || 0,
     createdAt: toIso(r.created_at)!,
     lastRunAt: toIso(r.last_run_at),
   };
 }
 
 const FULL_COLS =
-  'id, brand_id, label, canonical, urls, status, error, schedule, score, summary, duplicates, results, history, overrides, created_at, last_run_at';
+  'id, brand_id, label, canonical, urls, status, error, schedule, score, summary, duplicates, results, history, overrides, progress_done, created_at, last_run_at';
+// LIST_COLS swaps the raw `urls` array for its length so list responses
+// stay slim even when an audit holds the 500-URL maximum.
 const LIST_COLS =
-  'id, brand_id, label, canonical, urls, status, error, schedule, score, summary, history, created_at, last_run_at';
+  "id, brand_id, label, canonical, COALESCE(array_length(urls, 1), 0)::int AS url_count, status, error, schedule, score, summary, history, progress_done, created_at, last_run_at";
 
 export async function countNapAudits(userId: string): Promise<number> {
   await ensureNapAuditsSchema();
@@ -228,12 +247,15 @@ export async function listNapAudits(
           LIMIT $2`,
         [userId, NAP_MAX_SAVED_AUDITS],
       );
-  return (res.rows as NapAuditDbRow[]).map((r) => {
-    const rec = mapRow({ ...r, duplicates: [], results: [] });
-    const { results: _results, duplicates: _duplicates, ...rest } = rec;
+  return (res.rows as (NapAuditDbRow & { url_count: number })[]).map((r) => {
+    // url_count comes from SQL; we synthesise an empty urls array purely
+    // to satisfy mapRow's row shape, then strip it from the list item.
+    const rec = mapRow({ ...r, urls: [], duplicates: [], results: [] });
+    const { results: _results, duplicates: _duplicates, urls: _urls, ...rest } = rec;
     void _results;
     void _duplicates;
-    return { ...rest, urlCount: rec.urls.length };
+    void _urls;
+    return { ...rest, urlCount: Number(r.url_count) || 0 };
   });
 }
 
@@ -271,13 +293,21 @@ export async function insertNapAudit(input: {
 export async function claimNapAuditForRunning(id: string): Promise<boolean> {
   await ensureNapAuditsSchema();
   const res = await pool.query(
-    `UPDATE nap_audits SET status = 'running', started_at = NOW()
+    `UPDATE nap_audits SET status = 'running', started_at = NOW(), progress_done = 0
       WHERE id = $1 AND status = 'queued'
       RETURNING id`,
     [id],
   );
   return (res.rowCount ?? 0) > 0;
 }
+
+/**
+ * Throttle progress writes so a 500-URL run with concurrency 16 doesn't fire
+ * a DB UPDATE per completed URL. We persist when the in-flight count crosses
+ * a 1%-of-total step (min 1) or 1.5 s have passed since the last write —
+ * both of which the UI's 4 s polling interval comfortably samples.
+ */
+const PROGRESS_WRITE_INTERVAL_MS = 1500;
 
 /**
  * Run a claimed audit: fetch + extract + compare, persist results, append to
@@ -293,25 +323,44 @@ export async function processNapAudit(id: string): Promise<NapAuditRecord | null
   const prevHistory = (row.rows[0].history as NapAuditHistoryPoint[]) ?? [];
   const overrides = (row.rows[0].overrides as Record<string, boolean>) ?? {};
 
+  let lastWrittenDone = 0;
+  let lastWriteAt = 0;
+  const stepThreshold = Math.max(1, Math.floor(urls.length / 100));
+  const onProgress = (done: number, _total: number) => {
+    const now = Date.now();
+    const enoughItems = done - lastWrittenDone >= stepThreshold;
+    const enoughTime = now - lastWriteAt >= PROGRESS_WRITE_INTERVAL_MS;
+    if (!enoughItems && !enoughTime) return;
+    lastWrittenDone = done;
+    lastWriteAt = now;
+    // Fire-and-forget — a single dropped write is fine because the next
+    // tick (or the terminal UPDATE) will overwrite it. We avoid awaiting
+    // so the in-flight fetches keep saturating their concurrency budget.
+    pool
+      .query(`UPDATE nap_audits SET progress_done = $2 WHERE id = $1`, [id, done])
+      .catch(() => undefined);
+  };
+
   try {
-    const run = await runNapCheck(canonical, urls);
+    const run = await runNapCheck(canonical, urls, { onProgress });
     // Honor manual verification so a re-run doesn't wipe operator-confirmed rows.
     const score = effectiveScore(run.results, overrides);
     const history = [...prevHistory, { at: new Date().toISOString(), score }].slice(-HISTORY_CAP);
     const res = await pool.query(
       `UPDATE nap_audits
           SET status = 'done', error = NULL, score = $2, summary = $3::jsonb,
-              duplicates = $4::jsonb, results = $5::jsonb, history = $6::jsonb, last_run_at = NOW()
+              duplicates = $4::jsonb, results = $5::jsonb, history = $6::jsonb,
+              progress_done = $7, last_run_at = NOW()
         WHERE id = $1
         RETURNING ${FULL_COLS}`,
-      [id, score, JSON.stringify(run.summary), JSON.stringify(run.duplicates), JSON.stringify(run.results), JSON.stringify(history)],
+      [id, score, JSON.stringify(run.summary), JSON.stringify(run.duplicates), JSON.stringify(run.results), JSON.stringify(history), urls.length],
     );
     return mapRow(res.rows[0] as NapAuditDbRow);
   } catch (e) {
-    await pool.query(`UPDATE nap_audits SET status = 'failed', error = $2 WHERE id = $1`, [
-      id,
-      (e as Error).message.slice(0, 300),
-    ]);
+    await pool.query(
+      `UPDATE nap_audits SET status = 'failed', error = $2, progress_done = $3 WHERE id = $1`,
+      [id, (e as Error).message.slice(0, 300), urls.length],
+    );
     return null;
   }
 }
@@ -320,7 +369,7 @@ export async function processNapAudit(id: string): Promise<NapAuditRecord | null
 export async function requeueNapAudit(userId: string, id: string): Promise<NapAuditRecord | null> {
   await ensureNapAuditsSchema();
   const res = await pool.query(
-    `UPDATE nap_audits SET status = 'queued', error = NULL
+    `UPDATE nap_audits SET status = 'queued', error = NULL, progress_done = 0
       WHERE id = $1 AND user_id = $2 AND status IN ('done','failed','queued')
       RETURNING ${FULL_COLS}`,
     [id, userId],
