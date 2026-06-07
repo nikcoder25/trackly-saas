@@ -49,6 +49,7 @@ export default function NapAuditForm({ initial, submitLabel, onSubmit, onCancel,
   const [gbpQuery, setGbpQuery] = useState('');
   const [gbpLoading, setGbpLoading] = useState(false);
   const [gbpNote, setGbpNote] = useState<string | null>(null);
+  const [gbpError, setGbpError] = useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
 
   const parsedCount = extractUrlsFromText(urls, 10_000).length;
@@ -85,14 +86,18 @@ export default function NapAuditForm({ initial, submitLabel, onSubmit, onCancel,
 
   async function pullFromGoogle() {
     if (gbpLoading || !gbpQuery.trim()) return;
-    setGbpLoading(true); setGbpNote(null);
+    setGbpLoading(true); setGbpNote(null); setGbpError(false);
     try {
       const res = await fetch('/api/nap-audits/gbp-lookup', {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: gbpQuery.trim() }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { setGbpNote((typeof data?.error === 'string' && data.error) || `Lookup failed (HTTP ${res.status})`); return; }
+      if (!res.ok) {
+        setGbpError(true);
+        setGbpNote((typeof data?.error === 'string' && data.error) || `Lookup failed (HTTP ${res.status})`);
+        return;
+      }
       const g = data.canonical || {};
       if (g.name) setName(g.name);
       if (g.phone) setPhone(g.phone);
@@ -102,7 +107,7 @@ export default function NapAuditForm({ initial, submitLabel, onSubmit, onCancel,
       if (g.postcode) setPostcode(g.postcode);
       if (!label.trim() && g.name) setLabel(g.name);
       setGbpNote('Prefilled from Google. Review before saving.');
-    } catch (err) { setGbpNote((err as Error).message || 'Lookup failed'); }
+    } catch (err) { setGbpError(true); setGbpNote((err as Error).message || 'Lookup failed'); }
     finally { setGbpLoading(false); }
   }
 
@@ -137,7 +142,7 @@ export default function NapAuditForm({ initial, submitLabel, onSubmit, onCancel,
               {gbpLoading ? '…' : 'Pull'}
             </button>
           </div>
-          {gbpNote && <div className="quiet" style={{ fontSize: 11.5, marginTop: 6 }}>{gbpNote}</div>}
+          {gbpNote && <div style={{ fontSize: 11.5, marginTop: 6, color: gbpError ? 'var(--red)' : 'var(--muted)' }}>{gbpNote}</div>}
         </div>
       )}
 
