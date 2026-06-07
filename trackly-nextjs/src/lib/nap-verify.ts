@@ -777,6 +777,20 @@ export function consistencyScore(results: Array<{ matchScore: number }>): number
   return Math.round(sum / results.length);
 }
 
+/**
+ * Consistency score that honors manual verification: any citation whose URL is
+ * marked OK in `overrides` counts as a full 100 (the operator checked it by hand
+ * — e.g. a page our fetcher was blocked from but they confirmed in a browser).
+ */
+export function effectiveScore(
+  results: Array<{ url: string; matchScore: number }>,
+  overrides: Record<string, boolean> = {},
+): number {
+  if (results.length === 0) return 0;
+  const sum = results.reduce((acc, r) => acc + (overrides[r.url] ? 100 : r.matchScore), 0);
+  return Math.round(sum / results.length);
+}
+
 // ── Citation gap finder (Phase 3) ────────────────────────────────────────────
 
 export interface RecommendedDirectory {

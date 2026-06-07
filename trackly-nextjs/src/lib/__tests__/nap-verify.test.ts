@@ -13,6 +13,7 @@ import {
   extractUrlsFromText,
   extractWithRegex,
   classifyUnreachable,
+  effectiveScore,
   detectRegression,
   extractionStrength,
   findCitationGaps,
@@ -414,6 +415,21 @@ describe('classifyUnreachable', () => {
   });
   it('falls back to dead link for fetch failures (null status)', () => {
     expect(classifyUnreachable(null).tag).toBe('dead link');
+  });
+});
+
+describe('effectiveScore (manual verification)', () => {
+  it('counts overridden URLs as 100', () => {
+    const results = [
+      { url: 'https://a.com', matchScore: 0 },
+      { url: 'https://b.com', matchScore: 50 },
+    ];
+    expect(effectiveScore(results, {})).toBe(25);
+    expect(effectiveScore(results, { 'https://a.com': true })).toBe(75);
+    expect(effectiveScore(results, { 'https://a.com': true, 'https://b.com': true })).toBe(100);
+  });
+  it('ignores overrides for URLs not in the result set', () => {
+    expect(effectiveScore([{ url: 'https://a.com', matchScore: 100 }], { 'https://gone.com': true })).toBe(100);
   });
 });
 
