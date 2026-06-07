@@ -22,6 +22,7 @@ interface NapAuditRecord extends NapResultsData {
   error: string | null;
   schedule: NapAuditSchedule;
   history: HistoryPoint[];
+  overrides: Record<string, boolean>;
   createdAt: string;
   lastRunAt: string | null;
 }
@@ -162,7 +163,31 @@ export default function NapAuditDetailPage() {
   const [busy, setBusy] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [overrideBusy, setOverrideBusy] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  async function toggleOverride(url: string, ok: boolean) {
+    setOverrideBusy(url);
+    try {
+      const res = await fetch(`/api/nap-audits/${id}/override`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, ok }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAudit(data.audit);
+        flash(ok ? 'Marked OK — score updated.' : 'Verification removed.');
+      } else {
+        flash('Could not update verification.');
+      }
+    } catch {
+      flash('Could not update verification.');
+    } finally {
+      setOverrideBusy(null);
+    }
+  }
 
   function flash(msg: string) {
     setToast(msg);
@@ -314,7 +339,14 @@ export default function NapAuditDetailPage() {
               <GapFinder id={audit.id} />
             </div>
             <div style={{ marginTop: 16 }}>
-              <NapResults data={audit} label={audit.label} canonical={audit.canonical} />
+              <NapResults
+                data={audit}
+                label={audit.label}
+                canonical={audit.canonical}
+                overrides={audit.overrides}
+                onToggleOverride={toggleOverride}
+                busyUrl={overrideBusy}
+              />
             </div>
           </>
         )}

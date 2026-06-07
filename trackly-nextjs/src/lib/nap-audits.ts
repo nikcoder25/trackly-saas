@@ -16,7 +16,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { pool } from '@/lib/db';
-import type { CanonicalNap, DuplicateGroup, UrlResult } from '@/lib/nap-verify';
+import { effectiveScore, type CanonicalNap, type DuplicateGroup, type UrlResult } from '@/lib/nap-verify';
 import { runNapCheck, NAP_MAX_URLS, type NapRunSummary } from '@/lib/nap-audit-run';
 
 export const NAP_MAX_SAVED_AUDITS = 200;
@@ -46,6 +46,8 @@ export interface NapAuditRecord {
   duplicates: DuplicateGroup[];
   results: UrlResult[];
   history: NapAuditHistoryPoint[];
+  /** Manual per-URL verification: { [url]: true } counts that citation as OK. */
+  overrides: Record<string, boolean>;
   createdAt: string;
   lastRunAt: string | null;
 }
@@ -76,6 +78,7 @@ export async function ensureNapAuditsSchema(): Promise<void> {
       duplicates   JSONB NOT NULL DEFAULT '[]'::jsonb,
       results      JSONB NOT NULL DEFAULT '[]'::jsonb,
       history      JSONB NOT NULL DEFAULT '[]'::jsonb,
+      overrides    JSONB NOT NULL DEFAULT '{}'::jsonb,
       created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       started_at   TIMESTAMPTZ,
       last_run_at  TIMESTAMPTZ
@@ -88,6 +91,7 @@ export async function ensureNapAuditsSchema(): Promise<void> {
   await pool.query(`ALTER TABLE nap_audits ADD COLUMN IF NOT EXISTS schedule TEXT NOT NULL DEFAULT 'off'`);
   await pool.query(`ALTER TABLE nap_audits ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE nap_audits ADD COLUMN IF NOT EXISTS brand_id TEXT`);
+  await pool.query(`ALTER TABLE nap_audits ADD COLUMN IF NOT EXISTS overrides JSONB NOT NULL DEFAULT '{}'::jsonb`);
   // FK + cascade-on-brand-delete. Add only if missing — Postgres has no
   // ADD CONSTRAINT IF NOT EXISTS, so we guard via information_schema.
   await pool.query(`
@@ -158,6 +162,7 @@ interface NapAuditDbRow {
   duplicates: DuplicateGroup[] | null;
   results: UrlResult[] | null;
   history: NapAuditHistoryPoint[] | null;
+  overrides: Record<string, boolean> | null;
   created_at: Date | string;
   last_run_at: Date | string | null;
 }
@@ -177,13 +182,14 @@ function mapRow(r: NapAuditDbRow): NapAuditRecord {
     duplicates: Array.isArray(r.duplicates) ? r.duplicates : [],
     results: Array.isArray(r.results) ? r.results : [],
     history: Array.isArray(r.history) ? r.history : [],
+    overrides: r.overrides && typeof r.overrides === 'object' ? r.overrides : {},
     createdAt: toIso(r.created_at)!,
     lastRunAt: toIso(r.last_run_at),
   };
 }
 
 const FULL_COLS =
-  'id, brand_id, label, canonical, urls, status, error, schedule, score, summary, duplicates, results, history, created_at, last_run_at';
+  'id, brand_id, label, canonical, urls, status, error, schedule, score, summary, duplicates, results, history, overrides, created_at, last_run_at';
 const LIST_COLS =
   'id, brand_id, label, canonical, urls, status, error, schedule, score, summary, history, created_at, last_run_at';
 
@@ -280,22 +286,25 @@ export async function claimNapAuditForRunning(id: string): Promise<boolean> {
  */
 export async function processNapAudit(id: string): Promise<NapAuditRecord | null> {
   if (!(await claimNapAuditForRunning(id))) return null;
-  const row = await pool.query(`SELECT canonical, urls, history FROM nap_audits WHERE id = $1`, [id]);
+  const row = await pool.query(`SELECT canonical, urls, history, overrides FROM nap_audits WHERE id = $1`, [id]);
   if (row.rows.length === 0) return null;
   const canonical = row.rows[0].canonical as CanonicalNap;
   const urls = (row.rows[0].urls as string[]) ?? [];
   const prevHistory = (row.rows[0].history as NapAuditHistoryPoint[]) ?? [];
+  const overrides = (row.rows[0].overrides as Record<string, boolean>) ?? {};
 
   try {
     const run = await runNapCheck(canonical, urls);
-    const history = [...prevHistory, { at: new Date().toISOString(), score: run.score }].slice(-HISTORY_CAP);
+    // Honor manual verification so a re-run doesn't wipe operator-confirmed rows.
+    const score = effectiveScore(run.results, overrides);
+    const history = [...prevHistory, { at: new Date().toISOString(), score }].slice(-HISTORY_CAP);
     const res = await pool.query(
       `UPDATE nap_audits
           SET status = 'done', error = NULL, score = $2, summary = $3::jsonb,
               duplicates = $4::jsonb, results = $5::jsonb, history = $6::jsonb, last_run_at = NOW()
         WHERE id = $1
         RETURNING ${FULL_COLS}`,
-      [id, run.score, JSON.stringify(run.summary), JSON.stringify(run.duplicates), JSON.stringify(run.results), JSON.stringify(history)],
+      [id, score, JSON.stringify(run.summary), JSON.stringify(run.duplicates), JSON.stringify(run.results), JSON.stringify(history)],
     );
     return mapRow(res.rows[0] as NapAuditDbRow);
   } catch (e) {
@@ -355,6 +364,34 @@ export async function updateNapAudit(
       WHERE id = $1 AND user_id = $2
       RETURNING ${FULL_COLS}`,
     [id, userId, label, JSON.stringify(canonical), urls],
+  );
+  if (res.rows.length === 0) return null;
+  return mapRow(res.rows[0] as NapAuditDbRow);
+}
+
+/**
+ * Manually mark a citation OK (or undo it). When `ok` is true the URL counts as
+ * a full match in the consistency score — for pages the fetcher was blocked from
+ * but the operator verified by hand. Recomputes and persists the score from the
+ * stored results; does not append to history (it's not a fresh run).
+ */
+export async function setNapAuditOverride(
+  userId: string,
+  id: string,
+  url: string,
+  ok: boolean,
+): Promise<NapAuditRecord | null> {
+  const existing = await getNapAudit(userId, id);
+  if (!existing) return null;
+  const overrides = { ...existing.overrides };
+  if (ok) overrides[url] = true;
+  else delete overrides[url];
+  const score = effectiveScore(existing.results, overrides);
+  const res = await pool.query(
+    `UPDATE nap_audits SET overrides = $3::jsonb, score = $4
+      WHERE id = $1 AND user_id = $2
+      RETURNING ${FULL_COLS}`,
+    [id, userId, JSON.stringify(overrides), score],
   );
   if (res.rows.length === 0) return null;
   return mapRow(res.rows[0] as NapAuditDbRow);

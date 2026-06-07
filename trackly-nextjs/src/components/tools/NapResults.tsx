@@ -49,7 +49,7 @@ export interface NapDuplicateGroup {
 
 export interface NapResultsData {
   score: number;
-  summary: { total: number; clean: number; withIssues: number; deadLinks: number; duplicateListings: number };
+  summary: { total: number; clean: number; withIssues: number; deadLinks: number; blocked?: number; duplicateListings: number };
   duplicates: NapDuplicateGroup[];
   results: NapUrlResult[];
 }
@@ -169,7 +169,25 @@ function SchemaCard({ canonical }: { canonical: CanonicalNap }) {
   );
 }
 
-export default function NapResults({ data, label, canonical }: { data: NapResultsData; label?: string; canonical?: CanonicalNap }) {
+export default function NapResults({
+  data,
+  label,
+  canonical,
+  overrides,
+  onToggleOverride,
+  busyUrl,
+}: {
+  data: NapResultsData;
+  label?: string;
+  canonical?: CanonicalNap;
+  /** Manual verification map { [url]: true }. When provided, per-row toggles show. */
+  overrides?: Record<string, boolean>;
+  onToggleOverride?: (url: string, ok: boolean) => void;
+  busyUrl?: string | null;
+}) {
+  const ov = overrides ?? {};
+  const interactive = typeof onToggleOverride === 'function';
+  const verifiedCount = data.results.filter((r) => ov[r.url]).length;
   const downloadCsv = () => {
     const blob = new Blob([buildCsv(data)], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -197,8 +215,10 @@ export default function NapResults({ data, label, canonical }: { data: NapResult
             <Stat label="Citations" value={data.summary.total} color="#1a1a2e" />
             <Stat label="Clean" value={data.summary.clean} color="#16a34a" />
             <Stat label="With issues" value={data.summary.withIssues} color="#ca8a04" />
+            {(data.summary.blocked ?? 0) > 0 && <Stat label="Blocked" value={data.summary.blocked ?? 0} color="#b45309" />}
             <Stat label="Dead links" value={data.summary.deadLinks} color="#dc2626" />
             <Stat label="Duplicates" value={data.summary.duplicateListings} color="#9333ea" />
+            {verifiedCount > 0 && <Stat label="Verified" value={verifiedCount} color="#0891b2" />}
           </div>
           <button
             onClick={downloadCsv}
@@ -310,8 +330,8 @@ export default function NapResults({ data, label, canonical }: { data: NapResult
                       </div>
                     )}
                   </td>
-                  <td style={{ padding: '12px 14px', fontWeight: 700, color: scoreColor(r.matchScore) }}>
-                    {r.reachable ? r.matchScore : '—'}
+                  <td style={{ padding: '12px 14px', fontWeight: 700, color: ov[r.url] ? '#0891b2' : scoreColor(r.matchScore) }}>
+                    {ov[r.url] ? 'OK' : r.reachable ? r.matchScore : '—'}
                   </td>
                   <td style={{ padding: '12px 14px' }}>
                     <StatusPill status={r.fields.name.status} />
@@ -332,30 +352,67 @@ export default function NapResults({ data, label, canonical }: { data: NapResult
                   <td style={{ padding: '12px 14px' }}>
                     <StatusPill status={r.fields.suite.status} />
                   </td>
-                  <td style={{ padding: '12px 14px', maxWidth: 180 }}>
-                    {r.tags.length === 0 ? (
-                      <span style={{ color: '#16a34a', fontSize: 12 }}>✓ Consistent</span>
+                  <td style={{ padding: '12px 14px', maxWidth: 210 }}>
+                    {ov[r.url] ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                        <span style={{ color: '#0891b2', fontSize: 12, fontWeight: 700 }}>✓ Verified manually</span>
+                        {interactive && (
+                          <button
+                            onClick={() => onToggleOverride!(r.url, false)}
+                            disabled={busyUrl === r.url}
+                            style={{ background: 'none', border: 'none', padding: 0, color: '#6b7280', fontSize: 11, textDecoration: 'underline', cursor: 'pointer' }}
+                          >
+                            {busyUrl === r.url ? '…' : 'Undo'}
+                          </button>
+                        )}
+                      </div>
                     ) : (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                        {r.tags.map((t) => {
-                          // "couldn't check" (blocked / dead link) is amber, not
-                          // the red used for a genuine NAP mismatch.
-                          const couldntCheck = t === 'blocked' || t === 'dead link';
-                          return (
-                            <span
-                              key={t}
-                              style={{
-                                fontSize: 11,
-                                padding: '2px 6px',
-                                borderRadius: 5,
-                                background: couldntCheck ? '#fffbeb' : '#fef2f2',
-                                color: couldntCheck ? '#b45309' : '#b91c1c',
-                              }}
-                            >
-                              {t}
-                            </span>
-                          );
-                        })}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {r.tags.length === 0 ? (
+                          <span style={{ color: '#16a34a', fontSize: 12 }}>✓ Consistent</span>
+                        ) : (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                            {r.tags.map((t) => {
+                              // "couldn't check" (blocked / dead link) is amber, not
+                              // the red used for a genuine NAP mismatch.
+                              const couldntCheck = t === 'blocked' || t === 'dead link';
+                              return (
+                                <span
+                                  key={t}
+                                  style={{
+                                    fontSize: 11,
+                                    padding: '2px 6px',
+                                    borderRadius: 5,
+                                    background: couldntCheck ? '#fffbeb' : '#fef2f2',
+                                    color: couldntCheck ? '#b45309' : '#b91c1c',
+                                  }}
+                                >
+                                  {t}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {interactive && (r.tags.length > 0 || !r.reachable) && (
+                          <button
+                            onClick={() => onToggleOverride!(r.url, true)}
+                            disabled={busyUrl === r.url}
+                            title="I checked this listing by hand and the NAP is correct"
+                            style={{
+                              alignSelf: 'flex-start',
+                              padding: '3px 9px',
+                              borderRadius: 6,
+                              border: '1px solid #0891b2',
+                              background: '#fff',
+                              color: '#0891b2',
+                              fontSize: 11,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {busyUrl === r.url ? '…' : '✓ Mark OK'}
+                          </button>
+                        )}
                       </div>
                     )}
                   </td>

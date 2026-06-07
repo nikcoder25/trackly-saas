@@ -100,6 +100,8 @@ export interface NapRunSummary {
   clean: number;
   withIssues: number;
   deadLinks: number;
+  /** Subset of unreachable that were anti-bot blocked (vs genuinely gone). */
+  blocked: number;
   duplicateListings: number;
 }
 
@@ -254,6 +256,7 @@ export async function runNapCheck(
     clean: results.filter((r) => r.reachable && r.tags.length === 0).length,
     withIssues: results.filter((r) => r.reachable && r.tags.length > 0).length,
     deadLinks: results.filter((r) => !r.reachable).length,
+    blocked: results.filter((r) => r.tags.includes('blocked')).length,
     duplicateListings: duplicates.length,
   };
   return { results, score, summary, duplicates };

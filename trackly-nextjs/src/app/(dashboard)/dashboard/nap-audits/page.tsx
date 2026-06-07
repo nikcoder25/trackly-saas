@@ -16,7 +16,14 @@ interface NapAuditListItem {
   status: NapAuditStatus;
   error: string | null;
   score: number | null;
-  summary: { duplicateListings: number; deadLinks: number } | null;
+  summary: {
+    total: number;
+    clean: number;
+    withIssues: number;
+    deadLinks: number;
+    blocked?: number;
+    duplicateListings: number;
+  } | null;
   createdAt: string;
   lastRunAt: string | null;
 }
@@ -166,8 +173,16 @@ export default function NapAuditsPage() {
   }
 
   const all = audits ?? [];
-  const avg = all.length ? Math.round(all.reduce((s, a) => s + (a.score ?? 0), 0) / all.length) : 0;
-  const dupes = all.reduce((s, a) => s + (a.summary?.duplicateListings ?? 0), 0);
+  const scored = all.filter((a) => a.score != null);
+  const avg = scored.length ? Math.round(scored.reduce((s, a) => s + (a.score ?? 0), 0) / scored.length) : 0;
+  const sum = (pick: (s: NonNullable<NapAuditListItem['summary']>) => number) =>
+    all.reduce((acc, a) => acc + (a.summary ? pick(a.summary) : 0), 0);
+  const citations = all.reduce((s, a) => s + a.urlCount, 0);
+  const clean = sum((s) => s.clean);
+  const withIssues = sum((s) => s.withIssues);
+  const blocked = sum((s) => s.blocked ?? 0);
+  const deadOnly = Math.max(0, sum((s) => s.deadLinks) - blocked);
+  const dupes = sum((s) => s.duplicateListings);
 
   return (
     <div className="lvx">
@@ -194,7 +209,12 @@ export default function NapAuditsPage() {
         {all.length > 0 && (
           <KPIRail items={[
             { k: 'SAVED AUDITS', v: String(all.length) },
+            { k: 'CITATIONS CHECKED', v: String(citations) },
             { k: 'AVG. CONSISTENCY', v: `${avg}/100` },
+            { k: 'CLEAN', v: String(clean) },
+            { k: 'WITH ISSUES', v: String(withIssues) },
+            { k: 'BLOCKED', v: String(blocked) },
+            { k: 'DEAD LINKS', v: String(deadOnly) },
             { k: 'DUPLICATE LISTINGS', v: String(dupes) },
           ]} />
         )}
