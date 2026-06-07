@@ -21,6 +21,14 @@ interface Props {
     canonical: { name?: string; phone?: string; street?: string; suite?: string; city?: string; postcode?: string };
     urls: string[];
   }>;
+  /**
+   * Pre-fills the "Pull from Google" search box so the button is usable
+   * on first open. The new-audit flow passes the active brand's name +
+   * city — the user already chose that brand in the top-bar dropdown,
+   * so asking them to retype it just to enable the Pull button is the
+   * UX hole that made the button look broken.
+   */
+  defaultGbpQuery?: string;
   submitLabel: string;
   onSubmit: (values: NapAuditFormValues) => Promise<void>;
   onCancel: () => void;
@@ -33,7 +41,7 @@ const labelCss: React.CSSProperties = {
 };
 const inputCss: React.CSSProperties = { width: '100%', margin: 0 };
 
-export default function NapAuditForm({ initial, submitLabel, onSubmit, onCancel, allowGoogle = true }: Props) {
+export default function NapAuditForm({ initial, defaultGbpQuery, submitLabel, onSubmit, onCancel, allowGoogle = true }: Props) {
   const c = initial?.canonical ?? {};
   const [label, setLabel] = useState(initial?.label ?? '');
   const [name, setName] = useState(c.name ?? '');
@@ -46,7 +54,7 @@ export default function NapAuditForm({ initial, submitLabel, onSubmit, onCancel,
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [importNote, setImportNote] = useState<string | null>(null);
-  const [gbpQuery, setGbpQuery] = useState('');
+  const [gbpQuery, setGbpQuery] = useState(defaultGbpQuery?.trim() ?? '');
   const [gbpLoading, setGbpLoading] = useState(false);
   const [gbpNote, setGbpNote] = useState<string | null>(null);
   const [gbpError, setGbpError] = useState(false);
