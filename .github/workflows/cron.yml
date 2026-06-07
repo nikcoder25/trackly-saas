@@ -77,11 +77,29 @@ jobs:
             -H "Authorization: Bearer $CRON_SECRET" \
             "https://livesov.com/api/cron/reconcile-payments"
 
+  nap_worker:
+    # Safety net for saved NAP audits stuck in 'queued' (happy path is the
+    # Next.js after() callback fired from POST /api/nap-audits). Runs every
+    # 15 min alongside reconcile.
+    name: NAP audits worker cron
+    if: github.event.schedule == '*/15 * * * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'reconcile')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call /api/cron/nap-audits-worker
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --max-time 300 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://livesov.com/api/cron/nap-audits-worker"
+
   weekly:
     name: Weekly reports cron
     if: github.event.schedule == '0 8 * * 1' || (github.event_name == 'workflow_dispatch' && inputs.job == 'weekly')
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Call /api/cron/reports?frequency=weekly
         env:
@@ -91,12 +109,20 @@ jobs:
             --max-time 540 \
             -H "Authorization: Bearer $CRON_SECRET" \
             "https://livesov.com/api/cron/reports?frequency=weekly"
+      - name: Call /api/cron/nap-audits-monitor?frequency=weekly
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --max-time 300 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://livesov.com/api/cron/nap-audits-monitor?frequency=weekly"
 
   monthly:
     name: Monthly reports cron
     if: github.event.schedule == '0 8 1 * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'monthly')
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Call /api/cron/reports?frequency=monthly
         env:
@@ -106,3 +132,11 @@ jobs:
             --max-time 540 \
             -H "Authorization: Bearer $CRON_SECRET" \
             "https://livesov.com/api/cron/reports?frequency=monthly"
+      - name: Call /api/cron/nap-audits-monitor?frequency=monthly
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --max-time 300 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://livesov.com/api/cron/nap-audits-monitor?frequency=monthly"

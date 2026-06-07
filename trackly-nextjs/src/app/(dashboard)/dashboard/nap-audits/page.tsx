@@ -1,14 +1,18 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Card, Badge, PageHead, KPIRail } from '@/app/dashboard-v2/ui';
+
+type NapAuditStatus = 'queued' | 'running' | 'done' | 'failed';
 
 interface NapAuditListItem {
   id: string;
   label: string;
   canonical: { name: string };
   urlCount: number;
+  status: NapAuditStatus;
+  error: string | null;
   score: number | null;
   summary: { duplicateListings: number; deadLinks: number } | null;
   createdAt: string;
@@ -186,6 +190,7 @@ export default function NapAuditsPage() {
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function fetchAudits() {
     try {
@@ -202,7 +207,23 @@ export default function NapAuditsPage() {
     }
   }
 
-  useEffect(() => { fetchAudits(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => {
+    fetchAudits();
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []);
+
+  // Poll while any audit is still queued/running so the score fills in live.
+  useEffect(() => {
+    const active = (audits ?? []).some((a) => a.status === 'queued' || a.status === 'running');
+    if (active && !pollRef.current) {
+      pollRef.current = setInterval(fetchAudits, 4000);
+    } else if (!active && pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [audits]);
 
   async function rerun(id: string) {
     setBusyId(id);
@@ -285,7 +306,15 @@ export default function NapAuditsPage() {
                         <Link href={`/dashboard/nap-audits/${a.id}`} style={{ color: 'var(--text)', fontWeight: 600, textDecoration: 'none' }}>{a.label}</Link>
                         <div className="quiet" style={{ fontSize: 11 }}>{a.canonical?.name}</div>
                       </td>
-                      <td style={{ padding: '12px 14px' }}><Badge tone={scoreTone(a.score)}>{a.score == null ? '—' : `${a.score}/100`}</Badge></td>
+                      <td style={{ padding: '12px 14px' }}>
+                        {a.status === 'queued' || a.status === 'running' ? (
+                          <Badge tone="neu">{a.status === 'queued' ? 'QUEUED' : 'RUNNING…'}</Badge>
+                        ) : a.status === 'failed' ? (
+                          <Badge tone="neg">FAILED</Badge>
+                        ) : (
+                          <Badge tone={scoreTone(a.score)}>{a.score == null ? '—' : `${a.score}/100`}</Badge>
+                        )}
+                      </td>
                       <td style={{ padding: '12px 14px' }} className="mono">{a.urlCount}</td>
                       <td style={{ padding: '12px 14px' }} className="mono">{a.summary?.duplicateListings ?? 0}</td>
                       <td style={{ padding: '12px 14px' }} className="quiet">{fmtDate(a.lastRunAt)}</td>

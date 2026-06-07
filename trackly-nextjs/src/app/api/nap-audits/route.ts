@@ -4,13 +4,15 @@
  * GET  → list the current user's saved audits, newest first.
  * POST → create a saved audit (label + canonical NAP + URLs) and run it once.
  */
+import { after } from 'next/server';
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { extractUrlsFromText, type CanonicalNap } from '@/lib/nap-verify';
 import { NAP_MAX_URLS } from '@/lib/nap-audit-run';
 import {
-  createNapAudit,
+  insertNapAudit,
+  processNapAudit,
   listNapAudits,
   countNapAudits,
   NAP_MAX_SAVED_AUDITS,
@@ -82,7 +84,16 @@ export async function POST(request: Request): Promise<Response> {
         { status: 403 },
       );
     }
-    const audit = await createNapAudit({ userId: auth.id, label, canonical, urls });
+    const audit = await insertNapAudit({ userId: auth.id, label, canonical, urls });
+    // Run in the background so a 50-URL fetch can't blow the request timeout;
+    // /api/cron/nap-audits-worker is the cold-restart safety net.
+    after(async () => {
+      try {
+        await processNapAudit(audit.id);
+      } catch (e) {
+        logger.error('nap_audits.dispatch_failed', { id: audit.id, err: (e as Error).message });
+      }
+    });
     return Response.json({ audit }, { status: 201 });
   } catch (e) {
     logger.error('nap_audits.create_failed', { err: (e as Error).message, userId: auth.id });

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, PageHead } from '@/app/dashboard-v2/ui';
@@ -10,11 +10,16 @@ interface CanonicalNap {
   name: string; phone?: string; street?: string; suite?: string; city?: string; postcode?: string;
 }
 interface HistoryPoint { at: string; score: number }
+type NapAuditStatus = 'queued' | 'running' | 'done' | 'failed';
+type NapAuditSchedule = 'off' | 'weekly' | 'monthly';
 interface NapAuditRecord extends NapResultsData {
   id: string;
   label: string;
   canonical: CanonicalNap;
   urls: string[];
+  status: NapAuditStatus;
+  error: string | null;
+  schedule: NapAuditSchedule;
   history: HistoryPoint[];
   createdAt: string;
   lastRunAt: string | null;
@@ -154,6 +159,7 @@ export default function NapAuditDetailPage() {
   const [audit, setAudit] = useState<NapAuditRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -167,7 +173,33 @@ export default function NapAuditDetailPage() {
     }
   }, [id]);
 
-  useEffect(() => { if (id) load(); }, [id, load]);
+  useEffect(() => {
+    if (id) load();
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [id, load]);
+
+  // Poll while the run is in progress so results appear when it finishes.
+  useEffect(() => {
+    const active = audit?.status === 'queued' || audit?.status === 'running';
+    if (active && !pollRef.current) {
+      pollRef.current = setInterval(load, 4000);
+    } else if (!active && pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, [audit?.status, load]);
+
+  async function changeSchedule(schedule: NapAuditSchedule) {
+    try {
+      const res = await fetch(`/api/nap-audits/${id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schedule }),
+      });
+      if (res.ok) { const data = await res.json(); setAudit(data.audit); }
+    } catch { /* ignore */ }
+  }
 
   async function rerun() {
     setBusy(true);
@@ -203,6 +235,20 @@ export default function NapAuditDetailPage() {
         actions={
           <>
             <Link href="/dashboard/nap-audits" className="btn-g" style={{ marginRight: 6 }}>← Back</Link>
+            {audit && (
+              <select
+                aria-label="Schedule"
+                className="brand-select"
+                value={audit.schedule}
+                onChange={(e) => changeSchedule(e.target.value as NapAuditSchedule)}
+                style={{ margin: 0, marginRight: 6, width: 'auto', display: 'inline-block' }}
+              >
+                <option value="off">Manual</option>
+                <option value="weekly">Auto: weekly</option>
+                <option value="monthly">Auto: monthly</option>
+              </select>
+            )}
+            <a className="btn-g" href={`/api/nap-audits/${id}/pdf`} style={{ marginRight: 6 }}>↓ PDF</a>
             <button className="btn-g" disabled={busy} onClick={rerun} style={{ marginRight: 6 }}>{busy ? 'Running…' : 'Re-run'}</button>
             <button className="btn-g" disabled={busy} onClick={remove} style={{ color: 'var(--red)' }}>Delete</button>
           </>
@@ -216,6 +262,16 @@ export default function NapAuditDetailPage() {
           <Card title="Audit"><div className="quiet" style={{ padding: 24, textAlign: 'center', fontSize: 13 }}>Loading…</div></Card>
         ) : (
           <>
+            {(audit.status === 'queued' || audit.status === 'running') && (
+              <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(99,102,241,.08)', border: '1px solid rgba(99,102,241,.2)', borderRadius: 'var(--radius-xs)', color: 'var(--primary)', fontSize: 13, fontWeight: 600 }}>
+                {audit.status === 'queued' ? 'Queued…' : 'Running the audit…'} results update automatically.
+              </div>
+            )}
+            {audit.status === 'failed' && (
+              <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.2)', borderRadius: 'var(--radius-xs)', color: 'var(--red)', fontSize: 13 }}>
+                Last run failed{audit.error ? `: ${audit.error}` : ''}. Try re-running.
+              </div>
+            )}
             <Card title="Consistency over time" right={<span className="quiet" style={{ fontSize: 12 }}>Last run {fmtDate(audit.lastRunAt)}</span>}>
               <ScoreHistory history={audit.history} />
             </Card>
