@@ -1,0 +1,193 @@
+/**
+ * NAP Verification engine tests. Covers the two extraction layers
+ * (LocalBusiness JSON-LD and regex fallback), per-field normalization,
+ * comparison/tagging, and the scoring aggregates.
+ */
+import { describe, expect, it } from 'vitest';
+import {
+  compareNap,
+  consistencyScore,
+  extractFromSchema,
+  extractNap,
+  extractWithRegex,
+  normalizeName,
+  normalizePhone,
+  normalizePostcode,
+  phonesMatch,
+  type CanonicalNap,
+} from '../nap-verify';
+
+const CANONICAL: CanonicalNap = {
+  name: 'Acme Dental Care',
+  phone: '020 7946 0123',
+  street: '12 High Street',
+  suite: 'Suite 4',
+  city: 'London',
+  postcode: 'SW1A 1AA',
+};
+
+describe('normalization', () => {
+  it('strips company suffixes and punctuation from names', () => {
+    expect(normalizeName('Acme Dental Care Ltd')).toBe('acme dental care');
+    expect(normalizeName('Acme Dental Care')).toBe('acme dental care');
+    expect(normalizeName('Acme & Co.')).toBe('acme and');
+  });
+
+  it('normalizes UK phone country codes to a leading zero', () => {
+    expect(normalizePhone('+44 20 7946 0123')).toBe('02079460123');
+    expect(normalizePhone('020 7946 0123')).toBe('02079460123');
+    expect(normalizePhone('0044 20 7946 0123')).toBe('02079460123');
+  });
+
+  it('matches phones across formatting and country-code variance', () => {
+    expect(phonesMatch('020 7946 0123', '+442079460123')).toBe(true);
+    expect(phonesMatch('020 7946 0123', '020 7946 9999')).toBe(false);
+    expect(phonesMatch('020 7946 0123', undefined)).toBe(false);
+  });
+
+  it('normalizes postcodes ignoring case and spacing', () => {
+    expect(normalizePostcode('sw1a 1aa')).toBe('SW1A1AA');
+    expect(normalizePostcode('SW1A1AA')).toBe('SW1A1AA');
+  });
+});
+
+describe('Layer 2 — schema extraction', () => {
+  const html = `
+    <html><head>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "name": "Acme Dental Care",
+      "telephone": "+44 20 7946 0123",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "12 High Street, Suite 4",
+        "addressLocality": "London",
+        "postalCode": "SW1A 1AA"
+      }
+    }
+    </script></head><body>...</body></html>`;
+
+  it('pulls name, phone and address from LocalBusiness JSON-LD', () => {
+    const out = extractFromSchema(html);
+    expect(out.name).toBe('Acme Dental Care');
+    expect(out.phone).toBe('+44 20 7946 0123');
+    expect(out.street).toBe('12 High Street, Suite 4');
+    expect(out.city).toBe('London');
+    expect(out.postcode).toBe('SW1A 1AA');
+    expect(out.source?.name).toBe('schema');
+  });
+
+  it('handles @graph-wrapped nodes', () => {
+    const graph = `<script type="application/ld+json">
+      {"@context":"https://schema.org","@graph":[
+        {"@type":"WebSite","name":"Some Site"},
+        {"@type":["Dentist","LocalBusiness"],"name":"Acme Dental Care","telephone":"02079460123"}
+      ]}</script>`;
+    const out = extractFromSchema(graph);
+    expect(out.name).toBe('Acme Dental Care');
+    expect(out.phone).toBe('02079460123');
+  });
+
+  it('returns empty when no business node is present', () => {
+    const out = extractFromSchema('<script type="application/ld+json">{"@type":"Article"}</script>');
+    expect(out.name).toBeUndefined();
+  });
+});
+
+describe('Layer 1 — regex extraction', () => {
+  it('extracts a tel: link and a UK postcode from raw HTML', () => {
+    const html = `<a href="tel:+442079460123">Call us</a><p>12 High Street, London SW1A 1AA</p>`;
+    const out = extractWithRegex(html);
+    expect(out.phone).toBe('+442079460123');
+    expect(normalizePostcode(out.postcode)).toBe('SW1A1AA');
+  });
+
+  it('falls back to microdata telephone', () => {
+    const html = `<span itemprop="telephone">020 7946 0123</span>`;
+    const out = extractWithRegex(html);
+    expect(normalizePhone(out.phone)).toBe('02079460123');
+  });
+});
+
+describe('merge — schema wins over regex', () => {
+  it('prefers schema phone but keeps regex postcode when schema lacks it', () => {
+    const html = `
+      <script type="application/ld+json">
+      {"@type":"LocalBusiness","name":"Acme Dental Care","telephone":"02079460123"}
+      </script>
+      <a href="tel:01234567890">other</a>
+      <p>SW1A 1AA</p>`;
+    const out = extractNap(html);
+    expect(normalizePhone(out.phone)).toBe('02079460123');
+    expect(out.source.phone).toBe('schema');
+    expect(normalizePostcode(out.postcode)).toBe('SW1A1AA');
+    expect(out.source.postcode).toBe('regex');
+  });
+});
+
+describe('comparison & tagging', () => {
+  it('scores a fully matching citation 100 with no tags', () => {
+    const extracted = extractNap(`
+      <script type="application/ld+json">
+      {"@type":"LocalBusiness","name":"Acme Dental Care","telephone":"+442079460123",
+       "address":{"@type":"PostalAddress","streetAddress":"12 High Street, Suite 4",
+       "addressLocality":"London","postalCode":"SW1A 1AA"}}
+      </script>`);
+    const cmp = compareNap(CANONICAL, extracted, true);
+    expect(cmp.matchScore).toBe(100);
+    expect(cmp.tags).toEqual([]);
+    expect(cmp.fields.suite.status).toBe('match');
+  });
+
+  it('tags a wrong phone', () => {
+    const cmp = compareNap(CANONICAL, { phone: '020 7946 9999', source: {} }, true);
+    expect(cmp.fields.phone.status).toBe('mismatch');
+    expect(cmp.tags).toContain('wrong phone');
+  });
+
+  it('tags a name variation for a dropped suffix', () => {
+    const cmp = compareNap(CANONICAL, { name: 'Acme Dental Care Ltd', source: {} }, true);
+    expect(cmp.fields.name.status).toBe('match');
+  });
+
+  it('tags a genuine name mismatch', () => {
+    const cmp = compareNap(CANONICAL, { name: 'Different Dentist Group', source: {} }, true);
+    expect(cmp.fields.name.status).toBe('mismatch');
+    expect(cmp.tags).toContain('wrong name');
+  });
+
+  it('tags a missing suite when the address drops the unit', () => {
+    const cmp = compareNap(CANONICAL, { street: '12 High Street', source: {} }, true);
+    expect(cmp.fields.suite.status).toBe('missing');
+    expect(cmp.tags).toContain('missing suite');
+  });
+
+  it('tags a wrong postcode', () => {
+    const cmp = compareNap(CANONICAL, { postcode: 'EC1A 1BB', source: {} }, true);
+    expect(cmp.fields.postcode.status).toBe('mismatch');
+    expect(cmp.tags).toContain('wrong postcode');
+  });
+
+  it('short-circuits unreachable pages to a dead-link result', () => {
+    const cmp = compareNap(CANONICAL, { source: {} }, false);
+    expect(cmp.matchScore).toBe(0);
+    expect(cmp.tags).toEqual(['dead link']);
+  });
+
+  it('only scores fields the canonical record defines', () => {
+    const minimal: CanonicalNap = { name: 'Acme Dental Care' };
+    const cmp = compareNap(minimal, { name: 'Acme Dental Care', source: {} }, true);
+    expect(cmp.matchScore).toBe(100);
+  });
+});
+
+describe('consistencyScore', () => {
+  it('averages per-citation scores', () => {
+    expect(consistencyScore([{ matchScore: 100 }, { matchScore: 50 }, { matchScore: 0 }])).toBe(50);
+  });
+  it('returns 0 for an empty set', () => {
+    expect(consistencyScore([])).toBe(0);
+  });
+});

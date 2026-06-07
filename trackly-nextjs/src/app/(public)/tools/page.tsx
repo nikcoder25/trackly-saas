@@ -70,6 +70,13 @@ const TOOLS: Tool[] = [
     bullets: ['Industry + optional region', 'Ranked list with descriptions', 'No signup required'],
     badge: 'No signup',
   },
+  {
+    slug: 'nap-verification',
+    name: 'NAP Verification Tool',
+    tagline: 'Audit citation consistency across all your local listings.',
+    bullets: ['Fetches and extracts NAP from each URL', 'Flags wrong phone, old address, name variations', 'Consistency score + CSV export'],
+    badge: 'No signup',
+  },
 ];
 
 export default function ToolsHubPage() {
@@ -81,7 +88,7 @@ export default function ToolsHubPage() {
           Free <span style={{ color: 'var(--brand)' }}>GEO &amp; AI Visibility</span> Tools
         </h1>
         <p style={{ fontSize: 17, color: 'rgba(255,255,255,.7)', maxWidth: 620, margin: '0 auto' }}>
-          Nine free utilities to help you understand and improve how AI platforms see your brand.
+          Ten free utilities to help you understand and improve how AI platforms see your brand.
           No signup required for most. Built by the team behind Livesov.
         </p>
       </section>
