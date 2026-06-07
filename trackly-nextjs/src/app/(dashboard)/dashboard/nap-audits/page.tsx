@@ -35,7 +35,15 @@ function fmtDate(iso: string | null): string {
   return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
-function NewAuditModal({ brandId, onClose, onCreated }: { brandId: string; onClose: () => void; onCreated: () => void }) {
+interface NewAuditModalProps {
+  brandId: string;
+  brandName: string | null;
+  brandCity: string | null;
+  onClose: () => void;
+  onCreated: () => void;
+}
+
+function NewAuditModal({ brandId, brandName, brandCity, onClose, onCreated }: NewAuditModalProps) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
     window.addEventListener('keydown', onKey);
@@ -53,6 +61,19 @@ function NewAuditModal({ brandId, onClose, onCreated }: { brandId: string; onClo
     onClose();
   }
 
+  // Pre-fill the Pull-from-Google query with the selected brand so the
+  // button is immediately useful — falls back to just the name if no
+  // city is on the brand record. Pre-seeding the form's label/canonical
+  // with the brand name saves the user from retyping context they
+  // already chose in the top-bar dropdown.
+  const gbpQuery = [brandName, brandCity].filter((s): s is string => !!s && s.trim().length > 0).join(' ');
+  const formInitial = brandName
+    ? {
+        label: `${brandName} — NAP audit`,
+        canonical: { name: brandName, city: brandCity ?? undefined },
+      }
+    : undefined;
+
   return (
     <div role="dialog" aria-modal="true" aria-label="New NAP audit" onClick={onClose}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -61,7 +82,13 @@ function NewAuditModal({ brandId, onClose, onCreated }: { brandId: string; onClo
           <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: 0 }}>New NAP audit</h2>
           <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 20, cursor: 'pointer', lineHeight: 1, padding: 0, minWidth: 44, minHeight: 44 }}>×</button>
         </div>
-        <NapAuditForm submitLabel="Create & run" onSubmit={create} onCancel={onClose} />
+        <NapAuditForm
+          initial={formInitial}
+          defaultGbpQuery={gbpQuery}
+          submitLabel="Create & run"
+          onSubmit={create}
+          onCancel={onClose}
+        />
       </div>
     </div>
   );
@@ -71,6 +98,7 @@ export default function NapAuditsPage() {
   const { selectedBrand, loading: brandsLoading } = useBrands();
   const brandId: string | null = selectedBrand?.id ?? null;
   const brandName: string | null = (selectedBrand?.name as string | undefined) ?? null;
+  const brandCity: string | null = (selectedBrand?.city as string | undefined) ?? null;
   const [audits, setAudits] = useState<NapAuditListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -255,6 +283,8 @@ export default function NapAuditsPage() {
       {modalOpen && brandId && (
         <NewAuditModal
           brandId={brandId}
+          brandName={brandName}
+          brandCity={brandCity}
           onClose={() => setModalOpen(false)}
           onCreated={() => fetchAudits(brandId)}
         />
