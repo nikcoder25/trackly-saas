@@ -76,6 +76,67 @@ interface InsightItem { icon: string; tone: 'pos' | 'warn' | 'info'; t: string; 
 
 const COMP_COLORS = ['var(--accent)', 'var(--text-2)', 'var(--mute)', 'var(--mute-2)', 'var(--info)', 'var(--warn)', '#a78bfa', '#f472b6'];
 
+/* ───────────────────────── filter model ───────────────────────── */
+
+export type OverviewRange = '24h' | '7d' | '30d' | '90d';
+export type OverviewIntent = 'all' | 'comparison' | 'recommendation' | 'pricing' | 'feature';
+export type OverviewCompetitorView = 'top3' | 'all';
+
+export interface OverviewFilters {
+  range: OverviewRange;
+  engine: string;          // 'all' or one of the PLATFORMS.name values
+  intent: OverviewIntent;
+  competitorView: OverviewCompetitorView;
+}
+
+const DEFAULT_FILTERS: OverviewFilters = {
+  range: '7d',
+  engine: 'all',
+  intent: 'all',
+  competitorView: 'top3',
+};
+
+const RANGE_DAYS: Record<OverviewRange, number> = { '24h': 1, '7d': 7, '30d': 30, '90d': 90 };
+
+// Keyword heuristic so the Intent dropdown does something real even though the
+// data model doesn't tag queries with an intent. Intentionally conservative -
+// queries that don't match any pattern are 'other' and only surface when the
+// filter is "all".
+function classifyIntent(q: unknown): Exclude<OverviewIntent, 'all'> | 'other' {
+  const s = String(q || '').toLowerCase();
+  if (/\bvs\b|\bversus\b|\bcompare\b|\bcomparison\b|\balternative(s)?\b|\bbetween\b/.test(s)) return 'comparison';
+  if (/\bprice|\bpricing\b|\bcost\b|\bcheap\b|\bexpensive\b|\bworth\b|\bfree\b|\$|\bplan(s)?\b/.test(s)) return 'pricing';
+  if (/\bfeature(s)?\b|\bintegration(s)?\b|\bsupport\b|\bapi\b|\bworkflow\b|\bcapab/.test(s)) return 'feature';
+  if (/\bbest\b|\btop\b|\brecommend|\bgood\b|\bshould\b|\bwhich\b/.test(s)) return 'recommendation';
+  return 'other';
+}
+
+function filterRunsByRange(runs: any[], range: OverviewRange): any[] {
+  const days = RANGE_DAYS[range];
+  if (!days) return runs;
+  const cutoff = Date.now() - days * 86400_000;
+  const inRange = runs.filter(r => {
+    const t = new Date(r.time || r.date || r.created_at || 0).getTime();
+    return !isNaN(t) && t >= cutoff;
+  });
+  // If the loaded dataset doesn't reach that far back (e.g. the brand only has
+  // 3 historical runs and the user picks 90d), behave like "all available" so
+  // the page doesn't go blank for legitimate accounts with sparse history.
+  return inRange.length > 0 ? inRange : runs;
+}
+
+function resultMatchesEngine(r: any, engine: string): boolean {
+  if (!engine || engine === 'all') return true;
+  const a = String(r?.platform || '').toLowerCase();
+  const b = engine.toLowerCase();
+  return a === b || a.includes(b) || b.includes(a);
+}
+
+function resultMatchesIntent(r: any, intent: OverviewIntent): boolean {
+  if (!intent || intent === 'all') return true;
+  return classifyIntent(r?.query) === intent;
+}
+
 /** Map a run result's engine name (e.g. "ChatGPT", "gpt-4o-mini") to a design Platform tile. */
 function matchPlatform(name: string): Platform {
   const n = String(name || '').toLowerCase();
@@ -104,7 +165,7 @@ function normPlatform(pd: any): { sov: number; total: number; mentions: number; 
   return { sov: 0, total: 0, mentions: 0, errors: 0 };
 }
 
-export function useOverviewData(): OverviewData | null {
+export function useOverviewData(filters: OverviewFilters = DEFAULT_FILTERS): OverviewData | null {
   // Consume the shared brand hook so the Overview reacts to the brand selected
   // in the topbar (BrandContext), auto-reloads on run completion, and reflects
   // live runs - exactly like every other dashboard page. Previously this made a
@@ -163,8 +224,8 @@ export function useOverviewData(): OverviewData | null {
   return React.useMemo(() => {
     if (loading) return null;
     if (!brand) return buildFallback();
-    return buildFromBrand(brand as any, accData);
-  }, [brand, loading, accData]);
+    return buildFromBrand(brand as any, accData, filters);
+  }, [brand, loading, accData, filters]);
 }
 
 function buildFallback(): OverviewData {
@@ -220,13 +281,20 @@ function buildFallback(): OverviewData {
   };
 }
 
-function buildFromBrand(brand: any, accData?: any): OverviewData {
+function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DEFAULT_FILTERS): OverviewData {
   const fb = buildFallback();
   const runs: any[] = Array.isArray(brand.runs) ? brand.runs : [];
-  const sorted = [...runs].sort((a, b) => new Date(a.time || a.date || 0).getTime() - new Date(b.time || b.date || 0).getTime());
+  const sortedAll = [...runs].sort((a, b) => new Date(a.time || a.date || 0).getTime() - new Date(b.time || b.date || 0).getTime());
+  // Apply the time-range filter as a window over loaded runs (no API change).
+  // When the loaded history doesn't reach that far back, filterRunsByRange
+  // falls back to "all available" so the page doesn't go blank.
+  const sorted = filterRunsByRange(sortedAll, filters.range);
   const lastRun = sorted[sorted.length - 1] || null;
   const prevRun = sorted.length >= 2 ? sorted[sorted.length - 2] : null;
   const brandQueries: string[] = Array.isArray(brand.queries) ? brand.queries : [];
+  const engineFiltered = filters.engine !== 'all';
+  const intentFiltered = filters.intent !== 'all';
+  const filtersActive = engineFiltered || intentFiltered;
   const accIssues: any[] = accData?.issues || [];
   const accuracyRate: number | null = accData?.accuracyRate ?? null;
   const openIssues = accIssues.filter((i: any) => !i.fixed).length;
@@ -243,13 +311,47 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
       insights: [],
     };
   }
-  const sov = Math.round(Number(lastRun.sov) || 0);
-  const totalQ = Number(lastRun.totalQ) || brandQueries.length;
-  const prevSov = prevRun ? Math.round(Number(prevRun.sov) || 0) : sov;
+  // Per-result data is the source of truth for filters. When no filter is
+  // active we still prefer the precomputed lastRun.* totals (they're cheaper
+  // and match what other pages show); when a filter is active we recompute
+  // everything from the filtered results so the KPIs honor the controls.
+  const allResults: any[] = Array.isArray(lastRun.allResults) ? lastRun.allResults : [];
+  const results: any[] = filtersActive
+    ? allResults.filter(r => resultMatchesEngine(r, filters.engine) && resultMatchesIntent(r, filters.intent))
+    : allResults;
+
+  const totalM = filtersActive
+    ? results.filter(r => r.mentioned).length
+    : (Number(lastRun.totalM) || results.filter(r => r.mentioned).length);
+  // Coverage = distinct prompts represented in the (possibly filtered) result
+  // set. With no filter, fall back to the precomputed lastRun.totalQ / brand
+  // queries length so the number matches what other pages show.
+  const distinctQ = new Set(results.map(r => r.query).filter(Boolean)).size;
+  const totalQ = filtersActive
+    ? distinctQ
+    : (Number(lastRun.totalQ) || distinctQ || brandQueries.length);
+
+  // Share of Voice is mention-rate across the (filtered) result set. With no
+  // filter, prefer the precomputed lastRun.sov for parity with other pages.
+  const okResults = results.filter(r => !r.error);
+  const computedSov = okResults.length > 0
+    ? Math.round((results.filter(r => r.mentioned).length / okResults.length) * 100)
+    : 0;
+  const sov = filtersActive ? computedSov : Math.round(Number(lastRun.sov) || computedSov);
+
+  const prevResults: any[] = Array.isArray(prevRun?.allResults) ? prevRun.allResults : [];
+  const prevFiltered = filtersActive
+    ? prevResults.filter(r => resultMatchesEngine(r, filters.engine) && resultMatchesIntent(r, filters.intent))
+    : prevResults;
+  const prevOk = prevFiltered.filter(r => !r.error);
+  const prevSovComputed = prevOk.length > 0
+    ? Math.round((prevFiltered.filter(r => r.mentioned).length / prevOk.length) * 100)
+    : 0;
+  const prevSov = prevRun
+    ? (filtersActive ? prevSovComputed : Math.round(Number(prevRun.sov) || prevSovComputed))
+    : sov;
 
   // sentiment from per-result data, fallback to mock
-  const results: any[] = Array.isArray(lastRun.allResults) ? lastRun.allResults : [];
-  const totalM = Number(lastRun.totalM) || results.filter(r => r.mentioned).length;
   const pos = results.filter(r => r.sentiment === 'positive').length;
   const neu = results.filter(r => r.sentiment === 'neutral').length;
   const neg = results.filter(r => r.sentiment === 'negative').length;
@@ -265,16 +367,22 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
 
   // Previous-run metrics, used to show *real* week-over-week deltas instead of
   // hardcoded numbers. Null when there is no prior run to compare against.
+  // Uses the same filter window as the current numbers so the deltas remain
+  // apples-to-apples when an engine/intent filter is active.
   let prevSentiment: number | null = null;
   let prevHealth: number | null = null;
   let prevTotalQ: number | null = null;
   if (prevRun) {
-    const pResults: any[] = Array.isArray(prevRun.allResults) ? prevRun.allResults : [];
-    const pTotalM = Number(prevRun.totalM) || pResults.filter(r => r.mentioned).length;
-    prevTotalQ = Number(prevRun.totalQ) || brandQueries.length;
-    const pPos = pResults.filter(r => r.sentiment === 'positive').length;
-    const pNeu = pResults.filter(r => r.sentiment === 'neutral').length;
-    const pNeg = pResults.filter(r => r.sentiment === 'negative').length;
+    const pTotalM = filtersActive
+      ? prevFiltered.filter(r => r.mentioned).length
+      : (Number(prevRun.totalM) || prevFiltered.filter(r => r.mentioned).length);
+    const pDistinctQ = new Set(prevFiltered.map(r => r.query).filter(Boolean)).size;
+    prevTotalQ = filtersActive
+      ? pDistinctQ
+      : (Number(prevRun.totalQ) || pDistinctQ || brandQueries.length);
+    const pPos = prevFiltered.filter(r => r.sentiment === 'positive').length;
+    const pNeu = prevFiltered.filter(r => r.sentiment === 'neutral').length;
+    const pNeg = prevFiltered.filter(r => r.sentiment === 'negative').length;
     const pSentTotal = pPos + pNeu + pNeg;
     if (pSentTotal > 0) {
       prevSentiment = Math.round((pPos * 100 + pNeu * 50) / pSentTotal);
@@ -286,17 +394,37 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
   const sentimentDelta = prevSentiment !== null ? sentiment - prevSentiment : null;
   const coverageDelta = prevTotalQ !== null ? totalQ - prevTotalQ : null;
 
-  // platforms: override design tiles with real SOV/mentions where present
+  // platforms: override design tiles with real SOV/mentions where present.
+  // When an engine filter is active, narrow the grid to just that engine and
+  // recompute its SOV from the filtered result set so the tile agrees with
+  // the KPI rail.
   const rawPlatforms = lastRun.platforms || {};
-  const platforms: Platform[] = PLATFORMS.map(p => {
+  const platformsAll: Platform[] = PLATFORMS.map(p => {
     const key = Object.keys(rawPlatforms).find(k => k.toLowerCase() === p.name.toLowerCase());
     if (!key) return p;
     const n = normPlatform(rawPlatforms[key]);
     return { ...p, sov: Math.round(n.sov), ok: n.errors === 0, ms: p.ms };
   });
+  const platforms: Platform[] = engineFiltered
+    ? platformsAll.filter(p => p.name.toLowerCase() === filters.engine.toLowerCase()).map(p => ({ ...p, sov }))
+    : platformsAll;
 
-  // competitors
-  const compRaw: Record<string, number> = lastRun.competitors || {};
+  // competitors: when filters are active we can't trust lastRun.competitors
+  // (it aggregates across all engines/intents), so rebuild from filtered
+  // r.competitorMentions. Otherwise use the precomputed map for parity.
+  const compRaw: Record<string, number> = filtersActive
+    ? results.reduce<Record<string, number>>((acc, r) => {
+        const list: unknown = r?.competitorMentions;
+        if (Array.isArray(list)) {
+          for (const name of list) {
+            if (typeof name === 'string' && name.trim()) {
+              acc[name] = (acc[name] || 0) + 1;
+            }
+          }
+        }
+        return acc;
+      }, {})
+    : (lastRun.competitors || {});
   let competitors: OverviewData['competitors'] = [];
   const compEntries = Object.entries(compRaw).sort((a, b) => b[1] - a[1]).slice(0, 7);
   if (compEntries.length > 0) {
@@ -305,6 +433,12 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
       { name: brand.name || 'You', sov, d: sov - prevSov, me: true, color: 'var(--accent)' },
       ...compEntries.map(([name, c], i) => ({ name, sov: Math.round((c / total) * 100), d: 0, color: COMP_COLORS[(i + 1) % COMP_COLORS.length] })),
     ].sort((a, b) => b.sov - a.sov);
+    // "vs Top 3 competitors" = me + the three highest-SOV non-me brands.
+    if (filters.competitorView === 'top3') {
+      const me = competitors.find(c => c.me);
+      const rest = competitors.filter(c => !c.me).slice(0, 3);
+      competitors = (me ? [me, ...rest] : rest).sort((a, b) => b.sov - a.sov);
+    }
   }
 
   // Real "Competitive" standing derived from the competitor SOV table: how close
@@ -331,7 +465,8 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
   // trend
   const trend = sorted.slice(-14).map(r => Math.round(Number(r.sov) || 0));
 
-  // recent mentions - newest results from the latest run
+  // recent mentions - newest results from the latest run (already engine/intent
+  // filtered because `results` is the filtered set)
   const runDate = lastRun.date || lastRun.time || lastRun.created_at;
   const recent: RecentItem[] = results
     .filter(r => r.query && !r.error)
@@ -379,13 +514,17 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
       };
     });
 
-  // top tracked queries - aggregate mention rate / engines across all runs
+  // top tracked queries - aggregate mention rate / engines across all (filtered)
+  // runs. Applies the engine + intent filters at the result level so the table
+  // matches what the rest of the page shows.
   const qAgg: Record<string, { mentioned: number; total: number; platforms: Set<string>; hist: number[] }> = {};
   for (const run of sorted) {
     const rs: any[] = Array.isArray(run.allResults) ? run.allResults : [];
     const per: Record<string, { m: number; t: number }> = {};
     for (const r of rs) {
       if (!r.query) continue;
+      if (!resultMatchesEngine(r, filters.engine)) continue;
+      if (!resultMatchesIntent(r, filters.intent)) continue;
       if (!qAgg[r.query]) qAgg[r.query] = { mentioned: 0, total: 0, platforms: new Set(), hist: [] };
       if (!per[r.query]) per[r.query] = { m: 0, t: 0 };
       per[r.query].t++;
@@ -397,8 +536,10 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
       qAgg[q].hist.push(s.t > 0 ? Math.round((s.m / s.t) * 100) : 0);
     }
   }
-  // ensure tracked prompts with no results yet still appear
+  // Ensure tracked prompts with no results yet still appear - but respect the
+  // intent filter so the table doesn't show queries that don't match.
   for (const q of brandQueries) {
+    if (intentFiltered && classifyIntent(q) !== filters.intent) continue;
     if (!qAgg[q]) qAgg[q] = { mentioned: 0, total: 0, platforms: new Set(), hist: [] };
   }
   let queries: QueryRow[] = Object.entries(qAgg).map(([q, s]) => ({
@@ -410,7 +551,11 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
   })).sort((a, b) => b.mentions - a.mentions || b.sov - a.sov).slice(0, 6);
   if (queries.length === 0) queries = brandQueries.slice(0, 6).map(q => ({ q, sov: 0, d: 0, mentions: 0, eng: 0 }));
 
-  const prevTotalM = prevRun ? (Number(prevRun.totalM) || 0) : 0;
+  const prevTotalM = prevRun
+    ? (filtersActive
+        ? prevFiltered.filter(r => r.mentioned).length
+        : (Number(prevRun.totalM) || 0))
+    : 0;
 
   // Real "needs you today" insights - derived only from data we actually have.
   // Cards with no real backing are simply not emitted (the strip hides itself
@@ -497,9 +642,18 @@ function DownloadReportButton() {
 }
 
 export function PageOverview() {
-  const [range, setRange] = React.useState('7d');
+  const [range, setRange] = React.useState<OverviewRange>('7d');
+  const [engine, setEngine] = React.useState<string>('all');
+  const [intent, setIntent] = React.useState<OverviewIntent>('all');
+  const [competitorView, setCompetitorView] = React.useState<OverviewCompetitorView>('top3');
   const [drawer, setDrawer] = React.useState<RecentItem | null>(null);
-  const data = useOverviewData();
+  // Memoize the filters object so useOverviewData's React.useMemo dependency
+  // doesn't churn on every render (the inner hook depends on this reference).
+  const filters = React.useMemo<OverviewFilters>(
+    () => ({ range, engine, intent, competitorView }),
+    [range, engine, intent, competitorView],
+  );
+  const data = useOverviewData(filters);
   const d = data || buildFallback();
 
   // With real data we only have the brand's own SOV history, so show just that
@@ -556,10 +710,26 @@ export function PageOverview() {
         <InsightsStrip items={d.insights} />
 
         <Filter>
-          <Seg value={range} onChange={setRange} options={['24h', '7d', '30d', '90d']} />
-          <select className="sel"><option>All engines</option><option>ChatGPT</option><option>Claude</option><option>Gemini</option><option>Perplexity</option><option>Grok</option></select>
-          <select className="sel"><option>All intents</option><option>Comparison</option><option>Recommendation</option><option>Pricing</option><option>Feature</option></select>
-          <select className="sel"><option>vs Top 3 competitors</option><option>vs All competitors</option></select>
+          <Seg value={range} onChange={(v) => setRange(v as OverviewRange)} options={['24h', '7d', '30d', '90d']} />
+          <select className="sel" value={engine} onChange={(e) => setEngine(e.target.value)}>
+            <option value="all">All engines</option>
+            <option value="ChatGPT">ChatGPT</option>
+            <option value="Claude">Claude</option>
+            <option value="Gemini">Gemini</option>
+            <option value="Perplexity">Perplexity</option>
+            <option value="Grok">Grok</option>
+          </select>
+          <select className="sel" value={intent} onChange={(e) => setIntent(e.target.value as OverviewIntent)}>
+            <option value="all">All intents</option>
+            <option value="comparison">Comparison</option>
+            <option value="recommendation">Recommendation</option>
+            <option value="pricing">Pricing</option>
+            <option value="feature">Feature</option>
+          </select>
+          <select className="sel" value={competitorView} onChange={(e) => setCompetitorView(e.target.value as OverviewCompetitorView)}>
+            <option value="top3">vs Top 3 competitors</option>
+            <option value="all">vs All competitors</option>
+          </select>
           <span style={{ flex: 1 }} />
           <Pill tone="acc"><span className="pulse" /> Auto-runs on</Pill>
         </Filter>
