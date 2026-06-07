@@ -5,6 +5,7 @@ import { logError, serverError } from '@/lib/api-error';
 import {
   compareNap,
   consistencyScore,
+  detectDuplicates,
   extractNap,
   extractUrlsFromText,
   type CanonicalNap,
@@ -144,15 +145,17 @@ export async function POST(req: NextRequest) {
       checkUrl(u, canonical),
     );
     const score = consistencyScore(results);
+    const duplicates = detectDuplicates(results);
 
     const summary = {
       total: results.length,
       clean: results.filter((r) => r.reachable && r.tags.length === 0).length,
       withIssues: results.filter((r) => r.reachable && r.tags.length > 0).length,
       deadLinks: results.filter((r) => !r.reachable).length,
+      duplicateListings: duplicates.length,
     };
 
-    return Response.json({ canonical, score, summary, results });
+    return Response.json({ canonical, score, summary, duplicates, results });
   } catch (error) {
     logError('tools.nap_checker.failed', error);
     return serverError({ message: 'Failed to run the NAP check. Please try again later.' });

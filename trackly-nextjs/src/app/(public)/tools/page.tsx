@@ -74,7 +74,7 @@ const TOOLS: Tool[] = [
     slug: 'nap-verification',
     name: 'NAP Verification Tool',
     tagline: 'Audit citation consistency across all your local listings.',
-    bullets: ['Fetches and extracts NAP from each URL', 'Flags wrong phone, old address, name variations', 'Consistency score + CSV export'],
+    bullets: ['Fetches and extracts NAP from each URL', 'Flags wrong phone, old address, duplicates', 'Bulk CSV import, consistency score, CSV export'],
     badge: 'No signup',
   },
 ];

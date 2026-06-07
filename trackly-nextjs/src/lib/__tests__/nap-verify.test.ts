@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   compareNap,
   consistencyScore,
+  detectDuplicates,
   extractFromSchema,
   extractNap,
   extractUrlsFromText,
@@ -15,7 +16,9 @@ import {
   normalizePhone,
   normalizePostcode,
   phonesMatch,
+  registrableDomain,
   type CanonicalNap,
+  type ExtractedNap,
 } from '../nap-verify';
 
 const CANONICAL: CanonicalNap = {
@@ -214,6 +217,51 @@ describe('comparison & tagging', () => {
     const minimal: CanonicalNap = { name: 'Acme Dental Care' };
     const cmp = compareNap(minimal, { name: 'Acme Dental Care', source: {} }, true);
     expect(cmp.matchScore).toBe(100);
+  });
+});
+
+describe('registrableDomain', () => {
+  it('strips www and subdomains to eTLD+1', () => {
+    expect(registrableDomain('https://www.yelp.com/biz/x')).toBe('yelp.com');
+    expect(registrableDomain('https://en.shop.example.com/p')).toBe('example.com');
+  });
+  it('keeps multi-part UK suffixes intact', () => {
+    expect(registrableDomain('https://www.example.co.uk/listing')).toBe('example.co.uk');
+    expect(registrableDomain('https://sub.example.co.uk')).toBe('example.co.uk');
+  });
+});
+
+describe('detectDuplicates', () => {
+  const mk = (url: string, extracted: Partial<ExtractedNap> = {}, reachable = true) => ({
+    url,
+    reachable,
+    extracted: { source: {}, ...extracted } as ExtractedNap,
+  });
+
+  it('groups multiple URLs on the same directory domain', () => {
+    const groups = detectDuplicates([
+      mk('https://www.yelp.com/biz/acme-1'),
+      mk('https://www.yelp.com/biz/acme-2'),
+      mk('https://www.yell.com/acme'),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].domain).toBe('yelp.com');
+    expect(groups[0].urls).toHaveLength(2);
+    expect(groups[0].conflicting).toBe(false);
+  });
+
+  it('flags duplicates with disagreeing phone numbers as conflicting', () => {
+    const groups = detectDuplicates([
+      mk('https://www.yelp.com/biz/acme-1', { phone: '020 7946 0123' }),
+      mk('https://www.yelp.com/biz/acme-2', { phone: '020 7946 9999' }),
+    ]);
+    expect(groups[0].conflicting).toBe(true);
+  });
+
+  it('returns nothing when every directory is unique', () => {
+    expect(
+      detectDuplicates([mk('https://a.com/x'), mk('https://b.com/y')]),
+    ).toEqual([]);
   });
 });
 

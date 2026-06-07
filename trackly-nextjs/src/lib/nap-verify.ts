@@ -519,3 +519,71 @@ export function consistencyScore(results: Array<{ matchScore: number }>): number
   const sum = results.reduce((acc, r) => acc + r.matchScore, 0);
   return Math.round(sum / results.length);
 }
+
+// ── Duplicate listing detection ──────────────────────────────────────────────
+
+// Common multi-label public suffixes, so "shop.example.co.uk" collapses to
+// "example.co.uk" rather than "co.uk". Not the full PSL — just the suffixes a
+// UK/AU/etc. local business is realistically listed under.
+const MULTI_PART_SUFFIXES = new Set([
+  'co.uk', 'org.uk', 'me.uk', 'ltd.uk', 'plc.uk', 'net.uk', 'sch.uk', 'ac.uk', 'gov.uk',
+  'com.au', 'net.au', 'org.au', 'co.nz', 'co.za', 'com.br', 'co.in', 'co.jp',
+]);
+
+/** Best-effort registrable domain (eTLD+1) for grouping citations by directory. */
+export function registrableDomain(url: string): string {
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+  host = host.replace(/^www\./, '').replace(/\.$/, '');
+  const parts = host.split('.').filter(Boolean);
+  if (parts.length <= 2) return host;
+  const lastTwo = parts.slice(-2).join('.');
+  if (MULTI_PART_SUFFIXES.has(lastTwo)) return parts.slice(-3).join('.');
+  return lastTwo;
+}
+
+export interface DuplicateGroup {
+  /** The directory/domain hosting more than one of the supplied citations. */
+  domain: string;
+  urls: string[];
+  /** True when the duplicate listings disagree on phone, name or postcode. */
+  conflicting: boolean;
+}
+
+/**
+ * Flag directories that appear more than once in the citation set — a likely
+ * duplicate listing, which dilutes ranking signal and is a priority cleanup in
+ * any local SEO audit. Duplicates that also disagree on NAP are flagged
+ * `conflicting`, the most damaging variant.
+ */
+export function detectDuplicates(
+  results: Array<{ url: string; reachable: boolean; extracted: ExtractedNap }>,
+): DuplicateGroup[] {
+  const byDomain = new Map<string, typeof results>();
+  for (const r of results) {
+    const domain = registrableDomain(r.url);
+    if (!domain) continue;
+    const bucket = byDomain.get(domain);
+    if (bucket) bucket.push(r);
+    else byDomain.set(domain, [r]);
+  }
+
+  const groups: DuplicateGroup[] = [];
+  for (const [domain, rs] of byDomain) {
+    if (rs.length < 2) continue;
+    const live = rs.filter((r) => r.reachable);
+    const phones = new Set(live.map((r) => normalizePhone(r.extracted.phone)).filter(Boolean));
+    const names = new Set(live.map((r) => normalizeName(r.extracted.name)).filter(Boolean));
+    const postcodes = new Set(live.map((r) => normalizePostcode(r.extracted.postcode)).filter(Boolean));
+    const conflicting = phones.size > 1 || names.size > 1 || postcodes.size > 1;
+    groups.push({ domain, urls: rs.map((r) => r.url), conflicting });
+  }
+  // Most-duplicated first, then conflicting ahead of clean.
+  return groups.sort(
+    (a, b) => b.urls.length - a.urls.length || Number(b.conflicting) - Number(a.conflicting),
+  );
+}

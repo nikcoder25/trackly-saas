@@ -48,10 +48,17 @@ interface UrlResult {
   matchScore: number;
 }
 
+interface DuplicateGroup {
+  domain: string;
+  urls: string[];
+  conflicting: boolean;
+}
+
 interface ApiResponse {
   canonical: Record<string, string | undefined>;
   score: number;
-  summary: { total: number; clean: number; withIssues: number; deadLinks: number };
+  summary: { total: number; clean: number; withIssues: number; deadLinks: number; duplicateListings: number };
+  duplicates: DuplicateGroup[];
   results: UrlResult[];
 }
 
@@ -441,6 +448,7 @@ export default function NapVerificationPage() {
                 <Stat label="Clean" value={data.summary.clean} color="#16a34a" />
                 <Stat label="With issues" value={data.summary.withIssues} color="#ca8a04" />
                 <Stat label="Dead links" value={data.summary.deadLinks} color="#dc2626" />
+                <Stat label="Duplicates" value={data.summary.duplicateListings} color="#9333ea" />
               </div>
               <button
                 onClick={downloadCsv}
@@ -459,6 +467,62 @@ export default function NapVerificationPage() {
               </button>
             </div>
           </div>
+
+          {data.duplicates.length > 0 && (
+            <div style={cardStyle}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1a1a2e', margin: '0 0 6px' }}>
+                Possible duplicate listings
+              </h2>
+              <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 14px' }}>
+                These directories appear more than once in your list. Duplicate listings split your
+                ranking signal — consolidate or remove the extras, starting with any that disagree on
+                NAP.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {data.duplicates.map((g) => (
+                  <div
+                    key={g.domain}
+                    style={{
+                      padding: 14,
+                      borderRadius: 10,
+                      background: g.conflicting ? '#fef2f2' : '#faf5ff',
+                      border: g.conflicting ? '1px solid #fecaca' : '1px solid #e9d5ff',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: '#1a1a2e' }}>{g.domain}</span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: '2px 7px',
+                          borderRadius: 6,
+                          background: g.conflicting ? '#fee2e2' : '#f3e8ff',
+                          color: g.conflicting ? '#991b1b' : '#7e22ce',
+                        }}
+                      >
+                        {g.urls.length} listings{g.conflicting ? ' · conflicting NAP' : ''}
+                      </span>
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: '#6b7280' }}>
+                      {g.urls.map((u) => (
+                        <li key={u} style={{ wordBreak: 'break-all' }}>
+                          <a
+                            href={u}
+                            target="_blank"
+                            rel="noopener noreferrer nofollow"
+                            style={{ color: '#6b7280', textDecoration: 'none' }}
+                          >
+                            {u.replace(/^https?:\/\//, '')}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
             <div style={{ overflowX: 'auto' }}>
@@ -678,6 +742,10 @@ export default function NapVerificationPage() {
             {
               q: 'Why did a page show no extracted NAP?',
               a: 'Three usual reasons: the directory renders its content with JavaScript (a plain fetch sees an empty page), the page blocks automated requests, or the listing genuinely omits that field. A headless-browser layer closes the first two gaps and is on the roadmap.',
+            },
+            {
+              q: 'How does duplicate listing detection work?',
+              a: 'When two or more of the URLs you submit live on the same directory domain (e.g. two Yelp pages), we flag it as a possible duplicate listing — a common ranking-diluting problem. If those duplicates also disagree on phone, name or postcode, we mark the group "conflicting", which is the most damaging variant and the first thing to fix.',
             },
             {
               q: 'What counts as a variation versus a mismatch?',
