@@ -39,7 +39,25 @@ export async function GET(request: Request): Promise<Response> {
   const auth = await requireVerifiedAuth(request, pool);
   if (auth instanceof Response) return auth;
   try {
-    const audits = await listNapAudits(auth.id);
+    // brandId is the active-brand scoping filter. If absent we return an
+    // empty list rather than every audit on the account — that's the bug
+    // that previously leaked another brand's NAP audit into the dropdown.
+    const url = new URL(request.url);
+    const rawBrandId = url.searchParams.get('brandId');
+    const brandId = rawBrandId && rawBrandId.trim() ? rawBrandId.trim() : null;
+    if (!brandId) {
+      return Response.json({ audits: [] }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+    // Verify the brand belongs to the caller before exposing its audits —
+    // prevents a crafted brandId from listing another user's audits.
+    const brandCheck = await pool.query(
+      `SELECT id FROM brands WHERE id = $1 AND user_id = $2 LIMIT 1`,
+      [brandId, auth.id],
+    );
+    if (brandCheck.rows.length === 0) {
+      return Response.json({ audits: [] }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+    const audits = await listNapAudits(auth.id, brandId);
     return Response.json({ audits }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) {
     logger.error('nap_audits.list_failed', { err: (e as Error).message, userId: auth.id });
@@ -57,6 +75,9 @@ export async function POST(request: Request): Promise<Response> {
   } catch {
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
+
+  const brandId = typeof body.brandId === 'string' ? body.brandId.trim() : '';
+  if (!brandId) return Response.json({ error: 'brandId is required' }, { status: 400 });
 
   const label = typeof body.label === 'string' ? body.label.trim().slice(0, 120) : '';
   if (!label) return Response.json({ error: 'A client name / label is required' }, { status: 400 });
@@ -77,6 +98,15 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
+    // Verify the brand belongs to the caller — silent 404 so we don't
+    // leak existence of someone else's brand id.
+    const brandCheck = await pool.query(
+      `SELECT id FROM brands WHERE id = $1 AND user_id = $2 LIMIT 1`,
+      [brandId, auth.id],
+    );
+    if (brandCheck.rows.length === 0) {
+      return Response.json({ error: 'Brand not found' }, { status: 404 });
+    }
     const existing = await countNapAudits(auth.id);
     if (existing >= NAP_MAX_SAVED_AUDITS) {
       return Response.json(
@@ -84,7 +114,7 @@ export async function POST(request: Request): Promise<Response> {
         { status: 403 },
       );
     }
-    const audit = await insertNapAudit({ userId: auth.id, label, canonical, urls });
+    const audit = await insertNapAudit({ userId: auth.id, brandId, label, canonical, urls });
     // Run in the background so a 50-URL fetch can't blow the request timeout;
     // /api/cron/nap-audits-worker is the cold-restart safety net.
     after(async () => {
