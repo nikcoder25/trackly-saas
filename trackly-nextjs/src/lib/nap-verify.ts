@@ -11,7 +11,7 @@
  * A Layer 3 (headless browser) is intentionally out of scope here.
  */
 
-export type ExtractLayer = 'schema' | 'regex';
+export type ExtractLayer = 'schema' | 'regex' | 'text';
 
 export type FieldStatus = 'match' | 'variation' | 'mismatch' | 'missing';
 
@@ -34,6 +34,22 @@ export interface ExtractedNap {
   postcode?: string;
   /** Which layer produced each field, for transparency in the UI. */
   source: Partial<Record<'name' | 'phone' | 'street' | 'city' | 'postcode', ExtractLayer>>;
+}
+
+/** Normalize arbitrary page text/fields to a common form for substring matching:
+ *  lowercased, &→"and", street-suffix abbreviations folded, punctuation stripped,
+ *  whitespace collapsed. Digits are preserved. */
+export function normForMatch(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/\bstreet\b/g, 'st')
+    .replace(/\broad\b/g, 'rd')
+    .replace(/\bavenue\b/g, 'ave')
+    .replace(/\b(suite|ste|unit|apartment|apt)\b/g, 'ste')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export interface FieldResult {
@@ -399,6 +415,192 @@ export function extractNap(html: string): ExtractedNap {
   return merged;
 }
 
+// ── Candidate extractors (best-effort, for display + mismatch detection) ─────
+
+/** All phone-like strings on the page (tel: links first, then visible text). */
+export function extractPhones(html: string): string[] {
+  const out: string[] = [];
+  const telRe = /href=["']tel:([+\d][\d\s().\-]{6,})["']/gi;
+  let m: RegExpExecArray | null;
+  while ((m = telRe.exec(html)) !== null) out.push(decodeEntities(m[1].trim()));
+  const text = stripTags(html);
+  const re = /\+?\d[\d\s().\-]{7,}\d/g;
+  while ((m = re.exec(text)) !== null) {
+    if (normalizePhone(m[0]).length >= 10) out.push(m[0].trim());
+  }
+  const seen = new Set<string>();
+  const res: string[] = [];
+  for (const p of out) {
+    const n = normalizePhone(p);
+    if (n && !seen.has(n)) {
+      seen.add(n);
+      res.push(p);
+    }
+  }
+  return res;
+}
+
+/** A candidate business name from og:site_name/og:title, then h1, then <title>. */
+export function extractName(html: string): string | undefined {
+  const og =
+    html.match(/<meta[^>]+property=["']og:site_name["'][^>]*content=["']([^"']+)["']/i) ||
+    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]*property=["']og:site_name["']/i) ||
+    html.match(/<meta[^>]+property=["']og:title["'][^>]*content=["']([^"']+)["']/i);
+  if (og) return decodeEntities(og[1].trim());
+  const h1 = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  if (h1) {
+    const t = stripTags(h1[1]).trim();
+    if (t) return t.slice(0, 120);
+  }
+  const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (title) return decodeEntities(title[1].trim()).slice(0, 120);
+  return undefined;
+}
+
+function allUkPostcodes(text: string): string[] {
+  return (text.match(new RegExp(UK_POSTCODE_RE.source, 'gi')) || []).map((p) =>
+    p.toUpperCase().replace(/\s+/g, ' ').trim(),
+  );
+}
+
+/**
+ * Verify a canonical NAP against a fetched page. Unlike compareNap (which only
+ * sees pre-extracted structured fields), this checks whether each canonical
+ * value actually appears anywhere in the page text — so it works on the common
+ * case of a directory page that renders NAP as plain HTML with no JSON-LD or
+ * microdata. Candidate values are still extracted for display and to flag a
+ * genuine mismatch (a different phone/postcode present on the page).
+ */
+export function verifyNap(canonical: CanonicalNap, html: string): CompareResult & { extracted: ExtractedNap } {
+  const schema = extractFromSchema(html);
+  const regex = extractWithRegex(html);
+  const text = stripTags(html);
+  const hay = normForMatch(text);
+  const digits = text.replace(/\D+/g, '');
+  const postHay = text.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const phoneCandidates = extractPhones(html);
+  const ukPostcodes = allUkPostcodes(text);
+
+  // Candidate values for the UI (schema wins; then page heuristics).
+  const extracted: ExtractedNap = { source: {} };
+  const setField = (k: 'name' | 'phone' | 'street' | 'city' | 'postcode', val: string | undefined, layer: ExtractLayer) => {
+    if (val) {
+      extracted[k] = val;
+      extracted.source[k] = layer;
+    }
+  };
+  setField('name', schema.name, 'schema');
+  if (!extracted.name) setField('name', extractName(html), 'text');
+  setField('phone', schema.phone, 'schema');
+  if (!extracted.phone) setField('phone', regex.phone || phoneCandidates[0], regex.phone ? 'regex' : 'text');
+  setField('street', schema.street, 'schema');
+  if (!extracted.street) setField('street', regex.street, 'regex');
+  setField('city', schema.city, 'schema');
+  setField('postcode', schema.postcode, 'schema');
+  if (!extracted.postcode) setField('postcode', regex.postcode || ukPostcodes[0], 'text');
+
+  // Each field combines two signals — structured extraction (works on JSON-LD/
+  // microdata pages) and plain-text presence of the canonical value (works on
+  // everything else). The stronger signal wins.
+
+  // Name: page-text presence, or a structured/title match. Never emit a "wrong
+  // name" from a noisy <title>; collapse non-matches to missing.
+  const cn = normalizeName(canonical.name);
+  const structuredName = compareName(canonical.name, extracted.name);
+  let name: FieldResult;
+  if (cn && hay.includes(cn)) {
+    name = { status: 'match', expected: canonical.name, found: extracted.name || canonical.name };
+  } else if (structuredName.status === 'match') {
+    name = structuredName;
+  } else {
+    const toks = cn.split(' ').filter((t) => t.length > 1);
+    const present = toks.filter((t) => hay.includes(t)).length;
+    if ((toks.length > 0 && present / toks.length >= 0.6) || structuredName.status === 'variation') {
+      name = { status: 'variation', expected: canonical.name, found: extracted.name };
+    } else {
+      name = { status: 'missing', expected: canonical.name, found: extracted.name };
+    }
+  }
+
+  // Phone: canonical digits in the page digit stream, or any candidate (incl.
+  // the schema phone) that matches → match; a different number present → mismatch.
+  let phone: FieldResult;
+  if (!canonical.phone) {
+    phone = { status: 'missing' };
+  } else {
+    const cd = normalizePhone(canonical.phone);
+    const tail = cd.length >= 10 ? cd.slice(-10) : cd;
+    const present = tail.length >= 7 && digits.includes(tail);
+    const candidates = extracted.phone ? [...phoneCandidates, extracted.phone] : phoneCandidates;
+    const candMatch = candidates.some((p) => phonesMatch(canonical.phone!, p));
+    if (present || candMatch) {
+      phone = { status: 'match', expected: canonical.phone, found: extracted.phone || canonical.phone };
+    } else if (candidates.length > 0) {
+      phone = { status: 'mismatch', expected: canonical.phone, found: candidates[0] };
+    } else {
+      phone = { status: 'missing', expected: canonical.phone };
+    }
+  }
+
+  // Address (street line): contiguous text presence, or a structured match
+  // (handles a schema street that appends the suite); most tokens → variation.
+  let address: FieldResult;
+  if (!canonical.street) {
+    address = { status: 'missing' };
+  } else {
+    const needle = normForMatch(canonical.street);
+    const structuredAddr = compareAddress(canonical.street, extracted.street);
+    if (needle.length > 2 && hay.includes(needle)) {
+      address = { status: 'match', expected: canonical.street, found: extracted.street || canonical.street };
+    } else if (structuredAddr.status === 'match') {
+      address = structuredAddr;
+    } else {
+      const toks = needle.split(' ').filter((t) => t.length > 1);
+      const present = toks.filter((t) => hay.includes(t)).length;
+      if ((toks.length > 0 && present / toks.length >= 0.7) || structuredAddr.status === 'variation') {
+        address = { status: 'variation', expected: canonical.street, found: extracted.street || canonical.street };
+      } else if (extracted.street) {
+        address = { status: 'mismatch', expected: canonical.street, found: extracted.street };
+      } else {
+        address = { status: 'missing', expected: canonical.street };
+      }
+    }
+  }
+
+  // Postcode.
+  let postcode: FieldResult;
+  if (!canonical.postcode) {
+    postcode = { status: 'missing' };
+  } else {
+    const needle = normalizePostcode(canonical.postcode);
+    const structuredPc = comparePostcode(canonical.postcode, extracted.postcode);
+    if (needle.length >= 4 && postHay.includes(needle)) {
+      postcode = { status: 'match', expected: canonical.postcode, found: canonical.postcode };
+    } else if (structuredPc.status === 'match') {
+      postcode = structuredPc;
+    } else if (ukPostcodes.length > 0 || extracted.postcode) {
+      postcode = { status: 'mismatch', expected: canonical.postcode, found: extracted.postcode };
+    } else {
+      postcode = { status: 'missing', expected: canonical.postcode };
+    }
+  }
+
+  // Suite.
+  let suite: FieldResult;
+  if (!canonical.suite) {
+    suite = { status: 'match' };
+  } else {
+    const needle = normForMatch(canonical.suite);
+    const present = (needle && hay.includes(needle)) || compareSuite(canonical.suite, extracted.street).status === 'match';
+    suite = present
+      ? { status: 'match', expected: canonical.suite, found: canonical.suite }
+      : { status: 'missing', expected: canonical.suite };
+  }
+
+  const fields: CompareResult['fields'] = { name, phone, address, postcode, suite };
+  return { fields, ...buildTagsAndScore(canonical, fields), extracted };
+}
+
 // ── Matching & scoring ───────────────────────────────────────────────────────
 
 // Per-field weight when computing the score. Phone and name carry the most
@@ -490,6 +692,14 @@ export function compareNap(
       : { status: 'match' }, // no suite to check → not a penalty
   };
 
+  return { fields, ...buildTagsAndScore(canonical, fields) };
+}
+
+/** Plain-English mismatch tags + weighted score for a set of field results. */
+export function buildTagsAndScore(
+  canonical: CanonicalNap,
+  fields: CompareResult['fields'],
+): { tags: string[]; matchScore: number } {
   const tags: string[] = [];
   if (fields.name.status === 'variation') tags.push('name variation');
   if (fields.name.status === 'mismatch') tags.push('wrong name');
@@ -502,7 +712,6 @@ export function compareNap(
   if (fields.postcode.status === 'mismatch') tags.push('wrong postcode');
   if (canonical.suite && fields.suite.status === 'missing') tags.push('missing suite');
 
-  // Score: weighted sum over only the fields the canonical record defines.
   let earned = 0;
   let possible = 0;
   const credit = (status: FieldStatus): number =>
@@ -522,7 +731,7 @@ export function compareNap(
   }
 
   const matchScore = possible === 0 ? 0 : Math.round((earned / possible) * 100);
-  return { fields, tags, matchScore };
+  return { tags, matchScore };
 }
 
 // ── Regression detection (scheduled monitoring) ──────────────────────────────

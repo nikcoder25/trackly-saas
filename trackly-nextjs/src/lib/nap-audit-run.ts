@@ -12,12 +12,10 @@ import {
   compareNap,
   consistencyScore,
   detectDuplicates,
-  extractNap,
-  extractionStrength,
-  isWeakExtraction,
+  verifyNap,
   type CanonicalNap,
+  type CompareResult,
   type DuplicateGroup,
-  type ExtractedNap,
   type UrlResult,
 } from '@/lib/nap-verify';
 
@@ -98,34 +96,57 @@ export interface NapRunResult {
   duplicates: DuplicateGroup[];
 }
 
-function build(
+/** Number of canonical-defined fields that matched — used to gate Layer 3. */
+function matchedCount(cmp: CompareResult): number {
+  return Object.values(cmp.fields).filter((f) => f.status === 'match').length;
+}
+
+/** Verify against fetched HTML and shape into a reachable UrlResult. */
+function evaluate(
   url: string,
   httpStatus: number | null,
-  reachable: boolean,
-  extracted: ExtractedNap,
+  html: string,
   canonical: CanonicalNap,
-  extra: { error?: string; rendered?: boolean } = {},
+  rendered: boolean,
 ): UrlResult {
-  const cmp = compareNap(canonical, extracted, reachable);
-  return { url, httpStatus, reachable, extracted, ...extra, ...cmp };
+  const v = verifyNap(canonical, html);
+  return {
+    url,
+    httpStatus,
+    reachable: true,
+    extracted: v.extracted,
+    ...(rendered ? { rendered: true } : {}),
+    fields: v.fields,
+    tags: v.tags,
+    matchScore: v.matchScore,
+  };
+}
+
+function deadResult(
+  url: string,
+  httpStatus: number | null,
+  canonical: CanonicalNap,
+  extra: { error?: string } = {},
+): UrlResult {
+  const cmp = compareNap(canonical, { source: {} }, false);
+  return { url, httpStatus, reachable: false, extracted: { source: {} }, ...extra, ...cmp };
 }
 
 /**
- * Layer 3 attempt: re-render `url` and, if it yields a stronger extraction than
- * what we already have, return the upgraded result. Returns null to keep the
- * original. `httpStatus` is the status from the direct fetch (may be null).
+ * Layer 3 attempt: re-render `url` and keep it only if it verifies more fields
+ * than the current result. Returns null to keep the original.
  */
 async function tryRender(
   url: string,
   httpStatus: number | null,
-  current: ExtractedNap,
   canonical: CanonicalNap,
+  current: UrlResult | null,
 ): Promise<UrlResult | null> {
   const html = await renderHtml(url);
   if (!html) return null;
-  const extracted = extractNap(html);
-  if (extractionStrength(extracted) <= extractionStrength(current)) return null;
-  return build(url, httpStatus, true, extracted, canonical, { rendered: true });
+  const rendered = evaluate(url, httpStatus, html, canonical, true);
+  if (current && matchedCount(rendered) <= matchedCount(current)) return null;
+  return rendered;
 }
 
 async function checkUrl(url: string, canonical: CanonicalNap): Promise<UrlResult> {
@@ -139,29 +160,30 @@ async function checkUrl(url: string, canonical: CanonicalNap): Promise<UrlResult
     if (!reachable) {
       // Blocked / error status — Layer 3 may still get through.
       if (RENDER_ENDPOINT) {
-        const rendered = await tryRender(url, res.status, { source: {} }, canonical);
+        const rendered = await tryRender(url, res.status, canonical, null);
         if (rendered) return rendered;
       }
-      return build(url, res.status, false, { source: {} }, canonical);
+      return deadResult(url, res.status, canonical);
     }
 
     const html = await res.text();
-    const extracted = extractNap(html);
-    if (RENDER_ENDPOINT && isWeakExtraction(extracted)) {
-      const rendered = await tryRender(url, res.status, extracted, canonical);
+    const result = evaluate(url, res.status, html, canonical, false);
+    // Only spend a render when the static fetch verified little (< 2 fields).
+    if (RENDER_ENDPOINT && matchedCount(result) < 2) {
+      const rendered = await tryRender(url, res.status, canonical, result);
       if (rendered) return rendered;
     }
-    return build(url, res.status, true, extracted, canonical);
+    return result;
   } catch (err) {
     // Never render an SSRF-blocked target (it resolved to a private IP).
     if (RENDER_ENDPOINT && !(err instanceof SSRFError)) {
-      const rendered = await tryRender(url, null, { source: {} }, canonical);
+      const rendered = await tryRender(url, null, canonical, null);
       if (rendered) return rendered;
     }
     const code = err instanceof SSRFError ? err.code : 'FETCH_FAILED';
     const error =
       err instanceof SSRFError ? ssrfErrorToCopy(code) : 'Could not fetch this URL.';
-    return build(url, null, false, { source: {} }, canonical, { error });
+    return deadResult(url, null, canonical, { error });
   }
 }
 

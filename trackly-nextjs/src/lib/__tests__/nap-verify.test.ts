@@ -16,6 +16,7 @@ import {
   extractionStrength,
   findCitationGaps,
   isWeakExtraction,
+  verifyNap,
   generateLocalBusinessSchema,
   generateSchemaScriptTag,
   normalizeName,
@@ -349,6 +350,54 @@ describe('detectRegression (scheduled monitoring)', () => {
   it('does not flag a small dip or an improvement', () => {
     expect(detectRegression({ score: 90, deadLinks: 0, withIssues: 0 }, { score: 88, deadLinks: 0, withIssues: 0 }).regressed).toBe(false);
     expect(detectRegression({ score: 70, deadLinks: 2, withIssues: 3 }, { score: 95, deadLinks: 0, withIssues: 0 }).regressed).toBe(false);
+  });
+});
+
+describe('verifyNap — presence-based (no structured data needed)', () => {
+  it('matches NAP rendered as plain HTML text with no JSON-LD or microdata', () => {
+    const html = `<html><body>
+      <h1>Acme Dental Care</h1>
+      <p>12 High Street, Suite 4, London SW1A 1AA</p>
+      <p>Call us on 020 7946 0123</p>
+    </body></html>`;
+    const v = verifyNap(CANONICAL, html);
+    expect(v.fields.name.status).toBe('match');
+    expect(v.fields.phone.status).toBe('match');
+    expect(v.fields.address.status).toBe('match');
+    expect(v.fields.postcode.status).toBe('match');
+    expect(v.fields.suite.status).toBe('match');
+    expect(v.matchScore).toBe(100);
+    expect(v.tags).toEqual([]);
+  });
+
+  it('matches a UK phone shown with +44 country code against a 0-prefixed canonical', () => {
+    const html = `<p>Acme Dental Care, 12 High Street, Suite 4, London SW1A 1AA — +44 20 7946 0123</p>`;
+    expect(verifyNap(CANONICAL, html).fields.phone.status).toBe('match');
+  });
+
+  it('flags a different phone on the page as a mismatch', () => {
+    const html = `<h1>Acme Dental Care</h1><p>12 High Street, Suite 4, London SW1A 1AA</p><p>Tel: 020 7946 9999</p>`;
+    const v = verifyNap(CANONICAL, html);
+    expect(v.fields.phone.status).toBe('mismatch');
+    expect(v.tags).toContain('wrong phone');
+  });
+
+  it('reports missing fields on an unrelated page', () => {
+    const v = verifyNap(CANONICAL, `<html><body><p>A page about unrelated cats.</p></body></html>`);
+    expect(v.fields.name.status).toBe('missing');
+    expect(v.fields.phone.status).toBe('missing');
+    expect(v.fields.address.status).toBe('missing');
+    expect(v.matchScore).toBeLessThan(20);
+  });
+
+  it('still reads clean JSON-LD when present', () => {
+    const html = `<script type="application/ld+json">
+      {"@type":"LocalBusiness","name":"Acme Dental Care","telephone":"+442079460123",
+       "address":{"@type":"PostalAddress","streetAddress":"12 High Street, Suite 4",
+       "addressLocality":"London","postalCode":"SW1A 1AA"}}</script>`;
+    const v = verifyNap(CANONICAL, html);
+    expect(v.matchScore).toBe(100);
+    expect(v.extracted.name).toBe('Acme Dental Care');
   });
 });
 
