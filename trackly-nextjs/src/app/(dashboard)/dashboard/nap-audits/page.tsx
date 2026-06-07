@@ -45,12 +45,44 @@ function NewAuditModal({ onClose, onCreated }: { onClose: () => void; onCreated:
   const [urls, setUrls] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [gbpQuery, setGbpQuery] = useState('');
+  const [gbpLoading, setGbpLoading] = useState(false);
+  const [gbpNote, setGbpNote] = useState<string | null>(null);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  async function pullFromGoogle() {
+    if (gbpLoading || !gbpQuery.trim()) return;
+    setGbpLoading(true);
+    setGbpNote(null);
+    try {
+      const res = await fetch('/api/nap-audits/gbp-lookup', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: gbpQuery.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setGbpNote((typeof data?.error === 'string' && data.error) || `Lookup failed (HTTP ${res.status})`); return; }
+      const c = data.canonical || {};
+      if (c.name) setName(c.name);
+      if (c.phone) setPhone(c.phone);
+      if (c.street) setStreet(c.street);
+      if (c.suite) setSuite(c.suite);
+      if (c.city) setCity(c.city);
+      if (c.postcode) setPostcode(c.postcode);
+      if (!label.trim() && c.name) setLabel(c.name);
+      setGbpNote('Prefilled from Google. Review the fields before running.');
+    } catch (err) {
+      setGbpNote((err as Error).message || 'Lookup failed');
+    } finally {
+      setGbpLoading(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -93,6 +125,19 @@ function NewAuditModal({ onClose, onCreated }: { onClose: () => void; onCreated:
           <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 20, cursor: 'pointer', lineHeight: 1, padding: 0, minWidth: 44, minHeight: 44 }}>×</button>
         </div>
         <form onSubmit={submit}>
+          <div style={{ marginBottom: 16, padding: 12, background: 'var(--bg3)', borderRadius: 'var(--radius-xs)' }}>
+            <label htmlFor="na-gbp" style={labelCss}>Pull from Google <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional source of truth)</span></label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input id="na-gbp" className="brand-select" style={{ flex: 1, margin: 0 }} maxLength={200}
+                placeholder="Business name + city, e.g. Acme Dental London"
+                value={gbpQuery} onChange={(e) => setGbpQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); pullFromGoogle(); } }} />
+              <button type="button" className="btn-g" disabled={gbpLoading || !gbpQuery.trim()} onClick={pullFromGoogle} style={{ whiteSpace: 'nowrap' }}>
+                {gbpLoading ? '…' : 'Pull'}
+              </button>
+            </div>
+            {gbpNote && <div className="quiet" style={{ fontSize: 11.5, marginTop: 6 }}>{gbpNote}</div>}
+          </div>
           <div style={{ marginBottom: 14 }}>
             <label htmlFor="na-label" style={labelCss}>Client / label</label>
             <input id="na-label" className="brand-select" style={inputCss} required maxLength={120}

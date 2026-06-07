@@ -532,6 +532,49 @@ export function consistencyScore(results: Array<{ matchScore: number }>): number
   return Math.round(sum / results.length);
 }
 
+// ── Citation gap finder (Phase 3) ────────────────────────────────────────────
+
+export interface RecommendedDirectory {
+  domain: string;
+  reason?: string;
+}
+
+export interface CitationGapResult {
+  /** Registrable domains the business is already cited on. */
+  covered: string[];
+  /** Recommended directories the business already covers. */
+  present: RecommendedDirectory[];
+  /** Recommended directories the business is missing — the build worklist. */
+  missing: RecommendedDirectory[];
+}
+
+function toRegistrable(s: string): string {
+  return registrableDomain(/^https?:\/\//i.test(s) ? s : `https://${s}`);
+}
+
+/**
+ * Diff a set of recommended/competitor directories against the directories the
+ * business is already cited on. Domains are compared at the registrable level
+ * so "www.yelp.com/biz/x" matches a recommended "yelp.com".
+ */
+export function findCitationGaps(
+  coveredUrls: string[],
+  recommended: RecommendedDirectory[],
+): CitationGapResult {
+  const covered = new Set(coveredUrls.map(toRegistrable).filter(Boolean));
+  const present: RecommendedDirectory[] = [];
+  const missing: RecommendedDirectory[] = [];
+  const seen = new Set<string>();
+  for (const rec of recommended) {
+    const domain = toRegistrable(rec.domain);
+    if (!domain || seen.has(domain)) continue;
+    seen.add(domain);
+    const entry: RecommendedDirectory = { domain, reason: rec.reason };
+    (covered.has(domain) ? present : missing).push(entry);
+  }
+  return { covered: Array.from(covered).sort(), present, missing };
+}
+
 // ── Schema generator (Phase 3) ───────────────────────────────────────────────
 
 /**

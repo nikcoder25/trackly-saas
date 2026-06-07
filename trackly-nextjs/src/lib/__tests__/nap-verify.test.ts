@@ -13,6 +13,7 @@ import {
   extractUrlsFromText,
   extractWithRegex,
   extractionStrength,
+  findCitationGaps,
   isWeakExtraction,
   generateLocalBusinessSchema,
   generateSchemaScriptTag,
@@ -221,6 +222,26 @@ describe('comparison & tagging', () => {
     const minimal: CanonicalNap = { name: 'Acme Dental Care' };
     const cmp = compareNap(minimal, { name: 'Acme Dental Care', source: {} }, true);
     expect(cmp.matchScore).toBe(100);
+  });
+});
+
+describe('findCitationGaps', () => {
+  it('splits recommended directories into present vs missing by registrable domain', () => {
+    const covered = ['https://www.yelp.com/biz/acme', 'https://yell.com/acme'];
+    const recommended = [
+      { domain: 'yelp.com', reason: 'big' },
+      { domain: 'www.bing.com/maps', reason: 'maps' },
+      { domain: 'thomsonlocal.com' },
+    ];
+    const gaps = findCitationGaps(covered, recommended);
+    expect(gaps.present.map((d) => d.domain)).toEqual(['yelp.com']);
+    expect(gaps.missing.map((d) => d.domain).sort()).toEqual(['bing.com', 'thomsonlocal.com']);
+    expect(gaps.covered).toContain('yelp.com');
+  });
+
+  it('de-duplicates recommended domains', () => {
+    const gaps = findCitationGaps([], [{ domain: 'yelp.com' }, { domain: 'www.yelp.com' }]);
+    expect(gaps.missing).toHaveLength(1);
   });
 });
 

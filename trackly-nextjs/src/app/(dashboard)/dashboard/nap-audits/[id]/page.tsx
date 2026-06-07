@@ -54,6 +54,99 @@ function ScoreHistory({ history }: { history: HistoryPoint[] }) {
   );
 }
 
+interface RecommendedDirectory { domain: string; reason?: string }
+interface GapResponse { covered: string[]; present: RecommendedDirectory[]; missing: RecommendedDirectory[] }
+
+function GapFinder({ id }: { id: string }) {
+  const [industry, setIndustry] = useState('');
+  const [region, setRegion] = useState('');
+  const [competitors, setCompetitors] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [gaps, setGaps] = useState<GapResponse | null>(null);
+
+  async function find(e: React.FormEvent) {
+    e.preventDefault();
+    if (loading || !industry.trim()) return;
+    setLoading(true);
+    setError(null);
+    setGaps(null);
+    try {
+      const res = await fetch(`/api/nap-audits/${id}/gaps`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          industry: industry.trim(),
+          region: region.trim(),
+          competitors: competitors.split(',').map((c) => c.trim()).filter(Boolean),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError((typeof data?.error === 'string' && data.error) || `Failed (HTTP ${res.status})`); return; }
+      setGaps(data);
+    } catch (err) {
+      setError((err as Error).message || 'Network error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const inputCss: React.CSSProperties = { width: '100%', margin: 0 };
+
+  return (
+    <Card title="Citation gaps" right={<span className="quiet" style={{ fontSize: 12 }}>vs competitors</span>}>
+      <p className="quiet" style={{ fontSize: 13, margin: '0 0 14px' }}>
+        Find important directories for this category that the client isn&apos;t listed on yet — a ready-made citation-building worklist.
+      </p>
+      <form onSubmit={find}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+          <input className="brand-select" style={inputCss} required maxLength={120} placeholder="Industry, e.g. dentist" value={industry} onChange={(e) => setIndustry(e.target.value)} />
+          <input className="brand-select" style={inputCss} maxLength={120} placeholder="Region (optional), e.g. London" value={region} onChange={(e) => setRegion(e.target.value)} />
+        </div>
+        <input className="brand-select" style={{ ...inputCss, marginBottom: 10 }} maxLength={400} placeholder="Competitors (optional, comma-separated)" value={competitors} onChange={(e) => setCompetitors(e.target.value)} />
+        <button type="submit" disabled={loading || !industry.trim()} className="btn-p" style={{ opacity: loading || !industry.trim() ? 0.6 : 1 }}>
+          {loading ? 'Finding gaps…' : 'Find citation gaps'}
+        </button>
+      </form>
+      {error && <div style={{ marginTop: 12, padding: '8px 10px', background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.2)', borderRadius: 'var(--radius-xs)', color: 'var(--red)', fontSize: 12 }}>{error}</div>}
+      {gaps && (
+        <div style={{ marginTop: 16, display: 'grid', gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--red)', marginBottom: 8 }}>
+              MISSING ({gaps.missing.length}) — build these
+            </div>
+            {gaps.missing.length === 0 ? (
+              <div className="quiet" style={{ fontSize: 13 }}>No gaps found — great coverage.</div>
+            ) : (
+              <div style={{ display: 'grid', gap: 6 }}>
+                {gaps.missing.map((d) => (
+                  <div key={d.domain} style={{ padding: '8px 12px', background: 'rgba(239,68,68,.05)', border: '1px solid rgba(239,68,68,.18)', borderRadius: 8 }}>
+                    <a href={`https://${d.domain}`} target="_blank" rel="noopener noreferrer nofollow" style={{ fontWeight: 600, color: 'var(--text)', textDecoration: 'none' }}>{d.domain}</a>
+                    {d.reason && <div className="quiet" style={{ fontSize: 11.5, marginTop: 2 }}>{d.reason}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {gaps.present.length > 0 && (
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--green)', marginBottom: 8 }}>
+                ALREADY COVERED ({gaps.present.length})
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {gaps.present.map((d) => (
+                  <span key={d.domain} className="mono" style={{ fontSize: 11, padding: '3px 8px', background: 'rgba(16,185,129,.08)', color: 'var(--green)', borderRadius: 100 }}>{d.domain}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export default function NapAuditDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -126,6 +219,9 @@ export default function NapAuditDetailPage() {
             <Card title="Consistency over time" right={<span className="quiet" style={{ fontSize: 12 }}>Last run {fmtDate(audit.lastRunAt)}</span>}>
               <ScoreHistory history={audit.history} />
             </Card>
+            <div style={{ marginTop: 16 }}>
+              <GapFinder id={audit.id} />
+            </div>
             <div style={{ marginTop: 16 }}>
               <NapResults data={audit} label={audit.label} canonical={audit.canonical} />
             </div>
