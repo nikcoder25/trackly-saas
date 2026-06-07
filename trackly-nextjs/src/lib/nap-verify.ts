@@ -64,6 +64,42 @@ export interface UrlResult extends CompareResult {
   extracted: ExtractedNap;
 }
 
+// ── URL list parsing (paste + bulk CSV import) ───────────────────────────────
+
+// A token is "URL-ish" only if it has a dotted host (and optional scheme/path).
+// Requiring the dot is what stops CSV junk like a "Business Name" cell from
+// being coerced into https://Business%20Name.
+const URLISH_RE =
+  /^(?:https?:\/\/)?(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(?::\d+)?(?:[/?#]\S*)?$/i;
+
+/**
+ * Extract citation URLs from free-form text or CSV. Splits on newlines and
+ * commas so a pasted list, a single-column CSV, or a multi-column CSV export
+ * all work — non-URL cells (names, ratings, headers) are simply skipped.
+ * Bare domains get an https:// scheme; results are normalized and de-duped.
+ */
+export function extractUrlsFromText(text: string, max = 50): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const rawCell of text.split(/[\n,]+/)) {
+    let cell = rawCell.trim().replace(/^["']+|["']+$/g, '').trim();
+    if (!cell || !URLISH_RE.test(cell)) continue;
+    if (!/^https?:\/\//i.test(cell)) cell = 'https://' + cell;
+    try {
+      const u = new URL(cell);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') continue;
+      const norm = u.toString();
+      if (seen.has(norm)) continue;
+      seen.add(norm);
+      out.push(norm);
+    } catch {
+      /* skip unparseable cell */
+    }
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
 // ── Normalization helpers ────────────────────────────────────────────────────
 
 const COMPANY_SUFFIXES = [

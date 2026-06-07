@@ -6,12 +6,16 @@ import {
   compareNap,
   consistencyScore,
   extractNap,
+  extractUrlsFromText,
   type CanonicalNap,
   type UrlResult,
 } from '@/lib/nap-verify';
 
-const MAX_URLS = 20;
+const MAX_URLS = 50;
 const FETCH_TIMEOUT_MS = 12_000;
+// Cap simultaneous outbound fetches so a 50-URL bulk batch doesn't open 50
+// sockets at once or hammer a single directory.
+const FETCH_CONCURRENCY = 8;
 
 interface NapCheckerBody {
   canonical?: Partial<CanonicalNap>;
@@ -36,31 +40,32 @@ function parseCanonical(input: Partial<CanonicalNap> | undefined): CanonicalNap 
 }
 
 function parseUrls(input: unknown): string[] {
-  let list: string[] = [];
-  if (Array.isArray(input)) {
-    list = input.filter((u): u is string => typeof u === 'string');
-  } else if (typeof input === 'string') {
-    list = input.split(/[\n,]+/);
-  }
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const raw of list) {
-    let u = raw.trim();
-    if (!u) continue;
-    if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
-    try {
-      const parsed = new URL(u);
-      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') continue;
-      const norm = parsed.toString();
-      if (seen.has(norm)) continue;
-      seen.add(norm);
-      out.push(norm);
-    } catch {
-      /* skip unparseable lines */
+  const text = Array.isArray(input)
+    ? input.filter((u): u is string => typeof u === 'string').join('\n')
+    : typeof input === 'string'
+      ? input
+      : '';
+  return extractUrlsFromText(text, MAX_URLS);
+}
+
+/** Run `fn` over `items` with at most `limit` in flight, preserving order. */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < items.length) {
+      const idx = cursor++;
+      results[idx] = await fn(items[idx]);
     }
-    if (out.length >= MAX_URLS) break;
-  }
-  return out;
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => worker()),
+  );
+  return results;
 }
 
 async function checkUrl(url: string, canonical: CanonicalNap): Promise<UrlResult> {
@@ -135,7 +140,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const results = await Promise.all(urls.map((u) => checkUrl(u, canonical)));
+    const results = await mapWithConcurrency(urls, FETCH_CONCURRENCY, (u) =>
+      checkUrl(u, canonical),
+    );
     const score = consistencyScore(results);
 
     const summary = {

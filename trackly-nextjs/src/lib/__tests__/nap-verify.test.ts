@@ -9,6 +9,7 @@ import {
   consistencyScore,
   extractFromSchema,
   extractNap,
+  extractUrlsFromText,
   extractWithRegex,
   normalizeName,
   normalizePhone,
@@ -48,6 +49,39 @@ describe('normalization', () => {
   it('normalizes postcodes ignoring case and spacing', () => {
     expect(normalizePostcode('sw1a 1aa')).toBe('SW1A1AA');
     expect(normalizePostcode('SW1A1AA')).toBe('SW1A1AA');
+  });
+});
+
+describe('extractUrlsFromText — paste + bulk CSV import', () => {
+  it('parses a newline-separated paste and adds https://', () => {
+    const out = extractUrlsFromText('yelp.com/biz/x\nhttps://yell.com/y');
+    expect(out).toEqual(['https://yelp.com/biz/x', 'https://yell.com/y']);
+  });
+
+  it('extracts only URL cells from a multi-column CSV, skipping names/headers', () => {
+    const csv = [
+      'Directory,URL,Rating',
+      'Yelp,https://www.yelp.com/biz/acme,4.5',
+      'Yell,https://www.yell.com/acme,4.0',
+      'Acme Dental Care,not-a-url,5',
+    ].join('\n');
+    const out = extractUrlsFromText(csv);
+    expect(out).toEqual(['https://www.yelp.com/biz/acme', 'https://www.yell.com/acme']);
+  });
+
+  it('strips surrounding quotes from CSV cells', () => {
+    expect(extractUrlsFromText('"https://example.com/a","Name"')).toEqual([
+      'https://example.com/a',
+    ]);
+  });
+
+  it('does not coerce plain text without a dotted host into a URL', () => {
+    expect(extractUrlsFromText('Business Name\nSuite 4\nLondon')).toEqual([]);
+  });
+
+  it('de-duplicates and respects the max', () => {
+    const out = extractUrlsFromText('a.com\na.com\nb.com\nc.com', 2);
+    expect(out).toEqual(['https://a.com/', 'https://b.com/']);
   });
 });
 

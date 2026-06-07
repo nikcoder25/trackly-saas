@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { extractUrlsFromText } from '@/lib/nap-verify';
 import ToolPage, {
   cardStyle,
   inputStyle,
@@ -141,6 +142,48 @@ export default function NapVerificationPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState<ApiResponse | null>(null);
+  const [importNote, setImportNote] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const MAX_URLS = 50;
+
+  const mergeUrls = (incoming: string[]) => {
+    const existing = extractUrlsFromText(urls, MAX_URLS);
+    const seen = new Set(existing);
+    const merged = [...existing];
+    let added = 0;
+    for (const u of incoming) {
+      if (merged.length >= MAX_URLS) break;
+      if (seen.has(u)) continue;
+      seen.add(u);
+      merged.push(u);
+      added++;
+    }
+    setUrls(merged.join('\n'));
+    return { added, total: merged.length };
+  };
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const text = await file.text();
+        const found = extractUrlsFromText(text, MAX_URLS);
+        if (found.length === 0) {
+          setImportNote('No URLs found in that file.');
+        } else {
+          const { added, total } = mergeUrls(found);
+          setImportNote(
+            `Imported ${added} new URL${added === 1 ? '' : 's'} (${total}/${MAX_URLS} total).`,
+          );
+        }
+      } catch {
+        setImportNote('Could not read that file.');
+      }
+    }
+    // Reset so re-selecting the same file fires onChange again.
+    if (fileRef.current) fileRef.current.value = '';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -314,12 +357,37 @@ export default function NapVerificationPage() {
             />
           </div>
 
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: '#1a1a2e', margin: '0 0 14px' }}>
-            2. Citation URLs
-          </h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: '#1a1a2e', margin: 0 }}>
+              2. Citation &amp; backlink URLs
+            </h2>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv,.txt,text/csv,text/plain"
+              onChange={handleFile}
+              style={{ display: 'none' }}
+            />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              style={{
+                padding: '7px 14px',
+                borderRadius: 8,
+                border: '1px solid #d1d5db',
+                background: '#fff',
+                color: '#374151',
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: 'pointer',
+              }}
+            >
+              ↑ Bulk import CSV
+            </button>
+          </div>
           <div style={{ marginBottom: 20 }}>
             <label htmlFor="napUrls" style={labelStyle}>
-              One URL per line (or comma-separated) — up to 20
+              One URL per line (or comma-separated) — up to {MAX_URLS}. Paste a list or bulk-import a CSV of backlinks.
             </label>
             <textarea
               id="napUrls"
@@ -327,9 +395,12 @@ export default function NapVerificationPage() {
               rows={6}
               placeholder={'https://www.yelp.com/biz/your-listing\nhttps://www.yell.com/...\nhttps://your-directory.com/...'}
               value={urls}
-              onChange={(e) => setUrls(e.target.value)}
+              onChange={(e) => { setUrls(e.target.value); setImportNote(''); }}
               style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
             />
+            {importNote && (
+              <div style={{ marginTop: 6, fontSize: 12, color: '#16a34a', fontWeight: 600 }}>{importNote}</div>
+            )}
           </div>
 
           <PrimaryButton type="submit" loading={loading}>
@@ -602,7 +673,7 @@ export default function NapVerificationPage() {
           items={[
             {
               q: 'How many URLs can I check at once?',
-              a: 'Up to 20 citation URLs per run on the free tool, with 5 runs per IP per day. The paid product removes both limits and lets you save a URL set per client and re-run it on a schedule.',
+              a: 'Up to 50 citation or backlink URLs per run on the free tool — paste a list or bulk-import a CSV — with 5 runs per IP per day. The paid product removes both limits and lets you save a URL set per client and re-run it on a schedule.',
             },
             {
               q: 'Why did a page show no extracted NAP?',
