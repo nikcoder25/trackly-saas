@@ -11,6 +11,7 @@ import { safeFetch, SSRFError, ssrfErrorToCopy } from '@/lib/safe-fetch';
 import {
   compareNap,
   consistencyScore,
+  classifyUnreachable,
   detectDuplicates,
   verifyNap,
   type CanonicalNap,
@@ -21,17 +22,30 @@ import {
 
 export const NAP_MAX_URLS = 50;
 const FETCH_TIMEOUT_MS = 12_000;
-// Present as a real browser. Many directories (Yell, Yelp, etc.) return 403 to
-// any UA that self-identifies as a bot, which would make every citation come
-// back as a dead link. A standard desktop Chrome UA + browser-like headers get
-// through the common UA gate. (We're fetching the user's own public listings.)
+// Present as a real Chrome "direct navigation" request. Many directories return
+// 403 (or a cloaked 404) to anything that doesn't look like a browser; a full,
+// internally-consistent set of navigation headers + client hints clears the
+// common header/UA gates. (We're fetching the user's own public listings.)
+// Note: Accept-Encoding is intentionally omitted — undici sets and decompresses
+// it automatically, and setting it by hand risks an undecoded body.
 const BROWSER_HEADERS: Record<string, string> = {
   'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
   'Accept-Language': 'en-GB,en;q=0.9',
   'Upgrade-Insecure-Requests': '1',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Sec-Fetch-User': '?1',
+  'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+  'sec-ch-ua-mobile': '?0',
+  'sec-ch-ua-platform': '"Windows"',
+  'Cache-Control': 'max-age=0',
 };
+// Statuses that usually mean "anti-bot block / transient", not "page gone".
+// Worth one retry and worth labelling as blocked rather than a dead link.
+const BLOCK_STATUSES = new Set([401, 403, 406, 409, 429, 451, 503]);
 // Cap simultaneous outbound fetches so a 50-URL batch doesn't open 50 sockets
 // at once or hammer a single directory.
 const FETCH_CONCURRENCY = 8;
@@ -129,7 +143,22 @@ function deadResult(
   extra: { error?: string } = {},
 ): UrlResult {
   const cmp = compareNap(canonical, { source: {} }, false);
-  return { url, httpStatus, reachable: false, extracted: { source: {} }, ...extra, ...cmp };
+  const cls = classifyUnreachable(httpStatus);
+  return {
+    url,
+    httpStatus,
+    reachable: false,
+    extracted: { source: {} },
+    error: extra.error ?? cls.message,
+    ...cmp,
+    tags: [cls.tag],
+  };
+}
+
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function fetchOnce(url: string): Promise<Response> {
+  return safeFetch(url, { timeoutMs: FETCH_TIMEOUT_MS, headers: BROWSER_HEADERS });
 }
 
 /**
@@ -151,10 +180,13 @@ async function tryRender(
 
 async function checkUrl(url: string, canonical: CanonicalNap): Promise<UrlResult> {
   try {
-    const res = await safeFetch(url, {
-      timeoutMs: FETCH_TIMEOUT_MS,
-      headers: BROWSER_HEADERS,
-    });
+    let res = await fetchOnce(url);
+    // Anti-bot blocks are often transient — one retry after a short pause
+    // clears a meaningful share of them.
+    if (!(res.status >= 200 && res.status < 400) && BLOCK_STATUSES.has(res.status)) {
+      await delay(700);
+      res = await fetchOnce(url);
+    }
     const reachable = res.status >= 200 && res.status < 400;
 
     if (!reachable) {

@@ -12,6 +12,7 @@ import {
   extractNap,
   extractUrlsFromText,
   extractWithRegex,
+  classifyUnreachable,
   detectRegression,
   extractionStrength,
   findCitationGaps,
@@ -398,6 +399,21 @@ describe('verifyNap — presence-based (no structured data needed)', () => {
     const v = verifyNap(CANONICAL, html);
     expect(v.matchScore).toBe(100);
     expect(v.extracted.name).toBe('Acme Dental Care');
+  });
+});
+
+describe('classifyUnreachable', () => {
+  it('labels anti-bot/WAF statuses as blocked', () => {
+    for (const s of [401, 403, 429, 451, 503]) {
+      expect(classifyUnreachable(s).tag).toBe('blocked');
+    }
+  });
+  it('labels not-found statuses as dead link', () => {
+    expect(classifyUnreachable(404).tag).toBe('dead link');
+    expect(classifyUnreachable(410).tag).toBe('dead link');
+  });
+  it('falls back to dead link for fetch failures (null status)', () => {
+    expect(classifyUnreachable(null).tag).toBe('dead link');
   });
 });
 
