@@ -7,7 +7,10 @@ import { extractUrlsFromText } from '@/lib/nap-verify';
 // "Pull from Google" prefill, bulk CSV import, and the over-50 truncation note.
 // The parent supplies onSubmit (does the POST/PUT and throws on failure).
 
-const NAP_MAX_URLS = 50;
+// Keep in sync with NAP_MAX_URLS in lib/nap-audit-run.ts. Hard-coded here
+// rather than imported so this client component doesn't pull the
+// server-only fetcher into the bundle.
+const NAP_MAX_URLS = 500;
 
 export interface NapAuditFormValues {
   label: string;

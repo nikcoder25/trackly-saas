@@ -23,6 +23,7 @@ interface NapAuditRecord extends NapResultsData {
   schedule: NapAuditSchedule;
   history: HistoryPoint[];
   overrides: Record<string, boolean>;
+  progressDone: number;
   createdAt: string;
   lastRunAt: string | null;
 }
@@ -237,11 +238,12 @@ export default function NapAuditDetailPage() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [id, load]);
 
-  // Poll while the run is in progress so results appear when it finishes.
+  // Poll while the run is in progress so the progress bar and results
+  // update without manual refresh. 2 s matches the list view's cadence.
   useEffect(() => {
     const active = audit?.status === 'queued' || audit?.status === 'running';
     if (active && !pollRef.current) {
-      pollRef.current = setInterval(load, 4000);
+      pollRef.current = setInterval(load, 2000);
     } else if (!active && pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
@@ -322,11 +324,30 @@ export default function NapAuditDetailPage() {
           <Card title="Audit"><div className="quiet" style={{ padding: 24, textAlign: 'center', fontSize: 13 }}>Loading…</div></Card>
         ) : (
           <>
-            {(audit.status === 'queued' || audit.status === 'running') && (
-              <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(99,102,241,.08)', border: '1px solid rgba(99,102,241,.2)', borderRadius: 'var(--radius-xs)', color: 'var(--primary)', fontSize: 13, fontWeight: 600 }}>
-                {audit.status === 'queued' ? 'Queued…' : 'Running the audit…'} results update automatically.
-              </div>
-            )}
+            {(audit.status === 'queued' || audit.status === 'running') && (() => {
+              const total = audit.urls.length;
+              const done = Math.max(0, Math.min(audit.progressDone ?? 0, total));
+              const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+              return (
+                <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(99,102,241,.08)', border: '1px solid rgba(99,102,241,.2)', borderRadius: 'var(--radius-xs)', color: 'var(--primary)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontSize: 13, fontWeight: 600 }}>
+                    <span>
+                      {audit.status === 'queued'
+                        ? 'Queued… results update automatically.'
+                        : `Running ${done}/${total} URLs (${pct}%) — results update automatically.`}
+                    </span>
+                    {audit.status === 'running' && (
+                      <span className="mono" style={{ fontSize: 12 }}>{pct}%</span>
+                    )}
+                  </div>
+                  {audit.status === 'running' && total > 0 && (
+                    <div style={{ marginTop: 8, height: 6, background: 'rgba(99,102,241,.16)', borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: 'var(--primary)', transition: 'width .3s ease' }} />
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {audit.status === 'failed' && (
               <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.2)', borderRadius: 'var(--radius-xs)', color: 'var(--red)', fontSize: 13 }}>
                 Last run failed{audit.error ? `: ${audit.error}` : ''}. Try re-running.

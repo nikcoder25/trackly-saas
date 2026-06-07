@@ -24,6 +24,8 @@ interface NapAuditListItem {
     blocked?: number;
     duplicateListings: number;
   } | null;
+  /** URLs the worker has completed for the in-flight run. */
+  progressDone: number;
   createdAt: string;
   lastRunAt: string | null;
 }
@@ -40,6 +42,38 @@ function fmtDate(iso: string | null): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '—';
   return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+/**
+ * Live progress chip — rendered in place of the status badge while a run
+ * is in flight. We poll the list every couple of seconds so this updates
+ * without manual refresh; the bar gives the user something to watch
+ * during a 500-URL run instead of a generic "RUNNING…" label.
+ */
+function ProgressBadge({ done, total }: { done: number; total: number }) {
+  const safeTotal = Math.max(0, total);
+  const safeDone = Math.max(0, Math.min(done, safeTotal));
+  const pct = safeTotal > 0 ? Math.round((safeDone / safeTotal) * 100) : 0;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 120 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', letterSpacing: '.5px' }}>RUNNING</span>
+        <span className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>
+          {safeTotal > 0 ? `${safeDone}/${safeTotal}` : '…'}
+        </span>
+      </div>
+      <div style={{ height: 4, background: 'var(--bg3)', borderRadius: 2, overflow: 'hidden' }}>
+        <div
+          style={{
+            width: `${pct}%`,
+            height: '100%',
+            background: 'var(--primary)',
+            transition: 'width .3s ease',
+          }}
+        />
+      </div>
+    </div>
+  );
 }
 
 interface NewAuditModalProps {
@@ -144,8 +178,12 @@ export default function NapAuditsPage() {
 
   useEffect(() => {
     const active = (audits ?? []).some((a) => a.status === 'queued' || a.status === 'running');
+    // 2 s polling keeps the progress bar visibly moving during a large
+    // run. The list payload is small (no full per-URL results), so the
+    // bandwidth cost is negligible and we clear the interval the moment
+    // the last run terminates.
     if (active && !pollRef.current) {
-      pollRef.current = setInterval(() => fetchAudits(brandId), 4000);
+      pollRef.current = setInterval(() => fetchAudits(brandId), 2000);
     } else if (!active && pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
@@ -270,9 +308,11 @@ export default function NapAuditsPage() {
                         <Link href={`/dashboard/nap-audits/${a.id}`} style={{ color: 'var(--text)', fontWeight: 600, textDecoration: 'none' }}>{a.label}</Link>
                         <div className="quiet" style={{ fontSize: 11 }}>{a.canonical?.name}</div>
                       </td>
-                      <td style={{ padding: '12px 14px' }}>
-                        {a.status === 'queued' || a.status === 'running' ? (
-                          <Badge tone="neu">{a.status === 'queued' ? 'QUEUED' : 'RUNNING…'}</Badge>
+                      <td style={{ padding: '12px 14px', minWidth: 140 }}>
+                        {a.status === 'queued' ? (
+                          <Badge tone="neu">QUEUED</Badge>
+                        ) : a.status === 'running' ? (
+                          <ProgressBadge done={a.progressDone} total={a.urlCount} />
                         ) : a.status === 'failed' ? (
                           <Badge tone="neg">FAILED</Badge>
                         ) : (
@@ -306,7 +346,10 @@ export default function NapAuditsPage() {
           brandName={brandName}
           brandCity={brandCity}
           onClose={() => setModalOpen(false)}
-          onCreated={() => fetchAudits(brandId)}
+          onCreated={() => {
+            flash('Audit queued — watch the live progress below.');
+            fetchAudits(brandId);
+          }}
         />
       )}
     </div>

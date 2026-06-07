@@ -20,7 +20,13 @@ import {
   type UrlResult,
 } from '@/lib/nap-verify';
 
-export const NAP_MAX_URLS = 50;
+// Capped at 500 so an operator can audit a brand's full citation set in a
+// single run (the practical ceiling we've observed; bigger sets are rare
+// enough that we'd rather catch a typo than process them silently). The
+// worker runs in the background via Next.js after() + a cron safety net,
+// so wall-clock time is bounded by FETCH_CONCURRENCY × per-URL timeout
+// rather than any single request lifetime.
+export const NAP_MAX_URLS = 500;
 const FETCH_TIMEOUT_MS = 12_000;
 // Present as a real Chrome "direct navigation" request. Many directories return
 // 403 (or a cloaked 404) to anything that doesn't look like a browser; a full,
@@ -46,9 +52,10 @@ const BROWSER_HEADERS: Record<string, string> = {
 // Statuses that usually mean "anti-bot block / transient", not "page gone".
 // Worth one retry and worth labelling as blocked rather than a dead link.
 const BLOCK_STATUSES = new Set([401, 403, 406, 409, 429, 451, 503]);
-// Cap simultaneous outbound fetches so a 50-URL batch doesn't open 50 sockets
-// at once or hammer a single directory.
-const FETCH_CONCURRENCY = 8;
+// Cap simultaneous outbound fetches so a large batch doesn't open hundreds
+// of sockets at once or hammer a single directory. Sized so a 500-URL run
+// completes in single-digit minutes when most pages return promptly.
+const FETCH_CONCURRENCY = 16;
 // ── Layer 3: unblocker / headless-render (optional) ──────────────────────────
 // Weak or blocked pages (Cloudflare/WAF/JS-only) are re-fetched through a real
 // browser + residential proxies so their NAP becomes readable. Two backends,
@@ -267,18 +274,26 @@ async function checkUrl(url: string, canonical: CanonicalNap): Promise<UrlResult
   }
 }
 
-/** Run `fn` over `items` with at most `limit` in flight, preserving order. */
+/**
+ * Run `fn` over `items` with at most `limit` in flight, preserving order.
+ * Calls `onProgress(done, total)` after each completion so callers can
+ * surface live progress to the UI without re-querying.
+ */
 async function mapWithConcurrency<T, R>(
   items: T[],
   limit: number,
   fn: (item: T) => Promise<R>,
+  onProgress?: (done: number, total: number) => void,
 ): Promise<R[]> {
   const results = new Array<R>(items.length);
   let cursor = 0;
+  let done = 0;
   const worker = async () => {
     while (cursor < items.length) {
       const idx = cursor++;
       results[idx] = await fn(items[idx]);
+      done++;
+      if (onProgress) onProgress(done, items.length);
     }
   };
   await Promise.all(
@@ -287,13 +302,22 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
+export interface RunNapCheckOptions {
+  /** Called after each URL finishes; used to persist live progress. */
+  onProgress?: (done: number, total: number) => void;
+}
+
 /** Fetch + extract + compare every URL against the canonical NAP. */
 export async function runNapCheck(
   canonical: CanonicalNap,
   urls: string[],
+  options: RunNapCheckOptions = {},
 ): Promise<NapRunResult> {
-  const results = await mapWithConcurrency(urls, FETCH_CONCURRENCY, (u) =>
-    checkUrl(u, canonical),
+  const results = await mapWithConcurrency(
+    urls,
+    FETCH_CONCURRENCY,
+    (u) => checkUrl(u, canonical),
+    options.onProgress,
   );
   const score = consistencyScore(results);
   const duplicates = detectDuplicates(results);
