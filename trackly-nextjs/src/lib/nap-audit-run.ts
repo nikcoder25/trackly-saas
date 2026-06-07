@@ -23,6 +23,17 @@ import {
 
 export const NAP_MAX_URLS = 50;
 const FETCH_TIMEOUT_MS = 12_000;
+// Present as a real browser. Many directories (Yell, Yelp, etc.) return 403 to
+// any UA that self-identifies as a bot, which would make every citation come
+// back as a dead link. A standard desktop Chrome UA + browser-like headers get
+// through the common UA gate. (We're fetching the user's own public listings.)
+const BROWSER_HEADERS: Record<string, string> = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'en-GB,en;q=0.9',
+  'Upgrade-Insecure-Requests': '1',
+};
 // Cap simultaneous outbound fetches so a 50-URL batch doesn't open 50 sockets
 // at once or hammer a single directory.
 const FETCH_CONCURRENCY = 8;
@@ -121,12 +132,7 @@ async function checkUrl(url: string, canonical: CanonicalNap): Promise<UrlResult
   try {
     const res = await safeFetch(url, {
       timeoutMs: FETCH_TIMEOUT_MS,
-      headers: {
-        // Some directories 403 a bare fetch; present a normal UA.
-        'User-Agent':
-          'Mozilla/5.0 (compatible; LivesovNAPBot/1.0; +https://livesov.com/tools/nap-verification)',
-        Accept: 'text/html,application/xhtml+xml',
-      },
+      headers: BROWSER_HEADERS,
     });
     const reachable = res.status >= 200 && res.status < 400;
 

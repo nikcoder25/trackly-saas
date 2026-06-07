@@ -77,11 +77,16 @@ export async function POST(request: Request): Promise<Response> {
         'X-Goog-FieldMask':
           'places.displayName,places.nationalPhoneNumber,places.internationalPhoneNumber,places.addressComponents',
       },
-      body: JSON.stringify({ textQuery: query, maxResultCount: 1 }),
+      // Text Search (New) takes `textQuery` (+ optional `pageSize`). It does NOT
+      // accept `maxResultCount` (that's a Nearby Search field) and rejects the
+      // request with INVALID_ARGUMENT if it's present — which is why the lookup
+      // was failing. `pageSize: 1` keeps the response small.
+      body: JSON.stringify({ textQuery: query, pageSize: 1 }),
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
-      logger.warn('nap_audits.gbp_lookup_upstream', { status: res.status });
+      const detail = await res.text().catch(() => '');
+      logger.warn('nap_audits.gbp_lookup_upstream', { status: res.status, detail: detail.slice(0, 300) });
       return Response.json({ error: 'Google lookup failed. Try a more specific query.' }, { status: 502 });
     }
     const data = (await res.json()) as { places?: Place[] };
