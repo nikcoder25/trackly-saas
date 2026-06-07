@@ -879,6 +879,29 @@ export function registrableDomain(url: string): string {
   return lastTwo;
 }
 
+/**
+ * Classify an unreachable citation. A 4xx/5xx that browsers pass but a server
+ * fetch doesn't is almost always anti-bot/WAF blocking, not a broken link —
+ * label it distinctly so the user knows it's worth an unblocker, not a fix.
+ */
+export function classifyUnreachable(
+  status: number | null,
+): { tag: string; message: string } {
+  if (status != null && [401, 403, 406, 409, 429, 451, 503].includes(status)) {
+    return {
+      tag: 'blocked',
+      message: `Blocked by the site's anti-bot protection (HTTP ${status}). Enable the render service to bypass.`,
+    };
+  }
+  if (status === 404 || status === 410) {
+    return { tag: 'dead link', message: `Page not found (HTTP ${status}).` };
+  }
+  if (status != null) {
+    return { tag: 'dead link', message: `Citation returned HTTP ${status}.` };
+  }
+  return { tag: 'dead link', message: 'Could not fetch this URL.' };
+}
+
 export interface DuplicateGroup {
   /** The directory/domain hosting more than one of the supplied citations. */
   domain: string;

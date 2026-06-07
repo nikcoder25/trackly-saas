@@ -212,6 +212,20 @@ export default function NapResults({ data, label, canonical }: { data: NapResult
         </div>
       </div>
 
+      {data.results.some((r) => r.tags.includes('blocked')) && (
+        <div style={{ ...cardStyle, background: '#fffbeb', border: '1px solid #fde68a' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#92400e', marginBottom: 4 }}>
+            Some citations were blocked by anti-bot protection
+          </div>
+          <p style={{ fontSize: 13, color: '#78350f', margin: 0, lineHeight: 1.6 }}>
+            A few directories returned a block (e.g. Cloudflare/WAF) to our server even though they open
+            in your browser — so their NAP couldn&apos;t be read. These show as <strong>blocked</strong>,
+            not a real mismatch. Enabling the optional render/unblock service lets the tool fetch them
+            like a real browser. (Image hosts like Gyazo have no NAP text to read.)
+          </p>
+        </div>
+      )}
+
       {data.duplicates.length > 0 && (
         <div style={cardStyle}>
           <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1a1a2e', margin: '0 0 6px' }}>
@@ -323,11 +337,25 @@ export default function NapResults({ data, label, canonical }: { data: NapResult
                       <span style={{ color: '#16a34a', fontSize: 12 }}>✓ Consistent</span>
                     ) : (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                        {r.tags.map((t) => (
-                          <span key={t} style={{ fontSize: 11, padding: '2px 6px', borderRadius: 5, background: '#fef2f2', color: '#b91c1c' }}>
-                            {t}
-                          </span>
-                        ))}
+                        {r.tags.map((t) => {
+                          // "couldn't check" (blocked / dead link) is amber, not
+                          // the red used for a genuine NAP mismatch.
+                          const couldntCheck = t === 'blocked' || t === 'dead link';
+                          return (
+                            <span
+                              key={t}
+                              style={{
+                                fontSize: 11,
+                                padding: '2px 6px',
+                                borderRadius: 5,
+                                background: couldntCheck ? '#fffbeb' : '#fef2f2',
+                                color: couldntCheck ? '#b45309' : '#b91c1c',
+                              }}
+                            >
+                              {t}
+                            </span>
+                          );
+                        })}
                       </div>
                     )}
                   </td>
