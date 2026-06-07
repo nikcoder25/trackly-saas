@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, PageHead } from '@/app/dashboard-v2/ui';
 import NapResults, { type NapResultsData, scoreColor } from '@/components/tools/NapResults';
+import NapAuditForm, { type NapAuditFormValues } from '@/components/dashboard/NapAuditForm';
 
 interface CanonicalNap {
   name: string; phone?: string; street?: string; suite?: string; city?: string; postcode?: string;
@@ -159,7 +160,40 @@ export default function NapAuditDetailPage() {
   const [audit, setAudit] = useState<NapAuditRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function flash(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  }
+
+  async function downloadPdf() {
+    try {
+      const res = await fetch(`/api/nap-audits/${id}/pdf`, { credentials: 'include' });
+      if (!res.ok) { flash('Could not generate the PDF.'); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(audit?.label || 'nap-audit').replace(/[^a-zA-Z0-9_\- ]/g, '').replace(/\s+/g, '_')}.pdf`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch { flash('Could not generate the PDF.'); }
+  }
+
+  async function saveEdit(values: NapAuditFormValues) {
+    const res = await fetch(`/api/nap-audits/${id}`, {
+      method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(values),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((typeof data?.error === 'string' && data.error) || `Failed (HTTP ${res.status})`);
+    if (data.audit) setAudit(data.audit);
+    setEditOpen(false);
+    flash('Saved — re-running…');
+  }
 
   const load = useCallback(async () => {
     try {
@@ -197,7 +231,7 @@ export default function NapAuditDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ schedule }),
       });
-      if (res.ok) { const data = await res.json(); setAudit(data.audit); }
+      if (res.ok) { const data = await res.json(); setAudit(data.audit); flash('Schedule updated.'); }
     } catch { /* ignore */ }
   }
 
@@ -248,8 +282,9 @@ export default function NapAuditDetailPage() {
                 <option value="monthly">Auto: monthly</option>
               </select>
             )}
-            <a className="btn-g" href={`/api/nap-audits/${id}/pdf`} style={{ marginRight: 6 }}>↓ PDF</a>
-            <button className="btn-g" disabled={busy} onClick={rerun} style={{ marginRight: 6 }}>{busy ? 'Running…' : 'Re-run'}</button>
+            <button className="btn-g" onClick={() => setEditOpen(true)} style={{ marginRight: 6 }}>Edit</button>
+            <button className="btn-g" onClick={downloadPdf} style={{ marginRight: 6 }}>↓ PDF</button>
+            <button className="btn-g" disabled={busy || audit?.status === 'queued' || audit?.status === 'running'} onClick={rerun} style={{ marginRight: 6 }}>{busy ? 'Running…' : 'Re-run'}</button>
             <button className="btn-g" disabled={busy} onClick={remove} style={{ color: 'var(--red)' }}>Delete</button>
           </>
         }
@@ -284,6 +319,28 @@ export default function NapAuditDetailPage() {
           </>
         )}
       </div>
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: 'var(--text)', color: 'var(--surface)', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, zIndex: 1100, boxShadow: 'var(--shadow-2)' }}>{toast}</div>
+      )}
+
+      {editOpen && audit && (
+        <div role="dialog" aria-modal="true" aria-label="Edit NAP audit" onClick={() => setEditOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: '100%', maxWidth: 520, padding: 20, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Edit NAP audit</h2>
+              <button onClick={() => setEditOpen(false)} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 20, cursor: 'pointer', lineHeight: 1, padding: 0, minWidth: 44, minHeight: 44 }}>×</button>
+            </div>
+            <NapAuditForm
+              initial={{ label: audit.label, canonical: audit.canonical, urls: audit.urls }}
+              submitLabel="Save & re-run"
+              onSubmit={saveEdit}
+              onCancel={() => setEditOpen(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
