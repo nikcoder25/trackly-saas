@@ -49,25 +49,62 @@ const BLOCK_STATUSES = new Set([401, 403, 406, 409, 429, 451, 503]);
 // Cap simultaneous outbound fetches so a 50-URL batch doesn't open 50 sockets
 // at once or hammer a single directory.
 const FETCH_CONCURRENCY = 8;
-// Layer 3 (optional). When NAP_RENDER_ENDPOINT is configured, weak/blocked
-// pages are re-fetched through an operator-provided headless-render service
-// (e.g. a browserless instance) instead of bundling Chromium into the app.
-// Absent the env var, behaviour is byte-identical to Layers 1+2 only.
+// ── Layer 3: unblocker / headless-render (optional) ──────────────────────────
+// Weak or blocked pages (Cloudflare/WAF/JS-only) are re-fetched through a real
+// browser + residential proxies so their NAP becomes readable. Two backends,
+// tried in order; absent both, behaviour is byte-identical to Layers 1+2.
+//
+//  1. ScraperAPI (SCRAPERAPI_KEY) — hosted unblocker. Credit cost per request
+//     depends on mode: render≈10, premium(residential)≈10-25, ultra_premium
+//     (beats Cloudflare)≈30. Defaults to render + premium; set
+//     SCRAPERAPI_ULTRA=true for the hardest sites. Optional SCRAPERAPI_COUNTRY
+//     (e.g. "gb"/"us") geo-targets the proxy. SCRAPERAPI_RENDER=false drops JS
+//     rendering to save credits.
+//  2. NAP_RENDER_ENDPOINT — a generic "POST {url} → HTML" service (e.g.
+//     self-hosted browserless).
+const SCRAPERAPI_KEY = process.env.SCRAPERAPI_KEY?.trim();
+const SCRAPERAPI_ULTRA = process.env.SCRAPERAPI_ULTRA === 'true';
+const SCRAPERAPI_RENDER = process.env.SCRAPERAPI_RENDER !== 'false';
+const SCRAPERAPI_COUNTRY = process.env.SCRAPERAPI_COUNTRY?.trim();
 const RENDER_ENDPOINT = process.env.NAP_RENDER_ENDPOINT?.trim();
 const RENDER_TOKEN = process.env.NAP_RENDER_TOKEN?.trim();
 const RENDER_TIMEOUT_MS = 25_000;
+// Unblocker APIs run a real browser + solve challenges, which can take a while.
+const SCRAPER_TIMEOUT_MS = 70_000;
+const UNBLOCKER_ENABLED = !!(SCRAPERAPI_KEY || RENDER_ENDPOINT);
 
 export function renderServiceEnabled(): boolean {
-  return !!RENDER_ENDPOINT;
+  return UNBLOCKER_ENABLED;
 }
 
-/**
- * Ask the render service for fully-rendered HTML. The endpoint is operator-
- * configured (trusted), so we call it directly; it is responsible for safely
- * fetching the target URL. Accepts a raw-HTML body or a { html } JSON payload.
- * Returns null on any failure so the caller falls back to the Layer 1/2 result.
- */
-async function renderHtml(url: string): Promise<string | null> {
+/** Fetch fully-rendered HTML for a blocked/JS page via ScraperAPI. */
+async function fetchViaScraperApi(url: string): Promise<string | null> {
+  if (!SCRAPERAPI_KEY) return null;
+  const params = new URLSearchParams({ api_key: SCRAPERAPI_KEY, url });
+  if (SCRAPERAPI_RENDER) params.set('render', 'true');
+  // ultra_premium already implies residential proxies, so only set one.
+  if (SCRAPERAPI_ULTRA) params.set('ultra_premium', 'true');
+  else params.set('premium', 'true');
+  if (SCRAPERAPI_COUNTRY) params.set('country_code', SCRAPERAPI_COUNTRY);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SCRAPER_TIMEOUT_MS);
+  try {
+    const res = await fetch(`https://api.scraperapi.com/?${params.toString()}`, {
+      signal: controller.signal,
+    });
+    if (!res.ok) return null; // 4xx from ScraperAPI = couldn't unblock / out of credits
+    const html = await res.text();
+    return html && html.length > 0 ? html : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Fetch rendered HTML via the generic POST {url} → HTML render endpoint. */
+async function fetchViaRenderEndpoint(url: string): Promise<string | null> {
   if (!RENDER_ENDPOINT) return null;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), RENDER_TIMEOUT_MS);
@@ -93,6 +130,15 @@ async function renderHtml(url: string): Promise<string | null> {
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Re-fetch a URL through the configured unblocker (ScraperAPI first, then the
+ * generic render endpoint). Returns null when none configured / all fail, so
+ * the caller keeps the Layer 1/2 result.
+ */
+async function renderHtml(url: string): Promise<string | null> {
+  return (await fetchViaScraperApi(url)) ?? (await fetchViaRenderEndpoint(url));
 }
 
 export interface NapRunSummary {
@@ -192,8 +238,8 @@ async function checkUrl(url: string, canonical: CanonicalNap): Promise<UrlResult
     const reachable = res.status >= 200 && res.status < 400;
 
     if (!reachable) {
-      // Blocked / error status — Layer 3 may still get through.
-      if (RENDER_ENDPOINT) {
+      // Blocked / error status — the unblocker may still get through.
+      if (UNBLOCKER_ENABLED) {
         const rendered = await tryRender(url, res.status, canonical, null);
         if (rendered) return rendered;
       }
@@ -202,15 +248,15 @@ async function checkUrl(url: string, canonical: CanonicalNap): Promise<UrlResult
 
     const html = await res.text();
     const result = evaluate(url, res.status, html, canonical, false);
-    // Only spend a render when the static fetch verified little (< 2 fields).
-    if (RENDER_ENDPOINT && matchedCount(result) < 2) {
+    // Only spend an unblocker call when the static fetch verified little.
+    if (UNBLOCKER_ENABLED && matchedCount(result) < 2) {
       const rendered = await tryRender(url, res.status, canonical, result);
       if (rendered) return rendered;
     }
     return result;
   } catch (err) {
     // Never render an SSRF-blocked target (it resolved to a private IP).
-    if (RENDER_ENDPOINT && !(err instanceof SSRFError)) {
+    if (UNBLOCKER_ENABLED && !(err instanceof SSRFError)) {
       const rendered = await tryRender(url, null, canonical, null);
       if (rendered) return rendered;
     }
