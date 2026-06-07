@@ -34,6 +34,7 @@ export interface NapAuditHistoryPoint {
 /** Row shape returned to API/UI (camelCased). */
 export interface NapAuditRecord {
   id: string;
+  brandId: string | null;
   label: string;
   canonical: CanonicalNap;
   urls: string[];
@@ -62,6 +63,7 @@ export async function ensureNapAuditsSchema(): Promise<void> {
     CREATE TABLE IF NOT EXISTS nap_audits (
       id           UUID PRIMARY KEY,
       user_id      TEXT NOT NULL,
+      brand_id     TEXT,
       label        TEXT NOT NULL,
       canonical    JSONB NOT NULL,
       urls         TEXT[] NOT NULL,
@@ -85,9 +87,49 @@ export async function ensureNapAuditsSchema(): Promise<void> {
   await pool.query(`ALTER TABLE nap_audits ADD COLUMN IF NOT EXISTS error TEXT`);
   await pool.query(`ALTER TABLE nap_audits ADD COLUMN IF NOT EXISTS schedule TEXT NOT NULL DEFAULT 'off'`);
   await pool.query(`ALTER TABLE nap_audits ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE nap_audits ADD COLUMN IF NOT EXISTS brand_id TEXT`);
+  // FK + cascade-on-brand-delete. Add only if missing — Postgres has no
+  // ADD CONSTRAINT IF NOT EXISTS, so we guard via information_schema.
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints
+         WHERE table_name = 'nap_audits' AND constraint_name = 'nap_audits_brand_fk'
+      ) THEN
+        ALTER TABLE nap_audits
+          ADD CONSTRAINT nap_audits_brand_fk
+          FOREIGN KEY (brand_id) REFERENCES brands(id) ON DELETE CASCADE;
+      END IF;
+    END$$;
+  `);
+  // One-shot heuristic backfill so pre-brand-scoping audits don't become
+  // invisible after the listing route starts filtering by brand_id. We
+  // only auto-associate when the audit's canonical business name matches
+  // exactly one of the owner's brands by name (case-insensitive), which
+  // is the common single-tenant shape. Audits with no confident match
+  // stay NULL and the user must re-assign them.
+  await pool.query(`
+    UPDATE nap_audits a
+       SET brand_id = b.id
+      FROM brands b
+     WHERE a.brand_id IS NULL
+       AND b.user_id = a.user_id
+       AND LOWER(b.data->>'name') = LOWER(a.canonical->>'name')
+       AND NOT EXISTS (
+         SELECT 1 FROM brands b2
+          WHERE b2.user_id = a.user_id
+            AND b2.id <> b.id
+            AND LOWER(b2.data->>'name') = LOWER(a.canonical->>'name')
+       )
+  `);
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_nap_audits_user_created
       ON nap_audits (user_id, created_at DESC)
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_nap_audits_user_brand_created
+      ON nap_audits (user_id, brand_id, created_at DESC)
   `);
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_nap_audits_status_active
@@ -104,6 +146,7 @@ function toIso(v: Date | string | null): string | null {
 
 interface NapAuditDbRow {
   id: string;
+  brand_id: string | null;
   label: string;
   canonical: CanonicalNap;
   urls: string[];
@@ -122,6 +165,7 @@ interface NapAuditDbRow {
 function mapRow(r: NapAuditDbRow): NapAuditRecord {
   return {
     id: r.id,
+    brandId: r.brand_id,
     label: r.label,
     canonical: r.canonical,
     urls: Array.isArray(r.urls) ? r.urls : [],
@@ -139,9 +183,9 @@ function mapRow(r: NapAuditDbRow): NapAuditRecord {
 }
 
 const FULL_COLS =
-  'id, label, canonical, urls, status, error, schedule, score, summary, duplicates, results, history, created_at, last_run_at';
+  'id, brand_id, label, canonical, urls, status, error, schedule, score, summary, duplicates, results, history, created_at, last_run_at';
 const LIST_COLS =
-  'id, label, canonical, urls, status, error, schedule, score, summary, history, created_at, last_run_at';
+  'id, brand_id, label, canonical, urls, status, error, schedule, score, summary, history, created_at, last_run_at';
 
 export async function countNapAudits(userId: string): Promise<number> {
   await ensureNapAuditsSchema();
@@ -149,16 +193,35 @@ export async function countNapAudits(userId: string): Promise<number> {
   return (res.rows[0]?.n as number) ?? 0;
 }
 
-export async function listNapAudits(userId: string): Promise<NapAuditListItem[]> {
+/**
+ * List the user's audits. When `brandId` is provided, results are scoped
+ * strictly to that brand so the dashboard never bleeds another brand's
+ * audits into the current view; audits with a NULL brand_id (pre-scoping
+ * legacy rows whose canonical name didn't match any brand during the
+ * schema backfill) are excluded from brand-scoped queries.
+ */
+export async function listNapAudits(
+  userId: string,
+  brandId?: string | null,
+): Promise<NapAuditListItem[]> {
   await ensureNapAuditsSchema();
-  const res = await pool.query(
-    `SELECT ${LIST_COLS}
-       FROM nap_audits
-      WHERE user_id = $1
-      ORDER BY created_at DESC
-      LIMIT $2`,
-    [userId, NAP_MAX_SAVED_AUDITS],
-  );
+  const res = brandId
+    ? await pool.query(
+        `SELECT ${LIST_COLS}
+           FROM nap_audits
+          WHERE user_id = $1 AND brand_id = $2
+          ORDER BY created_at DESC
+          LIMIT $3`,
+        [userId, brandId, NAP_MAX_SAVED_AUDITS],
+      )
+    : await pool.query(
+        `SELECT ${LIST_COLS}
+           FROM nap_audits
+          WHERE user_id = $1
+          ORDER BY created_at DESC
+          LIMIT $2`,
+        [userId, NAP_MAX_SAVED_AUDITS],
+      );
   return (res.rows as NapAuditDbRow[]).map((r) => {
     const rec = mapRow({ ...r, duplicates: [], results: [] });
     const { results: _results, duplicates: _duplicates, ...rest } = rec;
@@ -181,6 +244,7 @@ export async function getNapAudit(userId: string, id: string): Promise<NapAuditR
 /** Insert a saved audit in 'queued' state. The caller dispatches processNapAudit. */
 export async function insertNapAudit(input: {
   userId: string;
+  brandId: string;
   label: string;
   canonical: CanonicalNap;
   urls: string[];
@@ -189,10 +253,10 @@ export async function insertNapAudit(input: {
   const urls = input.urls.slice(0, NAP_MAX_URLS);
   const id = randomUUID();
   const res = await pool.query(
-    `INSERT INTO nap_audits (id, user_id, label, canonical, urls, status)
-     VALUES ($1, $2, $3, $4::jsonb, $5, 'queued')
+    `INSERT INTO nap_audits (id, user_id, brand_id, label, canonical, urls, status)
+     VALUES ($1, $2, $3, $4, $5::jsonb, $6, 'queued')
      RETURNING ${FULL_COLS}`,
-    [id, input.userId, input.label, JSON.stringify(input.canonical), urls],
+    [id, input.userId, input.brandId, input.label, JSON.stringify(input.canonical), urls],
   );
   return mapRow(res.rows[0] as NapAuditDbRow);
 }

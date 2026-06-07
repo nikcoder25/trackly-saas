@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Card, Badge, PageHead, KPIRail } from '@/app/dashboard-v2/ui';
 import NapAuditForm, { type NapAuditFormValues } from '@/components/dashboard/NapAuditForm';
+import { useBrands } from '@/contexts/BrandContext';
 
 type NapAuditStatus = 'queued' | 'running' | 'done' | 'failed';
 
@@ -34,7 +35,7 @@ function fmtDate(iso: string | null): string {
   return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
-function NewAuditModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function NewAuditModal({ brandId, onClose, onCreated }: { brandId: string; onClose: () => void; onCreated: () => void }) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
     window.addEventListener('keydown', onKey);
@@ -44,7 +45,7 @@ function NewAuditModal({ onClose, onCreated }: { onClose: () => void; onCreated:
   async function create(values: NapAuditFormValues) {
     const res = await fetch('/api/nap-audits', {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(values),
+      body: JSON.stringify({ ...values, brandId }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error((typeof data?.error === 'string' && data.error) || `Failed (HTTP ${res.status})`);
@@ -67,6 +68,9 @@ function NewAuditModal({ onClose, onCreated }: { onClose: () => void; onCreated:
 }
 
 export default function NapAuditsPage() {
+  const { selectedBrand, loading: brandsLoading } = useBrands();
+  const brandId: string | null = selectedBrand?.id ?? null;
+  const brandName: string | null = (selectedBrand?.name as string | undefined) ?? null;
   const [audits, setAudits] = useState<NapAuditListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -79,9 +83,10 @@ export default function NapAuditsPage() {
     setTimeout(() => setToast(null), 2500);
   }
 
-  async function fetchAudits() {
+  async function fetchAudits(bId: string | null = brandId) {
+    if (!bId) { setAudits([]); setError(null); return; }
     try {
-      const res = await fetch('/api/nap-audits', { credentials: 'include' });
+      const res = await fetch(`/api/nap-audits?brandId=${encodeURIComponent(bId)}`, { credentials: 'include' });
       if (!res.ok) { if (audits === null) setError(`Failed to load (HTTP ${res.status})`); return; }
       const data = await res.json();
       setAudits(Array.isArray(data?.audits) ? data.audits : []);
@@ -91,29 +96,34 @@ export default function NapAuditsPage() {
     }
   }
 
+  // Re-fetch whenever the active brand changes. Reset the cached list to
+  // null first so the user sees a loading state instead of stale rows
+  // from the previous brand bleeding through during the swap.
   useEffect(() => {
-    fetchAudits();
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    if (brandsLoading) return;
+    setAudits(null);
+    fetchAudits(brandId);
+    return () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } };
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, []);
+  }, [brandId, brandsLoading]);
 
   useEffect(() => {
     const active = (audits ?? []).some((a) => a.status === 'queued' || a.status === 'running');
     if (active && !pollRef.current) {
-      pollRef.current = setInterval(fetchAudits, 4000);
+      pollRef.current = setInterval(() => fetchAudits(brandId), 4000);
     } else if (!active && pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
     }
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [audits]);
+  }, [audits, brandId]);
 
   async function rerun(id: string) {
     setBusyId(id);
     try {
       const res = await fetch(`/api/nap-audits/${id}`, { method: 'POST', credentials: 'include' });
       if (res.ok) flash('Re-run started.'); else flash('Could not start re-run.');
-      await fetchAudits();
+      await fetchAudits(brandId);
     } finally { setBusyId(null); }
   }
 
@@ -123,7 +133,7 @@ export default function NapAuditsPage() {
     try {
       const res = await fetch(`/api/nap-audits/${id}`, { method: 'DELETE', credentials: 'include' });
       flash(res.ok ? 'Audit deleted.' : 'Could not delete audit.');
-      await fetchAudits();
+      await fetchAudits(brandId);
     } finally { setBusyId(null); }
   }
 
@@ -135,8 +145,21 @@ export default function NapAuditsPage() {
     <div className="lvx">
       <PageHead
         title="NAP Audits"
-        sub="Save a citation audit per client and re-run it to track NAP consistency improving over time."
-        actions={<button type="button" className="btn-p" onClick={() => setModalOpen(true)}>+ New audit</button>}
+        sub={brandName
+          ? `Saved citation audits for ${brandName}. Switch brand in the top bar to view another client's audits.`
+          : 'Save a citation audit per client and re-run it to track NAP consistency improving over time.'}
+        actions={
+          <button
+            type="button"
+            className="btn-p"
+            disabled={!brandId}
+            title={!brandId ? 'Select a brand first' : ''}
+            style={!brandId ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+            onClick={() => setModalOpen(true)}
+          >
+            + New audit
+          </button>
+        }
       />
 
       <div className="page-body">
@@ -161,18 +184,24 @@ export default function NapAuditsPage() {
             <div style={{ textAlign: 'center', padding: 24 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--danger)', marginBottom: 4 }}>Couldn&apos;t load audits</div>
               <div className="quiet" style={{ fontSize: 12, marginBottom: 14 }}>{error}</div>
-              <button onClick={fetchAudits} className="btn-g">Retry</button>
+              <button onClick={() => fetchAudits(brandId)} className="btn-g">Retry</button>
             </div>
           </Card>
         ) : all.length === 0 ? (
           <Card title="Audits">
             <div style={{ textAlign: 'center', padding: 48 }}>
               <div style={{ fontSize: 36, opacity: 0.4, marginBottom: 12 }}>📍</div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>No saved audits yet</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
+                {brandId ? `No saved audits for ${brandName ?? 'this brand'} yet` : 'No saved audits yet'}
+              </div>
               <p className="quiet" style={{ fontSize: 13, maxWidth: 380, margin: '0 auto 16px' }}>
-                Create an audit for a client — enter their canonical NAP and citation URLs. We&apos;ll fetch each page, flag mismatches, and keep a consistency score you can track over time.
+                {brandId
+                  ? 'Create an audit for this brand — enter its canonical NAP and citation URLs. We’ll fetch each page, flag mismatches, and keep a consistency score you can track over time.'
+                  : 'Select a brand in the top bar to view or create audits.'}
               </p>
-              <button onClick={() => setModalOpen(true)} className="btn-p">Create your first audit</button>
+              {brandId && (
+                <button onClick={() => setModalOpen(true)} className="btn-p">Create your first audit</button>
+              )}
             </div>
           </Card>
         ) : (
@@ -223,7 +252,13 @@ export default function NapAuditsPage() {
         <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: 'var(--text)', color: 'var(--surface)', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, zIndex: 1100, boxShadow: 'var(--shadow-2)' }}>{toast}</div>
       )}
 
-      {modalOpen && <NewAuditModal onClose={() => setModalOpen(false)} onCreated={fetchAudits} />}
+      {modalOpen && brandId && (
+        <NewAuditModal
+          brandId={brandId}
+          onClose={() => setModalOpen(false)}
+          onCreated={() => fetchAudits(brandId)}
+        />
+      )}
     </div>
   );
 }
