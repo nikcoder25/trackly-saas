@@ -127,7 +127,7 @@ export default function NapAuditDetailPage() {
               <ScoreHistory history={audit.history} />
             </Card>
             <div style={{ marginTop: 16 }}>
-              <NapResults data={audit} label={audit.label} />
+              <NapResults data={audit} label={audit.label} canonical={audit.canonical} />
             </div>
           </>
         )}

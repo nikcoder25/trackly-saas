@@ -1,9 +1,12 @@
 'use client';
 
+import { useState } from 'react';
+import { generateSchemaScriptTag, type CanonicalNap } from '@/lib/nap-verify';
+
 // Shared presentational view for NAP check results — score + summary, possible
-// duplicate listings, the per-URL results table, and CSV export. Used by both
-// the public free tool and the saved-audit detail page in the dashboard so the
-// two surfaces stay identical.
+// duplicate listings, the per-URL results table, CSV export, and a paste-ready
+// LocalBusiness schema generator. Used by both the public free tool and the
+// saved-audit detail page in the dashboard so the two surfaces stay identical.
 
 export type FieldStatus = 'match' | 'variation' | 'mismatch' | 'missing';
 
@@ -24,6 +27,7 @@ export interface NapUrlResult {
     street?: string;
     city?: string;
     postcode?: string;
+    source?: Partial<Record<'name' | 'phone' | 'street' | 'city' | 'postcode', 'schema' | 'regex'>>;
   };
   fields: {
     name: FieldResult;
@@ -130,7 +134,41 @@ function Stat({ label, value, color }: { label: string; value: number; color: st
   );
 }
 
-export default function NapResults({ data, label }: { data: NapResultsData; label?: string }) {
+function SchemaCard({ canonical }: { canonical: CanonicalNap }) {
+  const [copied, setCopied] = useState(false);
+  const snippet = generateSchemaScriptTag(canonical);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(snippet);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+  return (
+    <div style={cardStyle}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 6 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1a1a2e', margin: 0 }}>LocalBusiness schema</h2>
+        <button
+          onClick={copy}
+          style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid var(--brand, #5B5BD6)', background: copied ? 'var(--brand, #5B5BD6)' : '#fff', color: copied ? '#fff' : 'var(--brand, #5B5BD6)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+        >
+          {copied ? '✓ Copied' : 'Copy snippet'}
+        </button>
+      </div>
+      <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 14px' }}>
+        Paste this into the <code>&lt;head&gt;</code> of any listing or page missing structured data. It
+        makes your NAP machine-readable, so search engines and this tool read it cleanly.
+      </p>
+      <pre style={{ margin: 0, padding: 16, background: '#0f172a', color: '#e2e8f0', borderRadius: 10, fontSize: 12.5, lineHeight: 1.6, overflowX: 'auto' }}>
+        {snippet}
+      </pre>
+    </div>
+  );
+}
+
+export default function NapResults({ data, label, canonical }: { data: NapResultsData; label?: string; canonical?: CanonicalNap }) {
   const downloadCsv = () => {
     const blob = new Blob([buildCsv(data)], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -246,6 +284,11 @@ export default function NapResults({ data, label }: { data: NapResultsData; labe
                         {r.error || `HTTP ${r.httpStatus ?? '—'}`}
                       </div>
                     )}
+                    {r.reachable && !Object.values(r.extracted.source ?? {}).includes('schema') && (
+                      <div style={{ fontSize: 10, color: '#9333ea', marginTop: 2, fontWeight: 600 }}>
+                        no JSON-LD
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: '12px 14px', fontWeight: 700, color: scoreColor(r.matchScore) }}>
                     {r.reachable ? r.matchScore : '—'}
@@ -288,6 +331,8 @@ export default function NapResults({ data, label }: { data: NapResultsData; labe
           </table>
         </div>
       </div>
+
+      {canonical && <SchemaCard canonical={canonical} />}
     </div>
   );
 }

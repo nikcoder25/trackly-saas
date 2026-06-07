@@ -12,6 +12,8 @@ import {
   extractNap,
   extractUrlsFromText,
   extractWithRegex,
+  generateLocalBusinessSchema,
+  generateSchemaScriptTag,
   normalizeName,
   normalizePhone,
   normalizePostcode,
@@ -217,6 +219,35 @@ describe('comparison & tagging', () => {
     const minimal: CanonicalNap = { name: 'Acme Dental Care' };
     const cmp = compareNap(minimal, { name: 'Acme Dental Care', source: {} }, true);
     expect(cmp.matchScore).toBe(100);
+  });
+});
+
+describe('generateLocalBusinessSchema', () => {
+  it('builds a LocalBusiness node combining street + suite', () => {
+    const s = generateLocalBusinessSchema(CANONICAL) as Record<string, unknown>;
+    expect(s['@type']).toBe('LocalBusiness');
+    expect(s.name).toBe('Acme Dental Care');
+    expect(s.telephone).toBe('020 7946 0123');
+    expect(s.address).toEqual({
+      '@type': 'PostalAddress',
+      streetAddress: '12 High Street, Suite 4',
+      addressLocality: 'London',
+      postalCode: 'SW1A 1AA',
+    });
+  });
+
+  it('omits absent fields and drops an empty address', () => {
+    const s = generateLocalBusinessSchema({ name: 'Solo Co' }) as Record<string, unknown>;
+    expect(s.name).toBe('Solo Co');
+    expect(s.telephone).toBeUndefined();
+    expect(s.address).toBeUndefined();
+  });
+
+  it('wraps the snippet in a ld+json script tag', () => {
+    const tag = generateSchemaScriptTag(CANONICAL);
+    expect(tag).toContain('<script type="application/ld+json">');
+    expect(tag).toContain('"@type": "LocalBusiness"');
+    expect(tag.trim().endsWith('</script>')).toBe(true);
   });
 });
 

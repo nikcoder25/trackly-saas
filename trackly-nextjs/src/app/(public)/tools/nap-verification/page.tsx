@@ -298,7 +298,18 @@ export default function NapVerificationPage() {
 
       {data && (
         <div style={{ marginTop: 24 }}>
-          <NapResults data={data} label={name} />
+          <NapResults
+            data={data}
+            label={name}
+            canonical={{
+              name: name.trim(),
+              phone: phone.trim() || undefined,
+              street: street.trim() || undefined,
+              suite: suite.trim() || undefined,
+              city: city.trim() || undefined,
+              postcode: postcode.trim() || undefined,
+            }}
+          />
         </div>
       )}
 

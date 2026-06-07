@@ -520,6 +520,39 @@ export function consistencyScore(results: Array<{ matchScore: number }>): number
   return Math.round(sum / results.length);
 }
 
+// ── Schema generator (Phase 3) ───────────────────────────────────────────────
+
+/**
+ * Build a LocalBusiness JSON-LD object from a canonical NAP. For directories
+ * (or the client's own site) that ship no structured data, this is the snippet
+ * to paste so future extraction lands on the clean Layer-2 path. Only fields
+ * that are present are emitted — no empty keys.
+ */
+export function generateLocalBusinessSchema(c: CanonicalNap): Record<string, unknown> {
+  const schema: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'LocalBusiness',
+    name: c.name,
+  };
+  if (c.phone) schema.telephone = c.phone;
+
+  const address: Record<string, unknown> = { '@type': 'PostalAddress' };
+  const streetAddress = [c.street, c.suite].filter(Boolean).join(', ');
+  if (streetAddress) address.streetAddress = streetAddress;
+  if (c.city) address.addressLocality = c.city;
+  if (c.postcode) address.postalCode = c.postcode;
+  // Only attach address if it carries more than the @type.
+  if (Object.keys(address).length > 1) schema.address = address;
+
+  return schema;
+}
+
+/** The full <script> tag, ready to paste into a page <head>. */
+export function generateSchemaScriptTag(c: CanonicalNap): string {
+  const json = JSON.stringify(generateLocalBusinessSchema(c), null, 2);
+  return `<script type="application/ld+json">\n${json}\n</script>`;
+}
+
 // ── Duplicate listing detection ──────────────────────────────────────────────
 
 // Common multi-label public suffixes, so "shop.example.co.uk" collapses to
