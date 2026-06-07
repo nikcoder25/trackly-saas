@@ -12,6 +12,8 @@ import {
   extractNap,
   extractUrlsFromText,
   extractWithRegex,
+  extractionStrength,
+  isWeakExtraction,
   generateLocalBusinessSchema,
   generateSchemaScriptTag,
   normalizeName,
@@ -219,6 +221,21 @@ describe('comparison & tagging', () => {
     const minimal: CanonicalNap = { name: 'Acme Dental Care' };
     const cmp = compareNap(minimal, { name: 'Acme Dental Care', source: {} }, true);
     expect(cmp.matchScore).toBe(100);
+  });
+});
+
+describe('extractionStrength / isWeakExtraction (Layer 3 gating)', () => {
+  it('counts populated fields', () => {
+    expect(extractionStrength({ source: {} })).toBe(0);
+    expect(extractionStrength({ name: 'A', phone: '1', source: {} })).toBe(2);
+  });
+  it('treats a schema-rich extraction as strong', () => {
+    const e = { name: 'A', phone: '1', source: { name: 'schema' as const } };
+    expect(isWeakExtraction(e)).toBe(false);
+  });
+  it('treats a thin or schema-less extraction as weak', () => {
+    expect(isWeakExtraction({ name: 'A', source: { name: 'regex' } })).toBe(true);
+    expect(isWeakExtraction({ name: 'A', phone: '1', source: { name: 'regex', phone: 'regex' } })).toBe(true);
   });
 });
 

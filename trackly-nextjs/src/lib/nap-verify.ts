@@ -62,6 +62,18 @@ export interface UrlResult extends CompareResult {
   reachable: boolean;
   error?: string;
   extracted: ExtractedNap;
+  /** True when the page was re-fetched through the headless render service (Layer 3). */
+  rendered?: boolean;
+}
+
+/** Count of populated NAP fields — used to decide whether Layer 3 is worth trying. */
+export function extractionStrength(e: ExtractedNap): number {
+  return (['name', 'phone', 'street', 'city', 'postcode'] as const).filter((k) => e[k]).length;
+}
+
+/** True when an extraction is weak enough to justify a headless re-render. */
+export function isWeakExtraction(e: ExtractedNap): boolean {
+  return extractionStrength(e) < 2 || !Object.values(e.source).includes('schema');
 }
 
 // ── URL list parsing (paste + bulk CSV import) ───────────────────────────────

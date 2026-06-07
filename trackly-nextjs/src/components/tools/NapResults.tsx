@@ -38,6 +38,7 @@ export interface NapUrlResult {
   };
   tags: string[];
   matchScore: number;
+  rendered?: boolean;
 }
 
 export interface NapDuplicateGroup {
@@ -287,6 +288,11 @@ export default function NapResults({ data, label, canonical }: { data: NapResult
                     {r.reachable && !Object.values(r.extracted.source ?? {}).includes('schema') && (
                       <div style={{ fontSize: 10, color: '#9333ea', marginTop: 2, fontWeight: 600 }}>
                         no JSON-LD
+                      </div>
+                    )}
+                    {r.rendered && (
+                      <div style={{ fontSize: 10, color: '#0891b2', marginTop: 2, fontWeight: 600 }}>
+                        JS-rendered
                       </div>
                     )}
                   </td>
