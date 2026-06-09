@@ -1,11 +1,156 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
+import {
+  ANCHOR_TYPES,
+  ANCHOR_LABELS,
+  ANCHOR_HELP,
+  ANCHOR_MIX_TOLERANCE,
+  DEFAULT_ANCHOR_MIX,
+  type AnchorType,
+  anchorTextFor,
+  assignAnchorTypes,
+  normaliseMix,
+  planAnchorAssignments,
+} from '@/lib/anchor-mix';
 
 const STORAGE_KEY = 'trackly.backlink-tool.v2';
 const PRESETS_KEY = 'trackly.backlink-tool.presets.v1';
 const MAX_LINK_COUNT = 5;
 const INTERRUPTED_ERROR = 'Interrupted (page reloaded)';
+
+interface AnchorMixEditorProps {
+  mix: Record<AnchorType, number>;
+  count: number;
+  onChange: (next: Record<AnchorType, number>) => void;
+  previewParams: { moneySite: string; niche: string; location: string; sampleKeyword: string; sampleLink: string };
+}
+
+/**
+ * Admin control for the anchor-text profile of a campaign. Renders one
+ * row per AnchorType with the requested percentage, the resolved article
+ * count for the current batch size, and a live preview of what the
+ * actual anchor STRING will look like for that type.
+ *
+ * Three preset buttons cover the common shapes:
+ *   • Balanced (the SEO default)
+ *   • Branded-heavy (safe for fresh sites with no link history)
+ *   • Exact-only (legacy behaviour — handy for re-running an old campaign)
+ */
+function AnchorMixEditor({ mix, count, onChange, previewParams }: AnchorMixEditorProps) {
+  const total = ANCHOR_TYPES.reduce((s, t) => s + (mix[t] ?? 0), 0);
+  const onTarget = Math.abs(total - 100) <= ANCHOR_MIX_TOLERANCE;
+  const plan = planAnchorAssignments(Math.max(0, count), mix);
+
+  const previewPair: LinkPair = {
+    id: 0,
+    keyword: previewParams.sampleKeyword,
+    link: previewParams.sampleLink,
+    weight: 1,
+  };
+
+  function setValue(type: AnchorType, raw: string) {
+    const n = Math.max(0, Math.min(100, Math.round(parseFloat(raw) || 0)));
+    onChange({ ...mix, [type]: n });
+  }
+  function reset(to: Record<AnchorType, number>) {
+    onChange({ ...to });
+  }
+  function autoFill() {
+    // Scale every non-zero row so the total reaches 100. Leaves zero
+    // rows untouched so the admin can "turn off" a category and still
+    // hit 100 across the rest.
+    const sum = ANCHOR_TYPES.reduce((s, t) => s + (mix[t] ?? 0), 0);
+    if (sum === 0) {
+      onChange({ ...DEFAULT_ANCHOR_MIX });
+      return;
+    }
+    const factor = 100 / sum;
+    const scaled: Record<AnchorType, number> = { ...mix };
+    let runningTotal = 0;
+    let lastNonZero: AnchorType | null = null;
+    for (const t of ANCHOR_TYPES) {
+      const next = Math.round((mix[t] ?? 0) * factor);
+      scaled[t] = next;
+      runningTotal += next;
+      if (next > 0) lastNonZero = t;
+    }
+    if (runningTotal !== 100 && lastNonZero) {
+      scaled[lastNonZero] = Math.max(0, scaled[lastNonZero] + (100 - runningTotal));
+    }
+    onChange(scaled);
+  }
+
+  return (
+    <>
+      <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>
+        Anchor Text Mix
+      </label>
+      <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: 4, marginBottom: 8 }}>
+        Distribution of anchor types across the money-site backlink. The total should add up to ~100%. Each generated article is pre-assigned a type so the realised mix matches what you set here.
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+        <button type="button" onClick={() => reset(DEFAULT_ANCHOR_MIX)} style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', padding: '6px 12px', borderRadius: 6, fontSize: '0.78rem', cursor: 'pointer' }}>
+          Balanced (default)
+        </button>
+        <button type="button" onClick={() => reset({ exact: 0, partial: 5, branded: 60, generic: 15, topical: 10, geo: 0, naked: 10, url: 0 })} style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', padding: '6px 12px', borderRadius: 6, fontSize: '0.78rem', cursor: 'pointer' }}>
+          Branded-heavy
+        </button>
+        <button type="button" onClick={() => reset({ exact: 100, partial: 0, branded: 0, generic: 0, topical: 0, geo: 0, naked: 0, url: 0 })} style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', padding: '6px 12px', borderRadius: 6, fontSize: '0.78rem', cursor: 'pointer' }}>
+          Exact only (legacy)
+        </button>
+        <button type="button" onClick={autoFill} style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', padding: '6px 12px', borderRadius: 6, fontSize: '0.78rem', cursor: 'pointer' }}>
+          Auto-balance to 100%
+        </button>
+      </div>
+      <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 0.8fr 2fr', gap: 0, background: 'var(--bg)', padding: '8px 12px', fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.5px', fontWeight: 700 }}>
+          <div>Type</div>
+          <div>Percent</div>
+          <div style={{ textAlign: 'right' }}>Articles</div>
+          <div>Example anchor</div>
+        </div>
+        {ANCHOR_TYPES.map((t, i) => {
+          const sample = anchorTextFor(t, previewPair, previewParams.moneySite, previewParams.niche, previewParams.location, i);
+          return (
+            <div key={t} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 0.8fr 2fr', gap: 0, padding: '8px 12px', borderTop: '1px solid var(--border)', background: 'var(--bg2)', alignItems: 'center' }}>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text)' }}>
+                <div style={{ fontWeight: 600 }}>{ANCHOR_LABELS[t]}</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 2 }}>{ANCHOR_HELP[t]}</div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={mix[t] ?? 0}
+                  onChange={(e) => setValue(t, e.target.value)}
+                  style={{ width: 70, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', color: 'var(--text)', fontSize: '0.85rem' }}
+                />
+                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>%</span>
+              </div>
+              <div style={{ textAlign: 'right', fontSize: '0.85rem', color: 'var(--muted)' }} className="mono">
+                {plan[t] ?? 0}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--muted)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', overflowWrap: 'anywhere' }}>
+                {sample ? `"${sample}"` : <span style={{ fontStyle: 'italic' }}>fill in money site / keyword to preview</span>}
+              </div>
+            </div>
+          );
+        })}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 0.8fr 2fr', gap: 0, padding: '8px 12px', borderTop: '1px solid var(--border)', background: 'var(--bg)', fontSize: '0.85rem', fontWeight: 700, color: onTarget ? 'var(--green)' : 'var(--red)' }}>
+          <div>Total</div>
+          <div>{total}%</div>
+          <div style={{ textAlign: 'right' }} className="mono">{Math.max(0, count)}</div>
+          <div style={{ color: onTarget ? 'var(--green)' : 'var(--red)' }}>
+            {onTarget ? '✓ adds up to 100%' : `Adjust to 100% (currently ${total}%) — totals off-target will be normalised proportionally`}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
 
 // USD per 1M tokens. Numbers are list prices used only for a rough
 // pre-flight estimate; real billing comes from the provider invoice.
@@ -37,6 +182,8 @@ type PresetState = {
   blogLinkCount: number;
   includeTable: boolean;
   includeImages: boolean;
+  /** Optional on legacy presets — falls back to DEFAULT_ANCHOR_MIX when missing. */
+  anchorMix?: Record<AnchorType, number>;
 };
 type PersistedState = PresetState & {
   articles: Article[];
@@ -56,6 +203,14 @@ type Article = {
   content: string;
   error: string | null;
   pair: LinkPair;
+  /**
+   * Anchor profile picked for this article. Resolved at startGeneration
+   * time so re-runs / persistence keep the original mix even if the
+   * admin tweaks the percentages mid-batch. Optional for backward compat
+   * with persisted Articles created before the mix existed.
+   */
+  anchorType?: AnchorType;
+  anchorText?: string;
 };
 type DistributionMode = 'rotate' | 'random' | 'weighted';
 type GenStatus = { msg: string; type: 'loading' | 'success' | 'error' | 'warn' };
@@ -85,6 +240,7 @@ export default function BacklinkToolPage() {
   const [blogLinkCount, setBlogLinkCount] = useState(2);
   const [includeTable, setIncludeTable] = useState(false);
   const [includeImages, setIncludeImages] = useState(false);
+  const [anchorMix, setAnchorMix] = useState<Record<AnchorType, number>>({ ...DEFAULT_ANCHOR_MIX });
 
   const [articles, setArticles] = useState<Article[]>([]);
   const [isRunning, setIsRunning] = useState(false);
@@ -143,6 +299,7 @@ export default function BacklinkToolPage() {
         if (bc !== null) setBlogLinkCount(bc);
         if (typeof s.includeTable === 'boolean') setIncludeTable(s.includeTable);
         if (typeof s.includeImages === 'boolean') setIncludeImages(s.includeImages);
+        if (s.anchorMix && typeof s.anchorMix === 'object') setAnchorMix(normaliseMix(s.anchorMix));
         if (Array.isArray(s.articles)) {
           // Rehydrate any in-flight articles as errored so the UI doesn't
           // look stuck in 'generating' forever after a reload.
@@ -168,7 +325,7 @@ export default function BacklinkToolPage() {
         provider, model, concurrency, moneySite, niche, location, authorInfo,
         linkPairs, distributionMode, count, wordCount, tone, placement, extras,
         externalLinkCount, serviceLinkCount, blogLinkCount,
-        includeTable, includeImages, articles,
+        includeTable, includeImages, anchorMix, articles,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
     } catch {
@@ -178,7 +335,7 @@ export default function BacklinkToolPage() {
     hydrated, provider, model, concurrency, moneySite, niche, location, authorInfo,
     linkPairs, distributionMode, count, wordCount, tone, placement, extras,
     externalLinkCount, serviceLinkCount, blogLinkCount,
-    includeTable, includeImages, articles,
+    includeTable, includeImages, anchorMix, articles,
   ]);
 
   function handleProviderChange(p: 'claude' | 'openai') {
@@ -336,7 +493,12 @@ export default function BacklinkToolPage() {
     includeImages: boolean;
   };
 
-  function buildPrompt(params: PromptParams, index: number, pair: LinkPair): string {
+  function buildPrompt(
+    params: PromptParams,
+    index: number,
+    pair: LinkPair,
+    anchorOverride?: { type: AnchorType; text: string },
+  ): string {
     const angles = [
       'ultimate beginner guide', 'common mistakes and how to avoid them',
       'expert tips and best practices', 'comparison and decision guide',
@@ -360,8 +522,25 @@ export default function BacklinkToolPage() {
     const cleanDomain = params.moneySite.replace(/\/$/, '');
     const updateDate = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
+    // Compose the anchor text the model is REQUIRED to use for the
+    // money-site backlink. If the parent supplied an explicit anchor
+    // (from the configured mix), use it verbatim; otherwise fall back
+    // to the legacy "exact match only" rule for backwards compat with
+    // generation flows that don't go through startGeneration.
+    const anchorType: AnchorType = anchorOverride?.type ?? 'exact';
+    const anchorText = anchorOverride?.text?.trim() || pair.keyword.trim();
+    const anchorTypeNote: Record<AnchorType, string> = {
+      exact: 'exact-match keyword',
+      partial: 'partial-match phrase',
+      branded: 'brand name',
+      generic: 'generic call-to-action anchor',
+      topical: 'topical / LSI phrase',
+      geo: 'geo-modified phrase',
+      naked: 'naked URL (bare domain)',
+      url: 'full URL',
+    };
     const linkingRules: string[] = [
-      `- ONE money-site backlink: <a href="${pair.link}">${pair.keyword}</a> placed naturally (no anchor variations, exact match only).`,
+      `- ONE money-site backlink: <a href="${pair.link}">${anchorText}</a> placed naturally. Use this anchor text EXACTLY as written above — it has been pre-chosen as a ${anchorTypeNote[anchorType]} for this article's slot in the anchor-text mix. Do NOT paraphrase, expand, or substitute it.`,
     ];
     if (params.serviceLinkCount > 0) {
       linkingRules.push(
@@ -557,10 +736,14 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
   }
 
   // Shared worker pool used by initial generation, retry, regenerate, and
-  // resume. Reads the pair for each index from a caller-supplied lookup so
-  // it works both for freshly assigned articles (startGeneration) and for
-  // already-persisted ones (retry/regenerate).
-  async function runWorkers(indices: number[], pairLookup: Map<number, LinkPair>) {
+  // resume. Reads the pair AND the pre-assigned anchor profile for each
+  // index from caller-supplied lookups so the realised anchor mix matches
+  // what startGeneration planned even when a single article is retried.
+  async function runWorkers(
+    indices: number[],
+    pairLookup: Map<number, LinkPair>,
+    anchorLookup: Map<number, { type: AnchorType; text: string }>,
+  ) {
     if (indices.length === 0) return;
     const params = buildParams();
     const queue = [...indices];
@@ -577,9 +760,10 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
           if (idx === undefined) break;
           const pair = pairLookup.get(idx);
           if (!pair) continue;
+          const anchor = anchorLookup.get(idx);
           updateArticle(idx, { status: 'generating', error: null });
           try {
-            const prompt = buildPrompt(params, idx, pair);
+            const prompt = buildPrompt(params, idx, pair, anchor);
             const raw = await callGenerate(prompt);
             const content = cleanToHtml(raw);
             const title = extractTitle(content) || `Article ${idx + 1}`;
@@ -616,11 +800,28 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
       for (let i = 0; i < count; i++) assigned.push(getPairForArticle(i));
     }
 
+    // Distribute the configured anchor mix across the batch and pin the
+    // resolved type+text on each Article so retries/regenerations keep
+    // the same anchor instead of resampling and skewing the totals.
+    const anchorTypes = assignAnchorTypes(count, anchorMix);
     const initial: Article[] = [];
     const lookup = new Map<number, LinkPair>();
+    const anchorLookup = new Map<number, { type: AnchorType; text: string }>();
     for (let i = 0; i < count; i++) {
-      initial.push({ index: i, status: 'pending', title: `Article #${i + 1}`, content: '', error: null, pair: assigned[i] });
+      const anchorType = anchorTypes[i] ?? 'exact';
+      const anchorText = anchorTextFor(anchorType, assigned[i], moneySite, niche, location, i);
+      initial.push({
+        index: i,
+        status: 'pending',
+        title: `Article #${i + 1}`,
+        content: '',
+        error: null,
+        pair: assigned[i],
+        anchorType,
+        anchorText,
+      });
       lookup.set(i, assigned[i]);
+      anchorLookup.set(i, { type: anchorType, text: anchorText });
     }
     setArticles(initial);
     setSelected(new Set());
@@ -628,7 +829,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     shouldStopRef.current = false;
     setGenStatus({ msg: `Generating ${count} articles with ${concurrency} parallel workers...`, type: 'loading' });
 
-    await runWorkers(Array.from({ length: count }, (_, i) => i), lookup);
+    await runWorkers(Array.from({ length: count }, (_, i) => i), lookup, anchorLookup);
     setIsRunning(false);
 
     setArticles((prev) => {
@@ -645,8 +846,18 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     if (indices.length === 0) return;
     const toRun = new Set(indices);
     const lookup = new Map<number, LinkPair>();
+    const anchorLookup = new Map<number, { type: AnchorType; text: string }>();
     articles.forEach((a) => {
-      if (toRun.has(a.index)) lookup.set(a.index, a.pair);
+      if (!toRun.has(a.index)) return;
+      lookup.set(a.index, a.pair);
+      // Legacy persisted articles (from before the mix existed) won't
+      // have anchorType set — fall back to the exact-match behaviour the
+      // tool used at that time so a retry doesn't quietly change the
+      // anchor under the user.
+      const type: AnchorType = a.anchorType ?? 'exact';
+      const text = a.anchorText
+        ?? anchorTextFor(type, a.pair, moneySite, niche, location, a.index);
+      anchorLookup.set(a.index, { type, text });
     });
     setArticles((prev) =>
       prev.map((a) => (toRun.has(a.index) ? { ...a, status: 'pending', content: '', error: null } : a)),
@@ -655,7 +866,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     shouldStopRef.current = false;
     setGenStatus({ msg: statusMsg, type: 'loading' });
 
-    await runWorkers(indices, lookup);
+    await runWorkers(indices, lookup, anchorLookup);
     setIsRunning(false);
 
     setArticles((prev) => {
@@ -965,6 +1176,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
       provider, model, concurrency, moneySite, niche, location, authorInfo,
       linkPairs, distributionMode, count, wordCount, tone, placement, extras,
       externalLinkCount, serviceLinkCount, blogLinkCount, includeTable, includeImages,
+      anchorMix,
     };
     const next = { ...presets, [key]: preset };
     setPresets(next);
@@ -1001,6 +1213,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     setBlogLinkCount(p.blogLinkCount);
     setIncludeTable(p.includeTable);
     setIncludeImages(p.includeImages);
+    setAnchorMix(p.anchorMix ? normaliseMix(p.anchorMix) : { ...DEFAULT_ANCHOR_MIX });
     setActivePresetName(name);
     setGenStatus({ msg: `✓ Loaded preset "${name}"`, type: 'success' });
     setTimeout(() => setGenStatus(null), 1800);
@@ -1286,6 +1499,14 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
             <textarea value={extras} onChange={(e) => setExtras(e.target.value)} placeholder="e.g. Focus on Detroit area, mention luxury chauffeur service..." style={{ ...styles.input, minHeight: 60 }} />
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
+            <AnchorMixEditor
+              mix={anchorMix}
+              count={count}
+              onChange={setAnchorMix}
+              previewParams={{ moneySite, niche, location, sampleKeyword: validPairs[0]?.keyword || niche || '', sampleLink: validPairs[0]?.link || moneySite || '' }}
+            />
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
             <label style={styles.label}>Link Counts</label>
             <div style={styles.help}>The money-site backlink (your target keyword) is always included. Set any count to 0 to skip that type entirely.</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 8 }}>
@@ -1499,6 +1720,11 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
                   {a.pair && (
                     <span style={{ ...styles.badge, background: 'rgba(99,102,241,0.18)', color: 'var(--primary)' }}>
                       {a.pair.keyword}
+                    </span>
+                  )}
+                  {a.anchorType && (
+                    <span style={{ ...styles.badge, background: 'rgba(148,163,184,0.18)', color: 'var(--muted)' }}>
+                      {ANCHOR_LABELS[a.anchorType]}: "{a.anchorText}"
                     </span>
                   )}
                   <span style={{
