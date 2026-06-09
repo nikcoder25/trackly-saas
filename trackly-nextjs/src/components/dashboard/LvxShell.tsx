@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useBrands } from '@/contexts/BrandContext';
 import { useRun } from '@/contexts/RunContext';
 import { Logo } from '@/app/dashboard-v2/ui';
+import AddBrandModal from '@/components/dashboard/AddBrandModal';
 import '@/app/dashboard-v2/dashboard-v2.css';
 
 interface NavItem { id: string; href: string; label: string; badge?: string; adminOnly?: boolean }
@@ -112,10 +113,33 @@ function Lvx({ children }: { children: React.ReactNode }) {
 
 function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const { user } = useAuth();
-  const { brands, selectedBrand, selectBrandById, brandLimit } = useBrands();
+  const { brands, selectedBrand, setSelectedBrand, selectBrandById, refreshBrands, plan, brandLimit } = useBrands();
+  const { startRun } = useRun();
+  const startRunRef = React.useRef(startRun);
+  React.useEffect(() => { startRunRef.current = startRun; }, [startRun]);
+  const [showAddBrand, setShowAddBrand] = React.useState(false);
+  const [showLimitPrompt, setShowLimitPrompt] = React.useState(false);
+  const limitRef = React.useRef<HTMLDivElement>(null);
+  const atBrandLimit = brands.length >= brandLimit;
   const initials = (selectedBrand?.name || 'Br').slice(0, 2).toUpperCase();
   const planLabel = (user?.plan || 'free').toUpperCase();
+
+  React.useEffect(() => {
+    if (!showLimitPrompt) return;
+    const handler = (e: MouseEvent) => {
+      if (limitRef.current && !limitRef.current.contains(e.target as Node)) setShowLimitPrompt(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showLimitPrompt]);
+
+  const handleAddBrandClick = () => {
+    if (atBrandLimit) setShowLimitPrompt(true);
+    else setShowAddBrand(true);
+  };
+
   return (
+    <>
     <header className="topbar">
       <div className="topbar-left">
         <button onClick={onMenuToggle} className="icon-btn lvx-hamburger" aria-label="Menu" style={{ display: 'none' }}>
@@ -134,7 +158,53 @@ function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
             {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
         </div>
-        <Link href="/dashboard/setup" className="btn-d" style={{ fontSize: 12 }}>+ Add brand</Link>
+        <div style={{ position: 'relative' }} ref={limitRef}>
+          <button
+            type="button"
+            onClick={handleAddBrandClick}
+            className="btn-d"
+            style={{ fontSize: 12, cursor: 'pointer', opacity: atBrandLimit ? 0.5 : 1 }}
+          >
+            + Add brand
+            {atBrandLimit && (
+              <span style={{ fontSize: 9, marginLeft: 4, opacity: 0.7 }}>
+                ({brands.length}/{brandLimit >= 9999 ? '∞' : brandLimit})
+              </span>
+            )}
+          </button>
+          {showLimitPrompt && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, marginTop: 8,
+              width: 300, background: 'var(--bg2)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)', boxShadow: '0 8px 30px rgba(0,0,0,.12)',
+              zIndex: 9999, padding: 20, textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>🚀</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+                Brand Limit Reached
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 16 }}>
+                Your <strong>{plan}</strong> plan allows up to <strong>{brandLimit} brand{brandLimit !== 1 ? 's' : ''}</strong>.
+                Upgrade your plan to add more brands.
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => setShowLimitPrompt(false)}
+                  style={{ flex: 1, padding: '8px 12px', background: 'var(--bg3)', color: 'var(--muted)', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <Link
+                  href="/dashboard/account"
+                  onClick={() => setShowLimitPrompt(false)}
+                  style={{ flex: 1, padding: '8px 12px', background: 'var(--primary)', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', borderRadius: 'var(--radius-xs)', cursor: 'pointer', textDecoration: 'none', textAlign: 'center' }}
+                >
+                  Upgrade Plan
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
         <Link href="/dashboard/query-tracker" className="global-search lvx-search" style={{ display: 'none' }}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
             <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.5" />
@@ -153,6 +223,19 @@ function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
         <button className="avatar" title={user?.email || ''}>{user?.name?.[0]?.toUpperCase() || 'U'}</button>
       </div>
     </header>
+    {showAddBrand && (
+      <AddBrandModal
+        onClose={() => setShowAddBrand(false)}
+        onCreated={(brand) => {
+          setShowAddBrand(false);
+          setSelectedBrand(brand);
+          refreshBrands().then(() => {
+            setTimeout(() => startRunRef.current(false, { auto: true }), 600);
+          });
+        }}
+      />
+    )}
+    </>
   );
 }
 
