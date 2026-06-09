@@ -184,6 +184,17 @@ type PresetState = {
   includeImages: boolean;
   /** Optional on legacy presets — falls back to DEFAULT_ANCHOR_MIX when missing. */
   anchorMix?: Record<AnchorType, number>;
+  /**
+   * When true, anchors are distributed across the anchor-text mix above.
+   * When false, every backlink uses the plain exact keyword as its anchor
+   * (the simple "keyword + link pair" mode). Optional on legacy presets —
+   * defaults to true so existing campaigns keep their mix.
+   */
+  useAnchorMix?: boolean;
+  /** Operator-supplied real interlinks. Optional on legacy presets. */
+  interlinks?: Interlink[];
+  /** How many interlinks each article uses (rotated). 0 = all. Optional on legacy presets. */
+  interlinksPerArticle?: number;
 };
 type PersistedState = PresetState & {
   articles: Article[];
@@ -195,6 +206,8 @@ function clampCount(n: unknown): number | null {
 }
 
 type LinkPair = { id: number; keyword: string; link: string; weight: number };
+/** A real internal/interlink the operator supplies: clickable anchor text + destination URL. */
+type Interlink = { id: number; anchor: string; url: string };
 type ArticleStatus = 'pending' | 'generating' | 'done' | 'error';
 type Article = {
   index: number;
@@ -229,6 +242,8 @@ export default function BacklinkToolPage() {
     { id: Date.now(), keyword: '', link: '', weight: 1 },
   ]);
   const [distributionMode, setDistributionMode] = useState<DistributionMode>('rotate');
+  const [interlinks, setInterlinks] = useState<Interlink[]>([]);
+  const [interlinksPerArticle, setInterlinksPerArticle] = useState(2);
 
   const [count, setCount] = useState(10);
   const [wordCount, setWordCount] = useState('600');
@@ -241,6 +256,7 @@ export default function BacklinkToolPage() {
   const [includeTable, setIncludeTable] = useState(false);
   const [includeImages, setIncludeImages] = useState(false);
   const [anchorMix, setAnchorMix] = useState<Record<AnchorType, number>>({ ...DEFAULT_ANCHOR_MIX });
+  const [useAnchorMix, setUseAnchorMix] = useState(true);
 
   const [articles, setArticles] = useState<Article[]>([]);
   const [isRunning, setIsRunning] = useState(false);
@@ -300,6 +316,9 @@ export default function BacklinkToolPage() {
         if (typeof s.includeTable === 'boolean') setIncludeTable(s.includeTable);
         if (typeof s.includeImages === 'boolean') setIncludeImages(s.includeImages);
         if (s.anchorMix && typeof s.anchorMix === 'object') setAnchorMix(normaliseMix(s.anchorMix));
+        if (typeof s.useAnchorMix === 'boolean') setUseAnchorMix(s.useAnchorMix);
+        if (Array.isArray(s.interlinks)) setInterlinks(s.interlinks);
+        if (typeof s.interlinksPerArticle === 'number') setInterlinksPerArticle(Math.max(0, Math.floor(s.interlinksPerArticle)));
         if (Array.isArray(s.articles)) {
           // Rehydrate any in-flight articles as errored so the UI doesn't
           // look stuck in 'generating' forever after a reload.
@@ -323,9 +342,9 @@ export default function BacklinkToolPage() {
     try {
       const snapshot: PersistedState = {
         provider, model, concurrency, moneySite, niche, location, authorInfo,
-        linkPairs, distributionMode, count, wordCount, tone, placement, extras,
+        linkPairs, distributionMode, interlinks, interlinksPerArticle, count, wordCount, tone, placement, extras,
         externalLinkCount, serviceLinkCount, blogLinkCount,
-        includeTable, includeImages, anchorMix, articles,
+        includeTable, includeImages, anchorMix, useAnchorMix, articles,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
     } catch {
@@ -333,9 +352,9 @@ export default function BacklinkToolPage() {
     }
   }, [
     hydrated, provider, model, concurrency, moneySite, niche, location, authorInfo,
-    linkPairs, distributionMode, count, wordCount, tone, placement, extras,
+    linkPairs, distributionMode, interlinks, count, wordCount, tone, placement, extras,
     externalLinkCount, serviceLinkCount, blogLinkCount,
-    includeTable, includeImages, anchorMix, articles,
+    includeTable, includeImages, anchorMix, useAnchorMix, articles,
   ]);
 
   function handleProviderChange(p: 'claude' | 'openai') {
@@ -450,6 +469,17 @@ export default function BacklinkToolPage() {
   }
 
   const validPairs = linkPairs.filter((p) => p.keyword.trim() && p.link.trim());
+  const validInterlinks = interlinks.filter((l) => l.anchor.trim() && l.url.trim());
+
+  function addInterlink() {
+    setInterlinks([...interlinks, { id: Date.now() + Math.random(), anchor: '', url: '' }]);
+  }
+  function removeInterlink(id: number) {
+    setInterlinks(interlinks.filter((l) => l.id !== id));
+  }
+  function updateInterlink(id: number, field: 'anchor' | 'url', value: string) {
+    setInterlinks(interlinks.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
+  }
 
   // Weighted distribution only behaves correctly with positive, finite
   // weights. A zero/negative/NaN weight would skew (or break) the running
@@ -504,6 +534,8 @@ export default function BacklinkToolPage() {
     blogLinkCount: number;
     includeTable: boolean;
     includeImages: boolean;
+    interlinks: { anchor: string; url: string }[];
+    interlinksPerArticle: number;
   };
 
   function buildPrompt(
@@ -555,15 +587,46 @@ export default function BacklinkToolPage() {
     const linkingRules: string[] = [
       `- ONE money-site backlink: <a href="${pair.link}">${anchorText}</a> placed naturally. Use this anchor text EXACTLY as written above — it has been pre-chosen as a ${anchorTypeNote[anchorType]} for this article's slot in the anchor-text mix. Do NOT paraphrase, expand, or substitute it.`,
     ];
-    if (params.serviceLinkCount > 0) {
+    // Internal links: when the operator supplies explicit interlink
+    // anchor+URL pairs, those REPLACE the AI-invented service/blog links so
+    // every article only links to the real URLs provided. Otherwise fall
+    // back to the model inventing service/blog paths on the money site.
+    const useCustomInterlinks = params.interlinks.length > 0;
+    let internalLinkCount: number;
+    if (useCustomInterlinks) {
+      // Rotate a window of `interlinksPerArticle` links across the batch so
+      // articles don't all link to the same pages. Keyed on the article
+      // index, so a retry of the same index reuses the same subset. A value
+      // of 0 (or >= the list size) means "include all in every article".
+      const all = params.interlinks;
+      const per = params.interlinksPerArticle;
+      let selected: { anchor: string; url: string }[];
+      if (per <= 0 || per >= all.length) {
+        selected = all;
+      } else {
+        selected = [];
+        const start = (index * per) % all.length;
+        for (let k = 0; k < per; k++) selected.push(all[(start + k) % all.length]);
+      }
+      internalLinkCount = selected.length;
+      const list = selected
+        .map((l) => `<a href="${l.url}">${l.anchor}</a>`)
+        .join('\n  ');
       linkingRules.push(
-        `- EXACTLY ${params.serviceLinkCount} internal link${params.serviceLinkCount > 1 ? 's' : ''} to RELATED SERVICE/COMMERCIAL pages on the same money site domain. Use natural anchor text. Format: <a href="${cleanDomain}/services">related service page</a>. Vary the path across links (e.g., /services, /about, /pricing, /contact, /resources). DO NOT reuse the exact money-site link from the rule above.`,
+        `- Include these EXACT internal interlink${selected.length > 1 ? 's' : ''}, each placed naturally in a relevant sentence and used exactly once:\n  ${list}\n  Use the anchor text and URL of each EXACTLY as written — do NOT paraphrase the anchor text, alter the URLs, or invent any other internal links to the money site.`,
       );
-    }
-    if (params.blogLinkCount > 0) {
-      linkingRules.push(
-        `- EXACTLY ${params.blogLinkCount} internal link${params.blogLinkCount > 1 ? 's' : ''} to RELATED BLOGS on the same money site (e.g., <a href="${cleanDomain}/blog/related-topic">descriptive anchor</a>). Use realistic blog slug paths.`,
-      );
+    } else {
+      internalLinkCount = params.serviceLinkCount + params.blogLinkCount;
+      if (params.serviceLinkCount > 0) {
+        linkingRules.push(
+          `- EXACTLY ${params.serviceLinkCount} internal link${params.serviceLinkCount > 1 ? 's' : ''} to RELATED SERVICE/COMMERCIAL pages on the same money site domain. Use natural anchor text. Format: <a href="${cleanDomain}/services">related service page</a>. Vary the path across links (e.g., /services, /about, /pricing, /contact, /resources). DO NOT reuse the exact money-site link from the rule above.`,
+        );
+      }
+      if (params.blogLinkCount > 0) {
+        linkingRules.push(
+          `- EXACTLY ${params.blogLinkCount} internal link${params.blogLinkCount > 1 ? 's' : ''} to RELATED BLOGS on the same money site (e.g., <a href="${cleanDomain}/blog/related-topic">descriptive anchor</a>). Use realistic blog slug paths.`,
+        );
+      }
     }
     if (params.externalLinkCount > 0) {
       linkingRules.push(
@@ -572,7 +635,7 @@ export default function BacklinkToolPage() {
     } else {
       linkingRules.push('- DO NOT include any external links to other websites or domains. Only the single money-site backlink above is permitted.');
     }
-    const totalLinks = 1 + params.serviceLinkCount + params.blogLinkCount + params.externalLinkCount;
+    const totalLinks = 1 + internalLinkCount + params.externalLinkCount;
     linkingRules.push(`- Total link count target: EXACTLY ${totalLinks} link${totalLinks > 1 ? 's' : ''} per article (no more, no fewer).`);
 
     const mediaRules: string[] = [];
@@ -745,6 +808,8 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     return {
       moneySite, niche, location, authorInfo, wordCount, tone, placement, extras,
       externalLinkCount, serviceLinkCount, blogLinkCount, includeTable, includeImages,
+      interlinks: validInterlinks.map((l) => ({ anchor: l.anchor.trim(), url: l.url.trim() })),
+      interlinksPerArticle,
     };
   }
 
@@ -815,8 +880,12 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
 
     // Distribute the configured anchor mix across the batch and pin the
     // resolved type+text on each Article so retries/regenerations keep
-    // the same anchor instead of resampling and skewing the totals.
-    const anchorTypes = assignAnchorTypes(count, anchorMix);
+    // the same anchor instead of resampling and skewing the totals. When
+    // the mix is toggled off, every backlink just uses the exact keyword
+    // (the simple "keyword + link pair" mode).
+    const anchorTypes = useAnchorMix
+      ? assignAnchorTypes(count, anchorMix)
+      : (Array.from({ length: count }, () => 'exact') as AnchorType[]);
     const initial: Article[] = [];
     const lookup = new Map<number, LinkPair>();
     const anchorLookup = new Map<number, { type: AnchorType; text: string }>();
@@ -1187,9 +1256,9 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     const key = name.trim();
     const preset: PresetState = {
       provider, model, concurrency, moneySite, niche, location, authorInfo,
-      linkPairs, distributionMode, count, wordCount, tone, placement, extras,
+      linkPairs, distributionMode, interlinks, interlinksPerArticle, count, wordCount, tone, placement, extras,
       externalLinkCount, serviceLinkCount, blogLinkCount, includeTable, includeImages,
-      anchorMix,
+      anchorMix, useAnchorMix,
     };
     const next = { ...presets, [key]: preset };
     setPresets(next);
@@ -1216,6 +1285,8 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     setAuthorInfo(p.authorInfo);
     setLinkPairs(p.linkPairs);
     setDistributionMode(p.distributionMode);
+    setInterlinks(Array.isArray(p.interlinks) ? p.interlinks : []);
+    setInterlinksPerArticle(typeof p.interlinksPerArticle === 'number' ? Math.max(0, Math.floor(p.interlinksPerArticle)) : 2);
     setCount(p.count);
     setWordCount(p.wordCount);
     setTone(p.tone);
@@ -1227,6 +1298,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     setIncludeTable(p.includeTable);
     setIncludeImages(p.includeImages);
     setAnchorMix(p.anchorMix ? normaliseMix(p.anchorMix) : { ...DEFAULT_ANCHOR_MIX });
+    setUseAnchorMix(p.useAnchorMix ?? true);
     setActivePresetName(name);
     setGenStatus({ msg: `✓ Loaded preset "${name}"`, type: 'success' });
     setTimeout(() => setGenStatus(null), 1800);
@@ -1512,16 +1584,32 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
             <textarea value={extras} onChange={(e) => setExtras(e.target.value)} placeholder="e.g. Focus on Detroit area, mention luxury chauffeur service..." style={{ ...styles.input, minHeight: 60 }} />
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
-            <AnchorMixEditor
-              mix={anchorMix}
-              count={count}
-              onChange={setAnchorMix}
-              previewParams={{ moneySite, niche, location, sampleKeyword: validPairs[0]?.keyword || niche || '', sampleLink: validPairs[0]?.link || moneySite || '' }}
-            />
+            <label style={styles.toggleRow}>
+              <input
+                type="checkbox"
+                checked={useAnchorMix}
+                onChange={(e) => setUseAnchorMix(e.target.checked)}
+                style={styles.checkbox}
+              />
+              <span>
+                <strong>Use percentage-based anchor text mix</strong>
+                <span style={styles.toggleHint}> - distribute anchors across exact / partial / branded / generic / etc. by the percentages below. Untick to use the plain target keyword as the anchor for every backlink (simple keyword + link pair mode).</span>
+              </span>
+            </label>
+            {useAnchorMix && (
+              <div style={{ marginTop: 12 }}>
+                <AnchorMixEditor
+                  mix={anchorMix}
+                  count={count}
+                  onChange={setAnchorMix}
+                  previewParams={{ moneySite, niche, location, sampleKeyword: validPairs[0]?.keyword || niche || '', sampleLink: validPairs[0]?.link || moneySite || '' }}
+                />
+              </div>
+            )}
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={styles.label}>Link Counts</label>
-            <div style={styles.help}>The money-site backlink (your target keyword) is always included. Set any count to 0 to skip that type entirely.</div>
+            <div style={styles.help}>The money-site backlink (your target keyword) is always included. Set any count to 0 to skip that type entirely.{validInterlinks.length > 0 ? ' Note: you have custom interlinks below, so the Service/Blog counts are ignored — those links are replaced by your interlink URLs.' : ''}</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 8 }}>
               <div>
                 <label style={styles.label}>Outbound Authority Links</label>
@@ -1560,6 +1648,56 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
                 <div style={styles.help}>0-{MAX_LINK_COUNT}. /blog/... posts on the money site.</div>
               </div>
             </div>
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={styles.label}>Interlinking URLs (optional)</label>
+            <div style={styles.help}>
+              Real internal links to your client&apos;s pages — each with its own anchor text and destination URL. When you add one or more here, they replace the auto-generated Service/Blog internal links above, so articles only link to URLs you supply. Use the &quot;per article&quot; field below to rotate a subset across the batch so not every article uses the same links.
+            </div>
+            {interlinks.map((l, idx) => (
+              <div key={l.id} style={styles.linkPair}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600 }}>
+                    Interlink #{idx + 1}
+                  </span>
+                  <button onClick={() => removeInterlink(l.id)} style={styles.removeBtn}>
+                    Remove
+                  </button>
+                </div>
+                <div style={styles.formGrid}>
+                  <div>
+                    <label style={styles.label}>Anchor Text</label>
+                    <input value={l.anchor} onChange={(e) => updateInterlink(l.id, 'anchor', e.target.value)} placeholder="emergency hvac service" style={styles.input} />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Anchor URL</label>
+                    <input value={l.url} onChange={(e) => updateInterlink(l.id, 'url', e.target.value)} placeholder="https://example.com/emergency-repair" style={styles.input} />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <button onClick={addInterlink} style={styles.btnAdd}>+ Add Interlink</button>
+            {interlinks.length > 0 && (
+              <div style={{ marginTop: 12, maxWidth: 280 }}>
+                <label style={styles.label}>Interlinks per article</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={interlinksPerArticle}
+                  onChange={(e) => setInterlinksPerArticle(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                  style={styles.input}
+                />
+                <div style={styles.help}>
+                  How many of your interlinks each article uses, rotated evenly across the batch. 0 = include all of them in every article.
+                  {validInterlinks.length > 0 && interlinksPerArticle > 0 && interlinksPerArticle < validInterlinks.length
+                    ? ` Currently: ${interlinksPerArticle} of ${validInterlinks.length} per article.`
+                    : validInterlinks.length > 0
+                      ? ` Currently: all ${validInterlinks.length} per article.`
+                      : ''}
+                </div>
+              </div>
+            )}
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={styles.label}>Rich Content</label>
