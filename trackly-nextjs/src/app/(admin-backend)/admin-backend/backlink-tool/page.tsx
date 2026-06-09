@@ -184,6 +184,13 @@ type PresetState = {
   includeImages: boolean;
   /** Optional on legacy presets — falls back to DEFAULT_ANCHOR_MIX when missing. */
   anchorMix?: Record<AnchorType, number>;
+  /**
+   * When true, anchors are distributed across the anchor-text mix above.
+   * When false, every backlink uses the plain exact keyword as its anchor
+   * (the simple "keyword + link pair" mode). Optional on legacy presets —
+   * defaults to true so existing campaigns keep their mix.
+   */
+  useAnchorMix?: boolean;
 };
 type PersistedState = PresetState & {
   articles: Article[];
@@ -241,6 +248,7 @@ export default function BacklinkToolPage() {
   const [includeTable, setIncludeTable] = useState(false);
   const [includeImages, setIncludeImages] = useState(false);
   const [anchorMix, setAnchorMix] = useState<Record<AnchorType, number>>({ ...DEFAULT_ANCHOR_MIX });
+  const [useAnchorMix, setUseAnchorMix] = useState(true);
 
   const [articles, setArticles] = useState<Article[]>([]);
   const [isRunning, setIsRunning] = useState(false);
@@ -300,6 +308,7 @@ export default function BacklinkToolPage() {
         if (typeof s.includeTable === 'boolean') setIncludeTable(s.includeTable);
         if (typeof s.includeImages === 'boolean') setIncludeImages(s.includeImages);
         if (s.anchorMix && typeof s.anchorMix === 'object') setAnchorMix(normaliseMix(s.anchorMix));
+        if (typeof s.useAnchorMix === 'boolean') setUseAnchorMix(s.useAnchorMix);
         if (Array.isArray(s.articles)) {
           // Rehydrate any in-flight articles as errored so the UI doesn't
           // look stuck in 'generating' forever after a reload.
@@ -325,7 +334,7 @@ export default function BacklinkToolPage() {
         provider, model, concurrency, moneySite, niche, location, authorInfo,
         linkPairs, distributionMode, count, wordCount, tone, placement, extras,
         externalLinkCount, serviceLinkCount, blogLinkCount,
-        includeTable, includeImages, anchorMix, articles,
+        includeTable, includeImages, anchorMix, useAnchorMix, articles,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
     } catch {
@@ -335,7 +344,7 @@ export default function BacklinkToolPage() {
     hydrated, provider, model, concurrency, moneySite, niche, location, authorInfo,
     linkPairs, distributionMode, count, wordCount, tone, placement, extras,
     externalLinkCount, serviceLinkCount, blogLinkCount,
-    includeTable, includeImages, anchorMix, articles,
+    includeTable, includeImages, anchorMix, useAnchorMix, articles,
   ]);
 
   function handleProviderChange(p: 'claude' | 'openai') {
@@ -815,8 +824,12 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
 
     // Distribute the configured anchor mix across the batch and pin the
     // resolved type+text on each Article so retries/regenerations keep
-    // the same anchor instead of resampling and skewing the totals.
-    const anchorTypes = assignAnchorTypes(count, anchorMix);
+    // the same anchor instead of resampling and skewing the totals. When
+    // the mix is toggled off, every backlink just uses the exact keyword
+    // (the simple "keyword + link pair" mode).
+    const anchorTypes = useAnchorMix
+      ? assignAnchorTypes(count, anchorMix)
+      : (Array.from({ length: count }, () => 'exact') as AnchorType[]);
     const initial: Article[] = [];
     const lookup = new Map<number, LinkPair>();
     const anchorLookup = new Map<number, { type: AnchorType; text: string }>();
@@ -1189,7 +1202,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
       provider, model, concurrency, moneySite, niche, location, authorInfo,
       linkPairs, distributionMode, count, wordCount, tone, placement, extras,
       externalLinkCount, serviceLinkCount, blogLinkCount, includeTable, includeImages,
-      anchorMix,
+      anchorMix, useAnchorMix,
     };
     const next = { ...presets, [key]: preset };
     setPresets(next);
@@ -1227,6 +1240,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     setIncludeTable(p.includeTable);
     setIncludeImages(p.includeImages);
     setAnchorMix(p.anchorMix ? normaliseMix(p.anchorMix) : { ...DEFAULT_ANCHOR_MIX });
+    setUseAnchorMix(p.useAnchorMix ?? true);
     setActivePresetName(name);
     setGenStatus({ msg: `✓ Loaded preset "${name}"`, type: 'success' });
     setTimeout(() => setGenStatus(null), 1800);
@@ -1512,12 +1526,28 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
             <textarea value={extras} onChange={(e) => setExtras(e.target.value)} placeholder="e.g. Focus on Detroit area, mention luxury chauffeur service..." style={{ ...styles.input, minHeight: 60 }} />
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
-            <AnchorMixEditor
-              mix={anchorMix}
-              count={count}
-              onChange={setAnchorMix}
-              previewParams={{ moneySite, niche, location, sampleKeyword: validPairs[0]?.keyword || niche || '', sampleLink: validPairs[0]?.link || moneySite || '' }}
-            />
+            <label style={styles.toggleRow}>
+              <input
+                type="checkbox"
+                checked={useAnchorMix}
+                onChange={(e) => setUseAnchorMix(e.target.checked)}
+                style={styles.checkbox}
+              />
+              <span>
+                <strong>Use percentage-based anchor text mix</strong>
+                <span style={styles.toggleHint}> - distribute anchors across exact / partial / branded / generic / etc. by the percentages below. Untick to use the plain target keyword as the anchor for every backlink (simple keyword + link pair mode).</span>
+              </span>
+            </label>
+            {useAnchorMix && (
+              <div style={{ marginTop: 12 }}>
+                <AnchorMixEditor
+                  mix={anchorMix}
+                  count={count}
+                  onChange={setAnchorMix}
+                  previewParams={{ moneySite, niche, location, sampleKeyword: validPairs[0]?.keyword || niche || '', sampleLink: validPairs[0]?.link || moneySite || '' }}
+                />
+              </div>
+            )}
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={styles.label}>Link Counts</label>
