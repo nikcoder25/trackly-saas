@@ -36,27 +36,98 @@ interface Place {
   nationalPhoneNumber?: string;
   internationalPhoneNumber?: string;
   addressComponents?: AddressComponent[];
+  formattedAddress?: string;
+  websiteUri?: string;
+  googleMapsUri?: string;
+  businessStatus?: string;
+  primaryTypeDisplayName?: { text?: string };
+  primaryType?: string;
+  types?: string[];
+  rating?: number;
+  userRatingCount?: number;
+  regularOpeningHours?: {
+    weekdayDescriptions?: string[];
+    openNow?: boolean;
+  };
+  location?: { latitude?: number; longitude?: number };
 }
 
-function pick(components: AddressComponent[], type: string): string | undefined {
+function pickLong(components: AddressComponent[], type: string): string | undefined {
   return components.find((c) => c.types?.includes(type))?.longText?.trim() || undefined;
+}
+function pickShort(components: AddressComponent[], type: string): string | undefined {
+  return components.find((c) => c.types?.includes(type))?.shortText?.trim() || undefined;
+}
+
+/** Useful business metadata returned alongside the canonical NAP. */
+export interface GbpExtras {
+  /** Google's pre-formatted single-line address — fallback when component parsing misses pieces. */
+  formattedAddress?: string;
+  /** Display label for the primary business category, e.g. "Dog kennel". */
+  category?: string;
+  /** "OPERATIONAL" | "CLOSED_TEMPORARILY" | "CLOSED_PERMANENTLY". */
+  businessStatus?: string;
+  /** Link to the Google Maps listing for this business. */
+  mapsUrl?: string;
+  /** Latitude/longitude — handy for the operator to verify the right branch. */
+  latitude?: number;
+  longitude?: number;
+  /** Average star rating (0-5) and the count behind it. */
+  rating?: number;
+  reviewCount?: number;
+  /** Human-readable weekday hours, one entry per day, in Google's locale. */
+  hours?: string[];
 }
 
 function toCanonical(place: Place): CanonicalNap {
   const comps = place.addressComponents ?? [];
-  const streetNumber = pick(comps, 'street_number');
-  const route = pick(comps, 'route');
-  const street = [streetNumber, route].filter(Boolean).join(' ') || undefined;
-  const city = pick(comps, 'postal_town') || pick(comps, 'locality') || pick(comps, 'sublocality');
-  const postcode = pick(comps, 'postal_code');
-  const suite = pick(comps, 'subpremise');
+  const streetNumber = pickLong(comps, 'street_number');
+  const route = pickLong(comps, 'route');
+  let street: string | undefined = [streetNumber, route].filter(Boolean).join(' ') || undefined;
+  const city = pickLong(comps, 'postal_town') || pickLong(comps, 'locality') || pickLong(comps, 'sublocality');
+  const postcode = pickLong(comps, 'postal_code');
+  const suite = pickLong(comps, 'subpremise');
+  // Prefer the short code ("TN", "CA") which is what most US citations use
+  // on a single address line; fall back to the long name otherwise.
+  const region = pickShort(comps, 'administrative_area_level_1') || pickLong(comps, 'administrative_area_level_1');
+  const country = pickShort(comps, 'country');
+  // If component parsing left the street blank (PO boxes, rural addresses,
+  // some international listings), salvage what we can from the formatted
+  // line — strip the city / region / postcode suffix the rest of the form
+  // already owns.
+  if (!street && place.formattedAddress) {
+    const tail = [city, region, postcode, country]
+      .filter((s): s is string => !!s)
+      .reduce((acc, s) => acc.replace(new RegExp(`,?\\s*${s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\s*$`, 'i'), ''), place.formattedAddress.trim());
+    const cleaned = tail.replace(/[,\s]+$/, '').trim();
+    if (cleaned && cleaned.length <= 200) street = cleaned;
+  }
   return {
     name: place.displayName?.text?.trim() || '',
     phone: place.nationalPhoneNumber?.trim() || place.internationalPhoneNumber?.trim() || undefined,
     street,
     suite,
     city,
+    region,
     postcode,
+    country,
+    website: place.websiteUri?.trim() || undefined,
+  };
+}
+
+function toExtras(place: Place): GbpExtras {
+  return {
+    formattedAddress: place.formattedAddress?.trim() || undefined,
+    category: place.primaryTypeDisplayName?.text?.trim() || place.primaryType || undefined,
+    businessStatus: place.businessStatus || undefined,
+    mapsUrl: place.googleMapsUri || undefined,
+    latitude: place.location?.latitude,
+    longitude: place.location?.longitude,
+    rating: typeof place.rating === 'number' ? place.rating : undefined,
+    reviewCount: typeof place.userRatingCount === 'number' ? place.userRatingCount : undefined,
+    hours: Array.isArray(place.regularOpeningHours?.weekdayDescriptions)
+      ? place.regularOpeningHours!.weekdayDescriptions
+      : undefined,
   };
 }
 
@@ -73,8 +144,29 @@ async function callPlaces(query: string, apiKey: string): Promise<Response> {
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': apiKey,
-          'X-Goog-FieldMask':
-            'places.displayName,places.nationalPhoneNumber,places.internationalPhoneNumber,places.addressComponents',
+          // Expanded mask: pulls website, formatted address, category,
+          // hours, rating, status and the Maps URL alongside NAP so the
+          // operator sees the full "source of truth" the audit was built
+          // against. Adding fields is free as long as the cost-tier
+          // budget tolerates it — Text Search Pro covers everything
+          // here.
+          'X-Goog-FieldMask': [
+            'places.displayName',
+            'places.nationalPhoneNumber',
+            'places.internationalPhoneNumber',
+            'places.addressComponents',
+            'places.formattedAddress',
+            'places.websiteUri',
+            'places.googleMapsUri',
+            'places.businessStatus',
+            'places.primaryType',
+            'places.primaryTypeDisplayName',
+            'places.types',
+            'places.rating',
+            'places.userRatingCount',
+            'places.regularOpeningHours',
+            'places.location',
+          ].join(','),
         },
         // Text Search (New) takes `textQuery` (+ optional `pageSize`). It does NOT
         // accept `maxResultCount` (that's a Nearby Search field) and rejects the
@@ -152,7 +244,7 @@ export async function POST(request: Request): Promise<Response> {
     if (!place) return Response.json({ error: 'No matching business found.' }, { status: 404 });
     const canonical = toCanonical(place);
     if (!canonical.name) return Response.json({ error: 'No matching business found.' }, { status: 404 });
-    return Response.json({ canonical });
+    return Response.json({ canonical, extras: toExtras(place) });
   } catch (e) {
     logger.error('nap_audits.gbp_lookup_parse_failed', { err: (e as Error).message });
     return Response.json({ error: 'Google lookup returned an unexpected response.' }, { status: 502 });

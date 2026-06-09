@@ -19,14 +19,47 @@ const NAP_PASTE_CAP = 5_000;
 
 export interface NapAuditFormValues {
   label: string;
-  canonical: { name: string; phone?: string; street?: string; suite?: string; city?: string; postcode?: string };
+  canonical: {
+    name: string;
+    phone?: string;
+    street?: string;
+    suite?: string;
+    city?: string;
+    region?: string;
+    postcode?: string;
+    country?: string;
+    website?: string;
+  };
   urls: string;
+}
+
+/** Extra business details returned by /api/nap-audits/gbp-lookup. */
+interface GbpExtras {
+  formattedAddress?: string;
+  category?: string;
+  businessStatus?: string;
+  mapsUrl?: string;
+  latitude?: number;
+  longitude?: number;
+  rating?: number;
+  reviewCount?: number;
+  hours?: string[];
 }
 
 interface Props {
   initial?: Partial<{
     label: string;
-    canonical: { name?: string; phone?: string; street?: string; suite?: string; city?: string; postcode?: string };
+    canonical: {
+      name?: string;
+      phone?: string;
+      street?: string;
+      suite?: string;
+      city?: string;
+      region?: string;
+      postcode?: string;
+      country?: string;
+      website?: string;
+    };
     urls: string[];
   }>;
   /**
@@ -77,7 +110,10 @@ export default function NapAuditForm({
   const [street, setStreet] = useState(c.street ?? '');
   const [suite, setSuite] = useState(c.suite ?? '');
   const [city, setCity] = useState(c.city ?? '');
+  const [region, setRegion] = useState(c.region ?? '');
   const [postcode, setPostcode] = useState(c.postcode ?? '');
+  const [country, setCountry] = useState(c.country ?? '');
+  const [website, setWebsite] = useState(c.website ?? '');
   const [urls, setUrls] = useState((initial?.urls ?? []).join('\n'));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +122,10 @@ export default function NapAuditForm({
   const [gbpLoading, setGbpLoading] = useState(false);
   const [gbpNote, setGbpNote] = useState<string | null>(null);
   const [gbpError, setGbpError] = useState(false);
+  // Extra business details from the most recent Pull. Persisted only in
+  // the form so the operator can review the full match before saving;
+  // the audit row continues to store just the canonical NAP.
+  const [gbpExtras, setGbpExtras] = useState<GbpExtras | null>(null);
   const fileRef = React.useRef<HTMLInputElement>(null);
 
   // Hard ceiling that applies to both the paste path and the CSV import.
@@ -131,7 +171,7 @@ export default function NapAuditForm({
 
   async function pullFromGoogle() {
     if (gbpLoading || !gbpQuery.trim()) return;
-    setGbpLoading(true); setGbpNote(null); setGbpError(false);
+    setGbpLoading(true); setGbpNote(null); setGbpError(false); setGbpExtras(null);
     try {
       const res = await fetch('/api/nap-audits/gbp-lookup', {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
@@ -149,11 +189,30 @@ export default function NapAuditForm({
       if (g.street) setStreet(g.street);
       if (g.suite) setSuite(g.suite);
       if (g.city) setCity(g.city);
+      if (g.region) setRegion(g.region);
       if (g.postcode) setPostcode(g.postcode);
+      if (g.country) setCountry(g.country);
+      if (g.website) setWebsite(g.website);
       if (!label.trim() && g.name) setLabel(g.name);
+      if (data.extras && typeof data.extras === 'object') {
+        setGbpExtras(data.extras as GbpExtras);
+      }
       setGbpNote('Prefilled from Google. Review before saving.');
     } catch (err) { setGbpError(true); setGbpNote((err as Error).message || 'Lookup failed'); }
     finally { setGbpLoading(false); }
+  }
+
+  /** Prepend the brand's homepage to the citation list so it gets audited. */
+  function addWebsiteToCitations() {
+    if (!website.trim()) return;
+    const w = website.trim();
+    const existing = extractUrlsFromText(urls, inputCap);
+    if (existing.includes(w)) {
+      setImportNote('Website is already in the citation list.');
+      return;
+    }
+    setUrls([w, ...existing].join('\n'));
+    setImportNote('Website added to the citation list.');
   }
 
   async function submit(e: React.FormEvent) {
@@ -164,7 +223,17 @@ export default function NapAuditForm({
     try {
       await onSubmit({
         label: label.trim(),
-        canonical: { name: name.trim(), phone: phone.trim(), street: street.trim(), suite: suite.trim(), city: city.trim(), postcode: postcode.trim() },
+        canonical: {
+          name: name.trim(),
+          phone: phone.trim() || undefined,
+          street: street.trim() || undefined,
+          suite: suite.trim() || undefined,
+          city: city.trim() || undefined,
+          region: region.trim() || undefined,
+          postcode: postcode.trim() || undefined,
+          country: country.trim() || undefined,
+          website: website.trim() || undefined,
+        },
         urls,
       });
     } catch (err) {
@@ -188,6 +257,40 @@ export default function NapAuditForm({
             </button>
           </div>
           {gbpNote && <div style={{ fontSize: 11.5, marginTop: 6, color: gbpError ? 'var(--red)' : 'var(--muted)' }}>{gbpNote}</div>}
+          {gbpExtras && (
+            <div style={{ marginTop: 10, padding: 10, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--radius-xs)', display: 'grid', gap: 6, fontSize: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.5px' }}>Matched on Google</div>
+              {gbpExtras.formattedAddress && (
+                <div><strong>Address:</strong> <span className="quiet">{gbpExtras.formattedAddress}</span></div>
+              )}
+              {gbpExtras.category && (
+                <div><strong>Category:</strong> <span className="quiet">{gbpExtras.category}</span></div>
+              )}
+              {gbpExtras.businessStatus && gbpExtras.businessStatus !== 'OPERATIONAL' && (
+                <div style={{ color: 'var(--amber, #b45309)' }}>
+                  <strong>Status:</strong> {gbpExtras.businessStatus.replace(/_/g, ' ').toLowerCase()}
+                </div>
+              )}
+              {typeof gbpExtras.rating === 'number' && (
+                <div><strong>Rating:</strong> <span className="quiet">★ {gbpExtras.rating.toFixed(1)}{typeof gbpExtras.reviewCount === 'number' ? ` (${gbpExtras.reviewCount.toLocaleString()} reviews)` : ''}</span></div>
+              )}
+              {Array.isArray(gbpExtras.hours) && gbpExtras.hours.length > 0 && (
+                <details>
+                  <summary style={{ cursor: 'pointer', color: 'var(--muted)' }}>Opening hours</summary>
+                  <div className="quiet" style={{ marginTop: 4, fontSize: 11.5, lineHeight: 1.5 }}>
+                    {gbpExtras.hours.map((h, i) => <div key={i}>{h}</div>)}
+                  </div>
+                </details>
+              )}
+              {gbpExtras.mapsUrl && (
+                <div>
+                  <a href={gbpExtras.mapsUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontSize: 11.5 }}>
+                    Open on Google Maps ↗
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -209,9 +312,21 @@ export default function NapAuditForm({
         <div><label htmlFor="na-street" style={labelCss}>Street</label><input id="na-street" className="brand-select" style={inputCss} maxLength={200} placeholder="12 High Street" value={street} onChange={(e) => setStreet(e.target.value)} /></div>
         <div><label htmlFor="na-suite" style={labelCss}>Suite / unit</label><input id="na-suite" className="brand-select" style={inputCss} maxLength={200} placeholder="Suite 4" value={suite} onChange={(e) => setSuite(e.target.value)} /></div>
       </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 10, marginBottom: 14 }}>
+        <div><label htmlFor="na-city" style={labelCss}>City / town</label><input id="na-city" className="brand-select" style={inputCss} maxLength={200} placeholder="London" value={city} onChange={(e) => setCity(e.target.value)} /></div>
+        <div><label htmlFor="na-region" style={labelCss}>State / region</label><input id="na-region" className="brand-select" style={inputCss} maxLength={100} placeholder="TN" value={region} onChange={(e) => setRegion(e.target.value)} /></div>
+        <div><label htmlFor="na-country" style={labelCss}>Country</label><input id="na-country" className="brand-select" style={inputCss} maxLength={3} placeholder="US" value={country} onChange={(e) => setCountry(e.target.value.toUpperCase())} /></div>
+      </div>
       <div style={{ marginBottom: 14 }}>
-        <label htmlFor="na-city" style={labelCss}>City / town</label>
-        <input id="na-city" className="brand-select" style={inputCss} maxLength={200} placeholder="London" value={city} onChange={(e) => setCity(e.target.value)} />
+        <label htmlFor="na-website" style={labelCss}>Website</label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input id="na-website" className="brand-select" style={{ ...inputCss, flex: 1 }} maxLength={500} placeholder="https://example.com" value={website} onChange={(e) => setWebsite(e.target.value)} />
+          {website.trim() && (
+            <button type="button" className="btn-g" onClick={addWebsiteToCitations} style={{ whiteSpace: 'nowrap', padding: '4px 10px', fontSize: 12 }}>
+              + Add to URLs
+            </button>
+          )}
+        </div>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>

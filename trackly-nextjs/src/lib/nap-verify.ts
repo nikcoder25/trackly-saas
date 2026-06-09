@@ -15,14 +15,27 @@ export type ExtractLayer = 'schema' | 'regex' | 'text';
 
 export type FieldStatus = 'match' | 'variation' | 'mismatch' | 'missing';
 
-/** The client's known-good NAP. Address is split so we can flag a missing suite. */
+/**
+ * The client's known-good NAP. Address is split so we can flag a missing
+ * suite. `region` and `website` are pulled by the Google Places lookup and
+ * stored alongside the core NAP so an operator can see the full "source
+ * of truth" the audit was built against; the verifier treats them as
+ * informational for now (no extra match calls) so adding them is
+ * backwards compatible with audits saved before they existed.
+ */
 export interface CanonicalNap {
   name: string;
   phone?: string;
   street?: string;
   suite?: string;
   city?: string;
+  /** State / province / region — typically the Places admin_area_level_1 shortText (e.g. "TN"). */
+  region?: string;
   postcode?: string;
+  /** Two-letter country code (e.g. "US"); blank when not provided by the source. */
+  country?: string;
+  /** Canonical website URL — the brand's own homepage, useful as a "match this domain" hint. */
+  website?: string;
 }
 
 /** What we managed to pull off a citation page. */
