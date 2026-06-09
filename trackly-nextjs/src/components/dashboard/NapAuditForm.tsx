@@ -170,15 +170,38 @@ export default function NapAuditForm({
   async function pullFromGoogle() {
     if (gbpLoading || !gbpQuery.trim()) return;
     setGbpLoading(true); setGbpNote(null); setGbpError(false); setGbpExtras(null);
+    // Client-side abort guard: independent of the route's own ~10s budget
+    // so a hung connection still surfaces an actionable note in the form,
+    // never an empty spinner. 18s is generous enough to outlast our
+    // server budget but short enough to feel responsive.
+    const ac = new AbortController();
+    const clientTimer = setTimeout(() => ac.abort(), 18_000);
     try {
       const res = await fetch('/api/nap-audits/gbp-lookup', {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: gbpQuery.trim() }),
+        signal: ac.signal,
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setGbpError(true);
-        setGbpNote((typeof data?.error === 'string' && data.error) || `Lookup failed (HTTP ${res.status})`);
+        const apiError = typeof data?.error === 'string' && data.error ? data.error : '';
+        // When an upstream proxy (DigitalOcean edge) kills the request
+        // before our route can respond, the body is empty and `apiError`
+        // is blank. Surface a specific, actionable note for those status
+        // codes instead of just "(HTTP 504)" — that's what made the
+        // button look broken from the user's side.
+        let fallback = `Lookup failed (HTTP ${res.status}).`;
+        if (res.status === 504 || res.status === 408) {
+          fallback = 'Google lookup timed out. Try a more specific query (business name + city), or fill in the NAP fields manually below.';
+        } else if (res.status === 502 || res.status === 503) {
+          fallback = 'Google lookup is temporarily unavailable. Please try again, or fill in the NAP fields manually below.';
+        } else if (res.status === 404) {
+          fallback = 'No matching business found. Try a more specific query (business name + city).';
+        } else if (res.status === 401 || res.status === 403) {
+          fallback = 'You need to be signed in to pull from Google. Refresh the page and sign in again.';
+        }
+        setGbpNote(apiError || fallback);
         return;
       }
       const g = data.canonical || {};
@@ -196,8 +219,18 @@ export default function NapAuditForm({
         setGbpExtras(data.extras as GbpExtras);
       }
       setGbpNote('Prefilled from Google. Review before saving.');
-    } catch (err) { setGbpError(true); setGbpNote((err as Error).message || 'Lookup failed'); }
-    finally { setGbpLoading(false); }
+    } catch (err) {
+      setGbpError(true);
+      const name = (err as Error).name;
+      if (name === 'AbortError') {
+        setGbpNote('Google lookup took too long. Try a more specific query (business name + city), or fill in the NAP fields manually below.');
+      } else {
+        setGbpNote((err as Error).message || 'Lookup failed. Check your connection and try again.');
+      }
+    } finally {
+      clearTimeout(clientTimer);
+      setGbpLoading(false);
+    }
   }
 
   /** Prepend the brand's homepage to the citation list so it gets audited. */
