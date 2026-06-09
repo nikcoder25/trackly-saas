@@ -399,6 +399,7 @@ export default function BacklinkToolPage() {
     const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     const parsed: LinkPair[] = [];
     let skippedHeader = false;
+    let skippedRows = 0;
     for (const line of lines) {
       const cols = parseCsvLine(line);
       const keyword = cols[0] || '';
@@ -410,13 +411,15 @@ export default function BacklinkToolPage() {
         skippedHeader = true;
         continue;
       }
-      if (!keyword || !link) continue;
-      const weight = weightRaw ? parseFloat(weightRaw) || 1 : 1;
+      if (!keyword || !link) {
+        skippedRows++;
+        continue;
+      }
       parsed.push({
         id: Date.now() + Math.random(),
         keyword,
         link,
-        weight,
+        weight: weightRaw ? safeWeight(weightRaw) : 1,
       });
     }
     if (parsed.length === 0) {
@@ -431,8 +434,9 @@ export default function BacklinkToolPage() {
     }
     setCsvInput('');
     setCsvOpen(false);
-    setGenStatus({ msg: `✓ Imported ${parsed.length} link pair${parsed.length === 1 ? '' : 's'}`, type: 'success' });
-    setTimeout(() => setGenStatus(null), 2000);
+    const skippedNote = skippedRows > 0 ? ` (skipped ${skippedRows} invalid row${skippedRows === 1 ? '' : 's'})` : '';
+    setGenStatus({ msg: `✓ Imported ${parsed.length} link pair${parsed.length === 1 ? '' : 's'}${skippedNote}`, type: 'success' });
+    setTimeout(() => setGenStatus(null), skippedRows > 0 ? 4000 : 2000);
   }
   function removeLinkPair(id: number) {
     if (linkPairs.length === 1) {
@@ -447,6 +451,15 @@ export default function BacklinkToolPage() {
 
   const validPairs = linkPairs.filter((p) => p.keyword.trim() && p.link.trim());
 
+  // Weighted distribution only behaves correctly with positive, finite
+  // weights. A zero/negative/NaN weight would skew (or break) the running
+  // total in getPairForArticle, so clamp everywhere a weight enters.
+  const MIN_WEIGHT = 0.1;
+  function safeWeight(value: unknown): number {
+    const n = typeof value === 'number' ? value : parseFloat(String(value));
+    return Number.isFinite(n) && n >= MIN_WEIGHT ? n : 1;
+  }
+
   function getDistributionPreview(): string {
     if (validPairs.length === 0) return 'Add at least one keyword + link pair';
     if (distributionMode === 'rotate') {
@@ -458,9 +471,9 @@ export default function BacklinkToolPage() {
     } else if (distributionMode === 'random') {
       return `Each article randomly picks from ${validPairs.length} pair(s)`;
     } else {
-      const tw = validPairs.reduce((s, p) => s + (p.weight || 1), 0);
+      const tw = validPairs.reduce((s, p) => s + safeWeight(p.weight), 0);
       return validPairs
-        .map((p) => `${p.keyword || '(empty)'}: ${(((p.weight || 1) / tw) * 100).toFixed(0)}%`)
+        .map((p) => `${p.keyword || '(empty)'}: ${((safeWeight(p.weight) / tw) * 100).toFixed(0)}%`)
         .join(' • ');
     }
   }
@@ -468,10 +481,10 @@ export default function BacklinkToolPage() {
   function getPairForArticle(index: number): LinkPair {
     if (distributionMode === 'rotate') return validPairs[index % validPairs.length];
     if (distributionMode === 'random') return validPairs[Math.floor(Math.random() * validPairs.length)];
-    const tw = validPairs.reduce((s, p) => s + (p.weight || 1), 0);
+    const tw = validPairs.reduce((s, p) => s + safeWeight(p.weight), 0);
     let r = Math.random() * tw;
     for (const p of validPairs) {
-      r -= p.weight || 1;
+      r -= safeWeight(p.weight);
       if (r <= 0) return p;
     }
     return validPairs[0];
@@ -1398,7 +1411,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
               {distributionMode === 'weighted' && (
                 <div style={{ gridColumn: '1 / -1' }}>
                   <label style={styles.label}>Weight (%) - higher = used more often</label>
-                  <input type="number" min={0.1} step={0.1} value={pair.weight} onChange={(e) => updateLinkPair(pair.id, 'weight', parseFloat(e.target.value) || 1)} style={styles.input} />
+                  <input type="number" min={0.1} step={0.1} value={pair.weight} onChange={(e) => updateLinkPair(pair.id, 'weight', parseFloat(e.target.value) || 1)} onBlur={(e) => updateLinkPair(pair.id, 'weight', safeWeight(e.target.value))} style={styles.input} />
                 </div>
               )}
             </div>
