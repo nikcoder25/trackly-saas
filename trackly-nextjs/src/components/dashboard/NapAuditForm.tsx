@@ -41,8 +41,6 @@ interface GbpExtras {
   mapsUrl?: string;
   latitude?: number;
   longitude?: number;
-  rating?: number;
-  reviewCount?: number;
   hours?: string[];
 }
 
@@ -270,9 +268,6 @@ export default function NapAuditForm({
                 <div style={{ color: 'var(--amber, #b45309)' }}>
                   <strong>Status:</strong> {gbpExtras.businessStatus.replace(/_/g, ' ').toLowerCase()}
                 </div>
-              )}
-              {typeof gbpExtras.rating === 'number' && (
-                <div><strong>Rating:</strong> <span className="quiet">★ {gbpExtras.rating.toFixed(1)}{typeof gbpExtras.reviewCount === 'number' ? ` (${gbpExtras.reviewCount.toLocaleString()} reviews)` : ''}</span></div>
               )}
               {Array.isArray(gbpExtras.hours) && gbpExtras.hours.length > 0 && (
                 <details>

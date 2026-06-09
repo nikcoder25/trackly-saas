@@ -43,8 +43,6 @@ interface Place {
   primaryTypeDisplayName?: { text?: string };
   primaryType?: string;
   types?: string[];
-  rating?: number;
-  userRatingCount?: number;
   regularOpeningHours?: {
     weekdayDescriptions?: string[];
     openNow?: boolean;
@@ -72,12 +70,26 @@ export interface GbpExtras {
   /** Latitude/longitude — handy for the operator to verify the right branch. */
   latitude?: number;
   longitude?: number;
-  /** Average star rating (0-5) and the count behind it. */
-  rating?: number;
-  reviewCount?: number;
   /** Human-readable weekday hours, one entry per day, in Google's locale. */
   hours?: string[];
 }
+
+/**
+ * Long-form names for the countries whose two-letter code we commonly
+ * pick up from Google. Used to strip the trailing country off
+ * `formattedAddress` when we're salvaging a street value — Google often
+ * writes the country as "United States" / "United Kingdom" even though
+ * the addressComponent shortText returned "US" / "GB".
+ */
+const COUNTRY_LONG_NAME: Record<string, string[]> = {
+  US: ['United States', 'United States of America', 'USA'],
+  GB: ['United Kingdom', 'UK', 'Great Britain'],
+  CA: ['Canada'],
+  AU: ['Australia'],
+  IE: ['Ireland'],
+  IN: ['India'],
+  NZ: ['New Zealand'],
+};
 
 function toCanonical(place: Place): CanonicalNap {
   const comps = place.addressComponents ?? [];
@@ -93,14 +105,31 @@ function toCanonical(place: Place): CanonicalNap {
   const country = pickShort(comps, 'country');
   // If component parsing left the street blank (PO boxes, rural addresses,
   // some international listings), salvage what we can from the formatted
-  // line — strip the city / region / postcode suffix the rest of the form
-  // already owns.
+  // line — strip the city / region / postcode / country suffix the rest
+  // of the form already owns. The country tail needs both shapes: Places
+  // returns the shortText "US" in the component but writes "United States"
+  // in formattedAddress, so we have to try both to avoid leaving a
+  // ", United States" tail dangling on the salvaged street.
   if (!street && place.formattedAddress) {
-    const tail = [city, region, postcode, country]
-      .filter((s): s is string => !!s)
-      .reduce((acc, s) => acc.replace(new RegExp(`,?\\s*${s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\s*$`, 'i'), ''), place.formattedAddress.trim());
-    const cleaned = tail.replace(/[,\s]+$/, '').trim();
-    if (cleaned && cleaned.length <= 200) street = cleaned;
+    const countryAliases = country
+      ? [country, ...(COUNTRY_LONG_NAME[country.toUpperCase()] ?? [])]
+      : [];
+    const tails = [city, region, postcode, ...countryAliases].filter(
+      (s): s is string => !!s,
+    );
+    let trimmed = place.formattedAddress.trim();
+    // Repeated-pass strip so any one tail can match no matter which order
+    // Google emitted them in. Each iteration trims a trailing comma too.
+    let lastLen = -1;
+    while (trimmed.length !== lastLen) {
+      lastLen = trimmed.length;
+      for (const s of tails) {
+        const safe = s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        trimmed = trimmed.replace(new RegExp(`,?\\s*${safe}\\s*$`, 'i'), '').trim();
+      }
+      trimmed = trimmed.replace(/[,\s]+$/, '').trim();
+    }
+    if (trimmed && trimmed.length <= 200) street = trimmed;
   }
   return {
     name: place.displayName?.text?.trim() || '',
@@ -123,8 +152,6 @@ function toExtras(place: Place): GbpExtras {
     mapsUrl: place.googleMapsUri || undefined,
     latitude: place.location?.latitude,
     longitude: place.location?.longitude,
-    rating: typeof place.rating === 'number' ? place.rating : undefined,
-    reviewCount: typeof place.userRatingCount === 'number' ? place.userRatingCount : undefined,
     hours: Array.isArray(place.regularOpeningHours?.weekdayDescriptions)
       ? place.regularOpeningHours!.weekdayDescriptions
       : undefined,
@@ -145,11 +172,14 @@ async function callPlaces(query: string, apiKey: string): Promise<Response> {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': apiKey,
           // Expanded mask: pulls website, formatted address, category,
-          // hours, rating, status and the Maps URL alongside NAP so the
-          // operator sees the full "source of truth" the audit was built
-          // against. Adding fields is free as long as the cost-tier
-          // budget tolerates it — Text Search Pro covers everything
-          // here.
+          // hours, status and the Maps URL alongside NAP so the operator
+          // sees the full "source of truth" the audit was built against.
+          // All of these are on the Places Text Search **Pro** SKU — the
+          // tier we're already on for nationalPhoneNumber. We deliberately
+          // leave `rating` / `userRatingCount` off because those bump the
+          // call to the Enterprise SKU (higher per-call cost, and a
+          // hard INVALID_ARGUMENT failure when Enterprise isn't enabled
+          // on the key).
           'X-Goog-FieldMask': [
             'places.displayName',
             'places.nationalPhoneNumber',
@@ -162,8 +192,6 @@ async function callPlaces(query: string, apiKey: string): Promise<Response> {
             'places.primaryType',
             'places.primaryTypeDisplayName',
             'places.types',
-            'places.rating',
-            'places.userRatingCount',
             'places.regularOpeningHours',
             'places.location',
           ].join(','),
