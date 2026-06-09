@@ -8,11 +8,13 @@
  * Returns 503 with a clear message when the key isn't configured.
  *
  * Runtime + timeouts: pinned to Node (matches other Next.js route handlers
- * that call out to slow external APIs) and capped at 15s. The Places call
- * itself is bounded to 7s with one retry, so the route always returns its
- * own response before DigitalOcean's edge proxy gives up and converts it
- * into an opaque 504 the user can't act on (the symptom that reported this
- * issue).
+ * that call out to slow external APIs) and capped at 10s. The Places call
+ * itself is bounded to 4.5s with one retry, so the total external budget
+ * is ~9s — well below DigitalOcean App Platform's edge-proxy idle window,
+ * which was returning an opaque 504 (no JSON body) before our own 504-
+ * with-message could land in the browser. That was the symptom: the
+ * client falls back to "Lookup failed (HTTP 504)" exactly when the body
+ * is missing.
  */
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
@@ -20,9 +22,9 @@ import { logger } from '@/lib/logger';
 import type { CanonicalNap } from '@/lib/nap-verify';
 
 export const runtime = 'nodejs';
-export const maxDuration = 15;
+export const maxDuration = 10;
 
-const PLACES_TIMEOUT_MS = 7_000;
+const PLACES_TIMEOUT_MS = 4_500;
 const PLACES_MAX_ATTEMPTS = 2;
 
 interface AddressComponent {
@@ -162,11 +164,17 @@ async function callPlaces(query: string, apiKey: string): Promise<Response> {
   // One short retry: Places Text Search occasionally takes >5s on a cold
   // call from an idle pod, and a single retry costs almost nothing once
   // the TCP/TLS session is warm. Each attempt is independently bounded
-  // by PLACES_TIMEOUT_MS so a hung connection can't eat the whole budget.
+  // by PLACES_TIMEOUT_MS via an explicit AbortController — using
+  // setTimeout + controller.abort() rather than AbortSignal.timeout()
+  // because some fetch/socket stalls (TLS handshake hangs) didn't honor
+  // the latter reliably, letting the request exceed the route's own
+  // budget and tripping DigitalOcean's edge-proxy 504.
   let lastErr: unknown = null;
   for (let attempt = 1; attempt <= PLACES_MAX_ATTEMPTS; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), PLACES_TIMEOUT_MS);
     try {
-      return await fetch('https://places.googleapis.com/v1/places:searchText', {
+      const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -201,13 +209,16 @@ async function callPlaces(query: string, apiKey: string): Promise<Response> {
         // request with INVALID_ARGUMENT if it's present. `pageSize: 1` keeps
         // the response small.
         body: JSON.stringify({ textQuery: query, pageSize: 1 }),
-        signal: AbortSignal.timeout(PLACES_TIMEOUT_MS),
+        signal: controller.signal,
       });
+      return res;
     } catch (e) {
       lastErr = e;
       const name = (e as Error).name;
       // Retry on timeout/abort only; surface other errors immediately.
       if (name !== 'TimeoutError' && name !== 'AbortError') break;
+    } finally {
+      clearTimeout(timer);
     }
   }
   throw lastErr ?? new Error('Places lookup failed');
