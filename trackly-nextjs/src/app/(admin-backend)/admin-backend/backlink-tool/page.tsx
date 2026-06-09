@@ -193,6 +193,8 @@ type PresetState = {
   useAnchorMix?: boolean;
   /** Operator-supplied real interlinks. Optional on legacy presets. */
   interlinks?: Interlink[];
+  /** How many interlinks each article uses (rotated). 0 = all. Optional on legacy presets. */
+  interlinksPerArticle?: number;
 };
 type PersistedState = PresetState & {
   articles: Article[];
@@ -241,6 +243,7 @@ export default function BacklinkToolPage() {
   ]);
   const [distributionMode, setDistributionMode] = useState<DistributionMode>('rotate');
   const [interlinks, setInterlinks] = useState<Interlink[]>([]);
+  const [interlinksPerArticle, setInterlinksPerArticle] = useState(2);
 
   const [count, setCount] = useState(10);
   const [wordCount, setWordCount] = useState('600');
@@ -315,6 +318,7 @@ export default function BacklinkToolPage() {
         if (s.anchorMix && typeof s.anchorMix === 'object') setAnchorMix(normaliseMix(s.anchorMix));
         if (typeof s.useAnchorMix === 'boolean') setUseAnchorMix(s.useAnchorMix);
         if (Array.isArray(s.interlinks)) setInterlinks(s.interlinks);
+        if (typeof s.interlinksPerArticle === 'number') setInterlinksPerArticle(Math.max(0, Math.floor(s.interlinksPerArticle)));
         if (Array.isArray(s.articles)) {
           // Rehydrate any in-flight articles as errored so the UI doesn't
           // look stuck in 'generating' forever after a reload.
@@ -338,7 +342,7 @@ export default function BacklinkToolPage() {
     try {
       const snapshot: PersistedState = {
         provider, model, concurrency, moneySite, niche, location, authorInfo,
-        linkPairs, distributionMode, interlinks, count, wordCount, tone, placement, extras,
+        linkPairs, distributionMode, interlinks, interlinksPerArticle, count, wordCount, tone, placement, extras,
         externalLinkCount, serviceLinkCount, blogLinkCount,
         includeTable, includeImages, anchorMix, useAnchorMix, articles,
       };
@@ -531,6 +535,7 @@ export default function BacklinkToolPage() {
     includeTable: boolean;
     includeImages: boolean;
     interlinks: { anchor: string; url: string }[];
+    interlinksPerArticle: number;
   };
 
   function buildPrompt(
@@ -589,12 +594,26 @@ export default function BacklinkToolPage() {
     const useCustomInterlinks = params.interlinks.length > 0;
     let internalLinkCount: number;
     if (useCustomInterlinks) {
-      internalLinkCount = params.interlinks.length;
-      const list = params.interlinks
+      // Rotate a window of `interlinksPerArticle` links across the batch so
+      // articles don't all link to the same pages. Keyed on the article
+      // index, so a retry of the same index reuses the same subset. A value
+      // of 0 (or >= the list size) means "include all in every article".
+      const all = params.interlinks;
+      const per = params.interlinksPerArticle;
+      let selected: { anchor: string; url: string }[];
+      if (per <= 0 || per >= all.length) {
+        selected = all;
+      } else {
+        selected = [];
+        const start = (index * per) % all.length;
+        for (let k = 0; k < per; k++) selected.push(all[(start + k) % all.length]);
+      }
+      internalLinkCount = selected.length;
+      const list = selected
         .map((l) => `<a href="${l.url}">${l.anchor}</a>`)
         .join('\n  ');
       linkingRules.push(
-        `- Include these EXACT internal interlink${params.interlinks.length > 1 ? 's' : ''}, each placed naturally in a relevant sentence and used exactly once:\n  ${list}\n  Use the anchor text and URL of each EXACTLY as written — do NOT paraphrase the anchor text, alter the URLs, or invent any other internal links to the money site.`,
+        `- Include these EXACT internal interlink${selected.length > 1 ? 's' : ''}, each placed naturally in a relevant sentence and used exactly once:\n  ${list}\n  Use the anchor text and URL of each EXACTLY as written — do NOT paraphrase the anchor text, alter the URLs, or invent any other internal links to the money site.`,
       );
     } else {
       internalLinkCount = params.serviceLinkCount + params.blogLinkCount;
@@ -790,6 +809,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
       moneySite, niche, location, authorInfo, wordCount, tone, placement, extras,
       externalLinkCount, serviceLinkCount, blogLinkCount, includeTable, includeImages,
       interlinks: validInterlinks.map((l) => ({ anchor: l.anchor.trim(), url: l.url.trim() })),
+      interlinksPerArticle,
     };
   }
 
@@ -1236,7 +1256,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     const key = name.trim();
     const preset: PresetState = {
       provider, model, concurrency, moneySite, niche, location, authorInfo,
-      linkPairs, distributionMode, interlinks, count, wordCount, tone, placement, extras,
+      linkPairs, distributionMode, interlinks, interlinksPerArticle, count, wordCount, tone, placement, extras,
       externalLinkCount, serviceLinkCount, blogLinkCount, includeTable, includeImages,
       anchorMix, useAnchorMix,
     };
@@ -1266,6 +1286,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     setLinkPairs(p.linkPairs);
     setDistributionMode(p.distributionMode);
     setInterlinks(Array.isArray(p.interlinks) ? p.interlinks : []);
+    setInterlinksPerArticle(typeof p.interlinksPerArticle === 'number' ? Math.max(0, Math.floor(p.interlinksPerArticle)) : 2);
     setCount(p.count);
     setWordCount(p.wordCount);
     setTone(p.tone);
@@ -1631,7 +1652,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={styles.label}>Interlinking URLs (optional)</label>
             <div style={styles.help}>
-              Real internal links to include in every article — each with its own anchor text and destination URL (e.g. other pages or posts you want to interlink). When you add one or more here, they replace the auto-generated Service/Blog internal links above, so articles only link to URLs you supply.
+              Real internal links to your client&apos;s pages — each with its own anchor text and destination URL. When you add one or more here, they replace the auto-generated Service/Blog internal links above, so articles only link to URLs you supply. Use the &quot;per article&quot; field below to rotate a subset across the batch so not every article uses the same links.
             </div>
             {interlinks.map((l, idx) => (
               <div key={l.id} style={styles.linkPair}>
@@ -1656,6 +1677,27 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
               </div>
             ))}
             <button onClick={addInterlink} style={styles.btnAdd}>+ Add Interlink</button>
+            {interlinks.length > 0 && (
+              <div style={{ marginTop: 12, maxWidth: 280 }}>
+                <label style={styles.label}>Interlinks per article</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={interlinksPerArticle}
+                  onChange={(e) => setInterlinksPerArticle(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                  style={styles.input}
+                />
+                <div style={styles.help}>
+                  How many of your interlinks each article uses, rotated evenly across the batch. 0 = include all of them in every article.
+                  {validInterlinks.length > 0 && interlinksPerArticle > 0 && interlinksPerArticle < validInterlinks.length
+                    ? ` Currently: ${interlinksPerArticle} of ${validInterlinks.length} per article.`
+                    : validInterlinks.length > 0
+                      ? ` Currently: all ${validInterlinks.length} per article.`
+                      : ''}
+                </div>
+              </div>
+            )}
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={styles.label}>Rich Content</label>
