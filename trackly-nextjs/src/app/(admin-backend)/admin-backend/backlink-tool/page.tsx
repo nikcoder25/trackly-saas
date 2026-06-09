@@ -191,6 +191,8 @@ type PresetState = {
    * defaults to true so existing campaigns keep their mix.
    */
   useAnchorMix?: boolean;
+  /** Operator-supplied real interlinks. Optional on legacy presets. */
+  interlinks?: Interlink[];
 };
 type PersistedState = PresetState & {
   articles: Article[];
@@ -202,6 +204,8 @@ function clampCount(n: unknown): number | null {
 }
 
 type LinkPair = { id: number; keyword: string; link: string; weight: number };
+/** A real internal/interlink the operator supplies: clickable anchor text + destination URL. */
+type Interlink = { id: number; anchor: string; url: string };
 type ArticleStatus = 'pending' | 'generating' | 'done' | 'error';
 type Article = {
   index: number;
@@ -236,6 +240,7 @@ export default function BacklinkToolPage() {
     { id: Date.now(), keyword: '', link: '', weight: 1 },
   ]);
   const [distributionMode, setDistributionMode] = useState<DistributionMode>('rotate');
+  const [interlinks, setInterlinks] = useState<Interlink[]>([]);
 
   const [count, setCount] = useState(10);
   const [wordCount, setWordCount] = useState('600');
@@ -309,6 +314,7 @@ export default function BacklinkToolPage() {
         if (typeof s.includeImages === 'boolean') setIncludeImages(s.includeImages);
         if (s.anchorMix && typeof s.anchorMix === 'object') setAnchorMix(normaliseMix(s.anchorMix));
         if (typeof s.useAnchorMix === 'boolean') setUseAnchorMix(s.useAnchorMix);
+        if (Array.isArray(s.interlinks)) setInterlinks(s.interlinks);
         if (Array.isArray(s.articles)) {
           // Rehydrate any in-flight articles as errored so the UI doesn't
           // look stuck in 'generating' forever after a reload.
@@ -332,7 +338,7 @@ export default function BacklinkToolPage() {
     try {
       const snapshot: PersistedState = {
         provider, model, concurrency, moneySite, niche, location, authorInfo,
-        linkPairs, distributionMode, count, wordCount, tone, placement, extras,
+        linkPairs, distributionMode, interlinks, count, wordCount, tone, placement, extras,
         externalLinkCount, serviceLinkCount, blogLinkCount,
         includeTable, includeImages, anchorMix, useAnchorMix, articles,
       };
@@ -342,7 +348,7 @@ export default function BacklinkToolPage() {
     }
   }, [
     hydrated, provider, model, concurrency, moneySite, niche, location, authorInfo,
-    linkPairs, distributionMode, count, wordCount, tone, placement, extras,
+    linkPairs, distributionMode, interlinks, count, wordCount, tone, placement, extras,
     externalLinkCount, serviceLinkCount, blogLinkCount,
     includeTable, includeImages, anchorMix, useAnchorMix, articles,
   ]);
@@ -459,6 +465,17 @@ export default function BacklinkToolPage() {
   }
 
   const validPairs = linkPairs.filter((p) => p.keyword.trim() && p.link.trim());
+  const validInterlinks = interlinks.filter((l) => l.anchor.trim() && l.url.trim());
+
+  function addInterlink() {
+    setInterlinks([...interlinks, { id: Date.now() + Math.random(), anchor: '', url: '' }]);
+  }
+  function removeInterlink(id: number) {
+    setInterlinks(interlinks.filter((l) => l.id !== id));
+  }
+  function updateInterlink(id: number, field: 'anchor' | 'url', value: string) {
+    setInterlinks(interlinks.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
+  }
 
   // Weighted distribution only behaves correctly with positive, finite
   // weights. A zero/negative/NaN weight would skew (or break) the running
@@ -513,6 +530,7 @@ export default function BacklinkToolPage() {
     blogLinkCount: number;
     includeTable: boolean;
     includeImages: boolean;
+    interlinks: { anchor: string; url: string }[];
   };
 
   function buildPrompt(
@@ -564,15 +582,32 @@ export default function BacklinkToolPage() {
     const linkingRules: string[] = [
       `- ONE money-site backlink: <a href="${pair.link}">${anchorText}</a> placed naturally. Use this anchor text EXACTLY as written above — it has been pre-chosen as a ${anchorTypeNote[anchorType]} for this article's slot in the anchor-text mix. Do NOT paraphrase, expand, or substitute it.`,
     ];
-    if (params.serviceLinkCount > 0) {
+    // Internal links: when the operator supplies explicit interlink
+    // anchor+URL pairs, those REPLACE the AI-invented service/blog links so
+    // every article only links to the real URLs provided. Otherwise fall
+    // back to the model inventing service/blog paths on the money site.
+    const useCustomInterlinks = params.interlinks.length > 0;
+    let internalLinkCount: number;
+    if (useCustomInterlinks) {
+      internalLinkCount = params.interlinks.length;
+      const list = params.interlinks
+        .map((l) => `<a href="${l.url}">${l.anchor}</a>`)
+        .join('\n  ');
       linkingRules.push(
-        `- EXACTLY ${params.serviceLinkCount} internal link${params.serviceLinkCount > 1 ? 's' : ''} to RELATED SERVICE/COMMERCIAL pages on the same money site domain. Use natural anchor text. Format: <a href="${cleanDomain}/services">related service page</a>. Vary the path across links (e.g., /services, /about, /pricing, /contact, /resources). DO NOT reuse the exact money-site link from the rule above.`,
+        `- Include these EXACT internal interlink${params.interlinks.length > 1 ? 's' : ''}, each placed naturally in a relevant sentence and used exactly once:\n  ${list}\n  Use the anchor text and URL of each EXACTLY as written — do NOT paraphrase the anchor text, alter the URLs, or invent any other internal links to the money site.`,
       );
-    }
-    if (params.blogLinkCount > 0) {
-      linkingRules.push(
-        `- EXACTLY ${params.blogLinkCount} internal link${params.blogLinkCount > 1 ? 's' : ''} to RELATED BLOGS on the same money site (e.g., <a href="${cleanDomain}/blog/related-topic">descriptive anchor</a>). Use realistic blog slug paths.`,
-      );
+    } else {
+      internalLinkCount = params.serviceLinkCount + params.blogLinkCount;
+      if (params.serviceLinkCount > 0) {
+        linkingRules.push(
+          `- EXACTLY ${params.serviceLinkCount} internal link${params.serviceLinkCount > 1 ? 's' : ''} to RELATED SERVICE/COMMERCIAL pages on the same money site domain. Use natural anchor text. Format: <a href="${cleanDomain}/services">related service page</a>. Vary the path across links (e.g., /services, /about, /pricing, /contact, /resources). DO NOT reuse the exact money-site link from the rule above.`,
+        );
+      }
+      if (params.blogLinkCount > 0) {
+        linkingRules.push(
+          `- EXACTLY ${params.blogLinkCount} internal link${params.blogLinkCount > 1 ? 's' : ''} to RELATED BLOGS on the same money site (e.g., <a href="${cleanDomain}/blog/related-topic">descriptive anchor</a>). Use realistic blog slug paths.`,
+        );
+      }
     }
     if (params.externalLinkCount > 0) {
       linkingRules.push(
@@ -581,7 +616,7 @@ export default function BacklinkToolPage() {
     } else {
       linkingRules.push('- DO NOT include any external links to other websites or domains. Only the single money-site backlink above is permitted.');
     }
-    const totalLinks = 1 + params.serviceLinkCount + params.blogLinkCount + params.externalLinkCount;
+    const totalLinks = 1 + internalLinkCount + params.externalLinkCount;
     linkingRules.push(`- Total link count target: EXACTLY ${totalLinks} link${totalLinks > 1 ? 's' : ''} per article (no more, no fewer).`);
 
     const mediaRules: string[] = [];
@@ -754,6 +789,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     return {
       moneySite, niche, location, authorInfo, wordCount, tone, placement, extras,
       externalLinkCount, serviceLinkCount, blogLinkCount, includeTable, includeImages,
+      interlinks: validInterlinks.map((l) => ({ anchor: l.anchor.trim(), url: l.url.trim() })),
     };
   }
 
@@ -1200,7 +1236,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     const key = name.trim();
     const preset: PresetState = {
       provider, model, concurrency, moneySite, niche, location, authorInfo,
-      linkPairs, distributionMode, count, wordCount, tone, placement, extras,
+      linkPairs, distributionMode, interlinks, count, wordCount, tone, placement, extras,
       externalLinkCount, serviceLinkCount, blogLinkCount, includeTable, includeImages,
       anchorMix, useAnchorMix,
     };
@@ -1229,6 +1265,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     setAuthorInfo(p.authorInfo);
     setLinkPairs(p.linkPairs);
     setDistributionMode(p.distributionMode);
+    setInterlinks(Array.isArray(p.interlinks) ? p.interlinks : []);
     setCount(p.count);
     setWordCount(p.wordCount);
     setTone(p.tone);
@@ -1551,7 +1588,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={styles.label}>Link Counts</label>
-            <div style={styles.help}>The money-site backlink (your target keyword) is always included. Set any count to 0 to skip that type entirely.</div>
+            <div style={styles.help}>The money-site backlink (your target keyword) is always included. Set any count to 0 to skip that type entirely.{validInterlinks.length > 0 ? ' Note: you have custom interlinks below, so the Service/Blog counts are ignored — those links are replaced by your interlink URLs.' : ''}</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 8 }}>
               <div>
                 <label style={styles.label}>Outbound Authority Links</label>
@@ -1590,6 +1627,35 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
                 <div style={styles.help}>0-{MAX_LINK_COUNT}. /blog/... posts on the money site.</div>
               </div>
             </div>
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={styles.label}>Interlinking URLs (optional)</label>
+            <div style={styles.help}>
+              Real internal links to include in every article — each with its own anchor text and destination URL (e.g. other pages or posts you want to interlink). When you add one or more here, they replace the auto-generated Service/Blog internal links above, so articles only link to URLs you supply.
+            </div>
+            {interlinks.map((l, idx) => (
+              <div key={l.id} style={styles.linkPair}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600 }}>
+                    Interlink #{idx + 1}
+                  </span>
+                  <button onClick={() => removeInterlink(l.id)} style={styles.removeBtn}>
+                    Remove
+                  </button>
+                </div>
+                <div style={styles.formGrid}>
+                  <div>
+                    <label style={styles.label}>Anchor Text</label>
+                    <input value={l.anchor} onChange={(e) => updateInterlink(l.id, 'anchor', e.target.value)} placeholder="emergency hvac service" style={styles.input} />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Anchor URL</label>
+                    <input value={l.url} onChange={(e) => updateInterlink(l.id, 'url', e.target.value)} placeholder="https://example.com/emergency-repair" style={styles.input} />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <button onClick={addInterlink} style={styles.btnAdd}>+ Add Interlink</button>
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={styles.label}>Rich Content</label>
