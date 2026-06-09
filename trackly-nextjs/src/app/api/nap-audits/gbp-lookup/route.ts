@@ -36,27 +36,125 @@ interface Place {
   nationalPhoneNumber?: string;
   internationalPhoneNumber?: string;
   addressComponents?: AddressComponent[];
+  formattedAddress?: string;
+  websiteUri?: string;
+  googleMapsUri?: string;
+  businessStatus?: string;
+  primaryTypeDisplayName?: { text?: string };
+  primaryType?: string;
+  types?: string[];
+  regularOpeningHours?: {
+    weekdayDescriptions?: string[];
+    openNow?: boolean;
+  };
+  location?: { latitude?: number; longitude?: number };
 }
 
-function pick(components: AddressComponent[], type: string): string | undefined {
+function pickLong(components: AddressComponent[], type: string): string | undefined {
   return components.find((c) => c.types?.includes(type))?.longText?.trim() || undefined;
 }
+function pickShort(components: AddressComponent[], type: string): string | undefined {
+  return components.find((c) => c.types?.includes(type))?.shortText?.trim() || undefined;
+}
+
+/** Useful business metadata returned alongside the canonical NAP. */
+export interface GbpExtras {
+  /** Google's pre-formatted single-line address — fallback when component parsing misses pieces. */
+  formattedAddress?: string;
+  /** Display label for the primary business category, e.g. "Dog kennel". */
+  category?: string;
+  /** "OPERATIONAL" | "CLOSED_TEMPORARILY" | "CLOSED_PERMANENTLY". */
+  businessStatus?: string;
+  /** Link to the Google Maps listing for this business. */
+  mapsUrl?: string;
+  /** Latitude/longitude — handy for the operator to verify the right branch. */
+  latitude?: number;
+  longitude?: number;
+  /** Human-readable weekday hours, one entry per day, in Google's locale. */
+  hours?: string[];
+}
+
+/**
+ * Long-form names for the countries whose two-letter code we commonly
+ * pick up from Google. Used to strip the trailing country off
+ * `formattedAddress` when we're salvaging a street value — Google often
+ * writes the country as "United States" / "United Kingdom" even though
+ * the addressComponent shortText returned "US" / "GB".
+ */
+const COUNTRY_LONG_NAME: Record<string, string[]> = {
+  US: ['United States', 'United States of America', 'USA'],
+  GB: ['United Kingdom', 'UK', 'Great Britain'],
+  CA: ['Canada'],
+  AU: ['Australia'],
+  IE: ['Ireland'],
+  IN: ['India'],
+  NZ: ['New Zealand'],
+};
 
 function toCanonical(place: Place): CanonicalNap {
   const comps = place.addressComponents ?? [];
-  const streetNumber = pick(comps, 'street_number');
-  const route = pick(comps, 'route');
-  const street = [streetNumber, route].filter(Boolean).join(' ') || undefined;
-  const city = pick(comps, 'postal_town') || pick(comps, 'locality') || pick(comps, 'sublocality');
-  const postcode = pick(comps, 'postal_code');
-  const suite = pick(comps, 'subpremise');
+  const streetNumber = pickLong(comps, 'street_number');
+  const route = pickLong(comps, 'route');
+  let street: string | undefined = [streetNumber, route].filter(Boolean).join(' ') || undefined;
+  const city = pickLong(comps, 'postal_town') || pickLong(comps, 'locality') || pickLong(comps, 'sublocality');
+  const postcode = pickLong(comps, 'postal_code');
+  const suite = pickLong(comps, 'subpremise');
+  // Prefer the short code ("TN", "CA") which is what most US citations use
+  // on a single address line; fall back to the long name otherwise.
+  const region = pickShort(comps, 'administrative_area_level_1') || pickLong(comps, 'administrative_area_level_1');
+  const country = pickShort(comps, 'country');
+  // If component parsing left the street blank (PO boxes, rural addresses,
+  // some international listings), salvage what we can from the formatted
+  // line — strip the city / region / postcode / country suffix the rest
+  // of the form already owns. The country tail needs both shapes: Places
+  // returns the shortText "US" in the component but writes "United States"
+  // in formattedAddress, so we have to try both to avoid leaving a
+  // ", United States" tail dangling on the salvaged street.
+  if (!street && place.formattedAddress) {
+    const countryAliases = country
+      ? [country, ...(COUNTRY_LONG_NAME[country.toUpperCase()] ?? [])]
+      : [];
+    const tails = [city, region, postcode, ...countryAliases].filter(
+      (s): s is string => !!s,
+    );
+    let trimmed = place.formattedAddress.trim();
+    // Repeated-pass strip so any one tail can match no matter which order
+    // Google emitted them in. Each iteration trims a trailing comma too.
+    let lastLen = -1;
+    while (trimmed.length !== lastLen) {
+      lastLen = trimmed.length;
+      for (const s of tails) {
+        const safe = s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        trimmed = trimmed.replace(new RegExp(`,?\\s*${safe}\\s*$`, 'i'), '').trim();
+      }
+      trimmed = trimmed.replace(/[,\s]+$/, '').trim();
+    }
+    if (trimmed && trimmed.length <= 200) street = trimmed;
+  }
   return {
     name: place.displayName?.text?.trim() || '',
     phone: place.nationalPhoneNumber?.trim() || place.internationalPhoneNumber?.trim() || undefined,
     street,
     suite,
     city,
+    region,
     postcode,
+    country,
+    website: place.websiteUri?.trim() || undefined,
+  };
+}
+
+function toExtras(place: Place): GbpExtras {
+  return {
+    formattedAddress: place.formattedAddress?.trim() || undefined,
+    category: place.primaryTypeDisplayName?.text?.trim() || place.primaryType || undefined,
+    businessStatus: place.businessStatus || undefined,
+    mapsUrl: place.googleMapsUri || undefined,
+    latitude: place.location?.latitude,
+    longitude: place.location?.longitude,
+    hours: Array.isArray(place.regularOpeningHours?.weekdayDescriptions)
+      ? place.regularOpeningHours!.weekdayDescriptions
+      : undefined,
   };
 }
 
@@ -73,8 +171,30 @@ async function callPlaces(query: string, apiKey: string): Promise<Response> {
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': apiKey,
-          'X-Goog-FieldMask':
-            'places.displayName,places.nationalPhoneNumber,places.internationalPhoneNumber,places.addressComponents',
+          // Expanded mask: pulls website, formatted address, category,
+          // hours, status and the Maps URL alongside NAP so the operator
+          // sees the full "source of truth" the audit was built against.
+          // All of these are on the Places Text Search **Pro** SKU — the
+          // tier we're already on for nationalPhoneNumber. We deliberately
+          // leave `rating` / `userRatingCount` off because those bump the
+          // call to the Enterprise SKU (higher per-call cost, and a
+          // hard INVALID_ARGUMENT failure when Enterprise isn't enabled
+          // on the key).
+          'X-Goog-FieldMask': [
+            'places.displayName',
+            'places.nationalPhoneNumber',
+            'places.internationalPhoneNumber',
+            'places.addressComponents',
+            'places.formattedAddress',
+            'places.websiteUri',
+            'places.googleMapsUri',
+            'places.businessStatus',
+            'places.primaryType',
+            'places.primaryTypeDisplayName',
+            'places.types',
+            'places.regularOpeningHours',
+            'places.location',
+          ].join(','),
         },
         // Text Search (New) takes `textQuery` (+ optional `pageSize`). It does NOT
         // accept `maxResultCount` (that's a Nearby Search field) and rejects the
@@ -152,7 +272,7 @@ export async function POST(request: Request): Promise<Response> {
     if (!place) return Response.json({ error: 'No matching business found.' }, { status: 404 });
     const canonical = toCanonical(place);
     if (!canonical.name) return Response.json({ error: 'No matching business found.' }, { status: 404 });
-    return Response.json({ canonical });
+    return Response.json({ canonical, extras: toExtras(place) });
   } catch (e) {
     logger.error('nap_audits.gbp_lookup_parse_failed', { err: (e as Error).message });
     return Response.json({ error: 'Google lookup returned an unexpected response.' }, { status: 502 });
