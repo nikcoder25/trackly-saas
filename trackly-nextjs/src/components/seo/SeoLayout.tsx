@@ -144,6 +144,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/resources">Templates &amp; Resources</Link>
             <Link href="/docs">Docs</Link>
             <Link href="/ai-search-statistics-2026">AI Search Statistics 2026</Link>
+            <Link href="/research/state-of-ai-search">State of AI Search (Live Report)</Link>
             <Link href="/geo-optimization">GEO Guide</Link>
             <Link href="/learn/llm-seo">LLM SEO Guide</Link>
             <Link href="/learn/ai-search-optimization">AI Search Optimization</Link>
