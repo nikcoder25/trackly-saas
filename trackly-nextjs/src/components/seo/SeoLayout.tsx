@@ -151,6 +151,9 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/best">What ChatGPT Recommends</Link>
             <Link href="/vs/ahrefs">Livesov vs Ahrefs</Link>
             <Link href="/vs/semrush">Livesov vs Semrush</Link>
+            <Link href="/vs/otterly">Livesov vs Otterly</Link>
+            <Link href="/vs/profound">Livesov vs Profound</Link>
+            <Link href="/vs/peec-ai">Livesov vs Peec AI</Link>
           </div>
           <div className="land-footer-col">
             <h4>Free Tools</h4>

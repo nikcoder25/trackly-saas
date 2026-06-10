@@ -105,6 +105,11 @@ export default async function CaseStudyPage({ params }: PageProps) {
 
       <Section pad="0 24px 56px" width={1000}>
         <StatsBar stats={c.outcomes} />
+        <p style={{ fontSize: 13, color: '#6b7280', maxWidth: 760, margin: '16px auto 0', textAlign: 'center' }}>
+          Illustrative scenario: &quot;{c.brand}&quot; is a fictional brand and the figures and
+          quotes model a typical program run on Livesov - not audited results from a named
+          customer.
+        </p>
       </Section>
 
       <Section background="var(--bg-section, #f7f5f1)" pad="72px 24px">
