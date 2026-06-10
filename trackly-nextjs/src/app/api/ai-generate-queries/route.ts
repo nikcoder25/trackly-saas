@@ -1,6 +1,7 @@
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
-import { queryAI, getDefaultModel } from '@/lib/ai-platforms';
+import { queryAI, getDefaultModel, withCacheAndRetry } from '@/lib/ai-platforms';
+import { isSearchEnabled } from '@/lib/response-cache';
 import { decryptApiKeys } from '@/lib/helpers';
 import { getServerKeys } from '@/lib/server-keys';
 import { resolveKeysForTenant, PROVIDER_SPECS } from '@/lib/tenant-keys';
@@ -96,7 +97,20 @@ Example format: ["best ${industry} in ${city || 'my area'}", "top rated ${indust
 
   try {
     const model = getDefaultModel(platform);
-    const result = await queryAI(platform, prompt, apiKey, model);
+    // Read-through response cache. The prompt embeds brand, industry,
+    // city AND the already-tracked query list, so a regenerate after
+    // accepting suggestions changes the key and still gets fresh output;
+    // only a true repeat (same brand, same state) serves from cache.
+    const { data: result } = await withCacheAndRetry(
+      {
+        prompt,
+        platform,
+        model,
+        searchEnabled: isSearchEnabled(platform, model),
+        city: typeof city === 'string' ? city : null,
+      },
+      () => queryAI(platform, prompt, apiKey, model),
+    );
 
     if (!result?.text) {
       return Response.json({ error: 'AI returned empty response. Please try again.' }, { status: 500 });

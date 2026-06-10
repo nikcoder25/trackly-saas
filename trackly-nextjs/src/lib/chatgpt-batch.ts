@@ -231,6 +231,35 @@ async function fetchOutputFile(
   return await resp.text();
 }
 
+// Best-effort cancel for a batch we are abandoning while it may still be
+// running. OpenAI bills batch requests that complete even if nobody ever
+// fetches the output, and the caller falls back to the synchronous path
+// after a ChatGPTBatchError — without the cancel, the same query would be
+// billed twice (once in the orphaned batch, once sync). Uses its own
+// timeout instead of the caller's signal, which is typically already
+// aborted by the time we get here.
+async function cancelBatch(batchId: string, apiKey: string, tag: string): Promise<void> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10_000);
+  try {
+    const resp = await openaiFetch(
+      `/batches/${batchId}/cancel`,
+      { method: 'POST' },
+      apiKey,
+      ctrl.signal,
+    );
+    logger.info(tag, { event: 'orphan_cancelled', batchId, status: resp.status });
+  } catch (e) {
+    logger.warn(tag, {
+      event: 'orphan_cancel_failed',
+      batchId,
+      errorMessage: ((e as Error).message || '').slice(0, 200),
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
@@ -350,45 +379,58 @@ export async function submitChatGPTBatch(
   const batchId = await createBatch(fileId, apiKey, signal);
   logger.info(tag, { event: 'created', batchId, fileId });
 
-  for (;;) {
-    const elapsed = Date.now() - startedAt;
-    if (elapsed >= maxWait) {
-      throw new ChatGPTBatchError(
-        `batch ${batchId} exceeded max-wait ${maxWait}ms (still in progress)`,
-        { stage: 'timeout', batchId, isTransient: true },
-      );
-    }
-    const status = await getBatchStatus(batchId, apiKey, signal);
-    if (status.status === 'completed') {
-      if (!status.output_file_id) {
+  // Once `terminal` is true the batch has finished on OpenAI's side and
+  // there is nothing left to cancel; until then, any error that exits
+  // the poll loop (max-wait timeout, caller abort, poll/network failure)
+  // abandons a batch that may still run to completion — and bill —
+  // server-side, so the catch below fires a best-effort cancel first.
+  let terminal = false;
+  try {
+    for (;;) {
+      const elapsed = Date.now() - startedAt;
+      if (elapsed >= maxWait) {
         throw new ChatGPTBatchError(
-          `batch ${batchId} completed without output_file_id`,
-          { stage: 'poll', batchId },
+          `batch ${batchId} exceeded max-wait ${maxWait}ms (still in progress)`,
+          { stage: 'timeout', batchId, isTransient: true },
         );
       }
-      logger.info(tag, {
-        event: 'completed',
-        batchId,
-        latencyMs: Date.now() - startedAt,
-      });
-      const raw = await fetchOutputFile(status.output_file_id, apiKey, signal);
-      return parseBatchOutput(raw, items);
+      const status = await getBatchStatus(batchId, apiKey, signal);
+      if (status.status === 'completed') {
+        terminal = true;
+        if (!status.output_file_id) {
+          throw new ChatGPTBatchError(
+            `batch ${batchId} completed without output_file_id`,
+            { stage: 'poll', batchId },
+          );
+        }
+        logger.info(tag, {
+          event: 'completed',
+          batchId,
+          latencyMs: Date.now() - startedAt,
+        });
+        const raw = await fetchOutputFile(status.output_file_id, apiKey, signal);
+        return parseBatchOutput(raw, items);
+      }
+      if (
+        status.status === 'failed'
+        || status.status === 'expired'
+        || status.status === 'cancelled'
+        || status.status === 'cancelling'
+      ) {
+        terminal = true;
+        const firstError =
+          status.errors?.data?.[0]?.message
+          || `batch terminal status: ${status.status}`;
+        throw new ChatGPTBatchError(
+          `batch ${batchId} ${status.status}: ${firstError}`,
+          { stage: 'poll', batchId, isTransient: status.status === 'expired' },
+        );
+      }
+      // status: validating | in_progress | finalizing — keep polling.
+      await sleep(Math.min(pollInterval, Math.max(0, maxWait - elapsed)), signal);
     }
-    if (
-      status.status === 'failed'
-      || status.status === 'expired'
-      || status.status === 'cancelled'
-      || status.status === 'cancelling'
-    ) {
-      const firstError =
-        status.errors?.data?.[0]?.message
-        || `batch terminal status: ${status.status}`;
-      throw new ChatGPTBatchError(
-        `batch ${batchId} ${status.status}: ${firstError}`,
-        { stage: 'poll', batchId, isTransient: status.status === 'expired' },
-      );
-    }
-    // status: validating | in_progress | finalizing — keep polling.
-    await sleep(Math.min(pollInterval, Math.max(0, maxWait - elapsed)), signal);
+  } catch (e) {
+    if (!terminal) await cancelBatch(batchId, apiKey, tag);
+    throw e;
   }
 }

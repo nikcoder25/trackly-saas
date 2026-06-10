@@ -11,7 +11,8 @@ import { requireVerifiedAuth } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { getNapAudit } from '@/lib/nap-audits';
 import { findCitationGaps, type RecommendedDirectory } from '@/lib/nap-verify';
-import { queryAI, getDefaultModel, pickBestKey } from '@/lib/ai-platforms';
+import { queryAI, getDefaultModel, pickBestKey, withCacheAndRetry } from '@/lib/ai-platforms';
+import { isSearchEnabled } from '@/lib/response-cache';
 import { getServerKeys } from '@/lib/server-keys';
 
 function buildPrompt(industry: string, region: string, competitors: string[]): string {
@@ -82,7 +83,14 @@ export async function POST(
     const platform: 'Perplexity' | 'ChatGPT' = pickBestKey(keys.perplexity) ? 'Perplexity' : 'ChatGPT';
     const model = getDefaultModel(platform);
 
-    const result = await queryAI(platform, buildPrompt(industry, region, competitors), apiKey, model);
+    // Read-through response cache: directory recommendations are keyed
+    // on industry/region/competitors via the prompt text, so audits in
+    // the same niche share one provider call.
+    const prompt = buildPrompt(industry, region, competitors);
+    const { data: result } = await withCacheAndRetry(
+      { prompt, platform, model, searchEnabled: isSearchEnabled(platform, model), city: region || null },
+      () => queryAI(platform, prompt, apiKey, model),
+    );
     const recommended = parseDirectories(result.text || '');
     if (recommended.length === 0) {
       return Response.json({ error: 'The AI did not return any directories. Try a more specific industry.' }, { status: 502 });

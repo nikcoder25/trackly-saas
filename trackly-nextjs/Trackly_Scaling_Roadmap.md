@@ -176,7 +176,28 @@ for any admin-selected `*-search-preview` model.
    the ~1024-token threshold.
 
 Deferred (24h SLA risk needs more planning):
-- Batch API for scheduled scans.
+- Batch API for scheduled scans. **Do NOT enable `CHATGPT_BATCH_ENABLED`
+  as wired today.** The worker submits one single-item batch per query and
+  polls it inline under the per-task abort budget
+  (`RUN_PER_QUERY_TIMEOUT_MS`, default 180s), while OpenAI batches
+  routinely take minutes-to-hours — so nearly every batch would be
+  abandoned at 180s and the query re-billed on the sync fallback.
+  Abandoned batches are now cancelled best-effort (POST
+  /v1/batches/{id}/cancel) so the orphan can't also complete and
+  double-bill, but that only caps the downside; there are still no
+  savings. The viable design is run-level aggregation: collect a run's
+  (or the daily cron tick's) no-search ChatGPT queries into ONE batch,
+  submit before / outside the per-query task loop, and harvest results
+  into the response cache so the per-query path hits cache.
+
+June 2026 addendum — shipped after the public-tools cost review:
+7. **Response cache on all `queryAI` callers** - The free public tools
+   (/api/free-check, chatgpt-mention-checker, citation-finder,
+   competitor-finder) and the authed helpers (ai-generate-queries,
+   nearby-areas, nap-audit gaps) previously called `queryAI` bare and
+   paid the provider on every request; they now go through
+   `withCacheAndRetry` like the run paths, so identical prompts serve
+   from `response_cache` for the full TTL.
 
 ---
 

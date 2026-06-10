@@ -1,5 +1,6 @@
 import { verifyRequestAuth } from '@/lib/auth';
-import { queryAI, getDefaultModel } from '@/lib/ai-platforms';
+import { queryAI, getDefaultModel, withCacheAndRetry } from '@/lib/ai-platforms';
+import { isSearchEnabled } from '@/lib/response-cache';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
@@ -112,13 +113,19 @@ export async function POST(request: Request) {
 
     try {
       const model = getDefaultModel(plat);
-      const result = await withTimeout(
-        queryAI(plat, prompt, key, model, undefined, {
-          systemPrompt: 'You are a geography assistant. Return ONLY valid JSON arrays with no extra text, no markdown, no explanation.',
-          maxTokens: 800,
-          jsonMode: true,
-          silent: true,
-        }),
+      // Read-through response cache: nearby-area lists for the same
+      // city/industry/website don't change, so repeat setups (and the
+      // retry-after-timeout case) serve from response_cache for free.
+      const { data: result } = await withTimeout(
+        withCacheAndRetry(
+          { prompt, platform: plat, model, searchEnabled: isSearchEnabled(plat, model), city: sanitizedCity },
+          () => queryAI(plat, prompt, key, model, undefined, {
+            systemPrompt: 'You are a geography assistant. Return ONLY valid JSON arrays with no extra text, no markdown, no explanation.',
+            maxTokens: 800,
+            jsonMode: true,
+            silent: true,
+          }),
+        ),
         attemptTimeout,
         `nearby-areas[${plat}]`,
       );

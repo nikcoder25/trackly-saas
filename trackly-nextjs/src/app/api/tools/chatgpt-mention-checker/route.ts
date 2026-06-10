@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
-import { queryAI, getDefaultModel, pickBestKey } from '@/lib/ai-platforms';
+import { queryAI, getDefaultModel, pickBestKey, withCacheAndRetry } from '@/lib/ai-platforms';
+import { isSearchEnabled } from '@/lib/response-cache';
 import { getServerKeys } from '@/lib/server-keys';
 import { logError, serverError } from '@/lib/api-error';
 
@@ -33,7 +34,14 @@ export async function POST(req: NextRequest) {
     }
 
     const model = getDefaultModel('ChatGPT');
-    const result = await queryAI('ChatGPT', query, apiKey, model);
+    // Read-through response cache: identical questions (repeat visitors,
+    // shared example prompts, bots) serve from response_cache instead of
+    // re-billing OpenAI. The brand-mention scan below runs locally, so
+    // different brands probing the same question share one row.
+    const { data: result, model: servedModel } = await withCacheAndRetry(
+      { prompt: query, platform: 'ChatGPT', model, searchEnabled: isSearchEnabled('ChatGPT', model) },
+      () => queryAI('ChatGPT', query, apiKey, model),
+    );
 
     const text = result.text || '';
     const lower = text.toLowerCase();
@@ -67,7 +75,7 @@ export async function POST(req: NextRequest) {
       brandName,
       query,
       platform: 'ChatGPT',
-      model,
+      model: servedModel,
       mentioned,
       snippet,
       competitors,
