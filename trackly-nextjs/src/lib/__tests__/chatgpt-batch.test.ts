@@ -69,6 +69,8 @@ import {
   getChatGPTBatchMaxWaitMs,
   getChatGPTBatchPollIntervalMs,
   parseBatchOutput,
+  submitChatGPTBatch,
+  ChatGPTBatchError,
   type BatchRequest,
 } from '../chatgpt-batch';
 import { queryAI } from '../ai-platforms';
@@ -249,6 +251,79 @@ describe('parseBatchOutput', () => {
     expect(byId.b.response?.choices?.[0]?.message?.content).toBe('ok');
     expect(byId.a.error?.message).toMatch(/no row/i);
     expect(byId.c.error?.message).toMatch(/no row/i);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────
+// submitChatGPTBatch — orphan cancel on abandon
+// ────────────────────────────────────────────────────────────────────
+
+describe('submitChatGPTBatch orphan cancel', () => {
+  function installStuckBatchFetchMock(): ReturnType<typeof vi.fn> {
+    const fetchMock = vi.fn(async (urlIn: string | URL | Request, init?: RequestInit) => {
+      const url = typeof urlIn === 'string' ? urlIn : urlIn.toString();
+      if (url.endsWith('/v1/files') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ id: 'file-xyz' }), { status: 200 });
+      }
+      if (url.endsWith('/v1/batches') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ id: 'batch-stuck', status: 'validating' }), { status: 200 });
+      }
+      if (url.endsWith('/v1/batches/batch-stuck/cancel') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ id: 'batch-stuck', status: 'cancelling' }), { status: 200 });
+      }
+      if (url.includes('/v1/batches/batch-stuck')) {
+        return new Response(JSON.stringify({ id: 'batch-stuck', status: 'in_progress' }), { status: 200 });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    return fetchMock;
+  }
+
+  const items: BatchRequest[] = [{ customId: 'a', body: { model: 'gpt-5.4-nano' } }];
+
+  it('max-wait timeout cancels the still-running batch before throwing', async () => {
+    const fetchMock = installStuckBatchFetchMock();
+    await expect(
+      submitChatGPTBatch(items, 'sk-test', { maxWaitMs: 10, pollIntervalMs: 1 }),
+    ).rejects.toMatchObject({ name: 'ChatGPTBatchError', stage: 'timeout' });
+    const urls = fetchMock.mock.calls.map(c => (typeof c[0] === 'string' ? c[0] : (c[0] as URL).toString()));
+    expect(urls.some(u => u.endsWith('/v1/batches/batch-stuck/cancel'))).toBe(true);
+  });
+
+  it('caller abort cancels the still-running batch before throwing', async () => {
+    const fetchMock = installStuckBatchFetchMock();
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 5);
+    await expect(
+      submitChatGPTBatch(items, 'sk-test', {
+        maxWaitMs: 60_000, pollIntervalMs: 1000, signal: ctrl.signal,
+      }),
+    ).rejects.toThrow();
+    const urls = fetchMock.mock.calls.map(c => (typeof c[0] === 'string' ? c[0] : (c[0] as URL).toString()));
+    expect(urls.some(u => u.endsWith('/v1/batches/batch-stuck/cancel'))).toBe(true);
+  });
+
+  it('terminal status (failed) does NOT issue a cancel — nothing left to bill', async () => {
+    const fetchMock = vi.fn(async (urlIn: string | URL | Request, init?: RequestInit) => {
+      const url = typeof urlIn === 'string' ? urlIn : urlIn.toString();
+      if (url.endsWith('/v1/files') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ id: 'file-xyz' }), { status: 200 });
+      }
+      if (url.endsWith('/v1/batches') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ id: 'batch-dead', status: 'validating' }), { status: 200 });
+      }
+      if (url.includes('/v1/batches/batch-dead')) {
+        return new Response(JSON.stringify({ id: 'batch-dead', status: 'failed' }), { status: 200 });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    await expect(
+      submitChatGPTBatch(items, 'sk-test', { maxWaitMs: 10_000, pollIntervalMs: 1 }),
+    ).rejects.toBeInstanceOf(ChatGPTBatchError);
+    const urls = fetchMock.mock.calls.map(c => (typeof c[0] === 'string' ? c[0] : (c[0] as URL).toString()));
+    expect(urls.some(u => u.includes('/cancel'))).toBe(false);
   });
 });
 
