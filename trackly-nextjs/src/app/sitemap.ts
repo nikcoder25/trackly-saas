@@ -1,5 +1,8 @@
 import type { MetadataRoute } from 'next';
 import { blogPosts } from '@/data/blog-posts';
+import { getAllTermSlugs } from '@/data/glossary';
+import { getAllCategorySlugs } from '@/data/best-categories';
+import { getAllCaseStudySlugs } from '@/data/case-studies';
 
 const BASE_URL = process.env.APP_URL || 'https://livesov.com';
 
@@ -8,6 +11,27 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const blogEntries: MetadataRoute.Sitemap = blogPosts.map(post => ({
     url: `${BASE_URL}/blog/${post.slug}`,
     lastModified: new Date(post.date),
+    changeFrequency: 'monthly' as const,
+    priority: 0.6,
+  }));
+
+  // Programmatic SEO sections — generated from the same data modules the
+  // pages render from, so new entries can never be missing from the sitemap.
+  const glossaryEntries: MetadataRoute.Sitemap = getAllTermSlugs().map((term) => ({
+    url: `${BASE_URL}/glossary/${term}`,
+    lastModified: new Date('2026-06-01'),
+    changeFrequency: 'monthly' as const,
+    priority: 0.6,
+  }));
+  const bestEntries: MetadataRoute.Sitemap = getAllCategorySlugs().map((slug) => ({
+    url: `${BASE_URL}/best/${slug}-chatgpt-recommends`,
+    lastModified: new Date('2026-06-01'),
+    changeFrequency: 'monthly' as const,
+    priority: 0.7,
+  }));
+  const caseStudyEntries: MetadataRoute.Sitemap = getAllCaseStudySlugs().map((brand) => ({
+    url: `${BASE_URL}/case-studies/${brand}`,
+    lastModified: new Date('2026-06-01'),
     changeFrequency: 'monthly' as const,
     priority: 0.6,
   }));
@@ -34,8 +58,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/how-it-works`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
     { url: `${BASE_URL}/use-cases`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
     { url: `${BASE_URL}/integrations`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/integrations/api`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/integrations/slack`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/integrations/zapier`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/geo-optimization`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
     { url: `${BASE_URL}/generative-engine-optimization-tool`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${BASE_URL}/docs`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.6 },
 
     // Learn hub & pillar guides
     { url: `${BASE_URL}/learn`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.7 },
@@ -57,6 +85,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // Content pages
     { url: `${BASE_URL}/blog`, lastModified: new Date('2026-04-01'), changeFrequency: 'weekly', priority: 0.7 },
     { url: `${BASE_URL}/changelog`, lastModified: new Date('2026-04-01'), changeFrequency: 'weekly', priority: 0.5 },
+    { url: `${BASE_URL}/glossary`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/best`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/case-studies`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/resources`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${BASE_URL}/resources/ai-visibility-report-template`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${BASE_URL}/ai-search-statistics-2026`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.8 },
 
     // Company pages
     { url: `${BASE_URL}/about`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.6 },
@@ -70,5 +104,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
     // Blog posts
     ...blogEntries,
+
+    // Programmatic SEO sections (glossary terms, best-of lists, case studies)
+    ...glossaryEntries,
+    ...bestEntries,
+    ...caseStudyEntries,
   ];
 }

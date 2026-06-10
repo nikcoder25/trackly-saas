@@ -24,6 +24,14 @@ export const metadata: Metadata = {
     url: 'https://livesov.com/integrations/zapier',
     siteName: 'Livesov',
     type: 'article',
+    images: [
+      {
+        url: 'https://livesov.com/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Livesov + Zapier: 5,000+ App Integrations',
+      },
+    ],
   },
 };
 

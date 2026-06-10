@@ -13,12 +13,19 @@ export async function generateStaticParams() {
   return getAllTermSlugs().map((term) => ({ term }));
 }
 
+// Slugs are a closed set from the data module; reject unknown ones at the
+// router level too. NOTE: the load-bearing soft-404 fix was removing the
+// (public)/loading.tsx Suspense boundary - with it present, the 200 shell
+// streamed before any notFound() could set a real 404 status.
+export const dynamicParams = false;
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { term } = await params;
   const t = getTerm(term);
-  if (!t) {
-    return { title: 'Term not found | Livesov', robots: { index: false, follow: false } };
-  }
+  // Guard in generateMetadata as well as the page body: if a Suspense
+  // boundary (e.g. a route-group loading.tsx) is ever reintroduced above
+  // this page, a body-only notFound() would stream a 200 shell (soft-404).
+  if (!t) notFound();
   const title = `${t.term}${t.acronym ? ` (${t.acronym})` : ''} - Definition | Livesov AI Search Glossary`;
   return {
     title,
@@ -31,6 +38,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       url: `https://livesov.com/glossary/${t.slug}`,
       siteName: 'Livesov',
       type: 'article',
+      images: [
+        {
+          url: 'https://livesov.com/og-image.png',
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
     },
   };
 }

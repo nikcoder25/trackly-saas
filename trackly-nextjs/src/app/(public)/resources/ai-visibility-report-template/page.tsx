@@ -26,6 +26,14 @@ export const metadata: Metadata = {
     url: 'https://livesov.com/resources/ai-visibility-report-template',
     siteName: 'Livesov',
     type: 'article',
+    images: [
+      {
+        url: 'https://livesov.com/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'AI Visibility Report Template - Free Download',
+      },
+    ],
   },
 };
 

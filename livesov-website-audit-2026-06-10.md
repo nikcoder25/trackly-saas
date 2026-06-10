@@ -10,18 +10,22 @@
 
 The site is in good shape structurally — clean build, 903/903 tests passing, zero broken internal links, zero broken assets, valid structured data, and strong security headers. However, the audit found **one critical functional bug** (every free tool is broken for signed-out visitors), **three high-severity issues** (soft-404s on four content sections, a disabled payments safety check, and a sitemap missing ~45 pages), and a handful of medium/minor SEO and performance items.
 
-| # | Severity | Issue |
-|---|----------|-------|
-| 1 | **Critical** | All free tools return 403 "Invalid or missing CSRF token" for anonymous visitors |
-| 2 | High | Nonexistent /blog, /glossary, /best, /case-studies URLs return HTTP 200 (soft-404) |
-| 3 | High | Production "test_mode payments" boot guard is dead code (`if (false && …)`) |
-| 4 | High | sitemap.xml omits ~45 indexable pages (glossary, best-of, case studies, docs, resources, integrations subpages, statistics page) |
-| 5 | Medium | Missing `og:image` on 6 page groups (no social share cards) |
-| 6 | Medium | Every marketing page is uncacheable (`Cache-Control: no-store`, fully dynamic SSR) |
-| 7 | Medium | /login and /signup canonical points to the homepage; duplicate meta description |
-| 8 | Low | ~95 internal links written as absolute `https://livesov.com/...` URLs |
-| 9 | Low | Several page titles exceed 65 chars (one case-study title is 168 chars) |
-| 10 | Low | Deprecated `X-XSS-Protection` header still sent |
+| # | Severity | Issue | Status |
+|---|----------|-------|--------|
+| 1 | **Critical** | All free tools return 403 "Invalid or missing CSRF token" for anonymous visitors | **Fixed in this PR** |
+| 2 | High | Nonexistent /blog, /glossary, /best, /case-studies URLs return HTTP 200 (soft-404) | **Fixed in this PR** |
+| 3 | High | Production "test_mode payments" boot guard is dead code (`if (false && …)`) | **Fixed in this PR** (see deploy note) |
+| 4 | High | sitemap.xml omits ~45 indexable pages (glossary, best-of, case studies, docs, resources, integrations subpages, statistics page) | **Fixed in this PR** |
+| 5 | Medium | Missing `og:image` on 6 page groups (no social share cards) | **Fixed in this PR** |
+| 6 | Medium | Every marketing page is uncacheable (`Cache-Control: no-store`, fully dynamic SSR) | Not changed — architectural trade-off of the per-request CSP nonce; needs its own decision |
+| 7 | Medium | /login and /signup canonical points to the homepage; duplicate meta description | **Fixed in this PR** |
+| 8 | Low | ~~Internal links written as absolute URLs~~ — corrected: on closer inspection these were almost all `<link rel="canonical">` tags, which are *supposed* to be absolute. Only a handful of intentional content links remain. | Withdrawn (false positive) |
+| 9 | Low | Several page titles exceed 65 chars (one case-study title is 168 chars) | Worst offender (case-study template) **fixed in this PR**; remaining long titles are editorial copy, left as-is |
+| 10 | Low | Deprecated `X-XSS-Protection` header still sent | **Fixed in this PR** |
+
+**Deploy note for #3:** the restored guard means production now refuses to boot if `DODO_PAYMENTS_API_KEY` is set while `DODO_PAYMENTS_ENVIRONMENT` is not `live_mode`. Before deploying, confirm in DigitalOcean → App → Settings that `DODO_PAYMENTS_ENVIRONMENT=live_mode`. If the `false &&` was added to work around a test_mode value in production, the env var — not the guard — is the thing to fix.
+
+Regression tests were added for #1 (`tests/csrf-anonymous-tools.test.ts`), #3 (`tests/instrumentation-boot-guards.test.ts`), and #4 (`tests/sitemap-coverage.test.ts`).
 
 ---
 

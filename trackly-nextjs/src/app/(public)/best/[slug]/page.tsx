@@ -29,15 +29,19 @@ export async function generateStaticParams() {
   return getAllCategorySlugs().map((slug) => ({ slug: `${slug}${SUFFIX}` }));
 }
 
+// Slugs are a closed set from the data module; reject unknown ones at the
+// router level too. NOTE: the load-bearing soft-404 fix was removing the
+// (public)/loading.tsx Suspense boundary - with it present, the 200 shell
+// streamed before any notFound() could set a real 404 status.
+export const dynamicParams = false;
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const category = resolveCategory(slug);
-  if (!category) {
-    return {
-      title: 'Page not found | Livesov',
-      robots: { index: false, follow: false },
-    };
-  }
+  // Guard in generateMetadata as well as the page body: if a Suspense
+  // boundary (e.g. a route-group loading.tsx) is ever reintroduced above
+  // this page, a body-only notFound() would stream a 200 shell (soft-404).
+  if (!category) notFound();
 
   const title = `Best ${category.category} ChatGPT recommends in 2026 (Top ${category.brands.length}) | Livesov`;
   const description = `What ChatGPT actually recommends when asked for the best ${category.category} ${category.audience}. Top ${category.brands.length} brands ranked by AI mention rate, with the reason ChatGPT cites each one.`;

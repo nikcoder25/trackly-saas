@@ -16,6 +16,14 @@ export const metadata: Metadata = {
     url: 'https://livesov.com/docs',
     siteName: 'Livesov',
     type: 'website',
+    images: [
+      {
+        url: 'https://livesov.com/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Livesov Docs',
+      },
+    ],
   },
 };
 

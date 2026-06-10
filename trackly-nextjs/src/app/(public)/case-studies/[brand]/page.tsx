@@ -21,12 +21,22 @@ export async function generateStaticParams() {
   return getAllCaseStudySlugs().map((brand) => ({ brand }));
 }
 
+// Slugs are a closed set from the data module; reject unknown ones at the
+// router level too. NOTE: the load-bearing soft-404 fix was removing the
+// (public)/loading.tsx Suspense boundary - with it present, the 200 shell
+// streamed before any notFound() could set a real 404 status.
+export const dynamicParams = false;
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { brand } = await params;
   const c = getCaseStudy(brand);
-  if (!c) return { title: 'Case study not found | Livesov', robots: { index: false, follow: false } };
+  // Guard in generateMetadata as well as the page body: if a Suspense
+  // boundary (e.g. a route-group loading.tsx) is ever reintroduced above
+  // this page, a body-only notFound() would stream a 200 shell (soft-404).
+  if (!c) notFound();
 
-  const title = `${c.brand} Case Study: ${c.summary} | Livesov`;
+  // Keep the title SERP-length; the full summary stays in the description.
+  const title = `${c.brand} Case Study: AI Visibility in ${c.industry} | Livesov`;
   return {
     title,
     description: c.summary,
@@ -39,6 +49,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       siteName: 'Livesov',
       type: 'article',
       publishedTime: c.publishedAt,
+      images: [
+        {
+          url: 'https://livesov.com/og-image.png',
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
     },
   };
 }

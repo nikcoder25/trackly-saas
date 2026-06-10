@@ -41,6 +41,16 @@ const CSRF_BOOTSTRAP_PATHS = new Set([
   '/api/contact',
   '/api/newsletter',
   '/api/free-check',
+  // Free public tools: submitted by signed-out visitors who have no CSRF
+  // cookie yet (it's only issued at login). These endpoints are anonymous
+  // and non-credentialed, so the Origin check is the meaningful protection
+  // — same posture as /api/contact and /api/free-check above.
+  '/api/geo-audit',
+  '/api/tools/llms-txt-generator',
+  '/api/tools/ai-crawler-checker',
+  '/api/tools/chatgpt-mention-checker',
+  '/api/tools/citation-finder',
+  '/api/tools/competitor-finder',
 ]);
 
 function getAllowedOrigins(request: NextRequest): Set<string> {
