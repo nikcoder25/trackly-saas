@@ -18,6 +18,14 @@ export const metadata: Metadata = {
     url: 'https://livesov.com/case-studies',
     siteName: 'Livesov',
     type: 'website',
+    images: [
+      {
+        url: 'https://livesov.com/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Livesov Case Studies: AI Visibility Wins',
+      },
+    ],
   },
 };
 

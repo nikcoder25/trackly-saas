@@ -40,7 +40,9 @@ const nextConfig: NextConfig = {
                 { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
                 { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
                 { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
-                { key: 'X-XSS-Protection', value: '1; mode=block' },
+                // X-XSS-Protection intentionally omitted: deprecated, ignored
+                // by modern browsers, and its legacy filter enabled XS-Leaks.
+                // CSP (set per-request in middleware.ts) covers XSS.
                 { key: 'X-DNS-Prefetch-Control', value: 'on' },
                 // Content-Security-Policy is set per-request in middleware.ts
                 // so it can embed a unique nonce that replaces 'unsafe-inline'

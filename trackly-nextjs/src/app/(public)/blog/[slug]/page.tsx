@@ -10,10 +10,19 @@ export async function generateStaticParams() {
   return blogPosts.map(post => ({ slug: post.slug }));
 }
 
+// Slugs are a closed set from the data module; reject unknown ones at the
+// router level too. NOTE: the load-bearing soft-404 fix was removing the
+// (public)/loading.tsx Suspense boundary - with it present, the 200 shell
+// streamed before any notFound() could set a real 404 status.
+export const dynamicParams = false;
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const post = getPostBySlug(slug);
-  if (!post) return { title: 'Post Not Found' };
+  // Guard in generateMetadata as well as the page body: if a Suspense
+  // boundary (e.g. a route-group loading.tsx) is ever reintroduced above
+  // this page, a body-only notFound() would stream a 200 shell (soft-404).
+  if (!post) notFound();
 
   return {
     title: `${post.title} | Livesov Blog`,
