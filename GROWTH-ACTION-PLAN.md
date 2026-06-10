@@ -35,11 +35,11 @@ You currently have zero third-party review presence. Research found G2 pages are
 
 I've labeled the current five case studies as illustrative scenarios (they used fictional brands and invented quotes presented as real — an FTC/trust risk that's now disclosed). The permanent fix: 2–3 real customer stories, even small ones. A real "$2k MRR agency grew client mentions 3x" beats a fictional Fortune-500-style story. Needs: customer outreach + permission. Also verify the mention-rate figures on the `/best/*` pages come from actual product runs — if those are invented too, they need the same treatment (tell me and I'll label them).
 
-## 4. Publish a quarterly "State of AI Search" report from your own product data (HIGHEST organic-traffic leverage)
+## 4. Quarterly "State of AI Search" report — BUILT, needs distribution (was: HIGHEST organic-traffic leverage)
 
-This is the single most-proven link magnet in your niche (Semrush's 10M-keyword AI Overviews study, AthenaHQ's State of AI Search, Profound's citation research are the most-cited assets in the category; original-research pages average +42% backlink growth). You're sitting on the raw material: millions of logged AI responses across 5 platforms.
+**Status: live at `/research/state-of-ai-search`.** The page computes real, anonymized aggregates from the production database on a rolling 90-day window (per-platform mention/recommendation rates, sentiment, top cited domains with customer domains excluded, accuracy issues per 1k). It publishes only when sample-size and brand-diversity thresholds pass, so it cannot show thin or identifying data.
 
-Outline I'd suggest: mention-rate benchmarks by industry, which platforms agree/disagree on recommendations, citation source distribution (which domains LLMs cite), hallucination rate per platform, quarter-over-quarter movement. Needs: your decision on what aggregate data is OK to publish + a few hours of analysis. I can build the page template and charts when you say go.
+**What's left for you (the part that actually generates links):** each quarter, take the current numbers and pitch them — a short LinkedIn post, an email to the SEO newsletters (SEOFOMO, Growth Memo), and a note to writers who maintain "best AI visibility tools" listicles. The data page is the magnet; distribution is the activation energy. Original-research pages average +42% backlink growth, but only when someone tells journalists they exist.
 
 ## 5. Trial email sequence (MEDIUM-HIGH, needs copy approval + Resend config)
 
