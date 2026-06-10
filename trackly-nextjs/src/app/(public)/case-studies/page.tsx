@@ -5,16 +5,16 @@ import { Section, SectionHeader, StatsBar, LongForm, PillarLinks } from '@/compo
 import { CASE_STUDIES } from '@/data/case-studies';
 
 export const metadata: Metadata = {
-  title: 'Livesov Case Studies: AI Visibility Wins Across SaaS, E-commerce, Agency & More',
+  title: 'Livesov Case Studies: AI Visibility Playbooks Across SaaS, E-commerce, Agency & More',
   description:
-    'How real brands grew ChatGPT mention rates, captured AI Overviews citations, and recovered revenue lost to AI search. Detailed playbooks, numbers, and quotes.',
+    'Illustrative playbooks for growing ChatGPT mention rates, capturing AI Overviews citations, and recovering revenue lost to AI search - with the diagnostic, approach, and numbers.',
   keywords:
     'livesov case studies, ai visibility case study, chatgpt seo case study, geo case study, ai overviews case study, llm seo wins',
   alternates: { canonical: '/case-studies' },
   openGraph: {
-    title: 'Livesov Case Studies: AI Visibility Wins',
+    title: 'Livesov Case Studies: AI Visibility Playbooks',
     description:
-      'Real brands, real numbers - how teams moved their share of AI answers and recovered revenue.',
+      'Illustrative playbooks showing how teams move their share of AI answers and recover revenue.',
     url: 'https://livesov.com/case-studies',
     siteName: 'Livesov',
     type: 'website',
@@ -37,25 +37,30 @@ export default function CaseStudiesIndexPage() {
       <SeoHero
         title={
           <>
-            Real brands.{' '}
+            The playbooks.{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand)] to-[#6366f1]">
-              Real numbers.
+              The numbers.
             </span>
           </>
         }
-        subtitle="How teams using Livesov moved their share of AI answers, recovered revenue lost to AI Overviews, and became the brand ChatGPT recommends in their category."
+        subtitle="Walkthroughs of how teams use Livesov to move their share of AI answers, recover traffic lost to AI Overviews, and become the brand ChatGPT recommends in their category."
         ctaText="Start your own program"
       />
 
       <Section pad="0 24px 56px" width={1000}>
         <StatsBar
           stats={[
-            { value: `${CASE_STUDIES.length}+`, label: 'Published case studies' },
-            { value: '+47pp', label: 'Avg. mention-rate lift in 90 days' },
-            { value: '11 weeks', label: 'Median time to first material gain' },
-            { value: '2.4×', label: 'Avg. branded search lift' },
+            { value: `${CASE_STUDIES.length}`, label: 'Published playbooks' },
+            { value: '+47pp', label: 'Mention-rate lift modeled in 90 days' },
+            { value: '11 weeks', label: 'Modeled time to first material gain' },
+            { value: '5', label: 'AI platforms measured throughout' },
           ]}
         />
+        <p style={{ fontSize: 13, color: '#6b7280', maxWidth: 760, margin: '16px auto 0', textAlign: 'center' }}>
+          These case studies are illustrative scenarios: the brand names are fictional and the
+          figures model typical programs run on Livesov - they are not audited results from named
+          customers. We&apos;ll publish named customer studies as logos and quotes are approved.
+        </p>
       </Section>
 
       <Section pad="40px 24px 80px" width={1080}>

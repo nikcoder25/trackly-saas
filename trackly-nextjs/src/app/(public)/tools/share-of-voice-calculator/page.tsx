@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import ToolPage, { cardStyle, inputStyle, labelStyle, ToolArticle, FaqSection, RelatedTools, AnswerCapsule, KeyTakeaways, ExpertQuote, ArticleSchema } from '@/components/tools/ToolPage';
+import ToolEmailCapture from '@/components/tools/ToolEmailCapture';
 
 interface BrandRow {
   id: number;
@@ -182,6 +183,8 @@ export default function ShareOfVoiceCalculatorPage() {
             ))}
         </div>
       </div>
+
+      <ToolEmailCapture source="share-of-voice-calculator" />
 
       <ToolArticle>
         <ArticleSchema

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner, ToolArticle, FaqSection, RelatedTools, AnswerCapsule, KeyTakeaways, ExpertQuote, ArticleSchema } from '@/components/tools/ToolPage';
+import ToolEmailCapture from '@/components/tools/ToolEmailCapture';
 
 interface Result {
   brandName: string;
@@ -137,6 +138,8 @@ export default function ChatgptMentionCheckerPage() {
           </div>
         </div>
       )}
+
+      {result && <ToolEmailCapture source="chatgpt-mention-checker" />}
 
       <ToolArticle>
         <ArticleSchema

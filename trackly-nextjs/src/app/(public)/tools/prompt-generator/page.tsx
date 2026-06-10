@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner, ToolArticle, FaqSection, RelatedTools, AnswerCapsule, KeyTakeaways, ExpertQuote, ArticleSchema } from '@/components/tools/ToolPage';
+import ToolEmailCapture from '@/components/tools/ToolEmailCapture';
 
 // Templates grouped by intent. Each template is filled by replacing {industry},
 // {brand}, {audience}, {region}. We aim for 50+ unique prompts.
@@ -217,6 +218,8 @@ export default function PromptGeneratorPage() {
           ))}
         </div>
       )}
+
+      <ToolEmailCapture source="prompt-generator" />
 
       <ToolArticle>
         <ArticleSchema

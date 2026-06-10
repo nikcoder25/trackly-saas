@@ -81,6 +81,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // Comparison pages
     { url: `${BASE_URL}/vs/semrush`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/vs/ahrefs`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/vs/otterly`, lastModified: new Date('2026-06-10'), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/vs/profound`, lastModified: new Date('2026-06-10'), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/vs/peec-ai`, lastModified: new Date('2026-06-10'), changeFrequency: 'monthly', priority: 0.7 },
 
     // Content pages
     { url: `${BASE_URL}/blog`, lastModified: new Date('2026-04-01'), changeFrequency: 'weekly', priority: 0.7 },
@@ -91,6 +94,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/resources`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.6 },
     { url: `${BASE_URL}/resources/ai-visibility-report-template`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.6 },
     { url: `${BASE_URL}/ai-search-statistics-2026`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/research/state-of-ai-search`, lastModified: new Date('2026-06-10'), changeFrequency: 'weekly', priority: 0.8 },
 
     // Company pages
     { url: `${BASE_URL}/about`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.6 },

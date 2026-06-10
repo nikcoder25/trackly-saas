@@ -575,6 +575,9 @@ function Footer() {
           <ul>
             <li><Link href="/vs/ahrefs">vs Ahrefs</Link></li>
             <li><Link href="/vs/semrush">vs Semrush</Link></li>
+            <li><Link href="/vs/otterly">vs Otterly</Link></li>
+            <li><Link href="/vs/profound">vs Profound</Link></li>
+            <li><Link href="/vs/peec-ai">vs Peec AI</Link></li>
             <li><Link href="/how-it-works">How it works</Link></li>
             <li><Link href="/#features">Features</Link></li>
           </ul>

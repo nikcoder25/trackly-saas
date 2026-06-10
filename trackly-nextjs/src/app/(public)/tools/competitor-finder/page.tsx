@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner, ToolArticle, FaqSection, RelatedTools, AnswerCapsule, KeyTakeaways, ExpertQuote, ArticleSchema } from '@/components/tools/ToolPage';
+import ToolEmailCapture from '@/components/tools/ToolEmailCapture';
 
 interface Brand {
   name: string;
@@ -157,6 +158,8 @@ export default function CompetitorFinderPage() {
           </details>
         </div>
       )}
+
+      {result && <ToolEmailCapture source="competitor-finder" />}
 
       <ToolArticle>
         <ArticleSchema

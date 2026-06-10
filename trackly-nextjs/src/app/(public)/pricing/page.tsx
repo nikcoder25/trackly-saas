@@ -208,6 +208,22 @@ export default function PricingPage() {
   return (
     <SeoLayout>
       <Breadcrumbs items={[{ name: 'Pricing', url: '/pricing' }]} />
+      {/* FAQPage JSON-LD: the FAQ below renders custom markup instead of the
+          shared FaqSection (which injects schema itself), so emit it here. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'FAQPage',
+            mainEntity: FAQ.map((f) => ({
+              '@type': 'Question',
+              name: f.q,
+              acceptedAnswer: { '@type': 'Answer', text: f.a },
+            })),
+          }),
+        }}
+      />
 
       {/* ── Hero ───────────────────────────────── */}
       <section style={{ padding: '80px 24px 32px', textAlign: 'center', background: 'var(--bg-landing)' }}>
