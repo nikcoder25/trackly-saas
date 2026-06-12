@@ -204,7 +204,8 @@ OUTPUT FORMAT
 ================================================================
 - Return ONLY the article as clean HTML. No preamble, no explanation, no code fences. Start directly with <h1>.
 - Use <h1> for the title (exactly one), <h2>/<h3> for section headings, <p> for paragraphs, <ul>/<ol> with <li> for lists, <strong>/<em> for emphasis, and <a href="..."> for any links the brief requires.
-- NEVER use # ## ### markdown headings or - / * bullets. Real HTML tags only.`;
+- NEVER use # ## ### markdown headings or - / * bullets. Real HTML tags only.
+- NEVER use the em dash character "—" (Unicode U+2014) anywhere in the article. It is a telltale sign of AI-generated content. Use commas, periods, or parentheses instead.`;
 }
 
 // USD per 1M tokens. Numbers are list prices used only for a rough
@@ -824,6 +825,10 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     if (/^#+\s/m.test(html) && !/<h[1-6]/i.test(html)) {
       html = markdownToHtml(html);
     }
+    // Both prompts ban the em dash (a telltale sign of AI-generated
+    // content), but models still slip it in occasionally. Normalise any
+    // survivors to a comma pause so no article ships with one.
+    html = html.replace(/\s*—+\s*/g, ', ');
     return html.trim();
   }
 
@@ -1218,6 +1223,24 @@ ${blocks.join('\n\n')}
     await regenerateIndices(Array.from(selected), `Regenerating ${selected.size} selected...`);
   }
 
+  // Inline per-row regenerate. Failed articles retry immediately; done
+  // articles confirm first since their content gets replaced. Either way
+  // regenerateIndices reuses the article's pinned pair + anchor and the
+  // index-keyed interlink rotation, so the campaign plan stays intact.
+  async function regenerateOne(idx: number) {
+    const a = articles.find((x) => x.index === idx);
+    if (!a || isRunning) return;
+    if (a.status === 'done' && !confirm(`Regenerate article #${idx + 1}? Its current content will be replaced.`)) return;
+    await regenerateIndices([idx], `Regenerating article #${idx + 1}...`);
+  }
+
+  // Replaces the current selection with exactly the failed articles so a
+  // partial batch (e.g. 25 failures out of 125) can be regenerated
+  // without touching the completed ones.
+  function selectFailed() {
+    setSelected(new Set(articles.filter((a) => a.status === 'error').map((a) => a.index)));
+  }
+
   async function resumeInterrupted() {
     const interruptedIdx = articles
       .filter((a) => a.status === 'error' && a.error === INTERRUPTED_ERROR)
@@ -1321,24 +1344,45 @@ ${blocks.join('\n\n')}
     setTimeout(() => setGenStatus(null), 2000);
   }
 
+  function escapeHtml(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   async function copyAllArticles() {
     const done = articles.filter((a) => a.status === 'done');
     if (done.length === 0) {
       setGenStatus({ msg: 'No completed articles to copy', type: 'warn' });
       return;
     }
+    // Every article gets a VISIBLE divider banner. HTML comments don't
+    // survive a paste into Google Docs / Word, so the separator and the
+    // article metadata must be real rendered content for a team member
+    // scrolling the doc to see where one article ends and the next begins.
     const html = done
-      .map(
-        (a) =>
-          `<!-- Article #${a.index + 1}: ${a.title} | Keyword: ${a.pair?.keyword || ''} | Link: ${a.pair?.link || ''} -->\n${a.content}`,
-      )
-      .join('\n\n<hr />\n\n');
-    const plain = done
-      .map((a) => {
-        const body = a.content.replace(/<[^>]+>/g, '').replace(/\n\n+/g, '\n\n').trim();
-        return `=== Article #${a.index + 1}: ${a.title} ===\nKeyword: ${a.pair?.keyword || ''}\nLink: ${a.pair?.link || ''}\n\n${body}`;
+      .map((a, i) => {
+        const meta = [
+          a.pair?.keyword ? `Keyword: ${escapeHtml(a.pair.keyword)}` : '',
+          a.pair?.link ? `Anchor link: ${escapeHtml(a.pair.link)}` : '',
+        ].filter(Boolean).join(' &nbsp;•&nbsp; ');
+        return [
+          '<hr />',
+          `<p style="text-align:center;background-color:#eef0ff;padding:10px 0;"><strong>━━━━━━━━━━ ARTICLE ${i + 1} OF ${done.length} ━━━━━━━━━━</strong></p>`,
+          `<p style="text-align:center;"><strong>${escapeHtml(a.title)}</strong>${meta ? `<br /><em>${meta}</em>` : ''}</p>`,
+          '<hr />',
+          a.content,
+        ].join('\n');
       })
-      .join('\n\n----------------------------------------\n\n');
+      .join('\n\n');
+    const plain = done
+      .map((a, i) => {
+        const body = a.content.replace(/<[^>]+>/g, '').replace(/\n\n+/g, '\n\n').trim();
+        const metaLines = [
+          a.pair?.keyword ? `Keyword: ${a.pair.keyword}` : '',
+          a.pair?.link ? `Anchor link: ${a.pair.link}` : '',
+        ].filter(Boolean).join('\n');
+        return `${'='.repeat(56)}\nARTICLE ${i + 1} OF ${done.length}: ${a.title}\n${metaLines ? metaLines + '\n' : ''}${'='.repeat(56)}\n\n${body}`;
+      })
+      .join('\n\n\n');
     try {
       const w = window as unknown as { ClipboardItem?: typeof ClipboardItem };
       if (navigator.clipboard && w.ClipboardItem) {
@@ -2194,6 +2238,9 @@ ${blocks.join('\n\n')}
             <button onClick={selectVisible} style={styles.btnSmall} disabled={filteredArticles.length === 0 || visibleSelectedCount === filteredArticles.length}>
               Select Visible
             </button>
+            <button onClick={selectFailed} style={styles.btnSmall} disabled={totalFailed === 0}>
+              Select Failed ({totalFailed})
+            </button>
             <button onClick={clearSelection} style={styles.btnSmall} disabled={selected.size === 0}>
               Deselect
             </button>
@@ -2211,6 +2258,9 @@ ${blocks.join('\n\n')}
             >
               Delete Selected ({selected.size})
             </button>
+          </div>
+          <div style={{ ...styles.help, marginTop: -6, marginBottom: 12 }}>
+            Regenerating (per row or selected) keeps each article&apos;s pre-assigned target keyword, anchor text, and interlink rotation, so the campaign&apos;s anchor-mix plan stays intact and untouched articles are never affected.
           </div>
           {filteredArticles.length === 0 && (
             <div style={{ padding: 20, textAlign: 'center', color: 'var(--muted)', fontSize: '0.9rem' }}>
@@ -2270,6 +2320,15 @@ ${blocks.join('\n\n')}
                     <button onClick={() => copyHtmlSource(a.index)} style={styles.btnSmall}>Copy HTML</button>
                     <button onClick={() => downloadArticle(a.index)} style={styles.btnSmall}>Download</button>
                   </>
+                )}
+                {(a.status === 'done' || a.status === 'error') && (
+                  <button
+                    onClick={() => regenerateOne(a.index)}
+                    disabled={isRunning}
+                    style={{ ...styles.btnSmall, opacity: isRunning ? 0.5 : 1, cursor: isRunning ? 'not-allowed' : 'pointer' }}
+                  >
+                    {a.status === 'error' ? 'Retry' : 'Regenerate'}
+                  </button>
                 )}
                 <button
                   onClick={() => deleteOne(a.index)}
