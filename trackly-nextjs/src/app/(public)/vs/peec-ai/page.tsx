@@ -55,11 +55,11 @@ const livesovStrengths = [
     icon: '$',
     title: '10x lower entry price',
     description:
-      'Livesov starts at $9/mo (free tier available). Peec&rsquo;s starter plan lists around $100/mo before add-ons.',
+      'Livesov starts at $9/mo with a 7-day no-card trial. Peec&rsquo;s starter plan lists around $100/mo before add-ons.',
   },
   {
     icon: '◎',
-    title: 'Free tier + 7-day trial',
+    title: '7-day trial, no credit card',
     description:
       'Measure your brand across all 5 platforms before paying anything. No credit card required.',
   },
@@ -127,7 +127,7 @@ const comparisonRows = [
   ['Google AI Overviews', '✗ Roadmap', '✓ Base'],
   ['Query method', 'Direct APIs', 'UI scraping (real sessions)'],
   ['Hallucination / fact-drift detection', '✓', '✗ Not advertised'],
-  ['Permanent free tier', '✓', '✗'],
+  ['Free trial without a credit card', '✓ 7 days', '✗ Not advertised'],
   ['Entry price', '$9/mo', '~$100/mo + add-ons'],
   ['GEO audit included', '✓', '✗'],
 ];
@@ -136,7 +136,7 @@ const faqs = [
   {
     question: 'Is Livesov a good Peec AI alternative?',
     answer:
-      'If you want all five major LLMs included at every price point, a free tier, hallucination detection, and a GEO audit in one product, yes. If Google AI Overviews coverage or UI-scraping methodology are hard requirements, Peec currently has those and Livesov does not.',
+      'If you want all five major LLMs included at every price point, hallucination detection, and a GEO audit in one product, yes. If Google AI Overviews coverage or UI-scraping methodology are hard requirements, Peec currently has those and Livesov does not.',
   },
   {
     question: 'How does pricing compare between Livesov and Peec AI?',
@@ -156,7 +156,7 @@ const faqs = [
   {
     question: 'Can I try both before deciding?',
     answer:
-      'Livesov: yes - permanent free tier plus a 7-day no-card trial. Peec did not advertise a free tier or self-serve trial as of June 2026; check peec.ai for current options. Running the same prompt set in parallel for a week is the most reliable comparison.',
+      'Livesov: yes - a 7-day no-card trial plus a free GEO audit that needs no signup. Peec did not advertise a free tier or self-serve trial as of June 2026; check peec.ai for current options. Running the same prompt set in parallel for a week is the most reliable comparison.',
   },
 ];
 

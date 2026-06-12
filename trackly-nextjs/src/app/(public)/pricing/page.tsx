@@ -7,9 +7,12 @@ import { PLAN_LIMITS, PRICING_PLANS, PRICING_COMPARISON } from '@/lib/constants'
 import { PLAN_CREDITS } from '@/lib/plan-config';
 import type { AutoRunFrequency } from '@/lib/plan-config';
 
-const PUBLIC_TIERS = ['free', 'starter', 'pro', 'agency'] as const;
+// The internal `free` tier still exists in plan-config (it's where
+// cancelled accounts land), but it is no longer marketed - the public
+// page shows the three paid plans only.
+const PUBLIC_TIERS = ['starter', 'pro', 'agency'] as const;
 type Tier = (typeof PUBLIC_TIERS)[number];
-const TIER_LABEL: Record<Tier, string> = { free: 'Free', starter: 'Starter', pro: 'Pro', agency: 'Agency' };
+const TIER_LABEL: Record<Tier, string> = { starter: 'Starter', pro: 'Pro', agency: 'Agency' };
 
 const TIER_TO_PLAN: Record<Tier, (typeof PRICING_PLANS)[number] | undefined> =
   Object.fromEntries(
@@ -60,7 +63,6 @@ const COMPARISON_ROWS: Array<{
   {
     feature: 'Tracked prompts (account-wide)',
     values: {
-      free: num(PLAN_CREDITS.free.trackedPromptsPerAccount),
       starter: num(PLAN_CREDITS.starter.trackedPromptsPerAccount),
       pro: num(PLAN_CREDITS.pro.trackedPromptsPerAccount),
       agency: num(PLAN_CREDITS.agency.trackedPromptsPerAccount),
@@ -69,7 +71,6 @@ const COMPARISON_ROWS: Array<{
   {
     feature: 'AI platforms (active)',
     values: {
-      free: platformsLabel('free'),
       starter: platformsLabel('starter'),
       pro: platformsLabel('pro'),
       agency: platformsLabel('agency'),
@@ -78,7 +79,6 @@ const COMPARISON_ROWS: Array<{
   {
     feature: 'Brands',
     values: {
-      free: brandsLabel('free'),
       starter: brandsLabel('starter'),
       pro: brandsLabel('pro'),
       agency: brandsLabel('agency'),
@@ -87,7 +87,6 @@ const COMPARISON_ROWS: Array<{
   {
     feature: 'Competitors tracked',
     values: {
-      free: String(PLAN_LIMITS.free.competitors),
       starter: String(PLAN_LIMITS.starter.competitors),
       pro: String(PLAN_LIMITS.pro.competitors),
       agency: String(PLAN_LIMITS.agency.competitors),
@@ -96,7 +95,6 @@ const COMPARISON_ROWS: Array<{
   {
     feature: 'Monthly credits',
     values: {
-      free: num(PLAN_CREDITS.free.monthlyCredits),
       starter: num(PLAN_CREDITS.starter.monthlyCredits),
       pro: num(PLAN_CREDITS.pro.monthlyCredits),
       agency: num(PLAN_CREDITS.agency.monthlyCredits),
@@ -105,7 +103,6 @@ const COMPARISON_ROWS: Array<{
   {
     feature: 'Auto-run frequency',
     values: {
-      free: autoRunLabel(PLAN_CREDITS.free.autoRunFrequency),
       starter: autoRunLabel(PLAN_CREDITS.starter.autoRunFrequency),
       pro: autoRunLabel(PLAN_CREDITS.pro.autoRunFrequency),
       agency: autoRunLabel(PLAN_CREDITS.agency.autoRunFrequency),
@@ -114,7 +111,6 @@ const COMPARISON_ROWS: Array<{
   {
     feature: 'Manual Run Query cap',
     values: {
-      free: manualCapLabel('free'),
       starter: manualCapLabel('starter'),
       pro: manualCapLabel('pro'),
       agency: manualCapLabel('agency'),
@@ -123,7 +119,6 @@ const COMPARISON_ROWS: Array<{
   {
     feature: 'Cooldown per prompt',
     values: {
-      free: cooldownLabel(PLAN_CREDITS.free.cooldownSeconds),
       starter: cooldownLabel(PLAN_CREDITS.starter.cooldownSeconds),
       pro: cooldownLabel(PLAN_CREDITS.pro.cooldownSeconds),
       agency: cooldownLabel(PLAN_CREDITS.agency.cooldownSeconds),
@@ -132,7 +127,6 @@ const COMPARISON_ROWS: Array<{
   {
     feature: 'Model tier',
     values: {
-      free: modelTierLabel('free'),
       starter: modelTierLabel('starter'),
       pro: modelTierLabel('pro'),
       agency: modelTierLabel('agency'),
@@ -141,7 +135,6 @@ const COMPARISON_ROWS: Array<{
   {
     feature: 'GEO Audits / month',
     values: {
-      free: String(PLAN_LIMITS.free.geoAudits),
       starter: String(PLAN_LIMITS.starter.geoAudits),
       pro: String(PLAN_LIMITS.pro.geoAudits),
       agency: String(PLAN_LIMITS.agency.geoAudits),
@@ -150,7 +143,6 @@ const COMPARISON_ROWS: Array<{
   {
     feature: 'Sentiment analysis',
     values: {
-      free: PLAN_LIMITS.free.sentiment ? '✓' : '✗',
       starter: PLAN_LIMITS.starter.sentiment ? '✓' : '✗',
       pro: PLAN_LIMITS.pro.sentiment ? '✓' : '✗',
       agency: PLAN_LIMITS.agency.sentiment ? '✓' : '✗',
@@ -158,12 +150,11 @@ const COMPARISON_ROWS: Array<{
   },
   {
     feature: 'API access',
-    values: { free: '✗', starter: '✗', pro: '✗', agency: '✓' },
+    values: { starter: '✗', pro: '✗', agency: '✓' },
   },
   {
     feature: 'Priority support',
     values: {
-      free: PLAN_LIMITS.free.prioritySupport ? '✓' : '✗',
       starter: PLAN_LIMITS.starter.prioritySupport ? '✓' : '✗',
       pro: PLAN_LIMITS.pro.prioritySupport ? '✓' : '✗',
       agency: PLAN_LIMITS.agency.prioritySupport ? '✓' : '✗',
@@ -186,7 +177,7 @@ const FAQ = [
   },
   {
     q: 'Can I cancel anytime?',
-    a: 'Yes. Cancel in one click from your billing portal. You keep access through the end of the current billing period and then drop to the free tier - no data is lost.',
+    a: 'Yes. Cancel in one click from your billing portal. You keep access through the end of the current billing period, and your data is preserved so you can pick up where you left off if you resubscribe.',
   },
   {
     q: 'Economy vs. Premium AI models - what changes?',
@@ -300,7 +291,7 @@ export default function PricingPage() {
           maxWidth: 1200, margin: '0 auto', display: 'grid', gap: 20,
           gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
         }}>
-          {PRICING_PLANS.map((plan) => {
+          {PRICING_PLANS.filter((plan) => plan.name !== 'Free').map((plan) => {
             const featured = !!plan.featured;
             const showTrial = plan.name !== 'Free';
             const displayPrice = annual ? plan.annualPrice : plan.price;
@@ -505,7 +496,7 @@ export default function PricingPage() {
                               fontSize: 12, fontWeight: 500,
                               color: 'var(--text-muted, #94a3b8)',
                             }}>
-                              {t !== 'free' ? '/mo' : ''}
+                              /mo
                             </span>
                           </div>
                           {isPro && (

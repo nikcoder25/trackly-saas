@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 export const metadata: Metadata = {
   title: 'AI Visibility Tracker for ChatGPT, Gemini & Claude',
   description:
-    'Livesov is the AI visibility tracker for ChatGPT, Perplexity, Claude, Gemini, and Grok. Track brand mentions and share of voice. Free plan, from $9/mo.',
+    'Livesov is the AI visibility tracker for ChatGPT, Perplexity, Claude, Gemini, and Grok. Track brand mentions and share of voice. 7-day free trial, plans from $9/mo.',
   keywords: [
     'AI visibility tracking',
     'AI brand monitoring',
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI Visibility Tracker for ChatGPT, Gemini & Claude',
     description:
-      'Livesov is the AI visibility tracker for ChatGPT, Perplexity, Claude, Gemini, and Grok. Track brand mentions and share of voice. Free plan, from $9/mo.',
+      'Livesov is the AI visibility tracker for ChatGPT, Perplexity, Claude, Gemini, and Grok. Track brand mentions and share of voice. 7-day free trial, plans from $9/mo.',
     type: 'website',
     url: 'https://livesov.com/',
     siteName: 'Livesov',
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'AI Visibility Tracker for ChatGPT, Gemini & Claude',
     description:
-      'Livesov is the AI visibility tracker for ChatGPT, Perplexity, Claude, Gemini, and Grok. Track brand mentions and share of voice. Free plan, from $9/mo.',
+      'Livesov is the AI visibility tracker for ChatGPT, Perplexity, Claude, Gemini, and Grok. Track brand mentions and share of voice. 7-day free trial, plans from $9/mo.',
   },
   alternates: {
     canonical: '/',

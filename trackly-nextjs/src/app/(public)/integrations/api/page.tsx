@@ -92,7 +92,7 @@ const faqs = [
   { question: 'Is the API REST or GraphQL?', answer: 'REST today. We use standard HTTP verbs, JSON request/response bodies, and bearer-token auth. A GraphQL layer is on the roadmap for late 2026.' },
   { question: 'How are webhooks authenticated?', answer: 'HMAC-SHA256 signatures via the X-Livesov-Signature header. Use the signing secret from your webhook config to verify every payload.' },
   { question: 'Is there a Node / Python SDK?', answer: 'Official TypeScript and Python SDKs ship in the docs. Both wrap REST + webhook signature verification + retries.' },
-  { question: 'Can I use the API on the free plan?', answer: 'Read-only API access is included on the free trial. Write endpoints and webhooks require any paid plan.' },
+  { question: 'Can I use the API during the free trial?', answer: 'Read-only API access is included on the 7-day free trial. Write endpoints and webhooks require any paid plan.' },
 ];
 
 export default function ApiIntegrationPage() {

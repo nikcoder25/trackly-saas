@@ -16,14 +16,14 @@ import {
 export const metadata: Metadata = {
   title: 'Perplexity Brand Tracking | AI Citation Tracker',
   description:
-    'Track how Perplexity cites and mentions your brand. An AI citation tracker that captures every source URL and your share of voice. Free plan.',
+    'Track how Perplexity cites and mentions your brand. An AI citation tracker that captures every source URL and your share of voice. Free trial.',
   keywords:
     'perplexity brand tracking, perplexity ai monitoring, ai search visibility, perplexity citation tracking, perplexity sonar tracking, perplexity rank tracking, ai search seo',
   alternates: { canonical: '/perplexity-brand-tracking' },
   openGraph: {
     title: 'Perplexity Brand Tracking | AI Citation Tracker',
     description:
-      'Track how Perplexity cites and mentions your brand. An AI citation tracker that captures every source URL and your share of voice. Free plan.',
+      'Track how Perplexity cites and mentions your brand. An AI citation tracker that captures every source URL and your share of voice. Free trial.',
     url: 'https://livesov.com/perplexity-brand-tracking',
     siteName: 'Livesov',
     type: 'website',
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Perplexity Brand Tracking | AI Citation Tracker',
     description:
-      'Track how Perplexity cites and mentions your brand. An AI citation tracker that captures every source URL and your share of voice. Free plan.',
+      'Track how Perplexity cites and mentions your brand. An AI citation tracker that captures every source URL and your share of voice. Free trial.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

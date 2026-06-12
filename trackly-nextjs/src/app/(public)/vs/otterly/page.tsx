@@ -49,7 +49,7 @@ const livesovStrengths = [
     icon: '⚙',
     title: 'All 5 LLMs on every plan',
     description:
-      'ChatGPT, Claude, Gemini, Perplexity, and Grok are included on every Livesov plan - even the free tier. No per-platform add-on pricing.',
+      'ChatGPT, Claude, Gemini, Perplexity, and Grok are all available in Livesov - no per-platform add-on pricing, and the 7-day trial includes all five.',
   },
   {
     icon: '⚠',
@@ -73,7 +73,7 @@ const livesovStrengths = [
     icon: '$',
     title: 'Lower entry price',
     description:
-      'Paid plans from $9/mo and a permanent free tier. Strong fit for SMBs and early-stage teams priced out of enterprise tools.',
+      'Plans from $9/mo with a 7-day no-card trial. Strong fit for SMBs and early-stage teams priced out of enterprise tools.',
   },
   {
     icon: '⟁',
@@ -131,7 +131,7 @@ const comparisonRows = [
   ['AI sentiment analysis', '✓ Per platform', 'Basic'],
   ['Hallucination / fact-drift detection', '✓', '✗'],
   ['Full AI response stored as evidence', '✓', 'Partial'],
-  ['Permanent free tier', '✓', '✗ Trial only'],
+  ['Free trial without a credit card', '✓ 7 days', '14-day trial'],
   ['Entry price', '$9/mo (Starter)', '$29/mo (Lite, ~10 prompts)'],
 ];
 
@@ -144,7 +144,7 @@ const faqs = [
   {
     question: 'How do Livesov and Otterly pricing compare?',
     answer:
-      'Livesov paid plans run $9-$89/mo with a permanent free tier and a 7-day no-card trial. Otterly lists Lite at $29/mo (around 10 prompts), Standard at $189/mo, and Pro at $989/mo on its public pricing page as of June 2026. Pricing changes - always confirm on each vendor’s site.',
+      'Livesov plans run $9-$89/mo, each with a 7-day no-card trial. Otterly lists Lite at $29/mo (around 10 prompts), Standard at $189/mo, and Pro at $989/mo on its public pricing page as of June 2026. Pricing changes - always confirm on each vendor’s site.',
   },
   {
     question: 'Which AI platforms does each tool track?',
@@ -154,7 +154,7 @@ const faqs = [
   {
     question: 'Does either tool have a free option?',
     answer:
-      'Livesov has a permanent free tier (one brand, all 5 platforms, manual runs) plus a 7-day free trial of paid features with no credit card. Otterly offers a 14-day free trial and a set of free one-off GEO tools, but no permanent free monitoring tier as of June 2026.',
+      'Livesov offers a 7-day free trial of paid features with no credit card, plus a free GEO audit and free one-off tools that need no signup at all. Otterly offers a 14-day free trial and a set of free one-off GEO tools as of June 2026.',
   },
   {
     question: 'Can I switch from Otterly to Livesov?',
@@ -236,7 +236,7 @@ export default function VsOtterlyPage() {
             </li>
             <li>
               <strong>Budget-constrained or testing the category:</strong> Livesov&rsquo;s
-              permanent free tier and $9 entry plan are the lowest-friction way to start
+              free no-signup GEO audit and $9 entry plan are the lowest-friction way to start
               measuring AI visibility at all.
             </li>
           </ul>
