@@ -18,6 +18,9 @@ const STORAGE_KEY = 'trackly.backlink-tool.v2';
 const PRESETS_KEY = 'trackly.backlink-tool.presets.v1';
 const MAX_LINK_COUNT = 5;
 const INTERRUPTED_ERROR = 'Interrupted (page reloaded)';
+// The API route rejects prompts over 20,000 chars; leave headroom for the
+// wrapper buildClientPrompt adds around the pasted client instructions.
+const CLIENT_PROMPT_LIMIT = 18000;
 
 interface AnchorMixEditorProps {
   mix: Record<AnchorType, number>;
@@ -152,6 +155,56 @@ function AnchorMixEditor({ mix, count, onChange, previewParams }: AnchorMixEdito
   );
 }
 
+// Topic angles rotated across a batch so each article gets a different
+// take on the same brief. Shared by both the structured-form prompt and
+// the client-prompt wrapper.
+const ARTICLE_ANGLES = [
+  'ultimate beginner guide', 'common mistakes and how to avoid them',
+  'expert tips and best practices', 'comparison and decision guide',
+  'step-by-step how-to tutorial', 'industry trends and insights',
+  'myths vs facts breakdown', 'cost and value analysis',
+  'DIY vs professional approach', 'checklist style guide',
+  'seasonal considerations', 'before and after scenarios',
+  "buyer's decision framework", 'troubleshooting common issues',
+  'small business perspective', "homeowner's guide",
+  'frequently asked questions deep-dive', 'case study style narrative',
+  'year-end review and predictions', 'regional/local considerations',
+];
+
+/**
+ * Wraps the raw instructions the admin received from a customer in just
+ * enough scaffolding to make the output usable by this tool: the client's
+ * own rules stay authoritative, each article in the batch gets a
+ * uniqueness directive, and the model is told to return clean HTML so the
+ * preview/export pipeline works.
+ */
+function buildClientPrompt(instructions: string, index: number, total: number): string {
+  const angle = ARTICLE_ANGLES[index % ARTICLE_ANGLES.length];
+  return `You are an expert SEO content writer producing an article for an off-page backlink campaign.
+
+================================================================
+CLIENT BRIEF
+================================================================
+The instructions below come directly from the client. Follow EVERY requirement and rule in them exactly (keywords, anchor texts, links, word count, tone, structure, topics, banned words, anything else they specify). Where the client's rules conflict with the generic guidance further down, the client's rules win.
+
+"""
+${instructions}
+"""
+
+================================================================
+BATCH CONTEXT
+================================================================
+- This is article ${index + 1} of ${total} generated from the same client brief.
+- Every article in the batch must be 100% unique: a different title, structure, examples, and wording from the others. Suggested angle for this one: ${angle}. If the brief prescribes specific topics or titles, follow the brief instead.
+
+================================================================
+OUTPUT FORMAT
+================================================================
+- Return ONLY the article as clean HTML. No preamble, no explanation, no code fences. Start directly with <h1>.
+- Use <h1> for the title (exactly one), <h2>/<h3> for section headings, <p> for paragraphs, <ul>/<ol> with <li> for lists, <strong>/<em> for emphasis, and <a href="..."> for any links the brief requires.
+- NEVER use # ## ### markdown headings or - / * bullets. Real HTML tags only.`;
+}
+
 // USD per 1M tokens. Numbers are list prices used only for a rough
 // pre-flight estimate; real billing comes from the provider invoice.
 const MODEL_RATES: Record<string, { input: number; output: number }> = {
@@ -195,6 +248,10 @@ type PresetState = {
   interlinks?: Interlink[];
   /** How many interlinks each article uses (rotated). 0 = all. Optional on legacy presets. */
   interlinksPerArticle?: number;
+  /** Which generation mode the campaign uses. Optional on legacy presets — defaults to 'form'. */
+  promptMode?: PromptMode;
+  /** Raw instructions pasted from the customer for client-prompt mode. Optional on legacy presets. */
+  clientPrompt?: string;
 };
 type PersistedState = PresetState & {
   articles: Article[];
@@ -215,7 +272,15 @@ type Article = {
   title: string;
   content: string;
   error: string | null;
-  pair: LinkPair;
+  /** Keyword/link pair driving the structured-form prompt. Absent on client-prompt articles. */
+  pair?: LinkPair;
+  /**
+   * Where the article's prompt came from. 'custom' articles are rebuilt
+   * from the client-prompt textarea on retry/regenerate instead of from
+   * the structured form fields. Optional for backward compat with
+   * persisted Articles created before the mode existed (= 'form').
+   */
+  source?: 'form' | 'custom';
   /**
    * Anchor profile picked for this article. Resolved at startGeneration
    * time so re-runs / persistence keep the original mix even if the
@@ -226,6 +291,7 @@ type Article = {
   anchorText?: string;
 };
 type DistributionMode = 'rotate' | 'random' | 'weighted';
+type PromptMode = 'form' | 'custom';
 type GenStatus = { msg: string; type: 'loading' | 'success' | 'error' | 'warn' };
 
 export default function BacklinkToolPage() {
@@ -257,6 +323,8 @@ export default function BacklinkToolPage() {
   const [includeImages, setIncludeImages] = useState(false);
   const [anchorMix, setAnchorMix] = useState<Record<AnchorType, number>>({ ...DEFAULT_ANCHOR_MIX });
   const [useAnchorMix, setUseAnchorMix] = useState(true);
+  const [promptMode, setPromptMode] = useState<PromptMode>('form');
+  const [clientPrompt, setClientPrompt] = useState('');
 
   const [articles, setArticles] = useState<Article[]>([]);
   const [isRunning, setIsRunning] = useState(false);
@@ -319,6 +387,8 @@ export default function BacklinkToolPage() {
         if (typeof s.useAnchorMix === 'boolean') setUseAnchorMix(s.useAnchorMix);
         if (Array.isArray(s.interlinks)) setInterlinks(s.interlinks);
         if (typeof s.interlinksPerArticle === 'number') setInterlinksPerArticle(Math.max(0, Math.floor(s.interlinksPerArticle)));
+        if (s.promptMode === 'form' || s.promptMode === 'custom') setPromptMode(s.promptMode);
+        if (typeof s.clientPrompt === 'string') setClientPrompt(s.clientPrompt);
         if (Array.isArray(s.articles)) {
           // Rehydrate any in-flight articles as errored so the UI doesn't
           // look stuck in 'generating' forever after a reload.
@@ -344,7 +414,7 @@ export default function BacklinkToolPage() {
         provider, model, concurrency, moneySite, niche, location, authorInfo,
         linkPairs, distributionMode, interlinks, interlinksPerArticle, count, wordCount, tone, placement, extras,
         externalLinkCount, serviceLinkCount, blogLinkCount,
-        includeTable, includeImages, anchorMix, useAnchorMix, articles,
+        includeTable, includeImages, anchorMix, useAnchorMix, promptMode, clientPrompt, articles,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
     } catch {
@@ -354,7 +424,7 @@ export default function BacklinkToolPage() {
     hydrated, provider, model, concurrency, moneySite, niche, location, authorInfo,
     linkPairs, distributionMode, interlinks, count, wordCount, tone, placement, extras,
     externalLinkCount, serviceLinkCount, blogLinkCount,
-    includeTable, includeImages, anchorMix, useAnchorMix, articles,
+    includeTable, includeImages, anchorMix, useAnchorMix, promptMode, clientPrompt, articles,
   ]);
 
   function handleProviderChange(p: 'claude' | 'openai') {
@@ -544,19 +614,7 @@ export default function BacklinkToolPage() {
     pair: LinkPair,
     anchorOverride?: { type: AnchorType; text: string },
   ): string {
-    const angles = [
-      'ultimate beginner guide', 'common mistakes and how to avoid them',
-      'expert tips and best practices', 'comparison and decision guide',
-      'step-by-step how-to tutorial', 'industry trends and insights',
-      'myths vs facts breakdown', 'cost and value analysis',
-      'DIY vs professional approach', 'checklist style guide',
-      'seasonal considerations', 'before and after scenarios',
-      "buyer's decision framework", 'troubleshooting common issues',
-      'small business perspective', "homeowner's guide",
-      'frequently asked questions deep-dive', 'case study style narrative',
-      'year-end review and predictions', 'regional/local considerations',
-    ];
-    const angle = angles[index % angles.length];
+    const angle = ARTICLE_ANGLES[index % ARTICLE_ANGLES.length];
 
     let pl = params.placement;
     if (pl === 'random') pl = ['natural', 'early', 'conclusion'][Math.floor(Math.random() * 3)];
@@ -817,10 +875,13 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
   // resume. Reads the pair AND the pre-assigned anchor profile for each
   // index from caller-supplied lookups so the realised anchor mix matches
   // what startGeneration planned even when a single article is retried.
+  // Client-prompt articles bypass the form-driven buildPrompt entirely:
+  // their finished prompt arrives via promptLookup.
   async function runWorkers(
     indices: number[],
     pairLookup: Map<number, LinkPair>,
     anchorLookup: Map<number, { type: AnchorType; text: string }>,
+    promptLookup?: Map<number, string>,
   ) {
     if (indices.length === 0) return;
     const params = buildParams();
@@ -836,12 +897,15 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
         while (queue.length > 0 && !shouldStopRef.current) {
           const idx = queue.shift();
           if (idx === undefined) break;
+          const customPrompt = promptLookup?.get(idx);
           const pair = pairLookup.get(idx);
-          if (!pair) continue;
+          if (customPrompt === undefined && !pair) continue;
           const anchor = anchorLookup.get(idx);
           updateArticle(idx, { status: 'generating', error: null });
           try {
-            const prompt = buildPrompt(params, idx, pair, anchor);
+            const prompt = customPrompt !== undefined || !pair
+              ? (customPrompt ?? '')
+              : buildPrompt(params, idx, pair, anchor);
             const raw = await callGenerate(prompt);
             const content = cleanToHtml(raw);
             const title = extractTitle(content) || `Article ${idx + 1}`;
@@ -924,13 +988,74 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     });
   }
 
+  async function startCustomGeneration() {
+    const instructions = clientPrompt.trim();
+    if (!instructions) {
+      setGenStatus({ msg: 'Paste the client instructions into the prompt area first', type: 'error' });
+      return;
+    }
+    if (instructions.length > CLIENT_PROMPT_LIMIT) {
+      setGenStatus({ msg: `Client prompt too long (${instructions.length.toLocaleString()} chars, max ${CLIENT_PROMPT_LIMIT.toLocaleString()})`, type: 'error' });
+      return;
+    }
+    if (count < 1 || count > 500) {
+      setGenStatus({ msg: 'Count must be between 1 and 500', type: 'error' });
+      return;
+    }
+
+    const initial: Article[] = [];
+    const promptLookup = new Map<number, string>();
+    for (let i = 0; i < count; i++) {
+      initial.push({
+        index: i,
+        status: 'pending',
+        title: `Article #${i + 1}`,
+        content: '',
+        error: null,
+        source: 'custom',
+      });
+      promptLookup.set(i, buildClientPrompt(instructions, i, count));
+    }
+    setArticles(initial);
+    setSelected(new Set());
+    setIsRunning(true);
+    shouldStopRef.current = false;
+    setGenStatus({ msg: `Generating ${count} articles from the client prompt with ${concurrency} parallel workers...`, type: 'loading' });
+
+    await runWorkers(Array.from({ length: count }, (_, i) => i), new Map(), new Map(), promptLookup);
+    setIsRunning(false);
+
+    setArticles((prev) => {
+      const done = prev.filter((a) => a.status === 'done').length;
+      const failed = prev.filter((a) => a.status === 'error').length;
+      if (failed > 0) setGenStatus({ msg: `Finished. ${done} succeeded, ${failed} failed. Click Retry Failed to retry.`, type: 'warn' });
+      else if (shouldStopRef.current) setGenStatus({ msg: `Stopped. ${done} of ${count} completed.`, type: 'warn' });
+      else setGenStatus({ msg: `✓ All ${done} articles generated!`, type: 'success' });
+      return prev;
+    });
+  }
+
   async function regenerateIndices(indices: number[], statusMsg: string) {
     if (indices.length === 0) return;
     const toRun = new Set(indices);
+    // Client-prompt articles are rebuilt from the current prompt area, so
+    // it must still hold the brief before they can be regenerated.
+    const hasCustom = articles.some((a) => toRun.has(a.index) && a.source === 'custom');
+    if (hasCustom && !clientPrompt.trim()) {
+      setGenStatus({ msg: 'The client prompt area is empty — paste the client instructions before regenerating these articles', type: 'error' });
+      return;
+    }
     const lookup = new Map<number, LinkPair>();
     const anchorLookup = new Map<number, { type: AnchorType; text: string }>();
+    const promptLookup = new Map<number, string>();
+    const batchTotal = articles.length;
     articles.forEach((a) => {
       if (!toRun.has(a.index)) return;
+      if (a.source === 'custom') {
+        promptLookup.set(a.index, buildClientPrompt(clientPrompt.trim(), a.index, batchTotal));
+        return;
+      }
+      if (!a.pair) return;
       lookup.set(a.index, a.pair);
       // Legacy persisted articles (from before the mix existed) won't
       // have anchorType set — fall back to the exact-match behaviour the
@@ -948,7 +1073,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     shouldStopRef.current = false;
     setGenStatus({ msg: statusMsg, type: 'loading' });
 
-    await runWorkers(indices, lookup, anchorLookup);
+    await runWorkers(indices, lookup, anchorLookup, promptLookup);
     setIsRunning(false);
 
     setArticles((prev) => {
@@ -1258,7 +1383,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
       provider, model, concurrency, moneySite, niche, location, authorInfo,
       linkPairs, distributionMode, interlinks, interlinksPerArticle, count, wordCount, tone, placement, extras,
       externalLinkCount, serviceLinkCount, blogLinkCount, includeTable, includeImages,
-      anchorMix, useAnchorMix,
+      anchorMix, useAnchorMix, promptMode, clientPrompt,
     };
     const next = { ...presets, [key]: preset };
     setPresets(next);
@@ -1299,6 +1424,8 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     setIncludeImages(p.includeImages);
     setAnchorMix(p.anchorMix ? normaliseMix(p.anchorMix) : { ...DEFAULT_ANCHOR_MIX });
     setUseAnchorMix(p.useAnchorMix ?? true);
+    setPromptMode(p.promptMode === 'custom' ? 'custom' : 'form');
+    setClientPrompt(typeof p.clientPrompt === 'string' ? p.clientPrompt : '');
     setActivePresetName(name);
     setGenStatus({ msg: `✓ Loaded preset "${name}"`, type: 'success' });
     setTimeout(() => setGenStatus(null), 1800);
@@ -1320,7 +1447,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
 
   function clearForm() {
     const hasBusinessData = moneySite.trim() || niche.trim() || location.trim() || authorInfo.trim()
-      || linkPairs.some((p) => p.keyword.trim() || p.link.trim()) || extras.trim();
+      || linkPairs.some((p) => p.keyword.trim() || p.link.trim()) || extras.trim() || clientPrompt.trim();
     if (hasBusinessData && !confirm('Clear all form fields for a new campaign? Generated articles below will be kept.')) return;
     setMoneySite('');
     setNiche('');
@@ -1330,6 +1457,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     setDistributionMode('rotate');
     setCount(10);
     setExtras('');
+    setClientPrompt('');
     setActivePresetName('');
     // AI provider/model, concurrency, word count, tone, placement, and the
     // link-count / table / images preferences are intentionally kept since
@@ -1417,6 +1545,56 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
         </div>
       </div>
 
+      {/* GENERATION MODE */}
+      <div style={styles.card}>
+        <div style={styles.cardTitle}>Generation Mode</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={() => setPromptMode('form')}
+            style={{ ...styles.providerTab, ...(promptMode === 'form' ? styles.providerTabActive : {}) }}
+          >
+            Structured Form
+          </button>
+          <button
+            onClick={() => setPromptMode('custom')}
+            style={{ ...styles.providerTab, ...(promptMode === 'custom' ? styles.providerTabActive : {}) }}
+          >
+            Client Prompt
+          </button>
+        </div>
+        <div style={{ ...styles.help, marginTop: 8 }}>
+          Structured Form builds each article brief from the campaign fields below. Client Prompt lets you paste the instructions and rules you received from the customer and generate contents directly from them.
+        </div>
+      </div>
+
+      {/* CLIENT PROMPT */}
+      {promptMode === 'custom' && (
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>Client Prompt</div>
+          <label style={styles.label}>Client Instructions &amp; Rules</label>
+          <textarea
+            value={clientPrompt}
+            onChange={(e) => setClientPrompt(e.target.value)}
+            placeholder={`Paste the full brief from the customer here, e.g.:\n\nWrite articles about emergency plumbing services in Austin TX.\n- 800-1000 words each\n- Friendly, expert tone\n- Include one backlink to https://example.com/emergency-plumbing with the anchor "emergency plumber austin"\n- No AI-sounding phrases, no fluff intros\n...`}
+            style={{ ...styles.input, minHeight: 220 }}
+          />
+          <div style={{ ...styles.help, ...(clientPrompt.trim().length > CLIENT_PROMPT_LIMIT ? { color: 'var(--red)' } : {}) }}>
+            {clientPrompt.trim().length.toLocaleString()} / {CLIENT_PROMPT_LIMIT.toLocaleString()} characters. Everything the client specified (keywords, links, anchors, word count, tone, banned words, ...) is passed to the model verbatim and treated as the authoritative rules for every article.
+          </div>
+          <div style={{ marginTop: 12, maxWidth: 280 }}>
+            <label style={styles.label}>Number of Contents</label>
+            <input type="number" min={1} max={500} value={count} onChange={(e) => setCount(parseInt(e.target.value) || 1)} style={styles.input} />
+            <div style={styles.help}>1 to 500 articles from this prompt. Each article gets a different angle and a uniqueness directive so the batch doesn&apos;t repeat itself.</div>
+          </div>
+          <button onClick={startCustomGeneration} disabled={isRunning} style={{ ...styles.btn, width: '100%', marginTop: 12, opacity: isRunning ? 0.5 : 1, cursor: isRunning ? 'not-allowed' : 'pointer' }}>
+            {isRunning ? 'Generating...' : `Generate ${count} Content${count === 1 ? '' : 's'} from Client Prompt`}
+          </button>
+        </div>
+      )}
+
+      {/* Campaign-builder cards. Hidden in client-prompt mode where the
+          pasted brief replaces the whole structured form. */}
+      {promptMode === 'form' && (<>
       {/* MONEY SITE */}
       <div style={styles.card}>
         <div style={styles.cardTitle}>Money Site Info</div>
@@ -1739,6 +1917,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
           {isRunning ? 'Generating...' : 'Generate Articles'}
         </button>
       </div>
+      </>)}
 
       {/* PROGRESS */}
       {articles.length > 0 && (
