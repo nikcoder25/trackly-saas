@@ -204,7 +204,8 @@ OUTPUT FORMAT
 ================================================================
 - Return ONLY the article as clean HTML. No preamble, no explanation, no code fences. Start directly with <h1>.
 - Use <h1> for the title (exactly one), <h2>/<h3> for section headings, <p> for paragraphs, <ul>/<ol> with <li> for lists, <strong>/<em> for emphasis, and <a href="..."> for any links the brief requires.
-- NEVER use # ## ### markdown headings or - / * bullets. Real HTML tags only.`;
+- NEVER use # ## ### markdown headings or - / * bullets. Real HTML tags only.
+- NEVER use the em dash character "—" (Unicode U+2014) anywhere in the article. It is a telltale sign of AI-generated content. Use commas, periods, or parentheses instead.`;
 }
 
 // USD per 1M tokens. Numbers are list prices used only for a rough
@@ -824,6 +825,10 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     if (/^#+\s/m.test(html) && !/<h[1-6]/i.test(html)) {
       html = markdownToHtml(html);
     }
+    // Both prompts ban the em dash (a telltale sign of AI-generated
+    // content), but models still slip it in occasionally. Normalise any
+    // survivors to a comma pause so no article ships with one.
+    html = html.replace(/\s*—+\s*/g, ', ');
     return html.trim();
   }
 
