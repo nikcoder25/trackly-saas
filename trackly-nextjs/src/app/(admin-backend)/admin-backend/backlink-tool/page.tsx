@@ -182,6 +182,7 @@ const ARTICLE_ANGLES = [
  */
 function buildClientPrompt(instructions: string, index: number, total: number, addOns = ''): string {
   const angle = ARTICLE_ANGLES[index % ARTICLE_ANGLES.length];
+  const updateDate = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   return `You are an expert SEO content writer producing an article for an off-page backlink campaign.
 
 ================================================================
@@ -199,6 +200,22 @@ BATCH CONTEXT
 - This is article ${index + 1} of ${total} generated from the same client brief.
 - Every article in the batch must be 100% unique: a different title, structure, examples, and wording from the others. Suggested angle for this one: ${angle}. If the brief prescribes specific topics or titles, follow the brief instead.
 ${addOns}
+================================================================
+SITE WRITING RULES (house defaults - the client brief above overrides any of these on conflict)
+================================================================
+- Do NOT include any links to other websites or domains, for any reason. When citing a statistic or source, name it inline in plain text right where the claim appears (e.g., "according to Energy Star"), citing the original source rather than an aggregator. Never hyperlink sources. Only links the client brief explicitly asks for are allowed.
+- Answer the article's main question directly in the first 2-3 sentences of the intro (inverted pyramid), then expand.
+- Open every H2 section with a direct, extractable answer, then expand. Use question-based H2 headings where natural ("How Much Does X Cost?"). Each section must stand alone if quoted by an AI engine.
+- Include 2-3 sourced statistics with the source named inline, at least one expert-style quote or attributed statement, and specific numbers over vague claims ("save 20 to 30% on cooling costs", not "save money").
+- Write like a real practitioner: local climate specifics, realistic local pricing ranges and timelines, relevant codes or permits, and common mistakes people make. Use first-hand framing where it fits ("our techs see this every winter"). Avoid generic content that could apply to any city or any company.
+- Include ONE FAQ section near the end: an <h2> such as "Frequently Asked Questions About [topic]" with 3-5 real questions as <h3> headings, each answered directly in 2-4 sentences.
+- Keep paragraphs to 2-3 lines and roughly a 65/35 paragraph-to-bullet ratio.
+- Use the primary keyword (if the brief names one) naturally in the H1 near the start, in the first 100 words, and in at least one H2. NATURAL use only - keyword stuffing performs worse than no optimization.
+- BANNED buzzwords (do not use any): unleash, leverage, optimize, elevate, transform, delve, dive into, navigate, robust, seamless, cutting-edge, game-changer.
+- Conclusion heading must be specific and contextual. NEVER "Conclusion", "Final Thoughts", "Wrapping Up", "Final Word", or "In Closing".
+- Include a visible "Last Updated" line in italics directly below the H1: <p><em>Last Updated: ${updateDate}</em></p>
+- Give every image (if any) descriptive alt text that matches the article content.
+
 ================================================================
 OUTPUT FORMAT
 ================================================================
@@ -323,7 +340,10 @@ export default function BacklinkToolPage() {
   const [tone, setTone] = useState('conversational');
   const [placement, setPlacement] = useState('natural');
   const [extras, setExtras] = useState('');
-  const [externalLinkCount, setExternalLinkCount] = useState(3);
+  // Site rule: no links to other websites in the content. Sources are
+  // named inline in plain text instead. Raise only when a client
+  // explicitly wants outbound authority links.
+  const [externalLinkCount, setExternalLinkCount] = useState(0);
   const [serviceLinkCount, setServiceLinkCount] = useState(2);
   const [blogLinkCount, setBlogLinkCount] = useState(2);
   const [includeTable, setIncludeTable] = useState(false);
@@ -709,7 +729,7 @@ export default function BacklinkToolPage() {
         `- EXACTLY ${params.externalLinkCount} EXTERNAL AUTHORITY link${params.externalLinkCount > 1 ? 's' : ''} to .gov, .edu, Wikipedia, EPA, DOE, industry associations, or major news outlets. Natural anchor text.`,
       );
     } else {
-      linkingRules.push('- DO NOT include any external links to other websites or domains. Only the single money-site backlink above is permitted.');
+      linkingRules.push('- DO NOT include any links to other websites or domains, for any reason. Only links to the money site are permitted. When citing statistics or sources, name them in plain text without a hyperlink.');
     }
     const totalLinks = 1 + internalLinkCount + params.externalLinkCount;
     linkingRules.push(`- Total link count target: EXACTLY ${totalLinks} link${totalLinks > 1 ? 's' : ''} per article (no more, no fewer).`);
@@ -750,7 +770,8 @@ CONTENT QUALITY RULES (FOLLOW EVERY SINGLE ONE)
 - Answer first, then provide context/explanation in following paragraphs.
 
 2. SEMANTIC COMPLETENESS
-- Every H2 section must stand alone. A reader landing on any section should understand it without reading the rest.
+- Every H2 section must stand alone. A reader landing on any section should understand it without reading the rest - each section must hold up if quoted by an AI engine.
+- Open every H2 section with a direct, extractable answer (2-3 sentences), then expand. Use question-based H2 headings where natural (e.g., "How Much Does X Cost?").
 - Never use vague references like "as mentioned above" or "see below". Define terms where you use them.
 
 3. CONTENT STRUCTURE
@@ -758,13 +779,18 @@ CONTENT QUALITY RULES (FOLLOW EVERY SINGLE ONE)
 - Paragraphs MUST be under 120 words (ideally 40-80 words). Break long ideas into multiple short paragraphs.
 - Use <ol><li> NUMBERED lists for step-by-step processes.
 - Use <ul><li> BULLET lists for key facts, features, or comparisons.
+- Keep roughly a 65/35 paragraph-to-bullet ratio: prose carries the article, lists support it.
 
 4. FACT DENSITY & STATISTICS
 - Include at least one statistic, percentage, number, or concrete data point every 150-200 words.
 - Use realistic, specific figures (e.g., "around 73% of homeowners", "average cost $3,500 to $7,000", "EPA reports show...", "according to a 2024 industry survey").
-- Where possible, attribute the stat to a source (e.g., "according to the U.S. Department of Energy" or "per the EPA's 2023 report").
+- Include 2-3 sourced statistics with the source NAMED INLINE in plain text right where the claim appears (e.g., "according to the U.S. Department of Energy"). Cite original sources, not aggregators. Do NOT hyperlink sources - links are governed solely by the LINKING STRATEGY rules below.
+- Include at least one expert-style quote or attributed statement where it fits.
+- Use specific numbers over vague claims ("save 20 to 30% on cooling costs", not "save money").
 
 5. E-E-A-T SIGNALS (Experience, Expertise, Authority, Trust)
+- Write like a real practitioner: include details only someone in the trade would know - local climate specifics, realistic local pricing ranges and timelines, relevant codes or permits, and common mistakes people make.${params.location ? ` Ground these details in ${params.location}.` : ''}
+- Use first-hand framing where it fits (e.g., "our techs see this every winter"). Avoid generic content that could apply to any city or any company.
 - End the article with an AUTHOR BIO section using this exact structure:
   <h2>About the Author</h2>
   <p>${params.authorInfo ? params.authorInfo + '. ' : "[Generate a realistic author name with credentials matching the niche - e.g., 'Sarah Mitchell is a certified HVAC technician with 12 years of industry experience and has written for trade publications']. "}The author specializes in [topic area relevant to the article].</p>
@@ -774,12 +800,15 @@ CONTENT QUALITY RULES (FOLLOW EVERY SINGLE ONE)
 ${linkingRules.join('\n')}
 
 7. KEYWORD PLACEMENT
-- Primary keyword "${pair.keyword}" MUST appear in the H1 title (naturally, not stuffed).
-- Primary keyword MUST appear in the first 100 words of the article body.
-- Use the keyword 2-4 more times throughout (avoid stuffing).
+- Primary keyword "${pair.keyword}" MUST appear in the H1 title (naturally, near the start, not stuffed).
+- Primary keyword MUST appear in the first 100 words of the article body and in at least one H2 heading.
+- Use the keyword 2-4 more times throughout. NATURAL use only - keyword stuffing performs worse than no optimization.
 ${params.location ? `- Mention "${params.location}" naturally at least once for local SEO relevance.` : ''}
 
-8. CTA (Call to Action)
+8. FAQ SECTION
+- Include ONE FAQ section near the end (before the CTA and author bio): an <h2> such as "Frequently Asked Questions About [topic]" with 3-5 real questions as <h3> headings, each answered directly in 2-4 sentences.
+
+9. CTA (Call to Action)
 - End the article with a clear CTA paragraph before the author bio, pointing readers to take action (contact, get a quote, learn more, etc.) with a link to a service/contact page on ${params.moneySite}.
 
 ================================================================
@@ -873,11 +902,19 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
   }
 
   async function callGenerate(prompt: string): Promise<string> {
+    // Scale the output budget with the requested length (~1.4 tokens per
+    // word for HTML plus headroom) so 2,000-3,000 word guides don't get
+    // truncated mid-article. Client-prompt briefs can demand any length,
+    // so they always get the server-side maximum.
+    const wc = parseInt(wordCount, 10);
+    const maxTokens = promptMode === 'custom'
+      ? 8000
+      : Math.min(8000, Math.max(4000, Math.round((Number.isFinite(wc) ? wc : 1000) * 2)));
     const res = await fetch('/api/admin/backlink-generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ provider, model, prompt, maxTokens: 4000 }),
+      body: JSON.stringify({ provider, model, prompt, maxTokens }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -949,7 +986,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
         if (blogLinkCount > 0) lines.push(`- Include EXACTLY ${blogLinkCount} internal link${blogLinkCount > 1 ? 's' : ''} to related blog posts on ${siteRef} using realistic /blog/... slug paths.`);
       }
       if (externalLinkCount > 0) lines.push(`- Include EXACTLY ${externalLinkCount} external authority link${externalLinkCount > 1 ? 's' : ''} to .gov, .edu, Wikipedia, or industry associations with natural anchor text.`);
-      else lines.push('- Do NOT include any external links to other websites or domains.');
+      else lines.push('- Do NOT include any links to other websites or domains, for any reason. When citing statistics or sources, name them in plain text without a hyperlink.');
       if (includeTable) lines.push('- Include ONE relevant HTML <table> (3-5 rows, 2-4 columns) using <thead>/<tbody>, placed where it adds real informational value.');
       if (includeImages) lines.push('- Include 1-2 <figure> blocks, each with an <img src="https://picsum.photos/seed/<unique-slug>/1200/630"> (keyword-relevant kebab-case slug, different per image), descriptive alt text, and a <figcaption>.');
       blocks.push(`ARTICLE SETTINGS:\n${lines.join('\n')}`);
@@ -1951,11 +1988,15 @@ ${blocks.join('\n\n')}
           <div>
             <label style={styles.label}>Word Count</label>
             <select value={wordCount} onChange={(e) => setWordCount(e.target.value)} style={styles.input}>
-              <option value="400">400 words</option>
-              <option value="600">600 words</option>
+              <option value="400">400 words (quick answer)</option>
+              <option value="600">600 words (quick answer)</option>
               <option value="800">800 words</option>
-              <option value="1000">1000 words</option>
-              <option value="1500">1500 words</option>
+              <option value="1000">1000 words (listicle)</option>
+              <option value="1500">1500 words (listicle)</option>
+              <option value="1800">1800 words (how-to guide)</option>
+              <option value="2000">2000 words (how-to guide)</option>
+              <option value="2500">2500 words (how-to guide)</option>
+              <option value="3000">3000 words (pillar page)</option>
             </select>
           </div>
           <div>
@@ -2019,7 +2060,7 @@ ${blocks.join('\n\n')}
                   onChange={(e) => setExternalLinkCount(clampCount(parseInt(e.target.value, 10)) ?? 0)}
                   style={styles.input}
                 />
-                <div style={styles.help}>0-{MAX_LINK_COUNT}. Links to .gov, .edu, Wikipedia, etc.</div>
+                <div style={styles.help}>0-{MAX_LINK_COUNT}. Site rule: keep at 0 - no links to other websites; sources get named inline in plain text instead. Raise only if the client wants .gov/.edu/Wikipedia links.</div>
               </div>
               <div>
                 <label style={styles.label}>Internal Service Links</label>
