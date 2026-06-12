@@ -1223,6 +1223,24 @@ ${blocks.join('\n\n')}
     await regenerateIndices(Array.from(selected), `Regenerating ${selected.size} selected...`);
   }
 
+  // Inline per-row regenerate. Failed articles retry immediately; done
+  // articles confirm first since their content gets replaced. Either way
+  // regenerateIndices reuses the article's pinned pair + anchor and the
+  // index-keyed interlink rotation, so the campaign plan stays intact.
+  async function regenerateOne(idx: number) {
+    const a = articles.find((x) => x.index === idx);
+    if (!a || isRunning) return;
+    if (a.status === 'done' && !confirm(`Regenerate article #${idx + 1}? Its current content will be replaced.`)) return;
+    await regenerateIndices([idx], `Regenerating article #${idx + 1}...`);
+  }
+
+  // Replaces the current selection with exactly the failed articles so a
+  // partial batch (e.g. 25 failures out of 125) can be regenerated
+  // without touching the completed ones.
+  function selectFailed() {
+    setSelected(new Set(articles.filter((a) => a.status === 'error').map((a) => a.index)));
+  }
+
   async function resumeInterrupted() {
     const interruptedIdx = articles
       .filter((a) => a.status === 'error' && a.error === INTERRUPTED_ERROR)
@@ -2220,6 +2238,9 @@ ${blocks.join('\n\n')}
             <button onClick={selectVisible} style={styles.btnSmall} disabled={filteredArticles.length === 0 || visibleSelectedCount === filteredArticles.length}>
               Select Visible
             </button>
+            <button onClick={selectFailed} style={styles.btnSmall} disabled={totalFailed === 0}>
+              Select Failed ({totalFailed})
+            </button>
             <button onClick={clearSelection} style={styles.btnSmall} disabled={selected.size === 0}>
               Deselect
             </button>
@@ -2237,6 +2258,9 @@ ${blocks.join('\n\n')}
             >
               Delete Selected ({selected.size})
             </button>
+          </div>
+          <div style={{ ...styles.help, marginTop: -6, marginBottom: 12 }}>
+            Regenerating (per row or selected) keeps each article&apos;s pre-assigned target keyword, anchor text, and interlink rotation, so the campaign&apos;s anchor-mix plan stays intact and untouched articles are never affected.
           </div>
           {filteredArticles.length === 0 && (
             <div style={{ padding: 20, textAlign: 'center', color: 'var(--muted)', fontSize: '0.9rem' }}>
@@ -2296,6 +2320,15 @@ ${blocks.join('\n\n')}
                     <button onClick={() => copyHtmlSource(a.index)} style={styles.btnSmall}>Copy HTML</button>
                     <button onClick={() => downloadArticle(a.index)} style={styles.btnSmall}>Download</button>
                   </>
+                )}
+                {(a.status === 'done' || a.status === 'error') && (
+                  <button
+                    onClick={() => regenerateOne(a.index)}
+                    disabled={isRunning}
+                    style={{ ...styles.btnSmall, opacity: isRunning ? 0.5 : 1, cursor: isRunning ? 'not-allowed' : 'pointer' }}
+                  >
+                    {a.status === 'error' ? 'Retry' : 'Regenerate'}
+                  </button>
                 )}
                 <button
                   onClick={() => deleteOne(a.index)}
