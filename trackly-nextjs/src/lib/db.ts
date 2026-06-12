@@ -212,6 +212,49 @@ function runMigrations(): Promise<void> {
           ON response_cache (expires_at);
         ALTER TABLE prompt_runs
           ADD COLUMN IF NOT EXISTS cache_hit BOOLEAN DEFAULT false;
+        -- Citation Decoder (Phase 1): one row per cited URL per prompt per
+        -- engine. Normalized out of prompt_runs.citations (JSONB array) so
+        -- the pattern engine can group/aggregate by url, domain, platform
+        -- and date without unpacking JSON on every read. position is the
+        -- 1-based order of the URL within the response's citation list.
+        CREATE TABLE IF NOT EXISTS citations (
+          id TEXT PRIMARY KEY,
+          prompt_run_id TEXT NOT NULL,
+          brand_id TEXT NOT NULL,
+          prompt TEXT NOT NULL,
+          platform TEXT NOT NULL,
+          url TEXT NOT NULL,
+          domain TEXT,
+          position INT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS citations_run_url_uniq
+          ON citations (prompt_run_id, url);
+        CREATE INDEX IF NOT EXISTS citations_brand_created_idx
+          ON citations (brand_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS citations_domain_idx
+          ON citations (domain);
+        -- Crawl queue + raw HTML store for cited pages. One row per unique
+        -- URL across all tenants (the page content is the same no matter
+        -- who saw it cited). The nightly /api/cron/crawl-citations job
+        -- drains status IN ('pending','error') rows; the Phase 2 feature
+        -- extractor reads the stored html.
+        CREATE TABLE IF NOT EXISTS cited_pages (
+          url TEXT PRIMARY KEY,
+          domain TEXT,
+          status TEXT NOT NULL DEFAULT 'pending',
+          http_status INT,
+          content_type TEXT,
+          html TEXT,
+          error TEXT,
+          attempts INT NOT NULL DEFAULT 0,
+          first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          last_fetched_at TIMESTAMPTZ,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS cited_pages_pickup_idx
+          ON cited_pages (status, attempts, first_seen_at)
+          WHERE status IN ('pending', 'error');
         DO $$
         BEGIN
           IF NOT EXISTS (
@@ -279,6 +322,45 @@ function runMigrations(): Promise<void> {
         }
       } catch (e) {
         console.error('[DB] TOTP encryption migration failed:', (e as Error).message);
+      }
+
+      // One-time backfill of the citations table from historical
+      // prompt_runs.citations arrays (last 90 days), so the Citation
+      // Decoder has data on day one instead of starting cold. Guarded by
+      // an emptiness check — both INSERTs are ON CONFLICT DO NOTHING and
+      // therefore idempotent, but the guard keeps subsequent process
+      // starts from re-scanning prompt_runs. Best-effort: the pool's 30s
+      // statement_timeout bounds the scan, and a timeout here only means
+      // the table fills from new runs going forward.
+      try {
+        const existing = await pool.query('SELECT 1 FROM citations LIMIT 1');
+        if (existing.rows.length === 0) {
+          await pool.query(`
+            INSERT INTO citations (id, prompt_run_id, brand_id, prompt, platform, url, domain, position, created_at)
+            SELECT md5(pr.id || '|' || c.url), pr.id, pr.brand_id, pr.prompt, pr.platform,
+                   left(c.url, 2048),
+                   lower(substring(c.url from '^https?://(?:www\\.)?([^/:?#]+)')),
+                   c.ord, pr.created_at
+              FROM prompt_runs pr,
+                   LATERAL jsonb_array_elements_text(pr.citations) WITH ORDINALITY AS c(url, ord)
+             WHERE pr.citations IS NOT NULL
+               AND jsonb_typeof(pr.citations) = 'array'
+               AND pr.created_at > NOW() - INTERVAL '90 days'
+               AND c.url ~ '^https?://'
+            ON CONFLICT DO NOTHING
+          `);
+          // Seed the crawl queue with recently-cited URLs only — pages
+          // cited months ago may have changed too much to explain today's
+          // citation behaviour.
+          await pool.query(`
+            INSERT INTO cited_pages (url, domain)
+            SELECT DISTINCT url, domain FROM citations
+             WHERE created_at > NOW() - INTERVAL '30 days'
+            ON CONFLICT (url) DO NOTHING
+          `);
+        }
+      } catch (e) {
+        console.error('[DB] citations backfill failed:', (e as Error).message);
       }
       globalForDb.dbMigrated = true;
     } catch (e) {

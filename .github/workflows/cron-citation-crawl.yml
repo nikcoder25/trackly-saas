@@ -1,0 +1,46 @@
+# Nightly cited-page crawler (Citation Decoder, Phase 1).
+#
+# Drains the cited_pages queue built up by the day's tracking runs:
+# fetches each newly-cited URL once and stores the raw HTML for the
+# feature extractor. 03:30 UTC sits an hour after the 02:30 daily_floor
+# tick in cron.yml, so the night's scheduled runs have already logged
+# their citations by the time the crawler wakes up.
+#
+# The endpoint is bounded per invocation (CITATION_CRAWL_BATCH pages,
+# ~4-min wall clock), so on heavy nights the loop below keeps calling
+# until the endpoint reports an empty pickup or the job's own timeout
+# stops it — whichever comes first.
+#
+# Required repository secrets: CRON_SECRET (matches the env var on
+# DigitalOcean).
+
+name: Nightly citation crawl
+
+on:
+  schedule:
+    - cron: "30 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  crawl:
+    name: Nightly citation crawl
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Call /api/cron/crawl-citations until queue is drained
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          for i in $(seq 1 10); do
+            body=$(curl --fail-with-body --show-error --silent \
+              --max-time 540 \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              "https://livesov.com/api/cron/crawl-citations")
+            echo "tick $i: $body"
+            picked=$(echo "$body" | jq -r '.picked // 0')
+            if [ "$picked" -eq 0 ]; then
+              echo "Queue drained after $i tick(s)."
+              break
+            fi
+            sleep 10
+          done

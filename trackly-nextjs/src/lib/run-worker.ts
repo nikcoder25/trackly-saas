@@ -13,6 +13,7 @@ import { isSearchEnabled } from './response-cache';
 import { resolveSearchModelWithBudget } from './search-budget';
 import { getAdminModel } from './site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from './parser';
+import { mergeCitations, persistCitations, type CitationBatchRow } from './citations';
 import { uid, decryptApiKeys, loadTenantFairnessSettings } from './helpers';
 import { circuitBreakerCheck, recordApiKeyFailure, resetApiKeyFailures, acquirePlatformSlot } from './ai-platforms';
 import { setTenantFairness } from './fairness-scheduler';
@@ -124,11 +125,15 @@ async function processRun(job: Job<BrandRunJobData>) {
     const competitors = detectCompetitors(result.text, matcher);
     const cost = fromCache ? 0 : estimateCost(result.model, result.tokensIn, result.tokensOut);
     const ctxLen = parsed.mentioned ? 300 : 150;
+    // Engine-native citation lists (ChatGPT url annotations, Perplexity
+    // citations) are the authoritative source URLs; the parser's regex
+    // pass only catches URLs that survived into the response text.
+    const citations = mergeCitations(result.citations, parsed.cites);
     const entry = {
       platform: plat, query: q, model: result.model,
       mentioned: parsed.mentioned, recommended: parsed.recommended,
       sentiment: parsed.sentiment, listPosition: parsed.listPosition,
-      citations: parsed.cites, competitorMentions: competitors,
+      citations, competitorMentions: competitors,
       context: result.text.substring(0, ctxLen),
       snippet: result.text.substring(0, 200),
       raw: result.text,
@@ -466,6 +471,7 @@ async function processRun(job: Job<BrandRunJobData>) {
       const values: string[] = [];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const p: any[] = [];
+      const citationRows: CitationBatchRow[] = [];
       let pi = 1;
       for (const r of batch) {
         const prId = uid();
@@ -476,11 +482,17 @@ async function processRun(job: Job<BrandRunJobData>) {
           JSON.stringify(r.competitorMentions || []), !r.error, runId,
           r.raw || null, r.cacheHit || false);
         pi += 15;
+        if (Array.isArray(r.citations) && r.citations.length > 0) {
+          citationRows.push({ promptRunId: prId, brandId, prompt: r.query, platform: r.platform, urls: r.citations });
+        }
       }
       try {
         await pool.query(
           `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, mentioned, sentiment, recommended, list_position, citations, competitor_mentions, success, batch_id, response_raw, cache_hit) VALUES ${values.join(',')}`, p,
         );
+        // Citation Decoder normalized rows. Only written when the parent
+        // prompt_runs batch landed so prompt_run_id always resolves.
+        await persistCitations(citationRows);
       } catch (e) {
         logger.error('worker.prompt_runs_batch_failed', {
           run_id: runId,
