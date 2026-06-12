@@ -284,7 +284,7 @@
 
 /* ════════ PRICING · testimonials · CTA · footer ════════ */
 .lv-home .pricing { background: var(--paper-2); border-block: 1px solid var(--line); }
-.lv-home .price-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: stretch; }
+.lv-home .price-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; max-width: 1020px; margin-inline: auto; }
 .lv-home .price-card { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 28px 24px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 1px 2px rgba(27,26,23,.03); }
 .lv-home .price-card.pri { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 2px 4px rgba(27,26,23,.06), 0 30px 60px -30px color-mix(in srgb, var(--accent) 70%, transparent); }
 .lv-home .price-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: #fff; color: var(--accent); font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 5px 14px; border-radius: 999px; box-shadow: 0 4px 12px rgba(27,26,23,.14); white-space: nowrap; }
@@ -345,6 +345,11 @@
 
 /* FOOTER */
 .lv-home .ft { background: var(--paper-2); border-top: 1px solid var(--line); padding-top: 72px; padding-bottom: 32px; }
+.lv-home .ft-tag { padding-bottom: 56px; }
+.lv-home .ft-tag .serif { font-size: clamp(28px, 4.2vw, 46px); line-height: 1.08; letter-spacing: -0.022em; color: var(--ink); font-weight: 500; margin: 0; max-width: 24ch; }
+.lv-home .ft-tag .serif em { font-style: italic; color: var(--accent); }
+.lv-home .ft-tag-sub { margin: 16px 0 0; font-size: 17px; color: var(--ink-2); }
+.lv-home .ft-tag-sub a { font-weight: 600; color: var(--accent); }
 .lv-home .ft-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 36px; padding-bottom: 48px; border-bottom: 1px solid var(--line); }
 .lv-home .ft-brand p { font-size: 15px; line-height: 1.55; color: var(--ink-2); margin: 16px 0 18px; max-width: 34ch; }
 .lv-home .ft-col-t { font-size: 13.5px; font-weight: 700; color: var(--ink); margin-bottom: 14px; }

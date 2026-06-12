@@ -166,7 +166,7 @@ const faqs = [
   {
     question: 'Does Livesov offer a free trial?',
     answer:
-      'Yes - every paid Livesov plan starts with a 7-day free trial, no credit card required. The Free tier is permanent and supports tracking a single brand across all 5 AI platforms on a manual cadence.',
+      'Yes - every Livesov plan starts with a 7-day free trial, no credit card required. You can also run a free GEO audit with no signup to see your visibility across all 5 AI platforms first.',
   },
 ];
 

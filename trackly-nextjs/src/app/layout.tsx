@@ -52,7 +52,7 @@ export const metadata: Metadata = {
       url: 'https://livesov.com/og-image.png',
       width: 1200,
       height: 630,
-      alt: 'Livesov \u2014 AI Visibility Tracker for brands across ChatGPT, Perplexity, Claude, Gemini, and Grok',
+      alt: 'Is your brand in the AI answer? Livesov \u2014 free 90-second AI visibility audit across ChatGPT, Perplexity, Claude, Gemini, and Grok',
     }],
   },
   twitter: {

@@ -111,7 +111,7 @@ function Nav() {
         </ul>
         <div className="lv-nav-cta">
           <Link className="btn btn-ghost" href="/login">Sign in</Link>
-          <Link className="btn btn-pri" href="/signup">Start free</Link>
+          <Link className="btn btn-pri" href="/signup">Start free trial</Link>
         </div>
         <button className="lv-burger" aria-label="Toggle menu" aria-expanded={open} onClick={() => setOpen(o => !o)}>
           <span /><span /><span />
@@ -130,7 +130,7 @@ function Nav() {
         </ul>
         <div className="lv-sheet-cta">
           <Link className="btn btn-out btn-lg" href="/login" onClick={closeMenu}>Sign in</Link>
-          <Link className="btn btn-pri btn-lg" href="/signup" onClick={closeMenu}>Start free</Link>
+          <Link className="btn btn-pri btn-lg" href="/signup" onClick={closeMenu}>Start free trial</Link>
         </div>
       </div>
     </nav>
@@ -147,10 +147,9 @@ function Hero() {
           <h1 className="serif hero-h1">AI is the new search.<br /><em>Are you visible?</em></h1>
           <p className="hero-sub">See exactly how ChatGPT, Claude, Gemini, Perplexity and Grok answer the questions your buyers ask - and whether your brand gets mentioned, recommended, or ignored.</p>
           <div className="hero-cta">
-            <Link className="btn btn-pri btn-lg" href="/signup">Start free</Link>
-            <Link className="btn-link" href="/geo-audit">Run a free audit <span className="ar">→</span></Link>
+            <Link className="btn btn-pri btn-lg" href="/geo-audit">Run my free audit <span className="ar">→</span></Link>
           </div>
-          <div className="hero-trust">No credit card · Set up in 2 minutes · Plans from $9/mo</div>
+          <div className="hero-trust">No credit card · Report in ~90 seconds · Plans from $9/mo</div>
         </div>
         <div className="hero-visual">
           <div className="shot hero-shot">
@@ -401,10 +400,10 @@ function Compare() {
 /* ─── Use cases ─── */
 function UseCases() {
   const cases = [
-    { t: 'SaaS marketing teams', d: 'Track every prompt buyers ask about your category and catch the moment an engine starts recommending a competitor instead of you.', v: '+18%', l: 'avg lift in branded mentions, first 90 days' },
-    { t: 'Agencies', d: 'Add GEO to your client deck without hiring an AI team. White-label reports, client workspaces, bulk audits.', v: '12×', l: 'workspaces per agency seat' },
+    { t: 'SaaS marketing teams', d: 'Track every prompt buyers ask about your category and catch the moment an engine starts recommending a competitor instead of you.', v: '50+', l: 'buyer-intent queries seeded at setup' },
+    { t: 'Agencies', d: 'Add GEO to your client deck without hiring an AI team. White-label reports, client workspaces, bulk audits.', v: '100', l: 'tracked prompts per Agency workspace' },
     { t: 'E-commerce brands', d: 'When a shopper asks an AI “what’s the best running shoe for flat feet”, be in the answer - and track every review-site citation.', v: '5 / 5', l: 'engines tracked for product queries' },
-    { t: 'Enterprise brand teams', d: 'Catch hallucinations about your products before they spread, submit corrections, and get alerted when share of voice drops.', v: '<10m', l: 'mean time to detect a hallucination spike' },
+    { t: 'Enterprise brand teams', d: 'Catch hallucinations about your products before they spread, submit corrections, and get alerted when share of voice drops.', v: 'Daily', l: 'hallucination checks on every tracked prompt' },
   ];
   return (
     <section className="section usecases">
@@ -441,19 +440,14 @@ function Tick() {
 function Pricing() {
   const tiers: { k: string; p: string; credits: string; s: string; f: string[]; cta: string; href: string; pri?: boolean; badge?: string }[] = [
     {
-      k: 'Free', p: '$0', credits: '150', s: 'Try it out',
-      f: ['1 brand', '5 tracked prompts', '2 AI platforms', 'Weekly auto-runs', '3 GEO audits / month'],
-      cta: 'Start free', href: '/signup', pri: false,
-    },
-    {
       k: 'Starter', p: '$9', credits: '750', s: 'Perfect for getting started',
       f: ['3 brands', '15 tracked prompts', '2 AI platforms', 'Competitor tracking (3)', 'Auto-runs every 2 days', '20 GEO audits / month'],
-      cta: 'Get started', href: '/signup', pri: false,
+      cta: 'Start 7-day trial', href: '/signup', pri: false,
     },
     {
       k: 'Pro', p: '$29', credits: '2,500', s: 'For growing businesses',
       f: ['Unlimited brands', '25 tracked prompts', '3 AI platforms', 'Competitor tracking (8)', 'Daily auto-runs', 'Sentiment analysis', '75 GEO audits / month'],
-      cta: 'Get started', href: '/signup', pri: true, badge: 'Most popular',
+      cta: 'Start 7-day trial', href: '/signup', pri: true, badge: 'Most popular',
     },
     {
       k: 'Agency', p: '$89', credits: '8,000', s: 'For agencies & teams',
@@ -468,7 +462,7 @@ function Pricing() {
           center
           eyebrow="Pricing"
           title={<>One coffee a month to see <em>what AI says about you.</em></>}
-          sub="A 7-day free trial on every paid plan - no credit card required. Plans from $9/mo."
+          sub="Three plans. Each starts with a 7-day free trial - no credit card required."
         />
         <div className="price-grid">
           {tiers.map((t, i) => (
@@ -554,6 +548,10 @@ function CTA() {
 function Footer() {
   return (
     <footer className="ft">
+      <div className="container ft-tag">
+        <p className="serif">Somewhere right now, an AI is answering <em>“what’s the best tool for…”</em></p>
+        <p className="ft-tag-sub">Make sure the answer is you. <Link href="/geo-audit">Run your free audit →</Link></p>
+      </div>
       <div className="container ft-grid">
         <div className="ft-brand">
           <Logo size={26} />
@@ -614,7 +612,7 @@ function Footer() {
           <Link href="/terms">Terms</Link>
           <Link href="/cookies">Cookies</Link>
         </span>
-        <span>The share-of-voice layer for AI search.</span>
+        <span><b>livesov</b> = live share of voice, for AI search.</span>
       </div>
     </footer>
   );

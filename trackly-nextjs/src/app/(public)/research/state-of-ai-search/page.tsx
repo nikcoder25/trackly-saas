@@ -256,7 +256,7 @@ export default async function StateOfAiSearchPage() {
           { href: '/geo-audit', label: 'Free GEO audit', description: 'Score any URL for AI citation-readiness.' },
           { href: '/tools/chatgpt-mention-checker', label: 'ChatGPT mention checker', description: 'Check any brand&apos;s ChatGPT presence in seconds.' },
           { href: '/learn/llm-seo', label: 'LLM SEO guide', description: 'The operating model behind these benchmarks.' },
-          { href: '/pricing', label: 'Track your own brand', description: 'Free tier, all 5 platforms, 7-day trial of paid plans.' },
+          { href: '/pricing', label: 'Track your own brand', description: 'All 5 platforms, 7-day free trial, no credit card.' },
         ]}
       />
     </SeoLayout>

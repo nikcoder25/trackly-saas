@@ -77,7 +77,7 @@ const values = [
     icon: '⬢',
     title: 'Built for teams of all sizes',
     description:
-      'Solo founders, in-house marketing teams, multi-brand agencies - Livesov scales from one brand on Free to dozens on Agency.',
+      'Solo founders, in-house marketing teams, multi-brand agencies - Livesov scales from a few brands on Starter to dozens on Agency.',
   },
 ];
 
@@ -97,7 +97,7 @@ const faqs = [
   {
     question: 'Who is Livesov for?',
     answer:
-      'Marketing teams, brand teams, PR teams, SEO professionals, and agencies whose work is increasingly shaped by what AI says about their brand. We support solo founders on the Free plan all the way through multi-brand agencies on the Agency plan.',
+      'Marketing teams, brand teams, PR teams, SEO professionals, and agencies whose work is increasingly shaped by what AI says about their brand. We support solo founders on the $9 Starter plan all the way through multi-brand agencies on the Agency plan.',
   },
   {
     question: 'How is Livesov different from a traditional SEO tool?',
