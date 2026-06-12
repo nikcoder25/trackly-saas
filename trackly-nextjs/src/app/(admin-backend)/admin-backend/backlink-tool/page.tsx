@@ -176,9 +176,11 @@ const ARTICLE_ANGLES = [
  * enough scaffolding to make the output usable by this tool: the client's
  * own rules stay authoritative, each article in the batch gets a
  * uniqueness directive, and the model is told to return clean HTML so the
- * preview/export pipeline works.
+ * preview/export pipeline works. `addOns` carries optional operator-set
+ * campaign rules composed from the structured form sections the admin
+ * chose to include alongside the brief.
  */
-function buildClientPrompt(instructions: string, index: number, total: number): string {
+function buildClientPrompt(instructions: string, index: number, total: number, addOns = ''): string {
   const angle = ARTICLE_ANGLES[index % ARTICLE_ANGLES.length];
   return `You are an expert SEO content writer producing an article for an off-page backlink campaign.
 
@@ -196,7 +198,7 @@ BATCH CONTEXT
 ================================================================
 - This is article ${index + 1} of ${total} generated from the same client brief.
 - Every article in the batch must be 100% unique: a different title, structure, examples, and wording from the others. Suggested angle for this one: ${angle}. If the brief prescribes specific topics or titles, follow the brief instead.
-
+${addOns}
 ================================================================
 OUTPUT FORMAT
 ================================================================
@@ -252,6 +254,10 @@ type PresetState = {
   promptMode?: PromptMode;
   /** Raw instructions pasted from the customer for client-prompt mode. Optional on legacy presets. */
   clientPrompt?: string;
+  /** Sections layered into client-prompt generation. Optional on legacy presets — default off. */
+  includeMoneySiteSection?: boolean;
+  includeLinkPairsSection?: boolean;
+  includeSettingsSection?: boolean;
 };
 type PersistedState = PresetState & {
   articles: Article[];
@@ -323,8 +329,14 @@ export default function BacklinkToolPage() {
   const [includeImages, setIncludeImages] = useState(false);
   const [anchorMix, setAnchorMix] = useState<Record<AnchorType, number>>({ ...DEFAULT_ANCHOR_MIX });
   const [useAnchorMix, setUseAnchorMix] = useState(true);
-  const [promptMode, setPromptMode] = useState<PromptMode>('form');
+  // Client prompt is the default flow: paste the customer's brief at the
+  // top of the page and generate. The structured form remains available
+  // behind the mode toggle.
+  const [promptMode, setPromptMode] = useState<PromptMode>('custom');
   const [clientPrompt, setClientPrompt] = useState('');
+  const [includeMoneySiteSection, setIncludeMoneySiteSection] = useState(false);
+  const [includeLinkPairsSection, setIncludeLinkPairsSection] = useState(false);
+  const [includeSettingsSection, setIncludeSettingsSection] = useState(false);
 
   const [articles, setArticles] = useState<Article[]>([]);
   const [isRunning, setIsRunning] = useState(false);
@@ -389,6 +401,9 @@ export default function BacklinkToolPage() {
         if (typeof s.interlinksPerArticle === 'number') setInterlinksPerArticle(Math.max(0, Math.floor(s.interlinksPerArticle)));
         if (s.promptMode === 'form' || s.promptMode === 'custom') setPromptMode(s.promptMode);
         if (typeof s.clientPrompt === 'string') setClientPrompt(s.clientPrompt);
+        if (typeof s.includeMoneySiteSection === 'boolean') setIncludeMoneySiteSection(s.includeMoneySiteSection);
+        if (typeof s.includeLinkPairsSection === 'boolean') setIncludeLinkPairsSection(s.includeLinkPairsSection);
+        if (typeof s.includeSettingsSection === 'boolean') setIncludeSettingsSection(s.includeSettingsSection);
         if (Array.isArray(s.articles)) {
           // Rehydrate any in-flight articles as errored so the UI doesn't
           // look stuck in 'generating' forever after a reload.
@@ -414,7 +429,8 @@ export default function BacklinkToolPage() {
         provider, model, concurrency, moneySite, niche, location, authorInfo,
         linkPairs, distributionMode, interlinks, interlinksPerArticle, count, wordCount, tone, placement, extras,
         externalLinkCount, serviceLinkCount, blogLinkCount,
-        includeTable, includeImages, anchorMix, useAnchorMix, promptMode, clientPrompt, articles,
+        includeTable, includeImages, anchorMix, useAnchorMix, promptMode, clientPrompt,
+        includeMoneySiteSection, includeLinkPairsSection, includeSettingsSection, articles,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
     } catch {
@@ -424,7 +440,8 @@ export default function BacklinkToolPage() {
     hydrated, provider, model, concurrency, moneySite, niche, location, authorInfo,
     linkPairs, distributionMode, interlinks, count, wordCount, tone, placement, extras,
     externalLinkCount, serviceLinkCount, blogLinkCount,
-    includeTable, includeImages, anchorMix, useAnchorMix, promptMode, clientPrompt, articles,
+    includeTable, includeImages, anchorMix, useAnchorMix, promptMode, clientPrompt,
+    includeMoneySiteSection, includeLinkPairsSection, includeSettingsSection, articles,
   ]);
 
   function handleProviderChange(p: 'claude' | 'openai') {
@@ -871,6 +888,77 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     };
   }
 
+  /**
+   * Composes the optional CAMPAIGN SETTINGS block appended to a client
+   * prompt. Only the form sections the admin ticked in the Client Prompt
+   * card contribute; with nothing ticked (or nothing filled in) the brief
+   * goes out on its own, exactly as before.
+   */
+  function buildCustomAddOns(index: number, pair?: LinkPair, anchor?: { type: AnchorType; text: string }): string {
+    const blocks: string[] = [];
+
+    if (includeMoneySiteSection) {
+      const lines: string[] = [];
+      if (moneySite.trim()) lines.push(`- Money site (the brand/site these articles support): ${moneySite.trim()}`);
+      if (niche.trim()) lines.push(`- Niche / industry: ${niche.trim()}`);
+      if (location.trim()) lines.push(`- Local service area: ${location.trim()} — mention it naturally at least once for local SEO relevance.`);
+      if (authorInfo.trim()) lines.push(`- End with an "About the Author" H2 section for this author: ${authorInfo.trim()}`);
+      if (lines.length > 0) blocks.push(`MONEY SITE INFO:\n${lines.join('\n')}`);
+    }
+
+    if (includeLinkPairsSection && pair) {
+      const anchorText = anchor?.text?.trim() || pair.keyword.trim();
+      blocks.push(
+        `MONEY-SITE BACKLINK (CRITICAL):\n- Include exactly ONE backlink to the money site: <a href="${pair.link}">${anchorText}</a> placed naturally in the article body. Use this anchor text EXACTLY as written — it has been pre-chosen for this article's slot in the anchor-text mix. Do NOT paraphrase, expand, or substitute it.\n- Target keyword for this article: "${pair.keyword}". Use it naturally in the H1 title and within the first 100 words.`,
+      );
+    }
+
+    if (includeSettingsSection) {
+      const lines: string[] = [
+        `- Word count: approximately ${wordCount} words.`,
+        `- Tone: ${tone}.`,
+      ];
+      if (includeLinkPairsSection && pair) {
+        let pl = placement;
+        if (pl === 'random') pl = ['natural', 'early', 'conclusion'][Math.floor(Math.random() * 3)];
+        if (pl === 'early') lines.push('- Place the money-site backlink naturally within the first or second paragraph.');
+        else if (pl === 'conclusion') lines.push('- Place the money-site backlink naturally in the conclusion section.');
+        else lines.push('- Place the money-site backlink naturally somewhere in the middle of the article (around 40-60%).');
+      }
+      if (extras.trim()) lines.push(`- Extra instructions: ${extras.trim()}`);
+      const cleanDomain = moneySite.trim().replace(/\/$/, '');
+      const siteRef = cleanDomain || 'the money site';
+      if (validInterlinks.length > 0) {
+        const all = validInterlinks;
+        const per = interlinksPerArticle;
+        let chosen = all;
+        if (per > 0 && per < all.length) {
+          chosen = [];
+          const start = (index * per) % all.length;
+          for (let k = 0; k < per; k++) chosen.push(all[(start + k) % all.length]);
+        }
+        const list = chosen.map((l) => `<a href="${l.url.trim()}">${l.anchor.trim()}</a>`).join('\n  ');
+        lines.push(`- Include these EXACT internal interlink${chosen.length > 1 ? 's' : ''}, each placed naturally in a relevant sentence and used exactly once:\n  ${list}\n  Use the anchor text and URL of each EXACTLY as written.`);
+      } else {
+        if (serviceLinkCount > 0) lines.push(`- Include EXACTLY ${serviceLinkCount} internal link${serviceLinkCount > 1 ? 's' : ''} to related service/commercial pages on ${siteRef} (e.g. /services, /pricing, /about) with natural anchor text.`);
+        if (blogLinkCount > 0) lines.push(`- Include EXACTLY ${blogLinkCount} internal link${blogLinkCount > 1 ? 's' : ''} to related blog posts on ${siteRef} using realistic /blog/... slug paths.`);
+      }
+      if (externalLinkCount > 0) lines.push(`- Include EXACTLY ${externalLinkCount} external authority link${externalLinkCount > 1 ? 's' : ''} to .gov, .edu, Wikipedia, or industry associations with natural anchor text.`);
+      else lines.push('- Do NOT include any external links to other websites or domains.');
+      if (includeTable) lines.push('- Include ONE relevant HTML <table> (3-5 rows, 2-4 columns) using <thead>/<tbody>, placed where it adds real informational value.');
+      if (includeImages) lines.push('- Include 1-2 <figure> blocks, each with an <img src="https://picsum.photos/seed/<unique-slug>/1200/630"> (keyword-relevant kebab-case slug, different per image), descriptive alt text, and a <figcaption>.');
+      blocks.push(`ARTICLE SETTINGS:\n${lines.join('\n')}`);
+    }
+
+    if (blocks.length === 0) return '';
+    return `
+================================================================
+CAMPAIGN SETTINGS (set by the operator — follow alongside the client brief)
+================================================================
+${blocks.join('\n\n')}
+`;
+  }
+
   // Shared worker pool used by initial generation, retry, regenerate, and
   // resume. Reads the pair AND the pre-assigned anchor profile for each
   // index from caller-supplied lookups so the realised anchor mix matches
@@ -1002,10 +1090,37 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
       setGenStatus({ msg: 'Count must be between 1 and 500', type: 'error' });
       return;
     }
+    if (includeLinkPairsSection && validPairs.length === 0) {
+      setGenStatus({ msg: 'Add at least one keyword + link pair, or untick the Anchor Text + Link Pairs section', type: 'error' });
+      return;
+    }
+
+    // When the Link Pairs section is included, distribute the pairs and
+    // the anchor mix across the batch exactly like the structured form
+    // does, then pin the result on each Article so retries keep it.
+    const assigned: LinkPair[] = [];
+    let anchorTypes: AnchorType[] = [];
+    if (includeLinkPairsSection) {
+      if (distributionMode === 'rotate') {
+        for (let i = 0; i < count; i++) assigned.push(validPairs[i % validPairs.length]);
+      } else {
+        for (let i = 0; i < count; i++) assigned.push(getPairForArticle(i));
+      }
+      anchorTypes = useAnchorMix
+        ? assignAnchorTypes(count, anchorMix)
+        : (Array.from({ length: count }, () => 'exact') as AnchorType[]);
+    }
 
     const initial: Article[] = [];
     const promptLookup = new Map<number, string>();
     for (let i = 0; i < count; i++) {
+      let pair: LinkPair | undefined;
+      let anchor: { type: AnchorType; text: string } | undefined;
+      if (includeLinkPairsSection) {
+        pair = assigned[i];
+        const type = anchorTypes[i] ?? 'exact';
+        anchor = { type, text: anchorTextFor(type, pair, moneySite, niche, location, i) };
+      }
       initial.push({
         index: i,
         status: 'pending',
@@ -1013,8 +1128,11 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
         content: '',
         error: null,
         source: 'custom',
+        pair,
+        anchorType: anchor?.type,
+        anchorText: anchor?.text,
       });
-      promptLookup.set(i, buildClientPrompt(instructions, i, count));
+      promptLookup.set(i, buildClientPrompt(instructions, i, count, buildCustomAddOns(i, pair, anchor)));
     }
     setArticles(initial);
     setSelected(new Set());
@@ -1052,7 +1170,10 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     articles.forEach((a) => {
       if (!toRun.has(a.index)) return;
       if (a.source === 'custom') {
-        promptLookup.set(a.index, buildClientPrompt(clientPrompt.trim(), a.index, batchTotal));
+        const anchor = a.anchorType
+          ? { type: a.anchorType, text: a.anchorText ?? a.pair?.keyword ?? '' }
+          : undefined;
+        promptLookup.set(a.index, buildClientPrompt(clientPrompt.trim(), a.index, batchTotal, buildCustomAddOns(a.index, a.pair, anchor)));
         return;
       }
       if (!a.pair) return;
@@ -1384,6 +1505,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
       linkPairs, distributionMode, interlinks, interlinksPerArticle, count, wordCount, tone, placement, extras,
       externalLinkCount, serviceLinkCount, blogLinkCount, includeTable, includeImages,
       anchorMix, useAnchorMix, promptMode, clientPrompt,
+      includeMoneySiteSection, includeLinkPairsSection, includeSettingsSection,
     };
     const next = { ...presets, [key]: preset };
     setPresets(next);
@@ -1426,6 +1548,9 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     setUseAnchorMix(p.useAnchorMix ?? true);
     setPromptMode(p.promptMode === 'custom' ? 'custom' : 'form');
     setClientPrompt(typeof p.clientPrompt === 'string' ? p.clientPrompt : '');
+    setIncludeMoneySiteSection(p.includeMoneySiteSection === true);
+    setIncludeLinkPairsSection(p.includeLinkPairsSection === true);
+    setIncludeSettingsSection(p.includeSettingsSection === true);
     setActivePresetName(name);
     setGenStatus({ msg: `✓ Loaded preset "${name}"`, type: 'success' });
     setTimeout(() => setGenStatus(null), 1800);
@@ -1458,6 +1583,9 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     setCount(10);
     setExtras('');
     setClientPrompt('');
+    setIncludeMoneySiteSection(false);
+    setIncludeLinkPairsSection(false);
+    setIncludeSettingsSection(false);
     setActivePresetName('');
     // AI provider/model, concurrency, word count, tone, placement, and the
     // link-count / table / images preferences are intentionally kept since
@@ -1474,6 +1602,95 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
           Admin tool - GEO-optimized articles for off-page SEO. API keys stay server-side.
         </p>
       </div>
+
+      {/* GENERATION MODE */}
+      <div style={styles.card}>
+        <div style={styles.cardTitle}>Generation Mode</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={() => setPromptMode('custom')}
+            style={{ ...styles.providerTab, ...(promptMode === 'custom' ? styles.providerTabActive : {}) }}
+          >
+            Client Prompt
+          </button>
+          <button
+            onClick={() => setPromptMode('form')}
+            style={{ ...styles.providerTab, ...(promptMode === 'form' ? styles.providerTabActive : {}) }}
+          >
+            Structured Form
+          </button>
+        </div>
+        <div style={{ ...styles.help, marginTop: 8 }}>
+          Client Prompt: paste the instructions and rules you received from the customer and generate contents directly from them, optionally layering in any of the structured sections. Structured Form: build each article brief entirely from the campaign fields.
+        </div>
+      </div>
+
+      {/* CLIENT PROMPT */}
+      {promptMode === 'custom' && (
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>Client Prompt</div>
+          <label style={styles.label}>Client Instructions &amp; Rules</label>
+          <textarea
+            value={clientPrompt}
+            onChange={(e) => setClientPrompt(e.target.value)}
+            placeholder={`Paste the full brief from the customer here, e.g.:\n\nWrite articles about emergency plumbing services in Austin TX.\n- 800-1000 words each\n- Friendly, expert tone\n- Include one backlink to https://example.com/emergency-plumbing with the anchor "emergency plumber austin"\n- No AI-sounding phrases, no fluff intros\n...`}
+            style={{ ...styles.input, minHeight: 220 }}
+          />
+          <div style={{ ...styles.help, ...(clientPrompt.trim().length > CLIENT_PROMPT_LIMIT ? { color: 'var(--red)' } : {}) }}>
+            {clientPrompt.trim().length.toLocaleString()} / {CLIENT_PROMPT_LIMIT.toLocaleString()} characters. Everything the client specified (keywords, links, anchors, word count, tone, banned words, ...) is passed to the model verbatim and treated as the authoritative rules for every article.
+          </div>
+          <div style={{ marginTop: 14 }}>
+            <label style={styles.label}>Include Other Sections (optional)</label>
+            <div style={styles.help}>Tick a section to open it further down the page and feed its settings into the generation prompt together with the client&apos;s instructions. Leave all unticked to generate from the prompt alone.</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+              <label style={styles.toggleRow}>
+                <input
+                  type="checkbox"
+                  checked={includeMoneySiteSection}
+                  onChange={(e) => setIncludeMoneySiteSection(e.target.checked)}
+                  style={styles.checkbox}
+                />
+                <span>
+                  <strong>Money Site Info</strong>
+                  <span style={styles.toggleHint}> - money site URL, niche, local service area and author credentials.</span>
+                </span>
+              </label>
+              <label style={styles.toggleRow}>
+                <input
+                  type="checkbox"
+                  checked={includeLinkPairsSection}
+                  onChange={(e) => setIncludeLinkPairsSection(e.target.checked)}
+                  style={styles.checkbox}
+                />
+                <span>
+                  <strong>Anchor Text + Link Pairs</strong>
+                  <span style={styles.toggleHint}> - distribute your keyword/link pairs (and the anchor mix, if enabled) across the batch; each article gets one money-site backlink.</span>
+                </span>
+              </label>
+              <label style={styles.toggleRow}>
+                <input
+                  type="checkbox"
+                  checked={includeSettingsSection}
+                  onChange={(e) => setIncludeSettingsSection(e.target.checked)}
+                  style={styles.checkbox}
+                />
+                <span>
+                  <strong>Article Settings</strong>
+                  <span style={styles.toggleHint}> - word count, tone, link placement, link counts, interlinks, tables/images and extra instructions.</span>
+                </span>
+              </label>
+            </div>
+          </div>
+          <div style={{ marginTop: 12, maxWidth: 280 }}>
+            <label style={styles.label}>Number of Contents</label>
+            <input type="number" min={1} max={500} value={count} onChange={(e) => setCount(parseInt(e.target.value) || 1)} style={styles.input} />
+            <div style={styles.help}>1 to 500 articles from this prompt. Each article gets a different angle and a uniqueness directive so the batch doesn&apos;t repeat itself.</div>
+          </div>
+          <button onClick={startCustomGeneration} disabled={isRunning} style={{ ...styles.btn, width: '100%', marginTop: 12, opacity: isRunning ? 0.5 : 1, cursor: isRunning ? 'not-allowed' : 'pointer' }}>
+            {isRunning ? 'Generating...' : `Generate ${count} Content${count === 1 ? '' : 's'} from Client Prompt`}
+          </button>
+        </div>
+      )}
 
       {/* PRESETS */}
       <div style={{ ...styles.card, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', padding: 14 }}>
@@ -1545,57 +1762,10 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
         </div>
       </div>
 
-      {/* GENERATION MODE */}
-      <div style={styles.card}>
-        <div style={styles.cardTitle}>Generation Mode</div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            onClick={() => setPromptMode('form')}
-            style={{ ...styles.providerTab, ...(promptMode === 'form' ? styles.providerTabActive : {}) }}
-          >
-            Structured Form
-          </button>
-          <button
-            onClick={() => setPromptMode('custom')}
-            style={{ ...styles.providerTab, ...(promptMode === 'custom' ? styles.providerTabActive : {}) }}
-          >
-            Client Prompt
-          </button>
-        </div>
-        <div style={{ ...styles.help, marginTop: 8 }}>
-          Structured Form builds each article brief from the campaign fields below. Client Prompt lets you paste the instructions and rules you received from the customer and generate contents directly from them.
-        </div>
-      </div>
-
-      {/* CLIENT PROMPT */}
-      {promptMode === 'custom' && (
-        <div style={styles.card}>
-          <div style={styles.cardTitle}>Client Prompt</div>
-          <label style={styles.label}>Client Instructions &amp; Rules</label>
-          <textarea
-            value={clientPrompt}
-            onChange={(e) => setClientPrompt(e.target.value)}
-            placeholder={`Paste the full brief from the customer here, e.g.:\n\nWrite articles about emergency plumbing services in Austin TX.\n- 800-1000 words each\n- Friendly, expert tone\n- Include one backlink to https://example.com/emergency-plumbing with the anchor "emergency plumber austin"\n- No AI-sounding phrases, no fluff intros\n...`}
-            style={{ ...styles.input, minHeight: 220 }}
-          />
-          <div style={{ ...styles.help, ...(clientPrompt.trim().length > CLIENT_PROMPT_LIMIT ? { color: 'var(--red)' } : {}) }}>
-            {clientPrompt.trim().length.toLocaleString()} / {CLIENT_PROMPT_LIMIT.toLocaleString()} characters. Everything the client specified (keywords, links, anchors, word count, tone, banned words, ...) is passed to the model verbatim and treated as the authoritative rules for every article.
-          </div>
-          <div style={{ marginTop: 12, maxWidth: 280 }}>
-            <label style={styles.label}>Number of Contents</label>
-            <input type="number" min={1} max={500} value={count} onChange={(e) => setCount(parseInt(e.target.value) || 1)} style={styles.input} />
-            <div style={styles.help}>1 to 500 articles from this prompt. Each article gets a different angle and a uniqueness directive so the batch doesn&apos;t repeat itself.</div>
-          </div>
-          <button onClick={startCustomGeneration} disabled={isRunning} style={{ ...styles.btn, width: '100%', marginTop: 12, opacity: isRunning ? 0.5 : 1, cursor: isRunning ? 'not-allowed' : 'pointer' }}>
-            {isRunning ? 'Generating...' : `Generate ${count} Content${count === 1 ? '' : 's'} from Client Prompt`}
-          </button>
-        </div>
-      )}
-
-      {/* Campaign-builder cards. Hidden in client-prompt mode where the
-          pasted brief replaces the whole structured form. */}
-      {promptMode === 'form' && (<>
+      {/* Campaign-builder cards. In client-prompt mode each one appears
+          only when its section is ticked in the Client Prompt card. */}
       {/* MONEY SITE */}
+      {(promptMode === 'form' || includeMoneySiteSection) && (<>
       <div style={styles.card}>
         <div style={styles.cardTitle}>Money Site Info</div>
         <div style={styles.formGrid}>
@@ -1617,8 +1787,10 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
           </div>
         </div>
       </div>
+      </>)}
 
       {/* LINK PAIRS */}
+      {(promptMode === 'form' || includeLinkPairsSection) && (<>
       <div style={styles.card}>
         <div style={styles.cardTitle}>Anchor Text + Link Pairs</div>
         <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
@@ -1718,16 +1890,20 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
 
         <div style={styles.distInfo}>{getDistributionPreview()}</div>
       </div>
+      </>)}
 
       {/* ARTICLE SETTINGS */}
+      {(promptMode === 'form' || includeSettingsSection) && (<>
       <div style={styles.card}>
         <div style={styles.cardTitle}>Article Settings</div>
         <div style={styles.formGrid}>
-          <div>
-            <label style={styles.label}>Number of Articles</label>
-            <input type="number" min={1} max={500} value={count} onChange={(e) => setCount(parseInt(e.target.value) || 1)} style={styles.input} />
-            <div style={styles.help}>1 to 500 articles</div>
-          </div>
+          {promptMode === 'form' && (
+            <div>
+              <label style={styles.label}>Number of Articles</label>
+              <input type="number" min={1} max={500} value={count} onChange={(e) => setCount(parseInt(e.target.value) || 1)} style={styles.input} />
+              <div style={styles.help}>1 to 500 articles</div>
+            </div>
+          )}
           <div>
             <label style={styles.label}>Word Count</label>
             <select value={wordCount} onChange={(e) => setWordCount(e.target.value)} style={styles.input}>
@@ -1913,11 +2089,21 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
             Estimated cost for {count} article{count === 1 ? '' : 's'} on <strong style={{ color: 'var(--text)' }}>{model}</strong>: <strong style={{ color: 'var(--text)' }}>~${estimatedCost.toFixed(estimatedCost < 1 ? 3 : 2)}</strong> at list prices. Real billing comes from the provider.
           </div>
         )}
-        <button onClick={startGeneration} disabled={isRunning} style={{ ...styles.btn, width: '100%', marginTop: 12, opacity: isRunning ? 0.5 : 1, cursor: isRunning ? 'not-allowed' : 'pointer' }}>
-          {isRunning ? 'Generating...' : 'Generate Articles'}
-        </button>
+        {promptMode === 'form' && (
+          <button onClick={startGeneration} disabled={isRunning} style={{ ...styles.btn, width: '100%', marginTop: 12, opacity: isRunning ? 0.5 : 1, cursor: isRunning ? 'not-allowed' : 'pointer' }}>
+            {isRunning ? 'Generating...' : 'Generate Articles'}
+          </button>
+        )}
       </div>
       </>)}
+
+      {/* CUSTOM GENERATE (client-prompt mode) — sits below any included
+          section cards so it's always the last step before Progress. */}
+      {promptMode === 'custom' && (includeMoneySiteSection || includeLinkPairsSection || includeSettingsSection) && (
+        <button onClick={startCustomGeneration} disabled={isRunning} style={{ ...styles.btn, width: '100%', marginBottom: 18, opacity: isRunning ? 0.5 : 1, cursor: isRunning ? 'not-allowed' : 'pointer' }}>
+          {isRunning ? 'Generating...' : `Generate ${count} Content${count === 1 ? '' : 's'} from Client Prompt`}
+        </button>
+      )}
 
       {/* PROGRESS */}
       {articles.length > 0 && (
