@@ -1321,24 +1321,45 @@ ${blocks.join('\n\n')}
     setTimeout(() => setGenStatus(null), 2000);
   }
 
+  function escapeHtml(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   async function copyAllArticles() {
     const done = articles.filter((a) => a.status === 'done');
     if (done.length === 0) {
       setGenStatus({ msg: 'No completed articles to copy', type: 'warn' });
       return;
     }
+    // Every article gets a VISIBLE divider banner. HTML comments don't
+    // survive a paste into Google Docs / Word, so the separator and the
+    // article metadata must be real rendered content for a team member
+    // scrolling the doc to see where one article ends and the next begins.
     const html = done
-      .map(
-        (a) =>
-          `<!-- Article #${a.index + 1}: ${a.title} | Keyword: ${a.pair?.keyword || ''} | Link: ${a.pair?.link || ''} -->\n${a.content}`,
-      )
-      .join('\n\n<hr />\n\n');
-    const plain = done
-      .map((a) => {
-        const body = a.content.replace(/<[^>]+>/g, '').replace(/\n\n+/g, '\n\n').trim();
-        return `=== Article #${a.index + 1}: ${a.title} ===\nKeyword: ${a.pair?.keyword || ''}\nLink: ${a.pair?.link || ''}\n\n${body}`;
+      .map((a, i) => {
+        const meta = [
+          a.pair?.keyword ? `Keyword: ${escapeHtml(a.pair.keyword)}` : '',
+          a.pair?.link ? `Anchor link: ${escapeHtml(a.pair.link)}` : '',
+        ].filter(Boolean).join(' &nbsp;•&nbsp; ');
+        return [
+          '<hr />',
+          `<p style="text-align:center;background-color:#eef0ff;padding:10px 0;"><strong>━━━━━━━━━━ ARTICLE ${i + 1} OF ${done.length} ━━━━━━━━━━</strong></p>`,
+          `<p style="text-align:center;"><strong>${escapeHtml(a.title)}</strong>${meta ? `<br /><em>${meta}</em>` : ''}</p>`,
+          '<hr />',
+          a.content,
+        ].join('\n');
       })
-      .join('\n\n----------------------------------------\n\n');
+      .join('\n\n');
+    const plain = done
+      .map((a, i) => {
+        const body = a.content.replace(/<[^>]+>/g, '').replace(/\n\n+/g, '\n\n').trim();
+        const metaLines = [
+          a.pair?.keyword ? `Keyword: ${a.pair.keyword}` : '',
+          a.pair?.link ? `Anchor link: ${a.pair.link}` : '',
+        ].filter(Boolean).join('\n');
+        return `${'='.repeat(56)}\nARTICLE ${i + 1} OF ${done.length}: ${a.title}\n${metaLines ? metaLines + '\n' : ''}${'='.repeat(56)}\n\n${body}`;
+      })
+      .join('\n\n\n');
     try {
       const w = window as unknown as { ClipboardItem?: typeof ClipboardItem };
       if (navigator.clipboard && w.ClipboardItem) {
