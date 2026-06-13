@@ -63,32 +63,123 @@ const cardStyle: React.CSSProperties = {
   boxShadow: '0 4px 24px rgba(0,0,0,.08)',
 };
 
-const STATUS_COLOR: Record<FieldStatus, { bg: string; fg: string }> = {
-  match: { bg: '#dcfce7', fg: '#166534' },
-  variation: { bg: '#fef9c3', fg: '#854d0e' },
-  mismatch: { bg: '#fee2e2', fg: '#991b1b' },
-  missing: { bg: '#f1f5f9', fg: '#64748b' },
+const STATUS_META: Record<FieldStatus, { bg: string; fg: string; ring: string; icon: string; label: string }> = {
+  match: { bg: '#dcfce7', fg: '#166534', ring: '#bbf7d0', icon: '✓', label: 'Match' },
+  variation: { bg: '#fef9c3', fg: '#854d0e', ring: '#fde68a', icon: '≈', label: 'Variation' },
+  mismatch: { bg: '#fee2e2', fg: '#991b1b', ring: '#fecaca', icon: '✕', label: 'Mismatch' },
+  missing: { bg: '#f1f5f9', fg: '#64748b', ring: '#e2e8f0', icon: '–', label: 'Missing' },
 };
 
 function StatusPill({ status }: { status: FieldStatus }) {
-  const c = STATUS_COLOR[status];
+  const c = STATUS_META[status];
   return (
     <span
       style={{
-        display: 'inline-block',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
         fontSize: 11,
         fontWeight: 700,
-        padding: '2px 7px',
-        borderRadius: 6,
+        padding: '3px 8px',
+        borderRadius: 999,
         background: c.bg,
         color: c.fg,
-        textTransform: 'capitalize',
+        border: `1px solid ${c.ring}`,
+        whiteSpace: 'nowrap',
       }}
     >
-      {status}
+      <span aria-hidden style={{ fontSize: 10, lineHeight: 1 }}>{c.icon}</span>
+      {c.label}
     </span>
   );
 }
+
+// NAP = Name, Address, Phone. The dedicated verdict column collapses just those
+// three core fields into a single OK / Issues / can't-verify state — postcode and
+// suite are deliberately excluded so the column answers "is the NAP itself right?".
+type NapVerdict = 'ok' | 'verified' | 'issues' | 'unverified';
+
+function napVerdict(r: NapUrlResult, overridden: boolean): { verdict: NapVerdict; failed: string[] } {
+  if (overridden) return { verdict: 'verified', failed: [] };
+  if (!r.reachable) return { verdict: 'unverified', failed: [] };
+  const core: Array<[string, FieldStatus]> = [
+    ['Name', r.fields.name.status],
+    ['Phone', r.fields.phone.status],
+    ['Address', r.fields.address.status],
+  ];
+  const failed = core.filter(([, s]) => s === 'mismatch' || s === 'missing').map(([l]) => l);
+  return { verdict: failed.length === 0 ? 'ok' : 'issues', failed };
+}
+
+const NAP_META: Record<NapVerdict, { bg: string; fg: string; ring: string; icon: string; label: string }> = {
+  ok: { bg: '#dcfce7', fg: '#166534', ring: '#bbf7d0', icon: '✓', label: 'NAP OK' },
+  verified: { bg: '#cffafe', fg: '#0e7490', ring: '#a5f3fc', icon: '✓', label: 'Verified' },
+  issues: { bg: '#fee2e2', fg: '#991b1b', ring: '#fecaca', icon: '✕', label: 'Issues' },
+  unverified: { bg: '#fef9c3', fg: '#854d0e', ring: '#fde68a', icon: '?', label: 'Unverified' },
+};
+
+function NapBadge({ r, overridden }: { r: NapUrlResult; overridden: boolean }) {
+  const { verdict, failed } = napVerdict(r, overridden);
+  const m = NAP_META[verdict];
+  const sub =
+    verdict === 'issues'
+      ? failed.join(' · ')
+      : verdict === 'unverified'
+        ? "Couldn't read"
+        : verdict === 'verified'
+          ? 'Manual'
+          : null;
+  return (
+    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 5,
+          fontSize: 11.5,
+          fontWeight: 800,
+          padding: '4px 10px',
+          borderRadius: 999,
+          background: m.bg,
+          color: m.fg,
+          border: `1px solid ${m.ring}`,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <span aria-hidden style={{ fontSize: 11, lineHeight: 1 }}>{m.icon}</span>
+        {m.label}
+      </span>
+      {sub && (
+        <span style={{ fontSize: 10, color: m.fg, opacity: 0.8, fontWeight: 600 }}>{sub}</span>
+      )}
+    </div>
+  );
+}
+
+// Scoped styling for the citation table: a pinned header (so column labels stay
+// visible while scrolling long lists), zebra striping, row hover, and a tidy
+// scrollbar. Kept as one string so it ships with the component wherever it renders.
+const napTableCss = `
+.nap-table th, .nap-table td { padding: 13px 16px; text-align: left; vertical-align: top; }
+.nap-table thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: #f8fafc;
+  font-weight: 700; font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
+  color: #475569; white-space: nowrap;
+  box-shadow: inset 0 -1px 0 #e2e8f0;
+}
+.nap-table tbody tr { transition: background .12s ease; }
+.nap-table tbody tr:nth-child(even) { background: #fcfdfe; }
+.nap-table tbody tr:hover { background: #f5f7ff; }
+.nap-table tbody td { border-bottom: 1px solid #f1f5f9; }
+.nap-table tbody tr:last-child td { border-bottom: none; }
+.nap-found { font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.35; word-break: break-word; }
+.nap-tag { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+.nap-cite a:hover { text-decoration: underline; }
+.nap-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.nap-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; border: 2px solid #fff; }
+.nap-scroll::-webkit-scrollbar-track { background: transparent; }
+`;
 
 export function scoreColor(score: number): string {
   if (score >= 85) return '#16a34a';
@@ -100,16 +191,18 @@ function csvEscape(v: string): string {
   return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 }
 
-function buildCsv(data: NapResultsData): string {
+function buildCsv(data: NapResultsData, overrides: Record<string, boolean>): string {
   const header = [
-    'URL', 'HTTP Status', 'Match Score', 'Name Status', 'Found Name', 'Phone Status',
+    'URL', 'HTTP Status', 'NAP Status', 'Match Score', 'Name Status', 'Found Name', 'Phone Status',
     'Found Phone', 'Address Status', 'Found Address', 'Postcode Status', 'Found Postcode',
     'Suite Status', 'Issues',
   ];
+  const napLabel: Record<NapVerdict, string> = { ok: 'OK', verified: 'Verified (manual)', issues: 'Issues', unverified: 'Unverified' };
   const rows = data.results.map((r) =>
     [
       r.url,
       r.reachable ? String(r.httpStatus ?? '') : r.error || 'unreachable',
+      napLabel[napVerdict(r, !!overrides[r.url]).verdict],
       String(r.matchScore),
       r.fields.name.status,
       r.extracted.name || '',
@@ -191,7 +284,7 @@ export default function NapResults({
   const interactive = typeof onToggleOverride === 'function';
   const verifiedCount = data.results.filter((r) => ov[r.url]).length;
   const downloadCsv = () => {
-    const blob = new Blob([buildCsv(data)], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([buildCsv(data, ov)], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -297,73 +390,115 @@ export default function NapResults({
       )}
 
       <div style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <style>{napTableCss}</style>
+        {/* Header sits outside the scroll area so the title stays put while rows scroll. */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 12,
+            padding: '18px 20px 14px',
+            borderBottom: '1px solid #eef2f7',
+          }}
+        >
+          <div>
+            <h2 style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', margin: 0 }}>Citation details</h2>
+            <p style={{ fontSize: 12.5, color: '#64748b', margin: '3px 0 0' }}>
+              {data.results.length} {data.results.length === 1 ? 'listing' : 'listings'} checked · the <strong>NAP</strong> column verdict is based on Name, Address &amp; Phone only.
+            </p>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            {(['match', 'variation', 'mismatch', 'missing'] as FieldStatus[]).map((s) => (
+              <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#64748b', fontWeight: 600 }}>
+                <span aria-hidden style={{ width: 9, height: 9, borderRadius: 3, background: STATUS_META[s].bg, border: `1px solid ${STATUS_META[s].ring}` }} />
+                {STATUS_META[s].label}
+              </span>
+            ))}
+          </div>
+        </div>
+        {/* Vertical + horizontal scroll container — keeps the sticky header pinned. */}
+        <div className="nap-scroll" style={{ overflow: 'auto', maxHeight: '70vh' }}>
+          <table className="nap-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 13 }}>
             <thead>
-              <tr style={{ background: '#f8fafc', textAlign: 'left' }}>
-                {['Citation', 'Score', 'Name', 'Phone', 'Address', 'Postcode', 'Suite', 'Issues'].map((h) => (
-                  <th
-                    key={h}
-                    style={{ padding: '12px 14px', fontWeight: 700, color: '#0f172a', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}
-                  >
-                    {h}
-                  </th>
+              <tr>
+                {['Citation', 'NAP', 'Score', 'Name', 'Phone', 'Address', 'Postcode', 'Suite', 'Issues'].map((h) => (
+                  <th key={h}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {data.results.map((r, i) => (
-                <tr key={r.url + i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '12px 14px', maxWidth: 260 }}>
-                    <a href={r.url} target="_blank" rel="noopener noreferrer nofollow" style={{ color: '#2563eb', textDecoration: 'none', wordBreak: 'break-all' }}>
+                <tr key={r.url + i}>
+                  <td className="nap-cite" style={{ maxWidth: 260 }}>
+                    <a href={r.url} target="_blank" rel="noopener noreferrer nofollow" style={{ color: '#2563eb', textDecoration: 'none', wordBreak: 'break-all', fontWeight: 600 }}>
                       {r.url.replace(/^https?:\/\//, '')}
                     </a>
-                    {!r.reachable && (
-                      <div style={{ fontSize: 11, color: '#dc2626', marginTop: 2 }}>
-                        {r.error || `HTTP ${r.httpStatus ?? '—'}`}
-                      </div>
-                    )}
-                    {r.reachable && !Object.values(r.extracted.source ?? {}).includes('schema') && (
-                      <div style={{ fontSize: 10, color: '#9333ea', marginTop: 2, fontWeight: 600 }}>
-                        no JSON-LD
-                      </div>
-                    )}
-                    {r.archivedAt ? (
-                      <div
-                        style={{ fontSize: 10, color: '#0891b2', marginTop: 2, fontWeight: 600 }}
-                        title="Live page was blocked — read from the Internet Archive, so it may be out of date"
-                      >
-                        via Web Archive · {r.archivedAt}
-                      </div>
-                    ) : r.rendered ? (
-                      <div style={{ fontSize: 10, color: '#0891b2', marginTop: 2, fontWeight: 600 }}>
-                        JS-rendered
-                      </div>
-                    ) : null}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                      {!r.reachable && (
+                        <span className="nap-tag" style={{ background: '#fef2f2', color: '#dc2626' }}>
+                          {r.error || `HTTP ${r.httpStatus ?? '—'}`}
+                        </span>
+                      )}
+                      {r.reachable && !Object.values(r.extracted.source ?? {}).includes('schema') && (
+                        <span className="nap-tag" style={{ background: '#faf5ff', color: '#9333ea' }}>no JSON-LD</span>
+                      )}
+                      {r.archivedAt ? (
+                        <span
+                          className="nap-tag"
+                          style={{ background: '#ecfeff', color: '#0891b2' }}
+                          title="Live page was blocked — read from the Internet Archive, so it may be out of date"
+                        >
+                          via Web Archive · {r.archivedAt}
+                        </span>
+                      ) : r.rendered ? (
+                        <span className="nap-tag" style={{ background: '#ecfeff', color: '#0891b2' }}>JS-rendered</span>
+                      ) : null}
+                    </div>
                   </td>
-                  <td style={{ padding: '12px 14px', fontWeight: 700, color: ov[r.url] ? '#0891b2' : scoreColor(r.matchScore) }}>
-                    {ov[r.url] ? 'OK' : r.reachable ? r.matchScore : '—'}
+                  <td>
+                    <NapBadge r={r} overridden={!!ov[r.url]} />
                   </td>
-                  <td style={{ padding: '12px 14px' }}>
+                  <td>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: 38,
+                        height: 26,
+                        padding: '0 8px',
+                        borderRadius: 999,
+                        fontWeight: 800,
+                        fontSize: 12.5,
+                        color: ov[r.url] ? '#0e7490' : r.reachable ? scoreColor(r.matchScore) : '#94a3b8',
+                        background: ov[r.url] ? '#cffafe' : r.reachable ? `${scoreColor(r.matchScore)}1a` : '#f1f5f9',
+                      }}
+                    >
+                      {ov[r.url] ? 'OK' : r.reachable ? r.matchScore : '—'}
+                    </span>
+                  </td>
+                  <td>
                     <StatusPill status={r.fields.name.status} />
-                    {r.extracted.name && <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>{r.extracted.name}</div>}
+                    {r.extracted.name && <div className="nap-found">{r.extracted.name}</div>}
                   </td>
-                  <td style={{ padding: '12px 14px' }}>
+                  <td>
                     <StatusPill status={r.fields.phone.status} />
-                    {r.extracted.phone && <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>{r.extracted.phone}</div>}
+                    {r.extracted.phone && <div className="nap-found">{r.extracted.phone}</div>}
                   </td>
-                  <td style={{ padding: '12px 14px' }}>
+                  <td>
                     <StatusPill status={r.fields.address.status} />
-                    {r.extracted.street && <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>{r.extracted.street}</div>}
+                    {r.extracted.street && <div className="nap-found">{r.extracted.street}</div>}
                   </td>
-                  <td style={{ padding: '12px 14px' }}>
+                  <td>
                     <StatusPill status={r.fields.postcode.status} />
-                    {r.extracted.postcode && <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>{r.extracted.postcode}</div>}
+                    {r.extracted.postcode && <div className="nap-found">{r.extracted.postcode}</div>}
                   </td>
-                  <td style={{ padding: '12px 14px' }}>
+                  <td>
                     <StatusPill status={r.fields.suite.status} />
                   </td>
-                  <td style={{ padding: '12px 14px', maxWidth: 210 }}>
+                  <td style={{ maxWidth: 210 }}>
                     {ov[r.url] ? (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
                         <span style={{ color: '#0891b2', fontSize: 12, fontWeight: 700 }}>✓ Verified manually</span>
@@ -380,7 +515,7 @@ export default function NapResults({
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {r.tags.length === 0 ? (
-                          <span style={{ color: '#16a34a', fontSize: 12 }}>✓ Consistent</span>
+                          <span style={{ color: '#16a34a', fontSize: 12, fontWeight: 600 }}>✓ Consistent</span>
                         ) : (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                             {r.tags.map((t) => {
@@ -390,10 +525,8 @@ export default function NapResults({
                               return (
                                 <span
                                   key={t}
+                                  className="nap-tag"
                                   style={{
-                                    fontSize: 11,
-                                    padding: '2px 6px',
-                                    borderRadius: 5,
                                     background: couldntCheck ? '#fffbeb' : '#fef2f2',
                                     color: couldntCheck ? '#b45309' : '#b91c1c',
                                   }}
