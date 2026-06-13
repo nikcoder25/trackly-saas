@@ -134,31 +134,170 @@ function scoreLabel(score: number): string {
   return 'Poor';
 }
 
-// Scoped styling for the citation table: a pinned header (so column labels stay
-// visible while scrolling long lists), zebra striping, row hover, and a tidy
-// scrollbar — all on design tokens so it tracks light/dark themes.
-const napTableCss = `
-.lvx .nap-table th, .lvx .nap-table td { padding: 12px 16px; text-align: left; vertical-align: top; }
-.lvx .nap-table thead th {
-  position: sticky; top: 0; z-index: 2;
-  background: var(--surface-2);
-  font-family: var(--mono); font-weight: 600; font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
-  color: var(--text-3); white-space: nowrap;
-  box-shadow: inset 0 -1px 0 var(--line);
-}
-.lvx .nap-table tbody tr { transition: background .12s ease; }
-.lvx .nap-table tbody tr:nth-child(even) { background: var(--surface-2); }
-.lvx .nap-table tbody tr:hover { background: var(--primary-50); }
-.lvx .nap-table tbody td { border-bottom: 1px solid var(--line); }
-.lvx .nap-table tbody tr:last-child td { border-bottom: none; }
-.lvx .nap-found { font-size: 11px; color: var(--text-3); margin-top: 5px; line-height: 1.35; word-break: break-word; }
-.lvx .nap-tag { display: inline-block; font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; white-space: nowrap; letter-spacing: .02em; }
-.lvx .nap-cite a { color: var(--primary); text-decoration: none; font-weight: 600; word-break: break-all; }
-.lvx .nap-cite a:hover { text-decoration: underline; }
-.lvx .nap-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
-.lvx .nap-scroll::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 999px; border: 2px solid var(--surface); }
-.lvx .nap-scroll::-webkit-scrollbar-track { background: transparent; }
+// Scoped styling for the responsive citation list. Each citation is a
+// self-labelled card (no wide table that overflows or buries column headers):
+// the URL truncates with an ellipsis, the NAP verdict + score sit on the right,
+// and per-field statuses flow in a fluid grid that reflows at any width.
+const napCss = `
+.lvx .nap-tag { display: inline-flex; align-items: center; font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; white-space: nowrap; letter-spacing: .02em; }
+.lvx .nap-list { display: flex; flex-direction: column; }
+.lvx .nap-card { padding: 16px var(--pad); border-bottom: 1px solid var(--line); transition: background .12s ease; }
+.lvx .nap-card:last-child { border-bottom: none; }
+.lvx .nap-card:hover { background: var(--surface-2); }
+.lvx .nap-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+.lvx .nap-card-id { min-width: 0; flex: 1 1 300px; }
+.lvx .nap-url { display: flex; min-width: 0; max-width: 100%; text-decoration: none; font-size: 13px; align-items: baseline; }
+.lvx .nap-url .host { flex: 0 0 auto; color: var(--primary); font-weight: 600; white-space: nowrap; }
+.lvx .nap-url .path { flex: 0 1 auto; min-width: 0; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lvx .nap-url:hover .host { text-decoration: underline; }
+.lvx .nap-flags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.lvx .nap-verdict { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.lvx .nap-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px 16px; margin-top: 14px; }
+.lvx .nap-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; max-width: 100%; }
+.lvx .nap-tile-k { font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
+.lvx .nap-found { font-size: 11px; color: var(--text-3); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.lvx .nap-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
 `;
+
+/** Split a URL into a non-breaking host + an ellipsis-able path for clean display. */
+function splitUrl(raw: string): { host: string; path: string } {
+  const noProto = raw.replace(/^https?:\/\//, '').replace(/^www\./, '');
+  const slash = noProto.indexOf('/');
+  if (slash === -1) return { host: noProto, path: '' };
+  return { host: noProto.slice(0, slash), path: noProto.slice(slash) };
+}
+
+function ScoreChip({ r, overridden }: { r: NapUrlResult; overridden: boolean }) {
+  return (
+    <span
+      className="mono"
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        minWidth: 40, height: 26, padding: '0 9px', borderRadius: 999,
+        fontWeight: 700, fontSize: 12.5,
+        color: overridden ? 'var(--info)' : r.reachable ? scoreColor(r.matchScore) : 'var(--mute)',
+        background: overridden ? 'var(--info-50)' : r.reachable ? scoreSoft(r.matchScore) : 'var(--surface-3)',
+      }}
+      title="Match score"
+    >
+      {overridden ? 'OK' : r.reachable ? r.matchScore : '—'}
+    </span>
+  );
+}
+
+function CitationCard({
+  r, overridden, interactive, onToggle, busy,
+}: {
+  r: NapUrlResult;
+  overridden: boolean;
+  interactive: boolean;
+  onToggle: (url: string, ok: boolean) => void;
+  busy: boolean;
+}) {
+  const { host, path } = splitUrl(r.url);
+  const tiles: Array<{ k: string; status: FieldStatus; found?: string }> = [
+    { k: 'Name', status: r.fields.name.status, found: r.extracted.name },
+    { k: 'Phone', status: r.fields.phone.status, found: r.extracted.phone },
+    { k: 'Address', status: r.fields.address.status, found: r.extracted.street },
+    { k: 'Postcode', status: r.fields.postcode.status, found: r.extracted.postcode },
+    { k: 'Suite', status: r.fields.suite.status },
+  ];
+  const hasSchema = Object.values(r.extracted.source ?? {}).includes('schema');
+  const showFoot = overridden || r.tags.length > 0 || !r.reachable;
+
+  return (
+    <div className="nap-card">
+      <div className="nap-card-top">
+        <div className="nap-card-id">
+          <a className="nap-url" href={r.url} target="_blank" rel="noopener noreferrer nofollow" title={r.url}>
+            <span className="host">{host}</span>
+            {path && <span className="path">{path}</span>}
+          </a>
+          <div className="nap-flags">
+            {!r.reachable && (
+              <span className="nap-tag" style={{ background: 'var(--danger-50)', color: 'var(--danger)' }}>
+                {r.error || `HTTP ${r.httpStatus ?? '—'}`}
+              </span>
+            )}
+            {r.reachable && !hasSchema && (
+              <span className="nap-tag" style={{ background: 'var(--primary-50)', color: 'var(--primary)' }}>no JSON-LD</span>
+            )}
+            {r.archivedAt ? (
+              <span
+                className="nap-tag"
+                style={{ background: 'var(--info-50)', color: 'var(--info)' }}
+                title="Live page was blocked — read from the Internet Archive, so it may be out of date"
+              >
+                via Web Archive · {r.archivedAt}
+              </span>
+            ) : r.rendered ? (
+              <span className="nap-tag" style={{ background: 'var(--info-50)', color: 'var(--info)' }}>JS-rendered</span>
+            ) : null}
+          </div>
+        </div>
+        <div className="nap-verdict">
+          <NapBadge r={r} overridden={overridden} />
+          <ScoreChip r={r} overridden={overridden} />
+        </div>
+      </div>
+
+      <div className="nap-fields">
+        {tiles.map((t) => (
+          <div className="nap-tile" key={t.k}>
+            <span className="nap-tile-k">{t.k}</span>
+            <StatusPill status={t.status} />
+            {t.found && <span className="nap-found" title={t.found}>{t.found}</span>}
+          </div>
+        ))}
+      </div>
+
+      {showFoot && (
+        <div className="nap-foot">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', minWidth: 0 }}>
+            {overridden ? (
+              <span style={{ color: 'var(--info)', fontSize: 12, fontWeight: 600 }}>✓ Verified manually</span>
+            ) : r.tags.length === 0 ? (
+              <span style={{ color: 'var(--text-3)', fontSize: 12 }}>Couldn&apos;t verify automatically</span>
+            ) : (
+              r.tags.map((t) => {
+                // "couldn't check" (blocked / dead link) is amber, not the red used for a genuine mismatch.
+                const couldntCheck = t === 'blocked' || t === 'dead link';
+                return (
+                  <span
+                    key={t}
+                    className="nap-tag"
+                    style={{ background: couldntCheck ? 'var(--warn-50)' : 'var(--danger-50)', color: couldntCheck ? 'var(--warn)' : 'var(--danger)' }}
+                  >
+                    {t}
+                  </span>
+                );
+              })
+            )}
+          </div>
+          {interactive && (overridden ? (
+            <button
+              onClick={() => onToggle(r.url, false)}
+              disabled={busy}
+              style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-3)', fontSize: 11, textDecoration: 'underline', cursor: 'pointer' }}
+            >
+              {busy ? '…' : 'Undo'}
+            </button>
+          ) : (r.tags.length > 0 || !r.reachable) ? (
+            <button
+              onClick={() => onToggle(r.url, true)}
+              disabled={busy}
+              title="I checked this listing by hand and the NAP is correct"
+              className="btn-d"
+              style={{ color: 'var(--info)', borderColor: 'var(--info-100)' }}
+            >
+              {busy ? '…' : '✓ Mark OK'}
+            </button>
+          ) : null)}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function csvEscape(v: string): string {
   return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
@@ -303,7 +442,7 @@ export default function NapResults({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <style>{napTableCss}</style>
+      <style>{napCss}</style>
 
       {/* ─── Overview hero: score gauge + KPI rail (+ optional trend) ─── */}
       <section className="card">
@@ -419,137 +558,17 @@ export default function NapResults({
           </span>
         </header>
         <div className="card-b no-pad">
-          <div className="nap-scroll" style={{ overflow: 'auto', maxHeight: '70vh' }}>
-            <table className="nap-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 13 }}>
-              <thead>
-                <tr>
-                  {['Citation', 'NAP', 'Score', 'Name', 'Phone', 'Address', 'Postcode', 'Suite', 'Issues'].map((h) => (
-                    <th key={h}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {data.results.map((r, i) => (
-                  <tr key={r.url + i}>
-                    <td className="nap-cite" style={{ maxWidth: 260 }}>
-                      <a href={r.url} target="_blank" rel="noopener noreferrer nofollow">
-                        {r.url.replace(/^https?:\/\//, '')}
-                      </a>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 5 }}>
-                        {!r.reachable && (
-                          <span className="nap-tag" style={{ background: 'var(--danger-50)', color: 'var(--danger)' }}>
-                            {r.error || `HTTP ${r.httpStatus ?? '—'}`}
-                          </span>
-                        )}
-                        {r.reachable && !Object.values(r.extracted.source ?? {}).includes('schema') && (
-                          <span className="nap-tag" style={{ background: 'var(--primary-50)', color: 'var(--primary)' }}>no JSON-LD</span>
-                        )}
-                        {r.archivedAt ? (
-                          <span
-                            className="nap-tag"
-                            style={{ background: 'var(--info-50)', color: 'var(--info)' }}
-                            title="Live page was blocked — read from the Internet Archive, so it may be out of date"
-                          >
-                            via Web Archive · {r.archivedAt}
-                          </span>
-                        ) : r.rendered ? (
-                          <span className="nap-tag" style={{ background: 'var(--info-50)', color: 'var(--info)' }}>JS-rendered</span>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td>
-                      <NapBadge r={r} overridden={!!ov[r.url]} />
-                    </td>
-                    <td>
-                      <span
-                        className="mono"
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                          minWidth: 40, height: 26, padding: '0 9px', borderRadius: 999,
-                          fontWeight: 700, fontSize: 12.5,
-                          color: ov[r.url] ? 'var(--info)' : r.reachable ? scoreColor(r.matchScore) : 'var(--mute)',
-                          background: ov[r.url] ? 'var(--info-50)' : r.reachable ? scoreSoft(r.matchScore) : 'var(--surface-3)',
-                        }}
-                      >
-                        {ov[r.url] ? 'OK' : r.reachable ? r.matchScore : '—'}
-                      </span>
-                    </td>
-                    <td>
-                      <StatusPill status={r.fields.name.status} />
-                      {r.extracted.name && <div className="nap-found">{r.extracted.name}</div>}
-                    </td>
-                    <td>
-                      <StatusPill status={r.fields.phone.status} />
-                      {r.extracted.phone && <div className="nap-found">{r.extracted.phone}</div>}
-                    </td>
-                    <td>
-                      <StatusPill status={r.fields.address.status} />
-                      {r.extracted.street && <div className="nap-found">{r.extracted.street}</div>}
-                    </td>
-                    <td>
-                      <StatusPill status={r.fields.postcode.status} />
-                      {r.extracted.postcode && <div className="nap-found">{r.extracted.postcode}</div>}
-                    </td>
-                    <td>
-                      <StatusPill status={r.fields.suite.status} />
-                    </td>
-                    <td style={{ maxWidth: 210 }}>
-                      {ov[r.url] ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-                          <span style={{ color: 'var(--info)', fontSize: 12, fontWeight: 600 }}>✓ Verified manually</span>
-                          {interactive && (
-                            <button
-                              onClick={() => onToggleOverride!(r.url, false)}
-                              disabled={busyUrl === r.url}
-                              style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-3)', fontSize: 11, textDecoration: 'underline', cursor: 'pointer' }}
-                            >
-                              {busyUrl === r.url ? '…' : 'Undo'}
-                            </button>
-                          )}
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                          {r.tags.length === 0 ? (
-                            <span style={{ color: 'var(--success)', fontSize: 12, fontWeight: 600 }}>✓ Consistent</span>
-                          ) : (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                              {r.tags.map((t) => {
-                                // "couldn't check" (blocked / dead link) is amber, not
-                                // the red used for a genuine NAP mismatch.
-                                const couldntCheck = t === 'blocked' || t === 'dead link';
-                                return (
-                                  <span
-                                    key={t}
-                                    className="nap-tag"
-                                    style={{
-                                      background: couldntCheck ? 'var(--warn-50)' : 'var(--danger-50)',
-                                      color: couldntCheck ? 'var(--warn)' : 'var(--danger)',
-                                    }}
-                                  >
-                                    {t}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          )}
-                          {interactive && (r.tags.length > 0 || !r.reachable) && (
-                            <button
-                              onClick={() => onToggleOverride!(r.url, true)}
-                              disabled={busyUrl === r.url}
-                              title="I checked this listing by hand and the NAP is correct"
-                              className="btn-d"
-                              style={{ alignSelf: 'flex-start', color: 'var(--info)', borderColor: 'var(--info-100)' }}
-                            >
-                              {busyUrl === r.url ? '…' : '✓ Mark OK'}
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="nap-list">
+            {data.results.map((r, i) => (
+              <CitationCard
+                key={r.url + i}
+                r={r}
+                overridden={!!ov[r.url]}
+                interactive={interactive}
+                onToggle={(url, ok) => onToggleOverride?.(url, ok)}
+                busy={busyUrl === r.url}
+              />
+            ))}
           </div>
         </div>
       </section>
