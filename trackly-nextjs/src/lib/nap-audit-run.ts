@@ -58,8 +58,10 @@ const BLOCK_STATUSES = new Set([401, 403, 406, 409, 429, 451, 503]);
 const FETCH_CONCURRENCY = 16;
 // ── Layer 3: unblocker / headless-render (optional) ──────────────────────────
 // Weak or blocked pages (Cloudflare/WAF/JS-only) are re-fetched through a real
-// browser + residential proxies so their NAP becomes readable. Two backends,
-// tried in order; absent both, behaviour is byte-identical to Layers 1+2.
+// browser + residential proxies so their NAP becomes readable. Several paid
+// backends, tried in order; absent all of them, behaviour is byte-identical to
+// Layers 1+2. They bill per *successful* request, so at the small residual
+// volume left after the free Layer-3b/c/d chain the cost is typically cents.
 //
 //  1. ScraperAPI (SCRAPERAPI_KEY) — hosted unblocker. Credit cost per request
 //     depends on mode: render≈10, premium(residential)≈10-25, ultra_premium
@@ -69,6 +71,12 @@ const FETCH_CONCURRENCY = 16;
 //     rendering to save credits.
 //  2. NAP_RENDER_ENDPOINT — a generic "POST {url} → HTML" service (e.g.
 //     self-hosted browserless).
+//  3. Zyte API (ZYTE_API_KEY) — pay-per-success unblocker with built-in
+//     anti-ban + residential proxies; we request browserHtml so JS-rendered,
+//     JSON-LD-bearing pages come back ready to parse. $5 trial, no monthly min.
+//  4. Bright Data Web Unlocker (BRIGHTDATA_API_TOKEN + BRIGHTDATA_UNLOCKER_ZONE)
+//     — highest independent success rate on hard anti-bot sites; direct API
+//     (api.brightdata.com/request) returns the raw unblocked HTML.
 const SCRAPERAPI_KEY = process.env.SCRAPERAPI_KEY?.trim();
 const SCRAPERAPI_ULTRA = process.env.SCRAPERAPI_ULTRA === 'true';
 const SCRAPERAPI_RENDER = process.env.SCRAPERAPI_RENDER !== 'false';
@@ -78,9 +86,23 @@ const RENDER_TOKEN = process.env.NAP_RENDER_TOKEN?.trim();
 const RENDER_TIMEOUT_MS = 25_000;
 // Unblocker APIs run a real browser + solve challenges, which can take a while.
 const SCRAPER_TIMEOUT_MS = 70_000;
+// Zyte / Bright Data run a real browser + anti-ban upstream; give them room.
+const UNBLOCKER_API_TIMEOUT_MS = 40_000;
+const ZYTE_API_KEY = process.env.ZYTE_API_KEY?.trim();
+// Set ZYTE_BROWSER=false to use the cheaper httpResponseBody mode (no JS
+// render); default uses browserHtml, which is more reliable on anti-bot/JS
+// directories and gives us the original markup for JSON-LD extraction.
+const ZYTE_BROWSER = process.env.ZYTE_BROWSER !== 'false';
+const BRIGHTDATA_API_TOKEN = process.env.BRIGHTDATA_API_TOKEN?.trim();
+const BRIGHTDATA_UNLOCKER_ZONE = process.env.BRIGHTDATA_UNLOCKER_ZONE?.trim();
 // Paid unblockers fetch the *live* page through residential proxies + a real
 // browser. Enabled only when a key/endpoint is configured.
-const PAID_UNBLOCKER_ENABLED = !!(SCRAPERAPI_KEY || RENDER_ENDPOINT);
+const PAID_UNBLOCKER_ENABLED = !!(
+  SCRAPERAPI_KEY ||
+  RENDER_ENDPOINT ||
+  ZYTE_API_KEY ||
+  (BRIGHTDATA_API_TOKEN && BRIGHTDATA_UNLOCKER_ZONE)
+);
 
 // ── Layer 3b: Wayback Machine fallback (free, no key) ────────────────────────
 // When a directory blocks our server (Cloudflare/WAF 403 etc.), beating it on
@@ -180,6 +202,73 @@ async function fetchViaRenderEndpoint(url: string): Promise<string | null> {
       return typeof j?.html === 'string' ? j.html : null;
     }
     return await res.text();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Fetch unblocked HTML via the Zyte API. browserHtml mode renders JS and
+ * applies Zyte's anti-ban + residential proxies, returning the page markup
+ * directly (JSON-LD intact). httpResponseBody mode is cheaper but no JS; its
+ * body is base64-encoded. Bills only on success. Returns null on any failure.
+ */
+async function fetchViaZyte(url: string): Promise<string | null> {
+  if (!ZYTE_API_KEY) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UNBLOCKER_API_TIMEOUT_MS);
+  try {
+    const res = await fetch('https://api.zyte.com/v1/extract', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Basic ${Buffer.from(`${ZYTE_API_KEY}:`).toString('base64')}`,
+      },
+      body: JSON.stringify(
+        ZYTE_BROWSER ? { url, browserHtml: true } : { url, httpResponseBody: true },
+      ),
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const data = (await res.json().catch(() => null)) as
+      | { browserHtml?: string; httpResponseBody?: string }
+      | null;
+    if (ZYTE_BROWSER) return data?.browserHtml || null;
+    return data?.httpResponseBody
+      ? Buffer.from(data.httpResponseBody, 'base64').toString('utf8')
+      : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Fetch unblocked HTML via Bright Data's Web Unlocker direct API. `format:
+ * 'raw'` returns the unblocked page body as the response body. Requires both an
+ * API token and the configured Unlocker zone name. Bills only on success.
+ * Returns null on any failure.
+ */
+async function fetchViaBrightData(url: string): Promise<string | null> {
+  if (!BRIGHTDATA_API_TOKEN || !BRIGHTDATA_UNLOCKER_ZONE) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UNBLOCKER_API_TIMEOUT_MS);
+  try {
+    const res = await fetch('https://api.brightdata.com/request', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${BRIGHTDATA_API_TOKEN}`,
+      },
+      body: JSON.stringify({ zone: BRIGHTDATA_UNLOCKER_ZONE, url, format: 'raw' }),
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    return html || null;
   } catch {
     return null;
   } finally {
@@ -336,8 +425,9 @@ async function fetchViaJina(url: string): Promise<RenderResult | null> {
 
 /**
  * Re-fetch a blocked URL through the configured unblockers, in cost/quality
- * order. Paid backends (the live page via ScraperAPI / a render endpoint) win
- * when configured. The free chain runs only when `includeArchive` is set — we
+ * order. Paid backends (the live page via ScraperAPI / a render endpoint /
+ * Zyte / Bright Data) win when configured. The free chain runs only when
+ * `includeArchive` is set — we
  * never use it to "improve" a page that already loaded live:
  *   1. existing Wayback snapshot — instant when present (may be stale)
  *   2. Save Page Now — captures a fresh snapshot when none exists
@@ -346,7 +436,11 @@ async function fetchViaJina(url: string): Promise<RenderResult | null> {
  * Layer 1/2 result.
  */
 async function renderHtml(url: string, includeArchive: boolean): Promise<RenderResult | null> {
-  const live = (await fetchViaScraperApi(url)) ?? (await fetchViaRenderEndpoint(url));
+  const live =
+    (await fetchViaScraperApi(url)) ??
+    (await fetchViaRenderEndpoint(url)) ??
+    (await fetchViaZyte(url)) ??
+    (await fetchViaBrightData(url));
   if (live) return { html: live };
   if (!includeArchive) return null;
   return (
