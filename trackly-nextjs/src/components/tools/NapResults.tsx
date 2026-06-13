@@ -242,10 +242,10 @@ export default function NapResults({
           <p style={{ fontSize: 13, color: '#78350f', margin: 0, lineHeight: 1.6 }}>
             A few directories returned a block (e.g. Cloudflare/WAF) to our server even though they open
             in your browser — so their live NAP couldn&apos;t be read. These show as <strong>blocked</strong>,
-            not a real mismatch. We automatically retry these through the Internet Archive when a snapshot
-            exists (shown as <strong>via Web Archive</strong>, with the snapshot date so you know how fresh
-            it is). For anything still blocked, open it in your browser and <strong>Mark OK</strong> if the
-            details are correct. (Image hosts like Gyazo have no NAP text to read.)
+            not a real mismatch. We automatically retry these for free through the Internet Archive and other
+            public readers; archive-sourced rows are flagged <strong>via Web Archive</strong> with the snapshot
+            date so you know how fresh they are. For anything still blocked, open it in your browser and
+            <strong> Mark OK</strong> if the details are correct. (Image hosts like Gyazo have no NAP text to read.)
           </p>
         </div>
       )}

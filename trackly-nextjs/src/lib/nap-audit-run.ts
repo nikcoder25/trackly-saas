@@ -97,8 +97,36 @@ const PAID_UNBLOCKER_ENABLED = !!(SCRAPERAPI_KEY || RENDER_ENDPOINT);
 const WAYBACK_ENABLED = process.env.NAP_WAYBACK_FALLBACK !== 'false';
 const WAYBACK_TIMEOUT_MS = 15_000;
 
+// ── Layer 3c: Save Page Now (free, no key) ───────────────────────────────────
+// When the archive has no snapshot, ask archive.org to capture the live page on
+// demand, then read that *fresh* copy. Fills the coverage gap left by Wayback
+// and dates to today, so it sidesteps the staleness caveat too. Anonymous use
+// is rate-limited; optional archive.org S3 keys (free account) raise the
+// ceiling. Default on; set NAP_SAVE_PAGE_NOW=false to disable.
+const SPN_ENABLED = process.env.NAP_SAVE_PAGE_NOW !== 'false';
+const SPN_TIMEOUT_MS = 45_000;
+const ARCHIVE_S3_ACCESS_KEY = process.env.ARCHIVE_S3_ACCESS_KEY?.trim();
+const ARCHIVE_S3_SECRET_KEY = process.env.ARCHIVE_S3_SECRET_KEY?.trim();
+
+// ── Layer 3d: Jina Reader (free) ─────────────────────────────────────────────
+// Last-resort free reader: r.jina.ai fetches the live page through its own clean
+// IPs and returns the HTML, often beating an IP-reputation block when even the
+// archive's crawler can't. Fresh data (no staleness). Trade-off: the listing
+// URL is sent to a third party. Optional JINA_API_KEY raises the free rate
+// limit. Default on; set NAP_JINA_FALLBACK=false to disable.
+const JINA_ENABLED = process.env.NAP_JINA_FALLBACK !== 'false';
+const JINA_TIMEOUT_MS = 30_000;
+const JINA_API_KEY = process.env.JINA_API_KEY?.trim();
+
+// Per-process backoff so we stop hammering a free service after it rate-limits
+// us (HTTP 429). Skipped until the timestamp passes; reset on restart.
+const RATE_LIMIT_BACKOFF_MS = 10 * 60_000;
+let spnBackoffUntil = 0;
+let jinaBackoffUntil = 0;
+
 // Layer 3 is attempted on a blocked page when any backend (paid or free) exists.
-const UNBLOCKER_ENABLED = PAID_UNBLOCKER_ENABLED || WAYBACK_ENABLED;
+const UNBLOCKER_ENABLED =
+  PAID_UNBLOCKER_ENABLED || WAYBACK_ENABLED || SPN_ENABLED || JINA_ENABLED;
 
 export function renderServiceEnabled(): boolean {
   return UNBLOCKER_ENABLED;
@@ -212,19 +240,120 @@ async function fetchViaWayback(url: string): Promise<RenderResult | null> {
   }
 }
 
+/** Pull the 14-digit Wayback timestamp out of a snapshot URL or path, if present. */
+function waybackTimestampFromUrl(u: string | null | undefined): string | undefined {
+  const m = u?.match(/\/web\/(\d{14})/);
+  return m ? m[1] : undefined;
+}
+
 /**
- * Re-fetch a URL through the configured unblockers. Paid backends (the live
- * page via ScraperAPI / a render endpoint) are tried first; the free Wayback
- * snapshot is the last resort and only when `includeArchive` is set — we never
- * use a possibly-stale archive to "improve" a page that already loaded live.
+ * Free fallback: ask the Internet Archive to capture the live page right now
+ * (Save Page Now), then read the fresh snapshot it just created. This is the
+ * gap-filler for pages Wayback hasn't archived before, and the result dates to
+ * today. Anonymous capture is heavily rate-limited, so on a 429 we back off for
+ * the rest of the run and let the next backend take over; optional archive.org
+ * S3 keys raise the limit. Returns null on any failure.
+ */
+async function fetchViaSavePageNow(url: string): Promise<RenderResult | null> {
+  if (!SPN_ENABLED || Date.now() < spnBackoffUntil) return null;
+  const ua = BROWSER_HEADERS['User-Agent'];
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SPN_TIMEOUT_MS);
+  try {
+    const headers: Record<string, string> = { 'User-Agent': ua };
+    if (ARCHIVE_S3_ACCESS_KEY && ARCHIVE_S3_SECRET_KEY) {
+      headers.Authorization = `LOW ${ARCHIVE_S3_ACCESS_KEY}:${ARCHIVE_S3_SECRET_KEY}`;
+    }
+    // Synchronous capture: archive.org fetches the page and redirects us to the
+    // freshly-minted snapshot. We follow it to learn the snapshot timestamp.
+    const res = await fetch(`https://web.archive.org/save/${url}`, {
+      headers,
+      redirect: 'follow',
+      signal: controller.signal,
+    });
+    if (res.status === 429) {
+      spnBackoffUntil = Date.now() + RATE_LIMIT_BACKOFF_MS;
+      return null;
+    }
+    if (!res.ok) return null;
+    const ts =
+      waybackTimestampFromUrl(res.url) ||
+      waybackTimestampFromUrl(res.headers.get('content-location'));
+    if (ts) {
+      // Re-read the original document (no toolbar/rewriting) for clean JSON-LD.
+      const raw = await fetch(`https://web.archive.org/web/${ts}id_/${url}`, {
+        headers: { 'User-Agent': ua },
+        signal: controller.signal,
+      });
+      if (raw.ok) {
+        const html = await raw.text();
+        if (html) return { html, archivedAt: formatWaybackTimestamp(ts) };
+      }
+    }
+    // Fall back to the body SPN returned directly (toolbar-wrapped, but the
+    // original JSON-LD/microdata is still embedded, so the extractor copes).
+    const body = await res.text();
+    return body ? { html: body, archivedAt: formatWaybackTimestamp(ts) } : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Free fallback: route the blocked page through r.jina.ai, which fetches it via
+ * its own infrastructure and returns the HTML. Fresh data, often gets through
+ * an IP-reputation block. We request the HTML form (Jina defaults to markdown)
+ * so the NAP extractor still sees the original structured-data tags. Backs off
+ * for the rest of the run on a 429. Returns null on any failure.
+ */
+async function fetchViaJina(url: string): Promise<RenderResult | null> {
+  if (!JINA_ENABLED || Date.now() < jinaBackoffUntil) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), JINA_TIMEOUT_MS);
+  try {
+    const headers: Record<string, string> = {
+      'X-Return-Format': 'html',
+      'User-Agent': BROWSER_HEADERS['User-Agent'],
+    };
+    if (JINA_API_KEY) headers.Authorization = `Bearer ${JINA_API_KEY}`;
+    const res = await fetch(`https://r.jina.ai/${url}`, { headers, signal: controller.signal });
+    if (res.status === 429) {
+      jinaBackoffUntil = Date.now() + RATE_LIMIT_BACKOFF_MS;
+      return null;
+    }
+    if (!res.ok) return null;
+    const html = await res.text();
+    // Jina returns live data, so there's no archive date to attach.
+    return html ? { html } : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Re-fetch a blocked URL through the configured unblockers, in cost/quality
+ * order. Paid backends (the live page via ScraperAPI / a render endpoint) win
+ * when configured. The free chain runs only when `includeArchive` is set — we
+ * never use it to "improve" a page that already loaded live:
+ *   1. existing Wayback snapshot — instant when present (may be stale)
+ *   2. Save Page Now — captures a fresh snapshot when none exists
+ *   3. Jina Reader — live read via a third-party proxy as a last resort
  * Returns null when none configured / all fail, so the caller keeps the
  * Layer 1/2 result.
  */
 async function renderHtml(url: string, includeArchive: boolean): Promise<RenderResult | null> {
   const live = (await fetchViaScraperApi(url)) ?? (await fetchViaRenderEndpoint(url));
   if (live) return { html: live };
-  if (includeArchive) return fetchViaWayback(url);
-  return null;
+  if (!includeArchive) return null;
+  return (
+    (await fetchViaWayback(url)) ??
+    (await fetchViaSavePageNow(url)) ??
+    (await fetchViaJina(url))
+  );
 }
 
 export interface NapRunSummary {
