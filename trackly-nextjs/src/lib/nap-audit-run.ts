@@ -78,7 +78,27 @@ const RENDER_TOKEN = process.env.NAP_RENDER_TOKEN?.trim();
 const RENDER_TIMEOUT_MS = 25_000;
 // Unblocker APIs run a real browser + solve challenges, which can take a while.
 const SCRAPER_TIMEOUT_MS = 70_000;
-const UNBLOCKER_ENABLED = !!(SCRAPERAPI_KEY || RENDER_ENDPOINT);
+// Paid unblockers fetch the *live* page through residential proxies + a real
+// browser. Enabled only when a key/endpoint is configured.
+const PAID_UNBLOCKER_ENABLED = !!(SCRAPERAPI_KEY || RENDER_ENDPOINT);
+
+// ── Layer 3b: Wayback Machine fallback (free, no key) ────────────────────────
+// When a directory blocks our server (Cloudflare/WAF 403 etc.), beating it on
+// the live site needs paid residential proxies. The free alternative: read the
+// page's most recent snapshot from the Internet Archive. archive.org isn't
+// behind the live site's anti-bot wall and serves the *original* HTML (JSON-LD
+// intact), so the NAP extracts exactly as it would from the live page.
+//
+// The trade-off is freshness — a snapshot can be weeks or months old — so a
+// Wayback result is tagged with its snapshot date, is only ever used to rescue
+// a page we genuinely couldn't read live (never to "improve" a live read), and
+// never silently overrides fresher data. Enabled by default since it costs
+// nothing; set NAP_WAYBACK_FALLBACK=false to turn it off.
+const WAYBACK_ENABLED = process.env.NAP_WAYBACK_FALLBACK !== 'false';
+const WAYBACK_TIMEOUT_MS = 15_000;
+
+// Layer 3 is attempted on a blocked page when any backend (paid or free) exists.
+const UNBLOCKER_ENABLED = PAID_UNBLOCKER_ENABLED || WAYBACK_ENABLED;
 
 export function renderServiceEnabled(): boolean {
   return UNBLOCKER_ENABLED;
@@ -139,13 +159,72 @@ async function fetchViaRenderEndpoint(url: string): Promise<string | null> {
   }
 }
 
+interface RenderResult {
+  html: string;
+  /** Set when the HTML came from an Internet Archive snapshot (YYYY-MM-DD). */
+  archivedAt?: string;
+}
+
+/** "20230615120000" → "2023-06-15"; undefined when the stamp is unusable. */
+function formatWaybackTimestamp(ts?: string): string | undefined {
+  if (!ts || ts.length < 8) return undefined;
+  return `${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)}`;
+}
+
 /**
- * Re-fetch a URL through the configured unblocker (ScraperAPI first, then the
- * generic render endpoint). Returns null when none configured / all fail, so
- * the caller keeps the Layer 1/2 result.
+ * Free fallback: fetch the most recent Internet Archive snapshot of a blocked
+ * page. Two hops — the availability API to find the closest HTTP-200 snapshot,
+ * then the raw archived HTML. The `id_` modifier on the snapshot URL returns
+ * the original document (no Wayback toolbar or link rewriting), so JSON-LD and
+ * microdata parse exactly as they would on the live page. Returns null when
+ * nothing is archived, so the caller keeps the blocked result.
  */
-async function renderHtml(url: string): Promise<string | null> {
-  return (await fetchViaScraperApi(url)) ?? (await fetchViaRenderEndpoint(url));
+async function fetchViaWayback(url: string): Promise<RenderResult | null> {
+  if (!WAYBACK_ENABLED) return null;
+  const ua = BROWSER_HEADERS['User-Agent'];
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), WAYBACK_TIMEOUT_MS);
+  try {
+    const availRes = await fetch(
+      `https://archive.org/wayback/available?url=${encodeURIComponent(url)}`,
+      { signal: controller.signal, headers: { 'User-Agent': ua } },
+    );
+    if (!availRes.ok) return null;
+    const data = (await availRes.json().catch(() => null)) as {
+      archived_snapshots?: {
+        closest?: { available?: boolean; url?: string; timestamp?: string; status?: string };
+      };
+    } | null;
+    const snap = data?.archived_snapshots?.closest;
+    if (!snap?.available || !snap.timestamp || snap.status !== '200') return null;
+    // Build the raw-snapshot URL from the timestamp so we always request the
+    // unmodified original document, regardless of how the API formatted snap.url.
+    const rawUrl = `https://web.archive.org/web/${snap.timestamp}id_/${url}`;
+    const pageRes = await fetch(rawUrl, { signal: controller.signal, headers: { 'User-Agent': ua } });
+    if (!pageRes.ok) return null;
+    const html = await pageRes.text();
+    if (!html) return null;
+    return { html, archivedAt: formatWaybackTimestamp(snap.timestamp) };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Re-fetch a URL through the configured unblockers. Paid backends (the live
+ * page via ScraperAPI / a render endpoint) are tried first; the free Wayback
+ * snapshot is the last resort and only when `includeArchive` is set — we never
+ * use a possibly-stale archive to "improve" a page that already loaded live.
+ * Returns null when none configured / all fail, so the caller keeps the
+ * Layer 1/2 result.
+ */
+async function renderHtml(url: string, includeArchive: boolean): Promise<RenderResult | null> {
+  const live = (await fetchViaScraperApi(url)) ?? (await fetchViaRenderEndpoint(url));
+  if (live) return { html: live };
+  if (includeArchive) return fetchViaWayback(url);
+  return null;
 }
 
 export interface NapRunSummary {
@@ -177,6 +256,7 @@ function evaluate(
   html: string,
   canonical: CanonicalNap,
   rendered: boolean,
+  archivedAt?: string,
 ): UrlResult {
   const v = verifyNap(canonical, html);
   return {
@@ -185,6 +265,7 @@ function evaluate(
     reachable: true,
     extracted: v.extracted,
     ...(rendered ? { rendered: true } : {}),
+    ...(archivedAt ? { archivedAt } : {}),
     fields: v.fields,
     tags: v.tags,
     matchScore: v.matchScore,
@@ -225,10 +306,11 @@ async function tryRender(
   httpStatus: number | null,
   canonical: CanonicalNap,
   current: UrlResult | null,
+  includeArchive: boolean,
 ): Promise<UrlResult | null> {
-  const html = await renderHtml(url);
-  if (!html) return null;
-  const rendered = evaluate(url, httpStatus, html, canonical, true);
+  const r = await renderHtml(url, includeArchive);
+  if (!r) return null;
+  const rendered = evaluate(url, httpStatus, r.html, canonical, true, r.archivedAt);
   if (current && matchedCount(rendered) <= matchedCount(current)) return null;
   return rendered;
 }
@@ -245,9 +327,10 @@ async function checkUrl(url: string, canonical: CanonicalNap): Promise<UrlResult
     const reachable = res.status >= 200 && res.status < 400;
 
     if (!reachable) {
-      // Blocked / error status — the unblocker may still get through.
+      // Blocked / error status — the unblocker (paid live fetch or the free
+      // Wayback snapshot) may still get through.
       if (UNBLOCKER_ENABLED) {
-        const rendered = await tryRender(url, res.status, canonical, null);
+        const rendered = await tryRender(url, res.status, canonical, null, true);
         if (rendered) return rendered;
       }
       return deadResult(url, res.status, canonical);
@@ -255,16 +338,18 @@ async function checkUrl(url: string, canonical: CanonicalNap): Promise<UrlResult
 
     const html = await res.text();
     const result = evaluate(url, res.status, html, canonical, false);
-    // Only spend an unblocker call when the static fetch verified little.
-    if (UNBLOCKER_ENABLED && matchedCount(result) < 2) {
-      const rendered = await tryRender(url, res.status, canonical, result);
+    // Only spend a *paid* unblocker call when the static fetch verified little.
+    // We deliberately don't fall back to Wayback here: the page already loaded
+    // live, so a possibly-stale archive snapshot of it wouldn't be an upgrade.
+    if (PAID_UNBLOCKER_ENABLED && matchedCount(result) < 2) {
+      const rendered = await tryRender(url, res.status, canonical, result, false);
       if (rendered) return rendered;
     }
     return result;
   } catch (err) {
     // Never render an SSRF-blocked target (it resolved to a private IP).
     if (UNBLOCKER_ENABLED && !(err instanceof SSRFError)) {
-      const rendered = await tryRender(url, null, canonical, null);
+      const rendered = await tryRender(url, null, canonical, null, true);
       if (rendered) return rendered;
     }
     const code = err instanceof SSRFError ? err.code : 'FETCH_FAILED';

@@ -39,6 +39,8 @@ export interface NapUrlResult {
   tags: string[];
   matchScore: number;
   rendered?: boolean;
+  /** YYYY-MM-DD when the NAP was read from an Internet Archive snapshot. */
+  archivedAt?: string;
 }
 
 export interface NapDuplicateGroup {
@@ -239,9 +241,11 @@ export default function NapResults({
           </div>
           <p style={{ fontSize: 13, color: '#78350f', margin: 0, lineHeight: 1.6 }}>
             A few directories returned a block (e.g. Cloudflare/WAF) to our server even though they open
-            in your browser — so their NAP couldn&apos;t be read. These show as <strong>blocked</strong>,
-            not a real mismatch. Enabling the optional render/unblock service lets the tool fetch them
-            like a real browser. (Image hosts like Gyazo have no NAP text to read.)
+            in your browser — so their live NAP couldn&apos;t be read. These show as <strong>blocked</strong>,
+            not a real mismatch. We automatically retry these through the Internet Archive when a snapshot
+            exists (shown as <strong>via Web Archive</strong>, with the snapshot date so you know how fresh
+            it is). For anything still blocked, open it in your browser and <strong>Mark OK</strong> if the
+            details are correct. (Image hosts like Gyazo have no NAP text to read.)
           </p>
         </div>
       )}
@@ -324,11 +328,18 @@ export default function NapResults({
                         no JSON-LD
                       </div>
                     )}
-                    {r.rendered && (
+                    {r.archivedAt ? (
+                      <div
+                        style={{ fontSize: 10, color: '#0891b2', marginTop: 2, fontWeight: 600 }}
+                        title="Live page was blocked — read from the Internet Archive, so it may be out of date"
+                      >
+                        via Web Archive · {r.archivedAt}
+                      </div>
+                    ) : r.rendered ? (
                       <div style={{ fontSize: 10, color: '#0891b2', marginTop: 2, fontWeight: 600 }}>
                         JS-rendered
                       </div>
-                    )}
+                    ) : null}
                   </td>
                   <td style={{ padding: '12px 14px', fontWeight: 700, color: ov[r.url] ? '#0891b2' : scoreColor(r.matchScore) }}>
                     {ov[r.url] ? 'OK' : r.reachable ? r.matchScore : '—'}
