@@ -26,6 +26,12 @@ export const maxDuration = 10;
 
 const PLACES_TIMEOUT_MS = 4_500;
 const PLACES_MAX_ATTEMPTS = 2;
+// Hard ceiling across all attempts. Keeps the worst case (cold pod, one
+// retry) comfortably inside the platform gateway's idle window so the
+// handler always gets to return its own actionable JSON 504 rather than
+// letting DigitalOcean's edge proxy kill the request and hand the browser
+// an opaque, body-less 504.
+const PLACES_OVERALL_BUDGET_MS = 8_000;
 
 interface AddressComponent {
   longText?: string;
@@ -160,57 +166,91 @@ function toExtras(place: Place): GbpExtras {
   };
 }
 
+/**
+ * Reject if `p` doesn't settle within `ms`, independent of whether the
+ * underlying fetch ever honors its AbortSignal.
+ *
+ * This is the load-bearing guard for the whole route. undici has
+ * historically failed to unblock a stuck TLS handshake when its
+ * AbortController fires, which left this handler `await`-ing a fetch that
+ * never settled — the setTimeout(abort) was a no-op and the request hung
+ * until DigitalOcean's edge proxy killed it with an opaque, body-less 504.
+ * That body-less 504 is exactly what made the "Pull from Google" button
+ * look broken: the client only has its generic timeout fallback to show.
+ * Racing the fetch against our own timer guarantees we always reject in
+ * bounded time and return an actionable JSON 504 instead.
+ */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const err = new Error(`Places lookup timed out after ${ms}ms`);
+      err.name = 'TimeoutError';
+      reject(err);
+    }, ms);
+    p.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error) => { clearTimeout(timer); reject(error); },
+    );
+  });
+}
+
 async function callPlaces(query: string, apiKey: string): Promise<Response> {
   // One short retry: Places Text Search occasionally takes >5s on a cold
   // call from an idle pod, and a single retry costs almost nothing once
-  // the TCP/TLS session is warm. Each attempt is independently bounded
-  // by PLACES_TIMEOUT_MS via an explicit AbortController — using
-  // setTimeout + controller.abort() rather than AbortSignal.timeout()
-  // because some fetch/socket stalls (TLS handshake hangs) didn't honor
-  // the latter reliably, letting the request exceed the route's own
-  // budget and tripping DigitalOcean's edge-proxy 504.
+  // the TCP/TLS session is warm. Each attempt is bounded two ways: an
+  // AbortController tells undici to drop the socket (best-effort), and a
+  // withTimeout() race guarantees this function rejects on schedule even
+  // if undici ignores the abort. The overall budget caps the sum of
+  // attempts so the handler always returns inside the gateway window.
+  const startedAt = Date.now();
   let lastErr: unknown = null;
   for (let attempt = 1; attempt <= PLACES_MAX_ATTEMPTS; attempt++) {
+    const remaining = PLACES_OVERALL_BUDGET_MS - (Date.now() - startedAt);
+    if (remaining <= 0) break;
+    const attemptBudget = Math.min(PLACES_TIMEOUT_MS, remaining);
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), PLACES_TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), attemptBudget);
     try {
-      const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': apiKey,
-          // Expanded mask: pulls website, formatted address, category,
-          // hours, status and the Maps URL alongside NAP so the operator
-          // sees the full "source of truth" the audit was built against.
-          // All of these are on the Places Text Search **Pro** SKU — the
-          // tier we're already on for nationalPhoneNumber. We deliberately
-          // leave `rating` / `userRatingCount` off because those bump the
-          // call to the Enterprise SKU (higher per-call cost, and a
-          // hard INVALID_ARGUMENT failure when Enterprise isn't enabled
-          // on the key).
-          'X-Goog-FieldMask': [
-            'places.displayName',
-            'places.nationalPhoneNumber',
-            'places.internationalPhoneNumber',
-            'places.addressComponents',
-            'places.formattedAddress',
-            'places.websiteUri',
-            'places.googleMapsUri',
-            'places.businessStatus',
-            'places.primaryType',
-            'places.primaryTypeDisplayName',
-            'places.types',
-            'places.regularOpeningHours',
-            'places.location',
-          ].join(','),
-        },
-        // Text Search (New) takes `textQuery` (+ optional `pageSize`). It does NOT
-        // accept `maxResultCount` (that's a Nearby Search field) and rejects the
-        // request with INVALID_ARGUMENT if it's present. `pageSize: 1` keeps
-        // the response small.
-        body: JSON.stringify({ textQuery: query, pageSize: 1 }),
-        signal: controller.signal,
-      });
+      const res = await withTimeout(
+        fetch('https://places.googleapis.com/v1/places:searchText', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': apiKey,
+            // Expanded mask: pulls website, formatted address, category,
+            // hours, status and the Maps URL alongside NAP so the operator
+            // sees the full "source of truth" the audit was built against.
+            // All of these are on the Places Text Search **Pro** SKU — the
+            // tier we're already on for nationalPhoneNumber. We deliberately
+            // leave `rating` / `userRatingCount` off because those bump the
+            // call to the Enterprise SKU (higher per-call cost, and a
+            // hard INVALID_ARGUMENT failure when Enterprise isn't enabled
+            // on the key).
+            'X-Goog-FieldMask': [
+              'places.displayName',
+              'places.nationalPhoneNumber',
+              'places.internationalPhoneNumber',
+              'places.addressComponents',
+              'places.formattedAddress',
+              'places.websiteUri',
+              'places.googleMapsUri',
+              'places.businessStatus',
+              'places.primaryType',
+              'places.primaryTypeDisplayName',
+              'places.types',
+              'places.regularOpeningHours',
+              'places.location',
+            ].join(','),
+          },
+          // Text Search (New) takes `textQuery` (+ optional `pageSize`). It does NOT
+          // accept `maxResultCount` (that's a Nearby Search field) and rejects the
+          // request with INVALID_ARGUMENT if it's present. `pageSize: 1` keeps
+          // the response small.
+          body: JSON.stringify({ textQuery: query, pageSize: 1 }),
+          signal: controller.signal,
+        }),
+        attemptBudget,
+      );
       return res;
     } catch (e) {
       lastErr = e;
