@@ -4,10 +4,11 @@ import { useState } from 'react';
 import { generateSchemaScriptTag, type CanonicalNap } from '@/lib/nap-verify';
 
 // Shared presentational view for NAP check results — an overview hero (score
-// gauge + KPI rail), possible duplicate listings, the per-URL citation table,
-// CSV export, and a paste-ready LocalBusiness schema generator. Rendered inside
-// the dashboard's `.lvx` shell, so it builds on the design-system tokens and
-// component classes (cards, badges, KPIs) for full cohesion and dark-mode support.
+// gauge + KPI rail + consistency trend), possible duplicate listings, the
+// per-URL citation table with filterable, expandable rows, CSV export, and a
+// paste-ready LocalBusiness schema generator. Rendered inside the dashboard's
+// `.lvx` shell, so it builds on the design-system tokens and component classes
+// (cards, badges) for full cohesion and dark-mode support.
 
 export type FieldStatus = 'match' | 'variation' | 'mismatch' | 'missing';
 
@@ -65,10 +66,10 @@ const FIELD_BADGE: Record<FieldStatus, { tone: string; icon: string; label: stri
   missing: { tone: 'miss', icon: '–', label: 'Missing' },
 };
 
-function StatusPill({ status }: { status: FieldStatus }) {
+function FieldPill({ status }: { status: FieldStatus }) {
   const m = FIELD_BADGE[status];
   return (
-    <span className={`badge badge-${m.tone}`}>
+    <span className={`badge badge-${m.tone}`} style={{ fontSize: 11, padding: '3px 7px' }}>
       <span aria-hidden style={{ fontSize: 9 }}>{m.icon}</span>
       {m.label}
     </span>
@@ -92,71 +93,84 @@ function napVerdict(r: NapUrlResult, overridden: boolean): { verdict: NapVerdict
   return { verdict: failed.length === 0 ? 'ok' : 'issues', failed };
 }
 
+/** A clean verdict is one the customer can treat as correct — auto-OK or hand-verified. */
+function isCleanVerdict(r: NapUrlResult, overridden: boolean): boolean {
+  const { verdict } = napVerdict(r, overridden);
+  return verdict === 'ok' || verdict === 'verified';
+}
+
 const NAP_BADGE: Record<NapVerdict, { tone: string; icon: string; label: string }> = {
   ok: { tone: 'pos', icon: '✓', label: 'NAP OK' },
-  verified: { tone: 'info', icon: '✓', label: 'Verified' },
+  verified: { tone: 'pos', icon: '✓', label: 'Resolved' },
   issues: { tone: 'neg', icon: '✕', label: 'Issues' },
   unverified: { tone: 'warn', icon: '?', label: 'Unverified' },
 };
 
-function NapBadge({ r, overridden }: { r: NapUrlResult; overridden: boolean }) {
-  const { verdict, failed } = napVerdict(r, overridden);
+function VerdictBadge({ r, overridden }: { r: NapUrlResult; overridden: boolean }) {
+  const { verdict } = napVerdict(r, overridden);
   const m = NAP_BADGE[verdict];
-  const sub =
-    verdict === 'issues' ? failed.join(' · ')
-      : verdict === 'unverified' ? "Couldn't read"
-        : verdict === 'verified' ? 'Manual'
-          : null;
   return (
-    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-      <span className={`badge badge-${m.tone}`} style={{ fontSize: 11, padding: '4px 9px' }}>
-        <span aria-hidden style={{ fontSize: 10 }}>{m.icon}</span>
-        {m.label}
-      </span>
-      {sub && <span className="mono" style={{ fontSize: 9.5, color: 'var(--text-3)', letterSpacing: '0.03em' }}>{sub}</span>}
-    </div>
+    <span className={`badge badge-${m.tone}`} style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 9px' }}>
+      <span aria-hidden style={{ fontSize: 10 }}>{m.icon}</span>
+      {m.label}
+    </span>
   );
 }
 
-export function scoreColor(score: number): string {
-  if (score >= 85) return 'var(--success)';
-  if (score >= 60) return 'var(--warn)';
-  return 'var(--danger)';
-}
-function scoreSoft(score: number): string {
-  if (score >= 85) return 'var(--success-50)';
-  if (score >= 60) return 'var(--warn-50)';
-  return 'var(--danger-50)';
-}
-function scoreLabel(score: number): string {
-  if (score >= 85) return 'Excellent';
-  if (score >= 60) return 'Needs work';
-  return 'Poor';
+/** Score band — colour + soft background + verdict word, themed via tokens. */
+function band(score: number): { color: string; soft: string; word: string } {
+  if (score < 50) return { color: 'var(--danger)', soft: 'var(--danger-50)', word: 'POOR' };
+  if (score < 80) return { color: 'var(--warn)', soft: 'var(--warn-50)', word: 'FAIR' };
+  if (score < 90) return { color: 'var(--success)', soft: 'var(--success-50)', word: 'GOOD' };
+  return { color: 'var(--success)', soft: 'var(--success-50)', word: 'EXCELLENT' };
 }
 
-// Scoped styling for the responsive citation list. Each citation is a
-// self-labelled card (no wide table that overflows or buries column headers):
-// the URL truncates with an ellipsis, the NAP verdict + score sit on the right,
-// and per-field statuses flow in a fluid grid that reflows at any width.
+export function scoreColor(score: number): string {
+  return band(score).color;
+}
+
+// Scoped styling for the citation table + overview grid. The table is a CSS-grid
+// of self-aligning columns that scrolls horizontally on narrow viewports rather
+// than collapsing the per-field readout, and each row expands in place.
 const napCss = `
-.lvx .nap-tag { display: inline-flex; align-items: center; font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; white-space: nowrap; letter-spacing: .02em; }
-.lvx .nap-list { display: flex; flex-direction: column; }
-.lvx .nap-card { padding: 16px var(--pad); border-bottom: 1px solid var(--line); transition: background .12s ease; }
-.lvx .nap-card:last-child { border-bottom: none; }
-.lvx .nap-card:hover { background: var(--surface-2); }
-.lvx .nap-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
-.lvx .nap-card-id { min-width: 0; flex: 1 1 300px; }
-.lvx .nap-url { display: flex; min-width: 0; max-width: 100%; text-decoration: none; font-size: 13px; align-items: baseline; }
-.lvx .nap-url .host { flex: 0 0 auto; color: var(--primary); font-weight: 600; white-space: nowrap; }
-.lvx .nap-url .path { flex: 0 1 auto; min-width: 0; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lvx .nap-url:hover .host { text-decoration: underline; }
-.lvx .nap-flags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
-.lvx .nap-verdict { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.lvx .nap-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px 16px; margin-top: 14px; }
-.lvx .nap-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; max-width: 100%; }
-.lvx .nap-tile-k { font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
-.lvx .nap-found { font-size: 11px; color: var(--text-3); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-.lvx .nap-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.lvx .nap2-ov { display: grid; grid-template-columns: 300px 1fr; }
+.lvx .nap2-hero { padding: 26px 24px; border-right: 1px solid var(--line); display: flex; align-items: center; justify-content: center; }
+.lvx .nap2-side { display: flex; flex-direction: column; min-width: 0; }
+.lvx .nap2-stats { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--line); }
+.lvx .nap2-stat { padding: 18px 16px; border-right: 1px solid var(--line); }
+.lvx .nap2-stat:last-child { border-right: none; }
+.lvx .nap2-stat-k { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); font-weight: 500; }
+.lvx .nap2-stat-v { margin-top: 10px; display: flex; align-items: baseline; gap: 6px; }
+.lvx .nap2-stat-v b { font-size: 28px; font-weight: 700; letter-spacing: -.03em; line-height: 1; }
+.lvx .nap2-stat-v i { font-style: normal; font-size: 12px; color: var(--mute); }
+.lvx .nap2-trend { flex: 1; padding: 18px 22px; display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+
+.lvx .nap2-scroll { overflow-x: auto; }
+.lvx .nap2-tbl { min-width: 800px; }
+.lvx .nap2-rowgrid { display: grid; grid-template-columns: 26px minmax(200px,1fr) repeat(5, 78px) 96px 54px; align-items: center; gap: 8px; padding: 12px var(--pad); }
+.lvx .nap2-head { background: var(--surface-2); border-bottom: 1px solid var(--line); }
+.lvx .nap2-th { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--mute); font-weight: 500; }
+.lvx .nap2-row { border-bottom: 1px solid var(--line); }
+.lvx .nap2-row:last-child { border-bottom: none; }
+.lvx .nap2-row-main { cursor: pointer; transition: background .12s ease; }
+.lvx .nap2-row-main:hover { background: var(--surface-2); }
+.lvx .nap2-caret { font-size: 10px; color: var(--mute); transition: transform .18s ease; }
+.lvx .nap2-host { color: var(--primary); font-weight: 600; font-size: 13px; white-space: nowrap; }
+.lvx .nap2-path { color: var(--text-3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lvx .nap2-flag { font-family: var(--mono); font-size: 9.5px; letter-spacing: .02em; padding: 2px 6px; border-radius: 5px; white-space: nowrap; }
+.lvx .nap2-expand { background: var(--surface-2); border-top: 1px solid var(--line); padding: 16px var(--pad) 22px 56px; }
+.lvx .nap2-expand-grid { display: grid; grid-template-columns: 1fr 280px; gap: 26px; }
+.lvx .nap2-kv { display: grid; grid-template-columns: 96px 1fr auto; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.lvx .nap2-kv:last-child { border-bottom: none; }
+
+@media (max-width: 760px) {
+  .lvx .nap2-ov { grid-template-columns: 1fr; }
+  .lvx .nap2-hero { border-right: none; border-bottom: 1px solid var(--line); }
+  .lvx .nap2-stats { grid-template-columns: repeat(2, 1fr); }
+  .lvx .nap2-stat:nth-child(2n) { border-right: none; }
+  .lvx .nap2-stat { border-bottom: 1px solid var(--line); }
+  .lvx .nap2-expand-grid { grid-template-columns: 1fr; }
+}
 `;
 
 /** Split a URL into a non-breaking host + an ellipsis-able path for clean display. */
@@ -165,138 +179,6 @@ function splitUrl(raw: string): { host: string; path: string } {
   const slash = noProto.indexOf('/');
   if (slash === -1) return { host: noProto, path: '' };
   return { host: noProto.slice(0, slash), path: noProto.slice(slash) };
-}
-
-function ScoreChip({ r, overridden }: { r: NapUrlResult; overridden: boolean }) {
-  return (
-    <span
-      className="mono"
-      style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        minWidth: 40, height: 26, padding: '0 9px', borderRadius: 999,
-        fontWeight: 700, fontSize: 12.5,
-        color: overridden ? 'var(--info)' : r.reachable ? scoreColor(r.matchScore) : 'var(--mute)',
-        background: overridden ? 'var(--info-50)' : r.reachable ? scoreSoft(r.matchScore) : 'var(--surface-3)',
-      }}
-      title="Match score"
-    >
-      {overridden ? 'OK' : r.reachable ? r.matchScore : '—'}
-    </span>
-  );
-}
-
-function CitationCard({
-  r, overridden, interactive, onToggle, busy,
-}: {
-  r: NapUrlResult;
-  overridden: boolean;
-  interactive: boolean;
-  onToggle: (url: string, ok: boolean) => void;
-  busy: boolean;
-}) {
-  const { host, path } = splitUrl(r.url);
-  const tiles: Array<{ k: string; status: FieldStatus; found?: string }> = [
-    { k: 'Name', status: r.fields.name.status, found: r.extracted.name },
-    { k: 'Phone', status: r.fields.phone.status, found: r.extracted.phone },
-    { k: 'Address', status: r.fields.address.status, found: r.extracted.street },
-    { k: 'Postcode', status: r.fields.postcode.status, found: r.extracted.postcode },
-    { k: 'Suite', status: r.fields.suite.status },
-  ];
-  const hasSchema = Object.values(r.extracted.source ?? {}).includes('schema');
-  const showFoot = overridden || r.tags.length > 0 || !r.reachable;
-
-  return (
-    <div className="nap-card">
-      <div className="nap-card-top">
-        <div className="nap-card-id">
-          <a className="nap-url" href={r.url} target="_blank" rel="noopener noreferrer nofollow" title={r.url}>
-            <span className="host">{host}</span>
-            {path && <span className="path">{path}</span>}
-          </a>
-          <div className="nap-flags">
-            {!r.reachable && (
-              <span className="nap-tag" style={{ background: 'var(--danger-50)', color: 'var(--danger)' }}>
-                {r.error || `HTTP ${r.httpStatus ?? '—'}`}
-              </span>
-            )}
-            {r.reachable && !hasSchema && (
-              <span className="nap-tag" style={{ background: 'var(--primary-50)', color: 'var(--primary)' }}>no JSON-LD</span>
-            )}
-            {r.archivedAt ? (
-              <span
-                className="nap-tag"
-                style={{ background: 'var(--info-50)', color: 'var(--info)' }}
-                title="Live page was blocked — read from the Internet Archive, so it may be out of date"
-              >
-                via Web Archive · {r.archivedAt}
-              </span>
-            ) : r.rendered ? (
-              <span className="nap-tag" style={{ background: 'var(--info-50)', color: 'var(--info)' }}>JS-rendered</span>
-            ) : null}
-          </div>
-        </div>
-        <div className="nap-verdict">
-          <NapBadge r={r} overridden={overridden} />
-          <ScoreChip r={r} overridden={overridden} />
-        </div>
-      </div>
-
-      <div className="nap-fields">
-        {tiles.map((t) => (
-          <div className="nap-tile" key={t.k}>
-            <span className="nap-tile-k">{t.k}</span>
-            <StatusPill status={t.status} />
-            {t.found && <span className="nap-found" title={t.found}>{t.found}</span>}
-          </div>
-        ))}
-      </div>
-
-      {showFoot && (
-        <div className="nap-foot">
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', minWidth: 0 }}>
-            {overridden ? (
-              <span style={{ color: 'var(--info)', fontSize: 12, fontWeight: 600 }}>✓ Verified manually</span>
-            ) : r.tags.length === 0 ? (
-              <span style={{ color: 'var(--text-3)', fontSize: 12 }}>Couldn&apos;t verify automatically</span>
-            ) : (
-              r.tags.map((t) => {
-                // "couldn't check" (blocked / dead link) is amber, not the red used for a genuine mismatch.
-                const couldntCheck = t === 'blocked' || t === 'dead link';
-                return (
-                  <span
-                    key={t}
-                    className="nap-tag"
-                    style={{ background: couldntCheck ? 'var(--warn-50)' : 'var(--danger-50)', color: couldntCheck ? 'var(--warn)' : 'var(--danger)' }}
-                  >
-                    {t}
-                  </span>
-                );
-              })
-            )}
-          </div>
-          {interactive && (overridden ? (
-            <button
-              onClick={() => onToggle(r.url, false)}
-              disabled={busy}
-              style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-3)', fontSize: 11, textDecoration: 'underline', cursor: 'pointer' }}
-            >
-              {busy ? '…' : 'Undo'}
-            </button>
-          ) : (r.tags.length > 0 || !r.reachable) ? (
-            <button
-              onClick={() => onToggle(r.url, true)}
-              disabled={busy}
-              title="I checked this listing by hand and the NAP is correct"
-              className="btn-d"
-              style={{ color: 'var(--info)', borderColor: 'var(--info-100)' }}
-            >
-              {busy ? '…' : '✓ Mark OK'}
-            </button>
-          ) : null)}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function csvEscape(v: string): string {
@@ -335,30 +217,65 @@ function buildCsv(data: NapResultsData, overrides: Record<string, boolean>): str
 
 /** Circular consistency-score gauge (SVG, themed via tokens). */
 function ScoreGauge({ score }: { score: number }) {
-  const size = 156, stroke = 13, r = (size - stroke) / 2, c = 2 * Math.PI * r;
+  const size = 168, stroke = 13, r = 54, c = 2 * Math.PI * r;
   const pct = Math.max(0, Math.min(100, score)) / 100;
-  const color = scoreColor(score);
+  const b = band(score);
   return (
-    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-      <svg width={size} height={size} style={{ display: 'block' }}>
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--surface-3)" strokeWidth={stroke} fill="none" />
-        <circle
-          cx={size / 2} cy={size / 2} r={r} stroke={color} strokeWidth={stroke} fill="none"
-          strokeDasharray={`${c * pct} ${c}`} strokeLinecap="round"
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          style={{ transition: 'stroke-dasharray 1s cubic-bezier(.2,.7,.2,1)' }}
-        />
-      </svg>
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ fontSize: 42, fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.03em', lineHeight: 1 }}>
-          {score}<span style={{ fontSize: 15, color: 'var(--mute)', fontWeight: 400 }}>/100</span>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, width: '100%' }}>
+      <div style={{ position: 'relative', width: size, height: size }}>
+        <svg width={size} height={size} viewBox="0 0 128 128" style={{ transform: 'rotate(-90deg)', display: 'block' }}>
+          <circle cx={64} cy={64} r={r} stroke="var(--surface-3)" strokeWidth={stroke} fill="none" />
+          <circle
+            cx={64} cy={64} r={r} stroke={b.color} strokeWidth={stroke} fill="none"
+            strokeDasharray={`${c * pct} ${c}`} strokeLinecap="round"
+            style={{ transition: 'stroke-dasharray 1s cubic-bezier(.2,.7,.2,1)' }}
+          />
+        </svg>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+            <span style={{ fontSize: 46, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1, color: 'var(--text)' }}>{score}</span>
+            <span className="mono" style={{ fontSize: 14, color: 'var(--mute)' }}>/100</span>
+          </div>
+          <span className="mono" style={{ marginTop: 5, fontSize: 11, letterSpacing: '0.16em', fontWeight: 600, color: b.color }}>{b.word}</span>
         </div>
-        <div className="mono" style={{ marginTop: 6, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color }}>
-          {scoreLabel(score)}
-        </div>
+      </div>
+      <div className="mono" style={{ fontSize: 10.5, letterSpacing: '0.13em', textTransform: 'uppercase', color: 'var(--mute)' }}>
+        NAP consistency
       </div>
     </div>
   );
+}
+
+/* ── Syntax-highlighted JSON-LD for the terminal block ──
+   Keys, string values and the <script> wrapper are coloured against a fixed
+   dark terminal (intentionally dark in both light & dark themes, like a code block). */
+const TERM = { key: '#9ee6b3', val: '#e7c98b', tag: '#7b86c9', base: '#cfd3f5' };
+function highlightLine(line: string): React.ReactNode[] {
+  if (/^\s*<\/?script/.test(line)) {
+    // Colour the whole script wrapper line in the tag tone, keeping its quoted type readable.
+    const out: React.ReactNode[] = [];
+    const re = /"(?:[^"\\]|\\.)*"/g;
+    let last = 0, m: RegExpExecArray | null, i = 0;
+    while ((m = re.exec(line))) {
+      if (m.index > last) out.push(<span key={i++} style={{ color: TERM.tag }}>{line.slice(last, m.index)}</span>);
+      out.push(<span key={i++} style={{ color: TERM.key }}>{m[0]}</span>);
+      last = m.index + m[0].length;
+    }
+    if (last < line.length) out.push(<span key={i++} style={{ color: TERM.tag }}>{line.slice(last)}</span>);
+    return out;
+  }
+  const out: React.ReactNode[] = [];
+  const re = /"(?:[^"\\]|\\.)*"/g;
+  let last = 0, m: RegExpExecArray | null, i = 0;
+  while ((m = re.exec(line))) {
+    if (m.index > last) out.push(<span key={i++} style={{ color: TERM.base }}>{line.slice(last, m.index)}</span>);
+    const after = line.slice(m.index + m[0].length).trimStart();
+    const isKey = after.startsWith(':');
+    out.push(<span key={i++} style={{ color: isKey ? TERM.key : TERM.val }}>{m[0]}</span>);
+    last = m.index + m[0].length;
+  }
+  if (last < line.length) out.push(<span key={i++} style={{ color: TERM.base }}>{line.slice(last)}</span>);
+  return out;
 }
 
 function SchemaCard({ canonical }: { canonical: CanonicalNap }) {
@@ -379,7 +296,7 @@ function SchemaCard({ canonical }: { canonical: CanonicalNap }) {
         <span className="card-tw" style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
           <span className="card-t">LocalBusiness schema</span>
           <span className="card-lede">
-            Paste into the &lt;head&gt; of any listing missing structured data so engines read your NAP cleanly.
+            Paste into the <code className="mono">&lt;head&gt;</code> of any listing missing structured data so engines read your NAP cleanly.
           </span>
         </span>
         <span className="card-r">
@@ -387,11 +304,155 @@ function SchemaCard({ canonical }: { canonical: CanonicalNap }) {
         </span>
       </header>
       <div className="card-b">
-        <pre style={{ margin: 0, padding: 16, background: '#0f172a', color: '#e2e8f0', borderRadius: 'var(--radius)', fontSize: 12.5, lineHeight: 1.6, overflowX: 'auto', fontFamily: 'var(--mono)' }}>
-          {snippet}
-        </pre>
+        <div style={{ borderRadius: 'var(--radius-lg)', background: '#14142a', overflow: 'hidden', border: '1px solid #20203c' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '11px 16px', borderBottom: '1px solid rgba(255,255,255,.07)' }}>
+            <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#ff5f57' }} />
+            <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#febc2e' }} />
+            <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#28c840' }} />
+            <span className="mono" style={{ marginLeft: 8, fontSize: 11, color: 'rgba(255,255,255,.4)' }}>localbusiness.jsonld</span>
+          </div>
+          <pre style={{ margin: 0, padding: '18px 20px', fontFamily: 'var(--mono)', fontSize: 12.5, lineHeight: 1.65, color: TERM.base, overflowX: 'auto' }}>
+            {snippet.split('\n').map((line, i) => (
+              <div key={i}>{highlightLine(line)}</div>
+            ))}
+          </pre>
+        </div>
       </div>
     </section>
+  );
+}
+
+// Presentational flag list (no JSON-LD, JS-rendered, archive snapshot, unreachable).
+type FlagView = { label: string; color: string; bg: string };
+function rowFlags(r: NapUrlResult): FlagView[] {
+  const flags: FlagView[] = [];
+  const hasSchema = Object.values(r.extracted.source ?? {}).includes('schema');
+  if (!r.reachable) flags.push({ label: r.error || `HTTP ${r.httpStatus ?? '—'}`, color: 'var(--danger)', bg: 'var(--danger-50)' });
+  if (r.reachable && !hasSchema) flags.push({ label: 'no JSON-LD', color: 'var(--primary)', bg: 'var(--primary-50)' });
+  if (r.archivedAt) flags.push({ label: `via Web Archive · ${r.archivedAt}`, color: 'var(--info)', bg: 'var(--info-50)' });
+  else if (r.rendered) flags.push({ label: 'JS-rendered', color: 'var(--info)', bg: 'var(--info-50)' });
+  return flags;
+}
+
+/* ── A single citation row: collapsed summary + in-place expand ── */
+function CitationRow({
+  r, overridden, interactive, expanded, onExpand, onToggle, busy,
+}: {
+  r: NapUrlResult;
+  overridden: boolean;
+  interactive: boolean;
+  expanded: boolean;
+  onExpand: () => void;
+  onToggle: (url: string, ok: boolean) => void;
+  busy: boolean;
+}) {
+  const { host, path } = splitUrl(r.url);
+  const flags = rowFlags(r);
+  const fieldOrder: Array<{ k: string; status: FieldStatus; found?: string; mono?: boolean }> = [
+    { k: 'Name', status: r.fields.name.status, found: r.extracted.name },
+    { k: 'Phone', status: r.fields.phone.status, found: r.extracted.phone, mono: true },
+    { k: 'Address', status: r.fields.address.status, found: r.extracted.street },
+    { k: 'Postcode', status: r.fields.postcode.status, found: r.extracted.postcode, mono: true },
+    { k: 'Suite', status: r.fields.suite.status },
+  ];
+
+  return (
+    <div className="nap2-row" style={{ opacity: overridden ? 0.62 : 1 }}>
+      <div
+        className="nap2-rowgrid nap2-row-main"
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        onClick={onExpand}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onExpand(); } }}
+        style={{ background: expanded ? 'var(--surface-2)' : 'transparent' }}
+      >
+        <span className="nap2-caret" aria-hidden style={{ transform: expanded ? 'rotate(90deg)' : 'none' }}>▶</span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
+            <span className="nap2-host">{host}</span>
+            <span className="nap2-path">{path}</span>
+          </div>
+          {flags.length > 0 && (
+            <div style={{ marginTop: 5, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {flags.map((f, i) => (
+                <span key={i} className="nap2-flag" style={{ background: f.bg, color: f.color }}>{f.label}</span>
+              ))}
+            </div>
+          )}
+        </div>
+        {fieldOrder.map((f) => (
+          <div key={f.k} style={{ display: 'flex', justifyContent: 'center' }}>
+            <FieldPill status={f.status} />
+          </div>
+        ))}
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <VerdictBadge r={r} overridden={overridden} />
+        </div>
+        <div className="mono" style={{ textAlign: 'right', fontSize: 17, fontWeight: 600, color: overridden ? 'var(--info)' : r.reachable ? band(r.matchScore).color : 'var(--mute)' }}>
+          {overridden ? 'OK' : r.reachable ? r.matchScore : '—'}
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="nap2-expand">
+          <div className="nap2-expand-grid">
+            <div>
+              <div className="mono" style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--mute)', marginBottom: 10 }}>Captured values</div>
+              <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', background: 'var(--surface)' }}>
+                {fieldOrder.map((f) => {
+                  const missing = f.status === 'missing' || (!f.found && f.k !== 'Suite');
+                  const value = missing ? 'not found' : (f.found || '—');
+                  return (
+                    <div className="nap2-kv" key={f.k}>
+                      <span className="mono" style={{ fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--mute)' }}>{f.k}</span>
+                      <span style={{ fontSize: 13, color: missing ? 'var(--mute)' : 'var(--text)', fontWeight: missing ? 400 : 500, fontFamily: f.mono ? 'var(--mono)' : 'var(--sans)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={value}>{value}</span>
+                      <FieldPill status={f.status} />
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 7 }}>
+                {overridden ? (
+                  <span className="mono" style={{ fontSize: 10.5, color: 'var(--info)', background: 'var(--info-50)', border: '1px solid var(--info-100)', padding: '3px 9px', borderRadius: 7 }}>verified manually</span>
+                ) : r.tags.length === 0 ? (
+                  <span className="mono" style={{ fontSize: 10.5, color: 'var(--success)', background: 'var(--success-50)', border: '1px solid var(--success-100)', padding: '3px 9px', borderRadius: 7 }}>all fields consistent</span>
+                ) : (
+                  r.tags.map((t) => {
+                    const couldntCheck = t === 'blocked' || t === 'dead link';
+                    return (
+                      <span key={t} className="mono" style={{ fontSize: 10.5, color: couldntCheck ? 'var(--warn)' : 'var(--danger)', background: couldntCheck ? 'var(--warn-50)' : 'var(--danger-50)', border: `1px solid ${couldntCheck ? 'var(--warn-100)' : 'var(--danger-100)'}`, padding: '3px 9px', borderRadius: 7 }}>{t}</span>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)', padding: 14, background: 'var(--surface)' }}>
+                <div className="mono" style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--mute)' }}>Verdict basis</div>
+                <div style={{ marginTop: 8, fontSize: 13, color: 'var(--text-2)', lineHeight: 1.45 }}>
+                  {r.reachable
+                    ? 'Verdict computed from Name, Phone & Address. Postcode & Suite are informational.'
+                    : `Couldn't read this listing (${r.error || `HTTP ${r.httpStatus ?? '—'}`}), so its NAP is unverified rather than a confirmed mismatch.`}
+                </div>
+              </div>
+              <a href={r.url} target="_blank" rel="noopener noreferrer nofollow" className="btn-g" style={{ justifyContent: 'center', textDecoration: 'none' }}>Open listing ↗</a>
+              {interactive && (
+                <button
+                  onClick={() => onToggle(r.url, !overridden)}
+                  disabled={busy}
+                  className={overridden ? 'btn-g' : 'btn-p'}
+                  style={{ justifyContent: 'center', ...(overridden ? {} : { background: 'var(--success)' }) }}
+                  title={overridden ? 'Reopen this listing as unresolved' : 'I checked this listing by hand and the NAP is correct'}
+                >
+                  {busy ? '…' : overridden ? '↺ Reopen' : '✓ Mark OK'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -403,6 +464,7 @@ export default function NapResults({
   onToggleOverride,
   busyUrl,
   trend,
+  runTag,
 }: {
   data: NapResultsData;
   label?: string;
@@ -413,11 +475,19 @@ export default function NapResults({
   busyUrl?: string | null;
   /** Optional "consistency over time" content rendered inside the overview hero. */
   trend?: React.ReactNode;
+  /** Optional pill shown next to the overview title (e.g. "Manual run", "Auto · weekly"). */
+  runTag?: string;
 }) {
   const ov = overrides ?? {};
   const interactive = typeof onToggleOverride === 'function';
+  const [filter, setFilter] = useState<'all' | 'issues' | 'clean'>('all');
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
   const verifiedCount = data.results.filter((r) => ov[r.url]).length;
+  const cleanCount = data.results.filter((r) => isCleanVerdict(r, !!ov[r.url])).length;
+  const issueCount = data.results.length - cleanCount;
   const blocked = data.summary.blocked ?? 0;
+
   const downloadCsv = () => {
     const blob = new Blob([buildCsv(data, ov)], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -430,51 +500,70 @@ export default function NapResults({
     URL.revokeObjectURL(url);
   };
 
-  const kpis: Array<{ k: string; v: number; c: string }> = [
-    { k: 'Citations', v: data.summary.total, c: 'var(--text)' },
-    { k: 'Clean', v: data.summary.clean, c: 'var(--success)' },
-    { k: 'With issues', v: data.summary.withIssues, c: 'var(--warn)' },
-    ...(blocked > 0 ? [{ k: 'Blocked', v: blocked, c: 'var(--warn)' }] : []),
-    { k: 'Dead links', v: data.summary.deadLinks, c: 'var(--danger)' },
-    { k: 'Duplicates', v: data.summary.duplicateListings, c: 'var(--primary)' },
-    ...(verifiedCount > 0 ? [{ k: 'Verified', v: verifiedCount, c: 'var(--info)' }] : []),
+  const stats: Array<{ k: string; v: number; unit?: string; color: string }> = [
+    { k: 'Citations', v: data.summary.total, color: 'var(--text)' },
+    { k: 'Clean', v: data.summary.clean, unit: 'listings', color: 'var(--success)' },
+    { k: 'With issues', v: data.summary.withIssues, unit: 'listings', color: 'var(--warn)' },
+    { k: 'Dead links', v: data.summary.deadLinks, color: data.summary.deadLinks > 0 ? 'var(--danger)' : 'var(--text)' },
+    { k: 'Duplicates', v: data.summary.duplicateListings, color: data.summary.duplicateListings > 0 ? 'var(--primary)' : 'var(--text)' },
   ];
+
+  const filterDefs: Array<{ key: 'all' | 'issues' | 'clean'; label: string; count: number }> = [
+    { key: 'all', label: 'All', count: data.results.length },
+    { key: 'issues', label: 'With issues', count: issueCount },
+    { key: 'clean', label: 'Clean', count: cleanCount },
+  ];
+
+  const visible = data.results.filter((r) => {
+    if (filter === 'all') return true;
+    const clean = isCleanVerdict(r, !!ov[r.url]);
+    return filter === 'clean' ? clean : !clean;
+  });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <style>{napCss}</style>
 
-      {/* ─── Overview hero: score gauge + KPI rail (+ optional trend) ─── */}
+      {/* ─── Overview: score gauge + 5-stat rail + consistency trend ─── */}
       <section className="card">
         <header className="card-h">
-          <span className="card-t">Audit overview</span>
+          <span className="card-tw" style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+            <span className="card-t">Audit overview</span>
+            {runTag && (
+              <span className="mono" style={{ fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--mute)', background: 'var(--surface-3)', padding: '3px 8px', borderRadius: 6 }}>{runTag}</span>
+            )}
+          </span>
           <span className="card-r">
             <button onClick={downloadCsv} className="btn-g">↓ Export CSV</button>
           </span>
         </header>
-        <div className="card-b" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={{ display: 'flex', gap: 28, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+        <div className="card-b no-pad">
+          <div className="nap2-ov">
+            <div className="nap2-hero">
               <ScoreGauge score={data.score} />
-              <div className="mono" style={{ fontSize: 9.5, letterSpacing: '0.12em', color: 'var(--mute)', textTransform: 'uppercase' }}>
-                NAP consistency
+            </div>
+            <div className="nap2-side">
+              <div className="nap2-stats">
+                {stats.map((s) => (
+                  <div className="nap2-stat" key={s.k}>
+                    <div className="nap2-stat-k">{s.k}</div>
+                    <div className="nap2-stat-v">
+                      <b style={{ color: s.color }}>{s.v}</b>
+                      {s.unit && <i>{s.unit}</i>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="nap2-trend">
+                <div style={{ flex: '0 0 auto' }}>
+                  <div className="mono" style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--mute)', fontWeight: 500 }}>Consistency over time</div>
+                </div>
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  {trend ?? <p className="quiet" style={{ fontSize: 12.5, margin: 0, color: 'var(--text-3)' }}>Re-run this audit over time to see a consistency trend here.</p>}
+                </div>
               </div>
             </div>
-            <div className="kpi-rail" style={{ flex: 1, minWidth: 280, gridTemplateColumns: `repeat(${Math.min(kpis.length, 3)}, 1fr)` }}>
-              {kpis.map((it) => (
-                <div className="kpi" key={it.k}>
-                  <div className="kpi-k mono">{it.k}</div>
-                  <div className="kpi-v mono" style={{ color: it.c }}>{it.v}</div>
-                </div>
-              ))}
-            </div>
           </div>
-          {trend && (
-            <div style={{ borderTop: '1px solid var(--line)', paddingTop: 16 }}>
-              <div className="kpi-k mono" style={{ marginBottom: 12 }}>Consistency over time</div>
-              {trend}
-            </div>
-          )}
         </div>
       </section>
 
@@ -545,30 +634,71 @@ export default function NapResults({
           <span className="card-tw" style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
             <span className="card-t">Citation details</span>
             <span className="card-lede">
-              {data.results.length} {data.results.length === 1 ? 'listing' : 'listings'} checked · the <strong>NAP</strong> verdict is based on Name, Address &amp; Phone only.
+              {data.results.length} {data.results.length === 1 ? 'listing' : 'listings'} checked — the <strong>NAP</strong> verdict is based on Name, Address &amp; Phone only.
             </span>
           </span>
-          <span className="card-r" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <span className="card-r" style={{ flexWrap: 'wrap', justifyContent: 'flex-end', gap: 13 }}>
             {(['match', 'variation', 'mismatch', 'missing'] as FieldStatus[]).map((s) => (
-              <span key={s} className="mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.04em' }}>
-                <span aria-hidden className={`badge badge-${FIELD_BADGE[s].tone}`} style={{ width: 14, height: 14, padding: 0, justifyContent: 'center', fontSize: 8 }}>{FIELD_BADGE[s].icon}</span>
+              <span key={s} className="mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: 'var(--text-3)' }}>
+                <span aria-hidden style={{ width: 9, height: 9, borderRadius: 3, background: `var(--${s === 'match' ? 'success' : s === 'variation' ? 'warn' : s === 'mismatch' ? 'danger' : 'mute'})` }} />
                 {FIELD_BADGE[s].label}
               </span>
             ))}
           </span>
         </header>
+
+        {/* filter tabs */}
+        <div style={{ padding: '0 var(--pad) 14px', display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+          {filterDefs.map((f) => {
+            const active = filter === f.key;
+            return (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                className={active ? 'btn-p' : 'btn-g'}
+                style={{ padding: '6px 12px', fontWeight: active ? 600 : 500 }}
+              >
+                {f.label}
+                <span className="mono" style={{ fontSize: 11, color: active ? 'rgba(255,255,255,.75)' : 'var(--mute)' }}>{f.count}</span>
+              </button>
+            );
+          })}
+        </div>
+
         <div className="card-b no-pad">
-          <div className="nap-list">
-            {data.results.map((r, i) => (
-              <CitationCard
-                key={r.url + i}
-                r={r}
-                overridden={!!ov[r.url]}
-                interactive={interactive}
-                onToggle={(url, ok) => onToggleOverride?.(url, ok)}
-                busy={busyUrl === r.url}
-              />
-            ))}
+          <div className="nap2-scroll">
+            <div className="nap2-tbl">
+              {/* table header */}
+              <div className="nap2-rowgrid nap2-head">
+                <span />
+                <span className="nap2-th">Source</span>
+                <span className="nap2-th" style={{ textAlign: 'center' }}>Name</span>
+                <span className="nap2-th" style={{ textAlign: 'center' }}>Phone</span>
+                <span className="nap2-th" style={{ textAlign: 'center' }}>Address</span>
+                <span className="nap2-th" style={{ textAlign: 'center' }}>Postcode</span>
+                <span className="nap2-th" style={{ textAlign: 'center' }}>Suite</span>
+                <span className="nap2-th" style={{ textAlign: 'center' }}>Verdict</span>
+                <span className="nap2-th" style={{ textAlign: 'right' }}>Score</span>
+              </div>
+              {visible.length === 0 ? (
+                <div className="quiet" style={{ padding: '28px var(--pad)', textAlign: 'center', fontSize: 13, color: 'var(--text-3)' }}>
+                  No listings match this filter.
+                </div>
+              ) : (
+                visible.map((r, i) => (
+                  <CitationRow
+                    key={r.url + i}
+                    r={r}
+                    overridden={!!ov[r.url]}
+                    interactive={interactive}
+                    expanded={!!expanded[r.url]}
+                    onExpand={() => setExpanded((e) => ({ ...e, [r.url]: !e[r.url] }))}
+                    onToggle={(url, okFlag) => onToggleOverride?.(url, okFlag)}
+                    busy={busyUrl === r.url}
+                  />
+                ))
+              )}
+            </div>
           </div>
         </div>
       </section>
