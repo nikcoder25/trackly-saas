@@ -360,6 +360,7 @@ export default function NapAuditDetailPage() {
               overrides={audit.overrides}
               onToggleOverride={toggleOverride}
               busyUrl={overrideBusy}
+              runTag={audit.schedule === 'weekly' ? 'Auto · weekly' : audit.schedule === 'monthly' ? 'Auto · monthly' : 'Manual run'}
               trend={
                 <ScoreHistory history={audit.history} />
               }
