@@ -95,13 +95,77 @@ describe('Wayback Machine fallback', () => {
     expect(r.tags).not.toContain('blocked');
   });
 
-  it('keeps the blocked result when nothing is archived', async () => {
+  it('captures a fresh snapshot via Save Page Now when none is archived yet', async () => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const u = String(input);
       if (u.includes('archive.org/wayback/available')) {
-        // No snapshot on record.
         return new Response(JSON.stringify({ archived_snapshots: {} }), { status: 200 });
       }
+      if (u.includes('web.archive.org/save/')) {
+        // SPN captured it and points us at the new snapshot via Content-Location.
+        return new Response('', {
+          status: 200,
+          headers: {
+            'content-location':
+              '/web/20260613120000/https://www.tripadvisor.com/Profile/legendoztransportati',
+          },
+        });
+      }
+      if (u.includes('web.archive.org/web/')) {
+        expect(u).toContain('id_/');
+        return new Response(ARCHIVED_HTML, { status: 200 });
+      }
+      throw new Error(`unexpected fetch: ${u}`);
+    }) as unknown as typeof fetch;
+
+    const { results } = await runNapCheck(CANONICAL, [
+      'https://www.tripadvisor.com/Profile/legendoztransportati',
+    ]);
+
+    const r = results[0];
+    expect(r.reachable).toBe(true);
+    expect(r.rendered).toBe(true);
+    // Fresh capture → today-ish snapshot date, not a stale one.
+    expect(r.archivedAt).toBe('2026-06-13');
+    expect(r.tags).not.toContain('blocked');
+  });
+
+  it('falls back to Jina Reader (fresh, no archive date) when the archive cannot help', async () => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.includes('archive.org/wayback/available')) {
+        return new Response(JSON.stringify({ archived_snapshots: {} }), { status: 200 });
+      }
+      if (u.includes('web.archive.org/save/')) {
+        return new Response('nope', { status: 503 }); // SPN couldn't capture it
+      }
+      if (u.startsWith('https://r.jina.ai/')) {
+        return new Response(ARCHIVED_HTML, { status: 200 });
+      }
+      throw new Error(`unexpected fetch: ${u}`);
+    }) as unknown as typeof fetch;
+
+    const { results } = await runNapCheck(CANONICAL, [
+      'https://www.tripadvisor.com/Profile/legendoztransportati',
+    ]);
+
+    const r = results[0];
+    expect(r.reachable).toBe(true);
+    expect(r.rendered).toBe(true);
+    // Jina is a live read, so there is no archive date to show.
+    expect(r.archivedAt).toBeUndefined();
+    expect(r.matchScore).toBeGreaterThan(0);
+    expect(r.tags).not.toContain('blocked');
+  });
+
+  it('keeps the blocked result when every free backend fails', async () => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.includes('archive.org/wayback/available')) {
+        return new Response(JSON.stringify({ archived_snapshots: {} }), { status: 200 });
+      }
+      if (u.includes('web.archive.org/save/')) return new Response('', { status: 503 });
+      if (u.startsWith('https://r.jina.ai/')) return new Response('', { status: 503 });
       throw new Error(`unexpected fetch: ${u}`);
     }) as unknown as typeof fetch;
 
@@ -109,7 +173,6 @@ describe('Wayback Machine fallback', () => {
       'https://www.tripadvisor.com/Profile/legendoztransportati',
     ]);
 
-    expect(results).toHaveLength(1);
     const r = results[0];
     expect(r.reachable).toBe(false);
     expect(r.archivedAt).toBeUndefined();
