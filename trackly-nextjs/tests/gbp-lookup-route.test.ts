@@ -70,6 +70,31 @@ describe('POST /api/nap-audits/gbp-lookup field mask', () => {
   });
 });
 
+describe('POST /api/nap-audits/gbp-lookup timeout guard', () => {
+  // Regression for the "Pull from Google does nothing / opaque 504" bug:
+  // when undici fails to abort a stuck TLS handshake the fetch never
+  // settles. The handler must NOT hang on it — the withTimeout race has
+  // to win so the browser gets an actionable JSON 504 instead of the
+  // gateway's body-less one.
+  it('returns a 504 with a message when Places never responds', async () => {
+    vi.useFakeTimers();
+    try {
+      // A fetch that never settles, and (crucially) ignores the abort
+      // signal — exactly the stuck-socket case the guard exists for.
+      fetchMock.mockReturnValue(new Promise<Response>(() => {}));
+      const respPromise = POST(fakeRequest('Acme Dental London'));
+      // Advance past the overall budget (2 attempts × 4.5s, capped at 8s).
+      await vi.advanceTimersByTimeAsync(9_000);
+      const resp = await respPromise;
+      expect(resp.status).toBe(504);
+      const body = (await resp.json()) as { error?: string };
+      expect(body.error).toMatch(/timed out/i);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe('POST /api/nap-audits/gbp-lookup street fallback', () => {
   it('salvages street from formattedAddress and strips "United States" tail', async () => {
     // No street_number/route components — only city/region/postcode/country —
