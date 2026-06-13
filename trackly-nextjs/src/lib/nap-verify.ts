@@ -93,6 +93,11 @@ export interface UrlResult extends CompareResult {
   extracted: ExtractedNap;
   /** True when the page was re-fetched through the headless render service (Layer 3). */
   rendered?: boolean;
+  /**
+   * Set (YYYY-MM-DD) when the NAP was read from an Internet Archive snapshot
+   * because the live page was blocked. Flags the data as possibly out of date.
+   */
+  archivedAt?: string;
 }
 
 /** Count of populated NAP fields — used to decide whether Layer 3 is worth trying. */
@@ -917,7 +922,7 @@ export function classifyUnreachable(
   if (status != null && [401, 403, 406, 409, 429, 451, 503].includes(status)) {
     return {
       tag: 'blocked',
-      message: `Blocked by the site's anti-bot protection (HTTP ${status}). Enable the render service to bypass.`,
+      message: `Blocked by the site's anti-bot protection (HTTP ${status}). We couldn't read it automatically — open it in your browser and Mark OK if the details are correct.`,
     };
   }
   if (status === 404 || status === 410) {
