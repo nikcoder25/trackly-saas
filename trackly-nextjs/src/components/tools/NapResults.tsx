@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import { generateSchemaScriptTag, type CanonicalNap } from '@/lib/nap-verify';
 
-// Shared presentational view for NAP check results — score + summary, possible
-// duplicate listings, the per-URL results table, CSV export, and a paste-ready
-// LocalBusiness schema generator. Used by both the public free tool and the
-// saved-audit detail page in the dashboard so the two surfaces stay identical.
+// Shared presentational view for NAP check results — an overview hero (score
+// gauge + KPI rail), possible duplicate listings, the per-URL citation table,
+// CSV export, and a paste-ready LocalBusiness schema generator. Rendered inside
+// the dashboard's `.lvx` shell, so it builds on the design-system tokens and
+// component classes (cards, badges, KPIs) for full cohesion and dark-mode support.
 
 export type FieldStatus = 'match' | 'variation' | 'mismatch' | 'missing';
 
@@ -56,40 +57,20 @@ export interface NapResultsData {
   results: NapUrlResult[];
 }
 
-const cardStyle: React.CSSProperties = {
-  background: '#fff',
-  borderRadius: 16,
-  padding: 32,
-  boxShadow: '0 4px 24px rgba(0,0,0,.08)',
-};
-
-const STATUS_META: Record<FieldStatus, { bg: string; fg: string; ring: string; icon: string; label: string }> = {
-  match: { bg: '#dcfce7', fg: '#166534', ring: '#bbf7d0', icon: '✓', label: 'Match' },
-  variation: { bg: '#fef9c3', fg: '#854d0e', ring: '#fde68a', icon: '≈', label: 'Variation' },
-  mismatch: { bg: '#fee2e2', fg: '#991b1b', ring: '#fecaca', icon: '✕', label: 'Mismatch' },
-  missing: { bg: '#f1f5f9', fg: '#64748b', ring: '#e2e8f0', icon: '–', label: 'Missing' },
+// Per-field status → design-system badge tone + glyph.
+const FIELD_BADGE: Record<FieldStatus, { tone: string; icon: string; label: string }> = {
+  match: { tone: 'pos', icon: '✓', label: 'Match' },
+  variation: { tone: 'warn', icon: '≈', label: 'Variation' },
+  mismatch: { tone: 'neg', icon: '✕', label: 'Mismatch' },
+  missing: { tone: 'miss', icon: '–', label: 'Missing' },
 };
 
 function StatusPill({ status }: { status: FieldStatus }) {
-  const c = STATUS_META[status];
+  const m = FIELD_BADGE[status];
   return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 4,
-        fontSize: 11,
-        fontWeight: 700,
-        padding: '3px 8px',
-        borderRadius: 999,
-        background: c.bg,
-        color: c.fg,
-        border: `1px solid ${c.ring}`,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      <span aria-hidden style={{ fontSize: 10, lineHeight: 1 }}>{c.icon}</span>
-      {c.label}
+    <span className={`badge badge-${m.tone}`}>
+      <span aria-hidden style={{ fontSize: 9 }}>{m.icon}</span>
+      {m.label}
     </span>
   );
 }
@@ -111,81 +92,73 @@ function napVerdict(r: NapUrlResult, overridden: boolean): { verdict: NapVerdict
   return { verdict: failed.length === 0 ? 'ok' : 'issues', failed };
 }
 
-const NAP_META: Record<NapVerdict, { bg: string; fg: string; ring: string; icon: string; label: string }> = {
-  ok: { bg: '#dcfce7', fg: '#166534', ring: '#bbf7d0', icon: '✓', label: 'NAP OK' },
-  verified: { bg: '#cffafe', fg: '#0e7490', ring: '#a5f3fc', icon: '✓', label: 'Verified' },
-  issues: { bg: '#fee2e2', fg: '#991b1b', ring: '#fecaca', icon: '✕', label: 'Issues' },
-  unverified: { bg: '#fef9c3', fg: '#854d0e', ring: '#fde68a', icon: '?', label: 'Unverified' },
+const NAP_BADGE: Record<NapVerdict, { tone: string; icon: string; label: string }> = {
+  ok: { tone: 'pos', icon: '✓', label: 'NAP OK' },
+  verified: { tone: 'info', icon: '✓', label: 'Verified' },
+  issues: { tone: 'neg', icon: '✕', label: 'Issues' },
+  unverified: { tone: 'warn', icon: '?', label: 'Unverified' },
 };
 
 function NapBadge({ r, overridden }: { r: NapUrlResult; overridden: boolean }) {
   const { verdict, failed } = napVerdict(r, overridden);
-  const m = NAP_META[verdict];
+  const m = NAP_BADGE[verdict];
   const sub =
-    verdict === 'issues'
-      ? failed.join(' · ')
-      : verdict === 'unverified'
-        ? "Couldn't read"
-        : verdict === 'verified'
-          ? 'Manual'
+    verdict === 'issues' ? failed.join(' · ')
+      : verdict === 'unverified' ? "Couldn't read"
+        : verdict === 'verified' ? 'Manual'
           : null;
   return (
-    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
-      <span
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 5,
-          fontSize: 11.5,
-          fontWeight: 800,
-          padding: '4px 10px',
-          borderRadius: 999,
-          background: m.bg,
-          color: m.fg,
-          border: `1px solid ${m.ring}`,
-          whiteSpace: 'nowrap',
-        }}
-      >
-        <span aria-hidden style={{ fontSize: 11, lineHeight: 1 }}>{m.icon}</span>
+    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+      <span className={`badge badge-${m.tone}`} style={{ fontSize: 11, padding: '4px 9px' }}>
+        <span aria-hidden style={{ fontSize: 10 }}>{m.icon}</span>
         {m.label}
       </span>
-      {sub && (
-        <span style={{ fontSize: 10, color: m.fg, opacity: 0.8, fontWeight: 600 }}>{sub}</span>
-      )}
+      {sub && <span className="mono" style={{ fontSize: 9.5, color: 'var(--text-3)', letterSpacing: '0.03em' }}>{sub}</span>}
     </div>
   );
 }
 
+export function scoreColor(score: number): string {
+  if (score >= 85) return 'var(--success)';
+  if (score >= 60) return 'var(--warn)';
+  return 'var(--danger)';
+}
+function scoreSoft(score: number): string {
+  if (score >= 85) return 'var(--success-50)';
+  if (score >= 60) return 'var(--warn-50)';
+  return 'var(--danger-50)';
+}
+function scoreLabel(score: number): string {
+  if (score >= 85) return 'Excellent';
+  if (score >= 60) return 'Needs work';
+  return 'Poor';
+}
+
 // Scoped styling for the citation table: a pinned header (so column labels stay
 // visible while scrolling long lists), zebra striping, row hover, and a tidy
-// scrollbar. Kept as one string so it ships with the component wherever it renders.
+// scrollbar — all on design tokens so it tracks light/dark themes.
 const napTableCss = `
-.nap-table th, .nap-table td { padding: 13px 16px; text-align: left; vertical-align: top; }
-.nap-table thead th {
+.lvx .nap-table th, .lvx .nap-table td { padding: 12px 16px; text-align: left; vertical-align: top; }
+.lvx .nap-table thead th {
   position: sticky; top: 0; z-index: 2;
-  background: #f8fafc;
-  font-weight: 700; font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
-  color: #475569; white-space: nowrap;
-  box-shadow: inset 0 -1px 0 #e2e8f0;
+  background: var(--surface-2);
+  font-family: var(--mono); font-weight: 600; font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-3); white-space: nowrap;
+  box-shadow: inset 0 -1px 0 var(--line);
 }
-.nap-table tbody tr { transition: background .12s ease; }
-.nap-table tbody tr:nth-child(even) { background: #fcfdfe; }
-.nap-table tbody tr:hover { background: #f5f7ff; }
-.nap-table tbody td { border-bottom: 1px solid #f1f5f9; }
-.nap-table tbody tr:last-child td { border-bottom: none; }
-.nap-found { font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.35; word-break: break-word; }
-.nap-tag { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
-.nap-cite a:hover { text-decoration: underline; }
-.nap-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
-.nap-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; border: 2px solid #fff; }
-.nap-scroll::-webkit-scrollbar-track { background: transparent; }
+.lvx .nap-table tbody tr { transition: background .12s ease; }
+.lvx .nap-table tbody tr:nth-child(even) { background: var(--surface-2); }
+.lvx .nap-table tbody tr:hover { background: var(--primary-50); }
+.lvx .nap-table tbody td { border-bottom: 1px solid var(--line); }
+.lvx .nap-table tbody tr:last-child td { border-bottom: none; }
+.lvx .nap-found { font-size: 11px; color: var(--text-3); margin-top: 5px; line-height: 1.35; word-break: break-word; }
+.lvx .nap-tag { display: inline-block; font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; white-space: nowrap; letter-spacing: .02em; }
+.lvx .nap-cite a { color: var(--primary); text-decoration: none; font-weight: 600; word-break: break-all; }
+.lvx .nap-cite a:hover { text-decoration: underline; }
+.lvx .nap-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.lvx .nap-scroll::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 999px; border: 2px solid var(--surface); }
+.lvx .nap-scroll::-webkit-scrollbar-track { background: transparent; }
 `;
-
-export function scoreColor(score: number): string {
-  if (score >= 85) return '#16a34a';
-  if (score >= 60) return '#ca8a04';
-  return '#dc2626';
-}
 
 function csvEscape(v: string): string {
   return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
@@ -221,11 +194,30 @@ function buildCsv(data: NapResultsData, overrides: Record<string, boolean>): str
   return [header.map(csvEscape).join(','), ...rows].join('\n');
 }
 
-function Stat({ label, value, color }: { label: string; value: number; color: string }) {
+/** Circular consistency-score gauge (SVG, themed via tokens). */
+function ScoreGauge({ score }: { score: number }) {
+  const size = 156, stroke = 13, r = (size - stroke) / 2, c = 2 * Math.PI * r;
+  const pct = Math.max(0, Math.min(100, score)) / 100;
+  const color = scoreColor(score);
   return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: 24, fontWeight: 800, color }}>{value}</div>
-      <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>{label}</div>
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ display: 'block' }}>
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--surface-3)" strokeWidth={stroke} fill="none" />
+        <circle
+          cx={size / 2} cy={size / 2} r={r} stroke={color} strokeWidth={stroke} fill="none"
+          strokeDasharray={`${c * pct} ${c}`} strokeLinecap="round"
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          style={{ transition: 'stroke-dasharray 1s cubic-bezier(.2,.7,.2,1)' }}
+        />
+      </svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ fontSize: 42, fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.03em', lineHeight: 1 }}>
+          {score}<span style={{ fontSize: 15, color: 'var(--mute)', fontWeight: 400 }}>/100</span>
+        </div>
+        <div className="mono" style={{ marginTop: 6, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color }}>
+          {scoreLabel(score)}
+        </div>
+      </div>
     </div>
   );
 }
@@ -243,24 +235,24 @@ function SchemaCard({ canonical }: { canonical: CanonicalNap }) {
     }
   };
   return (
-    <div style={cardStyle}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 6 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1a1a2e', margin: 0 }}>LocalBusiness schema</h2>
-        <button
-          onClick={copy}
-          style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid var(--brand, #5B5BD6)', background: copied ? 'var(--brand, #5B5BD6)' : '#fff', color: copied ? '#fff' : 'var(--brand, #5B5BD6)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
-        >
-          {copied ? '✓ Copied' : 'Copy snippet'}
-        </button>
+    <section className="card">
+      <header className="card-h has-lede">
+        <span className="card-tw" style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <span className="card-t">LocalBusiness schema</span>
+          <span className="card-lede">
+            Paste into the &lt;head&gt; of any listing missing structured data so engines read your NAP cleanly.
+          </span>
+        </span>
+        <span className="card-r">
+          <button onClick={copy} className={copied ? 'btn-p' : 'btn-g'}>{copied ? '✓ Copied' : 'Copy snippet'}</button>
+        </span>
+      </header>
+      <div className="card-b">
+        <pre style={{ margin: 0, padding: 16, background: '#0f172a', color: '#e2e8f0', borderRadius: 'var(--radius)', fontSize: 12.5, lineHeight: 1.6, overflowX: 'auto', fontFamily: 'var(--mono)' }}>
+          {snippet}
+        </pre>
       </div>
-      <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 14px' }}>
-        Paste this into the <code>&lt;head&gt;</code> of any listing or page missing structured data. It
-        makes your NAP machine-readable, so search engines and this tool read it cleanly.
-      </p>
-      <pre style={{ margin: 0, padding: 16, background: '#0f172a', color: '#e2e8f0', borderRadius: 10, fontSize: 12.5, lineHeight: 1.6, overflowX: 'auto' }}>
-        {snippet}
-      </pre>
-    </div>
+    </section>
   );
 }
 
@@ -271,6 +263,7 @@ export default function NapResults({
   overrides,
   onToggleOverride,
   busyUrl,
+  trend,
 }: {
   data: NapResultsData;
   label?: string;
@@ -279,10 +272,13 @@ export default function NapResults({
   overrides?: Record<string, boolean>;
   onToggleOverride?: (url: string, ok: boolean) => void;
   busyUrl?: string | null;
+  /** Optional "consistency over time" content rendered inside the overview hero. */
+  trend?: React.ReactNode;
 }) {
   const ov = overrides ?? {};
   const interactive = typeof onToggleOverride === 'function';
   const verifiedCount = data.results.filter((r) => ov[r.url]).length;
+  const blocked = data.summary.blocked ?? 0;
   const downloadCsv = () => {
     const blob = new Blob([buildCsv(data, ov)], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -295,89 +291,104 @@ export default function NapResults({
     URL.revokeObjectURL(url);
   };
 
+  const kpis: Array<{ k: string; v: number; c: string }> = [
+    { k: 'Citations', v: data.summary.total, c: 'var(--text)' },
+    { k: 'Clean', v: data.summary.clean, c: 'var(--success)' },
+    { k: 'With issues', v: data.summary.withIssues, c: 'var(--warn)' },
+    ...(blocked > 0 ? [{ k: 'Blocked', v: blocked, c: 'var(--warn)' }] : []),
+    { k: 'Dead links', v: data.summary.deadLinks, c: 'var(--danger)' },
+    { k: 'Duplicates', v: data.summary.duplicateListings, c: 'var(--primary)' },
+    ...(verifiedCount > 0 ? [{ k: 'Verified', v: verifiedCount, c: 'var(--info)' }] : []),
+  ];
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div style={cardStyle}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <div style={{ fontSize: 13, color: '#6b7280', fontWeight: 600 }}>Consistency score</div>
-            <div style={{ fontSize: 44, fontWeight: 800, color: scoreColor(data.score), lineHeight: 1.1 }}>
-              {data.score}
-              <span style={{ fontSize: 20, color: '#9ca3af' }}>/100</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <style>{napTableCss}</style>
+
+      {/* ─── Overview hero: score gauge + KPI rail (+ optional trend) ─── */}
+      <section className="card">
+        <header className="card-h">
+          <span className="card-t">Audit overview</span>
+          <span className="card-r">
+            <button onClick={downloadCsv} className="btn-g">↓ Export CSV</button>
+          </span>
+        </header>
+        <div className="card-b" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{ display: 'flex', gap: 28, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <ScoreGauge score={data.score} />
+              <div className="mono" style={{ fontSize: 9.5, letterSpacing: '0.12em', color: 'var(--mute)', textTransform: 'uppercase' }}>
+                NAP consistency
+              </div>
+            </div>
+            <div className="kpi-rail" style={{ flex: 1, minWidth: 280, gridTemplateColumns: `repeat(${Math.min(kpis.length, 3)}, 1fr)` }}>
+              {kpis.map((it) => (
+                <div className="kpi" key={it.k}>
+                  <div className="kpi-k mono">{it.k}</div>
+                  <div className="kpi-v mono" style={{ color: it.c }}>{it.v}</div>
+                </div>
+              ))}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-            <Stat label="Citations" value={data.summary.total} color="#1a1a2e" />
-            <Stat label="Clean" value={data.summary.clean} color="#16a34a" />
-            <Stat label="With issues" value={data.summary.withIssues} color="#ca8a04" />
-            {(data.summary.blocked ?? 0) > 0 && <Stat label="Blocked" value={data.summary.blocked ?? 0} color="#b45309" />}
-            <Stat label="Dead links" value={data.summary.deadLinks} color="#dc2626" />
-            <Stat label="Duplicates" value={data.summary.duplicateListings} color="#9333ea" />
-            {verifiedCount > 0 && <Stat label="Verified" value={verifiedCount} color="#0891b2" />}
-          </div>
-          <button
-            onClick={downloadCsv}
-            style={{
-              padding: '10px 18px', borderRadius: 10, border: '1px solid var(--brand, #5B5BD6)',
-              background: '#fff', color: 'var(--brand, #5B5BD6)', fontWeight: 700, fontSize: 14, cursor: 'pointer',
-            }}
-          >
-            ↓ Export CSV
-          </button>
+          {trend && (
+            <div style={{ borderTop: '1px solid var(--line)', paddingTop: 16 }}>
+              <div className="kpi-k mono" style={{ marginBottom: 12 }}>Consistency over time</div>
+              {trend}
+            </div>
+          )}
         </div>
-      </div>
+      </section>
 
+      {/* ─── Blocked-citation note ─── */}
       {data.results.some((r) => r.tags.includes('blocked')) && (
-        <div style={{ ...cardStyle, background: '#fffbeb', border: '1px solid #fde68a' }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#92400e', marginBottom: 4 }}>
-            Some citations were blocked by anti-bot protection
+        <section className="card" style={{ borderColor: 'var(--warn-200)' }}>
+          <div className="card-b" style={{ background: 'var(--warn-50)' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--warn)', marginBottom: 4 }}>
+              Some citations were blocked by anti-bot protection
+            </div>
+            <p style={{ fontSize: 12.5, color: 'var(--text-2)', margin: 0, lineHeight: 1.6 }}>
+              A few directories returned a block (e.g. Cloudflare/WAF) to our server even though they open
+              in your browser — so their live NAP couldn&apos;t be read. These show as <strong>Unverified</strong>,
+              not a real mismatch. We automatically retry these for free through the Internet Archive and other
+              public readers; archive-sourced rows are flagged <strong>via Web Archive</strong> with the snapshot
+              date so you know how fresh they are. For anything still blocked, open it in your browser and
+              <strong> Mark OK</strong> if the details are correct.
+            </p>
           </div>
-          <p style={{ fontSize: 13, color: '#78350f', margin: 0, lineHeight: 1.6 }}>
-            A few directories returned a block (e.g. Cloudflare/WAF) to our server even though they open
-            in your browser — so their live NAP couldn&apos;t be read. These show as <strong>blocked</strong>,
-            not a real mismatch. We automatically retry these for free through the Internet Archive and other
-            public readers; archive-sourced rows are flagged <strong>via Web Archive</strong> with the snapshot
-            date so you know how fresh they are. For anything still blocked, open it in your browser and
-            <strong> Mark OK</strong> if the details are correct. (Image hosts like Gyazo have no NAP text to read.)
-          </p>
-        </div>
+        </section>
       )}
 
+      {/* ─── Possible duplicate listings ─── */}
       {data.duplicates.length > 0 && (
-        <div style={cardStyle}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1a1a2e', margin: '0 0 6px' }}>
-            Possible duplicate listings
-          </h2>
-          <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 14px' }}>
-            These directories appear more than once in your list. Duplicate listings split your ranking
-            signal — consolidate or remove the extras, starting with any that disagree on NAP.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <section className="card">
+          <header className="card-h has-lede">
+            <span className="card-tw" style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <span className="card-t">Possible duplicate listings</span>
+              <span className="card-lede">
+                Duplicates split your ranking signal — consolidate or remove the extras, starting with any that disagree on NAP.
+              </span>
+            </span>
+          </header>
+          <div className="card-b" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {data.duplicates.map((g) => (
               <div
                 key={g.domain}
                 style={{
-                  padding: 14, borderRadius: 10,
-                  background: g.conflicting ? '#fef2f2' : '#faf5ff',
-                  border: g.conflicting ? '1px solid #fecaca' : '1px solid #e9d5ff',
+                  padding: 14, borderRadius: 'var(--radius)',
+                  background: g.conflicting ? 'var(--danger-50)' : 'var(--surface-2)',
+                  border: `1px solid ${g.conflicting ? 'var(--danger-100)' : 'var(--line)'}`,
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: '#1a1a2e' }}>{g.domain}</span>
-                  <span
-                    style={{
-                      fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 6,
-                      background: g.conflicting ? '#fee2e2' : '#f3e8ff',
-                      color: g.conflicting ? '#991b1b' : '#7e22ce',
-                    }}
-                  >
+                  <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>{g.domain}</span>
+                  <span className={`badge badge-${g.conflicting ? 'neg' : 'neu'}`}>
                     {g.urls.length} listings{g.conflicting ? ' · conflicting NAP' : ''}
                   </span>
                 </div>
-                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: '#6b7280' }}>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--text-3)' }}>
                   {g.urls.map((u) => (
                     <li key={u} style={{ wordBreak: 'break-all' }}>
-                      <a href={u} target="_blank" rel="noopener noreferrer nofollow" style={{ color: '#6b7280', textDecoration: 'none' }}>
+                      <a href={u} target="_blank" rel="noopener noreferrer nofollow" style={{ color: 'var(--text-3)', textDecoration: 'none' }}>
                         {u.replace(/^https?:\/\//, '')}
                       </a>
                     </li>
@@ -386,186 +397,162 @@ export default function NapResults({
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
-      <div style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
-        <style>{napTableCss}</style>
-        {/* Header sits outside the scroll area so the title stays put while rows scroll. */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 12,
-            padding: '18px 20px 14px',
-            borderBottom: '1px solid #eef2f7',
-          }}
-        >
-          <div>
-            <h2 style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', margin: 0 }}>Citation details</h2>
-            <p style={{ fontSize: 12.5, color: '#64748b', margin: '3px 0 0' }}>
-              {data.results.length} {data.results.length === 1 ? 'listing' : 'listings'} checked · the <strong>NAP</strong> column verdict is based on Name, Address &amp; Phone only.
-            </p>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+      {/* ─── Citation details table ─── */}
+      <section className="card">
+        <header className="card-h has-lede">
+          <span className="card-tw" style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span className="card-t">Citation details</span>
+            <span className="card-lede">
+              {data.results.length} {data.results.length === 1 ? 'listing' : 'listings'} checked · the <strong>NAP</strong> verdict is based on Name, Address &amp; Phone only.
+            </span>
+          </span>
+          <span className="card-r" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             {(['match', 'variation', 'mismatch', 'missing'] as FieldStatus[]).map((s) => (
-              <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#64748b', fontWeight: 600 }}>
-                <span aria-hidden style={{ width: 9, height: 9, borderRadius: 3, background: STATUS_META[s].bg, border: `1px solid ${STATUS_META[s].ring}` }} />
-                {STATUS_META[s].label}
+              <span key={s} className="mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.04em' }}>
+                <span aria-hidden className={`badge badge-${FIELD_BADGE[s].tone}`} style={{ width: 14, height: 14, padding: 0, justifyContent: 'center', fontSize: 8 }}>{FIELD_BADGE[s].icon}</span>
+                {FIELD_BADGE[s].label}
               </span>
             ))}
+          </span>
+        </header>
+        <div className="card-b no-pad">
+          <div className="nap-scroll" style={{ overflow: 'auto', maxHeight: '70vh' }}>
+            <table className="nap-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 13 }}>
+              <thead>
+                <tr>
+                  {['Citation', 'NAP', 'Score', 'Name', 'Phone', 'Address', 'Postcode', 'Suite', 'Issues'].map((h) => (
+                    <th key={h}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.results.map((r, i) => (
+                  <tr key={r.url + i}>
+                    <td className="nap-cite" style={{ maxWidth: 260 }}>
+                      <a href={r.url} target="_blank" rel="noopener noreferrer nofollow">
+                        {r.url.replace(/^https?:\/\//, '')}
+                      </a>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 5 }}>
+                        {!r.reachable && (
+                          <span className="nap-tag" style={{ background: 'var(--danger-50)', color: 'var(--danger)' }}>
+                            {r.error || `HTTP ${r.httpStatus ?? '—'}`}
+                          </span>
+                        )}
+                        {r.reachable && !Object.values(r.extracted.source ?? {}).includes('schema') && (
+                          <span className="nap-tag" style={{ background: 'var(--primary-50)', color: 'var(--primary)' }}>no JSON-LD</span>
+                        )}
+                        {r.archivedAt ? (
+                          <span
+                            className="nap-tag"
+                            style={{ background: 'var(--info-50)', color: 'var(--info)' }}
+                            title="Live page was blocked — read from the Internet Archive, so it may be out of date"
+                          >
+                            via Web Archive · {r.archivedAt}
+                          </span>
+                        ) : r.rendered ? (
+                          <span className="nap-tag" style={{ background: 'var(--info-50)', color: 'var(--info)' }}>JS-rendered</span>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td>
+                      <NapBadge r={r} overridden={!!ov[r.url]} />
+                    </td>
+                    <td>
+                      <span
+                        className="mono"
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          minWidth: 40, height: 26, padding: '0 9px', borderRadius: 999,
+                          fontWeight: 700, fontSize: 12.5,
+                          color: ov[r.url] ? 'var(--info)' : r.reachable ? scoreColor(r.matchScore) : 'var(--mute)',
+                          background: ov[r.url] ? 'var(--info-50)' : r.reachable ? scoreSoft(r.matchScore) : 'var(--surface-3)',
+                        }}
+                      >
+                        {ov[r.url] ? 'OK' : r.reachable ? r.matchScore : '—'}
+                      </span>
+                    </td>
+                    <td>
+                      <StatusPill status={r.fields.name.status} />
+                      {r.extracted.name && <div className="nap-found">{r.extracted.name}</div>}
+                    </td>
+                    <td>
+                      <StatusPill status={r.fields.phone.status} />
+                      {r.extracted.phone && <div className="nap-found">{r.extracted.phone}</div>}
+                    </td>
+                    <td>
+                      <StatusPill status={r.fields.address.status} />
+                      {r.extracted.street && <div className="nap-found">{r.extracted.street}</div>}
+                    </td>
+                    <td>
+                      <StatusPill status={r.fields.postcode.status} />
+                      {r.extracted.postcode && <div className="nap-found">{r.extracted.postcode}</div>}
+                    </td>
+                    <td>
+                      <StatusPill status={r.fields.suite.status} />
+                    </td>
+                    <td style={{ maxWidth: 210 }}>
+                      {ov[r.url] ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                          <span style={{ color: 'var(--info)', fontSize: 12, fontWeight: 600 }}>✓ Verified manually</span>
+                          {interactive && (
+                            <button
+                              onClick={() => onToggleOverride!(r.url, false)}
+                              disabled={busyUrl === r.url}
+                              style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-3)', fontSize: 11, textDecoration: 'underline', cursor: 'pointer' }}
+                            >
+                              {busyUrl === r.url ? '…' : 'Undo'}
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                          {r.tags.length === 0 ? (
+                            <span style={{ color: 'var(--success)', fontSize: 12, fontWeight: 600 }}>✓ Consistent</span>
+                          ) : (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                              {r.tags.map((t) => {
+                                // "couldn't check" (blocked / dead link) is amber, not
+                                // the red used for a genuine NAP mismatch.
+                                const couldntCheck = t === 'blocked' || t === 'dead link';
+                                return (
+                                  <span
+                                    key={t}
+                                    className="nap-tag"
+                                    style={{
+                                      background: couldntCheck ? 'var(--warn-50)' : 'var(--danger-50)',
+                                      color: couldntCheck ? 'var(--warn)' : 'var(--danger)',
+                                    }}
+                                  >
+                                    {t}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {interactive && (r.tags.length > 0 || !r.reachable) && (
+                            <button
+                              onClick={() => onToggleOverride!(r.url, true)}
+                              disabled={busyUrl === r.url}
+                              title="I checked this listing by hand and the NAP is correct"
+                              className="btn-d"
+                              style={{ alignSelf: 'flex-start', color: 'var(--info)', borderColor: 'var(--info-100)' }}
+                            >
+                              {busyUrl === r.url ? '…' : '✓ Mark OK'}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
-        {/* Vertical + horizontal scroll container — keeps the sticky header pinned. */}
-        <div className="nap-scroll" style={{ overflow: 'auto', maxHeight: '70vh' }}>
-          <table className="nap-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 13 }}>
-            <thead>
-              <tr>
-                {['Citation', 'NAP', 'Score', 'Name', 'Phone', 'Address', 'Postcode', 'Suite', 'Issues'].map((h) => (
-                  <th key={h}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.results.map((r, i) => (
-                <tr key={r.url + i}>
-                  <td className="nap-cite" style={{ maxWidth: 260 }}>
-                    <a href={r.url} target="_blank" rel="noopener noreferrer nofollow" style={{ color: '#2563eb', textDecoration: 'none', wordBreak: 'break-all', fontWeight: 600 }}>
-                      {r.url.replace(/^https?:\/\//, '')}
-                    </a>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                      {!r.reachable && (
-                        <span className="nap-tag" style={{ background: '#fef2f2', color: '#dc2626' }}>
-                          {r.error || `HTTP ${r.httpStatus ?? '—'}`}
-                        </span>
-                      )}
-                      {r.reachable && !Object.values(r.extracted.source ?? {}).includes('schema') && (
-                        <span className="nap-tag" style={{ background: '#faf5ff', color: '#9333ea' }}>no JSON-LD</span>
-                      )}
-                      {r.archivedAt ? (
-                        <span
-                          className="nap-tag"
-                          style={{ background: '#ecfeff', color: '#0891b2' }}
-                          title="Live page was blocked — read from the Internet Archive, so it may be out of date"
-                        >
-                          via Web Archive · {r.archivedAt}
-                        </span>
-                      ) : r.rendered ? (
-                        <span className="nap-tag" style={{ background: '#ecfeff', color: '#0891b2' }}>JS-rendered</span>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td>
-                    <NapBadge r={r} overridden={!!ov[r.url]} />
-                  </td>
-                  <td>
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        minWidth: 38,
-                        height: 26,
-                        padding: '0 8px',
-                        borderRadius: 999,
-                        fontWeight: 800,
-                        fontSize: 12.5,
-                        color: ov[r.url] ? '#0e7490' : r.reachable ? scoreColor(r.matchScore) : '#94a3b8',
-                        background: ov[r.url] ? '#cffafe' : r.reachable ? `${scoreColor(r.matchScore)}1a` : '#f1f5f9',
-                      }}
-                    >
-                      {ov[r.url] ? 'OK' : r.reachable ? r.matchScore : '—'}
-                    </span>
-                  </td>
-                  <td>
-                    <StatusPill status={r.fields.name.status} />
-                    {r.extracted.name && <div className="nap-found">{r.extracted.name}</div>}
-                  </td>
-                  <td>
-                    <StatusPill status={r.fields.phone.status} />
-                    {r.extracted.phone && <div className="nap-found">{r.extracted.phone}</div>}
-                  </td>
-                  <td>
-                    <StatusPill status={r.fields.address.status} />
-                    {r.extracted.street && <div className="nap-found">{r.extracted.street}</div>}
-                  </td>
-                  <td>
-                    <StatusPill status={r.fields.postcode.status} />
-                    {r.extracted.postcode && <div className="nap-found">{r.extracted.postcode}</div>}
-                  </td>
-                  <td>
-                    <StatusPill status={r.fields.suite.status} />
-                  </td>
-                  <td style={{ maxWidth: 210 }}>
-                    {ov[r.url] ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-                        <span style={{ color: '#0891b2', fontSize: 12, fontWeight: 700 }}>✓ Verified manually</span>
-                        {interactive && (
-                          <button
-                            onClick={() => onToggleOverride!(r.url, false)}
-                            disabled={busyUrl === r.url}
-                            style={{ background: 'none', border: 'none', padding: 0, color: '#6b7280', fontSize: 11, textDecoration: 'underline', cursor: 'pointer' }}
-                          >
-                            {busyUrl === r.url ? '…' : 'Undo'}
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {r.tags.length === 0 ? (
-                          <span style={{ color: '#16a34a', fontSize: 12, fontWeight: 600 }}>✓ Consistent</span>
-                        ) : (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                            {r.tags.map((t) => {
-                              // "couldn't check" (blocked / dead link) is amber, not
-                              // the red used for a genuine NAP mismatch.
-                              const couldntCheck = t === 'blocked' || t === 'dead link';
-                              return (
-                                <span
-                                  key={t}
-                                  className="nap-tag"
-                                  style={{
-                                    background: couldntCheck ? '#fffbeb' : '#fef2f2',
-                                    color: couldntCheck ? '#b45309' : '#b91c1c',
-                                  }}
-                                >
-                                  {t}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-                        {interactive && (r.tags.length > 0 || !r.reachable) && (
-                          <button
-                            onClick={() => onToggleOverride!(r.url, true)}
-                            disabled={busyUrl === r.url}
-                            title="I checked this listing by hand and the NAP is correct"
-                            style={{
-                              alignSelf: 'flex-start',
-                              padding: '3px 9px',
-                              borderRadius: 6,
-                              border: '1px solid #0891b2',
-                              background: '#fff',
-                              color: '#0891b2',
-                              fontSize: 11,
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {busyUrl === r.url ? '…' : '✓ Mark OK'}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      </section>
 
       {canonical && <SchemaCard canonical={canonical} />}
     </div>

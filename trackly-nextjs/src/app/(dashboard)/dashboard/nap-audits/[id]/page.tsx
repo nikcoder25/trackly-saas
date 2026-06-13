@@ -329,7 +329,7 @@ export default function NapAuditDetailPage() {
               const done = Math.max(0, Math.min(audit.progressDone ?? 0, total));
               const pct = total > 0 ? Math.round((done / total) * 100) : 0;
               return (
-                <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(99,102,241,.08)', border: '1px solid rgba(99,102,241,.2)', borderRadius: 'var(--radius-xs)', color: 'var(--primary)' }}>
+                <div style={{ marginBottom: 16, padding: '12px 16px', background: 'var(--primary-50)', border: '1px solid var(--primary-100)', borderRadius: 'var(--radius)', color: 'var(--primary)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontSize: 13, fontWeight: 600 }}>
                     <span>
                       {audit.status === 'queued'
@@ -341,33 +341,31 @@ export default function NapAuditDetailPage() {
                     )}
                   </div>
                   {audit.status === 'running' && total > 0 && (
-                    <div style={{ marginTop: 8, height: 6, background: 'rgba(99,102,241,.16)', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ width: `${pct}%`, height: '100%', background: 'var(--primary)', transition: 'width .3s ease' }} />
+                    <div className="bar" style={{ marginTop: 10 }}>
+                      <i style={{ width: `${pct}%` }} />
                     </div>
                   )}
                 </div>
               );
             })()}
             {audit.status === 'failed' && (
-              <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.2)', borderRadius: 'var(--radius-xs)', color: 'var(--red)', fontSize: 13 }}>
+              <div style={{ marginBottom: 16, padding: '12px 16px', background: 'var(--danger-50)', border: '1px solid var(--danger-100)', borderRadius: 'var(--radius)', color: 'var(--danger)', fontSize: 13, fontWeight: 500 }}>
                 Last run failed{audit.error ? `: ${audit.error}` : ''}. Try re-running.
               </div>
             )}
-            <Card title="Consistency over time" right={<span className="quiet" style={{ fontSize: 12 }}>Last run {fmtDate(audit.lastRunAt)}</span>}>
-              <ScoreHistory history={audit.history} />
-            </Card>
+            <NapResults
+              data={audit}
+              label={audit.label}
+              canonical={audit.canonical}
+              overrides={audit.overrides}
+              onToggleOverride={toggleOverride}
+              busyUrl={overrideBusy}
+              trend={
+                <ScoreHistory history={audit.history} />
+              }
+            />
             <div style={{ marginTop: 16 }}>
               <GapFinder id={audit.id} />
-            </div>
-            <div style={{ marginTop: 16 }}>
-              <NapResults
-                data={audit}
-                label={audit.label}
-                canonical={audit.canonical}
-                overrides={audit.overrides}
-                onToggleOverride={toggleOverride}
-                busyUrl={overrideBusy}
-              />
             </div>
           </>
         )}
