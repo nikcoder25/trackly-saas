@@ -13,16 +13,16 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'How AI Visibility Tracking Works | Livesov',
+  title: 'How AI Brand Monitoring Works | Livesov',
   description:
-    'See how Livesov\'s AI visibility tracker queries ChatGPT, Perplexity, Claude, Gemini, and Grok daily, then scores your brand\'s share of voice.',
+    'See how Livesov\'s AI brand monitoring works: it queries ChatGPT, Perplexity, Claude, Gemini, and Grok daily, tracks every brand mention, and turns the results into AI search optimization you can act on.',
   keywords:
-    'how livesov works, ai brand tracking methodology, ai visibility measurement, llm brand monitoring, ai share of voice methodology, ai citation tracking explained',
+    'ai brand monitoring, ai search optimization, ai mention tracking, ai brand visibility tool, ai brand tracking methodology, llm brand monitoring',
   alternates: { canonical: '/how-it-works' },
   openGraph: {
-    title: 'How AI Visibility Tracking Works | Livesov',
+    title: 'How AI Brand Monitoring Works | Livesov',
     description:
-      'See how Livesov\'s AI visibility tracker queries ChatGPT, Perplexity, Claude, Gemini, and Grok daily, then scores your brand\'s share of voice.',
+      'See how Livesov\'s AI brand monitoring works: it queries ChatGPT, Perplexity, Claude, Gemini, and Grok daily, tracks every brand mention, and turns the results into AI search optimization you can act on.',
     url: 'https://livesov.com/how-it-works',
     siteName: 'Livesov',
     type: 'website',
@@ -31,15 +31,15 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'How Livesov Works - AI Brand Tracking Methodology',
+        alt: 'How Livesov works - AI brand monitoring methodology',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'How AI Visibility Tracking Works | Livesov',
+    title: 'How AI Brand Monitoring Works | Livesov',
     description:
-      'See how Livesov\'s AI visibility tracker queries ChatGPT, Perplexity, Claude, Gemini, and Grok daily, then scores your brand\'s share of voice.',
+      'See how Livesov\'s AI brand monitoring works: it queries ChatGPT, Perplexity, Claude, Gemini, and Grok daily, tracks every brand mention, and turns the results into AI search optimization you can act on.',
     images: ['https://livesov.com/og-image.png'],
   },
 };
@@ -194,10 +194,10 @@ export default function HowItWorksPage() {
       <SeoHero
         title={
           <>
-            How <span className="text-[var(--brand)]">Livesov</span> works
+            How <span className="text-[var(--brand)]">AI brand monitoring</span> works
           </>
         }
-        subtitle="A systematic, multi-platform, multi-run measurement system for AI brand visibility - built from the API up to give you defensible numbers, not screenshots."
+        subtitle="A systematic, multi-platform system for AI mention tracking and AI search optimization - built from the API up to give you defensible numbers, not screenshots."
         ctaText="Try it free - no card"
       />
 
@@ -322,13 +322,15 @@ export default function HowItWorksPage() {
             per minute without anyone noticing.
           </Callout>
 
-          <h2>The action loop</h2>
+          <h2>From monitoring to AI search optimization</h2>
           <p>
-            Measurement without action is dashboard art. Livesov closes the loop with AI-
-            generated recommendations: for every prompt where you&apos;re missing or losing
-            rank, we surface the specific content gap, the competitor page winning the citation,
-            and the structural fixes (schema, freshness, attribution, internal linking) most
-            likely to move the next cycle.
+            Measurement without action is dashboard art. As an AI brand visibility tool, Livesov
+            closes the loop with AI-generated recommendations: for every prompt where
+            you&apos;re missing or losing rank, we surface the specific content gap, the
+            competitor page winning the citation, and the structural fixes (schema, freshness,
+            attribution, internal linking) most likely to move the next cycle. That&apos;s the
+            difference between passive AI brand monitoring and AI search optimization that
+            actually moves your share of voice.
           </p>
           <p>
             For a deeper look at what to optimise, read our{' '}
@@ -339,8 +341,8 @@ export default function HowItWorksPage() {
       </Section>
 
       <FaqSection
-        title="How Livesov works - FAQ"
-        subtitle="The most common questions from teams evaluating Livesov&rsquo;s methodology."
+        title="AI brand monitoring - FAQ"
+        subtitle="The most common questions from teams evaluating Livesov&rsquo;s AI brand monitoring methodology."
         items={faqs}
       />
 

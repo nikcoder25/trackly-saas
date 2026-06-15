@@ -231,13 +231,13 @@ export default function PricingPage() {
             fontSize: 48, fontWeight: 800, letterSpacing: -1.5,
             color: 'var(--text-primary)', marginBottom: 14, lineHeight: 1.1,
           }}>
-            Simple, credit-based pricing
+            Simple pricing for generative engine optimization tools
           </h1>
           <p style={{
             fontSize: 18, color: 'var(--text-secondary)', lineHeight: 1.6,
             margin: '0 auto 8px', maxWidth: 580,
           }}>
-            Every paid plan starts with a 7-day free trial - all 5 AI platforms included, no credit card required.
+            Livesov&apos;s generative engine optimization tools start at $9/mo. Every paid plan begins with a 7-day free trial - all 5 AI platforms included, no credit card required.
           </p>
           <p style={{ fontSize: 13, color: 'var(--text-muted, #94a3b8)', marginBottom: 36 }}>
             Cancel anytime · 14-day money-back guarantee · No setup fees
@@ -585,13 +585,13 @@ export default function PricingPage() {
               fontSize: 30, fontWeight: 800, letterSpacing: -0.5,
               color: 'var(--text-primary)', marginBottom: 10,
             }}>
-              How Livesov compares
+              How our generative engine optimization tools compare
             </h2>
             <p style={{
               fontSize: 15, color: 'var(--text-secondary)',
               maxWidth: 560, margin: '0 auto', lineHeight: 1.6,
             }}>
-              Built for AI visibility from day one - not bolted on to a legacy SEO suite.
+              Built as AI brand monitoring software from day one - not bolted on to a legacy SEO suite.
             </p>
           </div>
 
