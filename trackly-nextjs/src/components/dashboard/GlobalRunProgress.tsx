@@ -1,16 +1,29 @@
 'use client';
 
 import { useRun } from '@/contexts/RunContext';
+import { useBrands } from '@/contexts/BrandContext';
 
 /**
  * Global run progress bar - shown across all dashboard pages
  * (including the redesigned Overview) when a query run is active or just completed.
+ *
+ * The bar is labelled with the brand the run belongs to (`live.brandId`) so the
+ * user always knows which brand's queries are progressing — runs are
+ * single-brand and the active brand can differ from the one being viewed.
  */
 export default function GlobalRunProgress() {
   const { live, elapsed, pct } = useRun();
+  const { brands, selectedBrand } = useBrands();
 
   // Only show when running or just completed
   if (!live.running && live.status !== 'done') return null;
+
+  // Resolve the running brand's display name from its id (fall back to the
+  // selected brand, then a generic label).
+  const runningBrand =
+    brands.find(b => b.id === live.brandId) ||
+    (selectedBrand && selectedBrand.id === live.brandId ? selectedBrand : null);
+  const runningBrandName = (runningBrand?.name as string) || (selectedBrand?.name as string) || '';
 
   return (
     <div style={{
@@ -26,6 +39,11 @@ export default function GlobalRunProgress() {
             )}
             {live.running ? 'RUNNING QUERIES' : 'RUN COMPLETE'}
           </span>
+          {runningBrandName && (
+            <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text)', fontWeight: 700 }}>
+              {runningBrandName}
+            </span>
+          )}
           {live.running && live.received > 0 && (
             <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
               {live.received}/{live.totalExpected}

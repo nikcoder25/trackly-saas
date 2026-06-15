@@ -308,8 +308,18 @@ export async function reserveCredits(
   amount: number,
   kind: ReserveKind,
   now: Date = new Date(),
+  opts: { bypassDailyCap?: boolean } = {},
 ): Promise<ReserveResult> {
   const cfg = getPlanCredits(plan);
+
+  // A brand's *first* run after creation is guaranteed (the "Create Brand &
+  // Run" flow auto-dispatches it). We exempt that one run from the per-day
+  // manual cap so a brand-new account can't land on "Daily manual cap
+  // reached (10/10)" with zero runs to its name. The monthly credit ceiling
+  // still applies, and the caller (run route) gates this to one claim per
+  // brand via an atomic `brands.first_run_at` flag, so it can't be abused to
+  // bypass the cap repeatedly.
+  const bypassDaily = kind === 'manual' && opts.bypassDailyCap === true;
 
   // Plan gate: free/no-scheduled plans can't reserve auto credits.
   if (kind === 'auto' && !cfg.scheduledRuns) {
@@ -332,7 +342,12 @@ export async function reserveCredits(
   // the (rolled-over) counters to build the failure response.
   const monthStart = currentMonthStart(now).toISOString().slice(0, 10);
   const today = currentDayUtc(now);
-  const dailyIncrement = kind === 'manual' ? amount : 0;
+  // A bypassed first run neither counts toward nor is gated by the daily cap.
+  const dailyIncrement = (kind === 'manual' && !bypassDaily) ? amount : 0;
+  // Effective daily ceiling used by the conditional UPDATE below. When the
+  // first-run exemption is active we widen it to "unlimited" so the daily
+  // guard can never filter the row out.
+  const dailyCapForQuery = bypassDaily ? Number.MAX_SAFE_INTEGER : cfg.manualDailyCap;
 
   // Step 1: ensure the row exists & is rolled-over.
   const initial = await readOrInitCounter(userId, now);
@@ -356,7 +371,7 @@ export async function reserveCredits(
       monthStart,
       today,
       cfg.monthlyCredits,
-      cfg.manualDailyCap,
+      dailyCapForQuery,
     ],
   );
 
@@ -365,7 +380,7 @@ export async function reserveCredits(
     // the exact remaining numbers.
     const remainingMonthly = Math.max(0, cfg.monthlyCredits - initial.monthly_used);
     const remainingDaily = Math.max(0, cfg.manualDailyCap - initial.manual_daily_used);
-    if (kind === 'manual' && initial.manual_daily_used + amount > cfg.manualDailyCap) {
+    if (kind === 'manual' && !bypassDaily && initial.manual_daily_used + amount > cfg.manualDailyCap) {
       return failure(cfg, initial.monthly_used, initial.manual_daily_used, now,
         'daily_cap_reached',
         `Daily manual run limit reached (${initial.manual_daily_used}/${cfg.manualDailyCap}). ` +
@@ -397,6 +412,7 @@ export async function reserveManualWithCooldown(
   prompt: string,
   amount: number,
   now: Date = new Date(),
+  opts: { bypassDailyCap?: boolean } = {},
 ): Promise<ReserveResult> {
   const cfg = getPlanCredits(plan);
   const cd = await checkCooldown(userId, prompt, cfg.cooldownSeconds, now);
@@ -407,7 +423,7 @@ export async function reserveManualWithCooldown(
       `Cooldown active. Try again in ${cd.remainingSeconds}s.`,
       cd.remainingSeconds);
   }
-  const res = await reserveCredits(userId, plan, amount, 'manual', now);
+  const res = await reserveCredits(userId, plan, amount, 'manual', now, opts);
   if (res.ok) {
     await setCooldown(userId, prompt, cfg.cooldownSeconds, now);
   }
