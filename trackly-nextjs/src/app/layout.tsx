@@ -6,6 +6,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import ProgressBar from '@/components/ProgressBar';
 import CookieConsent from '@/components/CookieConsent';
 import GoogleAnalytics from '@/components/GoogleAnalytics';
+import MicrosoftClarity from '@/components/MicrosoftClarity';
 import { NonceProvider } from '@/components/NonceProvider';
 import CsrfFetchInterceptor from '@/components/CsrfFetchInterceptor';
 
@@ -80,6 +81,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </AuthProvider>
           <CookieConsent />
           <GoogleAnalytics nonce={nonce} />
+          <MicrosoftClarity nonce={nonce} />
         </NonceProvider>
       </body>
     </html>
