@@ -113,8 +113,11 @@ function Lvx({ children }: { children: React.ReactNode }) {
 
 function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const { user } = useAuth();
-  const { brands, selectedBrand, setSelectedBrand, selectBrandById, refreshBrands, plan, brandLimit } = useBrands();
-  const { startRun } = useRun();
+  const { brands, selectedBrand, setSelectedBrand, selectBrandById, refreshBrands, plan, brandLimit, loading: brandsLoading } = useBrands();
+  const { startRun, live, pct } = useRun();
+  // Per-brand run progress: show a thin bar under the brand selector when the
+  // currently-selected brand is the one being scanned right now.
+  const selectedBrandRunning = live.running && !!selectedBrand && live.brandId === selectedBrand.id;
   const startRunRef = React.useRef(startRun);
   React.useEffect(() => { startRunRef.current = startRun; }, [startRun]);
   const [showAddBrand, setShowAddBrand] = React.useState(false);
@@ -150,13 +153,23 @@ function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
         <div className="brand-sel" style={{ position: 'relative' }}>
           <span className="ptile ptile-chatgpt mono" style={{ width: 22, height: 22, fontSize: 9, background: 'linear-gradient(135deg, #6366F1, #4F46E5)' }}>{initials}</span>
           <span className="bs-name">{selectedBrand?.name || 'Select brand'}</span>
-          <span className="bs-meta">{brands.length} / {brandLimit >= 9999 ? '∞' : brandLimit}</span>
+          {/* Hide the count until brands load so the meter doesn't flash a
+              stale "0 / 1" (the default) before the real plan limit arrives. */}
+          {!brandsLoading && <span className="bs-meta">{brands.length} / {brandLimit >= 9999 ? '∞' : brandLimit}</span>}
           <span className="bs-caret">▾</span>
           <select aria-label="Select brand" value={selectedBrand?.id || ''} onChange={e => selectBrandById(e.target.value)}
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}>
             {brands.length === 0 && <option value="">No brands</option>}
             {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
+          {selectedBrandRunning && (
+            <div aria-label={`Scanning ${selectedBrand?.name ?? 'brand'} — ${pct}%`} style={{
+              position: 'absolute', left: 0, right: 0, bottom: -3, height: 2,
+              background: 'var(--bg3)', borderRadius: 2, overflow: 'hidden',
+            }}>
+              <div style={{ width: `${pct}%`, height: '100%', background: 'var(--primary)', transition: 'width .4s ease' }} />
+            </div>
+          )}
         </div>
         <div style={{ position: 'relative' }} ref={limitRef}>
           <button

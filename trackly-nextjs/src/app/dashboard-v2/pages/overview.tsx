@@ -43,6 +43,9 @@ interface RecentItem {
 
 interface OverviewData {
   hasReal: boolean;
+  /** True for a real brand that has not completed any run yet. The page shows
+   *  an onboarding/empty state instead of fabricated KPI numbers. */
+  noData?: boolean;
   brandName: string;
   website?: string;
   industry?: string;
@@ -300,9 +303,17 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   const openIssues = accIssues.filter((i: any) => !i.fixed).length;
   const fixedIssues = accIssues.filter((i: any) => i.fixed).length;
   if (!lastRun) {
+    // Brand exists but has never completed a run. Return a genuine empty state
+    // — zeroed KPIs and no demo competitors/sources/trend — so the Overview
+    // doesn't contradict the Query Tracker ("NO DATA") and Brand Health ("no
+    // prior run"). The `noData` flag drives the onboarding panel in the page.
     return {
-      ...fb, hasReal: true, brandName: brand.name || fb.brandName, industry: brand.industry, city: brand.city,
-      competitors: [], sources: [],
+      ...fb, hasReal: true, noData: true,
+      brandName: brand.name || fb.brandName, industry: brand.industry, city: brand.city,
+      website: brand.website,
+      sov: 0, sovDelta: 0, totalM: 0, mentionsDelta: 0,
+      totalQ: brandQueries.length, health: 0, sentiment: 0,
+      competitors: [], sources: [], trend: [],
       accuracyRate, openIssues, fixedIssues,
       healthDelta: null, sentimentDelta: null, coverageDelta: null,
       sentimentSub: '', competitive: null, competitiveSub: '',
@@ -641,6 +652,46 @@ function DownloadReportButton() {
   );
 }
 
+/** Onboarding panel shown on the Overview when the selected brand has no
+ *  completed runs yet. Replaces the old fabricated KPI numbers (Share of
+ *  Voice 27.4%, 1,284 mentions, …) with an honest "run your first scan" CTA. */
+function OverviewEmptyState({ totalQ }: { totalQ: number }) {
+  const { startRun, live } = useRun();
+  const { selectedBrandLocked } = useBrands();
+  const running = live.running;
+  return (
+    <div style={{
+      border: '1px dashed var(--line, var(--border))', borderRadius: 14,
+      padding: '22px 24px', marginBottom: 16,
+      background: 'var(--card, var(--bg2))',
+      display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap',
+    }}>
+      <div style={{
+        width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'var(--primary-light, rgba(99,102,241,.1))', color: 'var(--primary)', fontSize: 22,
+      }}>📡</div>
+      <div style={{ flex: 1, minWidth: 220 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>No data yet — run your first scan</div>
+        <div style={{ fontSize: 13, color: 'var(--mute, var(--muted))', lineHeight: 1.55 }}>
+          {totalQ > 0
+            ? <>You have <strong>{totalQ}</strong> tracked prompt{totalQ === 1 ? '' : 's'} ready. Run them across the AI engines to populate your Share of Voice, mentions and competitor data.</>
+            : <>Add a few tracked prompts in Brand Setup, then run them across the AI engines to see your real visibility data here.</>}
+        </div>
+      </div>
+      <button
+        className="btn-p"
+        onClick={() => startRun(false)}
+        disabled={running || selectedBrandLocked || totalQ === 0}
+        style={(running || selectedBrandLocked || totalQ === 0) ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+        title={selectedBrandLocked ? 'This brand is locked — upgrade to run' : totalQ === 0 ? 'Add tracked prompts first' : undefined}
+      >
+        {running ? 'Running…' : '▶ Run first scan'}
+      </button>
+    </div>
+  );
+}
+
 export function PageOverview() {
   const [range, setRange] = React.useState<OverviewRange>('7d');
   const [engine, setEngine] = React.useState<string>('all');
@@ -705,6 +756,7 @@ export function PageOverview() {
         </>} />
 
       <div className="page-body">
+        {d.noData && <OverviewEmptyState totalQ={d.totalQ} />}
         <HealthBanner health={d.health} healthDelta={d.healthDelta} sentiment={d.sentiment} sentimentSub={d.sentimentSub} sov={d.sov} totalQ={d.totalQ} accuracyRate={d.accuracyRate} openIssues={d.openIssues} fixedIssues={d.fixedIssues} competitive={d.competitive} competitiveSub={d.competitiveSub} />
         <GoalCard current={d.sov} />
         <InsightsStrip items={d.insights} />

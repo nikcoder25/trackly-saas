@@ -11,6 +11,7 @@ import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import PaymentSuccessBanner from '@/components/dashboard/PaymentSuccessBanner';
 import GlobalRunProgress from '@/components/dashboard/GlobalRunProgress';
 import GlobalLiveToasts from '@/components/dashboard/GlobalLiveToasts';
+import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import LowBalanceBanner from '@/components/dashboard/LowBalanceBanner';
 import CreditMigrationBanner from '@/components/dashboard/CreditMigrationBanner';
 import { ToastProvider } from '@/components/dashboard/Toast';
@@ -52,6 +53,17 @@ function TrialBanner() {
   const hoursLeft = Math.ceil(msLeft / (60 * 60 * 1000));
   const label = daysLeft > 1 ? `${daysLeft} days` : `${hoursLeft} hour${hoursLeft === 1 ? '' : 's'}`;
 
+  // Allowances come straight from the canonical trial limits so this banner,
+  // the Compare Plans grid and the brand counter never drift apart.
+  const t = PLAN_LIMITS.trial;
+  const promptsCopy = `${t.trackedPromptsPerAccount} prompts`;
+  const platformsCopy = t.platforms >= 5 ? 'all 5 AI platforms' : `${t.platforms} AI platforms`;
+
+  // Until the email is verified the trial is the short provisional window
+  // (~24h). Rather than look like a bug ("24 hours" vs "7 days"), say so and
+  // point the user at verification to unlock the full 7 days.
+  const unverified = !user.emailVerified;
+
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', marginBottom: 10,
@@ -62,7 +74,10 @@ function TrialBanner() {
       <div style={{ flex: 1 }}>
         <strong>Free trial active</strong>
         <span style={{ margin: '0 6px', opacity: 0.5 }}>-</span>
-        <span>{label} left &middot; 30 prompts &middot; all 5 AI platforms</span>
+        <span>{label} left &middot; {promptsCopy} &middot; {platformsCopy}</span>
+        {unverified && (
+          <span style={{ color: 'var(--muted)' }}> &middot; verify your email to unlock the full 7-day trial</span>
+        )}
       </div>
       <Link href="/dashboard/account" style={{
         fontSize: 11, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none',
@@ -473,6 +488,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
           <CreditMigrationBanner />
           <LowBalanceBanner />
           <UsageLimitBanner />
+          <OnboardingChecklist />
           <GlobalRunProgress />
         </>}
       >

@@ -125,9 +125,30 @@ export default function ComparePlansGrid({
 }: ComparePlansGridProps) {
   const visiblePlans = ['free', 'starter', 'pro', 'agency'] as const;
   const currentTier = PLAN_TIERS[currentPlan] ?? 0;
+  // Trial isn't one of the comparison cards, so without this note a trial user
+  // would read the (highlighted-looking) Free column as "their" allowances —
+  // contradicting the dashboard banner. Surface the real trial allowances,
+  // sourced from the same PLAN_LIMITS the rest of the app enforces.
+  const onTrial = currentPlan === 'trial';
+  const trial = PLAN_LIMITS.trial;
 
   return (
     <section id="plan-comparison" style={{ scrollMarginTop: 16 }}>
+      {onTrial && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
+          padding: '10px 14px', borderRadius: 10,
+          background: 'rgba(79,70,229,.06)', border: `1px solid ${CURRENT_BORDER}`,
+          fontSize: 13, color: TEXT_PRIMARY,
+        }}>
+          <span style={{ color: ACCENT, fontWeight: 700 }}>Free trial</span>
+          <span style={{ color: TEXT_SECONDARY }}>
+            You currently have full trial access: {trial.trackedPromptsPerAccount} tracked prompts,{' '}
+            {trial.platforms >= 5 ? 'all 5 AI platforms' : `${trial.platforms} AI platforms`} and unlimited brands.
+            Pick a plan below to keep your access when the trial ends.
+          </span>
+        </div>
+      )}
       {/* Section header */}
       <div
         style={{

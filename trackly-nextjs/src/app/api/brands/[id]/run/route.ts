@@ -83,6 +83,11 @@ async function ensureActiveRunsTable() {
   // the daily counter.
   await pool.query(`ALTER TABLE active_runs ADD COLUMN IF NOT EXISTS kind TEXT`);
 
+  // Records the moment a brand's guaranteed first run is claimed. Used to
+  // exempt exactly one run per brand from the daily manual cap (see the
+  // "first-run exemption" block in POST). NULL = first run not yet taken.
+  await pool.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS first_run_at TIMESTAMPTZ`);
+
   // Clean up any pre-existing duplicate 'running' rows before the unique
   // index is created. Keep the most recent per brand; mark the rest as
   // error. Idempotent: a second run has nothing to clean up.
@@ -371,15 +376,44 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // sub-tasks didn't actually dispatch (failed acquisition, breaker open).
   const totalCredits = queries.length * activePlatforms.length;
   const reserveKind: 'auto' | 'manual' = isCronCall ? 'auto' : 'manual';
+
+  // --- First-run daily-cap exemption (onboarding "Create Brand & Run") ---
+  // A freshly created brand auto-dispatches one run. On a brand-new trial that
+  // single run (e.g. 6 prompts × 5 platforms = 30 credits) would otherwise be
+  // rejected by the manual daily cap (10/day), leaving the account stuck at
+  // "Daily manual cap reached (10/10)" with zero results. We atomically claim
+  // a one-time per-brand exemption so this guaranteed first run always goes
+  // through. Cron/auto runs and admin/owner runs don't need (or take) it.
+  // The claim is reset below if the reservation still fails for another reason
+  // (e.g. monthly credits exhausted), so the brand keeps its free first run.
+  let firstRunExemptionClaimed = false;
+  if (reserveKind === 'manual' && !callerIsAdminOrOwner) {
+    try {
+      const claim = await pool.query(
+        `UPDATE brands SET first_run_at = NOW() WHERE id = $1 AND first_run_at IS NULL RETURNING id`,
+        [id]
+      );
+      firstRunExemptionClaimed = claim.rowCount === 1;
+    } catch (e) {
+      // Non-fatal: if the claim fails we simply fall back to the normal cap.
+      logger.warn('run.first_run_claim_failed', { brand_id: id, error: (e as Error).message });
+    }
+  }
   // Single-prompt manual runs gate on the per-prompt cooldown; bulk
   // brand runs (the typical Run-All path) skip it because the
   // monthly/daily caps already throttle bulk usage and a 30s cooldown
   // would block re-runs of common 25-prompt brands every time.
   const isSinglePromptManual = reserveKind === 'manual' && queries.length === 1;
   const reservation = isSinglePromptManual
-    ? await reserveManualWithCooldown(ownerId, ownerPlan, queries[0], totalCredits)
-    : await reserveCredits(ownerId, ownerPlan, totalCredits, reserveKind);
+    ? await reserveManualWithCooldown(ownerId, ownerPlan, queries[0], totalCredits, undefined, { bypassDailyCap: firstRunExemptionClaimed })
+    : await reserveCredits(ownerId, ownerPlan, totalCredits, reserveKind, undefined, { bypassDailyCap: firstRunExemptionClaimed });
   if (!reservation.ok) {
+    // Release the first-run exemption we just claimed so the brand doesn't
+    // burn its one free uncapped run on a reservation that never dispatched.
+    if (firstRunExemptionClaimed) {
+      try { await pool.query('UPDATE brands SET first_run_at = NULL WHERE id = $1', [id]); }
+      catch { /* best-effort; the cap simply applies normally next time */ }
+    }
     const status = reservation.code === 'cooldown' ? 429
       : reservation.code === 'monthly_exhausted' ? 402
       : reservation.code === 'daily_cap_reached' ? 429
