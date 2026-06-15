@@ -70,6 +70,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/learn/llm-seo`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${BASE_URL}/learn/ai-search-optimization`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${BASE_URL}/learn/ai-overviews-optimization`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/learn/ai-visibility-score`, lastModified: new Date('2026-06-15'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/learn/brand-visibility-in-llms`, lastModified: new Date('2026-06-15'), changeFrequency: 'monthly', priority: 0.7 },
 
     // Platform-specific tracking pages (programmatic SEO)
     { url: `${BASE_URL}/chatgpt-brand-tracking`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
@@ -84,6 +86,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/vs/otterly`, lastModified: new Date('2026-06-10'), changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/vs/profound`, lastModified: new Date('2026-06-10'), changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/vs/peec-ai`, lastModified: new Date('2026-06-10'), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/best-ai-search-optimization-tools`, lastModified: new Date('2026-06-15'), changeFrequency: 'monthly', priority: 0.8 },
 
     // Content pages
     { url: `${BASE_URL}/blog`, lastModified: new Date('2026-04-01'), changeFrequency: 'weekly', priority: 0.7 },
@@ -100,6 +103,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/about`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.6 },
     { url: `${BASE_URL}/contact`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.5 },
     { url: `${BASE_URL}/partners`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${BASE_URL}/solutions/agencies`, lastModified: new Date('2026-06-15'), changeFrequency: 'monthly', priority: 0.7 },
 
     // Legal (low priority but needed for trust)
     { url: `${BASE_URL}/privacy`, lastModified: new Date('2026-04-01'), changeFrequency: 'yearly', priority: 0.3 },

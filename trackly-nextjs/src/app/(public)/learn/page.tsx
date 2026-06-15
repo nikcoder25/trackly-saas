@@ -55,6 +55,20 @@ const GUIDES: Guide[] = [
       'How to win - and hold - a citation inside Google AI Overviews. Ranking factors, on-page patterns, measurement.',
     readingTime: '9 min read',
   },
+  {
+    slug: 'ai-visibility-score',
+    title: 'AI Visibility Score: What Counts as Good',
+    description:
+      'What an AI visibility score is, how it’s calculated, and the benchmark bands for a good search visibility score.',
+    readingTime: '7 min read',
+  },
+  {
+    slug: 'brand-visibility-in-llms',
+    title: 'Brand Visibility in LLMs',
+    description:
+      'How AI models decide which brands to mention - and how to track and improve your brand mentions in LLMs.',
+    readingTime: '6 min read',
+  },
 ];
 
 export default function LearnHubPage() {

@@ -149,6 +149,9 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/learn/llm-seo">LLM SEO Guide</Link>
             <Link href="/learn/ai-search-optimization">AI Search Optimization</Link>
             <Link href="/learn/ai-overviews-optimization">AI Overviews Guide</Link>
+            <Link href="/learn/ai-visibility-score">AI Visibility Score</Link>
+            <Link href="/learn/brand-visibility-in-llms">Brand Visibility in LLMs</Link>
+            <Link href="/best-ai-search-optimization-tools">Best AI Search Optimization Tools</Link>
             <Link href="/best">What ChatGPT Recommends</Link>
             <Link href="/vs/ahrefs">Livesov vs Ahrefs</Link>
             <Link href="/vs/semrush">Livesov vs Semrush</Link>
@@ -180,6 +183,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/about">About</Link>
             <Link href="/contact">Contact</Link>
             <Link href="/partners">Partners</Link>
+            <Link href="/solutions/agencies">For Agencies</Link>
           </div>
         </div>
         <div className="land-footer-bottom">
