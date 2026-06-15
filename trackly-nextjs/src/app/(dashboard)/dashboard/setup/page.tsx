@@ -128,7 +128,7 @@ export default function SetupPage() {
             setBrands([...brands, brand]);
             setSelectedBrand(brand);
             setCtxSelectedBrand(brand);
-            refreshBrands().then(() => { setTimeout(() => startRunRef.current(false, { auto: true }), 600); });
+            refreshBrands().then(() => { setTimeout(() => startRunRef.current(false, { auto: true, brandId: brand.id }), 600); });
           }}
         />
       )}
@@ -554,8 +554,10 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
         setMessage(msg);
         toast(msg, 'success');
         setOriginalQueries(queries);
-        // Use ref to always get the latest startRun; small delay lets BrandContext settle
-        setTimeout(() => startRunRef.current(false, { auto: true, queries: newQueries }), 600);
+        // Use ref to always get the latest startRun; small delay lets BrandContext settle.
+        // Pass brandId explicitly so the run fires against THIS brand even if the
+        // context selection hasn't caught up yet after the refresh.
+        setTimeout(() => startRunRef.current(false, { auto: true, queries: newQueries, brandId: brand.id }), 600);
       } else {
         setMessage('Brand updated!');
         toast('Brand updated successfully', 'success');
