@@ -38,6 +38,22 @@ export default function GlobalLiveToasts() {
     }
   }, [live.running, live.status]);
 
+  // Safety-net auto-dismiss: once a run reaches a terminal state
+  // (done/error) sweep any remaining result toasts after a short delay.
+  // The per-toast timers already cover the happy path, but some error
+  // states (concurrent lock, hard stall) never reset RunContext to
+  // INITIAL_STATE, so without this sweep the last batch of cards would
+  // hang in the bottom-right corner until manually dismissed.
+  useEffect(() => {
+    if (live.status !== 'done' && live.status !== 'error') return;
+    const timer = setTimeout(() => {
+      dismissTimersRef.current.forEach(t => clearTimeout(t));
+      dismissTimersRef.current.clear();
+      setToasts([]);
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, [live.status]);
+
   // Wipe local toast queue when RunContext resets to INITIAL_STATE (brand
   // switch, run completion, or error). The toast queue is decoupled from
   // live.results, so a reset to [] alone won't drain it. Cancel pending
