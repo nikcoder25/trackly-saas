@@ -177,6 +177,9 @@ export default function GeoScoreCheckerPage() {
           <li><strong>40-69 (Needs work)</strong> - the page has the bones but is missing the structural cues AI engines reward. Most public pages land here on a first audit.</li>
           <li><strong>70-100 (AI-ready)</strong> - the page meets the bar. Iterate to push individual category scores rather than the headline number.</li>
         </ul>
+        <p>
+          A page-level GEO score is one input into your broader <a href="/learn/ai-visibility-score">AI visibility score</a> - the account-wide measure of how often AI engines mention and recommend your brand. See what counts as a good search visibility score in that guide.
+        </p>
 
         <h2>How GEO differs from traditional SEO</h2>
         <p>
