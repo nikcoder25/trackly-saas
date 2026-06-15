@@ -7,9 +7,9 @@ import { useBrands } from '@/contexts/BrandContext';
  * Global run progress bar - shown across all dashboard pages
  * (including the redesigned Overview) when a query run is active or just completed.
  *
- * The bar is labelled with the brand the run belongs to (`live.brandId`) so the
- * user always knows which brand's queries are progressing — runs are
- * single-brand and the active brand can differ from the one being viewed.
+ * Scope: strictly per brand. The bar only renders for the brand currently
+ * selected in the topbar — a run for a different brand never shows here, and
+ * switching brands hides it. It's labelled with the brand name for clarity.
  */
 export default function GlobalRunProgress() {
   const { live, elapsed, pct } = useRun();
@@ -17,6 +17,9 @@ export default function GlobalRunProgress() {
 
   // Only show when running or just completed
   if (!live.running && live.status !== 'done') return null;
+
+  // Per-brand scope: don't surface another brand's run on this brand's view.
+  if (!live.brandId || !selectedBrand || live.brandId !== selectedBrand.id) return null;
 
   // Resolve the running brand's display name from its id (fall back to the
   // selected brand, then a generic label).
