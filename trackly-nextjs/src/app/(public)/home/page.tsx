@@ -144,8 +144,8 @@ function Hero() {
       <div className="container hero-grid">
         <div className="hero-copy">
           <div className="eyebrow"><span className="dot" /> Generative Engine Optimization</div>
-          <h1 className="serif hero-h1">AI is the new search.<br /><em>Are you visible?</em></h1>
-          <p className="hero-sub">See exactly how ChatGPT, Claude, Gemini, Perplexity and Grok answer the questions your buyers ask - and whether your brand gets mentioned, recommended, or ignored.</p>
+          <h1 className="serif hero-h1">AI is the new search.<br /><em>Track your AI visibility.</em></h1>
+          <p className="hero-sub">Livesov is the AI visibility tool that shows exactly how ChatGPT, Claude, Gemini, Perplexity and Grok answer the questions your buyers ask - and whether your brand gets mentioned, recommended, or ignored.</p>
           <div className="hero-cta">
             <Link className="btn btn-pri btn-lg" href="/geo-audit">Run my free audit <span className="ar">→</span></Link>
           </div>
@@ -285,8 +285,8 @@ function Features() {
       <div className="container">
         <SecHead
           eyebrow="What's inside"
-          title={<>Everything you need to make sure <em>the answer is you.</em></>}
-          sub="The full GEO stack, built from scratch for how AI engines answer - not bolted onto a 2010 SEO tool."
+          title={<>Your complete <em>AI visibility platform.</em></>}
+          sub="Everything you need to make sure the answer is you - a full AI visibility platform built from scratch for how AI engines answer, not bolted onto a 2010 SEO tool."
         />
         <div className="feat-grid">
           {feats.map((f, i) => (
@@ -316,7 +316,7 @@ function Showcase() {
           center
           eyebrow="The dashboard"
           title={<>A real workspace, <em>not a report PDF.</em></>}
-          sub="Watch share of voice move day to day, then drill into any answer to see precisely why."
+          sub="Livesov is an AI visibility tracker you actually work in: watch share of voice move day to day, then drill into any answer to see precisely why."
         />
       </div>
       <div className="container showcase-frame-wrap">

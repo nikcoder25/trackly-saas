@@ -165,7 +165,7 @@ export default function GeoAuditPage() {
         style={{ paddingTop: 80, paddingBottom: 48, textAlign: 'center' }}
       >
         <h1 style={{ fontSize: 44, fontWeight: 800, lineHeight: 1.2, marginBottom: 16 }}>
-          How AI-Ready Is <span style={{ color: 'var(--brand)' }}>Your Content</span>?
+          How Strong Is Your <span style={{ color: 'var(--brand)' }}>AI Search Visibility</span>?
         </h1>
         <p
           style={{
@@ -176,7 +176,7 @@ export default function GeoAuditPage() {
             paddingBottom: 24,
           }}
         >
-          Get your GEO score in seconds - free, no signup required
+          Run our free GEO audit tool and get your AI search visibility score in seconds - no signup required
         </p>
       </section>
 
@@ -428,6 +428,41 @@ export default function GeoAuditPage() {
             </div>
           </div>
         )}
+      </section>
+
+      {/* Supporting content - explains AI search visibility & the GEO audit tool */}
+      <section style={{ padding: '8px 24px 80px', maxWidth: 720, margin: '0 auto' }}>
+        <h2 style={{ fontSize: 26, fontWeight: 800, color: '#1a1a2e', marginBottom: 14, lineHeight: 1.3 }}>
+          What is AI search visibility?
+        </h2>
+        <p style={{ fontSize: 16, color: '#4b5563', lineHeight: 1.8, marginBottom: 16 }}>
+          AI search visibility is how often - and how prominently - tools like ChatGPT,
+          Perplexity, Google&apos;s AI Overviews, and Gemini surface your content when people
+          ask questions in your category. Buyers increasingly start with an AI answer instead
+          of ten blue links, so the page that gets cited wins the click. If your content
+          isn&apos;t structured the way these engines expect, you can rank well on Google and
+          still be invisible in AI search.
+        </p>
+        <p style={{ fontSize: 16, color: '#4b5563', lineHeight: 1.8, marginBottom: 32 }}>
+          This free GEO audit tool measures the on-page signals that drive AI search
+          visibility - clear structure, answerable headings, schema, freshness, and source
+          attribution - and scores how citable a page is right now.
+        </p>
+
+        <h2 style={{ fontSize: 26, fontWeight: 800, color: '#1a1a2e', marginBottom: 14, lineHeight: 1.3 }}>
+          How the GEO audit tool scores your page
+        </h2>
+        <p style={{ fontSize: 16, color: '#4b5563', lineHeight: 1.8, marginBottom: 16 }}>
+          Paste any URL and the GEO audit tool fetches the page, analyzes its structure and
+          metadata, and grades it across the categories AI engines rely on to decide what to
+          quote. You get an overall GEO score out of 100, a breakdown by category, and a short
+          list of specific fixes that will improve your AI search visibility on the next crawl.
+        </p>
+        <p style={{ fontSize: 16, color: '#4b5563', lineHeight: 1.8 }}>
+          It&apos;s a fast, single-page check. To monitor every page and track your AI search
+          visibility over time across all five engines,{' '}
+          <Link href="/signup" style={{ color: 'var(--brand)', fontWeight: 600 }}>start a free Livesov trial</Link>.
+        </p>
       </section>
     </SeoLayout>
   );
