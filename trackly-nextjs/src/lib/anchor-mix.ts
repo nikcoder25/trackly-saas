@@ -242,6 +242,13 @@ export interface AnchorPair {
   link: string;
 }
 
+/**
+ * Resolve the actual anchor STRING for an article. Every branch ends in
+ * a non-empty string — when an upstream input (link / moneySite) is
+ * missing we fall back to the keyword rather than wrapping the model's
+ * <a> in an empty label. Empty anchors broke the prompt's "use this
+ * anchor text EXACTLY" rule because there was nothing to use.
+ */
 export function anchorTextFor(
   type: AnchorType,
   pair: AnchorPair,
@@ -250,26 +257,26 @@ export function anchorTextFor(
   location: string,
   index: number,
 ): string {
+  const keyword = pair.keyword.trim();
+  const safe = (v: string | undefined) => (v && v.trim() ? v.trim() : keyword);
   switch (type) {
     case 'exact':
-      return pair.keyword.trim();
+      return keyword;
     case 'partial':
-      return partialFromKeyword(pair.keyword);
-    case 'branded': {
-      const brand = brandFromMoneySite(moneySite);
-      return brand || pair.keyword.trim();
-    }
+      return partialFromKeyword(pair.keyword) || keyword;
+    case 'branded':
+      return brandFromMoneySite(moneySite) || keyword;
     case 'generic':
       return genericPick(index);
     case 'topical':
-      return topicalFromKeyword(pair.keyword, niche, index);
+      return topicalFromKeyword(pair.keyword, niche, index) || keyword;
     case 'geo':
-      return geoFromKeyword(pair.keyword, location, niche);
+      return geoFromKeyword(pair.keyword, location, niche) || keyword;
     case 'naked':
-      return extractDomain(pair.link || moneySite);
+      return safe(extractDomain(pair.link || moneySite));
     case 'url':
-      return (pair.link || moneySite).trim();
+      return safe(pair.link || moneySite);
     default:
-      return pair.keyword.trim();
+      return keyword;
   }
 }

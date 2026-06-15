@@ -138,4 +138,25 @@ describe('anchor text derivation', () => {
     const g1 = anchorTextFor('generic', pair, '', '', '', 1);
     expect(g0).not.toBe(g1);
   });
+
+  it('falls back to the keyword when link + money site are both blank for URL anchors', () => {
+    const blank = { keyword: 'hvac repair', link: '' };
+    expect(anchorTextFor('url', blank, '', '', '', 0)).toBe('hvac repair');
+    expect(anchorTextFor('naked', blank, '', '', '', 0)).toBe('hvac repair');
+  });
+
+  it('falls back to the keyword when branded source is unknown', () => {
+    expect(anchorTextFor('branded', pair, '', '', '', 0)).toBe('hvac repair near me');
+  });
+
+  it('always returns a non-empty string for every anchor type', () => {
+    const blank = { keyword: 'hvac repair', link: '' };
+    for (const t of [
+      'exact', 'partial', 'branded', 'generic', 'topical', 'geo', 'naked', 'url',
+    ] as const) {
+      const out = anchorTextFor(t, blank, '', '', '', 0);
+      expect(out, `type=${t}`).toBeTruthy();
+      expect(out.length, `type=${t}`).toBeGreaterThan(0);
+    }
+  });
 });

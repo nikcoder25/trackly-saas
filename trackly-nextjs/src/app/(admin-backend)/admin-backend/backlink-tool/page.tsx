@@ -750,8 +750,10 @@ export default function BacklinkToolPage() {
 
 ARTICLE BRIEF:
 - Niche: ${params.niche}
-- Target Keyword (anchor text for money link): ${pair.keyword}
+- Target keyword (for SEO placement — H1, body density): ${pair.keyword}
 - Money-site anchor URL: ${pair.link}
+- Money-site backlink anchor text (use VERBATIM on the money-site <a>): ${anchorText}
+- Anchor profile for this article: ${anchorTypeNote[anchorType]}
 - Money-site brand: ${params.moneySite}
 - Article angle: ${angle}
 - Article ID: ${index + 1}
