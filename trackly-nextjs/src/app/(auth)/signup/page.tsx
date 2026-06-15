@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { reportConversion } from '@/lib/googleAds';
 
 declare global {
   interface Window {
@@ -120,6 +121,8 @@ export default function SignupPage() {
           setError(result.error);
           setLoading(false);
         } else {
+          // Google Ads: "Submit lead form" conversion (account sign-up via Google).
+          reportConversion('submitLeadForm');
           router.push('/dashboard');
         }
       },
@@ -141,6 +144,8 @@ export default function SignupPage() {
       setLoading(false);
       return;
     }
+    // Google Ads: "Submit lead form" conversion (account sign-up via email).
+    reportConversion('submitLeadForm');
     router.push('/dashboard');
   };
 

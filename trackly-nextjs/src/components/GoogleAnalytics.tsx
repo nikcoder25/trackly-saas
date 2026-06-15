@@ -2,6 +2,7 @@
 
 import Script from 'next/script';
 import { useState, useEffect } from 'react';
+import { GOOGLE_ADS_ID } from '@/lib/googleAds';
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-M3E0LVFCEB';
 
@@ -37,8 +38,11 @@ export default function GoogleAnalytics({ nonce }: { nonce?: string }) {
         try {
           window.dataLayer = window.dataLayer || [];
           function gtag(){ try { dataLayer.push(arguments); } catch(e) {} }
+          window.gtag = gtag;
           gtag('js', new Date());
           gtag('config', '${GA_ID}', { transport_type: 'beacon' });
+          // Google Ads: same shared tag also reports conversions to this account.
+          gtag('config', '${GOOGLE_ADS_ID}');
         } catch (e) { /* analytics blocked - ignore */ }
       `}</Script>
     </>

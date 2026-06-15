@@ -261,11 +261,11 @@ function generateNonce(): string {
 function buildCsp(nonce: string): string {
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' https://accounts.google.com https://apis.google.com https://www.googletagmanager.com https://www.google-analytics.com https://browser.sentry-cdn.com https://challenges.cloudflare.com https://www.clarity.ms https://*.clarity.ms`,
+    `script-src 'self' 'nonce-${nonce}' https://accounts.google.com https://apis.google.com https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://browser.sentry-cdn.com https://challenges.cloudflare.com https://www.clarity.ms https://*.clarity.ms`,
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self'",
-    "img-src 'self' data: https://lh3.googleusercontent.com",
-    "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com https://*.sentry.io https://www.google-analytics.com https://analytics.google.com https://challenges.cloudflare.com https://*.clarity.ms https://c.bing.com",
+    "img-src 'self' data: https://lh3.googleusercontent.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://www.google.com",
+    "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com https://*.sentry.io https://www.google-analytics.com https://analytics.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://www.google.com https://challenges.cloudflare.com https://*.clarity.ms https://c.bing.com",
     "worker-src 'self' blob:",
     "frame-src https://accounts.google.com https://challenges.cloudflare.com",
     "frame-ancestors 'none'",
