@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, FormEvent } from 'react';
+import { reportConversion } from '@/lib/googleAds';
 
 const INQUIRY_TYPES = [
   'General Support',
@@ -155,6 +156,8 @@ export default function ContactForm() {
         return;
       }
       setSuccess(true);
+      // Google Ads: "Submit lead form" conversion (contact enquiry).
+      reportConversion('submitLeadForm');
       setName('');
       setEmail('');
       setSubject('');

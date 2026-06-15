@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { reportConversion } from '@/lib/googleAds';
 
 /**
  * Post-result email capture card for the free tools. Subscribes via
@@ -31,6 +32,8 @@ export default function ToolEmailCapture({ source }: { source: string }) {
         return;
       }
       setSubmitted(true);
+      // Google Ads: "Submit lead form" conversion (free-tool newsletter opt-in).
+      reportConversion('submitLeadForm');
     } catch {
       setError('Network error. Please try again.');
     } finally {
