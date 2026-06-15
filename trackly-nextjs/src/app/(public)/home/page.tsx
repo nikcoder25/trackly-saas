@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { MARKETING_NAV_LINKS } from '@/lib/marketing-nav';
@@ -137,6 +136,131 @@ function Nav() {
   );
 }
 
+/* ─── Live dashboard preview ───
+   Crisp, vector recreation of the product dashboard. Replaces the old
+   low-resolution 924x540 PNG, which blurred badly when upscaled on wide /
+   high-DPI screens. Sized entirely in `em` driven by container query units,
+   so it stays sharp at any width or device-pixel-ratio. */
+const DASH_METRICS = [
+  { k: 'Visibility', v: 82, sub: '142 prompts tracked' },
+  { k: 'Sentiment', v: 74, sub: '+0.62 avg score' },
+  { k: 'Accuracy', v: 88, sub: '6 false claims open' },
+  { k: 'Competitive', v: 68, sub: 'leads in 5 / 8 categories' },
+];
+
+function DashIcon({ d }: { d: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
+  );
+}
+
+function DashboardUI() {
+  const R = 32;
+  const C = 2 * Math.PI * R;
+  const health = 78;
+  return (
+    <div className="dash-ui" role="img" aria-label="Livesov dashboard showing brand visibility across the 5 AI engines">
+      {/* top bar */}
+      <div className="dash-top">
+        <span className="dash-mk">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 14 L8 14 L11 7 L14 17 L17 11 L20 11" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </span>
+        <span className="dash-word">livesov</span>
+        <span className="dash-brand"><span className="av">AC</span> Acme PM <span className="frac">3 / 5</span> <span className="caret">⌄</span></span>
+        <span className="dash-addbrand">+ Add brand</span>
+        <span className="dash-search">
+          <DashIcon d="M11 11a5 5 0 1 0-7.1 0 5 5 0 0 0 7.1 0ZM15 15l-3.5-3.5" />
+          <span className="txt">Search prompts, mentions, sources…</span>
+          <span className="kbd">⌘K</span>
+        </span>
+        <span className="dash-icons">
+          <span className="dash-flame">
+            <DashIcon d="M12 3c1 3-1 4-1 6a3 3 0 0 0 5 2c1 2 1 4-1 6a5 5 0 0 1-8-4c0-3 3-4 3-7 1 1 2 2 3-3Z" />1
+          </span>
+          <span className="dash-ico"><DashIcon d="M20 6 9 17l-5-5" /></span>
+          <span className="dash-ico"><DashIcon d="M9 9a3 3 0 1 1 4 2.8c-.8.4-1 .8-1 1.7M12 17h.01" /></span>
+          <span className="dash-ico"><DashIcon d="M18 8a6 6 0 1 0-12 0c0 7-2 8-2 8h16s-2-1-2-8M10.5 20a2 2 0 0 0 3 0" /></span>
+          <span className="dash-team">TEAM</span>
+          <span className="dash-me">N</span>
+        </span>
+      </div>
+
+      {/* body */}
+      <div className="dash-body">
+        {/* sidebar */}
+        <div className="dash-side">
+          <span className="dash-run"><DashIcon d="M7 4v16l13-8z" />Run all engines</span>
+          <div className="dash-onboard">
+            <div className="dash-onboard-h"><span>New here? Start with these</span><span className="x">✕</span></div>
+            <div className="dash-step"><span className="n">1</span><span><span className="st">Overview</span><br /><span className="sd">Your daily snapshot</span></span></div>
+            <div className="dash-step"><span className="n">2</span><span><span className="st">Mentions</span><br /><span className="sd">Every AI answer about you</span></span></div>
+            <div className="dash-step"><span className="n">3</span><span><span className="st">Recommendations</span><br /><span className="sd">Do these to win</span></span></div>
+            <div className="dash-tour">· Take the 20-second tour</div>
+          </div>
+          <div className="dash-navlbl">Dashboard ⓘ</div>
+          <div className="dash-nav">
+            <span className="dash-navi on"><DashIcon d="M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 13h7v7H4z" />Overview</span>
+            <span className="dash-navi"><DashIcon d="M21 12a8 8 0 1 1-3-6.2L21 5" />Mentions<span className="badge">1.2k</span></span>
+            <span className="dash-navi"><DashIcon d="M9 11l3 3 8-8M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />Evidence &amp; Proof</span>
+          </div>
+        </div>
+
+        {/* main */}
+        <div className="dash-main">
+          <div className="dash-crumbs">
+            <span className="cr">Livesov</span><span className="sp">/</span>
+            <span className="cr">Dashboard</span><span className="sp">/</span>
+            <span className="cr on">Overview</span>
+            <span className="right">
+              <span className="dash-lastrun"><span className="live-dot" /> Last run · 2 min ago</span>
+              <span className="dash-btn">Export</span>
+              <span className="dash-btn">Share</span>
+            </span>
+          </div>
+
+          <div className="dash-welcome">Welcome back, <em>Nikhil.</em></div>
+          <div className="dash-introrow">
+            <p className="dash-intro">Acme is mentioned across the 5 AI engines — here&apos;s what changed in the last 7 days.</p>
+            <span className="acts">
+              <span className="dash-btn">+ Compare brand</span>
+              <span className="dash-btn pri">↗ View live</span>
+            </span>
+          </div>
+
+          <div className="dash-health">
+            <svg className="wave" viewBox="0 0 200 100" preserveAspectRatio="none">
+              <path d="M0 78 C 35 78 50 34 88 32 S 158 14 200 8" stroke="#fff" strokeWidth="2.5" fill="none" />
+            </svg>
+            <div className="dash-health-top">
+              <svg className="dash-gauge" viewBox="0 0 80 80">
+                <circle className="dash-gauge-track" cx="40" cy="40" r={R} />
+                <circle className="dash-gauge-val" cx="40" cy="40" r={R} strokeDasharray={`${(health / 100) * C} ${C}`} transform="rotate(-90 40 40)" />
+                <text x="40" y="41">{health}</text>
+              </svg>
+              <div>
+                <div className="dash-health-lbl">Brand health</div>
+                <div className="dash-health-big">{health}<span>/100</span></div>
+                <span className="dash-health-chip">▲ 6 vs last week</span>
+              </div>
+            </div>
+            <div className="dash-metrics">
+              {DASH_METRICS.map((m) => (
+                <div className="dash-metric" key={m.k}>
+                  <div className="mrow"><span className="mk">{m.k}</span><span className="mv">{m.v}</span></div>
+                  <div className="mbar"><i style={{ width: `${m.v}%` }} /></div>
+                  <div className="msub">{m.sub}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Hero · Trust strip ─── */
 function Hero() {
   return (
@@ -152,8 +276,8 @@ function Hero() {
           <div className="hero-trust">No credit card · Report in ~90 seconds · Plans from $9/mo</div>
         </div>
         <div className="hero-visual">
-          <div className="shot hero-shot">
-            <Image src="/dashboard-shot.png" alt="Livesov dashboard showing brand visibility across AI engines" width={924} height={540} priority />
+          <div className="shot hero-shot live">
+            <DashboardUI />
           </div>
           <div className="hero-badge">
             <span className="chip"><span className="pulse" /> Tracking 5 engines · live</span>
@@ -320,12 +444,12 @@ function Showcase() {
         />
       </div>
       <div className="container showcase-frame-wrap">
-        <Reveal className="shot showcase-shot">
+        <Reveal className="shot showcase-shot live">
           <div className="sc-bar">
             <span className="sc-dots"><i /><i /><i /></span>
             <span className="sc-url">livesov.app / acme / overview</span>
           </div>
-          <Image src="/dashboard-shot.png" alt="Livesov dashboard overview" width={924} height={540} />
+          <DashboardUI />
         </Reveal>
       </div>
       <div className="container sc-points">
