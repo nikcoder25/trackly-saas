@@ -4,14 +4,22 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrands } from '@/contexts/BrandContext';
+import { useRun } from '@/contexts/RunContext';
 import { useToast } from '@/components/dashboard/Toast';
 import { PLAN_LIMITS } from '@/lib/constants';
 import { Card, Badge, Bar, Pill, PageHead, KPIRail, Filter } from '@/app/dashboard-v2/ui';
+
+interface BrandRun {
+  date?: string;
+  time?: string;
+  allResults?: Array<{ query?: string }>;
+}
 
 interface BrandLite {
   id: string;
   name?: string;
   queries?: string[];
+  runs?: BrandRun[];
   lockedByPlan?: boolean;
   shared?: boolean;
 }
@@ -22,6 +30,10 @@ interface PromptRow {
   index: number;
   query: string;
   locked: boolean;
+  // Whether this prompt has at least one recorded run result. Drives the
+  // honest TRACKING / PENDING status badge so the page can't claim a prompt
+  // is "tracking" when Query Tracker shows zero runs for it.
+  hasData: boolean;
 }
 
 // Stable id for selection - index is appended so duplicate strings
@@ -31,6 +43,7 @@ const rowKey = (r: PromptRow) => `${r.brandId}::${r.index}::${r.query}`;
 export default function TrackedPromptsPage() {
   const { user } = useAuth();
   const { brands, refreshBrands, loading: brandsLoading } = useBrands();
+  const { startRun, live } = useRun();
   const { toast } = useToast();
 
   const plan = user?.plan || 'free';
@@ -41,6 +54,8 @@ export default function TrackedPromptsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState(false);
+  // Brand id currently being kicked off via "Start tracking" (button spinner).
+  const [startingBrand, setStartingBrand] = useState<string | null>(null);
 
   // Owned brands only - shared/team brands belong to a different
   // owner whose quota the caller doesn't control. Trimming those here
@@ -50,24 +65,49 @@ export default function TrackedPromptsPage() {
     [brands],
   );
 
+  // Per-brand set of queries that have at least one recorded run result.
+  // Used to tell whether a tracked prompt has actually been run yet.
+  const ranQueriesByBrand = useMemo(() => {
+    const map = new Map<string, { queries: Set<string>; hasRuns: boolean }>();
+    for (const brand of ownedBrands) {
+      const ran = new Set<string>();
+      const runs = Array.isArray(brand.runs) ? brand.runs : [];
+      for (const run of runs) {
+        for (const r of run.allResults || []) {
+          if (r?.query) ran.add(r.query.toLowerCase().trim());
+        }
+      }
+      map.set(brand.id, { queries: ran, hasRuns: runs.length > 0 });
+    }
+    return map;
+  }, [ownedBrands]);
+
   const rows: PromptRow[] = useMemo(() => {
     const out: PromptRow[] = [];
     for (const brand of ownedBrands) {
       const queries = Array.isArray(brand.queries) ? brand.queries : [];
+      const info = ranQueriesByBrand.get(brand.id);
+      // If the brand has runs but the per-query result detail was trimmed
+      // from the list payload, fall back to "has data" so a tracked brand
+      // doesn't read as PENDING after older runs age out.
+      const trimmedRuns = !!info?.hasRuns && (info?.queries.size ?? 0) === 0;
       for (let i = 0; i < queries.length; i++) {
+        const hasData = !!info && (info.queries.has(queries[i].toLowerCase().trim()) || trimmedRuns);
         out.push({
           brandId: brand.id,
           brandName: brand.name || 'Untitled brand',
           index: i,
           query: queries[i],
           locked: !!brand.lockedByPlan,
+          hasData,
         });
       }
     }
     return out;
-  }, [ownedBrands]);
+  }, [ownedBrands, ranQueriesByBrand]);
 
   const totalUsed = rows.length;
+  const pendingCount = rows.filter((r) => !r.locked && !r.hasData).length;
   const overBy = isUnlimited ? 0 : Math.max(0, totalUsed - cap);
   const overLimit = overBy > 0;
   const filteredRows = useMemo(() => {
@@ -170,6 +210,22 @@ export default function TrackedPromptsPage() {
     setBusy(false);
   };
 
+  // Kick off a real run for a brand so its tracked prompts actually start
+  // producing data. Without this the prompts sit in a "tracking" state with
+  // zero runs forever. Goes through the same RunContext path as the sidebar
+  // Run button, so the global progress bar and live result toasts show up.
+  const startTracking = async (brandId: string) => {
+    if (live.running || startingBrand) return;
+    setStartingBrand(brandId);
+    try {
+      await startRun(false, { auto: true, brandId });
+      toast('Tracking started — results will appear in Query Tracker as they come in.', 'success');
+    } catch (e) {
+      toast((e as Error).message || 'Failed to start tracking', 'error');
+    }
+    setStartingBrand(null);
+  };
+
   const usagePct = isUnlimited
     ? 0
     : Math.min(100, cap > 0 ? (totalUsed / cap) * 100 : 0);
@@ -191,6 +247,7 @@ export default function TrackedPromptsPage() {
               info: isUnlimited ? '∞ limit' : `of ${cap.toLocaleString()}`,
             },
             { k: 'BRANDS', v: ownedBrands.length.toLocaleString() },
+            { k: 'PENDING', v: pendingCount.toLocaleString(), danger: pendingCount > 0 },
             { k: 'PLAN', v: String(plan).toUpperCase() },
             { k: 'SELECTED', v: selected.size.toLocaleString() },
             ...(isUnlimited
@@ -336,6 +393,14 @@ export default function TrackedPromptsPage() {
             if (filter && brandRows.length === 0) return null;
             const totalForBrand = (brand.queries || []).length;
             const selectedForBrand = brandRows.filter((r) => selected.has(rowKey(r))).length;
+            const brandHasRuns = !!ranQueriesByBrand.get(brand.id)?.hasRuns;
+            const pendingForBrand = (brand.queries || []).filter((q) => {
+              const info = ranQueriesByBrand.get(brand.id);
+              const trimmedRuns = !!info?.hasRuns && (info?.queries.size ?? 0) === 0;
+              return !(info && (info.queries.has(q.toLowerCase().trim()) || trimmedRuns));
+            }).length;
+            const canStart = !brand.lockedByPlan && totalForBrand > 0;
+            const isStartingThis = startingBrand === brand.id || (live.running && live.brandId === brand.id);
             return (
               <Card
                 key={brand.id}
@@ -349,13 +414,30 @@ export default function TrackedPromptsPage() {
                 lede={
                   <>
                     {totalForBrand} prompt{totalForBrand === 1 ? '' : 's'}
+                    {pendingForBrand > 0 && ` · ${pendingForBrand} pending`}
                     {selectedForBrand > 0 && ` · ${selectedForBrand} selected`}
                   </>
                 }
                 right={
-                  <Link href="/dashboard/setup" className="btn-d">
-                    Edit brand →
-                  </Link>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    {canStart && (
+                      <button
+                        type="button"
+                        className="btn-g"
+                        onClick={() => startTracking(brand.id)}
+                        disabled={live.running || startingBrand !== null}
+                        title={brandHasRuns
+                          ? 'Re-run all tracked prompts for this brand now'
+                          : 'Run all tracked prompts now to start collecting data'}
+                        style={{ opacity: (live.running || startingBrand !== null) ? 0.5 : 1 }}
+                      >
+                        {isStartingThis ? 'Running…' : brandHasRuns ? '↻ Run now' : '▶ Start tracking'}
+                      </button>
+                    )}
+                    <Link href="/dashboard/setup" className="btn-d">
+                      Edit brand →
+                    </Link>
+                  </span>
                 }
               >
                 {totalForBrand === 0 ? (
@@ -426,8 +508,10 @@ export default function TrackedPromptsPage() {
                             <td>
                               {r.locked ? (
                                 <Badge tone="warn">LOCKED</Badge>
-                              ) : (
+                              ) : r.hasData ? (
                                 <Badge tone="pos">TRACKING</Badge>
+                              ) : (
+                                <Badge tone="neu">PENDING</Badge>
                               )}
                             </td>
                           </tr>

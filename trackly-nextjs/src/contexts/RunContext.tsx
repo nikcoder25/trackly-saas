@@ -43,6 +43,11 @@ export interface RunLiveState {
 interface StartRunOptions {
   auto?: boolean;
   queries?: string[];
+  // Run a specific brand instead of the currently-selected one. Lets the
+  // Tracked Prompts page (and the setup save/create flow) enqueue a run
+  // deterministically, even if BrandContext's selection is momentarily
+  // stale or pointing at a different brand.
+  brandId?: string;
 }
 
 interface RunContextType {
@@ -343,15 +348,15 @@ export function RunProvider({ children }: { children: ReactNode }) {
     });
 
     try {
-      // Use the currently selected brand from BrandContext
-      if (!selectedBrand) {
+      // Target an explicit brandId when given (Tracked Prompts page, setup
+      // save/create), otherwise fall back to BrandContext's selection.
+      const brandId = options?.brandId || selectedBrand?.id;
+      if (!brandId) {
         runningRef.current = false;
         setLive(prev => ({ ...prev, running: false, status: 'error', statusText: 'No brand set up', errorMsg: 'No brand set up' }));
         setTimeout(() => setLive(INITIAL_STATE), 3000);
         return;
       }
-
-      const brandId = selectedBrand.id;
       const forceParam = force ? '&force=1' : '';
       const autoParam = options?.auto ? '&auto=1' : '';
 
