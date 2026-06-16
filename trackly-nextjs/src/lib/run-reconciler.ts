@@ -225,7 +225,12 @@ async function finalizeStaleRow(
   // team member, not the credit-holding account.
   const totalExpected = Number(row.total_expected || 0);
   const received = Number(row.received || 0);
-  const unused = Math.max(0, totalExpected - received);
+  // Failed AI responses must never burn credits, so exclude error_count from
+  // the chargeable total (mirrors the /run handler's terminal refund). The gap
+  // between chargeable and total_expected = never-dispatched + failed tasks.
+  const errored = Number(row.error_count || 0);
+  const chargeable = Math.max(0, received - errored);
+  const unused = Math.max(0, totalExpected - chargeable);
   if (unused > 0) {
     try {
       const ownerRes = await pool.query(
@@ -247,6 +252,7 @@ async function finalizeStaleRow(
           kind,
           refunded: unused,
           received,
+          errored,
           total_expected: totalExpected,
         });
       }

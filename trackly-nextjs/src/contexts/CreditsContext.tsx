@@ -174,16 +174,19 @@ function PreflightModal({
     dailyRemaining < cost ||
     !status?.scheduledRuns && false; // scheduledRuns is for auto only - manual is always allowed if credits exist
 
+  // One user-facing unit: a "scan" = one prompt checked on one AI engine,
+  // which maps 1:1 to an internal credit. We keep the credit ledger internally
+  // but always say "scans" in the UI so the dialog matches the trial banner.
   const blockReason = !status
-    ? 'Could not verify your credit balance - try again in a moment.'
+    ? 'Could not verify your scan balance - try again in a moment.'
     : remaining < cost
-      ? `Not enough monthly credits (${remaining.toLocaleString()} remaining, this run needs ${cost.toLocaleString()}).`
+      ? `Not enough monthly scans (${remaining.toLocaleString()} remaining, this run needs ${cost.toLocaleString()}).`
       : dailyRemaining < cost
         // The block here means the run's cost exceeds what's left of the daily
         // manual allowance - which, for a fresh user, is because one full scan
         // (queries × platforms) is larger than the daily cap, NOT because they
         // used it up. Say that explicitly with used/cap so it isn't misread.
-        ? `This run needs ${cost.toLocaleString()} credit${cost === 1 ? '' : 's'}, but your daily manual limit is ${dailyCap} (${manualUsedToday} used today, ${dailyRemaining} left). Resets at midnight UTC.`
+        ? `This run needs ${cost.toLocaleString()} scan${cost === 1 ? '' : 's'}, but your daily manual limit is ${dailyCap} (${manualUsedToday} used today, ${dailyRemaining} left). Resets at midnight UTC.`
         : '';
 
   return (
@@ -213,7 +216,7 @@ function PreflightModal({
         <p style={{ margin: '0 0 16px 0', color: 'var(--muted)', fontSize: 13, lineHeight: 1.5 }}>
           This run will use{' '}
           <strong style={{ color: 'var(--text)' }}>
-            {cost.toLocaleString()} credit{cost === 1 ? '' : 's'}
+            {cost.toLocaleString()} scan{cost === 1 ? '' : 's'}
           </strong>
           {monthlyCap > 0 && (
             <> of your <strong>{remaining.toLocaleString()} / {monthlyCap.toLocaleString()}</strong> remaining this month.</>

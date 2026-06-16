@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { PLAN_CREDITS } from '@/lib/plan-config';
 
 // Friendly destination for the /api/auth/verify-email handler. Replaces the
 // old raw-JSON response. The handler redirects here with ?status=success
@@ -50,8 +51,9 @@ function VerifiedView() {
         }}>✓</div>
         <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px' }}>Email verified</h1>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 20px' }}>
-          You’re all set - your 7-day free trial is now active with 30 tracked prompts
-          across all 5 AI engines. Let’s get your first brand scanned.
+          You’re all set - your 7-day free trial is now active with{' '}
+          {PLAN_CREDITS.trial.monthlyCredits.toLocaleString()} scans across all 5 AI
+          engines. Let’s get your first brand scanned.
         </p>
         <Link href={continueHref} className="btn-primary" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>
           Continue to dashboard →

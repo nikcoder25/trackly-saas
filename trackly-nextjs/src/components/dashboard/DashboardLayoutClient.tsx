@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandProvider, useBrands } from '@/contexts/BrandContext';
 import { RunProvider, useRun, markPendingFirstRun, PENDING_FIRST_RUN_KEY, resolveFirstRunDispatch } from '@/contexts/RunContext';
-import { CreditsProvider } from '@/contexts/CreditsContext';
+import { CreditsProvider, useCredits } from '@/contexts/CreditsContext';
 import { PLAN_LIMITS } from '@/lib/constants';
 import LvxShell from '@/components/dashboard/LvxShell';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
@@ -82,6 +82,7 @@ function AutoFirstRun() {
 
 function TrialBanner() {
   const { user } = useAuth();
+  const { status } = useCredits();
   if (!user || user.plan !== 'trial' || !user.trialEndsAt) return null;
   const endMs = new Date(user.trialEndsAt).getTime();
   if (isNaN(endMs)) return null;
@@ -91,11 +92,13 @@ function TrialBanner() {
   const hoursLeft = Math.ceil(msLeft / (60 * 60 * 1000));
   const label = daysLeft > 1 ? `${daysLeft} days` : `${hoursLeft} hour${hoursLeft === 1 ? '' : 's'}`;
 
-  // Allowances come straight from the canonical trial limits so this banner,
-  // the Compare Plans grid and the brand counter never drift apart.
+  // One user-facing unit everywhere: a "scan" = one prompt checked on one AI
+  // engine, which maps 1:1 to an internal credit. We surface the trial's
+  // monthly scan allowance (the credit cap) rather than a soup of
+  // prompts/credits/runs so the banner can't contradict the run dialog.
   const t = PLAN_LIMITS.trial;
-  const promptsCopy = `${t.trackedPromptsPerAccount} prompts`;
-  const platformsCopy = t.platforms >= 5 ? 'all 5 AI platforms' : `${t.platforms} AI platforms`;
+  const scansIncluded = status && status.monthlyCap > 0 ? status.monthlyCap : null;
+  const platformsCopy = t.platforms >= 5 ? 'all 5 AI engines' : `${t.platforms} AI engines`;
 
   // Until the email is verified the trial is the short provisional window
   // (~24h). Rather than look like a bug ("24 hours" vs "7 days"), say so and
@@ -110,9 +113,9 @@ function TrialBanner() {
     }}>
       <span style={{ fontSize: 14, color: 'var(--green)' }}>★</span>
       <div style={{ flex: 1 }}>
-        <strong>Free trial active</strong>
+        <strong>Trial</strong>
         <span style={{ margin: '0 6px', opacity: 0.5 }}>-</span>
-        <span>{label} left &middot; {promptsCopy} &middot; {platformsCopy}</span>
+        <span>{label} left{scansIncluded != null ? ` · ${scansIncluded.toLocaleString()} scans included` : ''} &middot; {platformsCopy}</span>
         {unverified && (
           <span style={{ color: 'var(--muted)' }}> &middot; verify your email to unlock the full 7-day trial</span>
         )}
@@ -163,7 +166,7 @@ function TrialEndedBanner() {
       <div style={{ flex: 1 }}>
         <strong>Your free trial has ended.</strong>
         <span style={{ margin: '0 6px', opacity: 0.5 }}>-</span>
-        <span>You&apos;re now on the Free plan with reduced limits. Upgrade to restore 5 AI platforms, 30 tracked prompts, and 200 credits per month.</span>
+        <span>You&apos;re now on the Free plan with reduced limits. Upgrade to restore 5 AI engines, 30 tracked prompts, and more scans per month.</span>
       </div>
       <Link href="/dashboard/account" style={{
         fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--primary)',

@@ -695,27 +695,34 @@ async function executeRunBackground(
       });
     }
 
-    // Refund unused Livesov credits. We reserved `totalExpected`
-    // up-front; the worker increments `received` once per finished
-    // sub-task (regardless of success or per-task error). Any gap is
-    // a sub-task that never dispatched (breaker open, fatal crash,
-    // partial run), so it's safe to return those credits to the
-    // owner. Best-effort: a missed refund self-heals on month
-    // rollover when the counter resets.
+    // Refund unused + failed Livesov credits. We reserved `totalExpected`
+    // up-front; the worker increments `received` once per finished sub-task
+    // (regardless of success OR per-task error). We only charge for sub-tasks
+    // that actually produced a usable AI response, so the refund covers two
+    // buckets:
+    //   - never-dispatched tasks (breaker open, crash, partial run): the gap
+    //     between received and totalExpected, and
+    //   - tasks that DID dispatch but the AI response failed (error_count):
+    //     the user should never pay for a failed response.
+    // Best-effort: a missed refund self-heals on month rollover.
     if (creditOwnerId && creditKind) {
       try {
         const r = await pool.query(
-          'SELECT received FROM active_runs WHERE id = $1',
+          'SELECT received, error_count FROM active_runs WHERE id = $1',
           [runId],
         );
         const received = Number(r.rows[0]?.received || 0);
-        const unused = Math.max(0, totalExpected - received);
+        const errored = Number(r.rows[0]?.error_count || 0);
+        // Chargeable = sub-tasks that finished successfully. Failed responses
+        // (errored) are explicitly excluded so they don't burn credits.
+        const chargeable = Math.max(0, received - errored);
+        const unused = Math.max(0, totalExpected - chargeable);
         if (unused > 0) {
           await refundCredits(creditOwnerId, unused, creditKind);
           logger.info('run.credits_refunded', {
             runId, brandId, owner_id: creditOwnerId,
             kind: creditKind, refunded: unused,
-            received, total_expected: totalExpected,
+            received, errored, total_expected: totalExpected,
           });
         }
       } catch (e) {
@@ -818,6 +825,7 @@ async function executeRunBackgroundInner(
     // citations) are the authoritative source URLs; the parser's regex
     // pass only catches URLs that survived into the response text.
     const citations = mergeCitations(result.citations, parsed.cites);
+    const status = parsed.mentioned ? 'mentioned' : 'not_mentioned';
     const entry = {
       platform: plat, query: q, model: result.model,
       mentioned: parsed.mentioned, recommended: parsed.recommended,
@@ -827,7 +835,7 @@ async function executeRunBackgroundInner(
       snippet: result.text.substring(0, 200),
       raw: result.text,
       tokensIn: result.tokensIn, tokensOut: result.tokensOut, cost,
-      cacheHit: fromCache,
+      cacheHit: fromCache, status,
     };
     allResults.push(entry);
     totalQ++;
@@ -838,7 +846,7 @@ async function executeRunBackgroundInner(
     pendingResults.push({
       platform: plat, query: q, model: result.model,
       mentioned: parsed.mentioned, recommended: parsed.recommended,
-      sentiment: parsed.sentiment, error: false,
+      sentiment: parsed.sentiment, error: false, status,
       context: result.text.substring(0, 150),
     });
   }
@@ -880,6 +888,7 @@ async function executeRunBackgroundInner(
       platform: plat, query: q, model: getDefaultModel(plat),
       mentioned: false, sentiment: 'neutral', recommended: false,
       citations: [], error: true, errorMessage: err.message, errorType,
+      status: 'failed',
     });
     totalQ++;
     received++;
@@ -887,6 +896,7 @@ async function executeRunBackgroundInner(
     pendingResults.push({
       platform: plat, query: q, model: getDefaultModel(plat),
       mentioned: false, error: true, errorMessage: err.message, errorType,
+      status: 'failed',
     });
   }
 
@@ -1296,20 +1306,21 @@ async function executeRunBackgroundInner(
       let pi = 1;
       for (const r of batch) {
         const prId = uid();
-        values.push(`($${pi},$${pi+1},$${pi+2},$${pi+3},$${pi+4},$${pi+5},$${pi+6},$${pi+7},$${pi+8},$${pi+9},$${pi+10},$${pi+11},$${pi+12},$${pi+13},$${pi+14})`);
+        const status = r.status || (r.error ? 'failed' : (r.mentioned ? 'mentioned' : 'not_mentioned'));
+        values.push(`($${pi},$${pi+1},$${pi+2},$${pi+3},$${pi+4},$${pi+5},$${pi+6},$${pi+7},$${pi+8},$${pi+9},$${pi+10},$${pi+11},$${pi+12},$${pi+13},$${pi+14},$${pi+15})`);
         p.push(prId, brandId, r.query, r.platform, r.model || null,
           r.mentioned || false, r.sentiment || 'neutral', r.recommended || false,
           r.listPosition || null, JSON.stringify(r.citations || []),
           JSON.stringify(r.competitorMentions || []), !r.error, runId,
-          r.raw || null, r.cacheHit || false);
-        pi += 15;
+          r.raw || null, r.cacheHit || false, status);
+        pi += 16;
         if (Array.isArray(r.citations) && r.citations.length > 0) {
           citationRows.push({ promptRunId: prId, brandId, prompt: r.query, platform: r.platform, urls: r.citations });
         }
       }
       try {
         await pool.query(
-          `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, mentioned, sentiment, recommended, list_position, citations, competitor_mentions, success, batch_id, response_raw, cache_hit) VALUES ${values.join(',')}`, p,
+          `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, mentioned, sentiment, recommended, list_position, citations, competitor_mentions, success, batch_id, response_raw, cache_hit, status) VALUES ${values.join(',')}`, p,
         );
         // Citation Decoder normalized rows. Only written when the parent
         // prompt_runs batch landed so prompt_run_id always resolves.

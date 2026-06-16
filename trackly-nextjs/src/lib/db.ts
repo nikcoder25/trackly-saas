@@ -212,6 +212,13 @@ function runMigrations(): Promise<void> {
           ON response_cache (expires_at);
         ALTER TABLE prompt_runs
           ADD COLUMN IF NOT EXISTS cache_hit BOOLEAN DEFAULT false;
+        -- Explicit per-query outcome so a delivery failure is distinct from a
+        -- legitimate "brand not mentioned": mentioned | not_mentioned | failed.
+        -- The boolean success column stays for back-compat; this adds the
+        -- three-way state the Results UI needs. Legacy rows have NULL status
+        -- and the UI derives it from success/mentioned so old reads still work.
+        ALTER TABLE prompt_runs
+          ADD COLUMN IF NOT EXISTS status TEXT;
         -- Citation Decoder (Phase 1): one row per cited URL per prompt per
         -- engine. Normalized out of prompt_runs.citations (JSONB array) so
         -- the pattern engine can group/aggregate by url, domain, platform

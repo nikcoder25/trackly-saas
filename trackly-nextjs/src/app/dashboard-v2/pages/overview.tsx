@@ -15,6 +15,7 @@ import { useBrandData } from '@/hooks/useBrandData';
 import { useRun } from '@/contexts/RunContext';
 import { useToast } from '@/components/dashboard/Toast';
 import { useBrands } from '@/contexts/BrandContext';
+import { KpiCardsSkeleton } from '@/components/dashboard/Skeleton';
 import { highlightBrand as highlightBrandText, sanitizeHtml } from '@/lib/sanitize';
 
 /* ───────────────────────── real-data hook ───────────────────────── */
@@ -46,6 +47,10 @@ interface OverviewData {
   /** True for a real brand that has not completed any run yet. The page shows
    *  an onboarding/empty state instead of fabricated KPI numbers. */
   noData?: boolean;
+  /** Number of completed runs for the selected brand. Drives whether the
+   *  header shows a "what changed" comparison (needs >= 2 runs) vs a first-run
+   *  message, so change-over-time copy is gated behind real history. */
+  runCount: number;
   brandName: string;
   website?: string;
   industry?: string;
@@ -234,6 +239,7 @@ export function useOverviewData(filters: OverviewFilters = DEFAULT_FILTERS): Ove
 function buildFallback(): OverviewData {
   return {
     hasReal: false,
+    runCount: 0,
     brandName: 'Acme PM',
     industry: 'Project management software', city: 'San Francisco',
     sov: 27.4, sovDelta: +4.2, totalM: 1284, mentionsDelta: +218, totalQ: 142, health: 78, sentiment: 74,
@@ -308,7 +314,7 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
     // doesn't contradict the Query Tracker ("NO DATA") and Brand Health ("no
     // prior run"). The `noData` flag drives the onboarding panel in the page.
     return {
-      ...fb, hasReal: true, noData: true,
+      ...fb, hasReal: true, noData: true, runCount: 0,
       brandName: brand.name || fb.brandName, industry: brand.industry, city: brand.city,
       website: brand.website,
       sov: 0, sovDelta: 0, totalM: 0, mentionsDelta: 0,
@@ -591,6 +597,7 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
 
   return {
     hasReal: true,
+    runCount: runs.length,
     brandName: brand.name || fb.brandName,
     website: brand.website,
     industry: brand.industry, city: brand.city,
@@ -707,6 +714,14 @@ export function PageOverview() {
   const data = useOverviewData(filters);
   const d = data || buildFallback();
 
+  // While a scan is in progress the brand's live/partial results can flow into
+  // the data hook, which made the headline score widgets flash a misleading
+  // figure (e.g. "100 Excellent" off the first returned query) before settling
+  // on the real value once the run completed. Hold those widgets in a loading
+  // state until the run is done so we only ever display final, complete scores.
+  const { live } = useRun();
+  const scanning = live.running;
+
   // With real data we only have the brand's own SOV history, so show just that
   // line rather than fabricated competitor trends. The demo overlay is kept for
   // the no-data fallback so the chart still looks alive.
@@ -723,8 +738,25 @@ export function PageOverview() {
   return (
     <>
       <PageHead title={<>Welcome back, <span style={{ color: 'var(--primary)' }}>Nikhil</span>.</>}
-        sub={<>{d.brandName} is mentioned across the 5 AI engines - here&rsquo;s what changed in the last 7 days.</>}
+        sub={
+          !d.hasReal
+            ? <>Sample data - add your brand to replace these example figures with real AI visibility.</>
+            : scanning
+              ? <>Scanning {d.brandName} across the 5 AI engines - your scores will update when the run completes.</>
+              : d.noData
+                ? <>Run your first scan to see how {d.brandName} shows up across the 5 AI engines.</>
+                : d.runCount < 2
+                  ? <>Your first results are in - here&rsquo;s how {d.brandName} shows up across the 5 AI engines.</>
+                  : <>{d.brandName} is mentioned across the 5 AI engines - here&rsquo;s what changed since your last scan.</>
+        }
         actions={<>
+          {!d.hasReal && (
+            <span style={{
+              fontSize: 11, fontWeight: 700, color: '#b45309',
+              background: 'rgba(245,158,11,.12)', border: '1px solid rgba(245,158,11,.35)',
+              padding: '4px 10px', borderRadius: 999, whiteSpace: 'nowrap',
+            }}>Sample data</span>
+          )}
           <DownloadReportButton />
           {(() => {
             const href = normalizeWebsite(d.website);
@@ -756,10 +788,12 @@ export function PageOverview() {
         </>} />
 
       <div className="page-body">
-        {d.noData && <OverviewEmptyState totalQ={d.totalQ} />}
-        <HealthBanner health={d.health} healthDelta={d.healthDelta} sentiment={d.sentiment} sentimentSub={d.sentimentSub} sov={d.sov} totalQ={d.totalQ} accuracyRate={d.accuracyRate} openIssues={d.openIssues} fixedIssues={d.fixedIssues} competitive={d.competitive} competitiveSub={d.competitiveSub} />
-        <GoalCard current={d.sov} />
-        <InsightsStrip items={d.insights} />
+        {d.noData && !scanning && <OverviewEmptyState totalQ={d.totalQ} />}
+        {scanning
+          ? <HealthBannerSkeleton />
+          : <HealthBanner health={d.health} healthDelta={d.healthDelta} sentiment={d.sentiment} sentimentSub={d.sentimentSub} sov={d.sov} totalQ={d.totalQ} accuracyRate={d.accuracyRate} openIssues={d.openIssues} fixedIssues={d.fixedIssues} competitive={d.competitive} competitiveSub={d.competitiveSub} />}
+        {!scanning && <GoalCard current={d.sov} />}
+        {!scanning && <InsightsStrip items={d.insights} />}
 
         <Filter>
           <Seg value={range} onChange={(v) => setRange(v as OverviewRange)} options={['24h', '7d', '30d', '90d']} />
@@ -786,13 +820,15 @@ export function PageOverview() {
           <Pill tone="acc"><span className="pulse" /> Auto-runs on</Pill>
         </Filter>
 
-        <KPIRail items={[
-          { k: 'SHARE OF VOICE', term: 'sov', v: String(d.sov), suffix: '%', d: d.sovDelta, info: 'vs prev. run' },
-          { k: 'MENTIONS', term: 'mention', v: fmt(d.totalM), d: d.mentionsDelta, info: '5 engines' },
-          { k: 'SENTIMENT', term: 'sentiment', v: String(d.sentiment), suffix: '%', d: d.sentimentDelta ?? undefined, info: d.sentimentDelta != null ? 'vs prev. run' : undefined },
-          { k: 'FALSE CLAIMS', term: 'hallucination', v: d.accuracyRate !== null ? String(d.openIssues) : '-', danger: d.accuracyRate !== null && d.openIssues > 0, info: d.accuracyRate !== null ? (d.fixedIssues > 0 ? `${d.fixedIssues} fixed` : 'none fixed') : 'not set up' },
-          { k: 'COVERAGE', term: 'coverage', v: String(d.totalQ), d: d.coverageDelta ?? undefined, info: 'prompts' },
-        ]} />
+        {scanning
+          ? <KpiCardsSkeleton count={5} />
+          : <KPIRail items={[
+              { k: 'SHARE OF VOICE', term: 'sov', v: String(d.sov), suffix: '%', d: d.sovDelta, info: 'vs prev. run' },
+              { k: 'MENTIONS', term: 'mention', v: fmt(d.totalM), d: d.mentionsDelta, info: '5 engines' },
+              { k: 'SENTIMENT', term: 'sentiment', v: String(d.sentiment), suffix: '%', d: d.sentimentDelta ?? undefined, info: d.sentimentDelta != null ? 'vs prev. run' : undefined },
+              { k: 'FALSE CLAIMS', term: 'hallucination', v: d.accuracyRate !== null ? String(d.openIssues) : '-', danger: d.accuracyRate !== null && d.openIssues > 0, info: d.accuracyRate !== null ? (d.fixedIssues > 0 ? `${d.fixedIssues} fixed` : 'none fixed') : 'not set up' },
+              { k: 'COVERAGE', term: 'coverage', v: String(d.totalQ), d: d.coverageDelta ?? undefined, info: 'prompts' },
+            ]} />}
 
         <div className="g2">
           <Card title="Share of Voice - 14 days" info="sov"
@@ -848,6 +884,37 @@ function HBar({ label, v, sub }: { label: string; v: number; sub: string }) {
       <div className="hbar-track"><i style={{ width: v + '%' }} /></div>
       <div className="hbar-sub">{sub}</div>
     </div>
+  );
+}
+
+// Loading placeholder for the score banner, shown while a scan is running so
+// the gauge + bars never bind to partial live data (which used to flash an
+// inflated "100 Excellent" before settling on the real score).
+function HealthBannerSkeleton() {
+  const bars = ['Visibility', 'Sentiment', 'Accuracy', 'Competitive'];
+  return (
+    <section className="hb" aria-busy="true">
+      <div className="hb-score">
+        <div style={{ width: 96, height: 96, borderRadius: '50%', border: '6px solid rgba(255,255,255,.18)', boxSizing: 'border-box' }} />
+        <div>
+          <div className="eyebrow" style={{ color: 'rgba(255,255,255,.7)' }}>BRAND HEALTH</div>
+          <div className="hb-grade" style={{ opacity: .8 }}>Scanning…</div>
+          <div className="hb-d"><span style={{ color: 'rgba(255,255,255,.7)' }}>Calculating once the run completes</span></div>
+        </div>
+      </div>
+      <div className="hb-bars">
+        {bars.map(label => (
+          <div className="hbar" key={label}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+              <span className="hbar-l">{label}</span>
+              <span className="hbar-v mono" style={{ opacity: .5 }}>—</span>
+            </div>
+            <div className="hbar-track"><i style={{ width: '0%' }} /></div>
+            <div className="hbar-sub">Scanning…</div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
