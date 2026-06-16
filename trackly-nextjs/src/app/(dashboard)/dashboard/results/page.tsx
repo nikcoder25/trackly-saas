@@ -46,7 +46,23 @@ interface ResultRow {
 
 type MentionedFilter = 'all' | 'yes' | 'no';
 
-const PAGE_SIZE = 25;
+type PageSize = '25' | '50' | '100' | 'all';
+
+// Per-page selector, rendered in BOTH the top and footer control bars so the
+// two bars share one source of truth for size (the ?size= URL param).
+function PageSizeSelect({ value, onChange }: { value: PageSize; onChange: (v: string) => void }) {
+  return (
+    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <span className="dim" style={{ fontSize: 11 }}>Per page</span>
+      <select className="sel" aria-label="Results per page" value={value} onChange={e => onChange(e.target.value)}>
+        <option value="25">25</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+        <option value="all">All</option>
+      </select>
+    </label>
+  );
+}
 
 function truncate(s: string, n: number): string {
   if (s.length <= n) return s;
@@ -114,6 +130,9 @@ export default function ResultsPage() {
   const prompt = searchParams.get('prompt') || 'all';
   const mentionedRaw = searchParams.get('mentioned');
   const mentioned: MentionedFilter = mentionedRaw === 'yes' || mentionedRaw === 'no' ? mentionedRaw : 'all';
+  const sizeRaw = searchParams.get('size');
+  const size: PageSize = sizeRaw === '50' || sizeRaw === '100' || sizeRaw === 'all' ? sizeRaw : '25';
+  const isAll = size === 'all';
 
   const [page, setPage] = useState(0);
   // Which row is expanded to show its full response (collapsed by default).
@@ -124,6 +143,15 @@ export default function ResultsPage() {
     const next = new URLSearchParams(searchParams.toString());
     if (!value || value === 'all') next.delete(key);
     else next.set(key, value);
+    router.replace(`?${next.toString()}`, { scroll: false });
+  }
+
+  // Dedicated handler for ?size= — same router.replace pattern as setParam, but
+  // the deletable default is '25' (NOT 'all', which is a real page-size value).
+  function setSize(value: string) {
+    const next = new URLSearchParams(searchParams.toString());
+    if (!value || value === '25') next.delete('size');
+    else next.set('size', value);
     router.replace(`?${next.toString()}`, { scroll: false });
   }
 
@@ -143,14 +171,16 @@ export default function ResultsPage() {
     });
   }, [allRows, model, prompt, mentioned, from, to]);
 
-  // Reset to first page when filter inputs change.
-  useEffect(() => { setPage(0); }, [model, prompt, mentioned, from, to]);
+  // Reset to first page when filter inputs or page size change.
+  useEffect(() => { setPage(0); }, [model, prompt, mentioned, from, to, size]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageStart = page * PAGE_SIZE;
-  const slice = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+  // size === 'all' shows every filtered row on a single page (no slicing).
+  const totalPages = isAll ? 1 : Math.max(1, Math.ceil(filtered.length / Number(size)));
+  const currentPage = Math.min(page, totalPages - 1); // clamp so a size bump can't strand us past the last page
+  const pageStart = isAll ? 0 : currentPage * Number(size);
+  const slice = isAll ? filtered : filtered.slice(pageStart, pageStart + Number(size));
 
-  const hasFilters = !!(from || to || model !== 'all' || prompt !== 'all' || mentioned !== 'all');
+  const hasFilters = !!(from || to || model !== 'all' || prompt !== 'all' || mentioned !== 'all' || size !== '25');
 
   if (loading) {
     return (
@@ -205,15 +235,16 @@ export default function ResultsPage() {
                 value={from} onChange={e => setParam('from', e.target.value)} />
               <input type="date" className="sel" aria-label="To"
                 value={to} onChange={e => setParam('to', e.target.value)} />
+              <PageSizeSelect value={size} onChange={setSize} />
               <Pill>{filtered.length === 0 ? 'No matches' : `${filtered.length} result${filtered.length === 1 ? '' : 's'}`}</Pill>
-              {totalPages > 1 && (
-                <Pill>Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filtered.length)} of {filtered.length}</Pill>
+              {!isAll && totalPages > 1 && (
+                <Pill>Showing {pageStart + 1}–{Math.min(pageStart + Number(size), filtered.length)} of {filtered.length}</Pill>
               )}
               <span style={{ flex: 1 }} />
-              {totalPages > 1 && (
+              {!isAll && totalPages > 1 && (
                 <>
-                  <button type="button" className="btn-d" disabled={page === 0} onClick={() => setPage(p => p - 1)}>◀ Prev</button>
-                  <button type="button" className="btn-d" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Next ▶</button>
+                  <button type="button" className="btn-d" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>◀ Prev</button>
+                  <button type="button" className="btn-d" disabled={currentPage >= totalPages - 1} onClick={() => setPage(currentPage + 1)}>Next ▶</button>
                 </>
               )}
             </Filter>
@@ -226,7 +257,8 @@ export default function ResultsPage() {
                 </div>
               </Card>
             ) : (
-              slice.map(r => {
+              <>
+              {slice.map(r => {
                 const p = platformFor(r.model);
                 const expanded = expandedId === r.id;
                 const toggle = () => setExpandedId(expanded ? null : r.id);
@@ -263,7 +295,24 @@ export default function ResultsPage() {
                     )}
                   </div>
                 );
-              })
+              })}
+              {/* Footer controls — mirror the top bar; shared page/size state. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>
+                <span className="mono dim" style={{ fontSize: 11 }}>
+                  {isAll
+                    ? `Showing all ${filtered.length}`
+                    : `Showing ${pageStart + 1}–${Math.min(pageStart + Number(size), filtered.length)} of ${filtered.length}`}
+                </span>
+                <span style={{ flex: 1 }} />
+                <PageSizeSelect value={size} onChange={setSize} />
+                {!isAll && totalPages > 1 && (
+                  <>
+                    <button type="button" className="btn-d" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>◀ Prev</button>
+                    <button type="button" className="btn-d" disabled={currentPage >= totalPages - 1} onClick={() => setPage(currentPage + 1)}>Next ▶</button>
+                  </>
+                )}
+              </div>
+              </>
             )}
           </>
         )}
