@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { useBrandData } from '@/hooks/useBrandData';
 import { TableSkeleton } from '@/components/dashboard/Skeleton';
-import { PLATFORMS, type Platform, PlatformTile, Badge, Card, Pill, Filter, PageHead } from '@/app/dashboard-v2/ui';
+import { PLATFORMS, type Platform, PlatformTile, Card, Pill, Filter, PageHead } from '@/app/dashboard-v2/ui';
 
 // Map a real platform/model name to the design's Platform tile descriptor.
 function platformFor(name: string): Platform {
@@ -65,61 +65,6 @@ function MentionedBadge({ mentioned }: { mentioned: boolean }) {
     : <span className="status-notfound">NOT FOUND</span>;
 }
 
-interface DetailPanelProps {
-  row: ResultRow;
-  onClose: () => void;
-}
-
-function DetailPanel({ row, onClose }: DetailPanelProps) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  return (
-    <div role="dialog" aria-modal="true" aria-label="Result detail"
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000,
-        display: 'flex', justifyContent: 'flex-end',
-      }}>
-      <div onClick={e => e.stopPropagation()}
-        className="card"
-        style={{
-          width: '100%', maxWidth: 560, height: '100%', borderRadius: 0,
-          padding: 20, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14,
-        }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Result</h2>
-          <button onClick={onClose} aria-label="Close"
-            style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 20, cursor: 'pointer', lineHeight: 1, padding: 0, minWidth: 44, minHeight: 44 }}>×</button>
-        </div>
-
-        <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.8 }}>
-          <div><strong style={{ color: 'var(--text)' }}>Timestamp:</strong> <span style={{ fontFamily: 'var(--mono)' }}>{formatTimestamp(row.timestamp)}</span></div>
-          <div><strong style={{ color: 'var(--text)' }}>Model:</strong> <span style={{ color: PLATFORM_COLORS[row.model] || 'var(--text)', fontWeight: 700 }}>{row.model}</span></div>
-          <div><strong style={{ color: 'var(--text)' }}>Mentioned:</strong> {row.mentioned ? 'Yes' : 'No'}</div>
-        </div>
-
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 6 }}>Prompt</div>
-          <div style={{ background: 'var(--bg3)', padding: 12, borderRadius: 'var(--radius-xs)', fontSize: 13, color: 'var(--text)' }}>{row.prompt}</div>
-        </div>
-
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 6 }}>Raw response</div>
-          <div style={{
-            background: 'var(--bg3)', padding: 14, borderRadius: 'var(--radius-xs)',
-            fontSize: 12, color: 'var(--text)', lineHeight: 1.7, whiteSpace: 'pre-wrap',
-            borderLeft: `3px solid ${row.mentioned ? 'var(--green)' : 'var(--red)'}`,
-          }}>{row.response}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function dateOnly(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
@@ -171,7 +116,8 @@ export default function ResultsPage() {
   const mentioned: MentionedFilter = mentionedRaw === 'yes' || mentionedRaw === 'no' ? mentionedRaw : 'all';
 
   const [page, setPage] = useState(0);
-  const [activeRow, setActiveRow] = useState<ResultRow | null>(null);
+  // Which row is expanded to show its full response (collapsed by default).
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [tableScrolled, setTableScrolled] = useState(false);
 
   function setParam(key: string, value: string) {
@@ -282,40 +228,46 @@ export default function ResultsPage() {
             ) : (
               slice.map(r => {
                 const p = platformFor(r.model);
+                const expanded = expandedId === r.id;
+                const toggle = () => setExpandedId(expanded ? null : r.id);
                 return (
-                  <Card key={r.id}
-                    title={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-                      <PlatformTile p={p} size={26} /> {p.name}
-                    </span>}
-                    right={<>
-                      <Badge tone={r.mentioned ? 'pos' : 'neg'}>{r.mentioned ? 'MENTIONED' : 'NOT MENTIONED'}</Badge>
-                      <span className="mono dim" style={{ fontSize: 11 }}>{formatTimestamp(r.timestamp)}</span>
-                    </>}>
-                    <div className="proof-body">
-                      <div className="proof-q mono"><span className="dim">QUERY ›</span> &ldquo;{r.prompt}&rdquo;</div>
-                      <div className="proof-answer" style={{ whiteSpace: 'pre-wrap', cursor: 'pointer' }}
-                        role="button" tabIndex={0}
-                        onClick={() => setActiveRow(r)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveRow(r); }
-                        }}>
-                        {r.response || <span className="dim">Engine returned no usable answer.</span>}
-                      </div>
-                      <div className="proof-meta mono">
-                        <span><span className="dim">MODEL:</span> {r.model}</span>
-                        <span className="dim">·</span>
-                        <span><span className="dim">RESULT:</span> {r.mentioned ? 'mentioned' : 'not mentioned'}</span>
-                      </div>
+                  <div key={r.id} className="card" style={{ padding: 0, marginBottom: 8, overflow: 'hidden' }}>
+                    {/* Collapsed one-line row: platform + status + query + timestamp */}
+                    <div
+                      role="button" tabIndex={0} aria-expanded={expanded}
+                      onClick={toggle}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer' }}
+                    >
+                      <span aria-hidden="true" style={{ color: 'var(--muted)', fontSize: 10, width: 12, flexShrink: 0 }}>{expanded ? '▾' : '▸'}</span>
+                      <PlatformTile p={p} size={22} />
+                      <span style={{ fontSize: 12, fontWeight: 700, color: PLATFORM_COLORS[r.model] || 'var(--text)', minWidth: 84, flexShrink: 0 }}>{p.name}</span>
+                      <MentionedBadge mentioned={r.mentioned} />
+                      <span className="mono" style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span className="dim">QUERY ›</span> &ldquo;{r.prompt}&rdquo;
+                      </span>
+                      <span className="mono dim" style={{ fontSize: 11, flexShrink: 0 }}>{formatTimestamp(r.timestamp)}</span>
                     </div>
-                  </Card>
+                    {/* Expanded: full response + MODEL/RESULT footer */}
+                    {expanded && (
+                      <div className="proof-body" style={{ padding: '0 14px 12px 38px', borderTop: '1px solid var(--border)' }}>
+                        <div className="proof-answer" style={{ whiteSpace: 'pre-wrap', marginTop: 10 }}>
+                          {r.response || <span className="dim">Engine returned no usable answer.</span>}
+                        </div>
+                        <div className="proof-meta mono" style={{ marginTop: 10 }}>
+                          <span><span className="dim">MODEL:</span> {r.model}</span>
+                          <span className="dim">·</span>
+                          <span><span className="dim">RESULT:</span> {r.mentioned ? 'mentioned' : 'not mentioned'}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 );
               })
             )}
           </>
         )}
       </div>
-
-      {activeRow && <DetailPanel row={activeRow} onClose={() => setActiveRow(null)} />}
     </div>
   );
 }

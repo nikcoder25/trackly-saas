@@ -19,9 +19,10 @@ import { useBrands } from '@/contexts/BrandContext';
  * an aggregate count ("mentioned on 3/5 engines"). Cards auto-dismiss a few
  * seconds after their last update if the user doesn't touch them, and there's a
  * single "Clear all" control at the top to wipe them at once. Individual cards
- * can also be closed. Clicking a card opens that query's full detail view
- * (/dashboard/prompt-details?q=…) via soft navigation, so the live run state
- * survives and the detail page shows the in-progress results immediately.
+ * can also be closed. Clicking a card opens that query's results
+ * (/dashboard/results?prompt=…) via soft navigation, so the live run state
+ * survives and the Results page lands pre-filtered to that query, showing the
+ * in-progress results immediately.
  */
 const AUTO_DISMISS_MS = 8000; // a card disappears this long after its last update
 
@@ -40,11 +41,12 @@ export default function GlobalLiveToasts() {
   const router = useRouter();
   const selectedId = selectedBrand?.id ?? null;
 
-  // Clicking a card opens that query's full detail view. Soft (client-side)
-  // navigation so the live RunContext state survives and the page renders the
-  // already-known engine results immediately instead of a blank page.
-  const openQuery = (query: string) =>
-    router.push('/dashboard/prompt-details?q=' + encodeURIComponent(query));
+  // Clicking a card opens that query's results, pre-filtered via ?prompt=.
+  // Soft (client-side) navigation so the live RunContext state survives and the
+  // Results page renders the already-known engine results immediately instead
+  // of a blank/unfiltered page.
+  const openResults = (query: string) =>
+    router.push('/dashboard/results?prompt=' + encodeURIComponent(query));
 
   const [groups, setGroups] = useState<QueryGroup[]>([]);
   const groupIdRef = useRef(0);
@@ -154,8 +156,8 @@ export default function GlobalLiveToasts() {
               role="button"
               tabIndex={0}
               title="Open this query's results"
-              onClick={() => openQuery(g.query)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openQuery(g.query); } }}
+              onClick={() => openResults(g.query)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openResults(g.query); } }}
               style={{
               display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
               background: 'var(--bg2)', border: '1px solid var(--border)',
