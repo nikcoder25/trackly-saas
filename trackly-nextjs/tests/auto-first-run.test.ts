@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { resolveFirstRunDispatch } from '@/contexts/RunContext';
+import { resolveFirstRunDispatch, resolveAutoFirstScan } from '@/contexts/RunContext';
+
+const NONE = new Set<string>();
 
 /**
  * Onboarding auto-first-scan: after a brand is created the modal flags it via
@@ -37,5 +39,55 @@ describe('resolveFirstRunDispatch', () => {
 
   it('waits (does not double-dispatch) while a run is already in flight', () => {
     expect(resolveFirstRunDispatch('b1', [{ id: 'b1' }], true)).toEqual({ action: 'wait' });
+  });
+});
+
+/**
+ * resolveAutoFirstScan adds the durable fallback on top of the creation flag:
+ * the first scan also kicks off for the brand the user is looking at when it
+ * has prompts but no results and was never auto-scanned. This is what makes the
+ * scan start on its own even when the one-shot creation flag was lost (refresh,
+ * new tab, verification redirect, an errored dispatch), without ever looping.
+ */
+describe('resolveAutoFirstScan', () => {
+  const withQ = (id: string, extra: Record<string, unknown> = {}) => ({ id, queries: ['q1', 'q2'], ...extra });
+
+  it('never stacks a second scan while one is running', () => {
+    expect(resolveAutoFirstScan('b1', 'b1', [withQ('b1')], true, NONE)).toEqual({ action: 'wait' });
+    expect(resolveAutoFirstScan(null, 'b1', [withQ('b1')], true, NONE)).toEqual({ action: 'wait' });
+  });
+
+  it('honours the explicit creation flag first (fast path)', () => {
+    expect(resolveAutoFirstScan('b1', null, [withQ('b1')], false, NONE)).toEqual({ action: 'run', brandId: 'b1' });
+    expect(resolveAutoFirstScan('b1', 'other', [withQ('b1'), withQ('other')], false, NONE)).toEqual({ action: 'run', brandId: 'b1' });
+  });
+
+  it('waits for a flagged brand that has not loaded into context yet', () => {
+    expect(resolveAutoFirstScan('b1', null, [], false, NONE)).toEqual({ action: 'wait' });
+  });
+
+  it('clears the flag (and does not re-run) when the flagged brand already has data or was auto-run', () => {
+    expect(resolveAutoFirstScan('b1', null, [withQ('b1', { runs: [{ id: 'r1' }] })], false, NONE)).toEqual({ action: 'clear' });
+    expect(resolveAutoFirstScan('b1', null, [withQ('b1')], false, new Set(['b1']))).toEqual({ action: 'clear' });
+  });
+
+  it('FALLBACK: auto-runs the selected brand with prompts but no runs when no flag is set', () => {
+    expect(resolveAutoFirstScan(null, 'b1', [withQ('b1')], false, NONE)).toEqual({ action: 'run', brandId: 'b1' });
+  });
+
+  it('FALLBACK: does not auto-run a brand that already has results', () => {
+    expect(resolveAutoFirstScan(null, 'b1', [withQ('b1', { runs: [{ id: 'r1' }] })], false, NONE)).toEqual({ action: 'idle' });
+  });
+
+  it('FALLBACK: does not auto-run a brand with no tracked prompts', () => {
+    expect(resolveAutoFirstScan(null, 'b1', [{ id: 'b1', queries: [] }], false, NONE)).toEqual({ action: 'idle' });
+  });
+
+  it('FALLBACK: fires only once per brand — the persistent guard prevents loops', () => {
+    expect(resolveAutoFirstScan(null, 'b1', [withQ('b1')], false, new Set(['b1']))).toEqual({ action: 'idle' });
+  });
+
+  it('does nothing when there is no flag and no selected brand', () => {
+    expect(resolveAutoFirstScan(null, null, [withQ('b1')], false, NONE)).toEqual({ action: 'idle' });
   });
 });

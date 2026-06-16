@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandProvider, useBrands } from '@/contexts/BrandContext';
-import { RunProvider, useRun, markPendingFirstRun, PENDING_FIRST_RUN_KEY, resolveFirstRunDispatch } from '@/contexts/RunContext';
+import { RunProvider, useRun, markPendingFirstRun, markBrandAutoRan, getAutoRanBrandIds, PENDING_FIRST_RUN_KEY, resolveAutoFirstScan, type AutoScanBrand } from '@/contexts/RunContext';
 import { CreditsProvider, useCredits } from '@/contexts/CreditsContext';
 import { PLAN_LIMITS } from '@/lib/constants';
 import LvxShell from '@/components/dashboard/LvxShell';
@@ -42,29 +42,43 @@ function OnboardingModal() {
 }
 
 /**
- * Dispatches the automatic first scan for a freshly created brand.
+ * Dispatches the automatic first scan so the user never has to click "Run".
  *
- * Reads the brand id flagged by the brand-creation flow (markPendingFirstRun)
- * and, once that brand is loaded and idle, kicks off one auto run. Mounted
- * persistently under the providers so it fires reliably regardless of which
- * modal created the brand or whether that modal has unmounted. Fires at most
- * once per page load and clears the flag so it never double-runs or burns
- * credits on subsequent visits.
+ * Two triggers, in order of precedence:
+ *   1. The explicit creation flag (markPendingFirstRun) set by "Create Brand &
+ *      Run" — the fast path right after onboarding.
+ *   2. A durable fallback: whenever the brand the user is looking at has
+ *      tracked prompts but no results yet and has never been auto-scanned, the
+ *      scan starts on its own. This rescues every case where the creation flag
+ *      was lost — a refresh, a new tab, the email-verification redirect, or an
+ *      earlier dispatch that errored — which is what left brands stranded on
+ *      "Run your first scan" despite repeated fixes to the flag path alone.
+ *
+ * Mounted persistently under the providers so it fires regardless of which
+ * modal created the brand. The per-brand localStorage guard (markBrandAutoRan)
+ * plus the in-memory firedRef keep it to exactly one automatic attempt per
+ * brand, so it never loops or burns credits twice — across reloads and tabs.
  */
 function AutoFirstRun() {
-  const { brands, loading } = useBrands();
+  const { brands, loading, selectedBrand, selectedBrandLocked } = useBrands();
   const { startRun, live } = useRun();
   const firedRef = useRef(false);
 
   useEffect(() => {
     if (loading || firedRef.current) return;
+    // A locked brand (over plan limit) can't run; don't auto-dispatch — the
+    // server would just reject it and we'd waste the one-shot guard.
+    if (selectedBrandLocked) return;
+
     let pendingId: string | null = null;
     try { pendingId = sessionStorage.getItem(PENDING_FIRST_RUN_KEY); } catch { /* storage unavailable */ }
 
-    const decision = resolveFirstRunDispatch(
+    const decision = resolveAutoFirstScan(
       pendingId,
-      brands as Array<{ id: string; runs?: unknown }>,
+      selectedBrand?.id ?? null,
+      brands as AutoScanBrand[],
       live.running,
+      getAutoRanBrandIds(),
     );
     if (decision.action === 'clear') {
       try { sessionStorage.removeItem(PENDING_FIRST_RUN_KEY); } catch {}
@@ -73,9 +87,10 @@ function AutoFirstRun() {
     if (decision.action !== 'run') return; // idle or wait — nothing to do yet
 
     firedRef.current = true;
+    markBrandAutoRan(decision.brandId);
     try { sessionStorage.removeItem(PENDING_FIRST_RUN_KEY); } catch {}
     startRun(false, { auto: true, brandId: decision.brandId });
-  }, [loading, brands, live.running, startRun]);
+  }, [loading, brands, selectedBrand, selectedBrandLocked, live.running, startRun]);
 
   return null;
 }
