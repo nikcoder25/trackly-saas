@@ -242,8 +242,10 @@ function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
         onCreated={(brand) => {
           setShowAddBrand(false);
           setSelectedBrand(brand);
+          // Pass brandId so the auto-run targets the brand we just created
+          // rather than racing the selectedBrand closure update.
           refreshBrands().then(() => {
-            setTimeout(() => startRunRef.current(false, { auto: true }), 600);
+            setTimeout(() => startRunRef.current(false, { auto: true, brandId: brand.id }), 600);
           });
         }}
       />
