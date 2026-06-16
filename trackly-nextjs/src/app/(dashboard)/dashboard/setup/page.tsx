@@ -8,7 +8,7 @@ import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import SectionField from '@/components/dashboard/SectionField';
 import TagList from '@/components/dashboard/TagList';
 import { useBrands } from '@/contexts/BrandContext';
-import { useRun } from '@/contexts/RunContext';
+import { useRun, markPendingFirstRun } from '@/contexts/RunContext';
 import { useToast } from '@/components/dashboard/Toast';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
 import { Card, Badge, PageHead } from '@/app/dashboard-v2/ui';
@@ -76,9 +76,6 @@ export default function SetupPage() {
     || (user?.limits as Record<string, number>)?.queries
     || 50;
   const { brands: ctxBrands, selectedBrand: ctxSelectedBrand, setSelectedBrand: setCtxSelectedBrand, loading: ctxLoading, refreshBrands } = useBrands();
-  const { startRun } = useRun();
-  const startRunRef = useRef(startRun);
-  useEffect(() => { startRunRef.current = startRun; }, [startRun]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [loading, setLoading] = useState(true);
@@ -128,7 +125,10 @@ export default function SetupPage() {
             setBrands([...brands, brand]);
             setSelectedBrand(brand);
             setCtxSelectedBrand(brand);
-            refreshBrands().then(() => { setTimeout(() => startRunRef.current(false, { auto: true, brandId: brand.id }), 600); });
+            // Flag for an automatic first scan; <AutoFirstRun> (mounted in the
+            // dashboard layout) dispatches it once the new brand is in context.
+            markPendingFirstRun(brand.id);
+            refreshBrands();
           }}
         />
       )}

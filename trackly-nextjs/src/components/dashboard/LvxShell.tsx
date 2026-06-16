@@ -14,7 +14,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrands } from '@/contexts/BrandContext';
-import { useRun } from '@/contexts/RunContext';
+import { useRun, markPendingFirstRun } from '@/contexts/RunContext';
 import { Logo } from '@/app/dashboard-v2/ui';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
 import '@/app/dashboard-v2/dashboard-v2.css';
@@ -114,12 +114,10 @@ function Lvx({ children }: { children: React.ReactNode }) {
 function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const { user } = useAuth();
   const { brands, selectedBrand, setSelectedBrand, selectBrandById, refreshBrands, plan, brandLimit, loading: brandsLoading } = useBrands();
-  const { startRun, live, pct } = useRun();
+  const { live, pct } = useRun();
   // Per-brand run progress: show a thin bar under the brand selector when the
   // currently-selected brand is the one being scanned right now.
   const selectedBrandRunning = live.running && !!selectedBrand && live.brandId === selectedBrand.id;
-  const startRunRef = React.useRef(startRun);
-  React.useEffect(() => { startRunRef.current = startRun; }, [startRun]);
   const [showAddBrand, setShowAddBrand] = React.useState(false);
   const [showLimitPrompt, setShowLimitPrompt] = React.useState(false);
   const limitRef = React.useRef<HTMLDivElement>(null);
@@ -242,11 +240,10 @@ function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
         onCreated={(brand) => {
           setShowAddBrand(false);
           setSelectedBrand(brand);
-          // Pass brandId so the auto-run targets the brand we just created
-          // rather than racing the selectedBrand closure update.
-          refreshBrands().then(() => {
-            setTimeout(() => startRunRef.current(false, { auto: true, brandId: brand.id }), 600);
-          });
+          // Flag for an automatic first scan; <AutoFirstRun> dispatches it once
+          // the new brand is in context (survives this modal unmounting).
+          markPendingFirstRun(brand.id);
+          refreshBrands();
         }}
       />
     )}
