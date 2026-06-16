@@ -23,6 +23,12 @@ interface Mention {
   raw?: string;
   context?: string;
   snippet?: string;
+  // Set by the run worker when a query failed against a platform. The
+  // worker writes these alongside platform/query so we can tell the user
+  // exactly which engine + keyword errored, and why.
+  error?: boolean;
+  errorMessage?: string;
+  errorType?: string;
 }
 interface Run {
   id?: string;
@@ -42,9 +48,15 @@ interface ResultRow {
   model: string;
   mentioned: boolean;
   response: string;
+  // Whether this query errored against the platform, plus the worker's
+  // failure detail so the row can show the user which engine + keyword
+  // broke and why (e.g. rate_limited, no API key, timeout).
+  error: boolean;
+  errorMessage: string;
+  errorType: string;
 }
 
-type MentionedFilter = 'all' | 'yes' | 'no';
+type MentionedFilter = 'all' | 'yes' | 'no' | 'error';
 
 type PageSize = '25' | '50' | '100' | 'all';
 
@@ -75,10 +87,19 @@ function formatTimestamp(iso: string): string {
   return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
-function MentionedBadge({ mentioned }: { mentioned: boolean }) {
+function MentionedBadge({ mentioned, error }: { mentioned: boolean; error?: boolean }) {
+  if (error) return <span className="status-error">ERROR</span>;
   return mentioned
     ? <span className="status-found">FOUND</span>
     : <span className="status-notfound">NOT FOUND</span>;
+}
+
+// Human-friendly label for the worker's errorType code, shown next to the
+// raw message so a non-engineer can tell a transient 429 from a hard failure.
+function errorTypeLabel(errorType: string): string {
+  if (errorType === 'rate_limited') return 'Rate limited';
+  if (errorType === 'error') return 'Error';
+  return errorType || 'Error';
 }
 
 function dateOnly(iso: string): string {
@@ -107,6 +128,9 @@ function flattenRuns(brand: Brand | null): ResultRow[] {
         model: platform,
         mentioned: !!r.mentioned,
         response,
+        error: !!r.error,
+        errorMessage: r.errorMessage || '',
+        errorType: r.errorType || '',
       });
     });
   }
@@ -129,7 +153,7 @@ export default function ResultsPage() {
   const model = searchParams.get('model') || 'all';
   const prompt = searchParams.get('prompt') || 'all';
   const mentionedRaw = searchParams.get('mentioned');
-  const mentioned: MentionedFilter = mentionedRaw === 'yes' || mentionedRaw === 'no' ? mentionedRaw : 'all';
+  const mentioned: MentionedFilter = mentionedRaw === 'yes' || mentionedRaw === 'no' || mentionedRaw === 'error' ? mentionedRaw : 'all';
   const sizeRaw = searchParams.get('size');
   const size: PageSize = sizeRaw === '50' || sizeRaw === '100' || sizeRaw === 'all' ? sizeRaw : '25';
   const isAll = size === 'all';
@@ -163,13 +187,28 @@ export default function ResultsPage() {
     return allRows.filter(r => {
       if (model !== 'all' && r.model !== model) return false;
       if (prompt !== 'all' && r.prompt !== prompt) return false;
-      if (mentioned === 'yes' && !r.mentioned) return false;
-      if (mentioned === 'no' && r.mentioned) return false;
+      // "Mentioned"/"Not mentioned" describe successful queries only - an
+      // errored query has no verdict, so keep it out of both buckets (it
+      // lives under the dedicated "Errors" filter), matching the Mentions page.
+      if (mentioned === 'yes' && (!r.mentioned || r.error)) return false;
+      if (mentioned === 'no' && (r.mentioned || r.error)) return false;
+      if (mentioned === 'error' && !r.error) return false;
       if (from && dateOnly(r.timestamp) < from) return false;
       if (to && dateOnly(r.timestamp) > to) return false;
       return true;
     });
   }, [allRows, model, prompt, mentioned, from, to]);
+
+  // Count of errored queries across the current model/prompt/date scope
+  // (ignoring the verdict filter itself) so the "N errors" shortcut always
+  // reflects what's reachable, not just what's on screen right now.
+  const errorCount = useMemo(() => allRows.filter(r =>
+    r.error
+    && (model === 'all' || r.model === model)
+    && (prompt === 'all' || r.prompt === prompt)
+    && (!from || dateOnly(r.timestamp) >= from)
+    && (!to || dateOnly(r.timestamp) <= to)
+  ).length, [allRows, model, prompt, from, to]);
 
   // Reset to first page when filter inputs or page size change.
   useEffect(() => { setPage(0); }, [model, prompt, mentioned, from, to, size]);
@@ -230,6 +269,7 @@ export default function ResultsPage() {
                 <option value="all">All</option>
                 <option value="yes">Mentioned</option>
                 <option value="no">Not mentioned</option>
+                <option value="error">Errors</option>
               </select>
               <input type="date" className="sel" aria-label="From"
                 value={from} onChange={e => setParam('from', e.target.value)} />
@@ -237,6 +277,17 @@ export default function ResultsPage() {
                 value={to} onChange={e => setParam('to', e.target.value)} />
               <PageSizeSelect value={size} onChange={setSize} />
               <Pill>{filtered.length === 0 ? 'No matches' : `${filtered.length} result${filtered.length === 1 ? '' : 's'}`}</Pill>
+              {errorCount > 0 && mentioned !== 'error' && (
+                <button
+                  type="button"
+                  className="status-error"
+                  title="Show only errored queries"
+                  style={{ border: 'none', cursor: 'pointer' }}
+                  onClick={() => setParam('mentioned', 'error')}
+                >
+                  {errorCount} error{errorCount === 1 ? '' : 's'} ›
+                </button>
+              )}
               {!isAll && totalPages > 1 && (
                 <Pill>Showing {pageStart + 1}–{Math.min(pageStart + Number(size), filtered.length)} of {filtered.length}</Pill>
               )}
@@ -274,22 +325,37 @@ export default function ResultsPage() {
                       <span aria-hidden="true" style={{ color: 'var(--muted)', fontSize: 10, width: 12, flexShrink: 0 }}>{expanded ? '▾' : '▸'}</span>
                       <PlatformTile p={p} size={22} />
                       <span style={{ fontSize: 12, fontWeight: 700, color: PLATFORM_COLORS[r.model] || 'var(--text)', minWidth: 84, flexShrink: 0 }}>{p.name}</span>
-                      <MentionedBadge mentioned={r.mentioned} />
+                      <MentionedBadge mentioned={r.mentioned} error={r.error} />
                       <span className="mono" style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         <span className="dim">QUERY ›</span> &ldquo;{r.prompt}&rdquo;
                       </span>
                       <span className="mono dim" style={{ fontSize: 11, flexShrink: 0 }}>{formatTimestamp(r.timestamp)}</span>
                     </div>
-                    {/* Expanded: full response + MODEL/RESULT footer */}
+                    {/* Expanded: full response (or error detail) + footer */}
                     {expanded && (
                       <div className="proof-body" style={{ padding: '0 14px 12px 38px', borderTop: '1px solid var(--border)' }}>
-                        <div className="proof-answer" style={{ whiteSpace: 'pre-wrap', marginTop: 10 }}>
-                          {r.response || <span className="dim">Engine returned no usable answer.</span>}
-                        </div>
+                        {r.error ? (
+                          // Surface the exact failure for this platform + keyword so
+                          // the user can see why the query produced no answer.
+                          <div
+                            className="mono"
+                            style={{ marginTop: 10, padding: 12, borderRadius: 8, fontSize: 12, lineHeight: 1.6,
+                              color: 'var(--amber)', background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.2)', whiteSpace: 'pre-wrap' }}
+                          >
+                            <div style={{ fontWeight: 700, marginBottom: 4 }}>{errorTypeLabel(r.errorType)} on {r.model}</div>
+                            {r.errorMessage || 'The engine returned an error with no further detail.'}
+                          </div>
+                        ) : (
+                          <div className="proof-answer" style={{ whiteSpace: 'pre-wrap', marginTop: 10 }}>
+                            {r.response || <span className="dim">Engine returned no usable answer.</span>}
+                          </div>
+                        )}
                         <div className="proof-meta mono" style={{ marginTop: 10 }}>
                           <span><span className="dim">MODEL:</span> {r.model}</span>
                           <span className="dim">·</span>
-                          <span><span className="dim">RESULT:</span> {r.mentioned ? 'mentioned' : 'not mentioned'}</span>
+                          <span><span className="dim">QUERY:</span> &ldquo;{r.prompt}&rdquo;</span>
+                          <span className="dim">·</span>
+                          <span><span className="dim">RESULT:</span> {r.error ? `error (${errorTypeLabel(r.errorType).toLowerCase()})` : r.mentioned ? 'mentioned' : 'not mentioned'}</span>
                         </div>
                       </div>
                     )}

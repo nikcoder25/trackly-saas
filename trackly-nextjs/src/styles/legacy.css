@@ -1791,6 +1791,7 @@ select.finput{appearance:none;}
 .trow:hover{background:var(--bg3);}
 .status-found{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--green);padding:2px 8px;background:rgba(16,185,129,.08);border-radius:100px;}
 .status-notfound{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--red);padding:2px 8px;background:rgba(239,68,68,.08);border-radius:100px;}
+.status-error{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--amber);padding:2px 8px;background:rgba(245,158,11,.1);border-radius:100px;}
 
 /* ── EVIDENCE & PROOF ──────────────── */
 .proof-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;}
