@@ -76,7 +76,7 @@ function AutoFirstRun() {
 
     const decision = resolveAutoFirstScan(
       pendingId,
-      selectedBrand?.id ?? null,
+      (selectedBrand as AutoScanBrand | null) ?? null,
       brands as AutoScanBrand[],
       live.running,
       getAutoRanBrandIds(),

@@ -171,36 +171,49 @@ function brandHasQueries(b: AutoScanBrand): boolean {
  *
  * Order of precedence:
  *   1. A run is already in flight → wait (never stack a second scan).
- *   2. Explicit creation flag (`pendingId`) → wait for the brand to load, clear
- *      if it already has data / was already auto-run, otherwise dispatch. This
- *      is the fast path right after "Create Brand & Run".
+ *   2. Explicit creation flag (`pendingId`) → resolve the brand, clear if it
+ *      already has data / was already auto-run, otherwise dispatch. This is the
+ *      fast path right after "Create Brand & Run" / "Skip wizard & create now".
  *   3. Fallback: the brand the user is currently looking at has tracked prompts
- *      but no results yet and has never been auto-scanned → dispatch. This is
- *      what rescues the case where the creation flag was lost, so the scan
- *      still kicks off on its own instead of stranding the user on an empty
- *      dashboard. The `autoRanIds` guard keeps it to one automatic attempt per
- *      brand, so it never loops or burns credits twice.
+ *      but no results yet and has never been auto-scanned → dispatch. This
+ *      rescues the case where the creation flag was lost, so the scan still
+ *      kicks off on its own instead of stranding the user on an empty dashboard.
+ *      The `autoRanIds` guard keeps it to one automatic attempt per brand, so
+ *      it never loops or burns credits twice.
+ *
+ * Crucially, a brand is resolved from EITHER the loaded `brands` list OR the
+ * in-memory `selectedBrand` object. On creation the modal sets `selectedBrand`
+ * synchronously but `brands` only updates after the async refreshBrands()
+ * round-trip — so keying solely off `brands` made the dispatch wait for that
+ * fetch, which is the race that left "Skip wizard & create now" firing late and
+ * inconsistently. Reading `selectedBrand` directly lets every creation entry
+ * point (full wizard, skip wizard, + Add brand) dispatch instantly. (BUG 2)
  */
 export function resolveAutoFirstScan(
   pendingId: string | null,
-  selectedId: string | null,
+  selectedBrand: AutoScanBrand | null,
   brands: AutoScanBrand[],
   running: boolean,
   autoRanIds: ReadonlySet<string>,
 ): FirstRunDecision {
   if (running) return { action: 'wait' };
 
+  // Freshest view of a brand by id: the loaded list wins (authoritative once
+  // refreshed), else the in-memory selectedBrand we already hold.
+  const lookup = (id: string): AutoScanBrand | undefined =>
+    brands.find(b => b.id === id) || (selectedBrand?.id === id ? selectedBrand : undefined);
+
   if (pendingId) {
-    const flagged = brands.find(b => b.id === pendingId);
-    if (!flagged) return { action: 'wait' };          // brand list hasn't caught up yet
+    const flagged = lookup(pendingId);
+    if (!flagged) return { action: 'wait' };          // not loaded anywhere yet
     if (brandHasRuns(flagged) || autoRanIds.has(pendingId)) return { action: 'clear' };
     return { action: 'run', brandId: pendingId };
   }
 
-  if (selectedId && !autoRanIds.has(selectedId)) {
-    const sel = brands.find(b => b.id === selectedId);
+  if (selectedBrand && !autoRanIds.has(selectedBrand.id)) {
+    const sel = lookup(selectedBrand.id);
     if (sel && !brandHasRuns(sel) && brandHasQueries(sel)) {
-      return { action: 'run', brandId: selectedId };
+      return { action: 'run', brandId: selectedBrand.id };
     }
   }
 
