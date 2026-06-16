@@ -90,6 +90,40 @@ export function markPendingFirstRun(brandId: string) {
   try { sessionStorage.setItem(PENDING_FIRST_RUN_KEY, brandId); } catch { /* storage unavailable */ }
 }
 
+/**
+ * Persistent per-brand "already auto-ran" guard.
+ *
+ * The sessionStorage creation flag (above) is a single-shot signal that only
+ * exists at the instant a brand is created. If it's lost — a refresh, a new
+ * tab, the email-verification redirect that bounces the user out and back, or
+ * an earlier dispatch that errored — the first scan never starts on its own and
+ * the brand sits forever on "Run your first scan". This localStorage marker is
+ * the durable counterpart: it records every brand we've auto-started a scan for
+ * so the fallback path (below) can fire exactly once per brand per browser
+ * without ever looping or double-charging, even across reloads and tabs.
+ */
+export const AUTORUN_DONE_KEY = 'livesov_autorun_done_v1';
+
+export function getAutoRanBrandIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(AUTORUN_DONE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : []);
+  } catch { return new Set(); }
+}
+
+export function markBrandAutoRan(brandId: string) {
+  try {
+    const ids = getAutoRanBrandIds();
+    ids.add(brandId);
+    // Cap the stored list so it can't grow unbounded for heavy multi-brand
+    // accounts; the most recent 200 brands is far more than any one browser
+    // realistically onboards.
+    const trimmed = [...ids].slice(-200);
+    localStorage.setItem(AUTORUN_DONE_KEY, JSON.stringify(trimmed));
+  } catch { /* storage unavailable — the in-memory firedRef guard still holds */ }
+}
+
 export type FirstRunDecision =
   | { action: 'idle' }                  // nothing flagged
   | { action: 'wait' }                  // flagged, but not ready to dispatch yet
@@ -102,6 +136,10 @@ export type FirstRunDecision =
  * and whether a run is already in flight, decide whether to dispatch the
  * automatic first scan, wait for state to settle, clear a stale flag, or do
  * nothing.
+ *
+ * Retained for the explicit creation-flag fast path and its existing tests;
+ * the component now calls resolveAutoFirstScan, which layers the durable
+ * fallback on top of this.
  */
 export function resolveFirstRunDispatch(
   pendingId: string | null,
@@ -115,6 +153,58 @@ export function resolveFirstRunDispatch(
   if (Array.isArray(runs) && runs.length > 0) return { action: 'clear' }; // already has data
   if (running) return { action: 'wait' };      // a run is already happening — leave it
   return { action: 'run', brandId: pendingId };
+}
+
+export interface AutoScanBrand { id: string; runs?: unknown; queries?: unknown }
+
+function brandHasRuns(b: AutoScanBrand): boolean {
+  return Array.isArray(b.runs) && b.runs.length > 0;
+}
+function brandHasQueries(b: AutoScanBrand): boolean {
+  return Array.isArray(b.queries) && b.queries.length > 0;
+}
+
+/**
+ * Decide whether to auto-start the first scan, considering BOTH the explicit
+ * creation flag and a durable fallback. This is the function the component
+ * actually runs; it's pure so the behaviour can be unit-tested without a DOM.
+ *
+ * Order of precedence:
+ *   1. A run is already in flight → wait (never stack a second scan).
+ *   2. Explicit creation flag (`pendingId`) → wait for the brand to load, clear
+ *      if it already has data / was already auto-run, otherwise dispatch. This
+ *      is the fast path right after "Create Brand & Run".
+ *   3. Fallback: the brand the user is currently looking at has tracked prompts
+ *      but no results yet and has never been auto-scanned → dispatch. This is
+ *      what rescues the case where the creation flag was lost, so the scan
+ *      still kicks off on its own instead of stranding the user on an empty
+ *      dashboard. The `autoRanIds` guard keeps it to one automatic attempt per
+ *      brand, so it never loops or burns credits twice.
+ */
+export function resolveAutoFirstScan(
+  pendingId: string | null,
+  selectedId: string | null,
+  brands: AutoScanBrand[],
+  running: boolean,
+  autoRanIds: ReadonlySet<string>,
+): FirstRunDecision {
+  if (running) return { action: 'wait' };
+
+  if (pendingId) {
+    const flagged = brands.find(b => b.id === pendingId);
+    if (!flagged) return { action: 'wait' };          // brand list hasn't caught up yet
+    if (brandHasRuns(flagged) || autoRanIds.has(pendingId)) return { action: 'clear' };
+    return { action: 'run', brandId: pendingId };
+  }
+
+  if (selectedId && !autoRanIds.has(selectedId)) {
+    const sel = brands.find(b => b.id === selectedId);
+    if (sel && !brandHasRuns(sel) && brandHasQueries(sel)) {
+      return { action: 'run', brandId: selectedId };
+    }
+  }
+
+  return { action: 'idle' };
 }
 
 function fmtTime(ms: number): string {
