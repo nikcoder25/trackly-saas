@@ -95,8 +95,13 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     price: '$0',
   },
   trial: {
-    monthlyCredits: 200,
-    manualDailyCap: 10,
+    // Trial gets a more generous monthly budget + daily manual cap to drive
+    // activation during the 7-day window. Spend stays bounded by the
+    // per-user/global trial anti-abuse caps (TRIAL_DAILY_PROMPT_CAP_PER_USER /
+    // TRIAL_DAILY_GLOBAL_PROMPT_CAP in constants.ts) and the per-tenant USD
+    // cost caps. Trial only — all other tiers are unchanged.
+    monthlyCredits: 500,
+    manualDailyCap: 30,
     cooldownSeconds: 30,
     maxPlatforms: 5,
     trackedPromptsPerAccount: 30,
