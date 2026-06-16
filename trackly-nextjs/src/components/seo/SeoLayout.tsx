@@ -55,7 +55,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
         <Link href="/signup" className="land-btn land-btn-primary" style={{ padding: '14px 36px', fontSize: 16 }}>
           Get Started
         </Link>
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', marginTop: 16 }}>No credit card required.</p>
+        <p style={{ fontSize: 12, color: 'rgba(255,255,255,.75)', marginTop: 16 }}>No credit card required.</p>
       </section>
 
       {/* Footer */}

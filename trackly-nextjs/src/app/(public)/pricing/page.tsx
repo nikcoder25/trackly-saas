@@ -294,6 +294,7 @@ export default function PricingPage() {
           {PRICING_PLANS.filter((plan) => plan.name !== 'Free').map((plan) => {
             const featured = !!plan.featured;
             const showTrial = plan.name !== 'Free';
+            const isAnnual = annual && plan.price !== '$0';
             const displayPrice = annual ? plan.annualPrice : plan.price;
             return (
               <div
@@ -331,10 +332,18 @@ export default function PricingPage() {
                   {plan.name}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 4 }}>
                   <span style={{ fontSize: 44, fontWeight: 800, letterSpacing: -1.5, lineHeight: 1 }}>
                     {displayPrice}
                   </span>
+                  {isAnnual && (
+                    <span style={{
+                      fontSize: 18, fontWeight: 600, textDecoration: 'line-through',
+                      color: featured ? 'rgba(255,255,255,.6)' : 'var(--text-muted, #94a3b8)',
+                    }}>
+                      {plan.price}
+                    </span>
+                  )}
                   <span style={{
                     fontSize: 14, fontWeight: 500,
                     color: featured ? 'rgba(255,255,255,.75)' : 'var(--text-muted, #94a3b8)',
@@ -346,8 +355,11 @@ export default function PricingPage() {
                   fontSize: 12, minHeight: 18, marginBottom: 14,
                   color: featured ? 'rgba(255,255,255,.75)' : 'var(--text-muted, #94a3b8)',
                 }}>
-                  {annual && plan.price !== '$0' ? `Billed annually at ${plan.annualPrice}/mo` : ''}
-                  {!annual && ' '}
+                  {plan.price === '$0'
+                    ? ' '
+                    : isAnnual
+                      ? 'Billed annually · save 20%'
+                      : 'Billed monthly'}
                 </div>
 
                 <div style={{
