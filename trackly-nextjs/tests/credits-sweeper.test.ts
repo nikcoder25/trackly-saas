@@ -1,5 +1,5 @@
 /**
- * Tests for `sweepUsageCounterDrift` — the defensive layer that
+ * Tests for `sweepUsageCounterDrift` - the defensive layer that
  * reconciles `usage_counters.monthly_used` toward the ledger when
  * the per-run refund paths leak (host kill mid-run, refund DB hiccup,
  * pre-migration rows with no `kind`).
@@ -69,7 +69,7 @@ function stage(
   });
 }
 
-describe('sweepUsageCounterDrift — decrement only', () => {
+describe('sweepUsageCounterDrift - decrement only', () => {
   it('reconciles a single user with phantom-reserved credits down to the ledger', async () => {
     stage([{
       user_id: 'u_kingdom',
@@ -91,7 +91,7 @@ describe('sweepUsageCounterDrift — decrement only', () => {
     });
   });
 
-  it('preserves inflight reservations — expected counter accounts for active runs', async () => {
+  it('preserves inflight reservations - expected counter accounts for active runs', async () => {
     // 500 credits sit in an active 'running' row that hasn't yet
     // written ledger entries. The sweeper must NOT treat those as
     // drift, because reserveCredits() correctly debited the counter
@@ -105,12 +105,12 @@ describe('sweepUsageCounterDrift — decrement only', () => {
 
     const out = await sweepUsageCounterDrift();
 
-    // before(6000) == ledger(5500) + inflight(500) — no drift to fix.
+    // before(6000) == ledger(5500) + inflight(500) - no drift to fix.
     expect(out.reconciled).toBe(0);
     expect(out.totalDecremented).toBe(0);
   });
 
-  it('skips users where monthly_used <= expected — never bumps the counter up', async () => {
+  it('skips users where monthly_used <= expected - never bumps the counter up', async () => {
     // The candidate query filters these out at the SQL level, so the
     // sweeper's loop should see nothing. We assert defensively that
     // even if a manually-crafted candidate row slipped through (e.g.
@@ -130,7 +130,7 @@ describe('sweepUsageCounterDrift — decrement only', () => {
   });
 });
 
-describe('sweepUsageCounterDrift — concurrency guard', () => {
+describe('sweepUsageCounterDrift - concurrency guard', () => {
   it('treats a 0-row UPDATE result as a race and skips it without throwing', async () => {
     stage(
       [{ user_id: 'u_race', monthly_used: 8000, ledger_used: 5000, inflight: 0 }],
@@ -139,7 +139,7 @@ describe('sweepUsageCounterDrift — concurrency guard', () => {
 
     const out = await sweepUsageCounterDrift();
 
-    // Candidate was seen but the guarded UPDATE didn't match — a
+    // Candidate was seen but the guarded UPDATE didn't match - a
     // concurrent reservation landed between SELECT and UPDATE.
     expect(out.scanned).toBe(1);
     expect(out.reconciled).toBe(0);
@@ -174,7 +174,7 @@ describe('sweepUsageCounterDrift — concurrency guard', () => {
   });
 });
 
-describe('sweepUsageCounterDrift — dry run', () => {
+describe('sweepUsageCounterDrift - dry run', () => {
   it('reports what would happen without issuing any UPDATE', async () => {
     let updateCount = 0;
     queryFn.mockImplementation((sql: string) => {
@@ -199,7 +199,7 @@ describe('sweepUsageCounterDrift — dry run', () => {
   });
 });
 
-describe('sweepUsageCounterDrift — scoping', () => {
+describe('sweepUsageCounterDrift - scoping', () => {
   it('passes userId into the SELECT params when scoped', async () => {
     let capturedParams: unknown[] | null = null;
     queryFn.mockImplementation((sql: string, params: unknown[]) => {
@@ -218,7 +218,7 @@ describe('sweepUsageCounterDrift — scoping', () => {
   });
 });
 
-describe('sweepUsageCounterDrift — DB failure resilience', () => {
+describe('sweepUsageCounterDrift - DB failure resilience', () => {
   it('returns an empty result if the candidate query throws', async () => {
     queryFn.mockImplementation((sql: string) => {
       if (/WITH ledger AS/.test(sql)) {

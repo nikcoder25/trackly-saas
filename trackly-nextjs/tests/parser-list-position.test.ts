@@ -10,15 +10,15 @@ import { parseResponse, type BrandInput } from '../src/lib/parser';
  * around the whole label) and `**1.** BrandName`, both of which slid past
  * the old pattern. The expanded regex now allows optional bold/italic
  * emphasis around the marker AND adds a second pattern for parenthesised
- * / hash-style markers — `(1) Brand`, `[1] Brand`, `#1: Brand`.
+ * / hash-style markers - `(1) Brand`, `[1] Brand`, `#1: Brand`.
  */
 
 const brand: BrandInput = { name: 'Acme Widgets' };
 
-describe('parseResponse() — list position extraction', () => {
+describe('parseResponse() - list position extraction', () => {
   describe('legacy patterns (must still work)', () => {
     it.each([
-      ['1. Acme Widgets — top pick', 1],
+      ['1. Acme Widgets - top pick', 1],
       ['2. **Acme Widgets** is great', 2],
       ['3) Acme Widgets is recommended', 3],
       ['4- Acme Widgets', 4],
@@ -30,11 +30,11 @@ describe('parseResponse() — list position extraction', () => {
 
   describe('Gemini bold-around-whole-label variants', () => {
     it.each([
-      ['**1. Acme Widgets** — description', 1],
+      ['**1. Acme Widgets** - description', 1],
       ['**2. Acme Widgets**\nMore prose underneath.', 2],
-      ['**3.** Acme Widgets — description', 3],
+      ['**3.** Acme Widgets - description', 3],
       ['**4)** **Acme Widgets**', 4],
-      ['**5. Acme Widgets, Inc.** — full legal name', 5],
+      ['**5. Acme Widgets, Inc.** - full legal name', 5],
       ['__6. Acme Widgets__ underscore-style bold', 6],
       ['*7. Acme Widgets* italic-style', 7],
     ])('matches %j → position %i', (text, pos) => {
@@ -58,9 +58,9 @@ describe('parseResponse() — list position extraction', () => {
   describe('multi-line lists pick the first matching number', () => {
     it('returns the position where the brand actually appears, not the first list item', () => {
       const text = [
-        '1. CompetitorA — irrelevant',
-        '2. CompetitorB — also irrelevant',
-        '3. **Acme Widgets** — the one we care about',
+        '1. CompetitorA - irrelevant',
+        '2. CompetitorB - also irrelevant',
+        '3. **Acme Widgets** - the one we care about',
         '4. CompetitorD',
       ].join('\n');
       expect(parseResponse(text, brand, 'q').listPosition).toBe(3);
@@ -70,10 +70,10 @@ describe('parseResponse() — list position extraction', () => {
       const text = [
         'Here are the top providers:',
         '',
-        '**1. CompetitorA** — large incumbent.',
-        '**2. CompetitorB** — newer entrant.',
-        '**3. Acme Widgets** — niche specialist.',
-        '**4. CompetitorD** — also worth a look.',
+        '**1. CompetitorA** - large incumbent.',
+        '**2. CompetitorB** - newer entrant.',
+        '**3. Acme Widgets** - niche specialist.',
+        '**4. CompetitorD** - also worth a look.',
       ].join('\n');
       expect(parseResponse(text, brand, 'q').listPosition).toBe(3);
     });

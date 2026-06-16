@@ -25,7 +25,7 @@ afterEach(() => {
 // ON when the query contains one of: news, latest, today, this week,
 // 2026, price, pricing, cost. Every other brand-tracking query answers
 // from training data without the $0.030/call surcharge.
-describe('shouldAttachChatGPTWebSearch — off by default', () => {
+describe('shouldAttachChatGPTWebSearch - off by default', () => {
   it('attaches web_search only for explicit freshness/price keywords', () => {
     expect(shouldAttachChatGPTWebSearch('news today')).toBe(true);
     expect(shouldAttachChatGPTWebSearch('latest iPhone reviews')).toBe(true);
@@ -71,7 +71,7 @@ describe('shouldAttachChatGPTWebSearch — off by default', () => {
 // describe block exercises the legacy regex path; this one pins the
 // strict path behind the flag. Flipping the flag false at runtime is the
 // one-step rollback documented in the PR body.
-describe('shouldAttachChatGPTWebSearch — WEB_SEARCH_DEFAULT_OFF=true (strict classifier)', () => {
+describe('shouldAttachChatGPTWebSearch - WEB_SEARCH_DEFAULT_OFF=true (strict classifier)', () => {
   it('attaches web_search ONLY for strict freshness anchors', () => {
     process.env.WEB_SEARCH_DEFAULT_OFF = 'true';
     expect(shouldAttachChatGPTWebSearch('news today')).toBe(true);
@@ -83,7 +83,7 @@ describe('shouldAttachChatGPTWebSearch — WEB_SEARCH_DEFAULT_OFF=true (strict c
   it('drops "this <period>" and standalone present-tense queries (narrowed allowlist)', () => {
     process.env.WEB_SEARCH_DEFAULT_OFF = 'true';
     // `current_period` and `present_tense_anchor` were dropped from the
-    // strict allowlist in the May cost-reduction pass — these no longer
+    // strict allowlist in the May cost-reduction pass - these no longer
     // attach web_search even under strict mode.
     expect(shouldAttachChatGPTWebSearch('events this week')).toBe(false);
     expect(shouldAttachChatGPTWebSearch('launches this month')).toBe(false);
@@ -94,7 +94,7 @@ describe('shouldAttachChatGPTWebSearch — WEB_SEARCH_DEFAULT_OFF=true (strict c
   it('drops everything the legacy regex would have caught without a freshness anchor', () => {
     process.env.WEB_SEARCH_DEFAULT_OFF = 'true';
     // Legacy regex caught these via `pricing`, `price`, `cost`, `2026`,
-    // `latest`. Strict classifier rejects them — no time anchor.
+    // `latest`. Strict classifier rejects them - no time anchor.
     expect(shouldAttachChatGPTWebSearch('Stripe pricing')).toBe(false);
     expect(shouldAttachChatGPTWebSearch('iPhone price')).toBe(false);
     expect(shouldAttachChatGPTWebSearch('cost of Salesforce')).toBe(false);
@@ -110,10 +110,10 @@ describe('shouldAttachChatGPTWebSearch — WEB_SEARCH_DEFAULT_OFF=true (strict c
   });
 
   it('flipping WEB_SEARCH_DEFAULT_OFF=false (or unset) restores the legacy regex', () => {
-    // Set to literal "false" — explicit rollback.
+    // Set to literal "false" - explicit rollback.
     process.env.WEB_SEARCH_DEFAULT_OFF = 'false';
     expect(shouldAttachChatGPTWebSearch('Stripe pricing')).toBe(true);
-    // Unset — same as never-deployed.
+    // Unset - same as never-deployed.
     delete process.env.WEB_SEARCH_DEFAULT_OFF;
     expect(shouldAttachChatGPTWebSearch('Stripe pricing')).toBe(true);
   });
@@ -140,7 +140,7 @@ describe('resolveChatGPTModel (definitional → non-search fallback)', () => {
 // FRESHNESS_OR_LOCAL_RE was narrowed for the May 12 cost-reduction
 // effort to: news | latest | today | this week | 2026 | price | pricing
 // | cost. Anything else is assumed to be answerable from training data.
-describe('isFreshnessOrLocalQuery — narrowed surface', () => {
+describe('isFreshnessOrLocalQuery - narrowed surface', () => {
   it('matches the kept freshness/price vocabulary', () => {
     expect(isFreshnessOrLocalQuery('news today')).toBe(true);
     expect(isFreshnessOrLocalQuery('latest iPhone')).toBe(true);

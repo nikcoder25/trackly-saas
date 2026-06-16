@@ -21,7 +21,7 @@
  *   brandId     Restrict to cost events whose run belongs to this brand.
  *               Resolved via the run_id → active_runs.brand_id join. Omit
  *               (or pass empty) to include all brands the tenant owns.
- *   limit       Page size, 1..200. Default 200 — the activity page
+ *   limit       Page size, 1..200. Default 200 - the activity page
  *               renders all rows for the window, no client paging today.
  *
  * Response shape:
@@ -36,7 +36,7 @@
  * are carried so the UI can render a status badge without a wire change
  * if/when failed rows start landing on the ledger.
  *
- * Provider USD cost is intentionally NOT returned — see #459 scope 2:
+ * Provider USD cost is intentionally NOT returned - see #459 scope 2:
  * end-user pages should not surface dollar provider cost. The
  * `usd_cost` column in `tenant_cost_events` is preserved.
  */
@@ -133,7 +133,7 @@ export async function GET(request: Request): Promise<Response> {
      LIMIT $${pageParams.length}
   `;
 
-  // COUNT(*) over the same window — guarantees the contract from #459:
+  // COUNT(*) over the same window - guarantees the contract from #459:
   // "logs.length equals tenant_cost_events count for the same window".
   const totalsSql = `
     SELECT COUNT(*)::int AS count,
@@ -187,7 +187,7 @@ export async function GET(request: Request): Promise<Response> {
         if (queries.length) runQuery.set(r.id, queries[0]);
       }
     } catch {
-      // active_runs may be missing in a fresh DB — degrade to null query.
+      // active_runs may be missing in a fresh DB - degrade to null query.
     }
   }
 

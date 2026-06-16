@@ -128,7 +128,7 @@ describe('setCached INSERT (prod schema)', () => {
 });
 
 describe('getCached SELECT (read path unchanged)', () => {
-  it('(d) selects only response, model, created_at — no debug/context columns', async () => {
+  it('(d) selects only response, model, created_at - no debug/context columns', async () => {
     queryMock.mockResolvedValueOnce({ rows: [] });
     await getCached('any-key');
     const [sql] = queryMock.mock.calls[0];

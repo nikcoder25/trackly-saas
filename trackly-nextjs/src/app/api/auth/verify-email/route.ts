@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     // NOTE: we intentionally do NOT filter on email_verified here, and we no
     // longer null the token on success (see below). That makes verification
-    // idempotent — clicking the same link a second time still resolves to the
+    // idempotent - clicking the same link a second time still resolves to the
     // same user and shows success, instead of "Invalid or expired token".
     const result = await pool.query(
       `SELECT id, email, plan, trial_ends_at, email_verified FROM users
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     const row = result.rows[0];
 
-    // Already verified via an earlier click — idempotent no-op. Don't re-extend
+    // Already verified via an earlier click - idempotent no-op. Don't re-extend
     // the trial (that would let someone keep refreshing the link to stack
     // days); just confirm success.
     if (row.email_verified) return landing('success');

@@ -39,7 +39,7 @@ function alertHtml(audit: NapAuditRecord, reasons: string[]): string {
       <p style="color:#475569;margin:0 0 12px">Your scheduled NAP audit detected changes since the last run:</p>
       <ul style="color:#b91c1c">${items}</ul>
       <p style="margin:16px 0"><a href="${link}" style="background:#5B5BD6;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700">View the audit</a></p>
-      <p style="color:#94a3b8;font-size:12px">Current consistency score: ${audit.score ?? '—'}/100</p>
+      <p style="color:#94a3b8;font-size:12px">Current consistency score: ${audit.score ?? '-'}/100</p>
     </div>`;
 }
 

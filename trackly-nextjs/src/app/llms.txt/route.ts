@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GEO_AUDIT_PLATFORMS } from '@/lib/geo-audits';
 
-// llms.txt — discovery file for AI crawlers per https://llmstxt.org/
+// llms.txt - discovery file for AI crawlers per https://llmstxt.org/
 // Factual product description; per-plan limits intentionally omitted
 // to prevent drift between this file and the live /pricing page.
 
@@ -56,12 +56,12 @@ const BODY = [
   '',
   '## Key URLs',
   '',
-  `- ${BASE_URL}/ — Homepage`,
-  `- ${BASE_URL}/pricing — Pricing`,
-  `- ${BASE_URL}/how-it-works — How it works`,
-  `- ${BASE_URL}/blog — Blog`,
-  `- ${BASE_URL}/tools — Free tools hub`,
-  `- ${BASE_URL}/geo-audit — Free GEO audit tool`,
+  `- ${BASE_URL}/ - Homepage`,
+  `- ${BASE_URL}/pricing - Pricing`,
+  `- ${BASE_URL}/how-it-works - How it works`,
+  `- ${BASE_URL}/blog - Blog`,
+  `- ${BASE_URL}/tools - Free tools hub`,
+  `- ${BASE_URL}/geo-audit - Free GEO audit tool`,
   '',
 ].join('\n');
 

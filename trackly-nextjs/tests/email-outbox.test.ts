@@ -2,7 +2,7 @@
  * Tests for the durable email outbox (audit item D).
  *
  * Pre-fix, every transactional email was a single fire-and-forget Resend
- * fetch — no retry, no DB record, no visibility. A network blip / Resend
+ * fetch - no retry, no DB record, no visibility. A network blip / Resend
  * outage / server restart mid-call lost the email forever. The fix
  * inserts each email into the email_outbox Postgres table on enqueue;
  * the /api/cron/process-email-outbox worker picks up rows on a ~2-min
@@ -132,7 +132,7 @@ beforeEach(() => {
   loggerWarn.mockReset();
 });
 
-describe('email outbox — durable delivery', () => {
+describe('email outbox - durable delivery', () => {
   it('T1: enqueueEmail INSERTs a pending row with attempts=0 and never calls Resend', async () => {
     poolQuery.mockResolvedValue({ rows: [], rowCount: 1 });
     const fetchMock = installFetchMock(async () => new Response('{}', { status: 200 }));
@@ -153,7 +153,7 @@ describe('email outbox — durable delivery', () => {
       const [sql, params] = poolQuery.mock.calls[0];
       expect(sql).toMatch(/INSERT INTO email_outbox/);
       // Defaults from the schema (status='pending', attempts=0,
-      // next_attempt_at=NOW(), max_attempts=5) are NOT in the params —
+      // next_attempt_at=NOW(), max_attempts=5) are NOT in the params -
       // they fall through from column defaults. Params we send: id,
       // to_email, subject, body_html, body_text, reply_to,
       // template_key, payload_json, idempotency_key.
@@ -170,7 +170,7 @@ describe('email outbox — durable delivery', () => {
     }
   });
 
-  it('T2: worker happy path — pending row, fetch 200, status=sent, sent_at set', async () => {
+  it('T2: worker happy path - pending row, fetch 200, status=sent, sent_at set', async () => {
     const row = {
       id: '11111111-1111-1111-1111-111111111111',
       to_email: 'a@test.com',
@@ -213,7 +213,7 @@ describe('email outbox — durable delivery', () => {
     }
   });
 
-  it('T3: worker retryable — fetch 500 marks row failed with backoff, attempts incremented; next run succeeds', async () => {
+  it('T3: worker retryable - fetch 500 marks row failed with backoff, attempts incremented; next run succeeds', async () => {
     const row = {
       id: '22222222-2222-2222-2222-222222222222',
       to_email: 'a@test.com',
@@ -269,7 +269,7 @@ describe('email outbox — durable delivery', () => {
       poolQuery.mockReset();
       loggerInfo.mockReset();
       // The claimed row now has attempts=1 (incremented by run 1's
-      // claim) — simulate that for the second tick.
+      // claim) - simulate that for the second tick.
       const rowAfterRetry = { ...row, attempts: 1 };
       const fake = makeFakeClient({ pickupRows: [rowAfterRetry] });
       safeConnectFn.mockResolvedValue(fake);
@@ -298,7 +298,7 @@ describe('email outbox — durable delivery', () => {
     }
   });
 
-  it('T4: worker non-retryable — fetch 422 marks row dead immediately, audit row recorded', async () => {
+  it('T4: worker non-retryable - fetch 422 marks row dead immediately, audit row recorded', async () => {
     const row = {
       id: '33333333-3333-3333-3333-333333333333',
       to_email: 'invalid@test.com',
@@ -344,11 +344,11 @@ describe('email outbox — durable delivery', () => {
     }
   });
 
-  it('T5: worker max-attempts — row at attempts=4 (max=5) fails again -> status=dead', async () => {
+  it('T5: worker max-attempts - row at attempts=4 (max=5) fails again -> status=dead', async () => {
     // After the claim's attempts++, this row sits at attempts=5 which
     // equals max_attempts. Even though the response is retryable, the
     // worker promotes it to dead because the next retry would be
-    // attempt 6 — exceeding max.
+    // attempt 6 - exceeding max.
     const row = {
       id: '44444444-4444-4444-4444-444444444444',
       to_email: 'a@test.com',
@@ -365,7 +365,7 @@ describe('email outbox — durable delivery', () => {
 
     const fetchMock = installFetchMock(async (url) => {
       if (url.includes('api.resend.com')) {
-        // Retryable error class — but max-attempts trumps retryability.
+        // Retryable error class - but max-attempts trumps retryability.
         return new Response('upstream', { status: 503 });
       }
       return new Response('{}', { status: 200 });
@@ -388,7 +388,7 @@ describe('email outbox — durable delivery', () => {
     }
   });
 
-  it('T6: idempotency — enqueueEmail twice with same idempotency_key inserts only one row', async () => {
+  it('T6: idempotency - enqueueEmail twice with same idempotency_key inserts only one row', async () => {
     // The second INSERT hits ON CONFLICT (idempotency_key) DO NOTHING
     // and is a no-op. The mocked pool query records both calls but
     // Postgres would reject the duplicate; we assert the behaviour at
@@ -419,7 +419,7 @@ describe('email outbox — durable delivery', () => {
     }
   });
 
-  it('T7: lock contention — acquireCronLock returns false, worker exits without claiming', async () => {
+  it('T7: lock contention - acquireCronLock returns false, worker exits without claiming', async () => {
     cronLockFn.mockResolvedValue(false);
     const fetchMock = installFetchMock(async () => new Response('{}', { status: 200 }));
 
@@ -438,7 +438,7 @@ describe('email outbox — durable delivery', () => {
     }
   });
 
-  it('T8: SKIP LOCKED concurrency — two parallel workers see disjoint row sets', async () => {
+  it('T8: SKIP LOCKED concurrency - two parallel workers see disjoint row sets', async () => {
     // Real Postgres FOR UPDATE SKIP LOCKED would prevent two concurrent
     // workers from claiming the same row. With acquireCronLock active
     // this is belt-and-braces; the test simulates the SQL contract by
@@ -475,7 +475,7 @@ describe('email outbox — durable delivery', () => {
     });
 
     try {
-      // Run two workers in parallel — each acquires the cron lock in
+      // Run two workers in parallel - each acquires the cron lock in
       // sequence (mock returns a fresh lock each call), each claim
       // transaction sees its disjoint row set.
       const [r1, r2] = await Promise.all([
@@ -485,7 +485,7 @@ describe('email outbox — durable delivery', () => {
       expect(r1.status).toBe(200);
       expect(r2.status).toBe(200);
 
-      // The SELECT included FOR UPDATE SKIP LOCKED — the SQL contract
+      // The SELECT included FOR UPDATE SKIP LOCKED - the SQL contract
       // that makes disjoint claim sets safe under real concurrency.
       const selectCall = fake.recorded.find(r =>
         /SELECT id, to_email, subject, body_html, reply_to, template_key/.test(r.sql),
@@ -503,7 +503,7 @@ describe('email outbox — durable delivery', () => {
     }
   });
 
-  it('T9: stuck-sending reaper — row in sending > 5min is flipped to failed at tick start, then retried', async () => {
+  it('T9: stuck-sending reaper - row in sending > 5min is flipped to failed at tick start, then retried', async () => {
     // The reaper UPDATE is the first poolQuery call in the worker.
     // We assert it ran with the right WHERE clause and that the run
     // also includes the normal claim/dispatch flow (so a reaped row

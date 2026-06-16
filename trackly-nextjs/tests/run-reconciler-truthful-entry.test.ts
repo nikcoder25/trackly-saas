@@ -109,14 +109,14 @@ function topLevelResponder() {
   };
 }
 
-describe('reaper truthful partial entry — received > 0', () => {
+describe('reaper truthful partial entry - received > 0', () => {
   it('writes sov/platforms/durationMs/citations/competitors all from allResults', async () => {
     queryFn.mockImplementation(topLevelResponder());
 
     // Simulated 15-of-18 partial: 18 results processed across two
     // platforms, 15 mentioned (one error, two non-mentions). Two
     // platforms configured but only one has results yet (worker died
-    // before it got to Claude) — the unrun platform must still
+    // before it got to Claude) - the unrun platform must still
     // appear in `platforms` with zero counts so "Platforms Active"
     // can render honestly instead of falling back to 0/5.
     const allResults: Array<Record<string, unknown>> = [];
@@ -191,7 +191,7 @@ describe('reaper truthful partial entry — received > 0', () => {
     expect(platforms.ChatGPT.queries).toBe(12);
     expect(platforms.ChatGPT.mentions).toBe(10);
     expect(platforms.ChatGPT.errors).toBe(1);
-    // Per-platform SOV uses queries (not non-error) — same as
+    // Per-platform SOV uses queries (not non-error) - same as
     // run-worker's terminal write so the dashboard renders the same
     // number whether a run completed normally or got reaped.
     expect(platforms.ChatGPT.sov).toBe(83);   // 10 / 12 = 83
@@ -222,7 +222,7 @@ describe('reaper truthful partial entry — received > 0', () => {
   });
 });
 
-describe('reaper truthful partial entry — received === 0', () => {
+describe('reaper truthful partial entry - received === 0', () => {
   it("writes sov: 0 with no platform stats and no zero-divide when nothing was processed", async () => {
     queryFn.mockImplementation(topLevelResponder());
 
@@ -263,7 +263,7 @@ describe('reaper truthful partial entry — received === 0', () => {
     expect(partial.totalM).toBe(0);
 
     // platforms still populated with all configured platforms but
-    // each entry is the zero record — distinguishable from "we have
+    // each entry is the zero record - distinguishable from "we have
     // mentions but the sov field is broken".
     const platforms = partial.platforms as Record<string, { queries: number; mentions: number; sov: number; errors: number }>;
     expect(Object.keys(platforms).sort()).toEqual(['ChatGPT', 'Perplexity']);
@@ -275,7 +275,7 @@ describe('reaper truthful partial entry — received === 0', () => {
     expect(partial.citations).toEqual({});
     expect(partial.competitors).toEqual({});
 
-    // durationMs still populated — even a zero-progress run was alive
+    // durationMs still populated - even a zero-progress run was alive
     // for a measurable amount of time.
     expect(typeof partial.durationMs).toBe('number');
   });

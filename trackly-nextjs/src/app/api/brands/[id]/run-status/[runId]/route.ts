@@ -40,7 +40,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   // Defensive watchdog: if the row has been 'running' with no progress
   // for longer than the stale threshold, finalize it BEFORE returning so
   // the client sees 'error' on this very poll instead of hanging until
-  // the next 5-min reap-stale-runs cron tick. Now safe to call — ownership is verified.
+  // the next 5-min reap-stale-runs cron tick. Now safe to call - ownership is verified.
   if (run.status === 'running') {
     try {
       await reconcileStaleRuns({ brandId: id, runId });

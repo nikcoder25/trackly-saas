@@ -1,6 +1,6 @@
 // @ts-nocheck
 /**
- * PDF Report Generator — White-label AI Visibility Report.
+ * PDF Report Generator - White-label AI Visibility Report.
  *
  * Produces a polished, print-ready A4 report from a brand's stored runs.
  * Single entry point `generateReport(brand)` returns a PDFKit document
@@ -216,8 +216,8 @@ function renderSummary(doc, lastRun) {
   const distinctQ = new Set(valid.map(r => r.query)).size;
 
   const cards = [
-    { label: 'Mentions', value: total ? `${mentions}/${total}` : '—', sub: 'AI answers naming you', color: C.primary },
-    { label: 'Positive sentiment', value: posPct !== null ? `${posPct}%` : '—', sub: posPct !== null ? `${pos} positive of ${sentTotal}` : 'no sentiment yet', color: posPct === null ? C.faint : posPct >= 60 ? C.green : posPct >= 40 ? C.amber : C.red },
+    { label: 'Mentions', value: total ? `${mentions}/${total}` : '-', sub: 'AI answers naming you', color: C.primary },
+    { label: 'Positive sentiment', value: posPct !== null ? `${posPct}%` : '-', sub: posPct !== null ? `${pos} positive of ${sentTotal}` : 'no sentiment yet', color: posPct === null ? C.faint : posPct >= 60 ? C.green : posPct >= 40 ? C.amber : C.red },
     { label: 'Engines active', value: `${activePlats}/${PLATFORMS.length}`, sub: 'platforms responding', color: C.blue },
     { label: 'Prompts tracked', value: String(distinctQ || 0), sub: 'unique queries', color: C.violet },
   ];
@@ -285,7 +285,7 @@ function renderTopQueries(doc, lastRun) {
     .sort((a, b) => b.rate - a.rate).slice(0, 10);
   if (!rows.length) return;
 
-  section(doc, 'Top Performing Queries', 'Where you are most visible — mention rate per tracked prompt.');
+  section(doc, 'Top Performing Queries', 'Where you are most visible - mention rate per tracked prompt.');
 
   const numW = 22, rateW = 50, foundW = 56;
   const qW = cw - numW - rateW - foundW;
@@ -332,7 +332,7 @@ function renderCompetitors(doc, brand, lastRun) {
     pats.forEach(pat => {
       let m;
       while ((m = pat.exec(text)) !== null) {
-        const name = m[1].trim().replace(/\*+/g, '').replace(/\s*[-—:].*/, '').trim();
+        const name = m[1].trim().replace(/\*+/g, '').replace(/\s*[-:].*/, '').trim();
         if (name.length >= 3 && name.length <= 40 && name.toLowerCase() !== brandName &&
           !/^(the|and|for|with|best|top|most|also|here|this|that|these|note)$/i.test(name)) {
           comp[name] = (comp[name] || 0) + 1;
@@ -416,8 +416,8 @@ function renderRecommendations(doc, brand, lastRun) {
     });
     const strong = [], weak = [];
     Object.entries(platStats).forEach(([p, s]) => ((s.t > 0 && s.f / s.t >= 0.5) ? strong : weak).push(p));
-    if (strong.length && weak.length) tips.push({ t: 'Close platform gaps', d: `You're strong on ${strong.join(', ')} but weak on ${weak.join(', ')}. Different engines pull from different sources — diversify your presence and tailor content per platform.` });
-    if (sov === 0 && total > 0) tips.push({ t: 'Build a foundation', d: "AI engines haven't picked up your brand yet. Prioritise structured data, review profiles (Google, Yelp) and authoritative backlinks — the sources models reference." });
+    if (strong.length && weak.length) tips.push({ t: 'Close platform gaps', d: `You're strong on ${strong.join(', ')} but weak on ${weak.join(', ')}. Different engines pull from different sources - diversify your presence and tailor content per platform.` });
+    if (sov === 0 && total > 0) tips.push({ t: 'Build a foundation', d: "AI engines haven't picked up your brand yet. Prioritise structured data, review profiles (Google, Yelp) and authoritative backlinks - the sources models reference." });
     else if (sov > 0 && sov < 30) tips.push({ t: 'Grow visibility', d: `You appear in ${sov}% of queries. Publish FAQ-style content that directly answers buyer questions and fully optimise your Google Business Profile.` });
     if (neg > 0) tips.push({ t: 'Address negative sentiment', d: `${neg} response${neg > 1 ? 's' : ''} show negative sentiment. Review what AI says about you and fix the underlying customer-experience issues.` });
     const recRate = mentioned > 0 ? recommended / mentioned : 0;
@@ -492,7 +492,7 @@ function generateReport(brand) {
   const doc = new PDFDocument({
     size: 'A4', margin: 44, autoFirstPage: true, bufferPages: true,
     info: {
-      Title: `${brand.name || 'Brand'} — AI Visibility Report`,
+      Title: `${brand.name || 'Brand'} - AI Visibility Report`,
       Author: BRANDING.companyName, Subject: 'AI Visibility Report', Creator: BRANDING.companyName,
     },
   });

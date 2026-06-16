@@ -1,7 +1,7 @@
 /**
  * GET /api/credits/ledger
  *
- * Per-call breakdown of `tenant_cost_events` for the signed-in user —
+ * Per-call breakdown of `tenant_cost_events` for the signed-in user -
  * the data layer behind the Credit Ledger page at
  * /dashboard/billing/ledger. Each row in the response represents one
  * dispatched LLM call (the same accounting `getCreditStatus.monthlyUsed`
@@ -19,7 +19,7 @@
  *               multi-select (`?platform=ChatGPT&platform=Claude`) or
  *               pass a comma-separated list. Case-insensitive match on
  *               the `platform` column. Omit for "all platforms".
- *   limit       Page size, 1..200. Default 50 — chosen to match the
+ *   limit       Page size, 1..200. Default 50 - chosen to match the
  *               page-size #455 calls for; callers paging via cursor can
  *               override but the UI does not.
  *   cursor      Opaque keyset cursor returned in the previous response's
@@ -35,7 +35,7 @@
  *   }
  *
  * Rows are ordered newest-first. `totals` is computed across the
- * (from, to, platform) window — *not* the current page — so the UI can
+ * (from, to, platform) window - *not* the current page - so the UI can
  * show "X credits in window" even while paging.
  */
 
@@ -46,7 +46,7 @@ import { ensureCostEventsTable } from '@/lib/cost-tracker';
 
 export interface LedgerRow {
   id: string;
-  /** Always 'completed' today — only successful, dispatched LLM calls
+  /** Always 'completed' today - only successful, dispatched LLM calls
    *  hit `tenant_cost_events`. Failed / refunded calls don't insert a
    *  row, so they contribute 0 credits to the visible total (which is
    *  what the acceptance criterion on #455 asks for). The field is
@@ -75,7 +75,7 @@ export interface LedgerRow {
    *  time. Surfaced for power users; the credit unit (1 row = 1 credit)
    *  is what bills against the plan. */
   usdCost: number;
-  /** Always 1 today — see `status`. Carried as a field so the response
+  /** Always 1 today - see `status`. Carried as a field so the response
    *  shape is forward-compatible with rows that contribute a different
    *  delta. */
   credits: number;
@@ -92,7 +92,7 @@ const MAX_LIMIT = 200;
 const DEFAULT_LIMIT = 50;
 
 /** Encode (created_at, id) as a single opaque cursor. The keyset pair
- *  keeps pagination stable under concurrent inserts — appending a new
+ *  keeps pagination stable under concurrent inserts - appending a new
  *  event can only ever land *before* the cursor, never duplicate /
  *  skip a row. */
 function encodeCursor(createdAt: string, id: string): string {
@@ -136,13 +136,13 @@ export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const now = new Date();
 
-  // Default window = current UTC-month — same boundary
+  // Default window = current UTC-month - same boundary
   // `getCreditStatus.monthlyUsed` uses, so an unfiltered ledger sums to
   // the billing-page tile. Callers can override via ?from=&to=.
   const fromDate = parseDate(url.searchParams.get('from'), currentMonthStart(now));
   const toDate = parseDate(url.searchParams.get('to'), now);
   // Multi-platform filter. Accept either repeated `?platform=` params
-  // or a single comma-separated list — pickers serialize either way.
+  // or a single comma-separated list - pickers serialize either way.
   const platformsRaw = url.searchParams.getAll('platform');
   const platforms = Array.from(new Set(
     platformsRaw
@@ -160,7 +160,7 @@ export async function GET(request: Request): Promise<Response> {
   try {
     await ensureCostEventsTable();
   } catch {
-    // If the migration itself fails we still attempt the read — the
+    // If the migration itself fails we still attempt the read - the
     // most likely cause is a permission error on a managed DB where
     // the table already exists.
   }
@@ -197,7 +197,7 @@ export async function GET(request: Request): Promise<Response> {
      LIMIT $${pageParams.length}
   `;
 
-  // Totals query: SUM/COUNT across the same window (no cursor) — gives
+  // Totals query: SUM/COUNT across the same window (no cursor) - gives
   // the UI the "X credits in window" headline regardless of paging.
   const totalsSql = `
     SELECT COUNT(*)::int AS count,
@@ -263,7 +263,7 @@ export async function GET(request: Request): Promise<Response> {
         runInfo.set(r.id, { brandId: r.brand_id, queries });
       }
     } catch {
-      // active_runs may be missing in a fresh DB — degrade to "no
+      // active_runs may be missing in a fresh DB - degrade to "no
       // prompts/brand" rather than failing the whole response.
     }
   }
@@ -282,7 +282,7 @@ export async function GET(request: Request): Promise<Response> {
         brandNames.set(b.id, b.name);
       }
     } catch {
-      // ditto — names are nice-to-have.
+      // ditto - names are nice-to-have.
     }
   }
 

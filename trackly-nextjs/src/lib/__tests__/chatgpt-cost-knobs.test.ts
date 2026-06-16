@@ -1,12 +1,12 @@
 /**
  * Cost-reduction knobs for ChatGPT calls. Two independent levers:
  *
- *   1. `web_search_options.search_context_size` — defaults to "low" so
+ *   1. `web_search_options.search_context_size` - defaults to "low" so
  *      OpenAI bills the hosted web_search tool at the cheaper tier
  *      instead of the (unset → "medium") default. Overridable via
  *      CHATGPT_SEARCH_CONTEXT_SIZE.
  *
- *   2. Default no-search model auto-downgrade — when the call will NOT
+ *   2. Default no-search model auto-downgrade - when the call will NOT
  *      attach web_search AND the caller did not explicitly select a
  *      model, route to gpt-5.4-nano (env-overridable via
  *      CHATGPT_NONSEARCH_MODEL). Admin-explicit selections and
@@ -20,7 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // PLATFORM_RATE_LIMITS.ChatGPT.minDelayMs is captured at module load
 // time. Hoist the override so it's in place BEFORE ai-platforms.ts is
-// imported below — otherwise the second call in this file sits on a
+// imported below - otherwise the second call in this file sits on a
 // 6 s rate-limit sleep and the test times out.
 vi.hoisted(() => {
   process.env.AI_CHATGPT_MIN_DELAY_MS = '0';
@@ -103,7 +103,7 @@ function okOpenAiResponse(modelEcho = 'gpt-4o-mini-search-preview'): Response {
 function fastTransient429(): Response {
   // 429 with a Retry-After hint that exceeds the ChatGPT per-call
   // sleep budget. fetchAI takes the "deferral" branch and throws
-  // immediately with `isRateLimit: true, needsDeferral: true` — no
+  // immediately with `isRateLimit: true, needsDeferral: true` - no
   // internal backoff, so the test doesn't sit on multi-second sleeps.
   // isTransientError() returns true on `isRateLimit`, which is what
   // the no-search downgrade fallback chain keys off.
@@ -143,7 +143,7 @@ afterEach(() => {
 });
 
 // ────────────────────────────────────────────────────────────────────
-// CHANGE 1 — search_context_size
+// CHANGE 1 - search_context_size
 // ────────────────────────────────────────────────────────────────────
 
 describe('getChatGPTSearchContextSize (env helper)', () => {
@@ -165,7 +165,7 @@ describe('getChatGPTSearchContextSize (env helper)', () => {
   });
 });
 
-describe('queryAI(ChatGPT) — search_context_size on the outbound body', () => {
+describe('queryAI(ChatGPT) - search_context_size on the outbound body', () => {
   it('attaches search_context_size:"low" by default when web_search is enabled', async () => {
     await queryAI(
       'ChatGPT',
@@ -257,7 +257,7 @@ describe('queryAI(ChatGPT) — search_context_size on the outbound body', () => 
 });
 
 // ────────────────────────────────────────────────────────────────────
-// CHANGE 2 — no-search auto-downgrade to gpt-5.4-nano
+// CHANGE 2 - no-search auto-downgrade to gpt-5.4-nano
 // ────────────────────────────────────────────────────────────────────
 
 describe('getChatGPTNonSearchModel (env helper)', () => {
@@ -277,7 +277,7 @@ describe('getChatGPTNonSearchModel (env helper)', () => {
   });
 });
 
-describe('queryAI(ChatGPT) — no-search auto-downgrade', () => {
+describe('queryAI(ChatGPT) - no-search auto-downgrade', () => {
   it('downgrades the default model (gpt-5.4-mini) to gpt-5.4-nano on no-search calls', async () => {
     // model: undefined → queryAI uses platform default (gpt-5.4-mini).
     // No adminSelectedModel flag → downgrade applies.
@@ -306,7 +306,7 @@ describe('queryAI(ChatGPT) — no-search auto-downgrade', () => {
     expect(body!.model).toBe('gpt-5.4-nano');
   });
 
-  it('honors adminSelectedModel:true — no downgrade even on no-search path', async () => {
+  it('honors adminSelectedModel:true - no downgrade even on no-search path', async () => {
     await queryAI(
       'ChatGPT',
       'What is HTTP?',
@@ -350,7 +350,7 @@ describe('queryAI(ChatGPT) — no-search auto-downgrade', () => {
   it('search-preview model selection is untouched even when web_search is gated off', async () => {
     // Search-preview model with a definitional query: web_search gate
     // denies, but the model itself is search-preview and must NOT be
-    // downgraded. This is the explicit constraint in the PR scope —
+    // downgraded. This is the explicit constraint in the PR scope -
     // search-preview model routing lives in resolveChatGPTModel, not
     // here.
     await queryAI(

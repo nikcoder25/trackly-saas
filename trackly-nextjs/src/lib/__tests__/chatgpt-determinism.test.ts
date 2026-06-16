@@ -1,8 +1,8 @@
 /**
  * Determinism knobs for ChatGPT (gpt-5.x family only).
  *
- * Two env-driven fields — `temperature` (default 0) and `seed` (default 7)
- * — are attached to the OpenAI request body to make identical
+ * Two env-driven fields - `temperature` (default 0) and `seed` (default 7)
+ * - are attached to the OpenAI request body to make identical
  * (prompt, model) pairs return byte-identical answers. This stabilises
  * the Postgres response cache so repeat queries land as hits.
  *
@@ -224,7 +224,7 @@ describe('getChatGPTSeed', () => {
 
 // ── ChatGPT body wiring (integration) ───────────────────
 
-describe('queryAI(ChatGPT, gpt-5.x) — temperature + seed attached', () => {
+describe('queryAI(ChatGPT, gpt-5.x) - temperature + seed attached', () => {
   it('attaches both fields with defaults on a plain gpt-5.4-mini call', async () => {
     fetchMock.mockResolvedValueOnce(okOpenAiResponse('gpt-5.4-mini'));
     await queryAI(
@@ -313,7 +313,7 @@ describe('queryAI(ChatGPT, gpt-5.x) — temperature + seed attached', () => {
   });
 });
 
-describe('queryAI(ChatGPT, non-gpt-5.x) — neither field attached', () => {
+describe('queryAI(ChatGPT, non-gpt-5.x) - neither field attached', () => {
   it('does NOT attach temperature/seed to gpt-4o-mini-search-preview', async () => {
     fetchMock.mockResolvedValueOnce(okOpenAiResponse('gpt-4o-mini-search-preview'));
     await queryAI(
@@ -357,12 +357,12 @@ const MAX_TOK = Number(process.env.AI_MAX_OUTPUT_TOKENS) || 100;
 describe('non-ChatGPT request bodies are byte-unchanged', () => {
   beforeEach(() => {
     // Set determinism env to the values that DO attach fields on
-    // ChatGPT — proves these knobs cannot leak into other providers.
+    // ChatGPT - proves these knobs cannot leak into other providers.
     process.env.CHATGPT_TEMPERATURE = '0';
     process.env.CHATGPT_SEED = '7';
   });
 
-  it('Claude body: { model, max_tokens, system, messages } — nothing else', async () => {
+  it('Claude body: { model, max_tokens, system, messages } - nothing else', async () => {
     fetchMock.mockResolvedValueOnce(okClaudeResponse('claude-haiku-4-5-20251001'));
     await queryAI(
       'Claude',
@@ -379,7 +379,7 @@ describe('non-ChatGPT request bodies are byte-unchanged', () => {
     });
   });
 
-  it('Perplexity body: { model, max_tokens, return_citations, messages } — nothing else', async () => {
+  it('Perplexity body: { model, max_tokens, return_citations, messages } - nothing else', async () => {
     fetchMock.mockResolvedValueOnce(okPerplexityResponse('sonar'));
     await queryAI(
       'Perplexity',
@@ -399,7 +399,7 @@ describe('non-ChatGPT request bodies are byte-unchanged', () => {
     });
   });
 
-  it('Gemini body: { systemInstruction, contents, generationConfig } — nothing else', async () => {
+  it('Gemini body: { systemInstruction, contents, generationConfig } - nothing else', async () => {
     fetchMock.mockResolvedValueOnce(okGeminiResponse());
     await queryAI(
       'Gemini',
@@ -415,7 +415,7 @@ describe('non-ChatGPT request bodies are byte-unchanged', () => {
     });
   });
 
-  it('Grok body: { model, max_tokens, messages } — nothing else', async () => {
+  it('Grok body: { model, max_tokens, messages } - nothing else', async () => {
     fetchMock.mockResolvedValueOnce(okGrokResponse('grok-3-mini'));
     await queryAI(
       'Grok',

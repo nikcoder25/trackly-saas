@@ -7,7 +7,7 @@
  * Drains the cited_pages queue: fetches each newly-cited URL once and
  * stores the raw HTML so the Phase 2 feature extractor can analyze why
  * those pages get cited. URLs come out of AI responses (untrusted input),
- * so every fetch goes through the SSRF-hardened safeFetch wrapper —
+ * so every fetch goes through the SSRF-hardened safeFetch wrapper -
  * private/loopback/metadata IPs are blocked at DNS-resolution time and
  * every redirect hop is re-validated.
  *
@@ -63,7 +63,7 @@ async function crawlOne(page: QueuedPage): Promise<'fetched' | 'skipped' | 'erro
       errorMsg = `HTTP ${res.status}`;
       try { await res.body?.cancel(); } catch { /* already drained */ }
     } else if (contentType && !/html|xml|plain/.test(contentType)) {
-      // PDFs, images, JSON endpoints etc. — record that the URL resolves
+      // PDFs, images, JSON endpoints etc. - record that the URL resolves
       // but don't store binary payloads the extractor can't use.
       status = 'skipped';
       try { await res.body?.cancel(); } catch { /* already drained */ }
@@ -76,7 +76,7 @@ async function crawlOne(page: QueuedPage): Promise<'fetched' | 'skipped' | 'erro
   }
 
   // Permanent failures (4xx, blocked URL) shouldn't burn retries on
-  // later ticks — cap attempts immediately. Transient ones (5xx,
+  // later ticks - cap attempts immediately. Transient ones (5xx,
   // timeouts, network) keep their natural attempt count.
   const permanent = (httpStatus !== null && httpStatus >= 400 && httpStatus < 500)
     || (errorMsg !== null && /^(INVALID_URL|PROTOCOL_BLOCKED|HOST_BLOCKED|IP_BLOCKED|DNS_EMPTY):/.test(errorMsg));
@@ -136,7 +136,7 @@ export async function GET(request: Request): Promise<Response> {
           else if (result === 'skipped') skipped++;
           else errored++;
         } catch (e) {
-          // crawlOne's UPDATE failed — leave the row for the next tick.
+          // crawlOne's UPDATE failed - leave the row for the next tick.
           errored++;
           logger.warn('cron.crawl_citations.page_update_failed', {
             url: page.url,

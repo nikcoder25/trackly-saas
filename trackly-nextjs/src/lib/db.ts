@@ -191,7 +191,7 @@ function runMigrations(): Promise<void> {
         );
         -- Forward-compat ALTERs for environments that already had the
         -- table with the original 6-column shape (pre-PR #515). All
-        -- additive and idempotent — re-running the bootstrap on a
+        -- additive and idempotent - re-running the bootstrap on a
         -- partially-migrated DB converges on the prod column set
         -- without dropping data.
         --
@@ -327,7 +327,7 @@ function runMigrations(): Promise<void> {
       // One-time backfill of the citations table from historical
       // prompt_runs.citations arrays (last 90 days), so the Citation
       // Decoder has data on day one instead of starting cold. Guarded by
-      // an emptiness check — both INSERTs are ON CONFLICT DO NOTHING and
+      // an emptiness check - both INSERTs are ON CONFLICT DO NOTHING and
       // therefore idempotent, but the guard keeps subsequent process
       // starts from re-scanning prompt_runs. Best-effort: the pool's 30s
       // statement_timeout bounds the scan, and a timeout here only means
@@ -349,7 +349,7 @@ function runMigrations(): Promise<void> {
                AND c.url ~ '^https?://'
             ON CONFLICT DO NOTHING
           `);
-          // Seed the crawl queue with recently-cited URLs only — pages
+          // Seed the crawl queue with recently-cited URLs only - pages
           // cited months ago may have changed too much to explain today's
           // citation behaviour.
           await pool.query(`

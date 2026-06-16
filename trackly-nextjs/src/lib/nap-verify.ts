@@ -1,13 +1,13 @@
 /**
- * NAP Verification engine — the extraction + matching core for the local
+ * NAP Verification engine - the extraction + matching core for the local
  * SEO citation auditor. Everything in this file is pure (no network, no DB)
  * so it can be unit-tested in isolation. The route layer (api/tools/
  * nap-checker) is responsible for fetching pages with safeFetch and feeding
  * the raw HTML in here.
  *
  * Two extraction layers, applied per field with schema winning over regex:
- *   Layer 2 — LocalBusiness JSON-LD (cleanest, structured).
- *   Layer 1 — regex over raw HTML (tel: links, microdata, postcode/phone).
+ *   Layer 2 - LocalBusiness JSON-LD (cleanest, structured).
+ *   Layer 1 - regex over raw HTML (tel: links, microdata, postcode/phone).
  * A Layer 3 (headless browser) is intentionally out of scope here.
  */
 
@@ -29,12 +29,12 @@ export interface CanonicalNap {
   street?: string;
   suite?: string;
   city?: string;
-  /** State / province / region — typically the Places admin_area_level_1 shortText (e.g. "TN"). */
+  /** State / province / region - typically the Places admin_area_level_1 shortText (e.g. "TN"). */
   region?: string;
   postcode?: string;
   /** Two-letter country code (e.g. "US"); blank when not provided by the source. */
   country?: string;
-  /** Canonical website URL — the brand's own homepage, useful as a "match this domain" hint. */
+  /** Canonical website URL - the brand's own homepage, useful as a "match this domain" hint. */
   website?: string;
 }
 
@@ -100,7 +100,7 @@ export interface UrlResult extends CompareResult {
   archivedAt?: string;
 }
 
-/** Count of populated NAP fields — used to decide whether Layer 3 is worth trying. */
+/** Count of populated NAP fields - used to decide whether Layer 3 is worth trying. */
 export function extractionStrength(e: ExtractedNap): number {
   return (['name', 'phone', 'street', 'city', 'postcode'] as const).filter((k) => e[k]).length;
 }
@@ -121,7 +121,7 @@ const URLISH_RE =
 /**
  * Extract citation URLs from free-form text or CSV. Splits on newlines and
  * commas so a pasted list, a single-column CSV, or a multi-column CSV export
- * all work — non-URL cells (names, ratings, headers) are simply skipped.
+ * all work - non-URL cells (names, ratings, headers) are simply skipped.
  * Bare domains get an https:// scheme; results are normalized and de-duped.
  */
 export function extractUrlsFromText(text: string, max = 50): string[] {
@@ -484,7 +484,7 @@ function allUkPostcodes(text: string): string[] {
 /**
  * Verify a canonical NAP against a fetched page. Unlike compareNap (which only
  * sees pre-extracted structured fields), this checks whether each canonical
- * value actually appears anywhere in the page text — so it works on the common
+ * value actually appears anywhere in the page text - so it works on the common
  * case of a directory page that renders NAP as plain HTML with no JSON-LD or
  * microdata. Candidate values are still extracted for display and to flag a
  * genuine mismatch (a different phone/postcode present on the page).
@@ -517,7 +517,7 @@ export function verifyNap(canonical: CanonicalNap, html: string): CompareResult 
   setField('postcode', schema.postcode, 'schema');
   if (!extracted.postcode) setField('postcode', regex.postcode || ukPostcodes[0], 'text');
 
-  // Each field combines two signals — structured extraction (works on JSON-LD/
+  // Each field combines two signals - structured extraction (works on JSON-LD/
   // microdata pages) and plain-text presence of the canonical value (works on
   // everything else). The stronger signal wins.
 
@@ -798,7 +798,7 @@ export function consistencyScore(results: Array<{ matchScore: number }>): number
 /**
  * Consistency score that honors manual verification: any citation whose URL is
  * marked OK in `overrides` counts as a full 100 (the operator checked it by hand
- * — e.g. a page our fetcher was blocked from but they confirmed in a browser).
+ * - e.g. a page our fetcher was blocked from but they confirmed in a browser).
  */
 export function effectiveScore(
   results: Array<{ url: string; matchScore: number }>,
@@ -821,7 +821,7 @@ export interface CitationGapResult {
   covered: string[];
   /** Recommended directories the business already covers. */
   present: RecommendedDirectory[];
-  /** Recommended directories the business is missing — the build worklist. */
+  /** Recommended directories the business is missing - the build worklist. */
   missing: RecommendedDirectory[];
 }
 
@@ -858,7 +858,7 @@ export function findCitationGaps(
  * Build a LocalBusiness JSON-LD object from a canonical NAP. For directories
  * (or the client's own site) that ship no structured data, this is the snippet
  * to paste so future extraction lands on the clean Layer-2 path. Only fields
- * that are present are emitted — no empty keys.
+ * that are present are emitted - no empty keys.
  */
 export function generateLocalBusinessSchema(c: CanonicalNap): Record<string, unknown> {
   const schema: Record<string, unknown> = {
@@ -888,7 +888,7 @@ export function generateSchemaScriptTag(c: CanonicalNap): string {
 // ── Duplicate listing detection ──────────────────────────────────────────────
 
 // Common multi-label public suffixes, so "shop.example.co.uk" collapses to
-// "example.co.uk" rather than "co.uk". Not the full PSL — just the suffixes a
+// "example.co.uk" rather than "co.uk". Not the full PSL - just the suffixes a
 // UK/AU/etc. local business is realistically listed under.
 const MULTI_PART_SUFFIXES = new Set([
   'co.uk', 'org.uk', 'me.uk', 'ltd.uk', 'plc.uk', 'net.uk', 'sch.uk', 'ac.uk', 'gov.uk',
@@ -913,7 +913,7 @@ export function registrableDomain(url: string): string {
 
 /**
  * Classify an unreachable citation. A 4xx/5xx that browsers pass but a server
- * fetch doesn't is almost always anti-bot/WAF blocking, not a broken link —
+ * fetch doesn't is almost always anti-bot/WAF blocking, not a broken link -
  * label it distinctly so the user knows it's worth an unblocker, not a fix.
  */
 export function classifyUnreachable(
@@ -922,7 +922,7 @@ export function classifyUnreachable(
   if (status != null && [401, 403, 406, 409, 429, 451, 503].includes(status)) {
     return {
       tag: 'blocked',
-      message: `Blocked by the site's anti-bot protection (HTTP ${status}). We couldn't read it automatically — open it in your browser and Mark OK if the details are correct.`,
+      message: `Blocked by the site's anti-bot protection (HTTP ${status}). We couldn't read it automatically - open it in your browser and Mark OK if the details are correct.`,
     };
   }
   if (status === 404 || status === 410) {
@@ -943,7 +943,7 @@ export interface DuplicateGroup {
 }
 
 /**
- * Flag directories that appear more than once in the citation set — a likely
+ * Flag directories that appear more than once in the citation set - a likely
  * duplicate listing, which dilutes ranking signal and is a priority cleanup in
  * any local SEO audit. Duplicates that also disagree on NAP are flagged
  * `conflicting`, the most damaging variant.

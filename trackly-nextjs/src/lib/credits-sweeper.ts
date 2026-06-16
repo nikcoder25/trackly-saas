@@ -2,7 +2,7 @@
  * Drift sweeper for `usage_counters.monthly_used`.
  *
  * Companion to refundCredits + the watchdog refund. Defensive layer
- * that catches the residue when both of those miss — most commonly:
+ * that catches the residue when both of those miss - most commonly:
  *   - Serverless invocation killed mid-run before the /run handler's
  *     terminal `finally` ran AND before the watchdog could observe
  *     the row (e.g. host evicted the container, deploy mid-run).
@@ -13,7 +13,7 @@
  * the cap gate (credits.ts:512) pins the user as "out of credits"
  * even when the ledger (tenant_cost_events) shows plenty of headroom.
  * The dashboard "AI credits 5,324 / 8,000 (67% used)" sits next to a
- * banner reading "1 credit remaining" — same period, different
+ * banner reading "1 credit remaining" - same period, different
  * counters, neither one wrong on its own.
  *
  * Reconcile logic per user:
@@ -42,7 +42,7 @@ export interface SweepOptions {
   tolerance?: number;
   /** Override "now" for tests. */
   now?: Date;
-  /** Don't write — return what would be done. */
+  /** Don't write - return what would be done. */
   dryRun?: boolean;
 }
 
@@ -83,7 +83,7 @@ export async function sweepUsageCounterDrift(
   //   expected    = ledger_used + inflight
   // and surface only rows where monthly_used - expected > tolerance.
   //
-  // Done in one query so the read is point-in-time consistent — a
+  // Done in one query so the read is point-in-time consistent - a
   // run that completed between sub-queries would otherwise look like
   // drift and we'd over-refund.
   const userFilter = opts.userId ? 'AND uc.user_id = $3' : '';
@@ -156,7 +156,7 @@ export async function sweepUsageCounterDrift(
       // Guarded UPDATE: only write if the counter still matches what
       // we read, AND only ever decrement. Two safety properties:
       //   1) a reservation that landed between SELECT and UPDATE makes
-      //      monthly_used != $2 and the WHERE filter drops the row —
+      //      monthly_used != $2 and the WHERE filter drops the row -
       //      we skip rather than clobber.
       //   2) GREATEST(0, ...) prevents the (impossible-in-theory) case
       //      where ledger_used + inflight is somehow larger than

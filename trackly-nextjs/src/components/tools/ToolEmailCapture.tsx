@@ -7,7 +7,7 @@ import { reportConversion } from '@/lib/googleAds';
  * Post-result email capture card for the free tools. Subscribes via
  * /api/newsletter with a per-tool `source` tag (tool:<slug>) so signups are
  * attributable in newsletter_subscribers. Copy is deliberately a newsletter
- * opt-in — the backend does not email tool results, so don't promise that.
+ * opt-in - the backend does not email tool results, so don't promise that.
  */
 export default function ToolEmailCapture({ source }: { source: string }) {
   const [email, setEmail] = useState('');

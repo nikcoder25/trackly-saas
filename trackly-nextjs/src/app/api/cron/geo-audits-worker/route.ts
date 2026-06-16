@@ -8,12 +8,12 @@
  * Next.js after() callback fired from POST /api/geo-audits. This cron
  * is the 1% safety net: it picks up any 'queued' rows that didn't get
  * after()'d (deploy mid-flight, OOM, runtime crash) and processes them
- * here. Rows already 'running' or terminal are skipped — claimAuditForRunning
+ * here. Rows already 'running' or terminal are skipped - claimAuditForRunning
  * is atomic and short-circuits the redundant work.
  *
  * Runs every minute on GitHub Actions; GH Actions has a documented
  * soft-minimum of ~5 min for cron schedules and frequently doesn't
- * fire * * * * * exactly on time. That's fine — this is a safety net,
+ * fire * * * * * exactly on time. That's fine - this is a safety net,
  * not the happy path.
  *
  * Idempotent: returns `{ skipped: true, reason: 'locked' }` when
@@ -33,7 +33,7 @@ const MAX_PER_TICK = 8;
 
 // Stuck threshold: if a row has been 'queued' longer than this, we
 // assume after() didn't fire and pick it up here. 60s is a safe lower
-// bound — happy-path audits are claimed by after() within ms of POST.
+// bound - happy-path audits are claimed by after() within ms of POST.
 const STUCK_AFTER_SECONDS = 60;
 
 export async function GET(request: Request): Promise<Response> {
@@ -51,7 +51,7 @@ export async function GET(request: Request): Promise<Response> {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // 5-min stale lock — outlives the worst expected per-audit runtime
+  // 5-min stale lock - outlives the worst expected per-audit runtime
   // (a 5-region × 20-prompt audit at 5 platforms = 500 calls; at the
   // per-audit cap of 5 in flight, that's ~100 sequential rounds; even
   // at 2s per call that's still under 4 min). If a tick crashes mid-
@@ -72,7 +72,7 @@ export async function GET(request: Request): Promise<Response> {
     const slice = stuck.slice(0, MAX_PER_TICK);
     claimed = slice.length;
 
-    // Process sequentially — multiple stuck audits are rare, and the
+    // Process sequentially - multiple stuck audits are rare, and the
     // per-audit semaphore inside processGeoAudit already saturates the
     // 5 platform slots. Running them in parallel here would only add
     // contention without throughput.

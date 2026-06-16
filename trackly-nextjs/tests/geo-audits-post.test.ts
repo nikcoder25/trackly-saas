@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * Integration tests for POST /api/geo-audits — focused on the
+ * Integration tests for POST /api/geo-audits - focused on the
  * credit-validation path. We don't exercise the worker here (that's
  * tested in geo-audits-worker.test.ts); the POST returns immediately
  * after the reservation + insert, so we mock processGeoAudit out.
@@ -86,7 +86,7 @@ beforeEach(() => {
 
 afterEach(() => { vi.clearAllMocks(); });
 
-describe('POST /api/geo-audits — validation', () => {
+describe('POST /api/geo-audits - validation', () => {
   it('400 on missing brandId', async () => {
     reserveMock.mockResolvedValue({ ok: true, reserved: 0, remaining: 1000, monthlyCap: 1000, manualRemainingToday: 100, manualDailyCap: 100, nextResetAt: '' });
     const res = await POST(makeRequest({ regions: ['India'], prompts: ['p'] }));

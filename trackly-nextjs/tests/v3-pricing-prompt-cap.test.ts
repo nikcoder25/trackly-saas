@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 /**
- * v3 pricing — account-wide tracked-prompt cap (and brand cap)
+ * v3 pricing - account-wide tracked-prompt cap (and brand cap)
  * enforcement coverage.
  *
  * The full Next.js route handlers pull in Postgres, Redis, AI, mail,
@@ -18,7 +18,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { PLAN_CREDITS } from '../src/lib/plan-config';
 import { PLAN_LIMITS } from '../src/lib/constants';
 
-describe('v3 spec — plan tier numbers', () => {
+describe('v3 spec - plan tier numbers', () => {
   it('exposes account-wide tracked prompt caps in both configs', () => {
     expect(PLAN_CREDITS.free.trackedPromptsPerAccount).toBe(5);
     expect(PLAN_CREDITS.starter.trackedPromptsPerAccount).toBe(15);
@@ -65,7 +65,7 @@ describe('v3 spec — plan tier numbers', () => {
     expect(PLAN_LIMITS.starter.competitors).toBe(3);
     expect(PLAN_LIMITS.pro.competitors).toBe(8);
     expect(PLAN_LIMITS.agency.competitors).toBe(20);
-    // AI platforms — Livesov supports exactly 5 (ChatGPT, Perplexity,
+    // AI platforms - Livesov supports exactly 5 (ChatGPT, Perplexity,
     // Claude, Gemini, Grok). Agency caps at 5 (all) post-PR
     // "chore(pre-launch): platform count copy"; the previous 6 was a
     // copy/config bug that surfaced as the dashboard "6 / ∞" tile.
@@ -162,8 +162,8 @@ describe('account-wide tracked-prompt enforcement', () => {
 
   it('Starter: rejects the 16th account-wide prompt across brands', () => {
     expect(wouldRejectUpdate('starter', 10, 6)).toBe(true);  // 16 total
-    expect(wouldRejectUpdate('starter', 10, 5)).toBe(false); // 15 total — at cap
-    expect(wouldRejectUpdate('starter', 14, 1)).toBe(false); // 15 total — at cap
+    expect(wouldRejectUpdate('starter', 10, 5)).toBe(false); // 15 total - at cap
+    expect(wouldRejectUpdate('starter', 14, 1)).toBe(false); // 15 total - at cap
     expect(wouldRejectUpdate('starter', 14, 2)).toBe(true);  // 16 total
   });
 
@@ -211,7 +211,7 @@ describe('brand-cap enforcement', () => {
 // shelling out to tsx + a real DB. The picker logic is small and
 // self-contained, and the test guards against accidentally promoting
 // users to enterprise/owner tiers.
-describe('v3 pricing migration — plan picker', () => {
+describe('v3 pricing migration - plan picker', () => {
   const LADDER = ['free', 'starter', 'pro', 'agency'] as const;
 
   function pickFittingPlan(
@@ -259,7 +259,7 @@ describe('v3 pricing migration — plan picker', () => {
   });
 
   it('never auto-promotes to enterprise', () => {
-    // Even if every paid tier is exceeded, picker returns null —
+    // Even if every paid tier is exceeded, picker returns null -
     // operator must hand-promote to enterprise/owner.
     expect(pickFittingPlan(99999, 1, 'pro')).toBe(null);
   });

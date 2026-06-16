@@ -13,15 +13,15 @@
  *   immediately after deploy, instead of starting from a clean slate.
  *
  * Inputs read from audit_logs:
- *   - 'subscription_cancelled' — written by /api/payments/cancel under
+ *   - 'subscription_cancelled' - written by /api/payments/cancel under
  *     the real user_id. details.previousPlan and previousSubscriptionId
  *     are present.
- *   - 'webhook_plan_change' — written by the dodopayments webhook
+ *   - 'webhook_plan_change' - written by the dodopayments webhook
  *     handler under user_id=NULL but with target_id=<userId>. We pivot
  *     on target_id when target_type='user'. details has eventType,
  *     subscription_id, product_id but NO from/to plan; we synthesise
  *     from/to from the user's current plan and the productId map.
- *   - 'old_subscription_cancelled' — orphan-cancel rows from the
+ *   - 'old_subscription_cancelled' - orphan-cancel rows from the
  *     upgrade flow. Become superseded_sub_cancelled rows.
  *
  * Idempotency:
@@ -154,7 +154,7 @@ function resolveUserId(row: AuditRow): string | null {
  * Walk the audit history per-user in chronological order, maintaining a
  * running `currentPlan` so that webhook_plan_change rows (which don't
  * record from/to) can be turned into upgrade/downgrade/renewal rows.
- * Starting plan: 'free' for safety — the first paid event will record
+ * Starting plan: 'free' for safety - the first paid event will record
  * from='free' to='paid' which over-counts conversions but never
  * under-counts. Live webhook rows landing after the script will use
  * the real plan transitions.
@@ -194,7 +194,7 @@ function buildInserts(rows: AuditRow[]): BillingInsert[] {
         const subscriptionId = (details.subscription_id as string) || null;
         const eventType = (details.eventType as string) || '';
         // Cancellation-class webhook (subscription.cancelled / .expired
-        // / refund.succeeded) lands here too — recognise by eventType.
+        // / refund.succeeded) lands here too - recognise by eventType.
         if (/cancel|expired|refund/i.test(eventType)) {
           out.push({
             audit_id: auditKey,

@@ -10,7 +10,7 @@
  * objects that <useNotifications /> merges into the bell-icon list.
  *
  * The "fired-this-period" map is keyed by `status.nextResetAt` so it
- * resets automatically when a new period starts — no cron, no manual
+ * resets automatically when a new period starts - no cron, no manual
  * cleanup, no server round-trip.
  */
 
@@ -30,7 +30,7 @@ export interface UsageAlertNotification {
   /** Marks this row as synthesized client-side. Server alerts won't
    *  carry this field. */
   source: 'usage-alert';
-  /** Threshold key — exposed so consumers can call markUsageAlertRead. */
+  /** Threshold key - exposed so consumers can call markUsageAlertRead. */
   threshold: UsageAlertThreshold;
 }
 
@@ -53,7 +53,7 @@ interface FiredEntry {
 
 interface AlertState {
   /**
-   * Period key — using `status.nextResetAt` as the key lets the state
+   * Period key - using `status.nextResetAt` as the key lets the state
    * auto-reset when the period rolls (the next render after reset
    * gets a different key, we wipe the `fired` map, and the same
    * thresholds become eligible to fire again).
@@ -157,7 +157,7 @@ function alertId(threshold: UsageAlertThreshold, periodKey: string): string {
  */
 export function evaluateUsageAlerts(status: CreditStatus | null | undefined): UsageAlertNotification[] {
   if (!status) return [];
-  // Owner / unlimited never trigger usage alerts — they have no cap
+  // Owner / unlimited never trigger usage alerts - they have no cap
   // to cross.
   if (status.plan === 'owner' || !Number.isFinite(status.monthlyCap) || status.monthlyCap <= 0 || status.monthlyCap >= 99_999) {
     return [];
@@ -193,7 +193,7 @@ export function evaluateUsageAlerts(status: CreditStatus | null | undefined): Us
 
   // Build the notifications to return. We surface every fired alert
   // for the current period (read-or-not) so they remain visible in
-  // the bell across page loads — same UX pattern as server alerts.
+  // the bell across page loads - same UX pattern as server alerts.
   const out: UsageAlertNotification[] = [];
   for (const t of order) {
     const entry = fired[t];

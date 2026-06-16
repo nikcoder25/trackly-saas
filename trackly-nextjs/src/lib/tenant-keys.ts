@@ -14,7 +14,7 @@
  *     - Validation at save time so the "Inactive / No Data" UX (PR #406) stops
  *       happening mid-run when a tenant's key is wrong/expired/quota'd.
  *     - Fall back to the platform-wide env keys when a tenant has none
- *       configured — keeps existing single-tenant behavior intact.
+ *       configured - keeps existing single-tenant behavior intact.
  *
  * Storage:
  *   Keys are encrypted at rest with the same AES-256-GCM scheme used for
@@ -26,7 +26,7 @@
  * Health:
  *   `recordTenantKeyResult` updates `last_*` columns per (tenant, platform)
  *   so the dashboard can surface a healthy/inactive indicator without
- *   joining against the global circuit-breaker. Failures are scoped — they
+ *   joining against the global circuit-breaker. Failures are scoped - they
  *   do not call `recordApiKeyFailure` on the global breaker.
  */
 
@@ -97,7 +97,7 @@ export function isValidTenantPlatform(platform: string): boolean {
 }
 
 // Reject obvious garbage (whitespace, control chars, html) before we
-// even hit the provider — saves a round trip and produces a better
+// even hit the provider - saves a round trip and produces a better
 // error message in the UI.
 const RAW_KEY_RE = /^[A-Za-z0-9._\-:/+=]{12,400}$/;
 
@@ -228,7 +228,7 @@ export async function getTenantKey(
  * platform-default env keys (`getServerKeys()`) when this returns null.
  *
  * NEVER pass the returned value to a logger, response body, or error
- * message — only to provider HTTP headers via `queryAI`.
+ * message - only to provider HTTP headers via `queryAI`.
  */
 export async function resolveTenantKey(
   tenantId: string,
@@ -336,7 +336,7 @@ export async function deleteTenantKey(
 // shared circuit breaker, so other tenants keep flowing.
 
 // Threshold scales with the global breaker (5 failures in 5 minutes)
-// — kept loose because tenant keys also see real provider 5xx noise
+// - kept loose because tenant keys also see real provider 5xx noise
 // and we don't want to mark a tenant unhealthy on a transient blip.
 const TENANT_KEY_FAIL_THRESHOLD = Number(process.env.TENANT_KEY_FAIL_THRESHOLD) || 5;
 
@@ -429,7 +429,7 @@ export async function revalidateTenantKey(
 //
 // Order:
 //   1. Configured tenant key (new `tenant_api_keys` row).
-//   2. Legacy per-user `users.api_keys` blob (kept for back-compat —
+//   2. Legacy per-user `users.api_keys` blob (kept for back-compat -
 //      existing single-tenant deployments rely on this).
 //   3. Platform-default env keys (`getServerKeys()` pool).
 //
@@ -456,7 +456,7 @@ export async function resolveKeysForTenant(args: {
   if (tenantId) {
     const tenant = await getTenantKey(tenantId, platformKeyName);
     // Skip a tenant key that's beyond the failure threshold so it does
-    // not poison the run forever — falls through to the server pool.
+    // not poison the run forever - falls through to the server pool.
     if (tenant && tenant.public.consecutiveFailures < TENANT_KEY_FAIL_THRESHOLD) {
       return { key: tenant.raw, source: 'tenant', pool: [] };
     }

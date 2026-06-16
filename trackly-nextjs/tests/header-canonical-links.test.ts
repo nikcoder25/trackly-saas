@@ -5,12 +5,12 @@ import { MARKETING_NAV_LINKS } from '@/lib/marketing-nav';
 
 // Regression guard for finding #2 (inconsistent header navigation).
 // PR-6 unified the two marketing header sources behind a single
-// shared array — MARKETING_NAV_LINKS — and this test pins both the
+// shared array - MARKETING_NAV_LINKS - and this test pins both the
 // canonical link set AND the fact that both consumers actually
 // import it (so a future contributor cannot silently reintroduce a
 // local nav-link array and let the headers drift again).
 
-describe('MARKETING_NAV_LINKS — canonical 6-link header set (finding #2)', () => {
+describe('MARKETING_NAV_LINKS - canonical 6-link header set (finding #2)', () => {
   it('contains exactly the canonical 6 items in canonical order', () => {
     expect(MARKETING_NAV_LINKS).toHaveLength(6);
     expect(MARKETING_NAV_LINKS.map(l => l.href)).toEqual([
@@ -34,7 +34,7 @@ describe('MARKETING_NAV_LINKS — canonical 6-link header set (finding #2)', () 
     ]);
   });
 
-  it('does NOT include /geo-audit (PR-6 compromise — GEO Audit moved out of top nav)', () => {
+  it('does NOT include /geo-audit (PR-6 compromise - GEO Audit moved out of top nav)', () => {
     for (const link of MARKETING_NAV_LINKS) {
       expect(link.href).not.toBe('/geo-audit');
       expect(link.homeHref).not.toBe('/geo-audit');
@@ -46,7 +46,7 @@ describe('MARKETING_NAV_LINKS — canonical 6-link header set (finding #2)', () 
     expect(new Set(hrefs).size).toBe(hrefs.length);
   });
 
-  it('homeHref (anchor-on-home variant) is only set for items with real pages — How it Works + Pricing', () => {
+  it('homeHref (anchor-on-home variant) is only set for items with real pages - How it Works + Pricing', () => {
     const withHomeHref = MARKETING_NAV_LINKS.filter(l => l.homeHref);
     expect(withHomeHref.map(l => l.href)).toEqual(['/how-it-works', '/pricing']);
     for (const link of withHomeHref) {

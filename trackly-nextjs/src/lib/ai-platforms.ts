@@ -53,7 +53,7 @@ import {
 // Per-call context (brand, region, freshness hints) belongs in the user
 // message, not here. See geo-audits.buildRegionUserPrompt for the
 // reference pattern. Note: the current string is ~30 tokens, well under
-// OpenAI's automatic-cache threshold (~1024 tokens) — caching engages
+// OpenAI's automatic-cache threshold (~1024 tokens) - caching engages
 // only on requests where the combined system+user prefix crosses that
 // bar. This invariant is what keeps the door open.
 const SYSTEM_PROMPT = 'Recommendation assistant. List 3-6 specific businesses by name with one-line descriptions. Max 80 words. No intro, no caveats, no closing advice.';
@@ -546,7 +546,7 @@ export async function withDeepRetry<T>(
 // runs and the successful result is persisted; errors are NEVER cached and
 // cache-layer failures NEVER break the caller (they log and fall through).
 //
-// The wrapper is intentionally agnostic to whether `fn` itself retries —
+// The wrapper is intentionally agnostic to whether `fn` itself retries -
 // that's the caller's responsibility (the run route wraps singleAttempt in
 // withDeepRetry; the BullMQ worker calls queryAI directly without retry).
 export interface CacheAndRetryParams {
@@ -557,7 +557,7 @@ export interface CacheAndRetryParams {
   /** When true, skip the read but still write the resulting response. */
   fresh?: boolean;
   /**
-   * Brand context — recorded on the row for ops/debug only. Cross-tenant
+   * Brand context - recorded on the row for ops/debug only. Cross-tenant
    * dedup is keyed on the SHA-256 cache_key alone, so once a row exists
    * it serves every tenant whose prompt normalizes to the same value
    * regardless of the brandId/city stamped on it.
@@ -593,7 +593,7 @@ export async function withCacheAndRetry<T extends { model?: string }>(
   // Cache miss (or ?fresh=1): call the provider. Errors propagate
   // unchanged so withDeepRetry / processError stay in charge of the
   // failure taxonomy. We deliberately wait for fn() to fully resolve
-  // before writing — for streaming callers, the caller is expected to
+  // before writing - for streaming callers, the caller is expected to
   // assemble the full response inside `fn` first.
   const data = await fn();
   // Best-effort write: failures here must not break the caller.
@@ -855,8 +855,8 @@ const VALID_SEARCH_CONTEXT_SIZES = new Set(['low', 'medium', 'high']);
  * every ChatGPT web_search-enabled call. OpenAI bills the hosted
  * web_search tool at a higher rate when the field is unset (server
  * default is "medium"); for brand-mention detection "low" context is
- * sufficient — we only need to know IF a brand appears, not deep
- * detail — and is materially cheaper per billed search.
+ * sufficient - we only need to know IF a brand appears, not deep
+ * detail - and is materially cheaper per billed search.
  *
  * Override: CHATGPT_SEARCH_CONTEXT_SIZE=low|medium|high. Invalid /
  * empty values fall back to "low". Read at call time so a runtime
@@ -876,7 +876,7 @@ export function getChatGPTSearchContextSize(): 'low' | 'medium' | 'high' {
  * response was useful, so a single transient failure that triggers the
  * generic ChatGPT retry budget (default 3 retries) can multiply the
  * search surcharge 4x for the same query. Default is 1 (no retries on
- * the search path) — the cheap NO-search path keeps its full retry
+ * the search path) - the cheap NO-search path keeps its full retry
  * budget. Override via CHATGPT_SEARCH_MAX_ATTEMPTS to raise the cap
  * without a redeploy.
  */
@@ -911,7 +911,7 @@ const NONSEARCH_DOWNGRADE_FALLBACKS = ['gpt-5.4-mini', 'gpt-4o'];
  * Resolve the ChatGPT model to use when the call will NOT attach the
  * hosted web_search tool. mention-detection is capped at
  * MAX_OUTPUT_TOKENS=100 and doesn't need the extra capability of the
- * default `gpt-5.4-mini` — gpt-5.4-nano answers the same prompts at
+ * default `gpt-5.4-mini` - gpt-5.4-nano answers the same prompts at
  * roughly a quarter of the per-token cost.
  *
  * Returns the downgraded model id, or `null` when the downgrade is
@@ -937,14 +937,14 @@ export function getChatGPTNonSearchModel(): string | null {
  * ChatGPT determinism knobs (gpt-5.x only). Setting `temperature: 0`
  * and a fixed `seed` makes identical (prompt, model) pairs return
  * byte-identical answers, which keeps the Postgres response cache
- * stable across runs and turns repeat queries into cache hits — every
+ * stable across runs and turns repeat queries into cache hits - every
  * cache hit = one ChatGPT call we don't pay for. The "list 3-6
  * businesses" task is recall-bound, not creativity-bound, so removing
  * sampling jitter does not reduce brand-mention quality.
  *
  * Both env vars are read at call time inside the payload builder so a
  * flip in the env takes effect on the next request with no redeploy.
- * Empty string disables that field independently — useful for incident
+ * Empty string disables that field independently - useful for incident
  * rollback when only one of the two needs to be unset.
  *
  * Only attached to the gpt-5.x family. Older OpenAI models silently
@@ -1494,7 +1494,7 @@ export interface QueryOptions {
   requestId?: string;
   // ChatGPT only: signals that `model` reflects an explicit
   // admin/user pick (vs. the platform default cascading in). Honored
-  // by the no-search auto-downgrade — see `getChatGPTNonSearchModel`
+  // by the no-search auto-downgrade - see `getChatGPTNonSearchModel`
   // and the ChatGPT branch of queryAI. Setting this to `true`
   // suppresses the downgrade so an admin's selection (including the
   // default model picked deliberately) is preserved verbatim.
@@ -1597,8 +1597,8 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
 // quality; under-routing costs us quota - so we err on the side of
 // keeping search when in doubt.
 // Two-style match:
-//   (a) anchored definitional prefixes — "what is X", "how does Y", etc.
-//   (b) unanchored static-comparison nouns — "alternatives to Stripe",
+//   (a) anchored definitional prefixes - "what is X", "how does Y", etc.
+//   (b) unanchored static-comparison nouns - "alternatives to Stripe",
 //       "Stripe competitors", "similar to Slack". These describe
 //       relatively static landscape questions that a daily cron can
 //       answer from training data without burning web_search quota.
@@ -1608,12 +1608,12 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
 // decide to drop it from the freshness regex.
 const NON_SEARCH_INTENT_RE = /(?:^\s*(?:what\s+is|what\s+are|how\s+does|how\s+do|how\s+to|explain|define|describe|tell\s+me\s+about)\b)|(?:\b(?:similar|competitors?|alternatives?|versus|vs)\b)/i;
 // Narrowed for the web_search cost-reduction effort (see May-11 incident).
-// Removed: `best`, `top`, bare year `20\d{2}` — these are common in
+// Removed: `best`, `top`, bare year `20\d{2}` - these are common in
 // brand-tracking queries ("best CRM 2026", "top plumbers") and don't
 // genuinely need live web data on a daily cron; training-data answers
 // are fine. Added `this week` alongside `this year` for actual
 // short-horizon freshness signals. Kept: recommend/review/pricing/
-// compare/vs/versus/in {city}/near me/latest/today/this (week|year) —
+// compare/vs/versus/in {city}/near me/latest/today/this (week|year) -
 // these still indicate the caller wants fresh or location-aware data.
 // Narrowed to only genuinely time-sensitive or price-sensitive intent.
 // For brand-tracking the training-data answer is fine for everything else,
@@ -1807,7 +1807,7 @@ export async function queryAI(
             ]
           : [useModel];
         // OpenAI deprecated `max_tokens` in favour of `max_completion_tokens`
-        // for the gpt-5 family (and o1/o3 reasoning models) — passing the old
+        // for the gpt-5 family (and o1/o3 reasoning models) - passing the old
         // name is silently ignored, so output runs to the full model budget
         // and gets billed in full. `max_completion_tokens` is also accepted
         // by gpt-4o/gpt-4o-mini and the *-search-preview models, so we use
@@ -1831,10 +1831,10 @@ export async function queryAI(
             model: m, max_completion_tokens: maxTok,
             messages: isSearch ? [{ role: 'user', content: query }] : [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }],
           };
-          // Determinism for the gpt-5.x family only — see
+          // Determinism for the gpt-5.x family only - see
           // getChatGPTTemperature / getChatGPTSeed. Gate on `m` (not
           // useModel) so the downgrade fallback chain re-evaluates per
-          // attempt — a fallback to gpt-4o must NOT carry these fields.
+          // attempt - a fallback to gpt-4o must NOT carry these fields.
           // Each env knob is independent so ops can disable one without
           // the other by setting it to "".
           if (isGpt5xModel(m)) {
@@ -1844,7 +1844,7 @@ export async function queryAI(
             if (seed !== null) p.seed = seed;
           }
           if (attachWebSearch) {
-            // `search_context_size: 'low'` by default — OpenAI bills the
+            // `search_context_size: 'low'` by default - OpenAI bills the
             // hosted web_search tool at its "medium" rate when the field
             // is omitted. Override via CHATGPT_SEARCH_CONTEXT_SIZE.
             p.web_search_options = { search_context_size: getChatGPTSearchContextSize() };
@@ -1881,7 +1881,7 @@ export async function queryAI(
         // batchEligible) for the 50% discount; on any batch error
         // falls back to the synchronous Chat Completions path so the
         // tracking tick still lands and mention recall is preserved.
-        // The web_search path is never routed here — `searchPath` is
+        // The web_search path is never routed here - `searchPath` is
         // checked inline. Response parsing is identical because the
         // batch row's `response.body` IS a Chat Completions response.
         const batchPathEnabled =

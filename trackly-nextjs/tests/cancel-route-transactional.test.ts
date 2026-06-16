@@ -184,8 +184,8 @@ beforeEach(() => {
   process.env.DODO_PAYMENTS_ENVIRONMENT = 'test_mode';
 });
 
-describe('/api/payments/cancel — transactional Dodo PATCH + DB UPDATE', () => {
-  it('T1: happy path — Dodo 2xx and DB UPDATE both succeed inside one COMMIT', async () => {
+describe('/api/payments/cancel - transactional Dodo PATCH + DB UPDATE', () => {
+  it('T1: happy path - Dodo 2xx and DB UPDATE both succeed inside one COMMIT', async () => {
     const fake = makeFakeClient({
       user: {
         email: 'a@test.com',
@@ -216,7 +216,7 @@ describe('/api/payments/cancel — transactional Dodo PATCH + DB UPDATE', () => 
       const sentBody = typeof patchCalls[0].init?.body === 'string' ? patchCalls[0].init.body : '';
       expect(sentBody).toContain('"status":"cancelled"');
 
-      // BEGIN ... SELECT FOR UPDATE ... UPDATE ... COMMIT — exactly one of each,
+      // BEGIN ... SELECT FOR UPDATE ... UPDATE ... COMMIT - exactly one of each,
       // and a SELECT FOR UPDATE locked the row.
       const stmtSeq = fake.recorded.map(r => r.sql.replace(/\s+/g, ' ').trim());
       const beginIdx = stmtSeq.findIndex(s => /^BEGIN ISOLATION LEVEL SERIALIZABLE/.test(s));
@@ -246,7 +246,7 @@ describe('/api/payments/cancel — transactional Dodo PATCH + DB UPDATE', () => 
     }
   });
 
-  it('T2: Dodo PATCH 5xx — ROLLBACK, no DB UPDATE, route returns 500', async () => {
+  it('T2: Dodo PATCH 5xx - ROLLBACK, no DB UPDATE, route returns 500', async () => {
     const fake = makeFakeClient({
       user: {
         email: 'a@test.com',
@@ -287,7 +287,7 @@ describe('/api/payments/cancel — transactional Dodo PATCH + DB UPDATE', () => 
     }
   });
 
-  it('T3: Dodo PATCH 404/409/410 — treated as already-cancelled, DB UPDATE proceeds, COMMIT', async () => {
+  it('T3: Dodo PATCH 404/409/410 - treated as already-cancelled, DB UPDATE proceeds, COMMIT', async () => {
     for (const status of [404, 409, 410]) {
       const fake = makeFakeClient({
         user: {
@@ -330,7 +330,7 @@ describe('/api/payments/cancel — transactional Dodo PATCH + DB UPDATE', () => 
     }
   });
 
-  it('T4: DB UPDATE fails mid-transaction — ROLLBACK, no partial state, 500 returned', async () => {
+  it('T4: DB UPDATE fails mid-transaction - ROLLBACK, no partial state, 500 returned', async () => {
     const fake = makeFakeClient({
       user: {
         email: 'a@test.com',
@@ -371,7 +371,7 @@ describe('/api/payments/cancel — transactional Dodo PATCH + DB UPDATE', () => 
     }
   });
 
-  it('T5: COMMIT fails after Dodo success — fresh-connection audit row tagged cancel_db_commit_failed_after_dodo_success, 500 returned', async () => {
+  it('T5: COMMIT fails after Dodo success - fresh-connection audit row tagged cancel_db_commit_failed_after_dodo_success, 500 returned', async () => {
     const fake = makeFakeClient({
       user: {
         email: 'a@test.com',
@@ -397,7 +397,7 @@ describe('/api/payments/cancel — transactional Dodo PATCH + DB UPDATE', () => 
       expect(res.status).toBe(500);
 
       // Compensating audit row was written. auditLog uses the global pool
-      // (a fresh connection) — not the failed transaction client — so this
+      // (a fresh connection) - not the failed transaction client - so this
       // is the safety record even when the txn client is poisoned.
       const driftAudit = auditLogFn.mock.calls.find(
         c => c[1] === 'cancel_db_commit_failed_after_dodo_success',
@@ -420,14 +420,14 @@ describe('/api/payments/cancel — transactional Dodo PATCH + DB UPDATE', () => 
     }
   });
 
-  it('T6: concurrent double-click — second request sees plan=free and returns 200 idempotently with a recovery enqueue, without re-PATCHing Dodo', async () => {
+  it('T6: concurrent double-click - second request sees plan=free and returns 200 idempotently with a recovery enqueue, without re-PATCHing Dodo', async () => {
     // First request: pro -> free. Second request runs after the first
     // commits and sees the new state via SELECT FOR UPDATE (the lock
     // serialises them; we model serialisation here by running them
     // sequentially with the second seeing the already-cancelled state).
     //
     // Behaviour change vs the pre-fix route: the second request no
-    // longer returns 400. Returning 400 was the silent-no-email bug —
+    // longer returns 400. Returning 400 was the silent-no-email bug -
     // if the first request's email-enqueue had failed (network blip,
     // DEV-mode short-circuit, transient INSERT error) the user would
     // never receive the confirmation. We now respond 200 idempotently
@@ -469,20 +469,20 @@ describe('/api/payments/cancel — transactional Dodo PATCH + DB UPDATE', () => 
       expect(body2.success).toBe(true);
       expect(body2.alreadyCancelled).toBe(true);
 
-      // Dodo PATCH was issued for the first request only — the second
+      // Dodo PATCH was issued for the first request only - the second
       // short-circuits before the provider call once it sees plan=free.
       const patchCalls = fetchMock.calls.filter(c => c.init?.method === 'PATCH');
       expect(patchCalls.length).toBe(1);
 
       // Second request issued BEGIN -> SELECT FOR UPDATE -> ROLLBACK
-      // (no UPDATE, no COMMIT) — proves we did NOT double-cancel locally.
+      // (no UPDATE, no COMMIT) - proves we did NOT double-cancel locally.
       const stmt2 = secondFake.recorded.map(r => r.sql.replace(/\s+/g, ' ').trim());
       expect(stmt2.find(s => /SELECT email, plan, settings.*FOR UPDATE/.test(s))).toBeTruthy();
       expect(stmt2.find(s => /^ROLLBACK/.test(s))).toBeTruthy();
       expect(stmt2.find(s => /UPDATE users SET plan = 'free'/.test(s))).toBeUndefined();
       expect(stmt2.find(s => /^COMMIT/.test(s))).toBeUndefined();
 
-      // The second request invoked the recovery enqueue helper —
+      // The second request invoked the recovery enqueue helper -
       // proves the silent-no-email regression is closed even when the
       // first request's enqueue was lost.
       expect(tryEnqueueRecoveredFn).toHaveBeenCalledTimes(1);

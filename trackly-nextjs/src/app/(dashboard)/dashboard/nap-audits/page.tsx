@@ -38,14 +38,14 @@ function scoreTone(score: number | null): 'pos' | 'warn' | 'neg' | 'neu' {
 }
 
 function fmtDate(iso: string | null): string {
-  if (!iso) return '—';
+  if (!iso) return '-';
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return '—';
+  if (isNaN(d.getTime())) return '-';
   return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
 /**
- * Live progress chip — rendered in place of the status badge while a run
+ * Live progress chip - rendered in place of the status badge while a run
  * is in flight. We poll the list every couple of seconds so this updates
  * without manual refresh; the bar gives the user something to watch
  * during a 500-URL run instead of a generic "RUNNING…" label.
@@ -96,7 +96,7 @@ function parseUrlList(raw: string): string[] {
   for (const line of raw.split(/[\s,;]+/)) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-    // Defensive — `url:` schemes other than http(s) shouldn't reach the
+    // Defensive - `url:` schemes other than http(s) shouldn't reach the
     // server, but the canonical extractUrlsFromText runs there too so
     // anything malformed gets dropped by the time the audit is created.
     if (!/^https?:\/\//i.test(trimmed)) continue;
@@ -131,7 +131,7 @@ function NewAuditModal({ brandId, brandName, brandCity, onClose, onCreated }: Ne
    * appending " (i/N)" to the label so the dashboard list shows them as
    * a coherent set. We post sequentially: the worker behind each audit
    * already runs in `after()`, so back-to-back POSTs don't pile up
-   * synchronous work — and on a partial failure the user keeps the
+   * synchronous work - and on a partial failure the user keeps the
    * audits that did succeed instead of losing the whole batch.
    */
   async function create(values: NapAuditFormValues) {
@@ -158,11 +158,11 @@ function NewAuditModal({ brandId, brandName, brandCity, onClose, onCreated }: Ne
         });
         created++;
       }
-      onCreated(`Created ${created} audits — watch the live progress below.`);
+      onCreated(`Created ${created} audits - watch the live progress below.`);
       onClose();
     } catch (err) {
       // Surface partial-success so the user knows what landed before the
-      // failure — the form's error renderer will show this message and
+      // failure - the form's error renderer will show this message and
       // leave the modal open so they can retry with the remaining URLs.
       if (created > 0) {
         onCreated(
@@ -176,14 +176,14 @@ function NewAuditModal({ brandId, brandName, brandCity, onClose, onCreated }: Ne
   }
 
   // Pre-fill the Pull-from-Google query with the selected brand so the
-  // button is immediately useful — falls back to just the name if no
+  // button is immediately useful - falls back to just the name if no
   // city is on the brand record. Pre-seeding the form's label/canonical
   // with the brand name saves the user from retyping context they
   // already chose in the top-bar dropdown.
   const gbpQuery = [brandName, brandCity].filter((s): s is string => !!s && s.trim().length > 0).join(' ');
   const formInitial = brandName
     ? {
-        label: `${brandName} — NAP audit`,
+        label: `${brandName} - NAP audit`,
         canonical: { name: brandName, city: brandCity ?? undefined },
       }
     : undefined;
@@ -359,7 +359,7 @@ export default function NapAuditsPage() {
               </div>
               <p className="quiet" style={{ fontSize: 13, maxWidth: 380, margin: '0 auto 16px' }}>
                 {brandId
-                  ? 'Create an audit for this brand — enter its canonical NAP and citation URLs. We’ll fetch each page, flag mismatches, and keep a consistency score you can track over time.'
+                  ? 'Create an audit for this brand - enter its canonical NAP and citation URLs. We’ll fetch each page, flag mismatches, and keep a consistency score you can track over time.'
                   : 'Select a brand in the top bar to view or create audits.'}
               </p>
               {brandId && (
@@ -393,7 +393,7 @@ export default function NapAuditsPage() {
                         ) : a.status === 'failed' ? (
                           <Badge tone="neg">FAILED</Badge>
                         ) : (
-                          <Badge tone={scoreTone(a.score)}>{a.score == null ? '—' : `${a.score}/100`}</Badge>
+                          <Badge tone={scoreTone(a.score)}>{a.score == null ? '-' : `${a.score}/100`}</Badge>
                         )}
                       </td>
                       <td style={{ padding: '12px 14px' }} className="mono">{a.urlCount}</td>
@@ -424,7 +424,7 @@ export default function NapAuditsPage() {
           brandCity={brandCity}
           onClose={() => setModalOpen(false)}
           onCreated={(msg) => {
-            flash(msg ?? 'Audit queued — watch the live progress below.');
+            flash(msg ?? 'Audit queued - watch the live progress below.');
             fetchAudits(brandId);
           }}
         />

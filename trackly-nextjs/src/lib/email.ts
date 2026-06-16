@@ -1,7 +1,7 @@
 /**
  * Email service.
  *
- * Architecture (audit item D — durable email delivery):
+ * Architecture (audit item D - durable email delivery):
  *
  *   - Public senders (sendPlanUpgradeEmail, sendVerificationEmail, etc.)
  *     no longer call the Resend HTTP API directly. They build the
@@ -27,7 +27,7 @@
  *     scoped out of this PR.
  *
  *   - addContactToAudience hits the Resend Audiences API, not the
- *     /emails endpoint — different shape and not technically an email
+ *     /emails endpoint - different shape and not technically an email
  *     send.
  */
 
@@ -53,10 +53,10 @@ export interface EmailResult {
  * or counted as success.
  *
  *   - 'sent'      : 2xx response.
- *   - 'retryable' : 429 / 5xx / network throw — try again on the next
+ *   - 'retryable' : 429 / 5xx / network throw - try again on the next
  *                   cron tick after the configured backoff.
  *   - 'permanent' : any other 4xx (invalid recipient, malformed
- *                   payload, bad API key, etc.) — never retried, row
+ *                   payload, bad API key, etc.) - never retried, row
  *                   marked dead immediately.
  */
 export type DeliveryOutcome =
@@ -87,7 +87,7 @@ export interface EnqueueEmailInput {
  * Idempotency: if `idempotencyKey` is provided and a row with the same
  * key already exists, the INSERT is a no-op (ON CONFLICT DO NOTHING).
  * This prevents duplicate sends when two code paths observe the same
- * underlying event — e.g. the webhook and the reconcile cron both
+ * underlying event - e.g. the webhook and the reconcile cron both
  * detecting a plan_cancellation in the same tick.
  */
 export async function enqueueEmail(input: EnqueueEmailInput): Promise<EmailResult> {
@@ -111,7 +111,7 @@ export async function enqueueEmail(input: EnqueueEmailInput): Promise<EmailResul
         input.templateKey, JSON.stringify(input.payload ?? {}), input.idempotencyKey ?? null,
       ],
     );
-    // Stable structured-log key — see audit item D's observability spec.
+    // Stable structured-log key - see audit item D's observability spec.
     // Don't log the HTML body or recipient PII at info level: this fires
     // on every email enqueue and would flood prod logs with sensitive data.
     console.log(
@@ -178,13 +178,13 @@ export async function deliverEmailViaProvider(
     const reason = `Email API returned ${resp.status}: ${text.slice(0, 200)}`;
     // 429 (rate limit) and 5xx are retryable. All other 4xx (auth,
     // invalid recipient, malformed payload, bounced address) are
-    // permanent — retrying won't help and would burn provider quota.
+    // permanent - retrying won't help and would burn provider quota.
     if (resp.status === 429 || resp.status >= 500) {
       return { kind: 'retryable', status: resp.status, reason };
     }
     return { kind: 'permanent', status: resp.status, reason };
   } catch (e) {
-    // Network errors, DNS failures, fetch timeout — all retryable.
+    // Network errors, DNS failures, fetch timeout - all retryable.
     return { kind: 'retryable', status: 0, reason: (e as Error).message };
   }
 }
@@ -487,7 +487,7 @@ export async function sendLowCreditsEmail(
       <p style="color:#9ca3af;font-size:12px;margin-top:16px;">
         You're receiving this because your Livesov account dropped
         below 20% of its monthly credit allowance. We send this
-        once per month — no further reminders this period.
+        once per month - no further reminders this period.
       </p>
     </div>
   `;
@@ -513,7 +513,7 @@ export async function sendAutoSkipEmail(
 ): Promise<EmailResult> {
   const html = `
     <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
-      <h2 style="color:#dc2626;margin:0 0 12px 0;">Scheduled scan skipped — out of credits</h2>
+      <h2 style="color:#dc2626;margin:0 0 12px 0;">Scheduled scan skipped - out of credits</h2>
       <p style="color:#374151;line-height:1.6;">
         We tried to run a scheduled scan for
         <strong>${escapeHtml(ctx.brandName)}</strong> but your account
@@ -533,7 +533,7 @@ export async function sendAutoSkipEmail(
   `;
   return enqueueEmail({
     to: email,
-    subject: `Scheduled scan skipped — ${ctx.brandName}`,
+    subject: `Scheduled scan skipped - ${ctx.brandName}`,
     html,
     templateKey: 'auto_skip',
     payload: { brandName: ctx.brandName },
@@ -588,7 +588,7 @@ export async function sendMonthlyResetEmail(
  * UNIQUE constraint collapses concurrent enqueues into one row. When the
  * subscription_id has been stripped from settings before one of the
  * paths reads it (the bug fixed by this PR), we fall back to a stable
- * 'no_sub' marker rather than a random UUID — a UUID would produce
+ * 'no_sub' marker rather than a random UUID - a UUID would produce
  * different keys per call site and silently break dedup.
  *
  * Note: re-subscribe-then-cancel-again with no sub_id on either side
@@ -684,7 +684,7 @@ export async function tryEnqueueRecoveredCancellationEmail(
   }
 
   if (!previousPlan) {
-    // No prior paid-plan evidence in audit history — nothing to recover.
+    // No prior paid-plan evidence in audit history - nothing to recover.
     // Common for users who never had a paid plan; not an error.
     return;
   }
@@ -707,7 +707,7 @@ export async function tryEnqueueRecoveredCancellationEmail(
 
 function parseAuditDetails(raw: unknown): Record<string, unknown> {
   // pg returns JSONB columns as already-parsed objects, but some legacy
-  // audit rows may have been written by the Express app as TEXT — handle
+  // audit rows may have been written by the Express app as TEXT - handle
   // both shapes so the recovery doesn't silently miss older history.
   if (raw && typeof raw === 'object') return raw as Record<string, unknown>;
   if (typeof raw === 'string') {
@@ -787,7 +787,7 @@ export async function sendPlanUpgradeEmail(
   `;
   return enqueueEmail({
     to: email,
-    subject: `You're on the ${toCfg.label} plan — Livesov`,
+    subject: `You're on the ${toCfg.label} plan - Livesov`,
     html,
     templateKey: 'plan_upgrade',
     payload: { from: ctx.previousPlan, to: ctx.newPlan },
@@ -798,7 +798,7 @@ export async function sendPlanUpgradeEmail(
 /**
  * Confirmation that a paid plan changed to a lower-ranked paid plan
  * (e.g. agency → starter via the customer portal). NOT used for full
- * cancellations down to free — see `sendPlanCancellationEmail`.
+ * cancellations down to free - see `sendPlanCancellationEmail`.
  */
 export async function sendPlanDowngradeEmail(
   email: string,
@@ -820,7 +820,7 @@ export async function sendPlanDowngradeEmail(
         ${planFeatureBullets(ctx.newPlan)}
       </div>
       <p style="color:#374151;line-height:1.6;">
-        Need more capacity again? You can switch back any time from the billing page —
+        Need more capacity again? You can switch back any time from the billing page -
         your existing brands, prompts, and history all stay put.
       </p>
       <a href="${BILLING_URL}" style="display:inline-block;background:#4f46e5;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0;font-weight:600;">Manage Plan</a>
@@ -865,7 +865,7 @@ export async function sendPlanCancellationEmail(
         ${planFeatureBullets('free')}
       </div>
       <p style="color:#374151;line-height:1.6;">
-        Your brands, prompts, and run history are preserved — re-subscribe any time from
+        Your brands, prompts, and run history are preserved - re-subscribe any time from
         the billing page to restore your previous capacity.
       </p>
       <a href="${BILLING_URL}" style="display:inline-block;background:#4f46e5;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0;font-weight:600;">View Billing</a>

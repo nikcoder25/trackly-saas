@@ -126,7 +126,7 @@ export default function ComparePlansGrid({
   const visiblePlans = ['free', 'starter', 'pro', 'agency'] as const;
   const currentTier = PLAN_TIERS[currentPlan] ?? 0;
   // Trial isn't one of the comparison cards, so without this note a trial user
-  // would read the (highlighted-looking) Free column as "their" allowances —
+  // would read the (highlighted-looking) Free column as "their" allowances -
   // contradicting the dashboard banner. Surface the real trial allowances,
   // sourced from the same PLAN_LIMITS the rest of the app enforces.
   const onTrial = currentPlan === 'trial';

@@ -72,7 +72,7 @@ function scrubBody(value: unknown, depth = 0): unknown {
 
 /**
  * Core scrubber, exported for tests. Mutates the event in place and
- * returns it. Never throws — a crash here would silently drop every event
+ * returns it. Never throws - a crash here would silently drop every event
  * Sentry sees, which is worse than an imperfect scrub.
  */
 export function scrubSentryEvent(event: ErrorEvent): ErrorEvent {
@@ -81,7 +81,7 @@ export function scrubSentryEvent(event: ErrorEvent): ErrorEvent {
     const req = asRecord.request as MutableRecord | undefined;
     if (req && typeof req === 'object') {
       if (req.headers) req.headers = scrubHeaders(req.headers);
-      // `cookies` is parsed separately by Sentry. Drop outright — we never
+      // `cookies` is parsed separately by Sentry. Drop outright - we never
       // want raw session cookies to leave the process.
       if ('cookies' in req) req.cookies = FILTERED;
       if (req.data !== undefined) req.data = scrubBody(req.data);

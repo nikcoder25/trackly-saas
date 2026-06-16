@@ -1,5 +1,5 @@
 /**
- * /api/nap-audits/[id] — detail (GET), re-run (POST), delete (DELETE).
+ * /api/nap-audits/[id] - detail (GET), re-run (POST), delete (DELETE).
  *
  * GET    → full saved audit incl. per-URL results + score history.
  * POST   → re-run the stored canonical NAP + URLs, append to history.

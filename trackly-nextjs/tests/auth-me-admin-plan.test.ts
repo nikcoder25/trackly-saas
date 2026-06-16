@@ -13,7 +13,7 @@
  * Fix (Option B from the audit plan): /me is now a pure read at the DB
  * layer. The response payload still surfaces plan='owner' for admins
  * so the existing unmetered UI surfaces (UsageSection, billing page,
- * Sidebar) keep working without code changes — this is a response-shape
+ * Sidebar) keep working without code changes - this is a response-shape
  * spoof only, never written back. Authorisation continues to gate on
  * role === 'admin' via lib/admin-auth.ts; spoofing the response plan
  * does not cross any auth boundary.
@@ -50,7 +50,7 @@ vi.mock('@/lib/auth', () => ({
   verifyRequestAuth: (req: Request) => verifyRequestAuthFn(req),
 }));
 
-// safeUser does a lot — encryption, sensitive-key stripping, trial
+// safeUser does a lot - encryption, sensitive-key stripping, trial
 // resolution. For these tests we just want to know what `plan` ends up
 // in the response and that no UPDATE fired, so the helper is mocked to
 // passthrough the relevant fields. Real `safeUser` behaviour is covered
@@ -98,8 +98,8 @@ beforeEach(() => {
   ensureColumnsFn.mockResolvedValue(undefined);
 });
 
-describe('/api/auth/me — admin plan handling (DB-clean, response spoofed)', () => {
-  it('T1: admin with plan=free — response shows plan=owner, NO UPDATE issued', async () => {
+describe('/api/auth/me - admin plan handling (DB-clean, response spoofed)', () => {
+  it('T1: admin with plan=free - response shows plan=owner, NO UPDATE issued', async () => {
     verifyRequestAuthFn.mockReturnValue({ id: 'admin_user', email: 'admin@test.com' });
     const recorded = installPoolQuery({
       user: {
@@ -120,7 +120,7 @@ describe('/api/auth/me — admin plan handling (DB-clean, response spoofed)', ()
     expect(recorded.find(r => /UPDATE users/i.test(r.sql))).toBeUndefined();
   });
 
-  it('T2: admin already at plan=owner — response stays owner, NO UPDATE issued', async () => {
+  it('T2: admin already at plan=owner - response stays owner, NO UPDATE issued', async () => {
     verifyRequestAuthFn.mockReturnValue({ id: 'admin_user', email: 'admin@test.com' });
     const recorded = installPoolQuery({
       user: {
@@ -139,7 +139,7 @@ describe('/api/auth/me — admin plan handling (DB-clean, response spoofed)', ()
     expect(recorded.find(r => /UPDATE users/i.test(r.sql))).toBeUndefined();
   });
 
-  it('T3: admin with paid plan=pro — response spoofed to owner BUT DB untouched (real billing state survives the /me round-trip)', async () => {
+  it('T3: admin with paid plan=pro - response spoofed to owner BUT DB untouched (real billing state survives the /me round-trip)', async () => {
     // This is the core conflict-with-billing case. Pre-fix, /me would
     // UPDATE users SET plan='owner' WHERE id=..., obliterating the
     // admin's real Dodo subscription state. Post-fix the response still
@@ -163,7 +163,7 @@ describe('/api/auth/me — admin plan handling (DB-clean, response spoofed)', ()
     expect(recorded.find(r => /UPDATE users/i.test(r.sql))).toBeUndefined();
   });
 
-  it('T4: non-admin user with plan=pro — response shows plan=pro, NO UPDATE (regression guard)', async () => {
+  it('T4: non-admin user with plan=pro - response shows plan=pro, NO UPDATE (regression guard)', async () => {
     verifyRequestAuthFn.mockReturnValue({ id: 'regular_user', email: 'user@test.com' });
     const recorded = installPoolQuery({
       user: {
@@ -183,7 +183,7 @@ describe('/api/auth/me — admin plan handling (DB-clean, response spoofed)', ()
     expect(recorded.find(r => /UPDATE users/i.test(r.sql))).toBeUndefined();
   });
 
-  it('T5: non-admin user with plan=free — response shows plan=free, NO UPDATE (second regression guard)', async () => {
+  it('T5: non-admin user with plan=free - response shows plan=free, NO UPDATE (second regression guard)', async () => {
     verifyRequestAuthFn.mockReturnValue({ id: 'regular_user', email: 'user@test.com' });
     const recorded = installPoolQuery({
       user: {
@@ -202,7 +202,7 @@ describe('/api/auth/me — admin plan handling (DB-clean, response spoofed)', ()
     expect(recorded.find(r => /UPDATE users/i.test(r.sql))).toBeUndefined();
   });
 
-  it('T6: unauthenticated — 401 with no DB queries issued', async () => {
+  it('T6: unauthenticated - 401 with no DB queries issued', async () => {
     verifyRequestAuthFn.mockReturnValue(null);
     const recorded = installPoolQuery({ user: null });
 
@@ -214,7 +214,7 @@ describe('/api/auth/me — admin plan handling (DB-clean, response spoofed)', ()
     expect(ensureColumnsFn).not.toHaveBeenCalled();
   });
 
-  it('T7: authenticated but user row missing — 404 with no UPDATE issued', async () => {
+  it('T7: authenticated but user row missing - 404 with no UPDATE issued', async () => {
     verifyRequestAuthFn.mockReturnValue({ id: 'ghost_user', email: 'ghost@test.com' });
     const recorded = installPoolQuery({ user: null });
 
@@ -224,7 +224,7 @@ describe('/api/auth/me — admin plan handling (DB-clean, response spoofed)', ()
     expect(recorded.find(r => /UPDATE users/i.test(r.sql))).toBeUndefined();
   });
 
-  it('T8: admin with plan=free calls /me three times back-to-back — zero UPDATE statements across all three (the every-dashboard-load regression check)', async () => {
+  it('T8: admin with plan=free calls /me three times back-to-back - zero UPDATE statements across all three (the every-dashboard-load regression check)', async () => {
     verifyRequestAuthFn.mockReturnValue({ id: 'admin_user', email: 'admin@test.com' });
     const recorded = installPoolQuery({
       user: {
@@ -244,7 +244,7 @@ describe('/api/auth/me — admin plan handling (DB-clean, response spoofed)', ()
 
     // Direct mirror of the audit's "every dashboard load" finding:
     // across three sequential /me calls, the DB plan column is never
-    // mutated by this route — pre-fix this would have produced one
+    // mutated by this route - pre-fix this would have produced one
     // UPDATE on the first call (admin's plan flipped from free to
     // owner), and zero on calls 2-3 because the guard `plan !== 'owner'`
     // would have already been false. The post-fix invariant is
@@ -253,7 +253,7 @@ describe('/api/auth/me — admin plan handling (DB-clean, response spoofed)', ()
     const updateCalls = recorded.filter(r => /UPDATE users/i.test(r.sql));
     expect(updateCalls.length).toBe(0);
 
-    // SELECT was issued exactly three times — one per /me call — proving
+    // SELECT was issued exactly three times - one per /me call - proving
     // the route is reading the row each time but never mutating it.
     const selectCalls = recorded.filter(r => /SELECT id, email, username, name, plan/.test(r.sql));
     expect(selectCalls.length).toBe(3);

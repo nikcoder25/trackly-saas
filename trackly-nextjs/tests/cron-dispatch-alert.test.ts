@@ -49,7 +49,7 @@ describe('recordDispatchOutcome', () => {
       errors: ['brand-1: HTTP 403', 'brand-2: HTTP 403'],
     });
 
-    // After firing, the streak is back to 0 — a single subsequent
+    // After firing, the streak is back to 0 - a single subsequent
     // all-failed tick should increment to 1, not re-fire immediately.
     const next = recordDispatchOutcome({
       eligible: 5,
@@ -77,7 +77,7 @@ describe('recordDispatchOutcome', () => {
     });
     expect(recovered).toEqual({ alerted: false, streak: 0 });
 
-    // A subsequent all-failed tick must NOT alert — streak was reset.
+    // A subsequent all-failed tick must NOT alert - streak was reset.
     const after = recordDispatchOutcome({
       eligible: 13,
       processed: 0,

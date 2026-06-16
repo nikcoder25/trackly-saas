@@ -1,5 +1,5 @@
 /**
- * v3 pricing migration — auto-upgrade accounts that no longer fit
+ * v3 pricing migration - auto-upgrade accounts that no longer fit
  * their current plan under the v3 (account-wide) tracked-prompt cap.
  *
  * The owner has confirmed that affected accounts are internal test
@@ -17,7 +17,7 @@
  *     owner's current plan AND brandsCap for the owner's brand count.
  *   - If the account exceeds either cap, picks the lowest paid tier
  *     that fits (starter → pro → agency). 'enterprise' / 'owner' are
- *     never auto-assigned — those are operator decisions.
+ *     never auto-assigned - those are operator decisions.
  *   - In --apply mode, updates `users.plan` and inserts an audit_log
  *     row with the old plan, new plan, and reason.
  */
@@ -53,7 +53,7 @@ const pool = new Pool({
   max: 5,
 });
 
-// Auto-upgrade ladder. enterprise/owner are intentionally excluded —
+// Auto-upgrade ladder. enterprise/owner are intentionally excluded -
 // auto-upgrading anyone to enterprise is a billing/contract decision,
 // not a script decision.
 const UPGRADE_LADDER = ['free', 'starter', 'pro', 'agency'] as const;
@@ -88,11 +88,11 @@ function pickFittingPlan(promptCount: number, brandCount: number, currentPlan: s
       return { plan: candidate, reason: `fits at ${candidate}: ${promptCount}/${cfg.trackedPromptsPerAccount} prompts, ${brandCount}/${cfg.brandsCap} brands` };
     }
   }
-  return { plan: null, reason: `no plan in the ${UPGRADE_LADDER.join('/')} ladder fits ${promptCount} prompts × ${brandCount} brands — manual review needed` };
+  return { plan: null, reason: `no plan in the ${UPGRADE_LADDER.join('/')} ladder fits ${promptCount} prompts × ${brandCount} brands - manual review needed` };
 }
 
 async function main() {
-  console.log(`v3 pricing migration — ${APPLY ? 'APPLY mode (will mutate DB)' : 'DRY-RUN (no changes)'}`);
+  console.log(`v3 pricing migration - ${APPLY ? 'APPLY mode (will mutate DB)' : 'DRY-RUN (no changes)'}`);
   console.log(`Started ${new Date().toISOString()}`);
   console.log('');
 

@@ -1,5 +1,5 @@
 /**
- * /api/nap-audits — list (GET) and create (POST) saved NAP audits.
+ * /api/nap-audits - list (GET) and create (POST) saved NAP audits.
  *
  * GET  → list the current user's saved audits, newest first.
  * POST → create a saved audit (label + canonical NAP + URLs) and run it once.
@@ -40,7 +40,7 @@ export async function GET(request: Request): Promise<Response> {
   if (auth instanceof Response) return auth;
   try {
     // brandId is the active-brand scoping filter. If absent we return an
-    // empty list rather than every audit on the account — that's the bug
+    // empty list rather than every audit on the account - that's the bug
     // that previously leaked another brand's NAP audit into the dropdown.
     const url = new URL(request.url);
     const rawBrandId = url.searchParams.get('brandId');
@@ -48,7 +48,7 @@ export async function GET(request: Request): Promise<Response> {
     if (!brandId) {
       return Response.json({ audits: [] }, { headers: { 'Cache-Control': 'no-store' } });
     }
-    // Verify the brand belongs to the caller before exposing its audits —
+    // Verify the brand belongs to the caller before exposing its audits -
     // prevents a crafted brandId from listing another user's audits.
     const brandCheck = await pool.query(
       `SELECT id FROM brands WHERE id = $1 AND user_id = $2 LIMIT 1`,
@@ -98,7 +98,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    // Verify the brand belongs to the caller — silent 404 so we don't
+    // Verify the brand belongs to the caller - silent 404 so we don't
     // leak existence of someone else's brand id.
     const brandCheck = await pool.query(
       `SELECT id FROM brands WHERE id = $1 AND user_id = $2 LIMIT 1`,

@@ -7,7 +7,7 @@ import { validateUrlClientSide } from '@/app/(public)/geo-audit/validate-url';
 // functions; tests don't need to mock the route or DOM. If anyone
 // changes the copy without updating tests, this file fails.
 
-describe('ssrfErrorToCopy — SSRF code → user copy mapping (finding #5)', () => {
+describe('ssrfErrorToCopy - SSRF code → user copy mapping (finding #5)', () => {
   it('PROTOCOL_BLOCKED → actionable: tell the user which protocols are allowed', () => {
     expect(ssrfErrorToCopy('PROTOCOL_BLOCKED')).toBe(
       'URL protocol not allowed. Use http or https.',
@@ -55,7 +55,7 @@ describe('ssrfErrorToCopy — SSRF code → user copy mapping (finding #5)', () 
   });
 });
 
-describe('validateUrlClientSide — pre-fetch input validation (finding #6)', () => {
+describe('validateUrlClientSide - pre-fetch input validation (finding #6)', () => {
   it('empty string → "Enter a URL"', () => {
     expect(validateUrlClientSide('')).toBe('Enter a URL to audit.');
   });

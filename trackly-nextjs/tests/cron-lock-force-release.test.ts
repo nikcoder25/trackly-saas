@@ -3,7 +3,7 @@
  *
  * forceReleaseCronLock contract:
  *   - Bypasses Lua-CAS: a plain DEL on the Redis key, regardless of
- *     whether the holder is alive. Idempotent — DEL of a missing key
+ *     whether the holder is alive. Idempotent - DEL of a missing key
  *     returns 0, never throws.
  *   - DELETEs the Postgres `cron_locks` row and reports the prior
  *     locked_at + instance_id so the audit log can capture who was

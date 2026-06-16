@@ -11,7 +11,7 @@
  *     boolean computed against RUN_WATCHDOG_STALE_MINUTES so the
  *     frontend can colour rows without its own threshold
  *   - empty fleet when active_runs table is absent (42P01) instead
- *     of 500 — defensive against fresh deploys where no run has been
+ *     of 500 - defensive against fresh deploys where no run has been
  *     triggered yet
  *   - Cache-Control: no-store
  */

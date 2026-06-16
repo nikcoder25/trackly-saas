@@ -78,7 +78,7 @@ interface StaleRow {
   queries: unknown;
   platforms: unknown;
   // 'auto' (cron) or 'manual' (user-triggered). NULL on rows inserted
-  // before the kind column was added — treated as 'auto' downstream to
+  // before the kind column was added - treated as 'auto' downstream to
   // avoid over-refunding the manual daily counter for unknown rows.
   kind: 'auto' | 'manual' | null;
 }
@@ -95,14 +95,14 @@ interface ReconcileOptions {
   // Override the staleness window for this single call. Used by the
   // admin "reap all stale" UI which lets the operator pick a more
   // conservative threshold (default 30 min) over the env default.
-  // Hard floor at getStaleRunMinutes() — we never reap rows fresher
+  // Hard floor at getStaleRunMinutes() - we never reap rows fresher
   // than the env-default watchdog threshold, even if the caller
   // passes a smaller number, because that risks killing healthy
   // runs that haven't yet had a chance to flush progress.
   minAgeMinutes?: number;
   // Bypass the staleness gate entirely. ONLY honored when paired
   // with an explicit `runId`. Combined with `brandId` or scope-wide
-  // calls it is silently ignored — bulk operations always go
+  // calls it is silently ignored - bulk operations always go
   // through the staleness gate. This shape is enforced server-side
   // in the admin reap route and re-validated here as defense in
   // depth so a future caller can't accidentally reap the fleet.
@@ -133,7 +133,7 @@ async function selectStaleRuns(
     : 'started_at';
 
   // Force is only honored when targeting a specific runId. Bulk
-  // calls always go through the staleness gate — see the type
+  // calls always go through the staleness gate - see the type
   // comment for why.
   const surgicalForce = !!(scope.force && scope.runId);
 
@@ -213,14 +213,14 @@ async function finalizeStaleRow(
   // /run handler's terminal `finally` block (route.ts:654-683): we
   // reserved `total_expected` up front; `received` is how many sub-
   // tasks the worker actually dispatched. Any gap is a sub-task that
-  // never spent against the ledger, so it's safe — and necessary — to
+  // never spent against the ledger, so it's safe - and necessary - to
   // return those credits to the owner's reservation counter. Without
   // this, every watchdog-reaped run permanently inflates
   // usage_counters.monthly_used until the monthly reset, eventually
   // pinning the cap gate even when the ledger shows plenty of headroom
   // remaining (issue: contractor-kingdom freeze, May 2026).
   //
-  // Resolve the credit owner from the brand row directly — distinct
+  // Resolve the credit owner from the brand row directly - distinct
   // from active_runs.user_id, which for shared brands is the calling
   // team member, not the credit-holding account.
   const totalExpected = Number(row.total_expected || 0);
@@ -256,7 +256,7 @@ async function finalizeStaleRow(
         brand_id: row.brand_id,
         error: (e as Error).message,
       });
-      // Don't bail — appending the brand entry still needs to happen so
+      // Don't bail - appending the brand entry still needs to happen so
       // the dashboard "Last Run" clock advances. A missed refund self-
       // heals on monthly reset and is recoverable via the drift sweeper
       // (src/lib/credits-sweeper.ts).
@@ -310,7 +310,7 @@ async function finalizeStaleRow(
     // reaper already reads.
     const trimmedResults = resultsArr.slice(0, 200);
 
-    // Per-platform stats — same shape and formula as run-worker.ts
+    // Per-platform stats - same shape and formula as run-worker.ts
     // computes on terminal success. For platforms that hadn't yet
     // run any queries when the worker died (worker progresses
     // platform-by-platform), `queries: 0` is honest "no data yet"
@@ -331,14 +331,14 @@ async function finalizeStaleRow(
       };
     }
 
-    // Overall SOV — Mentions-page formula (found / non-error). When
+    // Overall SOV - Mentions-page formula (found / non-error). When
     // received is 0 (worker died before any result was flushed) the
     // helper returns 0 by definition.
     const sov = computeSovFromResults(
       trimmedResults as Array<{ error?: boolean; mentioned?: boolean }>,
     );
 
-    // Citations — replicate the run-worker domain-counting walk.
+    // Citations - replicate the run-worker domain-counting walk.
     const citationCounts: Record<string, number> = {};
     for (const r of trimmedResults) {
       const cites = ((r as { citations?: string[] }).citations) || [];
@@ -350,12 +350,12 @@ async function finalizeStaleRow(
       }
     }
 
-    // Competitors — same util the worker uses on success.
+    // Competitors - same util the worker uses on success.
     const competitorCounts = aggregateCompetitorCounts(
       trimmedResults as Array<{ competitorMentions?: string[] }>,
     );
 
-    // Run duration — wall-clock from started_at to the reap moment.
+    // Run duration - wall-clock from started_at to the reap moment.
     // Truthful: this is how long the run was alive before it died.
     let durationMs: number | null = null;
     const startedAtMs = new Date(row.started_at as string | Date).getTime();

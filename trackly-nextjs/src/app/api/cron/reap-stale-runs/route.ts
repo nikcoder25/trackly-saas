@@ -50,7 +50,7 @@ export async function GET(request: Request): Promise<Response> {
 
   // 10-min stale window matches the watchdog threshold default. If
   // the cron itself crashes, the next tick (5 min later) inherits
-  // after the TTL plus the 10-min stale window — bounded.
+  // after the TTL plus the 10-min stale window - bounded.
   const lock = await acquireCronLock('reap_stale_runs', 10);
   if (!lock) {
     return NextResponse.json({ skipped: true, reason: 'locked' });

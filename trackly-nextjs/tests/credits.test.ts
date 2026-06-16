@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  *
  * Strategy: stub out the pg pool so we can assert the SQL fragments
  * the module emits and control the rows it sees back. We don't test
- * Postgres semantics here — just the JS-side reservation, refund,
+ * Postgres semantics here - just the JS-side reservation, refund,
  * cooldown, and rollover logic.
  */
 
@@ -59,7 +59,7 @@ function mockCounter(row: Partial<{
     if (sql.includes('CREATE TABLE')) return { rows: [] };
     if (sql.includes('INSERT INTO usage_counters')) return { rows: [defaults] };
     if (sql.startsWith('UPDATE usage_counters')) {
-      // Conditional increment success path — caller asserts on the
+      // Conditional increment success path - caller asserts on the
       // params they passed. Default to "blocked" (zero rows) so each
       // test must opt-in to a successful update.
       return { rows: [] };
@@ -68,7 +68,7 @@ function mockCounter(row: Partial<{
   });
 }
 
-describe('reserveCredits — manual', () => {
+describe('reserveCredits - manual', () => {
   it('reserves credits and returns remaining when under cap', async () => {
     queryMock.mockImplementation(async (sql: string) => {
       if (sql.includes('CREATE TABLE')) return { rows: [] };
@@ -151,15 +151,15 @@ describe('reserveCredits — manual', () => {
 
   // The pre-v3 test "refuses an auto reservation on a plan that disallows
   // scheduled runs" used Free as the example. v3 (2026-04-27) gave every
-  // plan tier `scheduledRuns: true` — Free runs weekly, Starter every two
-  // days, Pro/Agency daily — so no real plan exercises the
+  // plan tier `scheduledRuns: true` - Free runs weekly, Starter every two
+  // days, Pro/Agency daily - so no real plan exercises the
   // `plan_disallows_auto` branch any more. The guard at credits.ts:279
   // is kept as defensive dead code in case a future "no-scheduled" tier
   // returns; deleting the test rather than rewriting it because no public
   // plan name produces the failure path under the current config.
 });
 
-describe('reserveCredits — auto kind ignores daily cap', () => {
+describe('reserveCredits - auto kind ignores daily cap', () => {
   it('does not bump the manual daily counter', async () => {
     let updateParams: unknown[] | undefined;
     queryMock.mockImplementation(async (sql: string, params?: unknown[]) => {
@@ -389,7 +389,7 @@ describe('getCreditStatus', () => {
       return { rows: [] };
     });
     const status = await getCreditStatus('u1', 'pro');
-    // 2000/2500 remaining = 80% — not low.
+    // 2000/2500 remaining = 80% - not low.
     expect(status.lowBalance).toBe(false);
     expect(status.remaining).toBe(2000);
   });

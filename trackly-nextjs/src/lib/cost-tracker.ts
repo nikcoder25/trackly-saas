@@ -441,7 +441,7 @@ export async function recordCall(input: RecordCallInput): Promise<void> {
   // `column "day" does not exist` against a partial-state legacy table)
   // escape into `queryAI`'s happy path and surface as the per-platform
   // errorMessage on every brand run. recordCall is best-effort by
-  // contract — the caller has already paid for the provider response —
+  // contract - the caller has already paid for the provider response -
   // so any failure here, including table-readiness, must be swallowed.
   let costToday: number | null = null;
   try {

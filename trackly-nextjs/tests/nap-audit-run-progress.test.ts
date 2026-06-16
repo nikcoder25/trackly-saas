@@ -13,7 +13,7 @@ vi.mock('../src/lib/safe-fetch', () => ({
     code = 'ssrf';
   },
   ssrfErrorToCopy: () => 'blocked',
-  // Each call resolves to a tiny OK response — runNapCheck will run the
+  // Each call resolves to a tiny OK response - runNapCheck will run the
   // extractor against an empty body, which is fine for counting fires.
   safeFetch: vi.fn(async () => new Response('<html><body></body></html>', { status: 200 })),
 }));

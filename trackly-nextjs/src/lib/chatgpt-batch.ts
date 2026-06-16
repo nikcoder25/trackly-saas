@@ -10,8 +10,8 @@
  * redeploy is required to flip the path on or off.
  *
  * Failure handling: any batch upload / create / poll / per-item error
- * — including a max-wait timeout that exceeds CHATGPT_BATCH_MAX_WAIT_MS
- * — surfaces as a `ChatGPTBatchError`. The caller (ai-platforms.queryAI
+ * - including a max-wait timeout that exceeds CHATGPT_BATCH_MAX_WAIT_MS
+ * - surfaces as a `ChatGPTBatchError`. The caller (ai-platforms.queryAI
  * ChatGPT branch) catches it and falls back to the synchronous nano
  * path so no tracking tick is silently dropped and mention recall is
  * preserved.
@@ -40,7 +40,7 @@ export function isChatGPTBatchEnabled(): boolean {
 /**
  * Maximum wall-clock time to wait for a batch to reach a terminal
  * state. Default: 6h. OpenAI's Batch API window is 24h, but waiting
- * the full window for a daily tracking tick is pointless — if the
+ * the full window for a daily tracking tick is pointless - if the
  * batch hasn't completed within the configured window, we'd rather
  * fall back to the sync nano path than miss the day's data point.
  * Override via CHATGPT_BATCH_MAX_WAIT_MS.
@@ -234,7 +234,7 @@ async function fetchOutputFile(
 // Best-effort cancel for a batch we are abandoning while it may still be
 // running. OpenAI bills batch requests that complete even if nobody ever
 // fetches the output, and the caller falls back to the synchronous path
-// after a ChatGPTBatchError — without the cancel, the same query would be
+// after a ChatGPTBatchError - without the cancel, the same query would be
 // billed twice (once in the orphaned batch, once sync). Uses its own
 // timeout instead of the caller's signal, which is typically already
 // aborted by the time we get here.
@@ -382,7 +382,7 @@ export async function submitChatGPTBatch(
   // Once `terminal` is true the batch has finished on OpenAI's side and
   // there is nothing left to cancel; until then, any error that exits
   // the poll loop (max-wait timeout, caller abort, poll/network failure)
-  // abandons a batch that may still run to completion — and bill —
+  // abandons a batch that may still run to completion - and bill -
   // server-side, so the catch below fires a best-effort cancel first.
   let terminal = false;
   try {
@@ -426,7 +426,7 @@ export async function submitChatGPTBatch(
           { stage: 'poll', batchId, isTransient: status.status === 'expired' },
         );
       }
-      // status: validating | in_progress | finalizing — keep polling.
+      // status: validating | in_progress | finalizing - keep polling.
       await sleep(Math.min(pollInterval, Math.max(0, maxWait - elapsed)), signal);
     }
   } catch (e) {

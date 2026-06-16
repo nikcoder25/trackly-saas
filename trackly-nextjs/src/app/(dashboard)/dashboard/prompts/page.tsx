@@ -219,7 +219,7 @@ export default function TrackedPromptsPage() {
     setStartingBrand(brandId);
     try {
       await startRun(false, { auto: true, brandId });
-      toast('Tracking started — results will appear in Query Tracker as they come in.', 'success');
+      toast('Tracking started - results will appear in Query Tracker as they come in.', 'success');
     } catch (e) {
       toast((e as Error).message || 'Failed to start tracking', 'error');
     }

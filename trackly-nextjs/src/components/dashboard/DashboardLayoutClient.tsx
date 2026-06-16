@@ -37,7 +37,7 @@ function OnboardingModal() {
         // Auto-start the first scan once the brand is created. Target the new
         // brand explicitly (not the context selection) so the run fires
         // deterministically without waiting on the selectedBrand closure to
-        // propagate — otherwise the run silently no-ops ("No brand set up")
+        // propagate - otherwise the run silently no-ops ("No brand set up")
         // and the user is left to trigger it by hand.
         refreshBrands().then(() => {
           setTimeout(() => startRunRef.current(false, { auto: true, brandId: brand.id }), 600);

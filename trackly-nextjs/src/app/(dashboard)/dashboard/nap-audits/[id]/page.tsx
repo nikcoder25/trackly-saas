@@ -29,9 +29,9 @@ interface NapAuditRecord extends NapResultsData {
 }
 
 function fmtDate(iso: string | null): string {
-  if (!iso) return '—';
+  if (!iso) return '-';
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return '—';
+  if (isNaN(d.getTime())) return '-';
   return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
@@ -105,7 +105,7 @@ function GapFinder({ id }: { id: string }) {
   return (
     <Card title="Citation gaps" right={<span className="quiet" style={{ fontSize: 12 }}>vs competitors</span>}>
       <p className="quiet" style={{ fontSize: 13, margin: '0 0 14px' }}>
-        Find important directories for this category that the client isn&apos;t listed on yet — a ready-made citation-building worklist.
+        Find important directories for this category that the client isn&apos;t listed on yet - a ready-made citation-building worklist.
       </p>
       <form onSubmit={find}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
@@ -122,10 +122,10 @@ function GapFinder({ id }: { id: string }) {
         <div style={{ marginTop: 16, display: 'grid', gap: 16 }}>
           <div>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--red)', marginBottom: 8 }}>
-              MISSING ({gaps.missing.length}) — build these
+              MISSING ({gaps.missing.length}) - build these
             </div>
             {gaps.missing.length === 0 ? (
-              <div className="quiet" style={{ fontSize: 13 }}>No gaps found — great coverage.</div>
+              <div className="quiet" style={{ fontSize: 13 }}>No gaps found - great coverage.</div>
             ) : (
               <div style={{ display: 'grid', gap: 6 }}>
                 {gaps.missing.map((d) => (
@@ -179,7 +179,7 @@ export default function NapAuditDetailPage() {
       if (res.ok) {
         const data = await res.json();
         setAudit(data.audit);
-        flash(ok ? 'Marked OK — score updated.' : 'Verification removed.');
+        flash(ok ? 'Marked OK - score updated.' : 'Verification removed.');
       } else {
         flash('Could not update verification.');
       }
@@ -218,7 +218,7 @@ export default function NapAuditDetailPage() {
     if (!res.ok) throw new Error((typeof data?.error === 'string' && data.error) || `Failed (HTTP ${res.status})`);
     if (data.audit) setAudit(data.audit);
     setEditOpen(false);
-    flash('Saved — re-running…');
+    flash('Saved - re-running…');
   }
 
   const load = useCallback(async () => {
@@ -334,7 +334,7 @@ export default function NapAuditDetailPage() {
                     <span>
                       {audit.status === 'queued'
                         ? 'Queued… results update automatically.'
-                        : `Running ${done}/${total} URLs (${pct}%) — results update automatically.`}
+                        : `Running ${done}/${total} URLs (${pct}%) - results update automatically.`}
                     </span>
                     {audit.status === 'running' && (
                       <span className="mono" style={{ fontSize: 12 }}>{pct}%</span>

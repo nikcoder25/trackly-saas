@@ -2,9 +2,9 @@
  * Billing-events recorder.
  *
  * The user-facing Billing History on /dashboard/account is sourced from
- * this table. Every plan lifecycle transition — upgrade, downgrade,
+ * this table. Every plan lifecycle transition - upgrade, downgrade,
  * renewal, cancellation, on-hold/paused, and the orphan-old-sub
- * cancellations the webhook issues during plan upgrades — must produce
+ * cancellations the webhook issues during plan upgrades - must produce
  * exactly one row here so the user can audit the full history of their
  * subscription, not just the most recent cancellation (the pre-fix
  * behaviour, which surfaced 'subscription cancelled' rows only).
@@ -28,7 +28,7 @@
  *   - Never throws: a billing-event write must NEVER roll back the user-
  *     facing operation that triggered it. Errors are logged + swallowed.
  *     For tx-mode callers, swallowing means the OUTER transaction COMMITs
- *     without a billing row — acceptable because audit_logs still
+ *     without a billing row - acceptable because audit_logs still
  *     captures the underlying event for ops, and a follow-up backfill
  *     (P4) can recover.
  */
@@ -60,7 +60,7 @@ export interface RecordBillingEventInput {
   subscriptionId?: string | null;
   /** Dodo's webhook-id, when this event was triggered by a webhook delivery. */
   dodoEventId?: string | null;
-  /** Producer of the row — one of 'webhook', 'cancel_route', 'backfill', 'reconcile'. */
+  /** Producer of the row - one of 'webhook', 'cancel_route', 'backfill', 'reconcile'. */
   source: string;
   /** Free-form payload (productId, amount, raw event type, etc). */
   details?: Record<string, unknown>;

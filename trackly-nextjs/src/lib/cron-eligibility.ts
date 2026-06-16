@@ -10,7 +10,7 @@
  * `brand.data.runs` with `time: nowIso` (the reap moment). The
  * scheduler's `interval_not_elapsed` gate uses
  * `brand.data.runs[last].time` as a fallback when there's no
- * `status='done'` row in `active_runs` to consult — and the naive
+ * `status='done'` row in `active_runs` to consult - and the naive
  * "take the latest entry" walk treats the reap stamp as "this brand
  * just ran successfully", blocking the brand for the full
  * `effectiveSchedule` window (typically 24-48 hours).
@@ -20,7 +20,7 @@
  * timestamp ungate-able when older than effectiveSchedule), or no
  * fallback timestamp is found at all (brand treated as "never run"
  * → eligible immediately). Brands with a recent `status='done'` row
- * in `active_runs` are unaffected — the primary path still wins.
+ * in `active_runs` are unaffected - the primary path still wins.
  */
 
 export interface RunStampSource {
@@ -49,14 +49,14 @@ export interface ResolvedLastRun {
  *   `emergencySave` flagged entries are skipped.
  *
  * @returns `{ lastRunTime, lastRunSource }`. `lastRunTime: null`
- *   means "no usable history" — caller should treat the brand as
+ *   means "no usable history" - caller should treat the brand as
  *   eligible (no interval gate to check).
  */
 export function resolveLastRunTime(
   primaryFromActiveRuns: number | null | undefined,
   brandRuns: RunStampSource[] | undefined | null,
 ): ResolvedLastRun {
-  // Primary path — trust active_runs. The scheduler's source of
+  // Primary path - trust active_runs. The scheduler's source of
   // truth for successful runs; never override even if brand_data
   // disagrees.
   if (primaryFromActiveRuns) {
@@ -65,7 +65,7 @@ export function resolveLastRunTime(
   if (!Array.isArray(brandRuns) || brandRuns.length === 0) {
     return { lastRunTime: null, lastRunSource: null };
   }
-  // Fallback path — walk from newest entry backwards looking for a
+  // Fallback path - walk from newest entry backwards looking for a
   // non-reap entry. Pre-PR-C-2 this just took the last element which
   // could be a reaper-stamped entry, poisoning the interval gate.
   for (let i = brandRuns.length - 1; i >= 0; i--) {
@@ -79,7 +79,7 @@ export function resolveLastRunTime(
     return { lastRunTime: ms, lastRunSource: 'brand_data' };
   }
   // Every entry was a reap (or had no usable timestamp). Returning
-  // null means the gate is bypassed in the caller — correct
+  // null means the gate is bypassed in the caller - correct
   // behavior because we have no evidence the brand has actually
   // run successfully recently.
   return { lastRunTime: null, lastRunSource: null };

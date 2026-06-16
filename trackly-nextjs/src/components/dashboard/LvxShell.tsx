@@ -163,7 +163,7 @@ function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
             {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
           {selectedBrandRunning && (
-            <div aria-label={`Scanning ${selectedBrand?.name ?? 'brand'} — ${pct}%`} style={{
+            <div aria-label={`Scanning ${selectedBrand?.name ?? 'brand'} - ${pct}%`} style={{
               position: 'absolute', left: 0, right: 0, bottom: -3, height: 2,
               background: 'var(--bg3)', borderRadius: 2, overflow: 'hidden',
             }}>

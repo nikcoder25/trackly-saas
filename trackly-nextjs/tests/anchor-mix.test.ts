@@ -75,7 +75,7 @@ describe('assignAnchorTypes', () => {
     const seq = assignAnchorTypes(100, DEFAULT_ANCHOR_MIX);
     const firstTen = new Set(seq.slice(0, 10));
     // With the default mix, the first 10 slots should touch ≥3 distinct
-    // types — proves we're cycling buckets, not draining 'branded' first.
+    // types - proves we're cycling buckets, not draining 'branded' first.
     expect(firstTen.size).toBeGreaterThanOrEqual(3);
   });
 });

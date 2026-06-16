@@ -26,7 +26,7 @@ export interface ProviderSpec {
    * Mirrors the `PLATFORM_KEY_MAP` used by `brands/[id]/run`.
    */
   keyName: 'openai' | 'claude' | 'gemini' | 'grok' | 'perplexity';
-  /** Validation URL — should be cheap (≤1 round-trip, no large body). */
+  /** Validation URL - should be cheap (≤1 round-trip, no large body). */
   buildUrl: (key: string) => string;
   /** Headers required for auth. Auth-via-querystring providers return {}. */
   buildHeaders: (key: string) => Record<string, string>;

@@ -14,7 +14,7 @@ const ALLOWED_PLANS = new Set(['starter', 'pro', 'agency', 'enterprise']);
 
 // User-initiated subscription sync. Fetches the live state directly
 // from Dodo and reconciles the local DB if it has drifted. Used as the
-// escape hatch when a webhook is delayed or dropped — the billing page
+// escape hatch when a webhook is delayed or dropped - the billing page
 // "Refresh status" button calls this, and the post-checkout success
 // banner polls it until the plan converges.
 //
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
     const subscriptionId: string | null = row.settings?.subscription_id || null;
 
-    // No bound subscription — nothing to fetch from Dodo. Return the
+    // No bound subscription - nothing to fetch from Dodo. Return the
     // current local plan so the caller can stop polling.
     if (!subscriptionId) {
       logger.info('payments.refresh.no_subscription', { userId: user.id, plan: row.plan });
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
       return serverError({ message: 'Could not reach payment provider. Try again in a moment.' });
     }
 
-    // 404 / 410 — Dodo no longer knows about this subscription. Strip
+    // 404 / 410 - Dodo no longer knows about this subscription. Strip
     // the binding and downgrade locally. Mirrors reconcile-payments
     // cron's stale_subscription_404 branch.
     if (resp.status === 404 || resp.status === 410) {
@@ -160,7 +160,7 @@ export async function POST(request: Request) {
       const client = await safeConnect();
       try {
         await client.query('BEGIN');
-        // Conditional UPDATE — webhook may have flipped this row between
+        // Conditional UPDATE - webhook may have flipped this row between
         // our SELECT and UPDATE. RETURNING is empty if so; we treat that
         // as success (the other writer's value is what we'd have written).
         if (row.plan !== expectedPlan) {

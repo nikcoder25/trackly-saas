@@ -249,7 +249,7 @@ function PromptDetailsInner() {
         <div className="pd-query-count">{queries.length} queries</div>
       </div>
 
-      {/* Live run panel — shown while a scan is in progress for this query.
+      {/* Live run panel - shown while a scan is in progress for this query.
           Engines start as "checking…" placeholders and resolve to results as
           the live stream arrives; on completion this hides and the saved-data
           tables/KPIs below take over. Driven by RunContext via useBrandData. */}
@@ -259,7 +259,7 @@ function PromptDetailsInner() {
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', display: 'inline-block', animation: 'pdLiveBlink 1.2s infinite' }} />
             <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--mono)', color: 'var(--green)' }}>LIVE</span>
             <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-              Scanning &ldquo;{selectedQuery}&rdquo; — {liveForQuery.length}/{expectedEngines.length || liveForQuery.length} engines
+              Scanning &ldquo;{selectedQuery}&rdquo; - {liveForQuery.length}/{expectedEngines.length || liveForQuery.length} engines
             </span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

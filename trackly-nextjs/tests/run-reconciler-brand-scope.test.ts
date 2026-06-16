@@ -1,5 +1,5 @@
 /**
- * Contract test for `reconcileStaleRuns({ brandId })` — the form
+ * Contract test for `reconcileStaleRuns({ brandId })` - the form
  * POST /api/brands/[id]/run now calls at the top to clear a stale
  * 'running' row that would otherwise reject the new trigger via the
  * partial unique index on (brand_id) WHERE status='running'.
@@ -12,7 +12,7 @@
  *
  *  2. Source-level: the run route must import + call
  *     reconcileStaleRuns somewhere. This is a cheap regression guard
- *     — if a future refactor silently drops the call, the dashboard
+ *     - if a future refactor silently drops the call, the dashboard
  *     freeze bug returns. A higher-fidelity end-to-end test would
  *     have to mock 15+ heavy modules (AI platforms, credits, cron,
  *     queue, fairness, etc.); the cost/value tradeoff isn't worth
@@ -76,7 +76,7 @@ function makeClientFor(rows: Array<Record<string, unknown>>) {
   return { client, calls };
 }
 
-describe('reconcileStaleRuns({ brandId }) — contract used by POST /run entry', () => {
+describe('reconcileStaleRuns({ brandId }) - contract used by POST /run entry', () => {
   it('passes the brandId into the SELECT FOR UPDATE WHERE clause', async () => {
     // Top-level introspection query.
     queryFn.mockImplementation((sql: string) => {
@@ -103,7 +103,7 @@ describe('reconcileStaleRuns({ brandId }) — contract used by POST /run entry',
     expect(out.count).toBe(0);
 
     // The SELECT FOR UPDATE must have been issued with the brandId
-    // bound as a positional parameter — not interpolated, not
+    // bound as a positional parameter - not interpolated, not
     // unscoped. Otherwise the reconciler would sweep the fleet on
     // every /run click.
     const selectCall = calls.find(c => /FOR UPDATE SKIP LOCKED/.test(c.sql));
@@ -159,7 +159,7 @@ describe('reconcileStaleRuns({ brandId }) — contract used by POST /run entry',
   });
 });
 
-describe('regression guard — POST /run still calls reconcileStaleRuns at entry', () => {
+describe('regression guard - POST /run still calls reconcileStaleRuns at entry', () => {
   it('imports and invokes reconcileStaleRuns({ brandId: id }) before the lock-check INSERT', () => {
     const routePath = join(__dirname, '..', 'src', 'app', 'api', 'brands', '[id]', 'run', 'route.ts');
     const src = readFileSync(routePath, 'utf8');
@@ -172,7 +172,7 @@ describe('regression guard — POST /run still calls reconcileStaleRuns at entry
 
     // 3. The call lands BEFORE the lock-check INSERT INTO active_runs.
     //    (If a refactor moves it after, the partial unique index will
-    //    reject the INSERT before the reconciler can free it — which
+    //    reject the INSERT before the reconciler can free it - which
     //    is exactly the bug PR-A is preventing.)
     const reconcileIdx = src.search(/reconcileStaleRuns\s*\(/);
     const insertIdx = src.search(/INSERT\s+INTO\s+active_runs/);

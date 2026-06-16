@@ -146,7 +146,7 @@ export default function ResultsPage() {
     router.replace(`?${next.toString()}`, { scroll: false });
   }
 
-  // Dedicated handler for ?size= — same router.replace pattern as setParam, but
+  // Dedicated handler for ?size= - same router.replace pattern as setParam, but
   // the deletable default is '25' (NOT 'all', which is a real page-size value).
   function setSize(value: string) {
     const next = new URLSearchParams(searchParams.toString());
@@ -296,7 +296,7 @@ export default function ResultsPage() {
                   </div>
                 );
               })}
-              {/* Footer controls — mirror the top bar; shared page/size state. */}
+              {/* Footer controls - mirror the top bar; shared page/size state. */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>
                 <span className="mono dim" style={{ fontSize: 11 }}>
                   {isAll

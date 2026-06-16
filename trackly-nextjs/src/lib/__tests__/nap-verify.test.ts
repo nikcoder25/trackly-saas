@@ -64,7 +64,7 @@ describe('normalization', () => {
   });
 });
 
-describe('extractUrlsFromText — paste + bulk CSV import', () => {
+describe('extractUrlsFromText - paste + bulk CSV import', () => {
   it('parses a newline-separated paste and adds https://', () => {
     const out = extractUrlsFromText('yelp.com/biz/x\nhttps://yell.com/y');
     expect(out).toEqual(['https://yelp.com/biz/x', 'https://yell.com/y']);
@@ -97,7 +97,7 @@ describe('extractUrlsFromText — paste + bulk CSV import', () => {
   });
 });
 
-describe('Layer 2 — schema extraction', () => {
+describe('Layer 2 - schema extraction', () => {
   const html = `
     <html><head>
     <script type="application/ld+json">
@@ -142,7 +142,7 @@ describe('Layer 2 — schema extraction', () => {
   });
 });
 
-describe('Layer 1 — regex extraction', () => {
+describe('Layer 1 - regex extraction', () => {
   it('extracts a tel: link and a UK postcode from raw HTML', () => {
     const html = `<a href="tel:+442079460123">Call us</a><p>12 High Street, London SW1A 1AA</p>`;
     const out = extractWithRegex(html);
@@ -157,7 +157,7 @@ describe('Layer 1 — regex extraction', () => {
   });
 });
 
-describe('merge — schema wins over regex', () => {
+describe('merge - schema wins over regex', () => {
   it('prefers schema phone but keeps regex postcode when schema lacks it', () => {
     const html = `
       <script type="application/ld+json">
@@ -355,7 +355,7 @@ describe('detectRegression (scheduled monitoring)', () => {
   });
 });
 
-describe('verifyNap — presence-based (no structured data needed)', () => {
+describe('verifyNap - presence-based (no structured data needed)', () => {
   it('matches NAP rendered as plain HTML text with no JSON-LD or microdata', () => {
     const html = `<html><body>
       <h1>Acme Dental Care</h1>
@@ -373,7 +373,7 @@ describe('verifyNap — presence-based (no structured data needed)', () => {
   });
 
   it('matches a UK phone shown with +44 country code against a 0-prefixed canonical', () => {
-    const html = `<p>Acme Dental Care, 12 High Street, Suite 4, London SW1A 1AA — +44 20 7946 0123</p>`;
+    const html = `<p>Acme Dental Care, 12 High Street, Suite 4, London SW1A 1AA - +44 20 7946 0123</p>`;
     expect(verifyNap(CANONICAL, html).fields.phone.status).toBe('match');
   });
 

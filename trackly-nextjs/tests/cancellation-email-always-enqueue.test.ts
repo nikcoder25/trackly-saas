@@ -9,7 +9,7 @@
  *     settings.subscription_id was stripped by a prior webhook.
  *   - The webhook's `superseded_sub` branch returns 200 without
  *     enqueueing whenever the cancellation event's subscription_id
- *     doesn't match the user's currently-bound one — which is exactly
+ *     doesn't match the user's currently-bound one - which is exactly
  *     what happens after the cancel route strips it.
  * Net: zero rows in email_outbox, drain worker has nothing to send,
  * Resend is never called, the user gets no confirmation email.
@@ -163,7 +163,7 @@ function makeFakeClient(opts: {
     if (/^ROLLBACK/i.test(sql)) return { rows: [] };
     if (/^COMMIT/i.test(sql)) return { rows: [] };
 
-    // Per-subscription advisory lock — webhook only.
+    // Per-subscription advisory lock - webhook only.
     if (/pg_advisory_xact_lock/.test(sql)) return { rows: [] };
 
     // Webhook idempotency INSERT.
@@ -187,7 +187,7 @@ function makeFakeClient(opts: {
       return { rows: opts.user ? [{ settings: opts.user.settings }] : [] };
     }
 
-    // Any UPDATE users — accept silently.
+    // Any UPDATE users - accept silently.
     if (/UPDATE users/i.test(sql)) return { rows: [] };
 
     return { rows: [] };
@@ -203,7 +203,7 @@ function buildCancelRequest(): Request {
   });
 }
 
-// Standard Webhooks signing — copied from webhook-cancel-revert.test.ts
+// Standard Webhooks signing - copied from webhook-cancel-revert.test.ts
 // pattern so we exercise the real signature path.
 function signStandardWebhook(rawBody: string, webhookId: string, webhookTimestamp: string): string {
   const secret = process.env.DODO_PAYMENTS_WEBHOOK_KEY!;
@@ -241,12 +241,12 @@ function installPoolQuery(opts: {
 } = {}): void {
   poolQuery.mockImplementation(async (sql: string, params: unknown[] = []) => {
     if (/INSERT INTO email_outbox/i.test(sql)) {
-      // Verify the UNIQUE-conflict clause is present — this is the DB
+      // Verify the UNIQUE-conflict clause is present - this is the DB
       // half of the dedupe contract, asserted by case (d).
       expect(sql).toMatch(/ON CONFLICT \(idempotency_key\) DO NOTHING/i);
       const idempotencyKey = (params[8] ?? null) as string | null;
       if (idempotencyKey && outboxRows.some((r) => r.idempotency_key === idempotencyKey)) {
-        // UNIQUE conflict — the no-op return mimics Postgres's behaviour
+        // UNIQUE conflict - the no-op return mimics Postgres's behaviour
         // for `ON CONFLICT DO NOTHING`.
         return { rows: [], rowCount: 0 };
       }
@@ -353,7 +353,7 @@ describe('cancellation-email always-enqueue regression', () => {
     // Webhook turn: arrives moments later for the same subscription_id
     // and same user. The webhook's downgrade branch processes plan
     // already=free, but it still enqueues the cancellation email under
-    // the SHARED key — the second INSERT collides on UNIQUE and is a
+    // the SHARED key - the second INSERT collides on UNIQUE and is a
     // no-op.
     {
       const fake = makeFakeClient({
@@ -361,7 +361,7 @@ describe('cancellation-email always-enqueue regression', () => {
           id: 'user_X',
           email: 'cancel@test.com',
           plan: 'free',
-          // settings.subscription_id stripped by the cancel route — this
+          // settings.subscription_id stripped by the cancel route - this
           // is the failure mode the fix is closing.
           settings: { subscription_status: 'cancelled' },
         },
@@ -382,7 +382,7 @@ describe('cancellation-email always-enqueue regression', () => {
       expect(res.status).toBe(200);
     }
 
-    // Still exactly one row — UNIQUE collapsed the second insert.
+    // Still exactly one row - UNIQUE collapsed the second insert.
     expect(outboxRows.length).toBe(1);
     expect(outboxRows[0].idempotency_key).toBe('plan_cancellation:user_X:sub_AGENCY');
   });
@@ -390,7 +390,7 @@ describe('cancellation-email always-enqueue regression', () => {
   it('(c) webhook downgrade with stripped subscription_id (cancel route ran first) still enqueues plan_cancellation', async () => {
     // The user has already been moved to free + had their
     // subscription_id stripped. No prior outbox row exists (simulating
-    // the case where the cancel route's enqueue silently failed —
+    // the case where the cancel route's enqueue silently failed -
     // exactly the bug). The audit row still exists from the cancel
     // route's post-commit auditLog, so the recovery helper has
     // something to read.
@@ -429,7 +429,7 @@ describe('cancellation-email always-enqueue regression', () => {
 
     // Webhook went down superseded_sub (because settings has no
     // subscription_id) but its safety-net enqueue ran. The fire-and-
-    // forget from the route may complete after the response — give
+    // forget from the route may complete after the response - give
     // the microtask queue a chance to drain before asserting.
     await new Promise((resolve) => setImmediate(resolve));
     await new Promise((resolve) => setImmediate(resolve));
@@ -453,7 +453,7 @@ describe('cancellation-email always-enqueue regression', () => {
     expect(first.sent).toBe(true);
     expect(outboxRows.length).toBe(1);
 
-    // Second enqueue with the SAME key — must produce no second row.
+    // Second enqueue with the SAME key - must produce no second row.
     const second = await enqueueEmail({
       to: 'cancel@test.com',
       subject: 'second',
@@ -461,7 +461,7 @@ describe('cancellation-email always-enqueue regression', () => {
       templateKey: 'plan_cancellation',
       idempotencyKey: key,
     });
-    expect(second.sent).toBe(true); // enqueueEmail returns sent:true even on conflict — the row is still considered "accepted for delivery".
+    expect(second.sent).toBe(true); // enqueueEmail returns sent:true even on conflict - the row is still considered "accepted for delivery".
     expect(outboxRows.length).toBe(1);
     expect(outboxRows[0].subject).toBe('first'); // first wins; second is a no-op.
   });

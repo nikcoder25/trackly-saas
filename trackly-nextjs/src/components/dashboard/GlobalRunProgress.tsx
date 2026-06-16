@@ -8,7 +8,7 @@ import { useBrands } from '@/contexts/BrandContext';
  * (including the redesigned Overview) when a query run is active or just completed.
  *
  * Scope: strictly per brand. The bar only renders for the brand currently
- * selected in the topbar — a run for a different brand never shows here, and
+ * selected in the topbar - a run for a different brand never shows here, and
  * switching brands hides it. It's labelled with the brand name for clarity.
  */
 export default function GlobalRunProgress() {

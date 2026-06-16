@@ -250,7 +250,7 @@ export interface CronLockSnapshot {
   lockedAt: string | null;
   ageSeconds: number | null;
   instanceId: string | null;
-  ttlMs: number | null;       // Redis only — null for Postgres
+  ttlMs: number | null;       // Redis only - null for Postgres
 }
 
 /**
@@ -263,7 +263,7 @@ export interface CronLockSnapshot {
  * picture without bouncing between consoles.
  *
  * Best-effort. Returns an empty array per backend on error rather
- * than throwing — the admin endpoint surfaces the error string for
+ * than throwing - the admin endpoint surfaces the error string for
  * visibility but should not 500 just because Redis is down.
  */
 export async function listCronLocks(): Promise<{
@@ -280,7 +280,7 @@ export async function listCronLocks(): Promise<{
   // Redis: SCAN cron:lock:* (KEYS would block on a busy instance).
   // For each key, GET the value (instanceId) and PTTL the remaining
   // TTL. There's no way to recover the original `locked_at` from
-  // Redis alone — we surface the *remaining* TTL instead, which is
+  // Redis alone - we surface the *remaining* TTL instead, which is
   // the actionable signal for "is this stuck or just slow?".
   const client = getRedisClient();
   if (client) {
@@ -292,7 +292,7 @@ export async function listCronLocks(): Promise<{
         const reply = await client.scan(cursor, 'MATCH', 'cron:lock:*', 'COUNT', 100);
         cursor = reply[0];
         for (const k of reply[1]) keys.push(k);
-        if (keys.length > 200) break; // safety bound — there are only ~5 named locks
+        if (keys.length > 200) break; // safety bound - there are only ~5 named locks
       } while (cursor !== '0');
 
       for (const key of keys) {
@@ -354,7 +354,7 @@ export interface ForceReleaseResult {
  * delete that the normal `release()` uses, so this WILL delete a
  * lock currently held by a live worker on another pod. Intended for
  * the admin "Cron Locks" UI / `POST /api/admin/locks/[name]/release`
- * endpoint — never call this from auto-scheduled code paths.
+ * endpoint - never call this from auto-scheduled code paths.
  *
  * Risk: if the previous holder is still doing work, releasing the
  * lock allows the next tick to start a parallel run on the same
@@ -378,7 +378,7 @@ export async function forceReleaseCronLock(name: string): Promise<ForceReleaseRe
     postgres: { deleted: 0, priorLockedAt: null, priorInstanceId: null, error: null },
   };
 
-  // Redis: plain DEL, not Lua-CAS. Idempotent — DEL of a missing
+  // Redis: plain DEL, not Lua-CAS. Idempotent - DEL of a missing
   // key returns 0, not an error.
   const client = getRedisClient();
   if (client) {

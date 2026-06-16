@@ -11,7 +11,7 @@
  * How it works: the cron scheduler (see getBrandCrashInfo in
  * /api/cron/route.ts) derives `consecutive_errors` from the active_runs
  * table by counting consecutive 'error' rows since the most recent
- * 'done' row. The cleanest reset — without mutating real run history —
+ * 'done' row. The cleanest reset - without mutating real run history -
  * is to insert a synthetic sentinel row with status='done' and
  * started_at=NOW() per target brand. The next cron tick's window
  * function then sees a 'done' at rn=1, done_seen_after becomes >=1 for

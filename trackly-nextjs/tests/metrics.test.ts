@@ -13,7 +13,7 @@ beforeEach(() => {
   resetMetricsForTesting();
 });
 
-describe('metrics — counter', () => {
+describe('metrics - counter', () => {
   it('increments per (tenant, platform, outcome) bucket', () => {
     recordAiCall({ tenant: 't_1', platform: 'ChatGPT', outcome: 'success' }, 100);
     recordAiCall({ tenant: 't_1', platform: 'ChatGPT', outcome: 'success' }, 200);
@@ -37,7 +37,7 @@ describe('metrics — counter', () => {
   });
 });
 
-describe('metrics — histogram', () => {
+describe('metrics - histogram', () => {
   it('places observations in cumulative buckets and increments _count/_sum', () => {
     // boundaries include 100, 250, 500, 1000, ...
     recordAiCall({ tenant: 't', platform: 'Claude', outcome: 'success' }, 80);   // <=100
@@ -64,7 +64,7 @@ describe('metrics — histogram', () => {
   });
 });
 
-describe('metrics — classifyOutcome', () => {
+describe('metrics - classifyOutcome', () => {
   it.each([
     [{ message: 'rate limit hit' }, 'rate_limited'],
     [{ isRateLimit: true, message: 'ratelimited' }, 'rate_limited'],
@@ -95,7 +95,7 @@ describe('metrics — classifyOutcome', () => {
   });
 });
 
-describe('metrics — Prometheus exposition', () => {
+describe('metrics - Prometheus exposition', () => {
   it('renders counter and histogram with correct labels and types', () => {
     recordAiCall({ tenant: 't_1', platform: 'ChatGPT', outcome: 'success' }, 250);
     recordAiCall({ tenant: 't_1', platform: 'ChatGPT', outcome: 'rate_limited' }, 5000);

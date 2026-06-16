@@ -54,7 +54,7 @@ beforeEach(() => {
   fakeRows.keys = [];
   queryFn.mockReset();
   validatorFn.mockReset();
-  // CREATE TABLE / INSERT / SELECT / UPDATE / DELETE — keyed off SQL
+  // CREATE TABLE / INSERT / SELECT / UPDATE / DELETE - keyed off SQL
   // prefix so tests can stay declarative.
   queryFn.mockImplementation(async (sql: string, params: unknown[] = []) => {
     const trimmed = sql.trim();
@@ -262,7 +262,7 @@ describe('resolveKeysForTenant', () => {
       legacyUserKeys: {},
       serverKeys: ['server-1'],
     });
-    // Bad tenant key did NOT pollute the global pool — we fell through.
+    // Bad tenant key did NOT pollute the global pool - we fell through.
     expect(r?.source).toBe('server');
   });
 
@@ -315,7 +315,7 @@ describe('recordTenantKeyResult', () => {
 
   it('is a no-op when tenantId is empty (server-key path must not write)', async () => {
     await recordTenantKeyResult('', 'openai', { ok: true });
-    // No CREATE-or-UPDATE was issued — the implementation short-circuits.
+    // No CREATE-or-UPDATE was issued - the implementation short-circuits.
     expect(queryFn).not.toHaveBeenCalled();
   });
 });

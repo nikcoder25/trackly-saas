@@ -69,7 +69,7 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  // In-process reset is sync, no failure mode — clears the per-pod
+  // In-process reset is sync, no failure mode - clears the per-pod
   // `_platformBreaker` Map entry and any cooldown deadline.
   resetPlatformBreaker(canonical);
 
@@ -85,7 +85,7 @@ export async function POST(request: Request): Promise<Response> {
     redisAvailable = r.available;
     redisDeleted = r.deleted;
   } catch (err) {
-    // The in-process reset already happened — surface partial state to
+    // The in-process reset already happened - surface partial state to
     // the operator rather than pretending nothing happened.
     redisError = (err as Error).message;
   }

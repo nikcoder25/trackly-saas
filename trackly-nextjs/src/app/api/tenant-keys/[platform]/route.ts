@@ -1,5 +1,5 @@
 /**
- * Tenant API key per-platform — update (PUT), delete (DELETE),
+ * Tenant API key per-platform - update (PUT), delete (DELETE),
  * and re-validate (POST).
  *
  * `[platform]` is the logical key name (`openai`, `claude`, ...) that
@@ -119,7 +119,7 @@ export async function DELETE(request: Request, { params }: Params) {
 }
 
 export async function POST(request: Request, { params }: Params) {
-  // Manual re-validation — re-runs validateProviderKey against the
+  // Manual re-validation - re-runs validateProviderKey against the
   // provider and refreshes last_validated_at. Used by the "re-validate"
   // button on /dashboard/platforms.
   const user = verifyRequestAuth(request);

@@ -1,5 +1,5 @@
 /**
- * /api/nap-audits/gbp-lookup — pull a canonical NAP from Google (Phase 3).
+ * /api/nap-audits/gbp-lookup - pull a canonical NAP from Google (Phase 3).
  *
  * POST { query } → resolves the business via the Google Places API (Text Search)
  * and returns a canonical NAP to prefill a new audit. This is the pragmatic
@@ -10,7 +10,7 @@
  * Runtime + timeouts: pinned to Node (matches other Next.js route handlers
  * that call out to slow external APIs) and capped at 10s. The Places call
  * itself is bounded to 4.5s with one retry, so the total external budget
- * is ~9s — well below DigitalOcean App Platform's edge-proxy idle window,
+ * is ~9s - well below DigitalOcean App Platform's edge-proxy idle window,
  * which was returning an opaque 504 (no JSON body) before our own 504-
  * with-message could land in the browser. That was the symptom: the
  * client falls back to "Lookup failed (HTTP 504)" exactly when the body
@@ -67,7 +67,7 @@ function pickShort(components: AddressComponent[], type: string): string | undef
 
 /** Useful business metadata returned alongside the canonical NAP. */
 export interface GbpExtras {
-  /** Google's pre-formatted single-line address — fallback when component parsing misses pieces. */
+  /** Google's pre-formatted single-line address - fallback when component parsing misses pieces. */
   formattedAddress?: string;
   /** Display label for the primary business category, e.g. "Dog kennel". */
   category?: string;
@@ -75,7 +75,7 @@ export interface GbpExtras {
   businessStatus?: string;
   /** Link to the Google Maps listing for this business. */
   mapsUrl?: string;
-  /** Latitude/longitude — handy for the operator to verify the right branch. */
+  /** Latitude/longitude - handy for the operator to verify the right branch. */
   latitude?: number;
   longitude?: number;
   /** Human-readable weekday hours, one entry per day, in Google's locale. */
@@ -85,7 +85,7 @@ export interface GbpExtras {
 /**
  * Long-form names for the countries whose two-letter code we commonly
  * pick up from Google. Used to strip the trailing country off
- * `formattedAddress` when we're salvaging a street value — Google often
+ * `formattedAddress` when we're salvaging a street value - Google often
  * writes the country as "United States" / "United Kingdom" even though
  * the addressComponent shortText returned "US" / "GB".
  */
@@ -113,7 +113,7 @@ function toCanonical(place: Place): CanonicalNap {
   const country = pickShort(comps, 'country');
   // If component parsing left the street blank (PO boxes, rural addresses,
   // some international listings), salvage what we can from the formatted
-  // line — strip the city / region / postcode / country suffix the rest
+  // line - strip the city / region / postcode / country suffix the rest
   // of the form already owns. The country tail needs both shapes: Places
   // returns the shortText "US" in the component but writes "United States"
   // in formattedAddress, so we have to try both to avoid leaving a
@@ -173,7 +173,7 @@ function toExtras(place: Place): GbpExtras {
  * This is the load-bearing guard for the whole route. undici has
  * historically failed to unblock a stuck TLS handshake when its
  * AbortController fires, which left this handler `await`-ing a fetch that
- * never settled — the setTimeout(abort) was a no-op and the request hung
+ * never settled - the setTimeout(abort) was a no-op and the request hung
  * until DigitalOcean's edge proxy killed it with an opaque, body-less 504.
  * That body-less 504 is exactly what made the "Pull from Google" button
  * look broken: the client only has its generic timeout fallback to show.
@@ -220,7 +220,7 @@ async function callPlaces(query: string, apiKey: string): Promise<Response> {
             // Expanded mask: pulls website, formatted address, category,
             // hours, status and the Maps URL alongside NAP so the operator
             // sees the full "source of truth" the audit was built against.
-            // All of these are on the Places Text Search **Pro** SKU — the
+            // All of these are on the Places Text Search **Pro** SKU - the
             // tier we're already on for nationalPhoneNumber. We deliberately
             // leave `rating` / `userRatingCount` off because those bump the
             // call to the Enterprise SKU (higher per-call cost, and a
@@ -304,7 +304,7 @@ export async function POST(request: Request): Promise<Response> {
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
     logger.warn('nap_audits.gbp_lookup_upstream', { status: res.status, detail: detail.slice(0, 300) });
-    // Surface Google's own message — this is the user's dashboard/key, so the
+    // Surface Google's own message - this is the user's dashboard/key, so the
     // detail (e.g. "API key not valid", "Places API has not been enabled") is
     // actionable, not sensitive.
     let msg = '';

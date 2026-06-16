@@ -8,7 +8,7 @@
  * about X" should be the same answer for every customer asking on the same
  * day, so cross-tenant deduplication is a feature.
  *
- * Read/write failures are non-fatal — they log a warning and fall through to
+ * Read/write failures are non-fatal - they log a warning and fall through to
  * the live provider call. Errors are NEVER cached.
  */
 import crypto from 'crypto';
@@ -65,7 +65,7 @@ export interface SetCachedOptions {
    * Raw prompt text. Stored verbatim in the `query` column for
    * cross-tenant debug visibility (PR #514 introspection confirmed
    * `query TEXT NOT NULL` on the prod table). Not returned by getCached
-   * — the cache READ path remains tenant-agnostic and key-only.
+   * - the cache READ path remains tenant-agnostic and key-only.
    */
   query: string;
   platform: string;
@@ -75,7 +75,7 @@ export interface SetCachedOptions {
    * Brand context, attached for ops/debug only. Cross-tenant dedup is
    * still keyed on the SHA-256 cache_key alone, so the row that
    * `setCached` writes will end up serving every tenant whose prompt
-   * normalizes to the same value — `brandId`/`city` simply record which
+   * normalizes to the same value - `brandId`/`city` simply record which
    * brand happened to populate the row first (or most recently, given
    * the ON CONFLICT update).
    */
@@ -94,7 +94,7 @@ function disabled(): boolean {
 // lowercase → trim → collapse internal whitespace → strip trailing
 // punctuation/whitespace. The trailing-strip catches "best plumber",
 // "best plumber.", "best plumber?", and "best plumber!?!" as the same
-// query — common variation in human-written prompts that previously
+// query - common variation in human-written prompts that previously
 // fragmented the cache.
 function normalize(prompt: string): string {
   return prompt
@@ -106,7 +106,7 @@ function normalize(prompt: string): string {
 
 // Cross-tenant dedup invariant: brand_id / user_id / tenant_id MUST NOT
 // be hashed into the cache key. The June 2026 cost review re-verified
-// this — two brands asking the same generic question for the same city
+// this - two brands asking the same generic question for the same city
 // hit the same row. brand_id and city ARE persisted as separate columns
 // in setCached() for ops/debug visibility, but the read path keys only
 // on this hash, so a row written by Brand A still serves Brand B.
@@ -179,7 +179,7 @@ export async function setCached(
   try {
     // `query` is stored verbatim for cross-tenant debug visibility.
     // `getCached` does not return it, so cache reads remain tenant-agnostic
-    // by design. `brand_id`/`city` likewise populate only the column —
+    // by design. `brand_id`/`city` likewise populate only the column -
     // they are not part of the cache key, so a row written for Brand A
     // still serves Brand B once present.
     await pool.query(

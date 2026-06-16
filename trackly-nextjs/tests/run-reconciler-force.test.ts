@@ -145,13 +145,13 @@ describe('reconcileStaleRuns({ force: true, runId })', () => {
   });
 });
 
-describe('reconcileStaleRuns — force is dropped without runId', () => {
+describe('reconcileStaleRuns - force is dropped without runId', () => {
   it('keeps the staleness gate even when force=true is set with brandId', async () => {
     queryFn.mockImplementation(introspectionResponder());
     const stub = makeClient([]);
     connectFn.mockResolvedValue(stub.client);
 
-    // Bulk + force is the dangerous shape — would be a fleet-killer if
+    // Bulk + force is the dangerous shape - would be a fleet-killer if
     // honored. The runtime guard inside run-reconciler must drop force
     // here. (The admin route also rejects this shape, but we test the
     // library layer separately.)
@@ -162,7 +162,7 @@ describe('reconcileStaleRuns — force is dropped without runId', () => {
     // Temporal predicate must be present.
     expect(sel!.sql).toMatch(/< NOW\(\) - INTERVAL/);
     expect(sel!.sql).toMatch(/brand_id = \$\d+/);
-    // No runId filter — only the brand scope. Use \b so the brand_id
+    // No runId filter - only the brand scope. Use \b so the brand_id
     // match above doesn't false-positive this assertion (`_` is a
     // word char, so \bid doesn't match the `id` inside `brand_id`).
     expect(sel!.sql).not.toMatch(/\bid = \$\d+/);

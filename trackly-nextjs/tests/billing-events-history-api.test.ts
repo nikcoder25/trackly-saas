@@ -35,7 +35,7 @@ beforeEach(() => {
   verifyRequestAuthFn.mockReset();
 });
 
-describe('/api/payments/history — billing_events source', () => {
+describe('/api/payments/history - billing_events source', () => {
   it('returns 401 when unauthenticated', async () => {
     verifyRequestAuthFn.mockReturnValue(null);
     const res = await historyGet(new Request('http://t/api/payments/history'));

@@ -15,9 +15,9 @@ const CSRF_COOKIE = PROD ? '__Host-livesov_csrf' : 'livesov_csrf';
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 // Path prefixes where CSRF enforcement does not apply:
-//  * Webhooks authenticate via HMAC (dodopayments, resend) — they legitimately
+//  * Webhooks authenticate via HMAC (dodopayments, resend) - they legitimately
 //    come from a third-party origin with no user cookies in play.
-//  * Cron endpoints authenticate via Authorization: Bearer CRON_SECRET — no
+//  * Cron endpoints authenticate via Authorization: Bearer CRON_SECRET - no
 //    cookies are trusted, so cross-site requests can't leverage them anyway.
 //  * Auth login/register/google seed the session, so there's no prior CSRF
 //    cookie to double-submit. We still enforce the Origin/Referer check for
@@ -44,7 +44,7 @@ const CSRF_BOOTSTRAP_PATHS = new Set([
   // Free public tools: submitted by signed-out visitors who have no CSRF
   // cookie yet (it's only issued at login). These endpoints are anonymous
   // and non-credentialed, so the Origin check is the meaningful protection
-  // — same posture as /api/contact and /api/free-check above.
+  // - same posture as /api/contact and /api/free-check above.
   '/api/geo-audit',
   '/api/tools/llms-txt-generator',
   '/api/tools/ai-crawler-checker',
@@ -55,7 +55,7 @@ const CSRF_BOOTSTRAP_PATHS = new Set([
 
 function getAllowedOrigins(request: NextRequest): Set<string> {
   const origins = new Set<string>();
-  // The request's own origin is always allowed — this covers same-origin
+  // The request's own origin is always allowed - this covers same-origin
   // fetches regardless of what's configured in env.
   origins.add(new URL(request.url).origin);
   const appUrl = process.env.APP_URL;
@@ -77,7 +77,7 @@ function isSameOrigin(request: NextRequest): boolean {
   const allowed = getAllowedOrigins(request);
   const origin = request.headers.get('origin');
   if (origin) return allowed.has(origin);
-  // Some browsers omit Origin on same-origin requests — fall back to Referer.
+  // Some browsers omit Origin on same-origin requests - fall back to Referer.
   const referer = request.headers.get('referer');
   if (referer) {
     try { return allowed.has(new URL(referer).origin); } catch { return false; }
@@ -99,7 +99,7 @@ function timingSafeEqualStrings(a: string, b: string): boolean {
 // emits no Origin/Referer header, so the same-origin check below would 403
 // every scheduled run. The shared secret is itself proof the caller is
 // trusted infra, not a victim's browser, so it makes both the Origin check
-// and the double-submit CSRF token check moot — the same reasoning that
+// and the double-submit CSRF token check moot - the same reasoning that
 // already exempts `Authorization: Bearer` callers from the token check.
 function hasValidCronSecret(request: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET;
@@ -349,7 +349,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // CSRF enforcement for state-changing methods. Applied in the edge
-    // middleware so every /api/ route gets it by default — route authors
+    // middleware so every /api/ route gets it by default - route authors
     // can't forget to add it. Exempt paths are listed above.
     if (UNSAFE_METHODS.has(request.method)) {
       const exempt =

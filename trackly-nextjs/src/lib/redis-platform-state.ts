@@ -406,7 +406,7 @@ export async function clearBreaker(
   try {
     // ioredis `del` accepts variadic key args and returns the integer
     // count of keys actually removed. Both keys may be absent (breaker
-    // wasn't open) — that's a valid 0-result, not an error.
+    // wasn't open) - that's a valid 0-result, not an error.
     const deleted = await (client as RedisLikeClient).del(
       breakerOpenKey(platform),
       breakerFailuresKey(platform),

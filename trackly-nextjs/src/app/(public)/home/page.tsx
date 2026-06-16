@@ -222,7 +222,7 @@ function DashboardUI() {
 
           <div className="dash-welcome">Welcome back, <em>Nikhil.</em></div>
           <div className="dash-introrow">
-            <p className="dash-intro">Acme is mentioned across the 5 AI engines — here&apos;s what changed in the last 7 days.</p>
+            <p className="dash-intro">Acme is mentioned across the 5 AI engines - here&apos;s what changed in the last 7 days.</p>
             <span className="acts">
               <span className="dash-btn">+ Compare brand</span>
               <span className="dash-btn pri">↗ View live</span>

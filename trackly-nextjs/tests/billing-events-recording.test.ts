@@ -6,26 +6,26 @@
  * downgrades, renewals, and orphan-cancel rows from the upgrade flow
  * never appeared, because:
  *   1. The webhook handler called `auditLog('system', ...)` which
- *      db.ts rewrites to user_id=NULL — invisible to the user-scoped
+ *      db.ts rewrites to user_id=NULL - invisible to the user-scoped
  *      history query.
  *   2. The audit row never carried the from→to plan transition.
  *
  * Fix: a dedicated `billing_events` table written from the webhook
  * inside its SERIALIZABLE tx and from /api/payments/cancel post-commit.
  *
- * The cases below cover the producer paths (the consumer side — the
- * /api/payments/history GET — is exercised in
+ * The cases below cover the producer paths (the consumer side - the
+ * /api/payments/history GET - is exercised in
  * billing-events-history-api.test.ts):
- *   T1 — webhook free → pro upgrade records plan_upgraded with from/to.
- *   T2 — webhook pro → agency upgrade records plan_upgraded.
- *   T3 — webhook agency → starter downgrade records plan_downgraded.
- *   T4 — webhook genuine cancellation records plan_cancelled.
- *   T5 — webhook superseded_sub (orphan) records superseded_sub_cancelled
+ *   T1 - webhook free → pro upgrade records plan_upgraded with from/to.
+ *   T2 - webhook pro → agency upgrade records plan_upgraded.
+ *   T3 - webhook agency → starter downgrade records plan_downgraded.
+ *   T4 - webhook genuine cancellation records plan_cancelled.
+ *   T5 - webhook superseded_sub (orphan) records superseded_sub_cancelled
  *        when previousPlan != 'free'; SUPPRESSES the row when
  *        previousPlan === 'free' (cancel-route-ran-first race).
- *   T6 — cancel route post-commit records plan_cancelled with no
+ *   T6 - cancel route post-commit records plan_cancelled with no
  *        dodo_event_id.
- *   T7 — invariant guard: every webhook plan-changing branch records
+ *   T7 - invariant guard: every webhook plan-changing branch records
  *        a billing_events row. If a future change introduces a new
  *        plan-mutating branch without a corresponding INSERT, this
  *        test fails.
@@ -219,7 +219,7 @@ beforeEach(() => {
   tryEnqueueRecoveredFn.mockResolvedValue(undefined);
 });
 
-describe('billing_events — webhook producers', () => {
+describe('billing_events - webhook producers', () => {
   it('T1: free → pro upgrade records plan_upgraded with from/to plan', async () => {
     const fake = makeFakeClient({
       id: 'user_A',
@@ -321,7 +321,7 @@ describe('billing_events — webhook producers', () => {
 
   it('T5a: superseded_sub with paid previousPlan records superseded_sub_cancelled', async () => {
     // The user just upgraded; the new sub is bound. Dodo emits a delayed
-    // cancel for the OLD sub_id — that's an orphan, not a user-state change.
+    // cancel for the OLD sub_id - that's an orphan, not a user-state change.
     const fake = makeFakeClient({
       id: 'user_A',
       email: 'a@test.com',
@@ -351,7 +351,7 @@ describe('billing_events — webhook producers', () => {
   it('T5b: superseded_sub with previousPlan === free SUPPRESSES the orphan row', async () => {
     // Cancel route ran first, stripped subscription_id, set plan=free.
     // The webhook then arrives for the same logical cancellation. The
-    // cancel route already wrote a plan_cancelled row — emitting a
+    // cancel route already wrote a plan_cancelled row - emitting a
     // superseded_sub_cancelled here would be user-visible noise.
     const fake = makeFakeClient({
       id: 'user_A',
@@ -374,7 +374,7 @@ describe('billing_events — webhook producers', () => {
   });
 });
 
-describe('billing_events — cancel route producer', () => {
+describe('billing_events - cancel route producer', () => {
   it('T6: cancel route post-commit records plan_cancelled with no dodo_event_id', async () => {
     verifyRequestAuthFn.mockReturnValue({ id: 'user_A' });
     const fake = makeFakeClient(null);
@@ -429,7 +429,7 @@ describe('billing_events — cancel route producer', () => {
   });
 });
 
-describe('billing_events — invariant guard', () => {
+describe('billing_events - invariant guard', () => {
   it('T7: every plan-mutating UPDATE in the webhook is followed by a billing_events INSERT', async () => {
     // Source-level invariant: a future change that adds a new plan-
     // mutating branch (UPDATE users SET plan = ...) without recording a

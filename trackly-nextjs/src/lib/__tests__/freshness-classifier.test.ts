@@ -8,7 +8,7 @@ import { decideRequiresFreshness } from '../freshness-classifier';
 // return requires_freshness=true. Everything else - prices, comparisons,
 // recommendations, brand mentions, definitional - is assumed
 // answerable from training data.
-describe('decideRequiresFreshness — strict allowlist', () => {
+describe('decideRequiresFreshness - strict allowlist', () => {
   it('returns false for empty/whitespace input with reason empty_query', () => {
     expect(decideRequiresFreshness('')).toEqual({
       requires_freshness: false,
@@ -47,7 +47,7 @@ describe('decideRequiresFreshness — strict allowlist', () => {
     expect(decideRequiresFreshness('breaking news Acme').requires_freshness).toBe(true);
     expect(decideRequiresFreshness('latest news on Stripe').requires_freshness).toBe(true);
     expect(decideRequiresFreshness('news update on Tesla').requires_freshness).toBe(true);
-    // Bare `news` alone must NOT trip — it's common in brand-tracking
+    // Bare `news` alone must NOT trip - it's common in brand-tracking
     // queries like "Acme Corp news section".
     expect(decideRequiresFreshness('Acme Corp news section').requires_freshness).toBe(false);
   });
@@ -59,7 +59,7 @@ describe('decideRequiresFreshness — strict allowlist', () => {
   });
 
   it('flags weather queries with a clear weather anchor', () => {
-    // Note: rule order matters — `weather tomorrow` matches the
+    // Note: rule order matters - `weather tomorrow` matches the
     // single-day-anchor rule first, so it reports `explicit_day_reference`.
     // We only assert reason=weather for queries WITHOUT a higher-priority
     // anchor; the requires_freshness boolean is what the gate cares about.

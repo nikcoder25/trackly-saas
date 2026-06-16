@@ -1,5 +1,5 @@
 /**
- * /api/nap-audits/[id]/gaps — citation gap finder (Phase 3).
+ * /api/nap-audits/[id]/gaps - citation gap finder (Phase 3).
  *
  * POST { industry, region?, competitors?[] } → asks an AI platform for the most
  * important citation directories for that business type/region (optionally

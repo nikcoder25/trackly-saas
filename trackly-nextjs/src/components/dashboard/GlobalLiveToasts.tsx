@@ -6,7 +6,7 @@ import { useRun } from '@/contexts/RunContext';
 import { useBrands } from '@/contexts/BrandContext';
 
 /**
- * Global live result notifications — fixed bottom-right cards shown while (and
+ * Global live result notifications - fixed bottom-right cards shown while (and
  * shortly after) a scan runs.
  *
  * Scope: these are strictly *per brand*. Cards only ever reflect the brand the
@@ -15,7 +15,7 @@ import { useBrands } from '@/contexts/BrandContext';
  * another's view.
  *
  * Each tracked prompt gets one card showing whether the brand was mentioned or
- * not. We deliberately do NOT surface which AI engines/models were used — only
+ * not. We deliberately do NOT surface which AI engines/models were used - only
  * an aggregate count ("mentioned on 3/5 engines"). Cards auto-dismiss a few
  * seconds after their last update if the user doesn't touch them, and there's a
  * single "Clear all" control at the top to wipe them at once. Individual cards
@@ -29,7 +29,7 @@ const AUTO_DISMISS_MS = 8000; // a card disappears this long after its last upda
 interface QueryGroup {
   id: number;
   query: string;
-  engines: string[];   // platforms reported (kept only to count — never rendered)
+  engines: string[];   // platforms reported (kept only to count - never rendered)
   mentioned: number;
   errors: number;
   lastTs: number;
@@ -75,7 +75,7 @@ export default function GlobalLiveToasts() {
     }
   }, [selectedId]);
 
-  // Fold newly-arrived results into their per-query group — but ONLY for a run
+  // Fold newly-arrived results into their per-query group - but ONLY for a run
   // that belongs to the brand currently being viewed.
   useEffect(() => {
     const forCurrentBrand = !!live.brandId && live.brandId === selectedId;

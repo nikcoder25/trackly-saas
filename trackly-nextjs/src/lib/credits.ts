@@ -3,13 +3,13 @@
  * pricing system. One LLM call = one credit.
  *
  * Two stores cooperate:
- *   - `usage_counters` (this module) — the *reservation ceiling*. It is
+ *   - `usage_counters` (this module) - the *reservation ceiling*. It is
  *     incremented up-front by `reserveCredits` and decremented by
  *     `refundCredits` when a run finishes with `received < reserved`.
  *     Its `monthly_used` is what `reserveCredits` checks against the
  *     plan cap, so a hot click-storm can't sneak past the cap while the
  *     ledger is still being written to.
- *   - `tenant_cost_events` (see lib/cost-tracker.ts) — the *committed
+ *   - `tenant_cost_events` (see lib/cost-tracker.ts) - the *committed
  *     ledger*. One row per actually-dispatched LLM call, written by
  *     `recordCostEvent` after the provider responds. This is the
  *     source of truth for "credits used this period" displayed to the
@@ -25,8 +25,8 @@
  * reservation gate never disagree about how much room is left.
  *
  * Mutation paths for `usage_counters.monthly_used` (audit per #453):
- *   - `reserveCredits` (this file) — only increment.
- *   - `refundCredits` (this file) — only decrement, paired with
+ *   - `reserveCredits` (this file) - only increment.
+ *   - `refundCredits` (this file) - only decrement, paired with
  *     `recordCostEvent` rows already inserted by the worker for the
  *     calls that *did* dispatch.
  *   - There is no admin path that bumps the counter without also
@@ -42,12 +42,12 @@
  *     row in-place when it rolls over instead of inserting a new row,
  *     so the table grows O(users) not O(users × months).
  *   - `monthly_used` (INT): reservation ceiling for the current period.
- *     NOT the displayed "credits used" number — that comes from the
+ *     NOT the displayed "credits used" number - that comes from the
  *     `tenant_cost_events` ledger via `getCreditStatus`.
  *   - `daily_date` (DATE): UTC date `manual_daily_used` is scoped to.
  *   - `manual_daily_used` (INT): manual ("Run Query") credits spent
  *     today. Auto/cron credits don't count against the daily cap, only
- *     the monthly one — daily is a UX speed-bump for impatient clicks,
+ *     the monthly one - daily is a UX speed-bump for impatient clicks,
  *     not an anti-abuse gate.
  *   - `last_low_balance_notify_at` (TIMESTAMPTZ): de-dupes the 20%
  *     warning email.
@@ -327,7 +327,7 @@ export async function reserveCredits(
       `The ${cfg.label} plan does not include scheduled runs.`);
   }
 
-  // Reserving 0 is a no-op success — used by the status endpoint to
+  // Reserving 0 is a no-op success - used by the status endpoint to
   // peek at counters without spending.
   if (amount <= 0) {
     const row = await readOrInitCounter(userId, now);
@@ -338,7 +338,7 @@ export async function reserveCredits(
 
   // Single statement does the rollover, the cap check, and the
   // increment. If any cap would be exceeded, the WHERE clause filters
-  // the row out and the UPDATE returns zero rows — we then read back
+  // the row out and the UPDATE returns zero rows - we then read back
   // the (rolled-over) counters to build the failure response.
   const monthStart = currentMonthStart(now).toISOString().slice(0, 10);
   const today = currentDayUtc(now);
@@ -471,14 +471,14 @@ export interface CreditStatus {
   remaining: number;
   monthlyCap: number;
   /**
-   * Credits *committed* this period — derived from the
+   * Credits *committed* this period - derived from the
    * `tenant_cost_events` ledger, not the reservation counter. This is
    * the number the headline tile shows and the projection should be
    * built against; see #453.
    */
   monthlyUsed: number;
   /**
-   * Credits *reserved but not yet dispatched* — the (counter − ledger)
+   * Credits *reserved but not yet dispatched* - the (counter − ledger)
    * delta. Surfaces in-flight holds (e.g. a Run-All that's still firing
    * sub-tasks) without conflating them with committed spend. Always
    * ≥ 0; in steady state, reservations clear via either a ledger row
@@ -508,7 +508,7 @@ export async function getCreditStatus(
   // same UTC-month window the reservation counter rolls on. Best-effort
   // against transient DB errors: if the count fails we fall back to
   // the counter so the tile still renders, just with the historical
-  // (over-counting) shape — no worse than the pre-#453 behavior.
+  // (over-counting) shape - no worse than the pre-#453 behavior.
   const monthStart = currentMonthStart(now);
   let ledgerUsed: number;
   try {

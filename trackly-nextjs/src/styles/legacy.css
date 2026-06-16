@@ -394,7 +394,7 @@ a:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radiu
 .land-footer-newsletter-form input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-border);}
 .land-footer-newsletter-form .land-btn{padding:11px 20px;font-size:14px;white-space:nowrap;flex-shrink:0;}
 
-/* Main grid: 5 columns — brand wider, 4 link columns */
+/* Main grid: 5 columns - brand wider, 4 link columns */
 .land-footer-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1.1fr 1fr;gap:40px;padding:56px 48px 40px;max-width:1080px;margin:0 auto;}
 .land-footer-brand{max-width:320px;display:flex;flex-direction:column;gap:18px;}
 .land-footer-logo{font-size:22px;font-weight:800;color:var(--text-primary);letter-spacing:-0.5px;display:inline-block;}

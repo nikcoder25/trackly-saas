@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * Smoke tests for GET /api/geo-audits/[id] — the route the new
+ * Smoke tests for GET /api/geo-audits/[id] - the route the new
  * Screen 02 drill-down page consumes. We mock pg.pool so we can
  * assert the response shape + the ownership check without standing
  * up a database.

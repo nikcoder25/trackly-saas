@@ -1,11 +1,11 @@
 /**
- * Regional Audits — schema, types, and worker.
+ * Regional Audits - schema, types, and worker.
  *
  * Two tables (created idempotently via ensureGeoAuditsSchema, matching
  * the repo's existing per-module CREATE TABLE IF NOT EXISTS pattern):
  *
- *   geo_audits          — one row per audit job (header)
- *   geo_audit_results   — one row per (region × prompt × model) call
+ *   geo_audits          - one row per audit job (header)
+ *   geo_audit_results   - one row per (region × prompt × model) call
  *
  * Worker model mirrors brands/[id]/run:
  *   POST /api/geo-audits inserts the row in 'queued', then calls
@@ -22,7 +22,7 @@
  *   - refundCredits at the end for whatever wasn't actually consumed
  *
  * Region context is injected via queryAI's existing options.systemPrompt
- * — no LLM client modification.
+ * - no LLM client modification.
  */
 
 import crypto from 'crypto';
@@ -40,7 +40,7 @@ import { getServerKeys } from '@/lib/server-keys';
 import { buildBrandMatcher, parseResponse } from '@/lib/parser';
 import type { BrandInput } from '@/lib/parser';
 
-// The 5 supported platforms, hard-coded per the v1 spec — every audit
+// The 5 supported platforms, hard-coded per the v1 spec - every audit
 // runs against all 5 regardless of the user's normal platform mix.
 export const GEO_AUDIT_PLATFORMS = [
   'ChatGPT',
@@ -123,7 +123,7 @@ export async function ensureGeoAuditsSchema(): Promise<void> {
     )
   `);
   // Backfill columns for installations that ran an earlier ensure cycle
-  // before they were added — idempotent ALTERs, no-op on fresh DBs.
+  // before they were added - idempotent ALTERs, no-op on fresh DBs.
   await pool.query(`ALTER TABLE geo_audits ADD COLUMN IF NOT EXISTS prompts TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]`);
   await pool.query(`ALTER TABLE geo_audits ADD COLUMN IF NOT EXISTS mention_rate NUMERIC`);
   // Backfill mention_rate for terminal historical rows (done / failed /
@@ -170,7 +170,7 @@ export async function ensureGeoAuditsSchema(): Promise<void> {
 }
 
 // Build the system-prompt note that "places" the LLM in the given region.
-// Uses the existing queryAI options.systemPrompt slot — every provider
+// Uses the existing queryAI options.systemPrompt slot - every provider
 // already wires that field to its native system-message channel
 // (see ai-platforms.ts's queryAI implementation per platform).
 //
@@ -287,7 +287,7 @@ interface CallTask {
  *
  * Each task runs in isolation: a single failing call gets its row
  * persisted with `error` set and does NOT abort the rest of the audit.
- * That's by design — we want partial results visible to the user.
+ * That's by design - we want partial results visible to the user.
  */
 async function runTasks(
   tasks: CallTask[],
@@ -303,7 +303,7 @@ async function runTasks(
         await worker(tasks[i]);
       } catch (e) {
         // Worker is responsible for persisting its own error rows.
-        // A throw here means the worker's own bookkeeping crashed —
+        // A throw here means the worker's own bookkeeping crashed -
         // log + continue so the rest of the audit makes progress.
         logger.error('geo_audit.task_unhandled', { task: tasks[i], err: (e as Error).message });
       }
@@ -518,7 +518,7 @@ export async function processGeoAudit(
       await insertResultRow(auditId, task, outcome);
     } catch (e) {
       // Only reached if insertResultRow itself threw (DB hiccup).
-      // We don't surface this as a row-level error — it's a worker
+      // We don't surface this as a row-level error - it's a worker
       // failure. Capture for the header's `error` column.
       abortError = abortError ?? (e as Error).message;
     }
@@ -587,7 +587,7 @@ export async function createAuditRecord(input: CreateAuditInput): Promise<{
 }
 
 /**
- * List all 'queued' audit IDs older than `staleSeconds` — used by the
+ * List all 'queued' audit IDs older than `staleSeconds` - used by the
  * cron safety-net to pick up jobs that never had after() fire.
  */
 export async function findStuckQueuedAudits(staleSeconds = 60): Promise<string[]> {

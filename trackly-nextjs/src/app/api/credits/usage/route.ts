@@ -37,7 +37,7 @@ export interface LastRunSummary {
    * `dailyUsageLast14Days[i].date` uses, so the dashboard can highlight
    * the matching bar without re-deriving the bucket on the client (which
    * would do it in the browser's local timezone and drift across the
-   * UTC midnight boundary — see #453).
+   * UTC midnight boundary - see #453).
    */
   atDate: string;
   credits: number;
@@ -94,7 +94,7 @@ export async function GET(request: Request): Promise<Response> {
   const thirtyDaysAgoDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  // Run the independent reads in parallel — they don't depend on each
+  // Run the independent reads in parallel - they don't depend on each
   // other and the page is page-load critical, so latency matters.
   const [
     dailyRes,
@@ -148,7 +148,7 @@ export async function GET(request: Request): Promise<Response> {
     // (Regional Audits, /api/geo-audits) created since the start of
     // the current billing period. The single-URL /api/geo-audit route
     // continues to use its own `geo-audit-monthly:<userId>` rate-limit
-    // row for its own quota — that's a separate counter the URL audit
+    // row for its own quota - that's a separate counter the URL audit
     // already enforces. Falls back to 0 if the table doesn't exist
     // yet (idempotent ensure runs in the geo-audits route's own path).
     pool.query(
@@ -228,7 +228,7 @@ export async function GET(request: Request): Promise<Response> {
   let configuredPrompts = 0;
   const platformSet = new Set<string>();
   // Canonical 5-platform allowlist. Livesov supports ChatGPT,
-  // Perplexity, Claude, Gemini, Grok — anything else in
+  // Perplexity, Claude, Gemini, Grok - anything else in
   // brand.data.platforms is stale data from earlier iterations
   // (e.g. provider names that got renamed) and must not surface in
   // the Active Platforms tile or its chip list, otherwise the count

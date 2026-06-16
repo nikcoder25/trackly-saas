@@ -1,5 +1,5 @@
 /**
- * Scheduled-report runner — generates the standard AI Visibility PDF for every
+ * Scheduled-report runner - generates the standard AI Visibility PDF for every
  * brand whose auto-generate schedule matches the given cadence and saves it to
  * report history. Invoked from the existing /api/cron/reports cron (which fires
  * weekly on Monday and monthly on the 1st), so no new schedule/infra is needed.
@@ -48,7 +48,7 @@ export async function runDueReportSchedules(frequency: 'weekly' | 'monthly'): Pr
 
   for (const row of rows) {
     try {
-      // Plan gate — only Pro+ brands auto-generate (matches the manual download).
+      // Plan gate - only Pro+ brands auto-generate (matches the manual download).
       const plan = getEffectivePlan(row.plan as string, row.trial_ends_at as string | undefined);
       if (!PRO_PLANS.has(plan)) { skipped++; continue; }
 
@@ -71,7 +71,7 @@ export async function runDueReportSchedules(frequency: 'weekly' | 'monthly'): Pr
       const lastSov = Math.round(runs[runs.length - 1].sov || 0);
 
       await recordReport(row.brand_id as string, row.user_id as string, 'standard',
-        `${data.name || 'Brand'} — AI Visibility Report`, filename, buffer, { sov: lastSov, auto: true });
+        `${data.name || 'Brand'} - AI Visibility Report`, filename, buffer, { sov: lastSov, auto: true });
       await markScheduleRun(row.brand_id as string);
       generated++;
     } catch (e) {

@@ -1,6 +1,6 @@
 /**
  * Cron endpoint for scheduled brand runs. Called once daily (14:30 UTC)
- * by GitHub Actions (.github/workflows/cron-hourly.yml — filename
+ * by GitHub Actions (.github/workflows/cron-hourly.yml - filename
  * retained, schedule reduced to daily in the June 2026 cost cut) and
  * also by the in-process instrumentation trigger in src/instrumentation.ts.
  * Authorized via the `Authorization: Bearer $CRON_SECRET` header;
@@ -416,7 +416,7 @@ export async function GET(request: Request) {
             // Send an explicit Origin matching the deployed app so the edge
             // middleware's same-origin check accepts this internal dispatch
             // even if the x-cron-secret bypass is later tightened or
-            // removed. Defence in depth — the Apr 2026 outage happened
+            // removed. Defence in depth - the Apr 2026 outage happened
             // precisely because Node-side fetch sends no Origin and the
             // middleware refused the request before any auth ran.
             const dispatchOrigin = new URL(baseUrl).origin;

@@ -8,7 +8,7 @@
  * monthly reset, which on high-volume Agency-plan accounts (500
  * credits reserved per cron tick) pinned the cap gate to "out of
  * credits" within days while the ledger still showed plenty of
- * headroom — the contractor-kingdom freeze, May 2026.
+ * headroom - the contractor-kingdom freeze, May 2026.
  *
  * Contract pinned here:
  *
@@ -21,7 +21,7 @@
  *     refund uses 'auto' so it never over-refunds manual_daily_used
  *     for runs whose kind wasn't recorded.
  *   - When `refundCredits` throws, the reaper still appends the brand
- *     entry — the dashboard "Last Run" must advance regardless.
+ *     entry - the dashboard "Last Run" must advance regardless.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -117,7 +117,7 @@ function setupMocks(opts: MockSetup) {
 
 const fiveMinAgo = () => new Date(Date.now() - 5 * 60_000).toISOString();
 
-describe('finalizeStaleRow refund — happy path', () => {
+describe('finalizeStaleRow refund - happy path', () => {
   it('refunds (total_expected - received) credits to the brand owner with the row kind', async () => {
     setupMocks({
       brandOwnerId: 'owner_1',
@@ -169,7 +169,7 @@ describe('finalizeStaleRow refund — happy path', () => {
   });
 });
 
-describe('finalizeStaleRow refund — no-op cases', () => {
+describe('finalizeStaleRow refund - no-op cases', () => {
   it('skips refund when received >= total_expected (fully spent run)', async () => {
     setupMocks({
       brandOwnerId: 'owner_3',
@@ -243,7 +243,7 @@ describe('finalizeStaleRow refund — no-op cases', () => {
   });
 });
 
-describe('finalizeStaleRow refund — pre-migration schema', () => {
+describe('finalizeStaleRow refund - pre-migration schema', () => {
   it('defaults kind to auto when the row has no kind column', async () => {
     setupMocks({
       brandOwnerId: 'owner_5',
@@ -272,7 +272,7 @@ describe('finalizeStaleRow refund — pre-migration schema', () => {
   });
 });
 
-describe('finalizeStaleRow refund — error resilience', () => {
+describe('finalizeStaleRow refund - error resilience', () => {
   it('still appends the brand entry when refundCredits throws', async () => {
     refundFn.mockRejectedValueOnce(new Error('db boom'));
     const { client } = setupMocks({

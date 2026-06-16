@@ -5,7 +5,7 @@
  * can save the setup form. Walks the same resolution chain the run uses
  * (tenant_api_keys → users.api_keys → server env), so the report
  * reflects what would actually be called at run time. Server-only env
- * keys are reported as `source: 'server'` with `ok: true` skipped —
+ * keys are reported as `source: 'server'` with `ok: true` skipped -
  * the operator can't fix those from the UI, so reporting them as
  * "needs your attention" would be misleading.
  *
@@ -54,7 +54,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     body = await request.json();
   } catch {
-    // Empty body is allowed — defaults to every supported platform.
+    // Empty body is allowed - defaults to every supported platform.
   }
   const requested: string[] = Array.isArray(body.platforms)
     ? (body.platforms as unknown[]).filter((x): x is string => typeof x === 'string')
