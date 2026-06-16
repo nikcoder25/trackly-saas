@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, Suspense } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandProvider, useBrands } from '@/contexts/BrandContext';
 import { RunProvider, useRun, markPendingFirstRun, markBrandAutoRan, getAutoRanBrandIds, PENDING_FIRST_RUN_KEY, resolveAutoFirstScan, type AutoScanBrand } from '@/contexts/RunContext';
@@ -521,16 +522,30 @@ function BackgroundRunPoller() {
 
 export default function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
 
-  if (loading) {
+  // Client-side auth guard. Middleware already redirects logged-out requests
+  // server-side, but a session that lapses client-side (e.g. /api/auth/me
+  // returns no user after the cookie expires) would otherwise leave the layout
+  // rendering nothing - a blank white screen. Redirect to /login instead, and
+  // keep showing the spinner (below) until the navigation lands.
+  useEffect(() => {
+    if (!loading && !user) {
+      const next = pathname && pathname !== '/dashboard' ? `?next=${encodeURIComponent(pathname)}` : '';
+      router.replace(`/login${next}`);
+    }
+  }, [loading, user, pathname, router]);
+
+  // Spinner while the auth check is in flight OR while we're redirecting an
+  // unauthenticated visitor - never a blank screen.
+  if (loading || !user) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
         <div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
       </div>
     );
   }
-
-  if (!user) return null;
 
   return (
     <BrandProvider>

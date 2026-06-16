@@ -125,8 +125,13 @@ export default function GlobalLiveToasts() {
   const dismissAll = () => setGroups([]);
 
   // Oldest first → newest ends up nearest the corner; the Clear-all bar sits at
-  // the very top of the stack.
-  const ordered = [...groups].sort((a, b) => a.lastTs - b.lastTs);
+  // the very top of the stack. Cap the visible stack at the 3 most recent cards
+  // so a large run (one card per prompt) can't bury the screen; older cards
+  // still auto-dismiss and a "+N more" hint shows how many are queued behind.
+  const MAX_VISIBLE = 3;
+  const sorted = [...groups].sort((a, b) => a.lastTs - b.lastTs);
+  const hiddenCount = Math.max(0, sorted.length - MAX_VISIBLE);
+  const ordered = sorted.slice(-MAX_VISIBLE);
 
   return (
     <>
@@ -146,6 +151,14 @@ export default function GlobalLiveToasts() {
             CLEAR ALL ✕
           </button>
         </div>
+        {hiddenCount > 0 && (
+          <div style={{
+            textAlign: 'right', fontSize: 10, fontFamily: 'var(--mono)',
+            color: 'var(--muted)', pointerEvents: 'auto', paddingRight: 4,
+          }}>
+            +{hiddenCount} more running…
+          </div>
+        )}
         {ordered.map(g => {
           const total = g.engines.length;
           const positive = g.mentioned > 0;

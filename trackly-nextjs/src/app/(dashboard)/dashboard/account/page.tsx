@@ -409,7 +409,13 @@ export default function AccountPage() {
         {/* Choose your plan */}
         <Card title="Choose your plan" right={<Pill tone="acc">Current · {plan.toUpperCase()}</Pill>}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-            {PLANS.map(p => {
+            {/* Free is an internal-only tier (where cancelled accounts land) and
+                is not a plan users pick - matching the public pricing page, the
+                selectable grid lists paid tiers only. This also removes the
+                contradictory "Upgrade/Downgrade to Free" CTA; a free user's
+                current tier is still shown by the "Current plan" card and the
+                "Current · FREE" pill above. */}
+            {PLANS.filter(p => p.name.toLowerCase() !== 'free').map(p => {
               const isCurrent = plan === p.name.toLowerCase();
               return (
                 <Card key={p.name} title={p.name} right={p.featured ? <Badge tone="acc">POPULAR</Badge> : isCurrent ? <Badge tone="pos">CURRENT</Badge> : undefined}>

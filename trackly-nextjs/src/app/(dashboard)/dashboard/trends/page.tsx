@@ -125,7 +125,7 @@ export default function TrendsPage() {
         sub={
           <>
             Share of Voice over time - track how AI platforms mention your brand.
-            {history.length > 0 && <span> · {history.length} data points</span>}
+            {history.length > 0 && <span> · {history.length} data point{history.length === 1 ? '' : 's'}</span>}
           </>
         }
       />
