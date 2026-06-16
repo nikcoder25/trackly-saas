@@ -73,12 +73,14 @@ export const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 export const TRIAL_INITIAL_UNVERIFIED_MS = 24 * 60 * 60 * 1000;
 
 // Anti-abuse caps for trial accounts. Overridable via env for ops.
-// 30 matches PLAN_LIMITS.trial.trackedPromptsPerAccount so a trial user can
-// execute one full single-query-batch run across all 5 platforms in a day
-// (e.g. 6 queries × 5 platforms = 30 credits). Daily worst-case provider
-// spend at this cap is ~$0.012 on economy models.
+// 60 lets a trial user complete one full "Run all engines" scan in a day even
+// for a larger brand (up to 12 tracked prompts × 5 platforms = 60 calls); at
+// 30 an 11-prompt × 5-platform scan (55 calls) was permanently blocked. Kept
+// in step with PLAN_CREDITS.trial.manualDailyCap (also 60). Daily worst-case
+// provider spend at this cap is ~$0.03 on economy models; the monthly credit
+// cap (500), the 30-day run cap (40) and the global daily cap still bound it.
 export const TRIAL_DAILY_PROMPT_CAP_PER_USER = parseInt(
-  process.env.TRIAL_DAILY_PROMPT_CAP_PER_USER || '30', 10
+  process.env.TRIAL_DAILY_PROMPT_CAP_PER_USER || '60', 10
 );
 export const TRIAL_DAILY_GLOBAL_PROMPT_CAP = parseInt(
   process.env.TRIAL_DAILY_GLOBAL_PROMPT_CAP || '5000', 10

@@ -101,7 +101,10 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     // TRIAL_DAILY_GLOBAL_PROMPT_CAP in constants.ts) and the per-tenant USD
     // cost caps. Trial only — all other tiers are unchanged.
     monthlyCredits: 500,
-    manualDailyCap: 30,
+    // 60 = up to 12 prompts × 5 platforms in a day, so a full "Run all engines"
+    // scan completes (at 30, an 11-prompt × 5-platform = 55-credit scan was
+    // permanently blocked). Kept in step with TRIAL_DAILY_PROMPT_CAP_PER_USER.
+    manualDailyCap: 60,
     cooldownSeconds: 30,
     maxPlatforms: 5,
     trackedPromptsPerAccount: 30,
