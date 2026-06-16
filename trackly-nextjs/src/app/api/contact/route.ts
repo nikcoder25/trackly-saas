@@ -48,11 +48,11 @@ export async function POST(request: NextRequest) {
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   try {
-    const { name, email, subject, inquiryType, message, turnstileToken, website } = await request.json();
+    const { name, email, subject, inquiryType, message, turnstileToken, hp_field } = await request.json();
 
     // --- Honeypot check ---
-    // The "website" field is hidden from real users; bots will fill it in
-    if (website) {
+    // The "hp_field" field is hidden from real users; bots will fill it in
+    if (hp_field) {
       // Silently accept to avoid tipping off bots, but don't send the email
       return Response.json({ success: true });
     }

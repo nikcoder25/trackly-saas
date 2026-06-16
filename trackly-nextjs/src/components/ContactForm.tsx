@@ -142,7 +142,7 @@ export default function ContactForm() {
           message: message.trim(),
           turnstileToken: turnstileToken || undefined,
           // Honeypot field - real users never see or fill this
-          website: (document.getElementById('contact-website') as HTMLInputElement)?.value || '',
+          hp_field: (document.getElementById('contact-hp-field') as HTMLInputElement)?.value || '',
         }),
       });
       const data = await res.json();
@@ -236,24 +236,12 @@ export default function ContactForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6">
       {serverError && (
         <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">
           {serverError}
         </div>
       )}
-
-      {/* Honeypot field - hidden from real users, bots will fill it */}
-      <div aria-hidden="true" tabIndex={-1} style={{ position: 'absolute', left: '-9999px', top: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }}>
-        <label htmlFor="contact-website">Website</label>
-        <input
-          id="contact-website"
-          type="text"
-          name="website"
-          tabIndex={-1}
-          autoComplete="off"
-        />
-      </div>
 
       {/* Name */}
       <div>
@@ -263,12 +251,17 @@ export default function ContactForm() {
         <input
           id="contact-name"
           type="text"
+          required
+          maxLength={100}
+          autoComplete="name"
+          aria-invalid={!!errors.name}
+          aria-describedby={errors.name ? 'contact-name-error' : undefined}
           value={name}
           onChange={(e) => { setName(e.target.value); if (errors.name) setErrors((p) => ({ ...p, name: undefined })); }}
           className={inputClass('name')}
           placeholder="John Doe"
         />
-        {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+        {errors.name && <p id="contact-name-error" className="text-red-500 text-xs mt-1">{errors.name}</p>}
       </div>
 
       {/* Email */}
@@ -279,12 +272,17 @@ export default function ContactForm() {
         <input
           id="contact-email"
           type="email"
+          required
+          maxLength={254}
+          autoComplete="email"
+          aria-invalid={!!errors.email}
+          aria-describedby={errors.email ? 'contact-email-error' : undefined}
           value={email}
           onChange={(e) => { setEmail(e.target.value); if (errors.email) setErrors((p) => ({ ...p, email: undefined })); }}
           className={inputClass('email')}
           placeholder="john@example.com"
         />
-        {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+        {errors.email && <p id="contact-email-error" className="text-red-500 text-xs mt-1">{errors.email}</p>}
       </div>
 
       {/* Subject */}
@@ -295,12 +293,17 @@ export default function ContactForm() {
         <input
           id="contact-subject"
           type="text"
+          required
+          maxLength={150}
+          autoComplete="off"
+          aria-invalid={!!errors.subject}
+          aria-describedby={errors.subject ? 'contact-subject-error' : undefined}
           value={subject}
           onChange={(e) => { setSubject(e.target.value); if (errors.subject) setErrors((p) => ({ ...p, subject: undefined })); }}
           className={inputClass('subject')}
           placeholder="How can we help?"
         />
-        {errors.subject && <p className="text-red-500 text-xs mt-1">{errors.subject}</p>}
+        {errors.subject && <p id="contact-subject-error" className="text-red-500 text-xs mt-1">{errors.subject}</p>}
       </div>
 
       {/* Inquiry Type */}
@@ -310,6 +313,9 @@ export default function ContactForm() {
         </label>
         <select
           id="contact-inquiry"
+          required
+          aria-invalid={!!errors.inquiryType}
+          aria-describedby={errors.inquiryType ? 'contact-inquiry-error' : undefined}
           value={inquiryType}
           onChange={(e) => { setInquiryType(e.target.value); if (errors.inquiryType) setErrors((p) => ({ ...p, inquiryType: undefined })); }}
           className={inputClass('inquiryType')}
@@ -319,7 +325,7 @@ export default function ContactForm() {
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
-        {errors.inquiryType && <p className="text-red-500 text-xs mt-1">{errors.inquiryType}</p>}
+        {errors.inquiryType && <p id="contact-inquiry-error" className="text-red-500 text-xs mt-1">{errors.inquiryType}</p>}
       </div>
 
       {/* Message */}
@@ -329,13 +335,32 @@ export default function ContactForm() {
         </label>
         <textarea
           id="contact-message"
+          required
+          minLength={20}
+          maxLength={2000}
+          aria-invalid={!!errors.message}
+          aria-describedby={errors.message ? 'contact-message-error' : undefined}
           value={message}
           onChange={(e) => { setMessage(e.target.value); if (errors.message) setErrors((p) => ({ ...p, message: undefined })); }}
           className={`${inputClass('message')} resize-y min-h-[120px]`}
           rows={5}
           placeholder="Tell us more about your inquiry (at least 20 characters)..."
         />
-        {errors.message && <p className="text-red-500 text-xs mt-1">{errors.message}</p>}
+        {errors.message && <p id="contact-message-error" className="text-red-500 text-xs mt-1">{errors.message}</p>}
+      </div>
+
+      {/* Honeypot - visually & assistively hidden, kept out of the tab order and
+          off the autofill radar (neutral name, autoComplete off). Real users
+          never see or fill it; automated bots that fill every field will. */}
+      <div aria-hidden="true" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }}>
+        <input
+          id="contact-hp-field"
+          type="text"
+          name="hp_field"
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+        />
       </div>
 
       {/* Cloudflare Turnstile widget */}

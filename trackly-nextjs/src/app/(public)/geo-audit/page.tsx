@@ -170,7 +170,7 @@ export default function GeoAuditPage() {
         <p
           style={{
             fontSize: 18,
-            color: 'rgba(255,255,255,.7)',
+            color: 'var(--text-secondary)',
             maxWidth: 540,
             margin: '0 auto',
             paddingBottom: 24,

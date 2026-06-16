@@ -80,7 +80,7 @@ export default function BlogPage() {
             AI Visibility Insights &amp; Strategies
           </h1>
           <p style={{
-            fontSize: 17, color: 'rgba(255,255,255,.55)', maxWidth: 520, margin: '0 auto', lineHeight: 1.6,
+            fontSize: 17, color: '#cbd5e1', maxWidth: 520, margin: '0 auto', lineHeight: 1.6,
           }}>
             Expert guides on GEO, AI brand tracking, share of voice, and optimizing your presence across AI platforms.
           </p>

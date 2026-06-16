@@ -87,7 +87,7 @@ export default function ToolsHubPage() {
         <h1 style={{ fontSize: 44, fontWeight: 800, lineHeight: 1.2, marginBottom: 14 }}>
           Free <span style={{ color: 'var(--brand)' }}>GEO &amp; AI Visibility</span> Tools
         </h1>
-        <p style={{ fontSize: 17, color: 'rgba(255,255,255,.7)', maxWidth: 620, margin: '0 auto' }}>
+        <p style={{ fontSize: 17, color: 'var(--text-secondary)', maxWidth: 620, margin: '0 auto' }}>
           Ten free utilities to help you understand and improve how AI platforms see your brand.
           No signup required for most. Built by the team behind Livesov.
         </p>

@@ -21,8 +21,8 @@ export default function ToolPage({ title, subtitle, toolName, toolSlug, children
         className="land-hero"
         style={{ paddingTop: 80, paddingBottom: 32, textAlign: 'center' }}
       >
-        <div style={{ marginBottom: 16, fontSize: 13, color: 'rgba(255,255,255,.55)' }}>
-          <Link href="/tools" style={{ color: 'rgba(255,255,255,.55)', textDecoration: 'none' }}>
+        <div style={{ marginBottom: 16, fontSize: 13, color: 'var(--text-muted)' }}>
+          <Link href="/tools" style={{ color: 'var(--primary)', textDecoration: 'none' }}>
             Free Tools
           </Link>
           {' / '}
@@ -32,7 +32,7 @@ export default function ToolPage({ title, subtitle, toolName, toolSlug, children
         <p
           style={{
             fontSize: 17,
-            color: 'rgba(255,255,255,.7)',
+            color: 'var(--text-secondary)',
             maxWidth: 620,
             margin: '0 auto',
             paddingBottom: 8,

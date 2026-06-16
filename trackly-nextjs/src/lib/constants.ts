@@ -192,8 +192,8 @@ export const PRICING_PLANS: PricingPlan[] = [
 export const PRICING_COMPARISON = {
   headers: ['Feature', 'Livesov', 'Ahrefs', 'Semrush'],
   rows: [
-    ['AI Brand Tracking', '\u2713 (6 platforms)', '\u2717', '\u2717'],
-    ['Starting Price', '$0/mo', '$99/mo', '$129/mo'],
+    ['AI Brand Tracking', '\u2713 (5 platforms)', '\u2717', '\u2717'],
+    ['Starting Price', '$9/mo', '$99/mo', '$129/mo'],
     ['AI Response Proof', '\u2713', '\u2717', '\u2717'],
     ['Share of Voice', '\u2713 Automatic', 'Limited', 'Limited'],
     ['Sentiment Analysis', '\u2713 Built-in', '\u2717', '\u2717'],
