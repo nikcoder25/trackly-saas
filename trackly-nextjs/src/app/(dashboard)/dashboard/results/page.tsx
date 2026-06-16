@@ -4,8 +4,15 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { useBrandData } from '@/hooks/useBrandData';
+import { useRun } from '@/contexts/RunContext';
+import { useToast } from '@/components/dashboard/Toast';
 import { TableSkeleton } from '@/components/dashboard/Skeleton';
 import { PLATFORMS, type Platform, PlatformTile, Card, Pill, Filter, PageHead } from '@/app/dashboard-v2/ui';
+
+// Three-way per-query outcome. A delivery failure is distinct from a
+// legitimate "not mentioned" so the UI can offer a retry and so failed
+// queries can be excluded from share-of-voice math upstream.
+type ResultStatus = 'mentioned' | 'not_found' | 'failed';
 
 // Map a real platform/model name to the design's Platform tile descriptor.
 function platformFor(name: string): Platform {
@@ -23,6 +30,12 @@ interface Mention {
   raw?: string;
   context?: string;
   snippet?: string;
+  // Failure signal persisted on each run result. `status` is authoritative
+  // when present; `error`/`errorMessage` are the legacy fallback for runs
+  // recorded before the status field existed.
+  status?: string;
+  error?: boolean | string;
+  errorMessage?: string;
 }
 interface Run {
   id?: string;
@@ -41,10 +54,12 @@ interface ResultRow {
   // Platform/model identifier - matches PLATFORM_COLORS keys.
   model: string;
   mentioned: boolean;
+  status: ResultStatus;
+  errorMessage?: string;
   response: string;
 }
 
-type MentionedFilter = 'all' | 'yes' | 'no';
+type MentionedFilter = 'all' | 'yes' | 'no' | 'failed';
 
 type PageSize = '25' | '50' | '100' | 'all';
 
@@ -75,10 +90,28 @@ function formatTimestamp(iso: string): string {
   return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
-function MentionedBadge({ mentioned }: { mentioned: boolean }) {
-  return mentioned
-    ? <span className="status-found">FOUND</span>
-    : <span className="status-notfound">NOT FOUND</span>;
+// Derive the three-way status from a stored result. Prefer the explicit
+// `status` field; fall back to error/mentioned flags for runs recorded before
+// the field existed.
+function deriveStatus(r: Mention): ResultStatus {
+  const s = typeof r.status === 'string' ? r.status : '';
+  if (s === 'failed' || s === 'mentioned' || s === 'not_mentioned') {
+    return s === 'not_mentioned' ? 'not_found' : s;
+  }
+  if (r.error) return 'failed';
+  return r.mentioned ? 'mentioned' : 'not_found';
+}
+
+function StatusBadge({ status }: { status: ResultStatus }) {
+  if (status === 'mentioned') return <span className="status-found">FOUND</span>;
+  if (status === 'failed') {
+    return (
+      <span className="status-notfound" style={{ color: 'var(--danger, #ef4444)', borderColor: 'rgba(239,68,68,.35)' }}>
+        FAILED
+      </span>
+    );
+  }
+  return <span className="status-notfound">NOT FOUND</span>;
 }
 
 function dateOnly(iso: string): string {
@@ -100,12 +133,15 @@ function flattenRuns(brand: Brand | null): ResultRow[] {
       // mirroring how the Mentions page colors that column.
       const platform = r.platform || r.model || 'Unknown';
       const response = r.response || r.raw || r.context || r.snippet || '';
+      const status = deriveStatus(r);
       rows.push({
         id: `${run.id ?? 'run'}-${i}`,
         timestamp: ts,
         prompt: r.query || '',
         model: platform,
-        mentioned: !!r.mentioned,
+        mentioned: status === 'mentioned',
+        status,
+        errorMessage: typeof r.errorMessage === 'string' ? r.errorMessage : (typeof r.error === 'string' ? r.error : undefined),
         response,
       });
     });
@@ -118,6 +154,17 @@ export default function ResultsPage() {
   const searchParams = useSearchParams();
   const { brand: rawBrand, loading } = useBrandData({ fullData: true });
   const brand = rawBrand as Brand | null;
+  const { startRun, live } = useRun();
+  const { toast } = useToast();
+
+  // Re-run a single failed prompt across all engines. Goes through the normal
+  // run path (and its credit pre-flight) so a retry is costed and tracked like
+  // any other run; failed responses won't be charged thanks to the refund path.
+  const retryPrompt = (prompt: string) => {
+    if (!prompt) return;
+    startRun(false, { queries: [prompt] });
+    toast(live.running ? 'Run in progress - this prompt is queued to retry next.' : 'Retrying this prompt across all engines…');
+  };
 
   const allRows = useMemo(() => flattenRuns(brand), [brand]);
   const allModels = useMemo(() => Array.from(new Set(allRows.map(r => r.model))).sort(), [allRows]);
@@ -129,7 +176,7 @@ export default function ResultsPage() {
   const model = searchParams.get('model') || 'all';
   const prompt = searchParams.get('prompt') || 'all';
   const mentionedRaw = searchParams.get('mentioned');
-  const mentioned: MentionedFilter = mentionedRaw === 'yes' || mentionedRaw === 'no' ? mentionedRaw : 'all';
+  const mentioned: MentionedFilter = mentionedRaw === 'yes' || mentionedRaw === 'no' || mentionedRaw === 'failed' ? mentionedRaw : 'all';
   const sizeRaw = searchParams.get('size');
   const size: PageSize = sizeRaw === '50' || sizeRaw === '100' || sizeRaw === 'all' ? sizeRaw : '25';
   const isAll = size === 'all';
@@ -163,8 +210,9 @@ export default function ResultsPage() {
     return allRows.filter(r => {
       if (model !== 'all' && r.model !== model) return false;
       if (prompt !== 'all' && r.prompt !== prompt) return false;
-      if (mentioned === 'yes' && !r.mentioned) return false;
-      if (mentioned === 'no' && r.mentioned) return false;
+      if (mentioned === 'yes' && r.status !== 'mentioned') return false;
+      if (mentioned === 'no' && r.status !== 'not_found') return false;
+      if (mentioned === 'failed' && r.status !== 'failed') return false;
       if (from && dateOnly(r.timestamp) < from) return false;
       if (to && dateOnly(r.timestamp) > to) return false;
       return true;
@@ -229,7 +277,8 @@ export default function ResultsPage() {
                 value={mentioned} onChange={e => setParam('mentioned', e.target.value)}>
                 <option value="all">All</option>
                 <option value="yes">Mentioned</option>
-                <option value="no">Not mentioned</option>
+                <option value="no">Not found</option>
+                <option value="failed">Failed</option>
               </select>
               <input type="date" className="sel" aria-label="From"
                 value={from} onChange={e => setParam('from', e.target.value)} />
@@ -274,22 +323,48 @@ export default function ResultsPage() {
                       <span aria-hidden="true" style={{ color: 'var(--muted)', fontSize: 10, width: 12, flexShrink: 0 }}>{expanded ? '▾' : '▸'}</span>
                       <PlatformTile p={p} size={22} />
                       <span style={{ fontSize: 12, fontWeight: 700, color: PLATFORM_COLORS[r.model] || 'var(--text)', minWidth: 84, flexShrink: 0 }}>{p.name}</span>
-                      <MentionedBadge mentioned={r.mentioned} />
+                      <StatusBadge status={r.status} />
                       <span className="mono" style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         <span className="dim">QUERY ›</span> &ldquo;{r.prompt}&rdquo;
                       </span>
+                      {r.status === 'failed' && (
+                        <button
+                          type="button"
+                          className="btn-d"
+                          onClick={e => { e.stopPropagation(); retryPrompt(r.prompt); }}
+                          style={{ flexShrink: 0, fontSize: 11, padding: '3px 10px' }}
+                          title="Re-run this prompt across all engines"
+                        >
+                          ↻ Retry
+                        </button>
+                      )}
                       <span className="mono dim" style={{ fontSize: 11, flexShrink: 0 }}>{formatTimestamp(r.timestamp)}</span>
                     </div>
                     {/* Expanded: full response + MODEL/RESULT footer */}
                     {expanded && (
                       <div className="proof-body" style={{ padding: '0 14px 12px 38px', borderTop: '1px solid var(--border)' }}>
                         <div className="proof-answer" style={{ whiteSpace: 'pre-wrap', marginTop: 10 }}>
-                          {r.response || <span className="dim">Engine returned no usable answer.</span>}
+                          {r.status === 'failed'
+                            ? <span style={{ color: 'var(--danger, #ef4444)' }}>This query failed to get a response{r.errorMessage ? `: ${r.errorMessage}` : '.'} It was not counted in your Share of Voice or against your scans. Use Retry to run it again.</span>
+                            : (r.response || <span className="dim">Engine returned no usable answer.</span>)}
                         </div>
                         <div className="proof-meta mono" style={{ marginTop: 10 }}>
                           <span><span className="dim">MODEL:</span> {r.model}</span>
                           <span className="dim">·</span>
-                          <span><span className="dim">RESULT:</span> {r.mentioned ? 'mentioned' : 'not mentioned'}</span>
+                          <span><span className="dim">RESULT:</span> {r.status === 'failed' ? 'failed' : r.status === 'mentioned' ? 'mentioned' : 'not found'}</span>
+                          {r.status === 'failed' && (
+                            <>
+                              <span className="dim">·</span>
+                              <button
+                                type="button"
+                                className="btn-d"
+                                onClick={() => retryPrompt(r.prompt)}
+                                style={{ fontSize: 11, padding: '2px 10px' }}
+                              >
+                                ↻ Retry this prompt
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                     )}

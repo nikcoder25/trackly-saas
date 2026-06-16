@@ -8,7 +8,8 @@
 import { Worker, Job } from 'bullmq';
 import IORedis from 'ioredis';
 import { pool } from './db';
-import { queryAI, getDefaultModel, estimateCost, resolveChatGPTModel, withCacheAndRetry, type AiError } from './ai-platforms';
+import { queryAI, getDefaultModel, estimateCost, resolveChatGPTModel, withCacheAndRetry, withDeepRetry, type AiError } from './ai-platforms';
+import { computeSovFromResults } from './run-sov';
 import { isSearchEnabled } from './response-cache';
 import { resolveSearchModelWithBudget } from './search-budget';
 import { getAdminModel } from './site-config';
@@ -129,6 +130,7 @@ async function processRun(job: Job<BrandRunJobData>) {
     // citations) are the authoritative source URLs; the parser's regex
     // pass only catches URLs that survived into the response text.
     const citations = mergeCitations(result.citations, parsed.cites);
+    const status = parsed.mentioned ? 'mentioned' : 'not_mentioned';
     const entry = {
       platform: plat, query: q, model: result.model,
       mentioned: parsed.mentioned, recommended: parsed.recommended,
@@ -138,7 +140,7 @@ async function processRun(job: Job<BrandRunJobData>) {
       snippet: result.text.substring(0, 200),
       raw: result.text,
       tokensIn: result.tokensIn, tokensOut: result.tokensOut, cost,
-      cacheHit: fromCache,
+      cacheHit: fromCache, status,
     };
     allResults.push(entry);
     totalQ++;
@@ -148,7 +150,7 @@ async function processRun(job: Job<BrandRunJobData>) {
     pendingResults.push({
       platform: plat, query: q, model: result.model,
       mentioned: parsed.mentioned, recommended: parsed.recommended,
-      sentiment: parsed.sentiment, error: false,
+      sentiment: parsed.sentiment, error: false, status,
       context: result.text.substring(0, 150),
     });
   }
@@ -168,6 +170,7 @@ async function processRun(job: Job<BrandRunJobData>) {
       platform: plat, query: q, model: getDefaultModel(plat),
       mentioned: false, sentiment: 'neutral', recommended: false,
       citations: [], error: true, errorMessage: err.message, errorType,
+      status: 'failed',
     });
     totalQ++;
     received++;
@@ -175,6 +178,7 @@ async function processRun(job: Job<BrandRunJobData>) {
     pendingResults.push({
       platform: plat, query: q, model: getDefaultModel(plat),
       mentioned: false, error: true, errorMessage: err.message, errorType,
+      status: 'failed',
     });
   }
 
@@ -276,8 +280,12 @@ async function processRun(job: Job<BrandRunJobData>) {
           // Wrap the queryAI call with the shared response cache. On a hit,
           // the provider is never invoked and we skip key-success bookkeeping
           // (no key was used). On a miss, the live result is cached on the
-          // way out - errors are not cached. The worker has no withDeepRetry
-          // wrapper today (separate concern from caching).
+          // way out - errors are not cached. The provider call itself is wrapped
+          // in withDeepRetry so a transient failure (429/503/timeout) is retried
+          // with exponential backoff instead of being recorded as a hard fail -
+          // this brings the BullMQ worker to parity with the inline /run path,
+          // which already retried. Roughly 1-in-5 first-run failures were just
+          // transient and clear on a second attempt.
           const cached = await withCacheAndRetry(
             {
               prompt: q,
@@ -287,19 +295,23 @@ async function processRun(job: Job<BrandRunJobData>) {
               brandId: brand?.id ?? null,
               city: brand?.city ?? null,
             },
-            () => queryAI(
-              plat, q, rawKey, modelForTask, brand,
-              {
-                queryId,
-                signal: taskController.signal,
-                tenantId: userId,
-                runId,
-                // BullMQ worker processes background queued tasks
-                // only - never user-blocking - so no-search ChatGPT
-                // calls here can ride the OpenAI Batch API when
-                // CHATGPT_BATCH_ENABLED is on.
-                batchEligible: true,
-              },
+            () => withDeepRetry(
+              plat,
+              () => queryAI(
+                plat, q, rawKey, modelForTask, brand,
+                {
+                  queryId,
+                  signal: taskController.signal,
+                  tenantId: userId,
+                  runId,
+                  // BullMQ worker processes background queued tasks
+                  // only - never user-blocking - so no-search ChatGPT
+                  // calls here can ride the OpenAI Batch API when
+                  // CHATGPT_BATCH_ENABLED is on.
+                  batchEligible: true,
+                },
+              ),
+              { signal: taskController.signal },
             ),
           );
           const result = cached.data;
@@ -375,13 +387,18 @@ async function processRun(job: Job<BrandRunJobData>) {
       const platTotal = queries.length;
       const platMentions = platMentionCount[plat] || 0;
       const platErrors = allResults.filter((r: { platform: string; error?: boolean }) => r.platform === plat && r.error).length;
+      // Canonical SOV: error-EXCLUDED denominator. A failed delivery is not a
+      // visibility loss, so it must not drag SOV down (matches the inline /run
+      // path and run-sov.computeSovFromResults).
+      const platOk = Math.max(0, platTotal - platErrors);
       platformStats[plat] = {
         queries: platTotal, mentions: platMentions,
-        sov: platTotal > 0 ? Math.round((platMentions / platTotal) * 100) : 0,
+        sov: platOk > 0 ? Math.round((platMentions / platOk) * 100) : 0,
         errors: platErrors,
       };
     }
-    const overallSov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
+    // Overall SOV likewise excludes failed queries from the denominator.
+    const overallSov = computeSovFromResults(allResults);
     const totalErrors = allResults.filter((r: { error?: boolean }) => r.error).length;
     const durationMs = Date.now() - startTime;
     const newMentions = allResults
@@ -475,20 +492,21 @@ async function processRun(job: Job<BrandRunJobData>) {
       let pi = 1;
       for (const r of batch) {
         const prId = uid();
-        values.push(`($${pi},$${pi+1},$${pi+2},$${pi+3},$${pi+4},$${pi+5},$${pi+6},$${pi+7},$${pi+8},$${pi+9},$${pi+10},$${pi+11},$${pi+12},$${pi+13},$${pi+14})`);
+        const status = r.status || (r.error ? 'failed' : (r.mentioned ? 'mentioned' : 'not_mentioned'));
+        values.push(`($${pi},$${pi+1},$${pi+2},$${pi+3},$${pi+4},$${pi+5},$${pi+6},$${pi+7},$${pi+8},$${pi+9},$${pi+10},$${pi+11},$${pi+12},$${pi+13},$${pi+14},$${pi+15})`);
         p.push(prId, brandId, r.query, r.platform, r.model || null,
           r.mentioned || false, r.sentiment || 'neutral', r.recommended || false,
           r.listPosition || null, JSON.stringify(r.citations || []),
           JSON.stringify(r.competitorMentions || []), !r.error, runId,
-          r.raw || null, r.cacheHit || false);
-        pi += 15;
+          r.raw || null, r.cacheHit || false, status);
+        pi += 16;
         if (Array.isArray(r.citations) && r.citations.length > 0) {
           citationRows.push({ promptRunId: prId, brandId, prompt: r.query, platform: r.platform, urls: r.citations });
         }
       }
       try {
         await pool.query(
-          `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, mentioned, sentiment, recommended, list_position, citations, competitor_mentions, success, batch_id, response_raw, cache_hit) VALUES ${values.join(',')}`, p,
+          `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, mentioned, sentiment, recommended, list_position, citations, competitor_mentions, success, batch_id, response_raw, cache_hit, status) VALUES ${values.join(',')}`, p,
         );
         // Citation Decoder normalized rows. Only written when the parent
         // prompt_runs batch landed so prompt_run_id always resolves.

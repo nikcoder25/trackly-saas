@@ -118,7 +118,7 @@ function setupMocks(opts: MockSetup) {
 const fiveMinAgo = () => new Date(Date.now() - 5 * 60_000).toISOString();
 
 describe('finalizeStaleRow refund - happy path', () => {
-  it('refunds (total_expected - received) credits to the brand owner with the row kind', async () => {
+  it('refunds unused + failed credits, excluding errored sub-tasks from the charge', async () => {
     setupMocks({
       brandOwnerId: 'owner_1',
       staleRow: {
@@ -141,7 +141,10 @@ describe('finalizeStaleRow refund - happy path', () => {
 
     expect(out.count).toBe(1);
     expect(refundFn).toHaveBeenCalledTimes(1);
-    expect(refundFn).toHaveBeenCalledWith('owner_1', 88, 'auto');
+    // A failed AI response must not burn a credit, so the 1 errored sub-task
+    // is refunded alongside the 88 never-dispatched ones: chargeable =
+    // received(12) - errored(1) = 11, refund = total_expected(100) - 11 = 89.
+    expect(refundFn).toHaveBeenCalledWith('owner_1', 89, 'auto');
   });
 
   it('passes kind=manual through when the row was a user-triggered run', async () => {

@@ -5,6 +5,26 @@ import Link from 'next/link';
 import SectionField from '@/components/dashboard/SectionField';
 import TagList from '@/components/dashboard/TagList';
 import { api, getErrorMessage } from '@/lib/fetch-client';
+import { useAuth } from '@/contexts/AuthContext';
+
+// Persist in-progress wizard input so a user doesn't lose their work to the
+// email-verification redirect, a refresh, or an accidental close. The draft is
+// keyed per user so a shared device never rehydrates someone else's brand, and
+// it auto-expires so a stale draft from days ago doesn't haunt a new attempt.
+const DRAFT_KEY_PREFIX = 'livesov_brand_draft_v1';
+const DRAFT_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+
+interface BrandDraft {
+  step: number;
+  name: string;
+  industry: string;
+  website: string;
+  city: string;
+  nearbyAreas: string[];
+  competitors: string[];
+  queries: string[];
+  savedAt: number;
+}
 
 interface Brand {
   id: string;
@@ -20,6 +40,9 @@ interface Brand {
 }
 
 export default function AddBrandModal({ onClose, onCreated }: { onClose: () => void; onCreated: (brand: Brand) => void }) {
+  const { user } = useAuth();
+  const draftKey = `${DRAFT_KEY_PREFIX}:${user?.id || 'anon'}`;
+
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [industry, setIndustry] = useState('');
@@ -36,6 +59,48 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
   const [suggesting, setSuggesting] = useState(false);
   const [queryMsg, setQueryMsg] = useState('');
   const autoGenTriggered = useRef(false);
+  // Gate the save effect until the one-time rehydrate has run, so an empty
+  // initial render can't clobber a stored draft before we've read it back.
+  const hydratedRef = useRef(false);
+
+  const clearDraft = () => {
+    try { window.localStorage.removeItem(draftKey); } catch { /* storage unavailable */ }
+  };
+
+  // Rehydrate any saved draft once on mount. A draft older than the TTL is
+  // discarded rather than restored.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(draftKey);
+      if (raw) {
+        const d = JSON.parse(raw) as Partial<BrandDraft>;
+        if (d && typeof d.savedAt === 'number' && Date.now() - d.savedAt < DRAFT_TTL_MS) {
+          if (typeof d.name === 'string') setName(d.name);
+          if (typeof d.industry === 'string') setIndustry(d.industry);
+          if (typeof d.website === 'string') setWebsite(d.website);
+          if (typeof d.city === 'string') setCity(d.city);
+          if (Array.isArray(d.nearbyAreas)) setNearbyAreas(d.nearbyAreas);
+          if (Array.isArray(d.competitors)) setCompetitors(d.competitors);
+          if (Array.isArray(d.queries)) setQueries(d.queries);
+          // Restore step last; the queries we just set keep the Step 3
+          // auto-generate effect from re-firing (it only runs when empty).
+          if (typeof d.step === 'number') setStep(d.step);
+        } else {
+          clearDraft();
+        }
+      }
+    } catch { /* corrupt/unavailable draft - ignore */ }
+    hydratedRef.current = true;
+    // Mount-only: deliberately not re-running when draftKey changes mid-edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist the committed wizard fields on every change (after hydration).
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    const draft: BrandDraft = { step, name, industry, website, city, nearbyAreas, competitors, queries, savedAt: Date.now() };
+    try { window.localStorage.setItem(draftKey, JSON.stringify(draft)); } catch { /* storage unavailable */ }
+  }, [draftKey, step, name, industry, website, city, nearbyAreas, competitors, queries]);
 
   // Auto-generate queries once when entering Step 3 for the first time.
   // Only depends on `step`; autoGenTriggered ref prevents re-runs.
@@ -96,6 +161,9 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
     setSaving(true); setError('');
     try {
       const data = await api<{ brand: Brand }>('POST', '/api/brands', { name, industry, website, city, nearbyAreas, competitors, queries });
+      // Brand created - the draft has served its purpose; drop it so the next
+      // "Add brand" starts clean.
+      clearDraft();
       onCreated(data.brand);
     } catch (e) { setError(getErrorMessage(e, 'Failed to create brand')); }
     setSaving(false);
