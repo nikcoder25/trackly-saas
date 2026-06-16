@@ -48,15 +48,32 @@ export default function AlertsPage() {
     return () => window.removeEventListener('livesov:run-complete', handler);
   }, [brand?.id]);
 
-  function saveAlert() {
+  async function saveAlert() {
     if (!brand) { toast('Add or select a brand before creating an alert', 'error'); return; }
     if (!alertName.trim()) { toast('Alert name is required', 'error'); return; }
     const threshold = Math.max(1, Math.min(100, alertThreshold));
     const cooldown = Math.max(1, Math.min(168, alertCooldown));
-    fetch(`/api/brands/${brand.id}/alerts`, {
-      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: alertName.trim(), condition: alertCondition, threshold, action: alertAction, cooldown }),
-    }).then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); }).then(d => { if (d.rules) setRules(d.rules); setShowAddForm(false); setAlertName(''); setAlertThreshold(10); setAlertCooldown(24); toast('Alert saved successfully'); }).catch(() => { toast('Failed to save alert', 'error'); });
+    try {
+      const res = await fetch(`/api/brands/${brand.id}/alerts`, {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: alertName.trim(), condition: alertCondition, threshold, action: alertAction, cooldown }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // Surface the server's specific reason (e.g. validation) rather than a
+        // generic failure, so a rejected save can't look like nothing happened.
+        toast(data.error || 'Failed to save alert', 'error');
+        return;
+      }
+      if (data.rules) setRules(data.rules);
+      setShowAddForm(false);
+      setAlertName('');
+      setAlertThreshold(10);
+      setAlertCooldown(24);
+      toast('Alert saved successfully');
+    } catch {
+      toast('Could not reach the server. Please try again.', 'error');
+    }
   }
 
   function saveWebhook() {

@@ -15,11 +15,19 @@ export default function GlobalRunProgress() {
   const { live, elapsed, pct } = useRun();
   const { brands, selectedBrand } = useBrands();
 
-  // Only show when running or just completed
-  if (!live.running && live.status !== 'done') return null;
+  // Show while running, just after completion, AND on error. The error state
+  // was previously invisible here, so a scan that failed to dispatch (out of
+  // credits, no queries configured, a stalled/failed run, or an auto first
+  // scan that errored) looked like nothing happened at all. Surfacing it is
+  // BUG 3's "no visible feedback on scan dispatch" fix.
+  const isError = live.status === 'error' && !!live.errorMsg;
+  if (!live.running && live.status !== 'done' && !isError) return null;
 
   // Per-brand scope: don't surface another brand's run on this brand's view.
-  if (!live.brandId || !selectedBrand || live.brandId !== selectedBrand.id) return null;
+  // Errors aren't always tagged with a brandId (e.g. "No brand set up"), so
+  // show those regardless; running/done states stay scoped to the selected brand.
+  if (!isError && (!live.brandId || !selectedBrand || live.brandId !== selectedBrand.id)) return null;
+  if (isError && live.brandId && selectedBrand && live.brandId !== selectedBrand.id) return null;
 
   // Resolve the running brand's display name from its id (fall back to the
   // selected brand, then a generic label).
@@ -31,16 +39,17 @@ export default function GlobalRunProgress() {
   return (
     <div style={{
       marginBottom: 14, padding: '10px 16px',
-      background: 'var(--bg2)', border: '1px solid var(--border)',
+      background: isError ? 'rgba(239,68,68,.06)' : 'var(--bg2)',
+      border: `1px solid ${isError ? 'rgba(239,68,68,.3)' : 'var(--border)'}`,
       borderRadius: 'var(--radius-xs)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700, color: isError ? 'var(--red)' : undefined }}>
             {live.running && (
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
             )}
-            {live.running ? 'RUNNING QUERIES' : 'RUN COMPLETE'}
+            {isError ? '⚠ SCAN FAILED' : live.running ? 'RUNNING QUERIES' : 'RUN COMPLETE'}
           </span>
           {runningBrandName && (
             <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text)', fontWeight: 700 }}>
@@ -61,14 +70,14 @@ export default function GlobalRunProgress() {
       </div>
       <div style={{ background: 'var(--bg3)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
         <div style={{
-          width: live.status === 'done' ? '100%' : `${pct}%`,
+          width: (live.status === 'done' || isError) ? '100%' : `${pct}%`,
           height: '100%',
-          background: live.status === 'done' ? 'var(--green)' : 'var(--primary)',
+          background: isError ? 'var(--red)' : live.status === 'done' ? 'var(--green)' : 'var(--primary)',
           borderRadius: 4, transition: 'width 0.4s ease',
         }} />
       </div>
       {live.statusText && (
-        <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 4 }}>
+        <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: isError ? 'var(--red)' : 'var(--muted)', marginTop: 4 }}>
           {live.statusText}
         </div>
       )}
