@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandProvider, useBrands } from '@/contexts/BrandContext';
-import { RunProvider, useRun } from '@/contexts/RunContext';
+import { RunProvider, useRun, markPendingFirstRun, PENDING_FIRST_RUN_KEY, resolveFirstRunDispatch } from '@/contexts/RunContext';
 import { CreditsProvider } from '@/contexts/CreditsContext';
 import { PLAN_LIMITS } from '@/lib/constants';
 import LvxShell from '@/components/dashboard/LvxShell';
@@ -21,9 +21,6 @@ import Link from 'next/link';
 
 function OnboardingModal() {
   const { brands, loading, setSelectedBrand, refreshBrands } = useBrands();
-  const { startRun } = useRun();
-  const startRunRef = useRef(startRun);
-  useEffect(() => { startRunRef.current = startRun; }, [startRun]);
   const { user } = useAuth();
   const [dismissed, setDismissed] = useState(false);
   // Show the AddBrandModal when user has zero brands (first-time onboarding)
@@ -34,17 +31,53 @@ function OnboardingModal() {
       onClose={() => setDismissed(true)}
       onCreated={(brand) => {
         setSelectedBrand(brand);
-        // Auto-start the first scan once the brand is created. Target the new
-        // brand explicitly (not the context selection) so the run fires
-        // deterministically without waiting on the selectedBrand closure to
-        // propagate - otherwise the run silently no-ops ("No brand set up")
-        // and the user is left to trigger it by hand.
-        refreshBrands().then(() => {
-          setTimeout(() => startRunRef.current(false, { auto: true, brandId: brand.id }), 600);
-        });
+        // Flag the brand-new brand for an automatic first scan, then refresh.
+        // <AutoFirstRun> below actually dispatches the run once the brand
+        // lands in context — this survives the modal unmounting on create.
+        markPendingFirstRun(brand.id);
+        refreshBrands();
       }}
     />
   );
+}
+
+/**
+ * Dispatches the automatic first scan for a freshly created brand.
+ *
+ * Reads the brand id flagged by the brand-creation flow (markPendingFirstRun)
+ * and, once that brand is loaded and idle, kicks off one auto run. Mounted
+ * persistently under the providers so it fires reliably regardless of which
+ * modal created the brand or whether that modal has unmounted. Fires at most
+ * once per page load and clears the flag so it never double-runs or burns
+ * credits on subsequent visits.
+ */
+function AutoFirstRun() {
+  const { brands, loading } = useBrands();
+  const { startRun, live } = useRun();
+  const firedRef = useRef(false);
+
+  useEffect(() => {
+    if (loading || firedRef.current) return;
+    let pendingId: string | null = null;
+    try { pendingId = sessionStorage.getItem(PENDING_FIRST_RUN_KEY); } catch { /* storage unavailable */ }
+
+    const decision = resolveFirstRunDispatch(
+      pendingId,
+      brands as Array<{ id: string; runs?: unknown }>,
+      live.running,
+    );
+    if (decision.action === 'clear') {
+      try { sessionStorage.removeItem(PENDING_FIRST_RUN_KEY); } catch {}
+      return;
+    }
+    if (decision.action !== 'run') return; // idle or wait — nothing to do yet
+
+    firedRef.current = true;
+    try { sessionStorage.removeItem(PENDING_FIRST_RUN_KEY); } catch {}
+    startRun(false, { auto: true, brandId: decision.brandId });
+  }, [loading, brands, live.running, startRun]);
+
+  return null;
 }
 
 function TrialBanner() {
@@ -480,6 +513,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
     <RunProvider>
     <ToastProvider>
     <OnboardingModal />
+    <AutoFirstRun />
     <BackgroundRunPoller />
     <SkeletonStyles />
     <>

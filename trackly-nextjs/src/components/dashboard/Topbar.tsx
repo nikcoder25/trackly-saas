@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrands } from '@/contexts/BrandContext';
-import { useRun } from '@/contexts/RunContext';
+import { markPendingFirstRun } from '@/contexts/RunContext';
 import Link from 'next/link';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -11,9 +11,6 @@ import { useNotifications } from '@/hooks/useNotifications';
 export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const { user, logout } = useAuth();
   const { brands, selectedBrand, setSelectedBrand, selectBrandById, refreshBrands, plan, brandLimit, overLimit, error: brandsError } = useBrands();
-  const { startRun } = useRun();
-  const startRunRef = useRef(startRun);
-  useEffect(() => { startRunRef.current = startRun; }, [startRun]);
   const [showNotifs, setShowNotifs] = useState(false);
   const [showAddBrand, setShowAddBrand] = useState(false);
   const [showLimitPrompt, setShowLimitPrompt] = useState(false);
@@ -229,11 +226,10 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
         onCreated={(brand) => {
           setShowAddBrand(false);
           setSelectedBrand(brand);
-          // Pass brandId so the auto-run targets the brand we just created
-          // rather than racing the selectedBrand closure update.
-          refreshBrands().then(() => {
-            setTimeout(() => startRunRef.current(false, { auto: true, brandId: brand.id }), 600);
-          });
+          // Flag for an automatic first scan; <AutoFirstRun> dispatches it once
+          // the new brand is in context (survives this modal unmounting).
+          markPendingFirstRun(brand.id);
+          refreshBrands();
         }}
       />
     )}
