@@ -72,6 +72,51 @@ const RunContext = createContext<RunContextType>({
 
 export function useRun() { return useContext(RunContext); }
 
+/**
+ * First-scan auto-dispatch handshake.
+ *
+ * When a user creates a brand (especially their very first one during
+ * onboarding) we want the first scan to start on its own. The brand-creation
+ * modal unmounts the instant the brand is saved, so triggering the run from
+ * inside it via a setTimeout is a race that silently loses. Instead the modal
+ * just *flags* the new brand here, and the always-mounted <AutoFirstRun> effect
+ * dispatches the run once the brand shows up in context. Stored in
+ * sessionStorage so it survives the modal teardown (and even a refresh) but
+ * doesn't leak across sessions.
+ */
+export const PENDING_FIRST_RUN_KEY = 'livesov_autorun_pending';
+
+export function markPendingFirstRun(brandId: string) {
+  try { sessionStorage.setItem(PENDING_FIRST_RUN_KEY, brandId); } catch { /* storage unavailable */ }
+}
+
+export type FirstRunDecision =
+  | { action: 'idle' }                  // nothing flagged
+  | { action: 'wait' }                  // flagged, but not ready to dispatch yet
+  | { action: 'clear' }                 // flagged brand already has data — drop the flag
+  | { action: 'run'; brandId: string }; // dispatch the first scan now
+
+/**
+ * Pure decision for <AutoFirstRun>. Kept separate from the component so it can
+ * be unit-tested without a DOM. Given the flagged brand id, the loaded brands
+ * and whether a run is already in flight, decide whether to dispatch the
+ * automatic first scan, wait for state to settle, clear a stale flag, or do
+ * nothing.
+ */
+export function resolveFirstRunDispatch(
+  pendingId: string | null,
+  brands: Array<{ id: string; runs?: unknown }>,
+  running: boolean,
+): FirstRunDecision {
+  if (!pendingId) return { action: 'idle' };
+  const brand = brands.find(b => b.id === pendingId);
+  if (!brand) return { action: 'wait' };       // brand list hasn't caught up yet
+  const runs = brand.runs;
+  if (Array.isArray(runs) && runs.length > 0) return { action: 'clear' }; // already has data
+  if (running) return { action: 'wait' };      // a run is already happening — leave it
+  return { action: 'run', brandId: pendingId };
+}
+
 function fmtTime(ms: number): string {
   const secs = Math.floor(ms / 1000);
   const mins = Math.floor(secs / 60);
