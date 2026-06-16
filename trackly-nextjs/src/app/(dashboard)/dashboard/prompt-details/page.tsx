@@ -1,16 +1,21 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { useBrandData } from '@/hooks/useBrandData';
+import { useRun } from '@/contexts/RunContext';
 
 interface Result { query: string; platform: string; model?: string; mentioned: boolean; sentiment?: string; position?: number; listPosition?: number; recommended?: boolean; response?: string; raw?: string; context?: string; snippet?: string; date?: string; }
 interface Run { id?: string; date?: string; time?: string; sov?: number; allResults?: Result[]; results?: Result[]; }
 interface Brand { id: string; name: string; queries?: string[]; runs?: Run[]; }
 
-export default function PromptDetailsPage() {
+function PromptDetailsInner() {
   const { brand: rawBrand, loading } = useBrandData({ fullData: true });
   const brand = rawBrand as Brand | null;
+  const { live } = useRun();
+  const searchParams = useSearchParams();
+  const qParam = searchParams.get('q') || '';
   const [selectedQuery, setSelectedQuery] = useState('');
   const [platFilter, setPlatFilter] = useState('');
   const [periodDays, setPeriodDays] = useState(30);
@@ -23,7 +28,34 @@ export default function PromptDetailsPage() {
   const queries = brand?.queries || [];
   const allRuns = brand?.runs || [];
 
+  // Deep-link: ?q=<query> (e.g. from clicking a live result toast) selects that
+  // query. Applied once and allowed to win over the queries[0] default below,
+  // even if the brand's queries load after this component mounts.
+  const paramAppliedRef = useRef(false);
+  useEffect(() => {
+    if (qParam && !paramAppliedRef.current) {
+      setSelectedQuery(qParam);
+      paramAppliedRef.current = true;
+    }
+  }, [qParam]);
+
   useEffect(() => { if (queries.length && !selectedQuery) setSelectedQuery(queries[0]); }, [queries, selectedQuery]);
+
+  // Live run state for the selected query, read from the shared RunContext.
+  // useBrandData already merges these live results into brand.runs as a
+  // synthetic in-progress run (so the KPIs/tables below update in real time);
+  // this drives the explicit "● live" panel with per-engine pending rows.
+  const liveActive = live.running && !!brand?.id && live.brandId === (brand as { id?: string }).id;
+  const liveForQuery = useMemo(
+    () => (liveActive ? live.results.filter(r => r.query === selectedQuery) : []),
+    [liveActive, live.results, selectedQuery],
+  );
+  const expectedEngines = useMemo(() => {
+    const cfg = (brand as unknown as { platforms?: string[] })?.platforms;
+    if (Array.isArray(cfg) && cfg.length) return cfg;
+    return [...new Set(liveForQuery.map(r => r.platform))];
+  }, [brand, liveForQuery]);
+  const showLivePanel = liveActive && (liveForQuery.length > 0 || queries.includes(selectedQuery));
 
   // Prompt classification (intent / funnel / tags) is a per-query annotation.
   // There is no server endpoint for it, so it is persisted locally per brand+query
@@ -193,7 +225,8 @@ export default function PromptDetailsPage() {
           <label className="pd-toolbar-label" htmlFor="pd-query">Query</label>
           <select id="pd-query" className="finp pd-select" value={selectedQuery} onChange={e => setSelectedQuery(e.target.value)}>
             {queries.map(q => <option key={q} value={q}>{q}</option>)}
-            {!queries.length && <option value="">No queries</option>}
+            {selectedQuery && !queries.includes(selectedQuery) && <option value={selectedQuery}>{selectedQuery}</option>}
+            {!queries.length && !selectedQuery && <option value="">No queries</option>}
           </select>
         </div>
         <div className="pd-toolbar-select-wrap pd-toolbar-plat">
@@ -215,6 +248,39 @@ export default function PromptDetailsPage() {
         </div>
         <div className="pd-query-count">{queries.length} queries</div>
       </div>
+
+      {/* Live run panel — shown while a scan is in progress for this query.
+          Engines start as "checking…" placeholders and resolve to results as
+          the live stream arrives; on completion this hides and the saved-data
+          tables/KPIs below take over. Driven by RunContext via useBrandData. */}
+      {showLivePanel && (
+        <div className="card" style={{ padding: '14px 18px', marginBottom: 18, borderColor: 'var(--green)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', display: 'inline-block', animation: 'pdLiveBlink 1.2s infinite' }} />
+            <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--mono)', color: 'var(--green)' }}>LIVE</span>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+              Scanning &ldquo;{selectedQuery}&rdquo; — {liveForQuery.length}/{expectedEngines.length || liveForQuery.length} engines
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {(expectedEngines.length ? expectedEngines : liveForQuery.map(r => r.platform)).map(eng => {
+              const r = liveForQuery.find(x => x.platform === eng);
+              const state = !r ? 'pending' : r.error ? 'error' : r.mentioned ? 'found' : 'missing';
+              const color = state === 'found' ? 'var(--green)' : state === 'error' ? 'var(--amber)' : state === 'missing' ? 'var(--red)' : 'var(--muted)';
+              const labelTxt = state === 'pending' ? 'checking…' : state === 'found' ? 'mentioned' : state === 'error' ? 'error' : 'not mentioned';
+              return (
+                <div key={eng} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', opacity: state === 'pending' ? 0.7 : 1 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: state === 'pending' ? 'var(--muted)' : color, animation: state === 'pending' ? 'pdLiveBlink 1.2s infinite' : undefined, flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: PLATFORM_COLORS[eng] || 'var(--text)', minWidth: 90 }}>{eng}</span>
+                  <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color }}>{labelTxt}</span>
+                  {r?.context && <span style={{ fontSize: 11, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{r.context}</span>}
+                </div>
+              );
+            })}
+          </div>
+          <style>{`@keyframes pdLiveBlink { 0%,100%{opacity:1} 50%{opacity:.35} }`}</style>
+        </div>
+      )}
 
       {/* KPI Metric Cards */}
       <div className="pd-metrics-grid">
@@ -400,5 +466,14 @@ export default function PromptDetailsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// useSearchParams requires a Suspense boundary in the App Router.
+export default function PromptDetailsPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '80px 0', textAlign: 'center', color: 'var(--muted)' }}>Loading…</div>}>
+      <PromptDetailsInner />
+    </Suspense>
   );
 }
