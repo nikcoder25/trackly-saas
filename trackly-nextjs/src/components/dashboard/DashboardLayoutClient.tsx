@@ -89,6 +89,13 @@ function AutoFirstRun() {
     firedRef.current = true;
     markBrandAutoRan(decision.brandId);
     try { sessionStorage.removeItem(PENDING_FIRST_RUN_KEY); } catch {}
+    // Visible breadcrumb for onboarding QA: open DevTools → Console and you'll
+    // see this line the moment the first scan kicks off on its own. If you
+    // create a brand and this never logs, the auto-start didn't reach the
+    // dispatch and we have a concrete signal to chase. Cheap and safe to keep
+    // — it only ever fires on the single automatic first scan per brand.
+    // eslint-disable-next-line no-console
+    console.info('[livesov] auto-first-scan: starting first scan automatically for brand', decision.brandId);
     startRun(false, { auto: true, brandId: decision.brandId });
   }, [loading, brands, selectedBrand, selectedBrandLocked, live.running, startRun]);
 
