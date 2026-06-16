@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useRun } from '@/contexts/RunContext';
 import { useBrands } from '@/contexts/BrandContext';
 
@@ -18,7 +19,9 @@ import { useBrands } from '@/contexts/BrandContext';
  * an aggregate count ("mentioned on 3/5 engines"). Cards auto-dismiss a few
  * seconds after their last update if the user doesn't touch them, and there's a
  * single "Clear all" control at the top to wipe them at once. Individual cards
- * can also be closed.
+ * can also be closed. Clicking a card opens that query's full detail view
+ * (/dashboard/prompt-details?q=…) via soft navigation, so the live run state
+ * survives and the detail page shows the in-progress results immediately.
  */
 const AUTO_DISMISS_MS = 8000; // a card disappears this long after its last update
 
@@ -34,7 +37,14 @@ interface QueryGroup {
 export default function GlobalLiveToasts() {
   const { live } = useRun();
   const { selectedBrand } = useBrands();
+  const router = useRouter();
   const selectedId = selectedBrand?.id ?? null;
+
+  // Clicking a card opens that query's full detail view. Soft (client-side)
+  // navigation so the live RunContext state survives and the page renders the
+  // already-known engine results immediately instead of a blank page.
+  const openQuery = (query: string) =>
+    router.push('/dashboard/prompt-details?q=' + encodeURIComponent(query));
 
   const [groups, setGroups] = useState<QueryGroup[]>([]);
   const groupIdRef = useRef(0);
@@ -139,12 +149,19 @@ export default function GlobalLiveToasts() {
           const positive = g.mentioned > 0;
           const accent = positive ? 'var(--green)' : g.errors === total && total > 0 ? 'var(--amber)' : 'var(--red)';
           return (
-            <div key={g.id} style={{
+            <div key={g.id}
+              className="glt-card"
+              role="button"
+              tabIndex={0}
+              title="Open this query's results"
+              onClick={() => openQuery(g.query)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openQuery(g.query); } }}
+              style={{
               display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
               background: 'var(--bg2)', border: '1px solid var(--border)',
               borderRadius: 'var(--radius-xs)', boxShadow: '0 4px 12px rgba(0,0,0,.15)',
               minWidth: 280, maxWidth: 380, animation: 'globalToastIn .35s ease',
-              pointerEvents: 'auto', borderLeft: `3px solid ${accent}`,
+              pointerEvents: 'auto', borderLeft: `3px solid ${accent}`, cursor: 'pointer',
             }}>
               <span style={{
                 width: 28, height: 28, borderRadius: 8, flexShrink: 0,
@@ -166,7 +183,7 @@ export default function GlobalLiveToasts() {
                       : `not mentioned · ${total} engine${total === 1 ? '' : 's'} checked`}
                 </div>
               </div>
-              <button onClick={() => dismissOne(g.id)} aria-label="Dismiss" style={{
+              <button onClick={(e) => { e.stopPropagation(); dismissOne(g.id); }} aria-label="Dismiss" style={{
                 background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer',
                 fontSize: 14, padding: '0 2px', lineHeight: 1, flexShrink: 0, opacity: 0.5,
               }}>&times;</button>
@@ -179,6 +196,8 @@ export default function GlobalLiveToasts() {
           from { opacity: 0; transform: translateX(40px); }
           to { opacity: 1; transform: translateX(0); }
         }
+        .glt-card { transition: border-color .15s ease, box-shadow .15s ease; }
+        .glt-card:hover { border-color: var(--primary); box-shadow: 0 6px 18px rgba(0,0,0,.22); }
       `}</style>
     </>
   );
