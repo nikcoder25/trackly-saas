@@ -164,6 +164,10 @@ function PreflightModal({
   const monthlyCap = status?.monthlyCap ?? 0;
   const dailyRemaining = status?.manualRemainingToday ?? 0;
   const dailyCap = status?.manualDailyCap ?? 0;
+  // Display the daily counter as USED/cap (not remaining/cap). For a user who
+  // has run nothing today this is 0/cap — previously we rendered remaining/cap
+  // here, which showed a brand-new user "30/30" and read like "all used up".
+  const manualUsedToday = Math.max(0, dailyCap - dailyRemaining);
   const blocked =
     !status ||
     remaining < cost ||
@@ -175,7 +179,11 @@ function PreflightModal({
     : remaining < cost
       ? `Not enough monthly credits (${remaining.toLocaleString()} remaining, this run needs ${cost.toLocaleString()}).`
       : dailyRemaining < cost
-        ? `Daily manual cap reached (${dailyRemaining}/${dailyCap}). Resets at midnight UTC.`
+        // The block here means the run's cost exceeds what's left of the daily
+        // manual allowance — which, for a fresh user, is because one full scan
+        // (queries × platforms) is larger than the daily cap, NOT because they
+        // used it up. Say that explicitly with used/cap so it isn't misread.
+        ? `This run needs ${cost.toLocaleString()} credit${cost === 1 ? '' : 's'}, but your daily manual limit is ${dailyCap} (${manualUsedToday} used today, ${dailyRemaining} left). Resets at midnight UTC.`
         : '';
 
   return (
@@ -213,7 +221,7 @@ function PreflightModal({
         </p>
         {dailyCap > 0 && dailyCap < 9999 && (
           <p style={{ margin: '0 0 16px 0', color: 'var(--muted)', fontSize: 12 }}>
-            Manual today: <strong>{dailyRemaining}/{dailyCap}</strong>
+            Manual today: <strong>{manualUsedToday}/{dailyCap}</strong> used
           </p>
         )}
         {blocked && blockReason && (
