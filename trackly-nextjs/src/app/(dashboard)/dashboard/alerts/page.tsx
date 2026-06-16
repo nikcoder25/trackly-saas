@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useBrandData } from '@/hooks/useBrandData';
 import { useToast } from '@/components/dashboard/Toast';
 import { Card, Badge, PageHead, KPIRail } from '@/app/dashboard-v2/ui';
@@ -23,6 +23,18 @@ export default function AlertsPage() {
   const [alertThreshold, setAlertThreshold] = useState(10);
   const [alertAction, setAlertAction] = useState('in_app');
   const [alertCooldown, setAlertCooldown] = useState(24);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // When the create-rule form opens, bring it into view and focus the first
+  // field so the action is obviously visible (the form mounts inline below the
+  // existing rules, which can be below the fold on a tall page).
+  useEffect(() => {
+    if (!showAddForm) return;
+    requestAnimationFrame(() => {
+      nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      nameInputRef.current?.focus();
+    });
+  }, [showAddForm]);
 
   useEffect(() => {
     if (!brand?.id) return;
@@ -37,7 +49,8 @@ export default function AlertsPage() {
   }, [brand?.id]);
 
   function saveAlert() {
-    if (!brand || !alertName.trim()) { toast('Alert name is required', 'error'); return; }
+    if (!brand) { toast('Add or select a brand before creating an alert', 'error'); return; }
+    if (!alertName.trim()) { toast('Alert name is required', 'error'); return; }
     const threshold = Math.max(1, Math.min(100, alertThreshold));
     const cooldown = Math.max(1, Math.min(168, alertCooldown));
     fetch(`/api/brands/${brand.id}/alerts`, {
@@ -120,7 +133,7 @@ export default function AlertsPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                 <div>
                   <div className="eyebrow" style={{ marginBottom: 6 }}>ALERT NAME</div>
-                  <input className="sel" value={alertName} onChange={e => setAlertName(e.target.value)} placeholder="e.g. SOV dropped below 20%" style={{ width: '100%' }} />
+                  <input ref={nameInputRef} className="sel" value={alertName} onChange={e => setAlertName(e.target.value)} placeholder="e.g. SOV dropped below 20%" style={{ width: '100%' }} />
                 </div>
                 <div>
                   <div className="eyebrow" style={{ marginBottom: 6 }}>CONDITION</div>

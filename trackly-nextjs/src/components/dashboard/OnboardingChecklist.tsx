@@ -36,6 +36,17 @@ export default function OnboardingChecklist() {
     return Array.isArray(runs) && runs.length > 0;
   }), [brands]);
 
+  // Once a scan has actually run, its results are live on the dashboard (where
+  // this checklist renders), so treat the "view results" step as satisfied.
+  // Without this the final step only completes via one specific link click, so
+  // the panel would otherwise linger on every page indefinitely.
+  useEffect(() => {
+    if (hasRun && !resultsSeen) {
+      try { localStorage.setItem(RESULTS_SEEN_KEY, '1'); } catch { /* storage unavailable */ }
+      setResultsSeen(true);
+    }
+  }, [hasRun, resultsSeen]);
+
   // Once results exist and the user has run, treat the run as "viewed" too if
   // they've already seen real data before (flag persisted on click below).
   const emailVerified = !!user?.emailVerified;

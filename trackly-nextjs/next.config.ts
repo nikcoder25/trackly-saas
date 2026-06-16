@@ -21,6 +21,13 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        // The free tools live at /tools; /free-tools never shipped as a page.
+        // 301 so old/external links and cached crawler entries don't 404.
+        source: '/free-tools',
+        destination: '/tools',
+        permanent: true,
+      },
+      {
         // Defense-in-depth for the legacy /features route, which never
         // shipped as a page. The homepage `#features` section is the
         // canonical destination. Catches any stray external backlink,

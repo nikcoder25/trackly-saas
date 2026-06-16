@@ -190,7 +190,7 @@ export default function PlatformsPage() {
                       <div className="kpi-v mono" style={{ fontSize: 22 }}>{n.sov}<i>%</i></div>
                       {sovHistory.length >= 2
                         ? <Spark data={sovHistory} width={140} height={28} color={color} fill />
-                        : <div className="mono" style={{ fontSize: 11, color: 'var(--mute)' }}>{n.mentions} of {n.total} responses</div>}
+                        : <div className="mono" style={{ fontSize: 11, color: 'var(--mute)' }}>{n.mentions} mention{n.mentions === 1 ? '' : 's'} / {n.total} responses</div>}
                     </div>
                     <div>
                       <div className="eyebrow">SUCCESS RATE</div>
