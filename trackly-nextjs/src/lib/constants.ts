@@ -29,7 +29,7 @@ export const TOTP_CONFIG = {
 //   minScheduleHours         ↔ AUTO_RUN_HOURS[PLAN_CREDITS[plan].autoRunFrequency]
 export const PLAN_LIMITS: Record<string, PlanLimits> = {
   free:       { brands: 1,    runsPerMonth: 4,   trackedPromptsPerAccount: 5,    queries: 5,    competitors: 0,   platforms: 2, prioritySupport: false, sentiment: false, scheduledRuns: true,  minScheduleHours: 168, geoAudits: 3 },
-  trial:      { brands: 9999, runsPerMonth: 10,  trackedPromptsPerAccount: 30,   queries: 30,   competitors: 5,   platforms: 5, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 20 },
+  trial:      { brands: 9999, runsPerMonth: 40,  trackedPromptsPerAccount: 30,   queries: 30,   competitors: 5,   platforms: 5, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 20 },
   starter:    { brands: 3,    runsPerMonth: 15,  trackedPromptsPerAccount: 15,   queries: 15,   competitors: 3,   platforms: 2, prioritySupport: false, sentiment: false, scheduledRuns: true,  minScheduleHours: 48,  geoAudits: 20 },
   pro:        { brands: 9999, runsPerMonth: 30,  trackedPromptsPerAccount: 25,   queries: 25,   competitors: 8,   platforms: 3, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 75 },
   agency:     { brands: 9999, runsPerMonth: 150, trackedPromptsPerAccount: 100,  queries: 100,  competitors: 20,  platforms: 5, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 300 },
