@@ -12,11 +12,11 @@ import {
 /**
  * Pure-function tests for the Billing → Usage redesign. These are
  * intentionally renderer-agnostic (no @testing-library/react) so the
- * five state cases the spec calls out — healthy / low / exhausted /
- * manual-cap / owner-hidden — are pinned without spinning up a DOM.
+ * five state cases the spec calls out - healthy / low / exhausted /
+ * manual-cap / owner-hidden - are pinned without spinning up a DOM.
  */
 
-describe('creditTileState — color thresholds', () => {
+describe('creditTileState - color thresholds', () => {
   it('green under 60%', () => {
     expect(creditTileState({ monthlyUsed: 0,    monthlyCap: 2500 })).toBe('healthy');
     expect(creditTileState({ monthlyUsed: 1499, monthlyCap: 2500 })).toBe('healthy'); // 59.96%
@@ -34,7 +34,7 @@ describe('creditTileState — color thresholds', () => {
   });
 });
 
-describe('bannerKind — priority order', () => {
+describe('bannerKind - priority order', () => {
   const base = {
     remaining: 1000,
     monthlyCap: 2500,
@@ -43,7 +43,7 @@ describe('bannerKind — priority order', () => {
     plan: 'pro',
   };
 
-  it('healthy — no banner', () => {
+  it('healthy - no banner', () => {
     expect(bannerKind(base)).toBe(null);
   });
 
@@ -63,14 +63,14 @@ describe('bannerKind — priority order', () => {
     })).toBe('manual_cap');
   });
 
-  it('owner plan never shows a banner — even at zero', () => {
+  it('owner plan never shows a banner - even at zero', () => {
     expect(bannerKind({
       ...base, remaining: 0, lowBalance: true, manualRemainingToday: 0, plan: 'owner',
     })).toBe(null);
   });
 });
 
-describe('forecastState — at-risk classification', () => {
+describe('forecastState - at-risk classification', () => {
   it('healthy when projected <= cap and remaining lasts the period', () => {
     const s = forecastState({
       monthlyUsed: 100, monthlyCap: 2500,
@@ -107,11 +107,11 @@ describe('forecastState — at-risk classification', () => {
     expect(s).toBe('healthy');
   });
 
-  // #456 — classification must use the unrounded raw projection so a
+  // #456 - classification must use the unrounded raw projection so a
   // 0.5-credit swing in Math.round() can't flip state at the boundary.
   describe('cap-boundary classification uses unrounded projection (#456)', () => {
     it('just-under cap: rounded projection equals cap but raw is below → healthy', () => {
-      // raw = 2000 + 4.9 * 100 = 2490 (below cap), rounded = 2490 too —
+      // raw = 2000 + 4.9 * 100 = 2490 (below cap), rounded = 2490 too -
       // pick numbers where rounding lifts the projection onto the cap
       // while the raw value is strictly below it.
       // raw = 2499.6, Math.round(raw) = 2500 = cap.
@@ -147,7 +147,7 @@ describe('forecastState — at-risk classification', () => {
       expect(s).toBe('healthy');
     });
 
-    it('well below cap: no regression — still healthy', () => {
+    it('well below cap: no regression - still healthy', () => {
       // raw = 100 + 5 * 20 = 200, cap 2500. Far from any boundary.
       const s = forecastState({
         monthlyUsed: 100, monthlyCap: 2500,
@@ -159,7 +159,7 @@ describe('forecastState — at-risk classification', () => {
   });
 });
 
-describe('buildForecastCopy — message shape', () => {
+describe('buildForecastCopy - message shape', () => {
   it('healthy message includes the avg/day and projection', () => {
     const c = buildForecastCopy({
       monthlyUsed: 100, monthlyCap: 2500,
@@ -179,7 +179,7 @@ describe('buildForecastCopy — message shape', () => {
       daysRemainingInMonth: 20, remaining: 300,
     }, new Date(Date.now() + 20 * 86_400_000).toISOString());
     expect(c.state).toBe('at_risk');
-    // 300 / 100 = 3 days to zero — the copy must mention reaching 0.
+    // 300 / 100 = 3 days to zero - the copy must mention reaching 0.
     expect(c.text).toMatch(/reach 0/);
     expect(c.text).toMatch(/before reset/);
     expect(c.text).toMatch(/upgrading/);
@@ -191,8 +191,8 @@ describe('fmtDate / fmtRelative', () => {
     expect(fmtDate('2026-05-01T00:00:00.000Z')).toMatch(/(Apr|May)/);
   });
   it('returns em-dash for invalid input', () => {
-    expect(fmtDate(null)).toBe('—');
-    expect(fmtDate('garbage')).toBe('—');
+    expect(fmtDate(null)).toBe('-');
+    expect(fmtDate('garbage')).toBe('-');
   });
   it('relative time bucket: in Nd / in Nh / overdue', () => {
     const now = new Date('2026-04-27T12:00:00Z');
@@ -202,7 +202,7 @@ describe('fmtDate / fmtRelative', () => {
   });
 });
 
-describe('fmtDateUtc — UTC-stable date label (#453)', () => {
+describe('fmtDateUtc - UTC-stable date label (#453)', () => {
   it('renders the same calendar day for an ISO timestamp and its UTC bucket key', () => {
     // 2026-04-28T23:30:00Z would render as Apr 29 in any tz east of
     // UTC and Apr 28 in any tz west of it under fmtDate. fmtDateUtc
@@ -212,7 +212,7 @@ describe('fmtDateUtc — UTC-stable date label (#453)', () => {
     expect(fmtDateUtc(iso)).toBe(fmtDateUtc(bucket));
   });
   it('returns em-dash for invalid input', () => {
-    expect(fmtDateUtc(null)).toBe('—');
-    expect(fmtDateUtc('garbage')).toBe('—');
+    expect(fmtDateUtc(null)).toBe('-');
+    expect(fmtDateUtc('garbage')).toBe('-');
   });
 });

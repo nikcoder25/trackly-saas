@@ -1,5 +1,5 @@
 /**
- * Tests for src/lib/run-sov.ts — the helper that resolves the SOV %
+ * Tests for src/lib/run-sov.ts - the helper that resolves the SOV %
  * to render on the Overview dashboard.
  *
  * Contract recap:
@@ -51,7 +51,7 @@ describe('computeSovFromResults', () => {
   });
 });
 
-describe('computeOverviewSov — positive stored value is trusted', () => {
+describe('computeOverviewSov - positive stored value is trusted', () => {
   it('returns stored.sov verbatim when positive (never overrides a worker write)', () => {
     expect(computeOverviewSov({ sov: 73 })).toBe(73);
     // Even when allResults disagrees, stored wins. This is by design:
@@ -65,7 +65,7 @@ describe('computeOverviewSov — positive stored value is trusted', () => {
   });
 });
 
-describe('computeOverviewSov — null/undefined run', () => {
+describe('computeOverviewSov - null/undefined run', () => {
   it('returns 0 for null', () => {
     expect(computeOverviewSov(null)).toBe(0);
   });
@@ -77,7 +77,7 @@ describe('computeOverviewSov — null/undefined run', () => {
   });
 });
 
-describe('computeOverviewSov — fallback ONLY when stored missing/zero AND allResults exists', () => {
+describe('computeOverviewSov - fallback ONLY when stored missing/zero AND allResults exists', () => {
   it('fallback fires when sov is missing and allResults has data', () => {
     // Pre-PR-C-1 reaper entry: sov field absent, allResults present.
     // 15 mentioned of 17 ok = 88.
@@ -98,7 +98,7 @@ describe('computeOverviewSov — fallback ONLY when stored missing/zero AND allR
     expect(computeOverviewSov({ sov: 0, allResults })).toBe(88);
   });
 
-  it("legitimately-zero run still renders 0% — recompute yields 0 because no mentions", () => {
+  it("legitimately-zero run still renders 0% - recompute yields 0 because no mentions", () => {
     // Brand was never mentioned in any of 18 successful queries. The
     // worker wrote sov:0 truthfully, allResults is fully populated.
     // The fallback fires (because sov === 0 AND allResults exists)
@@ -144,8 +144,8 @@ describe('Overview ↔ Mentions formula agreement (PR-8 pin)', () => {
   // sov = totalM / totalQ (error-INCLUDED denominator) while the
   // Mentions page rendered found / ok.length (error-EXCLUDED). The
   // same run rendered ~20% on Overview and ~27% on Mentions. After
-  // PR-8 the worker writes via computeSovFromResults — the same
-  // formula Mentions uses — so the two pages must agree for any run
+  // PR-8 the worker writes via computeSovFromResults - the same
+  // formula Mentions uses - so the two pages must agree for any run
   // shape the worker is now capable of producing.
   //
   // We simulate the worker contract: stored.sov === computeSovFromResults(allResults).
@@ -189,7 +189,7 @@ describe('Overview ↔ Mentions formula agreement (PR-8 pin)', () => {
   });
 });
 
-describe('computeOverviewSov — pre-PR-C-1 reaper entry shape', () => {
+describe('computeOverviewSov - pre-PR-C-1 reaper entry shape', () => {
   it('renders truthful SOV for a 15/18 watchdog-reap entry (the production bug)', () => {
     // Faithful reproduction of the actual entry shape that landed in
     // brands.data.runs for REIF / Jensen / Easypump after the

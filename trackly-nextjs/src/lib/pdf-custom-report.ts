@@ -1,6 +1,6 @@
 // @ts-nocheck
 /**
- * Custom Report generator — a curated PDF built from a user-selected set of
+ * Custom Report generator - a curated PDF built from a user-selected set of
  * mentions and/or queries (the "Add to report" builder output).
  *
  * Entry point: generateCustomReport(brand, selection) → PDFKit doc stream.
@@ -61,7 +61,7 @@ function renderCover(doc, brand, selection, mCount, qCount) {
   const { W, M } = geo(doc);
   // Compute title height first so the gradient band can grow to fit a long
   // title without crowding the info pill below it.
-  const title = clamp(selection.title || `${brand.name || 'Brand'} — Custom Report`, 64);
+  const title = clamp(selection.title || `${brand.name || 'Brand'} - Custom Report`, 64);
   const titleW = W - M * 2 - 150;
   doc.font('Helvetica-Bold').fontSize(22);
   const titleH = doc.heightOfString(title, { width: titleW });
@@ -105,7 +105,7 @@ function renderSummary(doc, brand, mentions, queries) {
     { label: 'Mentions', value: String(mentions.length), sub: 'AI answers included', color: C.primary },
     { label: 'Queries', value: String(queries.length), sub: 'prompts included', color: C.violet },
     { label: 'Engines covered', value: String(engines || 0), sub: 'across mentions', color: C.blue },
-    { label: 'Avg mention rate', value: avgRate !== null ? `${avgRate}%` : '—', sub: 'of included queries', color: avgRate === null ? C.faint : sovColor(avgRate) },
+    { label: 'Avg mention rate', value: avgRate !== null ? `${avgRate}%` : '-', sub: 'of included queries', color: avgRate === null ? C.faint : sovColor(avgRate) },
   ];
   const gap = 12, cardW = (cw - gap * 3) / 4, cardH = 74;
   ensure(doc, cardH + 6); const y = doc.y;
@@ -175,7 +175,7 @@ function renderQueries(doc, queries) {
     doc.font('Helvetica-Bold').fontSize(9.5).fillColor(sovColor(q.sov || 0)).text(`${q.sov || 0}%`, M + numW + qW, ry, { width: sovW });
     doc.font('Helvetica').fontSize(9).fillColor(C.muted).text(`${q.engines || 0}/5`, M + numW + qW + sovW, ry, { width: engW });
     const hasRate = q.rate !== undefined && q.rate !== null;
-    doc.font('Helvetica-Bold').fontSize(9.5).fillColor(hasRate ? sovColor(q.rate) : C.faint).text(hasRate ? `${q.rate}%` : '—', M + numW + qW + sovW + engW, ry, { width: rateW });
+    doc.font('Helvetica-Bold').fontSize(9.5).fillColor(hasRate ? sovColor(q.rate) : C.faint).text(hasRate ? `${q.rate}%` : '-', M + numW + qW + sovW + engW, ry, { width: rateW });
     doc.y = ry + 19;
   });
   doc.y += 4;
@@ -201,7 +201,7 @@ function generateCustomReport(brand, selection) {
   const queries = Array.isArray(selection.queries) ? selection.queries : [];
   const doc = new PDFDocument({
     size: 'A4', margin: 44, autoFirstPage: true, bufferPages: true,
-    info: { Title: selection.title || `${brand.name || 'Brand'} — Custom Report`, Author: BRANDING.companyName, Subject: 'Custom AI Visibility Report', Creator: BRANDING.companyName },
+    info: { Title: selection.title || `${brand.name || 'Brand'} - Custom Report`, Author: BRANDING.companyName, Subject: 'Custom AI Visibility Report', Creator: BRANDING.companyName },
   });
 
   renderCover(doc, brand, selection, mentions.length, queries.length);

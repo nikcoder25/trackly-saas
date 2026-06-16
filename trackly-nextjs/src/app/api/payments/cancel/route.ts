@@ -12,7 +12,7 @@ import { recordBillingEvent } from '@/lib/billing-events';
 
 // Dodo statuses that mean "already cancelled / not found at provider".
 // We treat all three as cancellation-success when we PATCH /subscriptions/{id}
-// with status='cancelled' — they're idempotent end-states, not real errors,
+// with status='cancelled' - they're idempotent end-states, not real errors,
 // and refusing to downgrade the user locally over them would strand them on
 // a paid plan they cannot escape from. Mirrors the soft-success policy in
 // `cancelOldDodoSubscription` in the webhook handler.
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
   // Single SERIALIZABLE transaction wrapping both the Dodo PATCH and the
   // local DB update. Pre-fix, the route did `PATCH Dodo` then a separate
-  // autocommit `UPDATE users` — if the UPDATE threw (pg blip, serialization
+  // autocommit `UPDATE users` - if the UPDATE threw (pg blip, serialization
   // conflict, conn drop) Dodo had already cancelled but our DB still showed
   // the paid plan, and the user kept the premium UI without billing until
   // the webhook or 15-minute reconcile cron healed it.
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
   // The row lock serialises a concurrent double-click cancel; on the second
   // click the user is already on `free` and we return 200 idempotently
   // (with alreadyCancelled: true) after a best-effort recovery enqueue of
-  // the confirmation email — without touching Dodo a second time.
+  // the confirmation email - without touching Dodo a second time.
   const client = await safeConnect();
   let postCommit: { email: string | null; previousPlan: string; previousSubscriptionId: string | null } | null = null;
 
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
       return Response.json({ error: 'User not found' }, { status: 404 });
     }
     if (row.plan === 'free') {
-      // The cancellation already committed — either via the webhook,
+      // The cancellation already committed - either via the webhook,
       // an earlier call to this route, or the reconcile cron. Pre-fix
       // we 400'd here; that produced the bug where, if the prior path
       // failed to enqueue the confirmation email (e.g. webhook went
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
       // PATCH Dodo *inside* the transaction. If anything below this point
       // fails we ROLLBACK so the local DB never claims to have cancelled a
       // subscription that Dodo never heard about. If Dodo fails, ROLLBACK
-      // means we never claim it cancelled either — symmetric drift-free.
+      // means we never claim it cancelled either - symmetric drift-free.
       let resp: Response;
       try {
         resp = await fetch(`${baseUrl}/subscriptions/${subId}`, {
@@ -145,7 +145,7 @@ export async function POST(request: Request) {
     }
 
     // DB UPDATE *inside* the transaction. A throw here means Dodo has
-    // already accepted the cancellation but pg refused our write —
+    // already accepted the cancellation but pg refused our write -
     // ROLLBACK leaves no half-written state locally, the route returns
     // 500, and the caller can retry. The eventual-consistency safety net
     // (webhook subscription.cancelled + the 15-min reconcile cron) heals
@@ -166,7 +166,7 @@ export async function POST(request: Request) {
     }
 
     // COMMIT is the last step that can fail. If it does AND we already
-    // cancelled at Dodo, we have unrecoverable drift on this connection —
+    // cancelled at Dodo, we have unrecoverable drift on this connection -
     // the transaction is gone and the client may be poisoned. Write a
     // high-priority audit row on a *fresh* connection (auditLog uses the
     // global pool, not this client) so ops/Sentry can chase the orphan.
@@ -213,7 +213,7 @@ export async function POST(request: Request) {
   // idempotency key (plan_cancellation:userId:subscriptionId), so whichever
   // path inserts into email_outbox first wins and the other is a no-op via
   // ON CONFLICT (idempotency_key) DO NOTHING. Pre-fix, the email was owned
-  // solely by the webhook — if Dodo's webhook delivery was dropped or
+  // solely by the webhook - if Dodo's webhook delivery was dropped or
   // replayed out of order, the user got no cancellation email. Now the
   // user-initiated cancel path also enqueues, closing that race.
   auditLog(user.id, 'subscription_cancelled', 'user', user.id, {
@@ -223,7 +223,7 @@ export async function POST(request: Request) {
 
   // Record the user-visible billing event. Post-commit (the local pg
   // client has been released; recordBillingEvent uses the global pool).
-  // No dodo_event_id — when the webhook subscription.cancelled later
+  // No dodo_event_id - when the webhook subscription.cancelled later
   // arrives it goes down the superseded_sub case (2) branch (because
   // the cancel route stripped settings.subscription_id, so
   // cancellationMatchesActive is false) and that branch suppresses

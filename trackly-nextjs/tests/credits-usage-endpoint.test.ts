@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 /**
  * Smoke tests for /api/credits/usage. We mock pg.pool query-by-query
  * so we can assert (a) the SQL fragments emitted and (b) the response
- * shape — particularly the 14-day zero-fill and the projection math.
+ * shape - particularly the 14-day zero-fill and the projection math.
  *
  * The auth wrapper is mocked to a verified user so we don't have to
  * stand up JWT verification just to reach the data layer.
@@ -52,7 +52,7 @@ describe('GET /api/credits/usage', () => {
         ] };
       }
       if (sql.includes('FROM tenant_cost_events')) {
-        // last-7-day total + month-to-date — both are SUM/COUNT queries.
+        // last-7-day total + month-to-date - both are SUM/COUNT queries.
         return { rows: [{ c: 35 }] };
       }
       if (sql.includes('FROM active_runs')) {

@@ -56,12 +56,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const dateStr = new Date().toISOString().split('T')[0];
     const filename = `${safeName}_Custom_Report_${dateStr}.pdf`;
 
-    // History recording is best-effort — never block the actual download
+    // History recording is best-effort - never block the actual download
     // on a transient DB error or schema glitch.
     try {
       const mentions = draft.items.filter(i => i.kind === 'mention').length;
       const queries = draft.items.filter(i => i.kind === 'query').length;
-      await recordReport(id, user.id, 'custom', draft.title || `${brand.name || 'Brand'} — Custom Report`, filename, buffer, { mentions, queries });
+      await recordReport(id, user.id, 'custom', draft.title || `${brand.name || 'Brand'} - Custom Report`, filename, buffer, { mentions, queries });
     } catch (recErr) {
       console.error('[Custom Report] History record failed (non-fatal):', (recErr as Error).message);
       Sentry.captureException(recErr, { tags: { route: 'brands.report.custom', step: 'history-record' } });

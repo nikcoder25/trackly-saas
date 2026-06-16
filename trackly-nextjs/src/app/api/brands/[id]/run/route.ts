@@ -214,7 +214,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // Mirror the case-insensitive dedup applied by PUT /api/brands/[id]
   // (route.ts:147-155). The PUT keeps only the first occurrence of any
   // lowercase+trim variant, so a client that passes "Best Plumbing" after
-  // the brand stores "best plumbing" must still match — and downstream
+  // the brand stores "best plumbing" must still match - and downstream
   // parsers should see the single canonical brand-stored casing.
   const allQueriesByLower = new Map<string, string>(
     allQueries.map((q) => [q.toLowerCase().trim(), q])
@@ -429,7 +429,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     });
     // Auto-skip notification: a cron tick that gets blocked by the
     // monthly cap is the user-facing "we couldn't run your scheduled
-    // scan because you're out of credits" — fire one email per claim
+    // scan because you're out of credits" - fire one email per claim
     // to avoid spamming on every scheduled tick.
     if (isCronCall && reservation.code === 'monthly_exhausted') {
       try {
@@ -809,7 +809,7 @@ async function executeRunBackgroundInner(
     const parsed = parseResponse(result.text, brand, q, matcher);
     const competitors = detectCompetitors(result.text, matcher);
     // Cache hits cost zero (no provider call happened) and emit no token
-    // usage — analytics summaries that aggregate prompt_runs.cost should
+    // usage - analytics summaries that aggregate prompt_runs.cost should
     // attribute zero to the cached row even though tokensIn/Out from the
     // original call are part of the cached payload.
     const cost = fromCache ? 0 : estimateCost(result.model, result.tokensIn, result.tokensOut);
@@ -952,7 +952,7 @@ async function executeRunBackgroundInner(
         // Resolve order: tenant_api_keys (new) → users.api_keys (legacy)
         // → server env pool. resolveKeysForTenant skips a tenant key
         // beyond the failure threshold so a bad customer key doesn't
-        // hard-block the run forever — falls through to server keys.
+        // hard-block the run forever - falls through to server keys.
         const resolved = await resolveKeysForTenant({
           tenantId: brand.userId || null,
           platformKeyName: keyName,
@@ -995,7 +995,7 @@ async function executeRunBackgroundInner(
           ? resolveChatGPTModel(q, cohortDecision.model)
           : cohortDecision.model;
         // Daily search-budget guard. See `search-budget.ts` for the
-        // rationale — we share the quota across the API-driven path
+        // rationale - we share the quota across the API-driven path
         // (this route) and the BullMQ worker (run-worker.ts). The atomic
         // Redis Lua script means a race between this pod and the worker
         // pod cannot exceed the configured limit. Fail-open: if Redis is
@@ -1094,7 +1094,7 @@ async function executeRunBackgroundInner(
         };
 
         // Plumb the task signal into withDeepRetry so an outer per-platform
-        // timeout (AbortController above) also interrupts retry sleeps —
+        // timeout (AbortController above) also interrupts retry sleeps -
         // otherwise a 10-17s sleep could outlive the 60s task deadline
         // and let 429 retries burn the full per-run budget.
         const cached = await Promise.race([
@@ -1170,7 +1170,7 @@ async function executeRunBackgroundInner(
       const platErrors = allResults.filter((r: { platform: string; error?: boolean }) => r.platform === plat && r.error).length;
       // Canonical SOV (PR-8): error-EXCLUDED denominator, matching the
       // Mentions-page formula. Errors are a delivery problem, not a
-      // visibility problem — they shouldn't drag SOV down.
+      // visibility problem - they shouldn't drag SOV down.
       const platOk = Math.max(0, platTotal - platErrors);
       platformStats[plat] = {
         queries: platTotal, mentions: platMentions,

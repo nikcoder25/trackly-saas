@@ -40,7 +40,7 @@ function makeStatus(overrides: Partial<CreditStatus> = {}): CreditStatus {
   };
 }
 
-describe('computeAuditCost — math', () => {
+describe('computeAuditCost - math', () => {
   it('multiplies regions × prompts × platforms × per-unit', () => {
     expect(computeAuditCost({
       regionsCount: 2, promptsCount: 24,
@@ -62,7 +62,7 @@ describe('computeAuditCost — math', () => {
   });
 });
 
-describe('formatAuditMathLine — popup copy', () => {
+describe('formatAuditMathLine - popup copy', () => {
   it('renders the exact "{cost} credits ({regions} regions × {prompts} prompts × 5 models)" pattern', () => {
     expect(formatAuditMathLine({ regionsCount: 2, promptsCount: 24 }))
       .toBe('240 credits (2 regions × 24 prompts × 5 models)');
@@ -79,14 +79,14 @@ describe('formatAuditMathLine — popup copy', () => {
   });
 });
 
-describe('computeAuditCreditState — three numbers + open lifecycle', () => {
-  it('returns cost, remaining, and remainingAfter — the three numbers the spec requires', () => {
+describe('computeAuditCreditState - three numbers + open lifecycle', () => {
+  it('returns cost, remaining, and remainingAfter - the three numbers the spec requires', () => {
     const state = computeAuditCreditState(
       makeStatus({ remaining: 1000, monthlyCap: 2500 }),
       { regionsCount: 2, promptsCount: 24 },
     );
     // Three numbers wired to the same credit hook the rest of the
-    // dashboard uses — no fabricated values.
+    // dashboard uses - no fabricated values.
     expect(state.cost).toBe(240);
     expect(state.remaining).toBe(1000);
     expect(state.remainingAfter).toBe(760);
@@ -122,7 +122,7 @@ describe('computeAuditCreditState — three numbers + open lifecycle', () => {
   });
 });
 
-describe('computeAuditCreditState — insufficient-credits state', () => {
+describe('computeAuditCreditState - insufficient-credits state', () => {
   it('blocks when monthly remaining < cost (matches Run query popup blocked state)', () => {
     const state = computeAuditCreditState(
       makeStatus({ remaining: 50, monthlyCap: 2500 }),
@@ -164,7 +164,7 @@ describe('computeAuditCreditState — insufficient-credits state', () => {
   });
 });
 
-describe('open/close lifecycle — state is recomputed cheaply for the same inputs', () => {
+describe('open/close lifecycle - state is recomputed cheaply for the same inputs', () => {
   it('is referentially independent and idempotent for identical inputs (safe to call from render)', () => {
     const status = makeStatus({ remaining: 500, monthlyCap: 2500 });
     const a = computeAuditCreditState(status, { regionsCount: 2, promptsCount: 24 });
@@ -183,7 +183,7 @@ describe('open/close lifecycle — state is recomputed cheaply for the same inpu
     expect(openOne.blocked).toBe(false);
 
     // User cancels, runs other things, balance falls. Re-open with
-    // same audit shape — modal should now show the blocked state.
+    // same audit shape - modal should now show the blocked state.
     const openTwo = computeAuditCreditState(
       makeStatus({ remaining: 100 }),
       { regionsCount: 2, promptsCount: 24 },

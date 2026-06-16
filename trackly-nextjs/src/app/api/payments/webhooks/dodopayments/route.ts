@@ -46,7 +46,7 @@ const ALLOWED_WEBHOOK_PLANS = new Set(['starter', 'pro', 'agency', 'enterprise']
 // All event types that indicate an active/upgraded plan.
 // 'subscription.updated' is intentionally NOT here: Dodo emits it for
 // every status change (including cancellations), so it's normalised at
-// dispatch time via `effectiveEventType` below — see the remap that
+// dispatch time via `effectiveEventType` below - see the remap that
 // resolves status → 'subscription.cancelled' or 'subscription.active'.
 const UPGRADE_EVENTS = new Set([
     'payment.succeeded',
@@ -103,12 +103,12 @@ const SERIALIZATION_FAILURE_PG_CODE = '40001';
 
 // Resolve the product_id from a Dodo webhook body. Subscription events
 // (subscription.active / .renewed / .updated / .plan_changed / .cancelled)
-// expose product_id at the top level of `data` — this is the canonical
+// expose product_id at the top level of `data` - this is the canonical
 // shape and matches what `cron/reconcile-payments` reads from
 // GET /subscriptions/{id}. Payment events (payment.succeeded for
 // subscription or one-time charges) instead echo the original checkout's
 // product_cart, nesting the product under data.product_cart[0].product_id
-// — that's what /api/payments/checkout sends. Without the cart fallback
+// - that's what /api/payments/checkout sends. Without the cart fallback
 // here, payment.succeeded falls through to the unknown_product 500
 // rollback and Dodo retries the same event in a loop.
 //
@@ -139,7 +139,7 @@ function pickCartProductId(source: unknown): string | null {
 // Parse the event timestamp Dodo attached to this webhook delivery. Used
 // to order events PER-subscription-id and skip stale arrivals (e.g. a
 // retried cancellation that arrives AFTER a fresh subscription.active
-// for a different sub_id). Falls back to null when missing — caller
+// for a different sub_id). Falls back to null when missing - caller
 // treats null as "process this event without an ordering check".
 function parseEventTimestamp(body: unknown, eventData: unknown): Date | null {
   const candidates: unknown[] = [];
@@ -198,7 +198,7 @@ function getSubscriptionEvents(settings: unknown): Record<string, SubscriptionEv
 //      is <= the recorded last_event_id. The same-event-id case is
 //      already filtered by the webhook_events idempotency INSERT
 //      earlier; the only rows that reach this comparison are different
-//      events sharing a millisecond — real, e.g. the userId
+//      events sharing a millisecond - real, e.g. the userId
 //      mnpwyu6r8730ddlda847 logs from the new bug report had two
 //      different events stamped at 2026-04-30T16:15:34.008Z.
 function isStaleSubscriptionEvent(
@@ -351,7 +351,7 @@ export async function POST(request: Request) {
           const rawBody = await request.text();
 
       // Diagnostic: record which headers were sent (names only) and the
-      // raw body length. We never log header values — webhook signatures
+      // raw body length. We never log header values - webhook signatures
       // are credentials and logging them would let anyone with log access
       // forge future webhooks. The body preview was also removed: it can
       // contain customer email/name and subscription IDs.
@@ -359,7 +359,7 @@ export async function POST(request: Request) {
       request.headers.forEach((_value, key) => { headerNames.push(key); });
       // Info-level so it shows up in DigitalOcean's runtime logs (debug
       // is suppressed in production). Without this, a grep for "webhook"
-      // or "dodo" returns nothing during an incident — which is exactly
+      // or "dodo" returns nothing during an incident - which is exactly
       // the gap surfaced by the subscription-sync postmortem.
       const previewWebhookId = request.headers.get('webhook-id');
       logger.info('webhook.dodo.received', {
@@ -539,7 +539,7 @@ export async function POST(request: Request) {
       // for the same user. We track per-subscription_id last-seen
       // event timestamp in users.settings.subscription_events and
       // reject events older than what we've already processed.
-      // Globally null when Dodo's payload omits a timestamp — we
+      // Globally null when Dodo's payload omits a timestamp - we
       // process the event (no ordering check) and log a warning so
       // ops can spot the issue if it ever happens at volume.
       const eventTimestamp = parseEventTimestamp(body, eventData);
@@ -566,7 +566,7 @@ export async function POST(request: Request) {
               customer_id: body.customer_id || body.data?.customer_id || body.payload?.customer_id,
               metadata: body.metadata || body.data?.metadata || body.payload?.metadata,
       });
-      // Info-level dispatch summary — matches the postmortem requirement
+      // Info-level dispatch summary - matches the postmortem requirement
       // ("event ID, event type, customer ID, plan, success or failure
       // status"). Excludes anything PII-shaped (no email, no full
       // metadata blob). Customer ID is acceptable because it's the
@@ -593,7 +593,7 @@ export async function POST(request: Request) {
       // webhooks for the same user can collide on the SERIALIZABLE
       // isolation level and fail with SQLSTATE 40001; we retry up to
       // MAX_TX_ATTEMPTS with the configured backoff. Each attempt gets
-      // a fresh client connection — pg_advisory_xact_lock releases on
+      // a fresh client connection - pg_advisory_xact_lock releases on
       // ROLLBACK, so the retry re-acquires cleanly. Non-40001 errors
       // throw immediately and propagate to the outer catch.
       for (let attempt = 1; attempt <= MAX_TX_ATTEMPTS; attempt++) {
@@ -604,7 +604,7 @@ export async function POST(request: Request) {
 
                   // Per-subscription advisory lock. Serializes processing
                   // for a single subscription_id across concurrent webhook
-                  // deliveries — the database-side guarantee behind the
+                  // deliveries - the database-side guarantee behind the
                   // stale-event-skip + per-subscription state writes.
                   // Without this, two webhooks for the same sub can both
                   // pass the in-tx stale check (each reads the prior
@@ -636,7 +636,7 @@ export async function POST(request: Request) {
             // Per-subscription stale-event skip (Bug 1a). Reject events
             // whose Dodo timestamp is older than the most recent event
             // we've already processed for the same subscription_id.
-            // Catches out-of-order delivery on retries — e.g. a late
+            // Catches out-of-order delivery on retries - e.g. a late
             // `subscription.cancelled` arriving after a fresh
             // `subscription.active` for the same sub. Only applies when
             // we have BOTH a subscription_id and a parsable timestamp;
@@ -693,7 +693,7 @@ export async function POST(request: Request) {
                       // or upgrade-and-old-sub-cancellation race) is
                       // legitimate and must pass through.
                       //
-                      // Pre-fix this guard was user-scoped — any
+                      // Pre-fix this guard was user-scoped - any
                       // settings.subscription_status='cancelled' value
                       // blocked every non-payment.succeeded event for
                       // the user, including activations on a fresh
@@ -726,7 +726,7 @@ export async function POST(request: Request) {
                       // into 'owner'. We've since seen real Dodo deliveries
                       // (userId mnpwyu6r8730ddlda847, Apr 30 15:08) where
                       // payment.succeeded arrives with product_id=null even
-                      // though metadata.plan is set — successful payments
+                      // though metadata.plan is set - successful payments
                       // were silently dropped as unknown_product.
                       //
                       // Compromise: when product_id resolution fails, fall
@@ -803,14 +803,14 @@ export async function POST(request: Request) {
                                 // subscription_id arrived for an activation-style event.
                                 // Dodo created a brand-new subscription via /checkouts and
                                 // we never told Dodo about the old one, so it would
-                                // continue to bill monthly until support intervened —
+                                // continue to bill monthly until support intervened -
                                 // the audit's double-billing finding (#475 follow-up A).
                                 //
                                 // Cancel the old subscription with Dodo before we
                                 // overwrite the binding below. Gated on activation events
                                 // only (subscription.active / payment.succeeded). The
                                 // renewal/plan_changed paths still 400 on subscription_id
-                                // mismatch via SUBSCRIPTION_UPDATE_EVENTS above — we don't
+                                // mismatch via SUBSCRIPTION_UPDATE_EVENTS above - we don't
                                 // broaden cancel-old-sub to those because a renewal of a
                                 // *different* subscription remains genuinely suspicious.
                                 //
@@ -863,7 +863,7 @@ export async function POST(request: Request) {
                         // status + timestamp so the post-cancel guard above can
                         // be subscription-scoped instead of user-scoped (Bug 1b).
                         // We compute the merged map in JS because Postgres JSONB
-                        // `||` is shallow merge — writing
+                        // `||` is shallow merge - writing
                         // {subscription_events: {sub_X: ...}} would replace the
                         // entire map and clobber other subscriptions' state.
                         const settingsUpdate: Record<string, unknown> = {
@@ -1047,7 +1047,7 @@ export async function POST(request: Request) {
                         }
 
                         // Record the orphan-cancellation row inside the
-                        // tx, but only for case (1) — a genuine orphan
+                        // tx, but only for case (1) - a genuine orphan
                         // from a plan-upgrade race (previousPlan !== 'free').
                         // For case (2) the cancel route already wrote a
                         // plan_cancelled row, and emitting another
@@ -1090,14 +1090,14 @@ export async function POST(request: Request) {
 
                         // Safety-net cancellation email. We landed in
                         // superseded_sub for one of two reasons:
-                        //   (1) genuine orphan-upgrade race — the user
+                        //   (1) genuine orphan-upgrade race - the user
                         //       was upgraded to a NEW subscription_id
                         //       and Dodo is now sending a delayed
                         //       cancellation for the OLD sub_id. The
                         //       user is currently on a paid plan and
                         //       must NOT be told their subscription was
                         //       cancelled.
-                        //   (2) cancel-route-ran-first race — the
+                        //   (2) cancel-route-ran-first race - the
                         //       /api/payments/cancel handler stripped
                         //       settings.subscription_id before this
                         //       delivery arrived, so cancellationMatchesActive
@@ -1134,7 +1134,7 @@ export async function POST(request: Request) {
                       // readers) AND merge in the per-subscription event
                       // state for the specific cancelled subscription_id.
                       // Subscription_events is computed in JS because Postgres
-                      // JSONB `||` is shallow merge — naive
+                      // JSONB `||` is shallow merge - naive
                       // {subscription_events: {sub_X: ...}} would overwrite
                       // the entire map.
                       const downgradeMerge: Record<string, unknown> = {
@@ -1161,7 +1161,7 @@ export async function POST(request: Request) {
                       // by dodo_event_id so a webhook replay of this
                       // exact event does not duplicate. The cancel route
                       // path writes a separate row under
-                      // source='cancel_route' with no dodo_event_id —
+                      // source='cancel_route' with no dodo_event_id -
                       // those collide when the cancel route ran first
                       // (see the superseded_sub case (2) branch above,
                       // which suppresses the superseded row in that
@@ -1188,7 +1188,7 @@ export async function POST(request: Request) {
                       // suppressed exactly this scenario, which is why
                       // seo@thecontractorkingdom.com received no email.
                       // Cancel route now intentionally does NOT send its
-                      // own email (Q3 — webhook owns it), so this is the
+                      // own email (Q3 - webhook owns it), so this is the
                       // sole owner of the cancellation message.
                       if (previousEmail) {
                                 pendingPlanEmail = {
@@ -1252,7 +1252,7 @@ export async function POST(request: Request) {
                       }, 'webhook');
             }
 
-            // Plan-change confirmation email — enqueued to the durable
+            // Plan-change confirmation email - enqueued to the durable
             // outbox (audit item D) instead of dispatched in-process.
             //
             // Idempotency keys:
@@ -1261,7 +1261,7 @@ export async function POST(request: Request) {
             //     above prevents the same event_id from re-emitting).
             //   - cancellation kind           -> planCancellationIdempotencyKey
             //     (per-subscription scope, shared formula with the
-            //     cancel route — see lib/email.ts. Dedups the cancel-
+            //     cancel route - see lib/email.ts. Dedups the cancel-
             //     route + webhook race AND the case where Dodo emits
             //     both `subscription.updated`+status=cancelled AND a
             //     separate `subscription.cancelled` for the same

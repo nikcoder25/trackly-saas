@@ -3,7 +3,7 @@
  *
  * Verifies:
  *   - 401 unauthenticated
- *   - 404 (not 403) for non-admin — matches requireAdmin's
+ *   - 404 (not 403) for non-admin - matches requireAdmin's
  *     enumeration-resistant convention used everywhere else in
  *     /api/admin/*
  *   - admin gets the fleet view with progress + age + stale flag

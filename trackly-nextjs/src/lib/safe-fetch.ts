@@ -22,7 +22,7 @@ export class SSRFError extends Error {
 
 // Maps `SSRFError.code` to user-facing copy for endpoints that surface
 // safe-fetch failures (e.g. /api/geo-audit). HOST_BLOCKED + IP_BLOCKED
-// stay generic on purpose — telling a caller exactly which private
+// stay generic on purpose - telling a caller exactly which private
 // range we rejected would leak infra topology to an attacker. Every
 // other code is non-security-sensitive and gets actionable copy.
 export function ssrfErrorToCopy(code: string): string {

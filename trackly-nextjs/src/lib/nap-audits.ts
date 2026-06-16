@@ -1,5 +1,5 @@
 /**
- * Saved NAP audits — persistence for the logged-in "save an audit per client,
+ * Saved NAP audits - persistence for the logged-in "save an audit per client,
  * re-run later to track progress" feature. One table, created idempotently via
  * ensureNapAuditsSchema (matching the repo's per-module CREATE TABLE IF NOT
  * EXISTS pattern used by ensureGeoAuditsSchema etc.).
@@ -11,7 +11,7 @@
  * geo-audits lifecycle exactly). During the run the worker writes a throttled
  * `progress_done` counter so the dashboard can show a live progress bar.
  *
- * The full per-URL results are stored as JSONB on the row — the set is bounded
+ * The full per-URL results are stored as JSONB on the row - the set is bounded
  * (<=500 URLs) so a child table would be overkill. Each run appends {at, score}
  * to a capped `history` array so the detail view can chart consistency over time.
  */
@@ -62,8 +62,8 @@ export interface NapAuditRecord {
 
 /**
  * Lightweight shape for the list view. We drop the per-run heavy fields
- * (`results`, `duplicates`) and the raw `urls` array — at 500 URLs that
- * would otherwise inflate every row in the dashboard payload — and surface
+ * (`results`, `duplicates`) and the raw `urls` array - at 500 URLs that
+ * would otherwise inflate every row in the dashboard payload - and surface
  * just the count instead.
  */
 export type NapAuditListItem = Omit<NapAuditRecord, 'results' | 'duplicates' | 'urls'> & {
@@ -99,7 +99,7 @@ export async function ensureNapAuditsSchema(): Promise<void> {
     )
   `);
   // Backfill columns for installations created before background processing /
-  // scheduling existed — idempotent, no-op on fresh DBs.
+  // scheduling existed - idempotent, no-op on fresh DBs.
   await pool.query(`ALTER TABLE nap_audits ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'done'`);
   await pool.query(`ALTER TABLE nap_audits ADD COLUMN IF NOT EXISTS error TEXT`);
   await pool.query(`ALTER TABLE nap_audits ADD COLUMN IF NOT EXISTS schedule TEXT NOT NULL DEFAULT 'off'`);
@@ -107,7 +107,7 @@ export async function ensureNapAuditsSchema(): Promise<void> {
   await pool.query(`ALTER TABLE nap_audits ADD COLUMN IF NOT EXISTS brand_id TEXT`);
   await pool.query(`ALTER TABLE nap_audits ADD COLUMN IF NOT EXISTS overrides JSONB NOT NULL DEFAULT '{}'::jsonb`);
   await pool.query(`ALTER TABLE nap_audits ADD COLUMN IF NOT EXISTS progress_done INTEGER NOT NULL DEFAULT 0`);
-  // FK + cascade-on-brand-delete. Add only if missing — Postgres has no
+  // FK + cascade-on-brand-delete. Add only if missing - Postgres has no
   // ADD CONSTRAINT IF NOT EXISTS, so we guard via information_schema.
   await pool.query(`
     DO $$
@@ -304,7 +304,7 @@ export async function claimNapAuditForRunning(id: string): Promise<boolean> {
 /**
  * Throttle progress writes so a 500-URL run with concurrency 16 doesn't fire
  * a DB UPDATE per completed URL. We persist when the in-flight count crosses
- * a 1%-of-total step (min 1) or 1.5 s have passed since the last write —
+ * a 1%-of-total step (min 1) or 1.5 s have passed since the last write -
  * both of which the UI's 4 s polling interval comfortably samples.
  */
 const PROGRESS_WRITE_INTERVAL_MS = 1500;
@@ -312,7 +312,7 @@ const PROGRESS_WRITE_INTERVAL_MS = 1500;
 /**
  * Run a claimed audit: fetch + extract + compare, persist results, append to
  * history, mark terminal. Returns the updated record (or null if it wasn't
- * claimable — already running/terminal/gone).
+ * claimable - already running/terminal/gone).
  */
 export async function processNapAudit(id: string): Promise<NapAuditRecord | null> {
   if (!(await claimNapAuditForRunning(id))) return null;
@@ -333,7 +333,7 @@ export async function processNapAudit(id: string): Promise<NapAuditRecord | null
     if (!enoughItems && !enoughTime) return;
     lastWrittenDone = done;
     lastWriteAt = now;
-    // Fire-and-forget — a single dropped write is fine because the next
+    // Fire-and-forget - a single dropped write is fine because the next
     // tick (or the terminal UPDATE) will overwrite it. We avoid awaiting
     // so the in-flight fetches keep saturating their concurrency budget.
     pool
@@ -420,7 +420,7 @@ export async function updateNapAudit(
 
 /**
  * Manually mark a citation OK (or undo it). When `ok` is true the URL counts as
- * a full match in the consistency score — for pages the fetcher was blocked from
+ * a full match in the consistency score - for pages the fetcher was blocked from
  * but the operator verified by hand. Recomputes and persists the score from the
  * stored results; does not append to history (it's not a fresh run).
  */

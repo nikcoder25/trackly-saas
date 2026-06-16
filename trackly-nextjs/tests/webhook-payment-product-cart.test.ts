@@ -166,7 +166,7 @@ beforeEach(() => {
   poolQuery.mockReset();
 });
 
-describe('dodopayments webhook — payment.succeeded product_cart resolver', () => {
+describe('dodopayments webhook - payment.succeeded product_cart resolver', () => {
   it('T1: payment.succeeded resolves product_id from data.product_cart[0].product_id and upgrades', async () => {
     const fake = makeFakeClient(FREE_USER);
     safeConnectFn.mockResolvedValue(fake);
@@ -174,7 +174,7 @@ describe('dodopayments webhook — payment.succeeded product_cart resolver', () 
     const req = buildSignedRequest({
       type: 'payment.succeeded',
       data: {
-        // No top-level product_id — only the cart shape, like Dodo's
+        // No top-level product_id - only the cart shape, like Dodo's
         // real payment.succeeded payload.
         subscription_id: 'sub_NEW',
         customer_id: 'cus_NEW',
@@ -231,7 +231,7 @@ describe('dodopayments webhook — payment.succeeded product_cart resolver', () 
     safeConnectFn.mockResolvedValue(fake);
 
     // Top-level says 'pro', cart says 'agency'. The resolver must pick 'pro'
-    // — top-level is the canonical/legacy field and we don't want a future
+    // - top-level is the canonical/legacy field and we don't want a future
     // payload that includes both to flip semantics nondeterministically.
     const req = buildSignedRequest({
       type: 'payment.succeeded',
@@ -294,7 +294,7 @@ describe('dodopayments webhook — payment.succeeded product_cart resolver', () 
 
     // Subscription events use top-level product_id (canonical shape,
     // matches GET /subscriptions/{id} in cron/reconcile-payments).
-    // No product_cart in this payload — the resolver's first branch
+    // No product_cart in this payload - the resolver's first branch
     // must succeed.
     const req = buildSignedRequest({
       type: 'subscription.active',

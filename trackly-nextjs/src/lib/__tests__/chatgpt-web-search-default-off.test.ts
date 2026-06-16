@@ -3,7 +3,7 @@
  * through queryAI('ChatGPT', ...). The assertion that matters: when the
  * flag is on AND the strict freshness classifier denies the query, the
  * outbound OpenAI request body MUST NOT contain `web_search_options`.
- * That field is the trigger for the $0.030/call web_search surcharge —
+ * That field is the trigger for the $0.030/call web_search surcharge -
  * suppressing it is the entire mechanism of the cost reduction.
  *
  * The test mocks all queryAI side-effect deps (db, redis, metrics, cost
@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // PLATFORM_RATE_LIMITS.ChatGPT.minDelayMs is captured at module load
 // time (Number(env.AI_CHATGPT_MIN_DELAY_MS) || 6000). Hoist the override
-// so it's in place BEFORE ai-platforms.ts is imported below — otherwise
+// so it's in place BEFORE ai-platforms.ts is imported below - otherwise
 // the second call in this file sits on a 6 s rate-limit sleep and the
 // test times out.
 vi.hoisted(() => {
@@ -83,7 +83,7 @@ function captureFetchBody(): Record<string, unknown> | null {
 function okOpenAiResponse(): Response {
   // Minimal shape that satisfies queryAI's ChatGPT branch: a choice with
   // message.content, usage with token counts, no tool_calls (so the web
-  // search counter stays at 0 — we don't care about cost ledger here).
+  // search counter stays at 0 - we don't care about cost ledger here).
   return new Response(JSON.stringify({
     id: 'chatcmpl-test',
     model: 'gpt-4o-mini-search-preview',
@@ -173,7 +173,7 @@ describe('queryAI(ChatGPT) + WEB_SEARCH_DEFAULT_OFF=true', () => {
   });
 
   // The CHATGPT_WEB_SEARCH_GATING=false hard kill switch must override
-  // the strict classifier — that's the ops-incident lever.
+  // the strict classifier - that's the ops-incident lever.
   it('CHATGPT_WEB_SEARCH_GATING=false overrides the strict classifier', async () => {
     process.env.WEB_SEARCH_DEFAULT_OFF = 'true';
     process.env.CHATGPT_WEB_SEARCH_GATING = 'false';

@@ -1,5 +1,5 @@
 /**
- * NAP check runner — the server-only side of the engine. Fetches each citation
+ * NAP check runner - the server-only side of the engine. Fetches each citation
  * URL with the SSRF-hardened client, runs the pure extraction/matching from
  * nap-verify, and assembles the scored result. Shared by both the free public
  * tool (/api/tools/nap-checker) and the saved-audit feature (lib/nap-audits).
@@ -32,7 +32,7 @@ const FETCH_TIMEOUT_MS = 12_000;
 // 403 (or a cloaked 404) to anything that doesn't look like a browser; a full,
 // internally-consistent set of navigation headers + client hints clears the
 // common header/UA gates. (We're fetching the user's own public listings.)
-// Note: Accept-Encoding is intentionally omitted — undici sets and decompresses
+// Note: Accept-Encoding is intentionally omitted - undici sets and decompresses
 // it automatically, and setting it by hand risks an undecoded body.
 const BROWSER_HEADERS: Record<string, string> = {
   'User-Agent':
@@ -63,19 +63,19 @@ const FETCH_CONCURRENCY = 16;
 // Layers 1+2. They bill per *successful* request, so at the small residual
 // volume left after the free Layer-3b/c/d chain the cost is typically cents.
 //
-//  1. ScraperAPI (SCRAPERAPI_KEY) — hosted unblocker. Credit cost per request
+//  1. ScraperAPI (SCRAPERAPI_KEY) - hosted unblocker. Credit cost per request
 //     depends on mode: render≈10, premium(residential)≈10-25, ultra_premium
 //     (beats Cloudflare)≈30. Defaults to render + premium; set
 //     SCRAPERAPI_ULTRA=true for the hardest sites. Optional SCRAPERAPI_COUNTRY
 //     (e.g. "gb"/"us") geo-targets the proxy. SCRAPERAPI_RENDER=false drops JS
 //     rendering to save credits.
-//  2. NAP_RENDER_ENDPOINT — a generic "POST {url} → HTML" service (e.g.
+//  2. NAP_RENDER_ENDPOINT - a generic "POST {url} → HTML" service (e.g.
 //     self-hosted browserless).
-//  3. Zyte API (ZYTE_API_KEY) — pay-per-success unblocker with built-in
+//  3. Zyte API (ZYTE_API_KEY) - pay-per-success unblocker with built-in
 //     anti-ban + residential proxies; we request browserHtml so JS-rendered,
 //     JSON-LD-bearing pages come back ready to parse. $5 trial, no monthly min.
 //  4. Bright Data Web Unlocker (BRIGHTDATA_API_TOKEN + BRIGHTDATA_UNLOCKER_ZONE)
-//     — highest independent success rate on hard anti-bot sites; direct API
+//     - highest independent success rate on hard anti-bot sites; direct API
 //     (api.brightdata.com/request) returns the raw unblocked HTML.
 const SCRAPERAPI_KEY = process.env.SCRAPERAPI_KEY?.trim();
 const SCRAPERAPI_ULTRA = process.env.SCRAPERAPI_ULTRA === 'true';
@@ -111,7 +111,7 @@ const PAID_UNBLOCKER_ENABLED = !!(
 // behind the live site's anti-bot wall and serves the *original* HTML (JSON-LD
 // intact), so the NAP extracts exactly as it would from the live page.
 //
-// The trade-off is freshness — a snapshot can be weeks or months old — so a
+// The trade-off is freshness - a snapshot can be weeks or months old - so a
 // Wayback result is tagged with its snapshot date, is only ever used to rescue
 // a page we genuinely couldn't read live (never to "improve" a live read), and
 // never silently overrides fresher data. Enabled by default since it costs
@@ -290,7 +290,7 @@ function formatWaybackTimestamp(ts?: string): string | undefined {
 
 /**
  * Free fallback: fetch the most recent Internet Archive snapshot of a blocked
- * page. Two hops — the availability API to find the closest HTTP-200 snapshot,
+ * page. Two hops - the availability API to find the closest HTTP-200 snapshot,
  * then the raw archived HTML. The `id_` modifier on the snapshot URL returns
  * the original document (no Wayback toolbar or link rewriting), so JSON-LD and
  * microdata parse exactly as they would on the live page. Returns null when
@@ -427,11 +427,11 @@ async function fetchViaJina(url: string): Promise<RenderResult | null> {
  * Re-fetch a blocked URL through the configured unblockers, in cost/quality
  * order. Paid backends (the live page via ScraperAPI / a render endpoint /
  * Zyte / Bright Data) win when configured. The free chain runs only when
- * `includeArchive` is set — we
+ * `includeArchive` is set - we
  * never use it to "improve" a page that already loaded live:
- *   1. existing Wayback snapshot — instant when present (may be stale)
- *   2. Save Page Now — captures a fresh snapshot when none exists
- *   3. Jina Reader — live read via a third-party proxy as a last resort
+ *   1. existing Wayback snapshot - instant when present (may be stale)
+ *   2. Save Page Now - captures a fresh snapshot when none exists
+ *   3. Jina Reader - live read via a third-party proxy as a last resort
  * Returns null when none configured / all fail, so the caller keeps the
  * Layer 1/2 result.
  */
@@ -467,7 +467,7 @@ export interface NapRunResult {
   duplicates: DuplicateGroup[];
 }
 
-/** Number of canonical-defined fields that matched — used to gate Layer 3. */
+/** Number of canonical-defined fields that matched - used to gate Layer 3. */
 function matchedCount(cmp: CompareResult): number {
   return Object.values(cmp.fields).filter((f) => f.status === 'match').length;
 }
@@ -541,7 +541,7 @@ async function tryRender(
 async function checkUrl(url: string, canonical: CanonicalNap): Promise<UrlResult> {
   try {
     let res = await fetchOnce(url);
-    // Anti-bot blocks are often transient — one retry after a short pause
+    // Anti-bot blocks are often transient - one retry after a short pause
     // clears a meaningful share of them.
     if (!(res.status >= 200 && res.status < 400) && BLOCK_STATUSES.has(res.status)) {
       await delay(700);
@@ -550,7 +550,7 @@ async function checkUrl(url: string, canonical: CanonicalNap): Promise<UrlResult
     const reachable = res.status >= 200 && res.status < 400;
 
     if (!reachable) {
-      // Blocked / error status — the unblocker (paid live fetch or the free
+      // Blocked / error status - the unblocker (paid live fetch or the free
       // Wayback snapshot) may still get through.
       if (UNBLOCKER_ENABLED) {
         const rendered = await tryRender(url, res.status, canonical, null, true);

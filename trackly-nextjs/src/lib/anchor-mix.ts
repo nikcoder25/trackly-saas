@@ -3,8 +3,8 @@
  *
  * Pure helpers (no React, no DOM) so the math is unit-testable and the
  * client component just renders the UI on top. Each backlink campaign
- * has a target distribution of anchor types — exact / partial / branded /
- * generic / topical / geo / naked URL / full URL — and we pre-assign one
+ * has a target distribution of anchor types - exact / partial / branded /
+ * generic / topical / geo / naked URL / full URL - and we pre-assign one
  * type per article so the realised mix matches the operator's request
  * regardless of which articles fail and get retried.
  */
@@ -33,14 +33,14 @@ export const ANCHOR_LABELS: Record<AnchorType, string> = {
 };
 
 export const ANCHOR_HELP: Record<AnchorType, string> = {
-  exact: 'The target keyword used verbatim — e.g. "hvac repair near me".',
-  partial: 'A fragment of the keyword — e.g. "hvac repair".',
-  branded: 'Brand name only — e.g. "Acme HVAC" or "AcmeHVAC".',
-  generic: 'Call-to-action phrasing — e.g. "click here", "this guide".',
-  topical: 'Topical / LSI phrase — e.g. "professional HVAC services".',
-  geo: 'Keyword + location — e.g. "HVAC repair in Detroit".',
-  naked: 'Bare domain — e.g. "acme-hvac.com".',
-  url: 'The full URL string — e.g. "https://acme-hvac.com/repair".',
+  exact: 'The target keyword used verbatim - e.g. "hvac repair near me".',
+  partial: 'A fragment of the keyword - e.g. "hvac repair".',
+  branded: 'Brand name only - e.g. "Acme HVAC" or "AcmeHVAC".',
+  generic: 'Call-to-action phrasing - e.g. "click here", "this guide".',
+  topical: 'Topical / LSI phrase - e.g. "professional HVAC services".',
+  geo: 'Keyword + location - e.g. "HVAC repair in Detroit".',
+  naked: 'Bare domain - e.g. "acme-hvac.com".',
+  url: 'The full URL string - e.g. "https://acme-hvac.com/repair".',
 };
 
 export const DEFAULT_ANCHOR_MIX: Record<AnchorType, number> = {
@@ -244,7 +244,7 @@ export interface AnchorPair {
 
 /**
  * Resolve the actual anchor STRING for an article. Every branch ends in
- * a non-empty string — when an upstream input (link / moneySite) is
+ * a non-empty string - when an upstream input (link / moneySite) is
  * missing we fall back to the keyword rather than wrapping the model's
  * <a> in an empty label. Empty anchors broke the prompt's "use this
  * anchor text EXACTLY" rule because there was nothing to use.

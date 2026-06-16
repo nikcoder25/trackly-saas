@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { generateSchemaScriptTag, type CanonicalNap } from '@/lib/nap-verify';
 
-// Shared presentational view for NAP check results — an overview hero (score
+// Shared presentational view for NAP check results - an overview hero (score
 // gauge + KPI rail + consistency trend), possible duplicate listings, the
 // per-URL citation table with filterable, expandable rows, CSV export, and a
 // paste-ready LocalBusiness schema generator. Rendered inside the dashboard's
@@ -77,7 +77,7 @@ function FieldPill({ status }: { status: FieldStatus }) {
 }
 
 // NAP = Name, Address, Phone. The dedicated verdict column collapses just those
-// three core fields into a single OK / Issues / can't-verify state — postcode and
+// three core fields into a single OK / Issues / can't-verify state - postcode and
 // suite are deliberately excluded so the column answers "is the NAP itself right?".
 type NapVerdict = 'ok' | 'verified' | 'issues' | 'unverified';
 
@@ -93,7 +93,7 @@ function napVerdict(r: NapUrlResult, overridden: boolean): { verdict: NapVerdict
   return { verdict: failed.length === 0 ? 'ok' : 'issues', failed };
 }
 
-/** A clean verdict is one the customer can treat as correct — auto-OK or hand-verified. */
+/** A clean verdict is one the customer can treat as correct - auto-OK or hand-verified. */
 function isCleanVerdict(r: NapUrlResult, overridden: boolean): boolean {
   const { verdict } = napVerdict(r, overridden);
   return verdict === 'ok' || verdict === 'verified';
@@ -117,7 +117,7 @@ function VerdictBadge({ r, overridden }: { r: NapUrlResult; overridden: boolean 
   );
 }
 
-/** Score band — colour + soft background + verdict word, themed via tokens. */
+/** Score band - colour + soft background + verdict word, themed via tokens. */
 function band(score: number): { color: string; soft: string; word: string } {
   if (score < 50) return { color: 'var(--danger)', soft: 'var(--danger-50)', word: 'POOR' };
   if (score < 80) return { color: 'var(--warn)', soft: 'var(--warn-50)', word: 'FAIR' };
@@ -327,7 +327,7 @@ type FlagView = { label: string; color: string; bg: string };
 function rowFlags(r: NapUrlResult): FlagView[] {
   const flags: FlagView[] = [];
   const hasSchema = Object.values(r.extracted.source ?? {}).includes('schema');
-  if (!r.reachable) flags.push({ label: r.error || `HTTP ${r.httpStatus ?? '—'}`, color: 'var(--danger)', bg: 'var(--danger-50)' });
+  if (!r.reachable) flags.push({ label: r.error || `HTTP ${r.httpStatus ?? '-'}`, color: 'var(--danger)', bg: 'var(--danger-50)' });
   if (r.reachable && !hasSchema) flags.push({ label: 'no JSON-LD', color: 'var(--primary)', bg: 'var(--primary-50)' });
   if (r.archivedAt) flags.push({ label: `via Web Archive · ${r.archivedAt}`, color: 'var(--info)', bg: 'var(--info-50)' });
   else if (r.rendered) flags.push({ label: 'JS-rendered', color: 'var(--info)', bg: 'var(--info-50)' });
@@ -390,7 +390,7 @@ function CitationRow({
           <VerdictBadge r={r} overridden={overridden} />
         </div>
         <div className="mono" style={{ textAlign: 'right', fontSize: 17, fontWeight: 600, color: overridden ? 'var(--info)' : r.reachable ? band(r.matchScore).color : 'var(--mute)' }}>
-          {overridden ? 'OK' : r.reachable ? r.matchScore : '—'}
+          {overridden ? 'OK' : r.reachable ? r.matchScore : '-'}
         </div>
       </div>
 
@@ -402,7 +402,7 @@ function CitationRow({
               <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', background: 'var(--surface)' }}>
                 {fieldOrder.map((f) => {
                   const missing = f.status === 'missing' || (!f.found && f.k !== 'Suite');
-                  const value = missing ? 'not found' : (f.found || '—');
+                  const value = missing ? 'not found' : (f.found || '-');
                   return (
                     <div className="nap2-kv" key={f.k}>
                       <span className="mono" style={{ fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--mute)' }}>{f.k}</span>
@@ -433,7 +433,7 @@ function CitationRow({
                 <div style={{ marginTop: 8, fontSize: 13, color: 'var(--text-2)', lineHeight: 1.45 }}>
                   {r.reachable
                     ? 'Verdict computed from Name, Phone & Address. Postcode & Suite are informational.'
-                    : `Couldn't read this listing (${r.error || `HTTP ${r.httpStatus ?? '—'}`}), so its NAP is unverified rather than a confirmed mismatch.`}
+                    : `Couldn't read this listing (${r.error || `HTTP ${r.httpStatus ?? '-'}`}), so its NAP is unverified rather than a confirmed mismatch.`}
                 </div>
               </div>
               <a href={r.url} target="_blank" rel="noopener noreferrer nofollow" className="btn-g" style={{ justifyContent: 'center', textDecoration: 'none' }}>Open listing ↗</a>
@@ -576,7 +576,7 @@ export default function NapResults({
             </div>
             <p style={{ fontSize: 12.5, color: 'var(--text-2)', margin: 0, lineHeight: 1.6 }}>
               A few directories returned a block (e.g. Cloudflare/WAF) to our server even though they open
-              in your browser — so their live NAP couldn&apos;t be read. These show as <strong>Unverified</strong>,
+              in your browser - so their live NAP couldn&apos;t be read. These show as <strong>Unverified</strong>,
               not a real mismatch. We automatically retry these for free through the Internet Archive and other
               public readers; archive-sourced rows are flagged <strong>via Web Archive</strong> with the snapshot
               date so you know how fresh they are. For anything still blocked, open it in your browser and
@@ -593,7 +593,7 @@ export default function NapResults({
             <span className="card-tw" style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
               <span className="card-t">Possible duplicate listings</span>
               <span className="card-lede">
-                Duplicates split your ranking signal — consolidate or remove the extras, starting with any that disagree on NAP.
+                Duplicates split your ranking signal - consolidate or remove the extras, starting with any that disagree on NAP.
               </span>
             </span>
           </header>
@@ -634,7 +634,7 @@ export default function NapResults({
           <span className="card-tw" style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
             <span className="card-t">Citation details</span>
             <span className="card-lede">
-              {data.results.length} {data.results.length === 1 ? 'listing' : 'listings'} checked — the <strong>NAP</strong> verdict is based on Name, Address &amp; Phone only.
+              {data.results.length} {data.results.length === 1 ? 'listing' : 'listings'} checked - the <strong>NAP</strong> verdict is based on Name, Address &amp; Phone only.
             </span>
           </span>
           <span className="card-r" style={{ flexWrap: 'wrap', justifyContent: 'flex-end', gap: 13 }}>

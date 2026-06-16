@@ -73,7 +73,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       const runs = (Array.isArray(brandRec.runs) ? brandRec.runs : []) as { sov?: number }[];
       const lastSov = runs.length ? Math.round(runs[runs.length - 1].sov || 0) : 0;
       await ensureReportSchema();
-      await recordReport(id, user.id, 'standard', `${brand.name || 'Brand'} — AI Visibility Report`, filename, buffer, { sov: lastSov });
+      await recordReport(id, user.id, 'standard', `${brand.name || 'Brand'} - AI Visibility Report`, filename, buffer, { sov: lastSov });
     } catch (recErr) {
       console.error('[PDF Report] History record failed (non-fatal):', (recErr as Error).message);
       Sentry.captureException(recErr, { tags: { route: 'brands.report.pdf', step: 'history-record' } });

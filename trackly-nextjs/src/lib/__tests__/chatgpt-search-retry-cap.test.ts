@@ -1,7 +1,7 @@
 /**
  * ChatGPT web_search cost-control knobs:
  *
- *   CHATGPT_SEARCH_MAX_ATTEMPTS — total attempts (including the initial
+ *   CHATGPT_SEARCH_MAX_ATTEMPTS - total attempts (including the initial
  *   one) for a ChatGPT call that attaches the hosted `web_search` tool.
  *   Each completed search call is billed at $0.030, so a transient
  *   failure under the generic ChatGPT retry budget (default 3 retries)
@@ -10,7 +10,7 @@
  *   full retry budget so transient 5xx / network errors still recover
  *   for free.
  *
- *   CHATGPT_SEARCH_TIMEOUT_MS — per-attempt fetch timeout for the
+ *   CHATGPT_SEARCH_TIMEOUT_MS - per-attempt fetch timeout for the
  *   search path. Tighter than the generic ChatGPT timeout
  *   (AI_CHATGPT_REQUEST_TIMEOUT_MS, default 30s); bounds worst-case
  *   spend on hung search requests that still get billed once OpenAI's
@@ -18,7 +18,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Hoist these env writes BEFORE ai-platforms.ts is imported — both
+// Hoist these env writes BEFORE ai-platforms.ts is imported - both
 // PLATFORM_RATE_LIMITS.ChatGPT and PLATFORM_CB_THRESHOLD are captured
 // at module load. Without the threshold bump the cumulative 429s across
 // these tests would trip the platform circuit breaker mid-suite.
@@ -92,7 +92,7 @@ function okResp(model = 'gpt-4o-mini-search-preview'): Response {
 function retryable429(): Response {
   // 429 with a short Retry-After hint (100ms). With a 5000ms sleep
   // budget this fits inside fetchAI's per-call retry budget so the
-  // retry loop ACTUALLY executes — i.e. maxRetries genuinely gates
+  // retry loop ACTUALLY executes - i.e. maxRetries genuinely gates
   // the call count, not a hint > budget short-circuit.
   return new Response('{"error":{"message":"rate limited"}}', {
     status: 429,
@@ -164,7 +164,7 @@ describe('getChatGPTSearchTimeoutMs (env helper)', () => {
   });
 });
 
-describe('queryAI(ChatGPT) — search path retries are capped', () => {
+describe('queryAI(ChatGPT) - search path retries are capped', () => {
   it('does NOT retry a transient 429 on the search path (default cap = 1)', async () => {
     // Search-preview model + a freshness query → web_search attaches.
     // Even though AI_CHATGPT_MAX_RETRIES=3 (set in beforeEach), the

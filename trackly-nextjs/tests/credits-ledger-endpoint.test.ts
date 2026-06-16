@@ -172,7 +172,7 @@ describe('GET /api/credits/ledger', () => {
     await GET(fakeRequest('?platform=ChatGPT&platform=Claude'));
     expect(sawArrayParam).toEqual(['chatgpt', 'claude']);
 
-    // Comma-separated form — same SQL shape, normalized + deduped.
+    // Comma-separated form - same SQL shape, normalized + deduped.
     sawArrayParam = null;
     await GET(fakeRequest('?platform=ChatGPT,Claude,ChatGPT'));
     expect(sawArrayParam).toEqual(['chatgpt', 'claude']);
@@ -321,7 +321,7 @@ describe('GET /api/credits/ledger', () => {
     // billing period), summing the visible `credits` column across every
     // page must equal `monthlyUsed` from /api/credits/status. Both sides
     // are COUNT(*) over the same UTC-month window in tenant_cost_events
-    // — this test exercises the wire-level contract by paging the
+    // - this test exercises the wire-level contract by paging the
     // ledger to exhaustion against a fixed dataset and comparing.
     const monthlyUsed = 127; // what /api/credits/status would return
     const PAGE_SIZE = 50;
@@ -387,7 +387,7 @@ describe('GET /api/credits/ledger', () => {
       expect(resp.status).toBe(200);
       const body = await resp.json();
       pageCount++;
-      // Every row contributes its `credits` field — defends against a
+      // Every row contributes its `credits` field - defends against a
       // future regression that returns `null`/string/skips the field.
       for (const r of body.rows as Array<{ id: string; credits: number }>) {
         expect(typeof r.credits).toBe('number');

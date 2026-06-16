@@ -75,7 +75,7 @@ export async function POST(request: Request) {
 
       // Lock the rows we're editing so concurrent saves can't race us
       // into an inconsistent state. The user_id check is the access
-      // control gate — anything not owned by the caller is silently
+      // control gate - anything not owned by the caller is silently
       // dropped (it simply won't be in the row set).
       const result = await client.query(
         `SELECT id, data FROM brands

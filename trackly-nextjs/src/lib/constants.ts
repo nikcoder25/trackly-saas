@@ -126,7 +126,7 @@ export interface PricingPlan {
 
 // Mirrors the dashboard's Plan Comparison table (sourced from PLAN_CREDITS in
 // plan-config.ts and PLAN_LIMITS above). Keep the numbers here in lockstep
-// with that table — the billing UI is the source of truth for what users
+// with that table - the billing UI is the source of truth for what users
 // actually get on each plan. v3 spec (2026-04-27). No Enterprise tier on
 // the public site.
 export const PRICING_PLANS: PricingPlan[] = [

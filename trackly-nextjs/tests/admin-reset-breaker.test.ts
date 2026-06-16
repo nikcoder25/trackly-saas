@@ -176,7 +176,7 @@ describe('POST /api/admin/reset-breaker', () => {
       expect(body.in_process_reset).toBe(true);
       expect(body.redis_available).toBe(false);
       expect(body.redis_deleted).toBe(0);
-      // In-process reset still happened — that's the meaningful action
+      // In-process reset still happened - that's the meaningful action
       // on this pod when distributed limiter is off.
       expect(resetPlatformBreakerMock).toHaveBeenCalledWith('Grok');
     });
@@ -195,7 +195,7 @@ describe('POST /api/admin/reset-breaker', () => {
         error: 'redis_del_failed',
         details: 'READONLY',
       });
-      // In-process reset MUST have happened before the redis attempt —
+      // In-process reset MUST have happened before the redis attempt -
       // confirms the partial-state reporting is honest.
       expect(resetPlatformBreakerMock).toHaveBeenCalledWith('Perplexity');
     });

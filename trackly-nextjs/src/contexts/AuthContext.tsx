@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // becomes visible again. Without this, /dashboard/account and
   // /dashboard/billing can render conflicting plan values when the
   // user switches between them after a webhook lands in the background
-  // — exactly the 20-minute drift the subscription-sync incident
+  // - exactly the 20-minute drift the subscription-sync incident
   // surfaced. Throttled to once per 5 seconds so rapid tab switching
   // doesn't hammer /api/auth/me.
   useEffect(() => {

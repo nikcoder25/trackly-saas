@@ -47,7 +47,7 @@ beforeEach(() => {
   acquireFn.mockResolvedValue({ instanceId: 'inst_1', release: releaseFn });
 });
 
-describe('GET /api/cron/reap-stale-runs — auth', () => {
+describe('GET /api/cron/reap-stale-runs - auth', () => {
   it('500 when CRON_SECRET is unset', async () => {
     delete process.env.CRON_SECRET;
     const res = await reapCron(request('any'));
@@ -65,7 +65,7 @@ describe('GET /api/cron/reap-stale-runs — auth', () => {
   });
 });
 
-describe('GET /api/cron/reap-stale-runs — locking', () => {
+describe('GET /api/cron/reap-stale-runs - locking', () => {
   it("returns { skipped: true, reason: 'locked' } when acquire returns null", async () => {
     acquireFn.mockResolvedValueOnce(null);
     const res = await reapCron(request(process.env.CRON_SECRET!));
@@ -84,7 +84,7 @@ describe('GET /api/cron/reap-stale-runs — locking', () => {
   });
 });
 
-describe('GET /api/cron/reap-stale-runs — reconcile', () => {
+describe('GET /api/cron/reap-stale-runs - reconcile', () => {
   it('returns the reconciled count + brand/run ids + duration on success', async () => {
     reconcileFn.mockResolvedValue({
       count: 3,
@@ -103,7 +103,7 @@ describe('GET /api/cron/reap-stale-runs — reconcile', () => {
     expect(releaseFn).toHaveBeenCalledTimes(1);
   });
 
-  it('500 when the reconciler throws — but releases the lock', async () => {
+  it('500 when the reconciler throws - but releases the lock', async () => {
     reconcileFn.mockRejectedValue(new Error('db blew up'));
     const res = await reapCron(request(process.env.CRON_SECRET!));
     expect(res.status).toBe(500);

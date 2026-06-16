@@ -14,7 +14,7 @@ const ID_RE = /^[a-z0-9_-]{6,64}$/i;
  * ('done','error')). Used by the dashboard to recover when a client
  * has lost track of the active runId (page refresh, cookie clear,
  * crashed tab) and to power "is this brand currently running?"
- * checks at the brand level. Read-only — does not invoke the
+ * checks at the brand level. Read-only - does not invoke the
  * watchdog. The runId variant (./[runId]/route.ts) keeps the
  * defensive watchdog because it polls every 2-5s; this route is
  * called once per page load, so reaping decisions belong with the
@@ -31,7 +31,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
 
   // Authorize at the brand level BEFORE touching active_runs. Owner or
-  // any team-member role (including viewer) can read run status — this
+  // any team-member role (including viewer) can read run status - this
   // matches the read-only nature of the runId variant which gates only
   // on `run.user_id !== caller.id`. Viewers can already see runs in the
   // dashboard UI; this endpoint is the JSON form of that read.

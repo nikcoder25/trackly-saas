@@ -1,8 +1,8 @@
 /**
- * POST /api/nap-audits/[id]/override — manually mark a citation OK (or undo it).
+ * POST /api/nap-audits/[id]/override - manually mark a citation OK (or undo it).
  *
  * Body: { url: string, ok: boolean }. Counts the URL as a full match in the
- * consistency score — for pages the fetcher was blocked from but the operator
+ * consistency score - for pages the fetcher was blocked from but the operator
  * verified by hand. Recomputes and persists the score.
  */
 import { pool } from '@/lib/db';

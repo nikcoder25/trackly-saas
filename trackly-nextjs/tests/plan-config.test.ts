@@ -53,7 +53,7 @@ describe('PLAN_CREDITS', () => {
       cooldownSeconds: 30,
       // Livesov supports 5 AI platforms (ChatGPT, Perplexity, Claude,
       // Gemini, Grok). Pre-launch fix-up brought the cap down from 6
-      // to 5 to match reality — see PR "chore(pre-launch): platform
+      // to 5 to match reality - see PR "chore(pre-launch): platform
       // count copy".
       maxPlatforms: 5,
       trackedPromptsPerAccount: 100,
@@ -303,7 +303,7 @@ describe('applyChatGPTCohortOverride', () => {
     for (let i = 0; i < N; i++) {
       if (applyChatGPTCohortOverride('gpt-5-search-api', `brand_${i}`).inCohort) routed++;
     }
-    // Expect ~125; allow generous slack (75 .. 175) — this is a smoke
+    // Expect ~125; allow generous slack (75 .. 175) - this is a smoke
     // test, not a statistical one. Catches off-by-one bucket math.
     expect(routed).toBeGreaterThan(75);
     expect(routed).toBeLessThan(175);

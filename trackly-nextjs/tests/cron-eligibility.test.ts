@@ -1,5 +1,5 @@
 /**
- * Tests for src/lib/cron-eligibility.ts::resolveLastRunTime — the
+ * Tests for src/lib/cron-eligibility.ts::resolveLastRunTime - the
  * fallback walker added in PR-C-2 to fix the production scheduler
  * skip on REIF Loans / Easypump Concrete after the 11:17/11:44 EST
  * 2026-04-28 deploy SIGTERMs.
@@ -22,10 +22,10 @@
 import { describe, it, expect } from 'vitest';
 import { resolveLastRunTime } from '@/lib/cron-eligibility';
 
-describe('resolveLastRunTime — primary path (active_runs status=done)', () => {
+describe('resolveLastRunTime - primary path (active_runs status=done)', () => {
   it("returns active_runs timestamp + source='active_runs' when primary is set", () => {
     // Regression guard: when there's a status='done' row in active_runs,
-    // the helper must use it and never consult brand.data.runs at all —
+    // the helper must use it and never consult brand.data.runs at all -
     // even if brand.data.runs[last] is a watchdog-reap entry that would
     // give a different (and wrong) answer. The active_runs success row
     // is the source of truth; the JSONB array is fallback only.
@@ -47,7 +47,7 @@ describe('resolveLastRunTime — primary path (active_runs status=done)', () => 
   });
 });
 
-describe('resolveLastRunTime — fallback skips reap entries', () => {
+describe('resolveLastRunTime - fallback skips reap entries', () => {
   it('walks past a watchdog-reap entry and uses an older legitimate success', () => {
     // The exact REIF/Easypump case: yesterday's successful run is in
     // history, today's stuck-and-reaped run is also there with
@@ -68,7 +68,7 @@ describe('resolveLastRunTime — fallback skips reap entries', () => {
   it("returns null when EVERY brand.data.runs entry is a reap", () => {
     // Brand has been getting reaped every cycle and never completed
     // a run. The helper must NOT pick the latest reap stamp (which
-    // would be NOW) — instead returns null so the cron treats the
+    // would be NOW) - instead returns null so the cron treats the
     // brand as never-run and lets it through the gate. A reap-only
     // history is the strongest signal that the brand needs a fresh
     // attempt, not another 24h block.
@@ -91,18 +91,18 @@ describe('resolveLastRunTime — fallback skips reap entries', () => {
     const reapNow = new Date().toISOString();
     const out = resolveLastRunTime(null, [
       { time: yesterday },
-      // No watchdogReap, but emergencySave is set — same skip rule.
+      // No watchdogReap, but emergencySave is set - same skip rule.
       { time: reapNow, emergencySave: true },
     ]);
     expect(out.lastRunTime).toBe(Date.parse(yesterday));
   });
 });
 
-describe('resolveLastRunTime — fallback unchanged when no reap entries present', () => {
+describe('resolveLastRunTime - fallback unchanged when no reap entries present', () => {
   it("uses runs[last].time exactly like pre-PR-C-2 behaviour", () => {
     // Regression guard: a brand whose entire history is healthy
     // successes must still get its newest entry's timestamp. This is
-    // the no-op case for the change — the new walker, when nothing
+    // the no-op case for the change - the new walker, when nothing
     // is reap-flagged, is functionally identical to the old
     // `runs[runs.length - 1]` lookup.
     const newest = '2026-04-28T10:00:00Z';
@@ -123,7 +123,7 @@ describe('resolveLastRunTime — fallback unchanged when no reap entries present
   });
 });
 
-describe('resolveLastRunTime — edge cases', () => {
+describe('resolveLastRunTime - edge cases', () => {
   it('returns null when brandRuns is undefined / null / empty', () => {
     expect(resolveLastRunTime(null, undefined).lastRunTime).toBeNull();
     expect(resolveLastRunTime(null, null).lastRunTime).toBeNull();
@@ -134,7 +134,7 @@ describe('resolveLastRunTime — edge cases', () => {
     const fallback = '2026-04-26T08:00:00Z';
     const out = resolveLastRunTime(null, [
       { time: fallback },
-      // No time, no date — must not throw, must not poison the result.
+      // No time, no date - must not throw, must not poison the result.
       {},
     ]);
     expect(out.lastRunTime).toBe(Date.parse(fallback));

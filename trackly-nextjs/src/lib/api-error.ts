@@ -67,7 +67,7 @@ export function notFound(message = 'Not found', opts?: ErrorOptions): Response {
  * unexpected/thrown errors can never echo a raw exception message. Handlers
  * with an existing safe, user-facing 500 string (e.g. `"Failed to delete
  * alert"`) can pass `message` to preserve the frontend copy. `message` must
- * always be a hard-coded, non-sensitive string — never pass a value derived
+ * always be a hard-coded, non-sensitive string - never pass a value derived
  * from an exception, DB result, or external input.
  */
 export function serverError(opts?: { message?: string; code?: string }): Response {
@@ -114,7 +114,7 @@ export function scrubLogContext(context: Record<string, unknown> | undefined): R
  * name is what surfaces in Sentry Logs / App Platform tails; the context
  * is trimmed of obvious secrets before emission.
  *
- * Callers should still pair this with `serverError()` for the response —
+ * Callers should still pair this with `serverError()` for the response -
  * this function intentionally does not return a `Response` so the log
  * path is visible at the call site.
  */

@@ -34,7 +34,7 @@ beforeEach(() => {
 afterEach(() => { vi.clearAllMocks(); });
 
 // Mirror of the run route's status mapping. If the route changes,
-// update both places — the tests will catch the drift.
+// update both places - the tests will catch the drift.
 function translateReservation(code: string): number {
   if (code === 'cooldown') return 429;
   if (code === 'monthly_exhausted') return 402;
@@ -42,7 +42,7 @@ function translateReservation(code: string): number {
   return 403;
 }
 
-describe('/api/queries/run — happy path (manual)', () => {
+describe('/api/queries/run - happy path (manual)', () => {
   it('successful reservation → run can proceed', async () => {
     queryMock.mockImplementation(async (sql: string) => {
       if (sql.includes('CREATE TABLE')) return { rows: [] };
@@ -69,7 +69,7 @@ describe('/api/queries/run — happy path (manual)', () => {
   });
 });
 
-describe('/api/queries/run — out of credits', () => {
+describe('/api/queries/run - out of credits', () => {
   it('reservation fails → route should respond 402 with credits.monthly_exhausted', async () => {
     queryMock.mockImplementation(async (sql: string) => {
       if (sql.includes('CREATE TABLE')) return { rows: [] };
@@ -99,7 +99,7 @@ describe('/api/queries/run — out of credits', () => {
 
   // The pre-v3 "auto-run on a free plan is rejected before any DB call"
   // test asserted `Free.scheduledRuns === false`. v3 (2026-04-27) flipped
-  // every tier — including Free (weekly) — to `scheduledRuns: true`, so
+  // every tier - including Free (weekly) - to `scheduledRuns: true`, so
   // no real plan name exercises the `plan_disallows_auto` reservation
   // failure any more. The translate-to-403 contract is still covered by
   // the non-`auto` failure cases above; deleting this assertion rather
@@ -107,7 +107,7 @@ describe('/api/queries/run — out of credits', () => {
   // dormant under the current config.
 });
 
-describe('/api/queries/run — cooldown blocked', () => {
+describe('/api/queries/run - cooldown blocked', () => {
   it('active cooldown → 429 with credits.cooldown', async () => {
     queryMock.mockImplementation(async (sql: string) => {
       if (sql.includes('CREATE TABLE')) return { rows: [] };

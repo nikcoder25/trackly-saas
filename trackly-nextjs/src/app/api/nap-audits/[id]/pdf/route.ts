@@ -1,5 +1,5 @@
 /**
- * GET /api/nap-audits/[id]/pdf — download a branded PDF of a saved NAP audit.
+ * GET /api/nap-audits/[id]/pdf - download a branded PDF of a saved NAP audit.
  */
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';

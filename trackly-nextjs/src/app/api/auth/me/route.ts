@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
     // Admins always see plan='owner' in the API response so the unmetered
     // UI surfaces (UsageSection, billing page, etc.) keep working without
-    // changes. This is a *response-shape* spoof only — we deliberately do
+    // changes. This is a *response-shape* spoof only - we deliberately do
     // NOT write 'owner' back to users.plan, because:
     //   - users.plan is the authoritative billing state. It's written by
     //     the Dodo webhook handler, /api/payments/cancel, the reconcile

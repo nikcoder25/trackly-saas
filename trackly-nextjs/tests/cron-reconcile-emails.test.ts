@@ -3,7 +3,7 @@
  * (audit item C).
  *
  * Pre-fix, the cron repaired plan/status drift but never dispatched any
- * email — when a webhook was dropped and the cron picked up the change,
+ * email - when a webhook was dropped and the cron picked up the change,
  * the user was silently moved between plans (or down to free) without
  * confirmation. This file pins the post-fix parity with the webhook
  * handler's three email kinds:
@@ -89,7 +89,7 @@ vi.mock('@/lib/email', () => ({
     `plan_cancellation:${userId}:${subscriptionId || 'no_sub'}`,
 }));
 
-// comparePlans is real — we want the genuine direction logic, not a stub.
+// comparePlans is real - we want the genuine direction logic, not a stub.
 // (No mock for @/lib/plan-config.)
 
 import { GET as cronReconcileGet } from '@/app/api/cron/reconcile-payments/route';
@@ -139,7 +139,7 @@ function makeFakeClient(opts: FakeClientOpts): {
     if (/SELECT id, email, plan, settings FROM users/.test(sql)) {
       return Promise.resolve({ rows: opts.users });
     }
-    // Conditional UPDATE on plan — used by both 404 cleanup and plan_mismatch.
+    // Conditional UPDATE on plan - used by both 404 cleanup and plan_mismatch.
     if (/UPDATE users SET plan = \$1 WHERE id = \$2 AND plan = \$3 RETURNING id/.test(sql)) {
       if (opts.conditionalUpdateRowsOverride !== undefined && !conditionalOverrideUsed) {
         conditionalOverrideUsed = true;
@@ -177,7 +177,7 @@ beforeEach(() => {
   sendCancellation.mockResolvedValue({ sent: true });
 });
 
-describe('reconcile-payments cron — email parity with webhook', () => {
+describe('reconcile-payments cron - email parity with webhook', () => {
   it('T1: 404 cleanup on a paid user dispatches a cancellation email', async () => {
     const fake = makeFakeClient({
       users: [{
@@ -200,7 +200,7 @@ describe('reconcile-payments cron — email parity with webhook', () => {
         'a@test.com',
         { previousPlan: 'agency' },
         // Shared cancellation key (plan_cancellation:userId:subscriptionId)
-        // — produced by planCancellationIdempotencyKey so the cron, the
+        // - produced by planCancellationIdempotencyKey so the cron, the
         // webhook, and the cancel route all collide on the same key in
         // the email_outbox UNIQUE index for a given logical cancellation.
         expect.stringMatching(/^plan_cancellation:user_A:sub_X$/),
@@ -325,7 +325,7 @@ describe('reconcile-payments cron — email parity with webhook', () => {
   });
 
   it('T5: plan_mismatch paid -> free (Dodo status non-active) dispatches a cancellation email', async () => {
-    // expectedPlan is forced to 'free' when dodoStatus !== 'active' —
+    // expectedPlan is forced to 'free' when dodoStatus !== 'active' -
     // matches the webhook DOWNGRADE_EVENTS branch behaviour: always
     // cancellation, never sendPlanDowngradeEmail.
     const fake = makeFakeClient({
@@ -363,7 +363,7 @@ describe('reconcile-payments cron — email parity with webhook', () => {
 
   it('T6: status-only drift does not dispatch any email', async () => {
     // user.plan matches expectedPlan but settings.subscription_status
-    // is stale. The cron should update settings and NOT email — same
+    // is stale. The cron should update settings and NOT email - same
     // behaviour the webhook has for non-plan-changing events.
     const fake = makeFakeClient({
       users: [{

@@ -7,7 +7,7 @@
  * Bypasses the Lua compare-and-delete that the normal `release()`
  * uses, so this WILL delete a lock currently held by a live worker
  * on another pod. The risk is documented in
- * src/lib/cron-lock.ts::forceReleaseCronLock — TL;DR: per-brand
+ * src/lib/cron-lock.ts::forceReleaseCronLock - TL;DR: per-brand
  * work is still de-duplicated by the active_runs partial unique
  * index, so the worst case is two `/api/cron` ticks racing the
  * same scheduling loop, which is already handled.
@@ -25,7 +25,7 @@ import { logger } from '@/lib/logger';
 import { auditLog } from '@/lib/db';
 
 // Names this endpoint is allowed to touch. Mirrors the
-// acquireCronLock callsites grep would surface — anything new
+// acquireCronLock callsites grep would surface - anything new
 // (e.g. PR-B's own /api/cron/reap-stale-runs) must be added here
 // to be force-releasable.
 const ALLOWED_LOCK_NAMES = new Set([

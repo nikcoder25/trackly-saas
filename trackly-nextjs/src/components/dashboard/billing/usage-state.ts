@@ -87,9 +87,9 @@ export function forecastState(input: ForecastInput): ForecastState {
  * without importing the React component.
  */
 export function fmtDate(iso: string | null | undefined): string {
-  if (!iso) return '—';
+  if (!iso) return '-';
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
@@ -101,9 +101,9 @@ export function fmtDate(iso: string | null | undefined): string {
  * Accepts either a YYYY-MM-DD bucket string or a full ISO timestamp.
  */
 export function fmtDateUtc(iso: string | null | undefined): string {
-  if (!iso) return '—';
+  if (!iso) return '-';
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', timeZone: 'UTC',
   });

@@ -5,7 +5,7 @@
  * created a brand-new Dodo subscription via /checkouts but never cancelled the
  * existing one. Dodo continued to bill the old subscription monthly while we
  * activated the new one, and our reconcile cron only walked currently-bound
- * subscription_ids — it had no way to discover the orphan we forgot. Net effect:
+ * subscription_ids - it had no way to discover the orphan we forgot. Net effect:
  * silent double-billing until the customer noticed and complained.
  *
  * Fix: in the webhook handler's upgrade branch, when an activation-style event
@@ -13,7 +13,7 @@
  * subscription_id than the one already bound to the user, PATCH the old one
  * to status='cancelled' before overwriting the binding. Soft-fail policy on
  * non-2xx-and-non-404/409/410 responses so a Dodo API blip doesn't block a
- * just-paid-for upgrade — the orphan is recorded via auditLog for support.
+ * just-paid-for upgrade - the orphan is recorded via auditLog for support.
  *
  * Renewal/plan_changed paths are intentionally NOT broadened: those still
  * 400 on subscription_id mismatch via SUBSCRIPTION_UPDATE_EVENTS, because a
@@ -179,7 +179,7 @@ beforeEach(() => {
   loggerInfo.mockReset();
 });
 
-describe('dodopayments webhook — upgrade cancels orphaned old subscription', () => {
+describe('dodopayments webhook - upgrade cancels orphaned old subscription', () => {
   it('T1: upgrade cancels old sub via PATCH and activates the new plan', async () => {
     const fake = makeFakeClient({
       id: 'user_A',
@@ -328,7 +328,7 @@ describe('dodopayments webhook — upgrade cancels orphaned old subscription', (
       const res = await webhookPost(req);
       expect(res.status).toBe(200);
 
-      // ZERO PATCH calls to /subscriptions/* — no double-cancel, no
+      // ZERO PATCH calls to /subscriptions/* - no double-cancel, no
       // wasted Dodo API call when there's no orphan to clean up.
       const subscriptionPatchCalls = fetchMock.calls.filter(c =>
         /\/subscriptions\//.test(c.url) && c.init?.method === 'PATCH',
@@ -345,7 +345,7 @@ describe('dodopayments webhook — upgrade cancels orphaned old subscription', (
     }
   });
 
-  it('T4: 5xx from Dodo soft-fails — warn log + audit row, plan still activates', async () => {
+  it('T4: 5xx from Dodo soft-fails - warn log + audit row, plan still activates', async () => {
     const fake = makeFakeClient({
       id: 'user_A',
       email: 'a@test.com',
@@ -403,7 +403,7 @@ describe('dodopayments webhook — upgrade cancels orphaned old subscription', (
   it('T5: subscription.renewed with mismatched subscription_id still 400s (no broadening)', async () => {
     // Regression: renewals/plan_changed for a *different* subscription
     // remain genuinely suspicious. The pre-existing 400 mismatch guard
-    // must continue to fire — we are NOT broadening cancel-old-sub to
+    // must continue to fire - we are NOT broadening cancel-old-sub to
     // these event types.
     const fake = makeFakeClient({
       id: 'user_A',
@@ -437,7 +437,7 @@ describe('dodopayments webhook — upgrade cancels orphaned old subscription', (
       const body = await res.json();
       expect(body.error).toBe('Subscription mismatch');
 
-      // No Dodo PATCH should have been issued — cancel-old-sub must
+      // No Dodo PATCH should have been issued - cancel-old-sub must
       // NOT fire on renewal mismatches.
       const subscriptionPatchCalls = fetchMock.calls.filter(c =>
         /\/subscriptions\//.test(c.url) && c.init?.method === 'PATCH',

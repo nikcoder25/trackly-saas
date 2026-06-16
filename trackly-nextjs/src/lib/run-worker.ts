@@ -207,7 +207,7 @@ async function processRun(job: Job<BrandRunJobData>) {
         const rawKey = resolved.key;
 
         // Circuit breaker check. Only consult the global breaker for
-        // server (env) keys — tenant-supplied keys have their own
+        // server (env) keys - tenant-supplied keys have their own
         // (tenant, platform) failure counter so a bad customer key
         // does not pollute the platform-wide breaker.
         if (resolved.source === 'server' && circuitBreakerCheck(rawKey)) {
@@ -222,7 +222,7 @@ async function processRun(job: Job<BrandRunJobData>) {
         // CHATGPT_SMART_MODEL_ROUTING=false to disable.
         const baseModel = adminModels[plat] || getDefaultModel(plat);
         // Premium-tier ChatGPT A/B cohort (CHATGPT_COHORT_MINI_PERCENT).
-        // Same plumbing as the /run route — passthrough unless the
+        // Same plumbing as the /run route - passthrough unless the
         // env var is set and brand is premium ChatGPT.
         const cohortDecision = plat === 'ChatGPT'
           ? applyChatGPTCohortOverride(baseModel, brandId)
@@ -245,7 +245,7 @@ async function processRun(job: Job<BrandRunJobData>) {
         // search-preview → gpt-4o), drop to the fallback so the cache
         // key + prompt shape both flip onto the non-search path. When no
         // fallback exists (Perplexity is search-native), the helper logs
-        // and returns the original model unchanged — fail-open, never
+        // and returns the original model unchanged - fail-open, never
         // block traffic on a quota-saver.
         const budgetResolved = await resolveSearchModelWithBudget({
           platform: plat,
@@ -276,7 +276,7 @@ async function processRun(job: Job<BrandRunJobData>) {
           // Wrap the queryAI call with the shared response cache. On a hit,
           // the provider is never invoked and we skip key-success bookkeeping
           // (no key was used). On a miss, the live result is cached on the
-          // way out — errors are not cached. The worker has no withDeepRetry
+          // way out - errors are not cached. The worker has no withDeepRetry
           // wrapper today (separate concern from caching).
           const cached = await withCacheAndRetry(
             {
@@ -295,7 +295,7 @@ async function processRun(job: Job<BrandRunJobData>) {
                 tenantId: userId,
                 runId,
                 // BullMQ worker processes background queued tasks
-                // only — never user-blocking — so no-search ChatGPT
+                // only - never user-blocking - so no-search ChatGPT
                 // calls here can ride the OpenAI Batch API when
                 // CHATGPT_BATCH_ENABLED is on.
                 batchEligible: true,
@@ -304,7 +304,7 @@ async function processRun(job: Job<BrandRunJobData>) {
           );
           const result = cached.data;
           platFailCount[plat] = 0;
-          // Skip key-success/health bookkeeping on cache hits — no provider
+          // Skip key-success/health bookkeeping on cache hits - no provider
           // call was made, so the key wasn't exercised.
           if (!cached.fromCache) {
             if (resolved.source === 'server') resetApiKeyFailures(rawKey);

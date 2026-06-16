@@ -4,9 +4,9 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 
 /**
- * Email Outbox Cron Worker — HTTP entry point.
+ * Email Outbox Cron Worker - HTTP entry point.
  *
- * Audit item D — durable email delivery. Originally PR #481's only
+ * Audit item D - durable email delivery. Originally PR #481's only
  * trigger; the GH Actions every-2-minute schedule curls this endpoint
  * to drain the outbox. Reality check: GH Actions throttles
  * sub-5-minute schedules and our every-2-minute schedule was firing

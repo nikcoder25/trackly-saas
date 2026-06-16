@@ -38,7 +38,7 @@ interface AnchorMixEditorProps {
  * Three preset buttons cover the common shapes:
  *   • Balanced (the SEO default)
  *   • Branded-heavy (safe for fresh sites with no link history)
- *   • Exact-only (legacy behaviour — handy for re-running an old campaign)
+ *   • Exact-only (legacy behaviour - handy for re-running an old campaign)
  */
 function AnchorMixEditor({ mix, count, onChange, previewParams }: AnchorMixEditorProps) {
   const total = ANCHOR_TYPES.reduce((s, t) => s + (mix[t] ?? 0), 0);
@@ -147,7 +147,7 @@ function AnchorMixEditor({ mix, count, onChange, previewParams }: AnchorMixEdito
           <div>{total}%</div>
           <div style={{ textAlign: 'right' }} className="mono">{Math.max(0, count)}</div>
           <div style={{ color: onTarget ? 'var(--green)' : 'var(--red)' }}>
-            {onTarget ? '✓ adds up to 100%' : `Adjust to 100% (currently ${total}%) — totals off-target will be normalised proportionally`}
+            {onTarget ? '✓ adds up to 100%' : `Adjust to 100% (currently ${total}%) - totals off-target will be normalised proportionally`}
           </div>
         </div>
       </div>
@@ -255,12 +255,12 @@ type PresetState = {
   blogLinkCount: number;
   includeTable: boolean;
   includeImages: boolean;
-  /** Optional on legacy presets — falls back to DEFAULT_ANCHOR_MIX when missing. */
+  /** Optional on legacy presets - falls back to DEFAULT_ANCHOR_MIX when missing. */
   anchorMix?: Record<AnchorType, number>;
   /**
    * When true, anchors are distributed across the anchor-text mix above.
    * When false, every backlink uses the plain exact keyword as its anchor
-   * (the simple "keyword + link pair" mode). Optional on legacy presets —
+   * (the simple "keyword + link pair" mode). Optional on legacy presets -
    * defaults to true so existing campaigns keep their mix.
    */
   useAnchorMix?: boolean;
@@ -268,11 +268,11 @@ type PresetState = {
   interlinks?: Interlink[];
   /** How many interlinks each article uses (rotated). 0 = all. Optional on legacy presets. */
   interlinksPerArticle?: number;
-  /** Which generation mode the campaign uses. Optional on legacy presets — defaults to 'form'. */
+  /** Which generation mode the campaign uses. Optional on legacy presets - defaults to 'form'. */
   promptMode?: PromptMode;
   /** Raw instructions pasted from the customer for client-prompt mode. Optional on legacy presets. */
   clientPrompt?: string;
-  /** Sections layered into client-prompt generation. Optional on legacy presets — default off. */
+  /** Sections layered into client-prompt generation. Optional on legacy presets - default off. */
   includeMoneySiteSection?: boolean;
   includeLinkPairsSection?: boolean;
   includeSettingsSection?: boolean;
@@ -681,7 +681,7 @@ export default function BacklinkToolPage() {
       url: 'full URL',
     };
     const linkingRules: string[] = [
-      `- ONE money-site backlink: <a href="${pair.link}">${anchorText}</a> placed naturally. Use this anchor text EXACTLY as written above — it has been pre-chosen as a ${anchorTypeNote[anchorType]} for this article's slot in the anchor-text mix. Do NOT paraphrase, expand, or substitute it.`,
+      `- ONE money-site backlink: <a href="${pair.link}">${anchorText}</a> placed naturally. Use this anchor text EXACTLY as written above - it has been pre-chosen as a ${anchorTypeNote[anchorType]} for this article's slot in the anchor-text mix. Do NOT paraphrase, expand, or substitute it.`,
     ];
     // Internal links: when the operator supplies explicit interlink
     // anchor+URL pairs, those REPLACE the AI-invented service/blog links so
@@ -709,7 +709,7 @@ export default function BacklinkToolPage() {
         .map((l) => `<a href="${l.url}">${l.anchor}</a>`)
         .join('\n  ');
       linkingRules.push(
-        `- Include these EXACT internal interlink${selected.length > 1 ? 's' : ''}, each placed naturally in a relevant sentence and used exactly once:\n  ${list}\n  Use the anchor text and URL of each EXACTLY as written — do NOT paraphrase the anchor text, alter the URLs, or invent any other internal links to the money site.`,
+        `- Include these EXACT internal interlink${selected.length > 1 ? 's' : ''}, each placed naturally in a relevant sentence and used exactly once:\n  ${list}\n  Use the anchor text and URL of each EXACTLY as written - do NOT paraphrase the anchor text, alter the URLs, or invent any other internal links to the money site.`,
       );
     } else {
       internalLinkCount = params.serviceLinkCount + params.blogLinkCount;
@@ -750,7 +750,7 @@ export default function BacklinkToolPage() {
 
 ARTICLE BRIEF:
 - Niche: ${params.niche}
-- Target keyword (for SEO placement — H1, body density): ${pair.keyword}
+- Target keyword (for SEO placement - H1, body density): ${pair.keyword}
 - Money-site anchor URL: ${pair.link}
 - Money-site backlink anchor text (use VERBATIM on the money-site <a>): ${anchorText}
 - Anchor profile for this article: ${anchorTypeNote[anchorType]}
@@ -945,7 +945,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
       const lines: string[] = [];
       if (moneySite.trim()) lines.push(`- Money site (the brand/site these articles support): ${moneySite.trim()}`);
       if (niche.trim()) lines.push(`- Niche / industry: ${niche.trim()}`);
-      if (location.trim()) lines.push(`- Local service area: ${location.trim()} — mention it naturally at least once for local SEO relevance.`);
+      if (location.trim()) lines.push(`- Local service area: ${location.trim()} - mention it naturally at least once for local SEO relevance.`);
       if (authorInfo.trim()) lines.push(`- End with an "About the Author" H2 section for this author: ${authorInfo.trim()}`);
       if (lines.length > 0) blocks.push(`MONEY SITE INFO:\n${lines.join('\n')}`);
     }
@@ -953,7 +953,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     if (includeLinkPairsSection && pair) {
       const anchorText = anchor?.text?.trim() || pair.keyword.trim();
       blocks.push(
-        `MONEY-SITE BACKLINK (CRITICAL):\n- Include exactly ONE backlink to the money site: <a href="${pair.link}">${anchorText}</a> placed naturally in the article body. Use this anchor text EXACTLY as written — it has been pre-chosen for this article's slot in the anchor-text mix. Do NOT paraphrase, expand, or substitute it.\n- Target keyword for this article: "${pair.keyword}". Use it naturally in the H1 title and within the first 100 words.`,
+        `MONEY-SITE BACKLINK (CRITICAL):\n- Include exactly ONE backlink to the money site: <a href="${pair.link}">${anchorText}</a> placed naturally in the article body. Use this anchor text EXACTLY as written - it has been pre-chosen for this article's slot in the anchor-text mix. Do NOT paraphrase, expand, or substitute it.\n- Target keyword for this article: "${pair.keyword}". Use it naturally in the H1 title and within the first 100 words.`,
       );
     }
 
@@ -997,7 +997,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     if (blocks.length === 0) return '';
     return `
 ================================================================
-CAMPAIGN SETTINGS (set by the operator — follow alongside the client brief)
+CAMPAIGN SETTINGS (set by the operator - follow alongside the client brief)
 ================================================================
 ${blocks.join('\n\n')}
 `;
@@ -1204,7 +1204,7 @@ ${blocks.join('\n\n')}
     // it must still hold the brief before they can be regenerated.
     const hasCustom = articles.some((a) => toRun.has(a.index) && a.source === 'custom');
     if (hasCustom && !clientPrompt.trim()) {
-      setGenStatus({ msg: 'The client prompt area is empty — paste the client instructions before regenerating these articles', type: 'error' });
+      setGenStatus({ msg: 'The client prompt area is empty - paste the client instructions before regenerating these articles', type: 'error' });
       return;
     }
     const lookup = new Map<number, LinkPair>();
@@ -1223,7 +1223,7 @@ ${blocks.join('\n\n')}
       if (!a.pair) return;
       lookup.set(a.index, a.pair);
       // Legacy persisted articles (from before the mix existed) won't
-      // have anchorType set — fall back to the exact-match behaviour the
+      // have anchorType set - fall back to the exact-match behaviour the
       // tool used at that time so a retry doesn't quietly change the
       // anchor under the user.
       const type: AnchorType = a.anchorType ?? 'exact';
@@ -2050,7 +2050,7 @@ ${blocks.join('\n\n')}
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={styles.label}>Link Counts</label>
-            <div style={styles.help}>The money-site backlink (your target keyword) is always included. Set any count to 0 to skip that type entirely.{validInterlinks.length > 0 ? ' Note: you have custom interlinks below, so the Service/Blog counts are ignored — those links are replaced by your interlink URLs.' : ''}</div>
+            <div style={styles.help}>The money-site backlink (your target keyword) is always included. Set any count to 0 to skip that type entirely.{validInterlinks.length > 0 ? ' Note: you have custom interlinks below, so the Service/Blog counts are ignored - those links are replaced by your interlink URLs.' : ''}</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 8 }}>
               <div>
                 <label style={styles.label}>Outbound Authority Links</label>
@@ -2093,7 +2093,7 @@ ${blocks.join('\n\n')}
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={styles.label}>Interlinking URLs (optional)</label>
             <div style={styles.help}>
-              Real internal links to your client&apos;s pages — each with its own anchor text and destination URL. When you add one or more here, they replace the auto-generated Service/Blog internal links above, so articles only link to URLs you supply. Use the &quot;per article&quot; field below to rotate a subset across the batch so not every article uses the same links.
+              Real internal links to your client&apos;s pages - each with its own anchor text and destination URL. When you add one or more here, they replace the auto-generated Service/Blog internal links above, so articles only link to URLs you supply. Use the &quot;per article&quot; field below to rotate a subset across the batch so not every article uses the same links.
             </div>
             {interlinks.map((l, idx) => (
               <div key={l.id} style={styles.linkPair}>
@@ -2184,7 +2184,7 @@ ${blocks.join('\n\n')}
       </div>
       </>)}
 
-      {/* CUSTOM GENERATE (client-prompt mode) — sits below any included
+      {/* CUSTOM GENERATE (client-prompt mode) - sits below any included
           section cards so it's always the last step before Progress. */}
       {promptMode === 'custom' && (includeMoneySiteSection || includeLinkPairsSection || includeSettingsSection) && (
         <button onClick={startCustomGeneration} disabled={isRunning} style={{ ...styles.btn, width: '100%', marginBottom: 18, opacity: isRunning ? 0.5 : 1, cursor: isRunning ? 'not-allowed' : 'pointer' }}>

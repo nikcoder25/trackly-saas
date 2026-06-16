@@ -53,7 +53,7 @@ beforeEach(() => {
 });
 afterEach(() => { vi.clearAllMocks(); });
 
-describe('ensureGeoAuditsSchema — mention_rate persistence (#schema-upgrade-1)', () => {
+describe('ensureGeoAuditsSchema - mention_rate persistence (#schema-upgrade-1)', () => {
   it('emits an additive ALTER TABLE … ADD COLUMN IF NOT EXISTS mention_rate NUMERIC', async () => {
     const { ensureGeoAuditsSchema } = await import('../src/lib/geo-audits');
     await ensureGeoAuditsSchema();
@@ -80,7 +80,7 @@ describe('ensureGeoAuditsSchema — mention_rate persistence (#schema-upgrade-1)
   });
 });
 
-describe('processGeoAudit — finalize writes mention_rate', () => {
+describe('processGeoAudit - finalize writes mention_rate', () => {
   // We exercise the worker end-to-end so finalizeAudit's UPDATE
   // captures real call counts. Per-call results are stubbed via the
   // callProvider seam.
@@ -139,7 +139,7 @@ describe('processGeoAudit — finalize writes mention_rate', () => {
         const received = resultsInserted.filter((r) => !r.error).length;
         return { rows: [{ received }] };
       }
-      // Finalize UPDATE — the assertion target for these tests.
+      // Finalize UPDATE - the assertion target for these tests.
       // params[]: id, status, received, mentions_count, mention_rate, error
       if (/UPDATE geo_audits[\s\S]*SET status = \$2/i.test(sql)) {
         const p = params || [];

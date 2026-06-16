@@ -4,13 +4,13 @@ import { logger } from '@/lib/logger';
 import { deliverEmailViaProvider } from '@/lib/email';
 
 /**
- * Email outbox drain — shared logic between the HTTP worker route
+ * Email outbox drain - shared logic between the HTTP worker route
  * (src/app/api/cron/process-email-outbox/route.ts) and the in-process
  * scheduler started by instrumentation.ts.
  *
  * Audit item D depends on this draining the outbox at a reliable
  * cadence. PR #481 originally relied solely on a GitHub Actions
- * every-2-minute schedule curling the HTTP route — but GH Actions
+ * every-2-minute schedule curling the HTTP route - but GH Actions
  * documents a soft minimum of ~5 minutes for cron schedules, and in
  * production the every-2-minute schedule was getting throttled enough
  * that the worker never ran at all. The in-process scheduler is the
@@ -210,7 +210,7 @@ export async function drainOutbox(): Promise<DrainOutboxResult> {
       retried++;
     }
 
-    // Always emit a tick log — the heartbeat that confirms the worker
+    // Always emit a tick log - the heartbeat that confirms the worker
     // is alive in production. PR #481 had no such log; when GH Actions
     // never fired, ops had no signal anywhere that delivery was stuck.
     logger.info('email.outbox.tick', {

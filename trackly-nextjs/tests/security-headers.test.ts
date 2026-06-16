@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Regression tests for the app's security headers and cookie flags. These
 // two concerns share a file because both are "belt and braces" defences that
-// have no runtime telemetry — a silent regression here would only show up in
+// have no runtime telemetry - a silent regression here would only show up in
 // a pentest or a post-incident review.
 //
 // What we lock down:
@@ -59,7 +59,7 @@ describe('next.config security headers', () => {
       for (const h of block.headers) {
         expect(
           h.key.toLowerCase(),
-          `${block.source} must not ship a static CSP — middleware issues the nonce-scoped one`,
+          `${block.source} must not ship a static CSP - middleware issues the nonce-scoped one`,
         ).not.toBe('content-security-policy');
       }
     }

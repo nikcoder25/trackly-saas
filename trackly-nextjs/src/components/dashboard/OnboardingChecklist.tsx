@@ -44,7 +44,7 @@ export default function OnboardingChecklist() {
   const steps = [
     {
       key: 'verify', label: 'Verify your email', done: emailVerified,
-      hint: 'Check your inbox — the link unlocks your full 7-day trial.',
+      hint: 'Check your inbox - the link unlocks your full 7-day trial.',
       cta: null as ReactNode,
     },
     {
@@ -90,7 +90,7 @@ export default function OnboardingChecklist() {
     try { localStorage.setItem(DISMISSED_KEY, '1'); } catch {}
   };
 
-  // Index of the next actionable (incomplete) step — highlighted to guide focus.
+  // Index of the next actionable (incomplete) step - highlighted to guide focus.
   const activeIdx = steps.findIndex(s => !s.done);
 
   return (

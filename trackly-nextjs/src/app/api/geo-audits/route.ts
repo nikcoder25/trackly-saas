@@ -1,5 +1,5 @@
 /**
- * /api/geo-audits — list (GET) and create (POST) Regional Audits.
+ * /api/geo-audits - list (GET) and create (POST) Regional Audits.
  *
  * GET  /api/geo-audits             → list current user's audits, newest first
  * POST /api/geo-audits             → create + dispatch a new audit
@@ -165,7 +165,7 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: `At most ${MAX_PROMPTS_PER_AUDIT} prompts per audit` }, { status: 400 });
   }
 
-  // Brand must belong to caller — silently 404 otherwise so we don't
+  // Brand must belong to caller - silently 404 otherwise so we don't
   // leak existence of someone else's brand id.
   const brandCheck = await pool.query(
     `SELECT id FROM brands WHERE id = $1 AND user_id = $2 LIMIT 1`,
@@ -195,7 +195,7 @@ export async function POST(request: Request): Promise<Response> {
   const totalExpected = regions.length * prompts.length * GEO_AUDIT_PLATFORMS.length;
 
   // Reserve credits up-front (mirrors brands/[id]/run flow). Owner
-  // accounts skip the cap — reserveCredits returns ok=true for them.
+  // accounts skip the cap - reserveCredits returns ok=true for them.
   const reservation = await reserveAuditCredits(user.id, effectivePlan, totalExpected);
   if (!reservation.ok) {
     return Response.json(

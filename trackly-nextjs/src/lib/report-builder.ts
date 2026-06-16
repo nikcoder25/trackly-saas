@@ -1,5 +1,5 @@
 /**
- * Custom Report builder — per-brand "draft" of selected items (mentions and
+ * Custom Report builder - per-brand "draft" of selected items (mentions and
  * queries) that the user assembles via "Add to report" and then downloads as a
  * Custom Report PDF (see lib/pdf-custom-report.ts).
  *
@@ -97,7 +97,7 @@ const HISTORY_KEEP = 20;
 export interface HistoryEntry { id: string; kind: 'standard' | 'custom'; title: string; filename: string; sizeBytes: number; meta: Record<string, unknown>; createdAt: string }
 
 /** Record a generated report's bytes in history (best-effort), keeping the
- *  most recent HISTORY_KEEP per brand. Never throws — a logging failure must
+ *  most recent HISTORY_KEEP per brand. Never throws - a logging failure must
  *  not break the download. */
 export async function recordReport(brandId: string, userId: string, kind: 'standard' | 'custom', title: string, filename: string, pdf: Buffer, meta: Record<string, unknown>): Promise<void> {
   try {

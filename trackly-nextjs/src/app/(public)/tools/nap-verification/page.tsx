@@ -20,7 +20,7 @@ export default function NapVerificationPage() {
           NAP <span style={{ color: 'var(--brand)' }}>Verification</span> Tool
         </>
       }
-      subtitle="Audit local citation consistency at scale. Enter a client's canonical NAP, add citation URLs, and Livesov fetches each page, extracts the NAP it shows, and flags every mismatch — saved per client and re-runnable to track progress."
+      subtitle="Audit local citation consistency at scale. Enter a client's canonical NAP, add citation URLs, and Livesov fetches each page, extracts the NAP it shows, and flags every mismatch - saved per client and re-runnable to track progress."
       toolName="NAP Verification Tool"
       toolSlug="nap-verification"
     >
@@ -66,25 +66,25 @@ export default function NapVerificationPage() {
 
         <AnswerCapsule>
           The <strong>NAP Verification Tool</strong> takes your correct name, address and phone (NAP),
-          fetches each citation URL you add, extracts the NAP each page actually shows — first from{' '}
+          fetches each citation URL you add, extracts the NAP each page actually shows - first from{' '}
           <code>LocalBusiness</code> JSON-LD, then via regex over the raw HTML, then via an optional
-          headless render — and flags every mismatch with a per-citation match score and an overall
+          headless render - and flags every mismatch with a per-citation match score and an overall
           consistency score. Available in the Livesov dashboard.
         </AnswerCapsule>
 
         <KeyTakeaways
           items={[
-            'NAP consistency is a confirmed local ranking factor — inconsistent citations confuse search engines and split your authority.',
+            'NAP consistency is a confirmed local ranking factor - inconsistent citations confuse search engines and split your authority.',
             'The most common issues are an old phone number, a moved address, a name variation, and a dropped suite/unit.',
             'Structured data (LocalBusiness JSON-LD) is the cleanest source of truth; this tool reads it first and falls back to HTML.',
             'Save an audit per client and re-run it on a schedule to catch citations that break over time.',
-            'A dead citation link is its own problem — it passes no signal and wastes the listing.',
+            'A dead citation link is its own problem - it passes no signal and wastes the listing.',
           ]}
         />
 
         <h2>What NAP consistency is and why it matters</h2>
         <p>
-          NAP stands for <strong>Name, Address, Phone</strong> — the three identity fields a local
+          NAP stands for <strong>Name, Address, Phone</strong> - the three identity fields a local
           business publishes across directories, review sites and data aggregators. Search engines use
           the agreement between those listings as a trust signal: when dozens of independent sources
           all show the same NAP, the engine is confident the business is real and the details are
@@ -92,7 +92,7 @@ export default function NapVerificationPage() {
         </p>
         <p>
           The hard part is that NAP drifts silently. You change a phone provider, move office, add a
-          suite number, or rebrand from &quot;Ltd&quot; to a trading name — and the old details linger
+          suite number, or rebrand from &quot;Ltd&quot; to a trading name - and the old details linger
           on directories you forgot you ever submitted to. This tool turns that invisible drift into a
           concrete, exportable list.
         </p>
@@ -107,7 +107,7 @@ export default function NapVerificationPage() {
             parse it first.
           </li>
           <li>
-            <strong>Regex (Layer 1).</strong> When there is no schema, we fall back to the raw HTML —{' '}
+            <strong>Regex (Layer 1).</strong> When there is no schema, we fall back to the raw HTML -{' '}
             <code>tel:</code> links, <code>itemprop</code> microdata, and postcode/phone patterns in
             the visible text.
           </li>
@@ -120,27 +120,27 @@ export default function NapVerificationPage() {
         <h2>How to read your results</h2>
         <ul>
           <li>
-            <strong>Consistency score</strong> — the average match score across every citation. Aim for
+            <strong>Consistency score</strong> - the average match score across every citation. Aim for
             85+. Anything lower means real inconsistencies are diluting your local signal.
           </li>
           <li>
-            <strong>Per-field status</strong> — each field is tagged <em>match</em>, <em>variation</em>{' '}
+            <strong>Per-field status</strong> - each field is tagged <em>match</em>, <em>variation</em>{' '}
             (close but not exact, e.g. &quot;St&quot; vs &quot;Street&quot;), <em>mismatch</em>{' '}
             (genuinely different), or <em>missing</em> (not found on the page).
           </li>
           <li>
-            <strong>Issue tags</strong> — plain-English labels like &quot;wrong phone&quot;, &quot;old
+            <strong>Issue tags</strong> - plain-English labels like &quot;wrong phone&quot;, &quot;old
             address&quot;, &quot;name variation&quot; and &quot;missing suite&quot; so you know exactly
             what to fix on each listing.
           </li>
           <li>
-            <strong>Dead links</strong> — citations that returned an error or non-200 status. Fix or
+            <strong>Dead links</strong> - citations that returned an error or non-200 status. Fix or
             replace these first; they pass no value.
           </li>
         </ul>
 
         <ExpertQuote
-          quote="Most local SEO audits die in a spreadsheet — someone opens forty directory pages by hand and eyeballs the phone number. Automating the fetch-and-compare step is the single biggest time saver in a citation audit. You go from a morning of grind to a thirty-second export."
+          quote="Most local SEO audits die in a spreadsheet - someone opens forty directory pages by hand and eyeballs the phone number. Automating the fetch-and-compare step is the single biggest time saver in a citation audit. You go from a morning of grind to a thirty-second export."
           name="Nik Sov"
           title="Founder, Livesov"
         />
@@ -171,15 +171,15 @@ export default function NapVerificationPage() {
             },
             {
               q: 'How many URLs can I check per audit?',
-              a: 'Up to 50 citation or backlink URLs per audit — paste a list or bulk-import a CSV. Runs process in the background so large batches complete reliably.',
+              a: 'Up to 50 citation or backlink URLs per audit - paste a list or bulk-import a CSV. Runs process in the background so large batches complete reliably.',
             },
             {
               q: 'How does duplicate listing detection work?',
-              a: 'When two or more of the URLs in an audit live on the same directory domain (e.g. two Yelp pages), we flag it as a possible duplicate listing — a common ranking-diluting problem. If those duplicates also disagree on phone, name or postcode, we mark the group "conflicting".',
+              a: 'When two or more of the URLs in an audit live on the same directory domain (e.g. two Yelp pages), we flag it as a possible duplicate listing - a common ranking-diluting problem. If those duplicates also disagree on phone, name or postcode, we mark the group "conflicting".',
             },
             {
               q: 'What counts as a variation versus a mismatch?',
-              a: 'A variation is a close-but-not-exact value — "St" vs "Street", or a company suffix like "Ltd" dropped. A mismatch is a genuinely different value, like a different phone number or a moved address. Variations score half credit; mismatches score zero.',
+              a: 'A variation is a close-but-not-exact value - "St" vs "Street", or a company suffix like "Ltd" dropped. A mismatch is a genuinely different value, like a different phone number or a moved address. Variations score half credit; mismatches score zero.',
             },
             {
               q: 'Can it alert me when a citation breaks?',

@@ -152,7 +152,7 @@ describe('GET /api/brands/:id/run-status (no runId)', () => {
       brandsForOwner: () => [{ id: 'brand_A', user_id: USER_A, data: { name: 'Acme' } }],
       // The route's ORDER BY ((status='running') DESC, started_at DESC)
       // will pick the most recent terminal row when no running row
-      // exists. Our mock just returns whatever the SQL would return —
+      // exists. Our mock just returns whatever the SQL would return -
       // here we hand back a single 'done' row.
       activeRuns: () => [{
         id: 'run_done',

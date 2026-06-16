@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * Free anti-bot fallback: when a directory blocks our server (403), the runner
  * reads the page's most recent Internet Archive snapshot instead. archive.org
  * isn't behind the live site's anti-bot wall and serves the original HTML, so
- * the NAP extracts normally — and the result is flagged with the snapshot date
+ * the NAP extracts normally - and the result is flagged with the snapshot date
  * so stale data is never silently trusted.
  */
 

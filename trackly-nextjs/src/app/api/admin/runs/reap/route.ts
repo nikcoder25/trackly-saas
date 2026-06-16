@@ -7,14 +7,14 @@
  * Three call shapes (mutually exclusive):
  *
  *   { runId: "..." }
- *     Surgical reap — bypasses the staleness gate (force=true) so
+ *     Surgical reap - bypasses the staleness gate (force=true) so
  *     an operator can clear a row that's wedged but technically
  *     still inside the watchdog threshold. The caller has eyes
  *     on the brand and can decide for themselves.
  *
  *   { brandId: "..." }
  *     Reap any stale running row for that brand. Staleness gate
- *     enforced — there's no surgical-by-brand path because the
+ *     enforced - there's no surgical-by-brand path because the
  *     brand can have at most one running row (partial unique
  *     index), so brandId without staleness already implies "I
  *     don't care which run, kill whatever's there"; the gate
@@ -22,7 +22,7 @@
  *
  *   { scope: "stale", minAgeMinutes: number }
  *     Bulk reap. `minAgeMinutes` is REQUIRED and is hard-floored
- *     by RUN_WATCHDOG_STALE_MINUTES — operator can be more
+ *     by RUN_WATCHDOG_STALE_MINUTES - operator can be more
  *     conservative (default UI is 30) but never more aggressive.
  *     Confirm dialog mandatory in the UI.
  *
@@ -56,7 +56,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   // Exactly one mode must be specified. The shapes are intentionally
-  // exclusive so the operator has to be deliberate — a request that
+  // exclusive so the operator has to be deliberate - a request that
   // tries to set both runId and scope is rejected rather than
   // silently picking one.
   const modes = [body.runId, body.brandId, body.scope].filter(Boolean).length;

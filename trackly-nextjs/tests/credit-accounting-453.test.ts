@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * Approach: build a single in-memory `tenant_cost_events` fixture and
  * route every COUNT/date_trunc query through it. The status endpoint
  * (via getCreditStatus) and the usage endpoint must agree because they
- * read the same fixture — that's the whole point of the fix.
+ * read the same fixture - that's the whole point of the fix.
  */
 
 type QueryFn = (sql: string, params?: unknown[]) => Promise<{ rows: unknown[] }>;
@@ -131,10 +131,10 @@ function fakeRequest(): Request {
   });
 }
 
-describe('issue #453 — credit accounting alignment', () => {
+describe('issue #453 - credit accounting alignment', () => {
   it('a) sum(dailyUsageLast14Days within current period) equals monthlyUsed shown on the tile', async () => {
     // Six dispatched calls this period, all on the same UTC day (today)
-    // for simplicity. Counter is at 8 — i.e. there are 2 in-flight
+    // for simplicity. Counter is at 8 - i.e. there are 2 in-flight
     // reservations. The tile must show 6 (ledger), not 8 (counter).
     const today = currentDayUtc();
     const { monthlyLedgerCount } = installFixture({
@@ -189,7 +189,7 @@ describe('issue #453 — credit accounting alignment', () => {
   });
 
   it('c) lastRun.atDate matches the bucket the run lands in within dailyUsageLast14Days', async () => {
-    // Pick a timestamp 2 days ago at 23:30 UTC — far enough from
+    // Pick a timestamp 2 days ago at 23:30 UTC - far enough from
     // midnight that the local-tz client formatter would land on a
     // different day in many viewers, but the server-side bucket key
     // must still line up with the ledger row.

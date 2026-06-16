@@ -4,7 +4,7 @@
  * GET /api/admin/runs/active
  * Auth: admin role only (see @/lib/admin-auth).
  *
- * Same data shape as /api/runs/active (PR-A) but unscoped — every
+ * Same data shape as /api/runs/active (PR-A) but unscoped - every
  * `active_runs` row at status='running' across the fleet, plus
  * brand owner email so the operator can decide whose run is safe
  * to reap.

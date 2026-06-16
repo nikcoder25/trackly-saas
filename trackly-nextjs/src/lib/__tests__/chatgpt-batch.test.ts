@@ -255,7 +255,7 @@ describe('parseBatchOutput', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────
-// submitChatGPTBatch — orphan cancel on abandon
+// submitChatGPTBatch - orphan cancel on abandon
 // ────────────────────────────────────────────────────────────────────
 
 describe('submitChatGPTBatch orphan cancel', () => {
@@ -304,7 +304,7 @@ describe('submitChatGPTBatch orphan cancel', () => {
     expect(urls.some(u => u.endsWith('/v1/batches/batch-stuck/cancel'))).toBe(true);
   });
 
-  it('terminal status (failed) does NOT issue a cancel — nothing left to bill', async () => {
+  it('terminal status (failed) does NOT issue a cancel - nothing left to bill', async () => {
     const fetchMock = vi.fn(async (urlIn: string | URL | Request, init?: RequestInit) => {
       const url = typeof urlIn === 'string' ? urlIn : urlIn.toString();
       if (url.endsWith('/v1/files') && init?.method === 'POST') {
@@ -328,7 +328,7 @@ describe('submitChatGPTBatch orphan cancel', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────
-// queryAI(ChatGPT, no-search) — flag wiring + fallback
+// queryAI(ChatGPT, no-search) - flag wiring + fallback
 // ────────────────────────────────────────────────────────────────────
 
 interface CapturedFetch {
@@ -389,7 +389,7 @@ function installBatchHappyPathFetchMock(): ReturnType<typeof vi.fn> {
   return fetchMock;
 }
 
-describe('queryAI(ChatGPT no-search) — batch path wiring', () => {
+describe('queryAI(ChatGPT no-search) - batch path wiring', () => {
   it('default (flag unset) → sync Chat Completions, never touches /v1/batches', async () => {
     const fetchMock = installBatchHappyPathFetchMock();
     await queryAI(

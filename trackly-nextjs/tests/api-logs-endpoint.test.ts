@@ -179,7 +179,7 @@ describe('GET /api/api-logs', () => {
       expect(row).not.toHaveProperty('cost');
       expect(row).not.toHaveProperty('usd_cost');
     }
-    // And the SELECT must not even fetch usd_cost — there is no reason
+    // And the SELECT must not even fetch usd_cost - there is no reason
     // for the wire response to read it; the UI never needs it.
     const selectCalls = queryMock.mock.calls
       .map((c) => String(c[0] || ''))
@@ -288,7 +288,7 @@ describe('GET /api/api-logs', () => {
 });
 
 describe('DELETE /api/api-logs', () => {
-  it('returns 410 Gone — the new logs view is the immutable billing ledger', async () => {
+  it('returns 410 Gone - the new logs view is the immutable billing ledger', async () => {
     const resp = await DELETE(fakeRequest());
     expect(resp.status).toBe(410);
   });

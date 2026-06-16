@@ -6,7 +6,7 @@ import { getStaleRunMinutes } from '@/lib/run-reconciler';
  * User-scoped fleet view of in-progress runs.
  *
  * Returns every `active_runs` row at status='running' for brands the
- * caller can see — owner brands plus team-member brands. Lets a
+ * caller can see - owner brands plus team-member brands. Lets a
  * single user spot a stuck run across their accessible brands
  * without bouncing between brand selectors. Read-only.
  *
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
   // The OR + EXISTS form matches getBrandWithAccess(): owner brand OR
   // any team_members row where the caller is a member of the brand
   // owner. Single query, both branches use indexes (brands.user_id
-  // and team_members composite) — no fan-out per brand.
+  // and team_members composite) - no fan-out per brand.
   let result;
   try {
     result = await pool.query(

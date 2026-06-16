@@ -99,7 +99,7 @@ describe('recordCall', () => {
   // `column "day" does not exist` against a partial-state legacy table,
   // and the error escaped recordCall into queryAI's success path,
   // surfacing as the per-platform errorMessage on every brand run.
-  // recordCall is best-effort by contract — table-readiness failures
+  // recordCall is best-effort by contract - table-readiness failures
   // must never break the LLM happy path.
   it('never throws when ensureCostEventsTable fails (e.g. column "day" does not exist)', async () => {
     queryMock.mockImplementation(async (sql: string) => {

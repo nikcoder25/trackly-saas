@@ -6,7 +6,7 @@
 // POST to /api/brands/[id]/run was 403'd by middleware.
 //
 // Streak is tracked on globalThis so it survives Next's per-request
-// route module re-evaluation while staying process-local — one alert
+// route module re-evaluation while staying process-local - one alert
 // per pod is fine because all pods drift in lock-step against a real
 // outage.
 

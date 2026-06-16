@@ -1,5 +1,5 @@
 /**
- * Tenant API key configuration — list + create.
+ * Tenant API key configuration - list + create.
  *
  * Tenant === brand owner (the authenticated user) for now. Keys are
  * encrypted at rest, validated against the upstream provider before
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     });
     if (!validation.ok) {
       // Audit unsuccessful attempts so a brute-forcer leaves a trail.
-      // Never log the key itself — the audit row carries platform + status only.
+      // Never log the key itself - the audit row carries platform + status only.
       auditLog(
         user.id,
         'tenant_key.validation_failed',

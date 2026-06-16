@@ -15,7 +15,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.6,
   }));
 
-  // Programmatic SEO sections — generated from the same data modules the
+  // Programmatic SEO sections - generated from the same data modules the
   // pages render from, so new entries can never be missing from the sitemap.
   const glossaryEntries: MetadataRoute.Sitemap = getAllTermSlugs().map((term) => ({
     url: `${BASE_URL}/glossary/${term}`,

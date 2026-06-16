@@ -132,7 +132,7 @@ describe('validateProviderKey', () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toContain('https://generativelanguage.googleapis.com/v1beta/models');
     expect(url).toContain('key=AIza-test-key-1234567890');
-    // Auth must NOT also be sent in headers — Gemini rejects the
+    // Auth must NOT also be sent in headers - Gemini rejects the
     // duplicate and the boot probe shape stays consistent.
     expect((init as RequestInit).headers).toEqual({});
   });

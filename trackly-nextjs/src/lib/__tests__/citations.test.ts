@@ -5,7 +5,7 @@ import { normalizeCitationUrl, mergeCitations } from '../citations';
 // URLs reach the citations table from two untrusted directions: engine-
 // native citation arrays and a regex pass over response text. The regex
 // (parser.ts URL_RE) routinely swallows trailing prose punctuation, and
-// engines occasionally emit non-http schemes — normalizeCitationUrl is
+// engines occasionally emit non-http schemes - normalizeCitationUrl is
 // the single choke point that cleans both before anything hits the DB
 // or the crawl queue.
 describe('normalizeCitationUrl', () => {
@@ -46,7 +46,7 @@ describe('mergeCitations', () => {
 
   it('dedupes on the normalized URL, not the raw string', () => {
     // Same page: trailing punctuation and a fragment differ, normalized
-    // form is identical — only the first occurrence survives.
+    // form is identical - only the first occurrence survives.
     expect(
       mergeCitations(['https://example.com/page'], ['https://example.com/page#ref', 'https://example.com/page.']),
     ).toEqual(['https://example.com/page']);

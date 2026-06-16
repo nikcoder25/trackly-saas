@@ -105,7 +105,7 @@ describe('getSearchBudgetLimit', () => {
 
   it('returns the ChatGPT default cap of 50 when no env vars are set', () => {
     // 50 calls/day = $1.25/day ceiling at $25/1k web_search invocations.
-    // Tightened from 150 once web_search defaulted OFF — the daily cron
+    // Tightened from 150 once web_search defaulted OFF - the daily cron
     // only attaches search for the small minority of queries that carry
     // an explicit freshness anchor, so a 50/day cap is a comfortable
     // backstop against a retry-storm or misfire.

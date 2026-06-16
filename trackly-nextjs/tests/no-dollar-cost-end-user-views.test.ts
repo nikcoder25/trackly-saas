@@ -16,7 +16,7 @@ import { join } from 'path';
  * regression catcher that does not require mocking auth/data.
  *
  * Out of scope for this guard:
- *   - Admin dashboards (kept intentional — see issue #459 description).
+ *   - Admin dashboards (kept intentional - see issue #459 description).
  *   - Backend code that computes usd_cost (we only police the rendered
  *     surface, not the data layer).
  */
@@ -44,7 +44,7 @@ const DOLLAR_AMOUNT_RE = /\$\$?\{[^}]*(?:cost|usd|Cost|Usd|USD|price|Price)[^}]*
  * A simpler, broader sweep: any string- or template-literal that puts a
  * `$` glyph next to a JS expression (`${ ... }`) inside a .tsx file is
  * very likely formatting a dollar amount. We use this as the primary
- * guard — it's a regression test, false positives are easy to fix by
+ * guard - it's a regression test, false positives are easy to fix by
  * renaming the variable; missing a real regression is what we care
  * about.
  */
@@ -61,7 +61,7 @@ function lines(src: string): string[] {
 function findDollarRenders(src: string): Array<{ lineno: number; text: string }> {
   const offenders: Array<{ lineno: number; text: string }> = [];
   lines(src).forEach((line, i) => {
-    // Skip pure comments — those don't reach the DOM.
+    // Skip pure comments - those don't reach the DOM.
     const trimmed = line.trim();
     if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) return;
     if (DOLLAR_INTERPOLATION_RE.test(line) || DOLLAR_AMOUNT_RE.test(line)) {
@@ -71,7 +71,7 @@ function findDollarRenders(src: string): Array<{ lineno: number; text: string }>
   return offenders;
 }
 
-describe('#459 scope 2 — end-user views do not render provider USD cost', () => {
+describe('#459 scope 2 - end-user views do not render provider USD cost', () => {
   it('Credit Ledger page (/dashboard/billing/ledger) does not render a $ amount', () => {
     const src = read('src/app/(dashboard)/dashboard/billing/ledger/page.tsx');
     const offenders = findDollarRenders(src);

@@ -72,7 +72,7 @@ describe('comparePlans', () => {
 // network call. These tests run in that "DEV MODE" branch so we can
 // assert the templates render without throwing and never accidentally
 // hit a real API. We also assert the rendered HTML contains the
-// expected plan labels and CTA — anything more brittle than that
+// expected plan labels and CTA - anything more brittle than that
 // would couple the test to copy.
 
 describe('plan change email templates', () => {

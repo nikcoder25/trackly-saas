@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // Mock Sentry BEFORE importing anything that might pull in the logger. The
 // `logger` module forwards to `Sentry.logger.*`; without the mock any error
 // logs would try to go to a real Sentry client. `vi.mock` is hoisted, so
-// the mock factory can't close over top-level variables — use vi.hoisted.
+// the mock factory can't close over top-level variables - use vi.hoisted.
 const sentryLoggerMocks = vi.hoisted(() => ({
   debug: vi.fn(),
   info: vi.fn(),
@@ -104,7 +104,7 @@ describe('api-error helpers', () => {
     expect(attrs.userId).toBe('u_123');
     // The Error's .message is preserved under the `error` key (it's the
     // root cause we need for debugging), but it MUST NOT be in the
-    // response body — that's asserted by the previous test.
+    // response body - that's asserted by the previous test.
     expect(attrs.error).toBe('bad credentials');
   });
 
@@ -152,7 +152,7 @@ describe('Sentry beforeSend scrubber', () => {
     expect(scrubbed.request.headers.cookie).toBe('[Filtered]');
     expect(scrubbed.request.headers['x-csrf-token']).toBe('[Filtered]');
     expect(scrubbed.request.headers['x-api-key']).toBe('[Filtered]');
-    // Non-sensitive headers survive — triage still needs user-agent etc.
+    // Non-sensitive headers survive - triage still needs user-agent etc.
     expect(scrubbed.request.headers['user-agent']).toBe('Mozilla/5.0');
   });
 
@@ -229,7 +229,7 @@ describe('Sentry beforeSend scrubber', () => {
     expect(scrubbed.contexts.runtime.token).toBe('[Filtered]');
   });
 
-  it('never throws on a malformed event — returning the event unchanged is better than losing it', () => {
+  it('never throws on a malformed event - returning the event unchanged is better than losing it', () => {
     const weird = { request: 'not-an-object' } as unknown as Parameters<typeof scrubSentryEvent>[0];
     expect(() => scrubSentryEvent(weird)).not.toThrow();
   });

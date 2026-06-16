@@ -63,7 +63,7 @@ interface Props {
   /**
    * Pre-fills the "Pull from Google" search box so the button is usable
    * on first open. The new-audit flow passes the active brand's name +
-   * city — the user already chose that brand in the top-bar dropdown,
+   * city - the user already chose that brand in the top-bar dropdown,
    * so asking them to retype it just to enable the Pull button is the
    * UX hole that made the button look broken.
    */
@@ -189,7 +189,7 @@ export default function NapAuditForm({
         // When an upstream proxy (DigitalOcean edge) kills the request
         // before our route can respond, the body is empty and `apiError`
         // is blank. Surface a specific, actionable note for those status
-        // codes instead of just "(HTTP 504)" — that's what made the
+        // codes instead of just "(HTTP 504)" - that's what made the
         // button look broken from the user's side.
         let fallback = `Lookup failed (HTTP ${res.status}).`;
         if (res.status === 504 || res.status === 408) {
@@ -325,7 +325,7 @@ export default function NapAuditForm({
       <div style={{ marginBottom: 14 }}>
         <label htmlFor="na-label" style={labelCss}>Client / label</label>
         <input id="na-label" className="brand-select" style={inputCss} required maxLength={120}
-          placeholder="e.g. Acme Dental Care — Q2 audit" value={label} onChange={(e) => setLabel(e.target.value)} />
+          placeholder="e.g. Acme Dental Care - Q2 audit" value={label} onChange={(e) => setLabel(e.target.value)} />
       </div>
       <div style={{ marginBottom: 14 }}>
         <label htmlFor="na-name" style={labelCss}>Business name</label>
@@ -359,7 +359,7 @@ export default function NapAuditForm({
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
         <label htmlFor="na-urls" style={{ ...labelCss, marginBottom: 0 }}>
-          Citation URLs — one per line
+          Citation URLs - one per line
           {allowAutoSplit
             ? ` (up to ${NAP_PASTE_CAP.toLocaleString()}; we’ll auto-split into audits of ${NAP_MAX_URLS})`
             : ` (up to ${NAP_MAX_URLS})`}
@@ -373,12 +373,12 @@ export default function NapAuditForm({
       {importNote && <div className="quiet" style={{ fontSize: 11.5, marginTop: 6, color: 'var(--green)' }}>{importNote}</div>}
       {overPerAuditCap && allowAutoSplit && (
         <div style={{ fontSize: 11.5, marginTop: 6, color: 'var(--primary)' }}>
-          {parsedCount.toLocaleString()} URLs detected — we’ll create {auditChunks} audits of up to {NAP_MAX_URLS} URLs each, labelled “… (1/{auditChunks})”, “… (2/{auditChunks})”, …
+          {parsedCount.toLocaleString()} URLs detected - we’ll create {auditChunks} audits of up to {NAP_MAX_URLS} URLs each, labelled “… (1/{auditChunks})”, “… (2/{auditChunks})”, …
         </div>
       )}
       {overPerAuditCap && !allowAutoSplit && (
         <div style={{ fontSize: 11.5, marginTop: 6, color: 'var(--amber, #b45309)' }}>
-          You added {parsedCount.toLocaleString()} URLs — only the first {NAP_MAX_URLS} will be used.
+          You added {parsedCount.toLocaleString()} URLs - only the first {NAP_MAX_URLS} will be used.
         </div>
       )}
 

@@ -33,7 +33,7 @@ vi.mock('../src/lib/credits', () => ({
 }));
 
 // We don't need real ai-platforms / parser / tenant-keys / server-keys
-// modules — the worker only uses them through the default callProvider,
+// modules - the worker only uses them through the default callProvider,
 // which we override via opts.callProvider in tests below.
 vi.mock('../src/lib/ai-platforms', () => ({
   queryAI: vi.fn(),
@@ -101,7 +101,7 @@ function setupAuditQueries(state: AuditState) {
     if (/SELECT api_keys FROM users/i.test(sql)) {
       return { rows: [{ api_keys: {} }] };
     }
-    // INSERT into geo_audit_results — capture mention/error so the
+    // INSERT into geo_audit_results - capture mention/error so the
     // final tally SELECT below can compute COUNT(*) consistently.
     if (/INSERT INTO geo_audit_results/i.test(sql)) {
       const p = params || [];
@@ -153,7 +153,7 @@ describe('processGeoAudit', () => {
 
     const callProvider = vi.fn(async () => ({
       model: 'mock-model',
-      response: 'Sure — try Brand X for that.',
+      response: 'Sure - try Brand X for that.',
       mentioned: true,
       error: null,
     }));

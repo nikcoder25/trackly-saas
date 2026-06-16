@@ -20,7 +20,7 @@ export interface Notification {
   href?: string;
   /**
    * Marks rows produced client-side (e.g. usage alerts) so the bell
-   * can route the read action through the right marker — server rows
+   * can route the read action through the right marker - server rows
    * use POST /api/notifications/read, client ones go to localStorage.
    */
   source?: 'usage-alert';
@@ -36,7 +36,7 @@ interface NotificationsResponse {
  * the user crosses 80% / 95% / 100% of their monthly credit cap).
  *
  * Uses an AbortController so the server request is cancelled if the
- * component unmounts before it resolves — preventing "set state on
+ * component unmounts before it resolves - preventing "set state on
  * unmounted component" warnings and avoiding wasted network work.
  *
  * The usage-alert evaluator re-runs whenever the credit status
@@ -49,7 +49,7 @@ export function useNotifications() {
   const [alertNotifs, setAlertNotifs] = useState<Notification[]>([]);
   const { status } = useCredits();
 
-  // Server fetch — once on mount.
+  // Server fetch - once on mount.
   useEffect(() => {
     const controller = new AbortController();
     api<NotificationsResponse>('GET', '/api/notifications', undefined, {
@@ -84,7 +84,7 @@ export function useNotifications() {
       setAlertNotifs(evaluateUsageAlerts(status));
       return;
     }
-    // Server notification — call the existing read endpoint and
+    // Server notification - call the existing read endpoint and
     // optimistically flip read state in local list.
     setServerNotifs((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n)),

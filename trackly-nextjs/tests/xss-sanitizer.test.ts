@@ -127,7 +127,7 @@ describe('safeExternalUrl blocks href/src XSS vectors', () => {
 // The CSP moved from next.config.ts into middleware.ts so it can embed a
 // per-request nonce (replacing 'unsafe-inline' in script-src). We assert the
 // middleware source as text rather than importing it so the test stays
-// hermetic — next/server isn't a plain-Node module.
+// hermetic - next/server isn't a plain-Node module.
 
 describe('CSP smoke test', () => {
   it('middleware.ts declares a strict nonce-based Content-Security-Policy', async () => {

@@ -131,7 +131,7 @@ export async function register() {
     // for the same Redis lock, and because the self-trigger drifts to
     // off-cycle minutes, the 24h interval gate often evaluated `hoursSince <
     // effectiveSchedule` by just a few minutes and skipped brands for
-    // another full cycle — compounding into multi-day gaps.
+    // another full cycle - compounding into multi-day gaps.
     //
     // GitHub Actions is now the single source of truth by default; this
     // path stays in the tree as an explicit fallback, off unless the
@@ -191,7 +191,7 @@ export async function register() {
     // GitHub Actions `*/2 * * * *` schedule curling that route. In
     // production the */2 schedule was throttled by GH Actions (which
     // documents a soft minimum of ~5 minutes for cron schedules) badly
-    // enough that the worker NEVER ran — confirmed by the absence of
+    // enough that the worker NEVER ran - confirmed by the absence of
     // any email.outbox.* worker logs in DigitalOcean while
     // [email.outbox.enqueued] was still firing on every plan upgrade.
     //

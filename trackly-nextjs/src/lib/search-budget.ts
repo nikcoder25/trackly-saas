@@ -4,7 +4,7 @@
  * Counts how many search-enabled provider calls (Perplexity, ChatGPT
  * search-preview / search-api) have been issued cluster-wide per UTC day,
  * and lets callers atomically reserve a slot. When the budget is
- * exhausted the caller can ask for a non-search fallback model — for
+ * exhausted the caller can ask for a non-search fallback model - for
  * ChatGPT that's `gpt-5.4`; Perplexity has no non-search variant, so the
  * caller logs and proceeds (fail-open at the platform level).
  *
@@ -39,7 +39,7 @@ import { logger } from './logger';
 
 const KEY_TTL_SECONDS = 90_000;
 
-// Per-platform default daily caps. Only ChatGPT has a default — it's
+// Per-platform default daily caps. Only ChatGPT has a default - it's
 // the platform with billable web_search tool calls AND a useful
 // non-search fallback. Perplexity charges per query, not per tool
 // invocation, and Claude/Gemini/Grok don't have a billable tool. An
@@ -111,7 +111,7 @@ export function getSearchBudgetLimit(platform: string): number {
 /**
  * For platforms that can usefully fall back to a non-search model, return
  * the fallback model id. Returns null when no in-house alternative is
- * meaningful (e.g. Perplexity is search-native — there's nothing to fall
+ * meaningful (e.g. Perplexity is search-native - there's nothing to fall
  * back to). Mirrors `resolveChatGPTModel` but is budget-driven, not
  * intent-driven, so it kicks in even for queries the smart router decided
  * to keep on the search tier.
@@ -251,7 +251,7 @@ export interface ResolvedSearchModel {
  * search-preview → gpt-4o), return that fallback with `searchEnabled=false`
  * so the caller's cache key, prompt shape, and post-processing all flip
  * onto the non-search path. When no fallback exists, the caller is left
- * on the original search model — fail-open, never block traffic.
+ * on the original search model - fail-open, never block traffic.
  *
  * `isSearchEnabled` from response-cache.ts is the source of truth for
  * "does this (platform, model) pair hit the search path", so we accept
@@ -284,7 +284,7 @@ export async function resolveSearchModelWithBudget(params: {
     });
     return { model: fallback, searchEnabled: false, downgraded: true, budget };
   }
-  // No useful fallback — fail-open at the platform level. Operators see
+  // No useful fallback - fail-open at the platform level. Operators see
   // the warning and can either raise the limit or accept the overage.
   logger.warn('search_budget.exhausted_no_fallback', {
     platform, model, used: budget.used, limit: budget.limit,

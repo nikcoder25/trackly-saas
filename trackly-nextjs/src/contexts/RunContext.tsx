@@ -172,7 +172,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
             data.status === 'running'
               && stalledMs > SLOW_RUN_NUDGE_MS
               && stalledMs <= HARD_STALL_MS
-              ? 'Still working — taking longer than usual. We will keep checking...'
+              ? 'Still working - taking longer than usual. We will keep checking...'
               : null;
 
           setLive(prev => ({
@@ -239,7 +239,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
             localStorage.removeItem('livesov_active_run');
             setLive(prev => ({
               ...prev, running: false, status: 'error',
-              statusText: 'Run appears stuck — no progress for 10 minutes. Retry?',
+              statusText: 'Run appears stuck - no progress for 10 minutes. Retry?',
               errorMsg: 'stalled',
               slowWarning: null,
             }));
@@ -324,7 +324,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
     // Pre-flight credit confirmation for manual user-initiated runs.
     // Auto runs (?auto=1) skip the modal because they're triggered by
     // setup wizards / suggestions, not a button click. The server
-    // still enforces the cap in either case — this is purely UX so
+    // still enforces the cap in either case - this is purely UX so
     // the user knows the cost before clicking through.
     if (!options?.auto && selectedBrand) {
       const platforms = (selectedBrand as { platforms?: string[] })?.platforms?.length ?? 0;

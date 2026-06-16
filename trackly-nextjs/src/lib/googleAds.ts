@@ -8,7 +8,7 @@
  *
  * Privacy: the tag is only injected after the visitor accepts cookies, so when
  * there is no consent (or an ad blocker removed the tag) `gtag` is absent and
- * the helpers degrade gracefully — they simply run any navigation callback
+ * the helpers degrade gracefully - they simply run any navigation callback
  * without tracking, so user flows are never blocked.
  *
  * This is the React/Next.js equivalent of the `gtag_report_conversion(url)`
@@ -32,7 +32,7 @@ export const GOOGLE_ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || 'AW-113953
  * "<ADS_ID>/<conversion_label>" exactly as shown in the Google Ads tag setup.
  */
 export const CONVERSION_LABELS = {
-  /** "Submit lead form" conversion action — fired on successful account sign-up. */
+  /** "Submit lead form" conversion action - fired on successful account sign-up. */
   submitLeadForm:
     process.env.NEXT_PUBLIC_GOOGLE_ADS_LEAD_LABEL || 'AW-11395303082/muNQCKvE9aEaEKqN2rkq',
 } as const;
@@ -91,7 +91,7 @@ export function reportConversion(
     // Safety net: if event_callback never fires (blocked/slow tag), navigate anyway.
     if (url) setTimeout(callback, 1500);
   } catch {
-    // gtag threw (blocked extension, etc.) — never block the user flow.
+    // gtag threw (blocked extension, etc.) - never block the user flow.
     navigate();
   }
 }

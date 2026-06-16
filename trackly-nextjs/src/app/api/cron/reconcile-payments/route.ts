@@ -119,7 +119,7 @@ export async function GET(request: Request) {
               // Conditional UPDATE on plan (`AND plan = $2`) so a webhook
               // that beat us to the punch in the narrow window between
               // SELECT and UPDATE doesn't cause a double cancellation
-              // email — RETURNING is empty if someone else already
+              // email - RETURNING is empty if someone else already
               // wrote 'free' for this user. Webhook's `previousPlan !==
               // 'free'` guard handles the inverse race.
               let didDowngrade = false;
@@ -136,7 +136,7 @@ export async function GET(request: Request) {
                 } else {
                   // Webhook (or another writer) flipped this user to a
                   // different plan between our SELECT and our UPDATE.
-                  // Skip the email — whoever won the race owns the
+                  // Skip the email - whoever won the race owns the
                   // notification. No audit row: this is a no-op, not a
                   // state transition.
                   logger.info('cron.reconcile.plan_already_synced', {
@@ -157,7 +157,7 @@ export async function GET(request: Request) {
               }, 'cron').catch(() => {});
               // Fire-and-forget cancellation email (matches webhook
               // DOWNGRADE_EVENTS branch parity). Resend outage must not
-              // roll back the cleanup — audit row above gives support a
+              // roll back the cleanup - audit row above gives support a
               // paper trail to resend manually.
               if (didDowngrade && user.email) {
                 // Use the SHARED cancellation idempotency-key helper so
@@ -165,7 +165,7 @@ export async function GET(request: Request) {
                 // same key for the same logical cancellation. Pre-fix,
                 // this site computed `plan_email:${user.id}:${sub}:not_found:free`
                 // while the webhook used `plan_cancellation:${user.id}:${sub}`
-                // — different keys meant the email_outbox UNIQUE index
+                // - different keys meant the email_outbox UNIQUE index
                 // never collided, and a single cancellation observed by
                 // both paths produced two duplicate emails (and a third
                 // when the webhook then fired a remapped subscription.updated).
@@ -225,7 +225,7 @@ export async function GET(request: Request) {
               dodo_status: dodoStatus,
             });
 
-            // Conditional UPDATE on plan (`AND plan = $3`) — same race
+            // Conditional UPDATE on plan (`AND plan = $3`) - same race
             // protection as the 404 path. If a webhook flipped this
             // user between our SELECT and UPDATE, RETURNING is empty
             // and we skip the email so we don't double-send.
@@ -305,7 +305,7 @@ export async function GET(request: Request) {
               // Cancellations get the SHARED key shape so the cron's
               // observation of a Dodo-side cancel collides with whatever
               // the webhook (or the cancel route) wrote first. Upgrade/
-              // downgrade emails keep the per-event key shape — they're
+              // downgrade emails keep the per-event key shape - they're
               // not user-initiated and the dodoStatus segment is what
               // distinguishes a renew from a real plan move.
               const upgradeIdempotencyKey = `plan_email:${user.id}:${subscriptionId}:${dodoStatus}:${expectedPlan}`;

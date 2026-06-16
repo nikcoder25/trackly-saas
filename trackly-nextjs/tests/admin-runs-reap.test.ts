@@ -9,7 +9,7 @@
  *   { scope: 'stale', minAgeMinutes } → force=false; minAgeMinutes
  *     hard-floored by env-default; rejected when < floor
  *
- * Cross-mode shape requests (e.g. runId + scope) must 400 — we
+ * Cross-mode shape requests (e.g. runId + scope) must 400 - we
  * don't want a misclick to silently pick one. Audit log emission
  * is verified to keep the forensics path honest.
  */
@@ -74,7 +74,7 @@ beforeEach(() => {
   reconcileFn.mockResolvedValue({ count: 1, brandIds: ['brand_X'], runIds: ['run_001'] });
 });
 
-describe('POST /api/admin/runs/reap — auth', () => {
+describe('POST /api/admin/runs/reap - auth', () => {
   it('401 unauthenticated', async () => {
     const req = new Request('http://t/api/admin/runs/reap', {
       method: 'POST',
@@ -97,7 +97,7 @@ describe('POST /api/admin/runs/reap — auth', () => {
   });
 });
 
-describe('POST /api/admin/runs/reap — shape validation', () => {
+describe('POST /api/admin/runs/reap - shape validation', () => {
   it('400 when no mode is specified', async () => {
     const res = await reapPost(request({}));
     expect(res.status).toBe(400);
@@ -121,7 +121,7 @@ describe('POST /api/admin/runs/reap — shape validation', () => {
   });
 });
 
-describe('POST /api/admin/runs/reap — { runId } surgical', () => {
+describe('POST /api/admin/runs/reap - { runId } surgical', () => {
   it('delegates to reconcileStaleRuns with force=true and audit-logs', async () => {
     const res = await reapPost(request({ runId: 'run_001' }));
     expect(res.status).toBe(200);
@@ -144,7 +144,7 @@ describe('POST /api/admin/runs/reap — { runId } surgical', () => {
   });
 });
 
-describe('POST /api/admin/runs/reap — { brandId } gated', () => {
+describe('POST /api/admin/runs/reap - { brandId } gated', () => {
   it('delegates to reconcileStaleRuns WITHOUT force flag', async () => {
     const res = await reapPost(request({ brandId: 'brand_X' }));
     expect(res.status).toBe(200);
@@ -159,7 +159,7 @@ describe('POST /api/admin/runs/reap — { brandId } gated', () => {
   });
 });
 
-describe('POST /api/admin/runs/reap — { scope: "stale" } bulk', () => {
+describe('POST /api/admin/runs/reap - { scope: "stale" } bulk', () => {
   it("400 when minAgeMinutes is missing", async () => {
     const res = await reapPost(request({ scope: 'stale' }));
     expect(res.status).toBe(400);

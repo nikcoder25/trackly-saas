@@ -13,11 +13,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  *
  * The throw bubbled out of the GET handler (which had no try/catch),
  * Next.js returned 500 with empty body, and the page rendered
- * "Couldn't load audits — Failed to load (HTTP 500)".
+ * "Couldn't load audits - Failed to load (HTTP 500)".
  *
  * This test asserts the column-type contract directly against the SQL
  * `ensureGeoAuditsSchema` emits, so a future refactor can't reintroduce
- * the type-mismatch silently. (Mocked queries — we assert the SQL
+ * the type-mismatch silently. (Mocked queries - we assert the SQL
  * string, not the DB outcome.)
  */
 
@@ -37,7 +37,7 @@ beforeEach(async () => {
 });
 afterEach(() => { vi.clearAllMocks(); });
 
-describe('ensureGeoAuditsSchema — column type contract (#bug-fix)', () => {
+describe('ensureGeoAuditsSchema - column type contract (#bug-fix)', () => {
   it('declares geo_audits.user_id as TEXT (matches users.id; NOT UUID)', async () => {
     const { ensureGeoAuditsSchema } = await import('../src/lib/geo-audits');
     await ensureGeoAuditsSchema();
@@ -50,7 +50,7 @@ describe('ensureGeoAuditsSchema — column type contract (#bug-fix)', () => {
     expect(sql).not.toMatch(/user_id\s+UUID/i);
   });
 
-  it('declares geo_audits.brand_id as TEXT (matches brands.id; NOT UUID — the FK type-mismatch that caused the 500)', async () => {
+  it('declares geo_audits.brand_id as TEXT (matches brands.id; NOT UUID - the FK type-mismatch that caused the 500)', async () => {
     const { ensureGeoAuditsSchema } = await import('../src/lib/geo-audits');
     await ensureGeoAuditsSchema();
     const auditCreate = queryMock.mock.calls.find(

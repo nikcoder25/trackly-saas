@@ -16,7 +16,7 @@ export interface CreditStatus {
   label: string;
   remaining: number;
   monthlyCap: number;
-  /** Committed spend (ledger-backed) — see lib/credits.ts. */
+  /** Committed spend (ledger-backed) - see lib/credits.ts. */
   monthlyUsed: number;
   /** In-flight reservations not yet dispatched. */
   reservedCredits: number;
@@ -43,7 +43,7 @@ interface CreditsContextType {
   /**
    * Opens the pre-flight confirmation modal. Resolves to `true` if
    * the user confirms, `false` if they cancel or the run is blocked
-   * (zero credits, daily cap hit, etc.) — in the blocked case the
+   * (zero credits, daily cap hit, etc.) - in the blocked case the
    * provider also surfaces an inline error in the modal so the user
    * sees why before clicking away.
    */
@@ -95,7 +95,7 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
     // Re-fetch after every run completes so the meter reflects the
     // freshly-spent credits without a manual reload.
     window.addEventListener('livesov:run-complete', handler);
-    // Periodic refresh — captures cron-driven spend and the
+    // Periodic refresh - captures cron-driven spend and the
     // monthly/daily rollover boundaries even if the user leaves the
     // tab open overnight.
     const id = setInterval(refresh, 60_000);
@@ -165,22 +165,22 @@ function PreflightModal({
   const dailyRemaining = status?.manualRemainingToday ?? 0;
   const dailyCap = status?.manualDailyCap ?? 0;
   // Display the daily counter as USED/cap (not remaining/cap). For a user who
-  // has run nothing today this is 0/cap — previously we rendered remaining/cap
+  // has run nothing today this is 0/cap - previously we rendered remaining/cap
   // here, which showed a brand-new user "30/30" and read like "all used up".
   const manualUsedToday = Math.max(0, dailyCap - dailyRemaining);
   const blocked =
     !status ||
     remaining < cost ||
     dailyRemaining < cost ||
-    !status?.scheduledRuns && false; // scheduledRuns is for auto only — manual is always allowed if credits exist
+    !status?.scheduledRuns && false; // scheduledRuns is for auto only - manual is always allowed if credits exist
 
   const blockReason = !status
-    ? 'Could not verify your credit balance — try again in a moment.'
+    ? 'Could not verify your credit balance - try again in a moment.'
     : remaining < cost
       ? `Not enough monthly credits (${remaining.toLocaleString()} remaining, this run needs ${cost.toLocaleString()}).`
       : dailyRemaining < cost
         // The block here means the run's cost exceeds what's left of the daily
-        // manual allowance — which, for a fresh user, is because one full scan
+        // manual allowance - which, for a fresh user, is because one full scan
         // (queries × platforms) is larger than the daily cap, NOT because they
         // used it up. Say that explicitly with used/cap so it isn't misread.
         ? `This run needs ${cost.toLocaleString()} credit${cost === 1 ? '' : 's'}, but your daily manual limit is ${dailyCap} (${manualUsedToday} used today, ${dailyRemaining} left). Resets at midnight UTC.`

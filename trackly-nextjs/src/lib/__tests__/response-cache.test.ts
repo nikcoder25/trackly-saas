@@ -98,7 +98,7 @@ describe('getCacheTtl', () => {
     // prod and tracking reduced to daily cadence, evergreen non-search
     // answers don't drift inside 14d and a longer TTL is the highest
     // remaining lever on the OpenAI bill. Search responses (the
-    // expensive web_search-tool path) held to 7d — long enough to make
+    // expensive web_search-tool path) held to 7d - long enough to make
     // a real dent in spend, short enough to retain freshness sanity
     // for queries explicitly asked to consult the live web.
     expect(getCacheTtl(true)).toBe(7 * 24 * 60 * 60);
@@ -107,7 +107,7 @@ describe('getCacheTtl', () => {
 
   // The env-var aliasing (RESPONSE_CACHE_TTL_NO_SEARCH_S as primary,
   // RESPONSE_CACHE_TTL_DEFAULT_S as legacy fallback) is exercised by the
-  // dedicated tests/response-cache-ttl-env.test.ts file — the value is
+  // dedicated tests/response-cache-ttl-env.test.ts file - the value is
   // captured at module load, so a single import suite cannot toggle it.
 });
 
@@ -137,7 +137,7 @@ describe('getCached', () => {
 
   it('only returns rows where expires_at > NOW (the SQL filter enforces this)', async () => {
     // Expired row would be filtered by the WHERE clause; the mock returns
-    // empty to simulate that — verify the SQL contains the filter.
+    // empty to simulate that - verify the SQL contains the filter.
     queryMock.mockResolvedValueOnce({ rows: [] });
     await getCached('expired');
     const sql = queryMock.mock.calls[0][0] as string;
@@ -217,7 +217,7 @@ describe('setCached', () => {
 
   it('handles concurrent upsert via ON CONFLICT (last write wins)', async () => {
     // Two concurrent setCached calls with the same key should both
-    // succeed because the SQL uses ON CONFLICT DO UPDATE — verify both
+    // succeed because the SQL uses ON CONFLICT DO UPDATE - verify both
     // resolve cleanly when the underlying query resolves.
     queryMock.mockResolvedValue({ rowCount: 1 });
     await Promise.all([
@@ -241,7 +241,7 @@ describe('cache_key dedup invariant', () => {
   // Regression coverage for the June 2026 cost review: pin that the
   // SHA-256 input contains ONLY (prompt, platform, model, searchEnabled,
   // city). Any future drift that hashes brand_id / user_id / tenant_id
-  // into the key would silently break cross-tenant dedup — caught here.
+  // into the key would silently break cross-tenant dedup - caught here.
   it('cache_key SHA-256 material is exactly prompt|platform|model|isSearch|city', () => {
     const material = 'best plumber in boston|ChatGPT|gpt-4o|0|';
     const expected = require('crypto')
@@ -262,7 +262,7 @@ describe('cache_key dedup invariant', () => {
       searchEnabled: true,
       city: 'Boston',
     });
-    // Tenant B — different brand context entirely; key inputs identical.
+    // Tenant B - different brand context entirely; key inputs identical.
     // Note brand_id is intentionally absent from CacheKeyParams; this
     // test pins that absence.
     const keyB = buildCacheKey({
@@ -360,7 +360,7 @@ describe('setCached writes every NOT NULL prod-schema column', () => {
       city: 'Boston',
       isSearch: true,
     });
-    // 2) Tenant B reads with the same key — mock the row coming back.
+    // 2) Tenant B reads with the same key - mock the row coming back.
     queryMock.mockResolvedValueOnce({
       rows: [{
         response: { text: 'shared payload', model: 'gpt-4o-search-preview' },

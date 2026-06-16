@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * free archive/Jina chain, and only bill on success, so they fire only on the
  * residual blocked set.
  *
- * Env is set via vi.hoisted so it runs before the (hoisted) import below — the
+ * Env is set via vi.hoisted so it runs before the (hoisted) import below - the
  * lib reads these keys once at module init.
  */
 vi.hoisted(() => {
@@ -112,7 +112,7 @@ describe('paid unblocker chain', () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     await runNapCheck(CANONICAL, [URL_UNDER_TEST]);
-    // Only Zyte should have been called — never archive.org / r.jina.ai.
+    // Only Zyte should have been called - never archive.org / r.jina.ai.
     for (const call of fetchMock.mock.calls) {
       const u = String(call[0]);
       expect(u).not.toMatch(/archive\.org|web\.archive\.org|r\.jina\.ai/);

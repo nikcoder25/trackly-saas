@@ -183,7 +183,7 @@ beforeEach(() => {
   poolQuery.mockReset();
 });
 
-describe('dodopayments webhook — cancel-revert regression', () => {
+describe('dodopayments webhook - cancel-revert regression', () => {
   it('T1: subscription.updated with status=cancelled triggers a downgrade to free', async () => {
     // Pre-cancel state: user is on agency, subscription bound, status active.
     const fake = makeFakeClient({
@@ -231,7 +231,7 @@ describe('dodopayments webhook — cancel-revert regression', () => {
     // Crucial negative: the upgrade branch's "set status=active" write must
     // NOT have fired. Pre-fix, this is what flipped agency back on.
     // Note: route passes JSON.stringify(settingsUpdate) so params[0] is a
-    // raw JSON string, not an object — assert as a string substring.
+    // raw JSON string, not an object - assert as a string substring.
     const reactivate = fake.recorded.find(
       r => /UPDATE users SET settings = settings \|\| \$1::jsonb/.test(r.sql)
         && typeof r.params[0] === 'string'
@@ -294,7 +294,7 @@ describe('dodopayments webhook — cancel-revert regression', () => {
   it('T3: payment.succeeded for a fresh subscription_id resubscribes a previously-cancelled user', async () => {
     // The user previously cancelled (status='cancelled', no subscription_id).
     // They go through checkout again and pay. payment.succeeded MUST be
-    // allowed to upgrade them — that's the only legitimate way back into
+    // allowed to upgrade them - that's the only legitimate way back into
     // a paid plan, and the post-cancel guard exempts payment.succeeded
     // for exactly this reason.
     const fake = makeFakeClient({

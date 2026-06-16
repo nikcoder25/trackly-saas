@@ -3,11 +3,11 @@
  *
  * Reuses the URLs + headers from `provider-specs.ts` (which also drives
  * the boot probes in `ai-platforms.ts`) so the validator and the boot
- * signature stay in lockstep — if the operator's env-var key passes
+ * signature stay in lockstep - if the operator's env-var key passes
  * boot, the same key passed by a tenant will pass `validateProviderKey`.
  *
  * Design constraints:
- *   - One outbound request per call. No retries — a bad key shouldn't
+ *   - One outbound request per call. No retries - a bad key shouldn't
  *     burn 3× the latency before reporting "invalid".
  *   - Hard 5s timeout (per #409 acceptance). Caller fans out across
  *     platforms in parallel.
@@ -37,7 +37,7 @@ const DEFAULT_TIMEOUT_MS = Number(process.env.AI_KEY_VALIDATION_TIMEOUT_MS) || 5
 function providerErrorLabel(platform: string, httpStatus: number): string {
   if (httpStatus === 401) return `${platform} rejected this key: 401 (unauthorized)`;
   if (httpStatus === 403) return `${platform} rejected this key: 403 (forbidden)`;
-  if (httpStatus === 429) return `${platform} returned 429 (rate-limited) — retry shortly`;
+  if (httpStatus === 429) return `${platform} returned 429 (rate-limited) - retry shortly`;
   if (httpStatus >= 500) return `${platform} provider error: ${httpStatus}`;
   return `${platform} returned unexpected status ${httpStatus}`;
 }
@@ -94,7 +94,7 @@ export async function validateProviderKey(
         platform,
       };
     }
-    // Perplexity returns 405 for GET on the chat completions URL — that
+    // Perplexity returns 405 for GET on the chat completions URL - that
     // still proves auth + TLS, so treat anything < 400 OR a 405-on-the
     // -intentional-405-endpoint as ok.
     const ok = resp.status < 400 || (platform === 'Perplexity' && resp.status === 405);

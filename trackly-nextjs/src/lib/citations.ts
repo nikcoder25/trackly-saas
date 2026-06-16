@@ -2,8 +2,8 @@
  * Citation Decoder data layer (Phase 1).
  *
  * Normalizes the per-response citation URL arrays (prompt_runs.citations
- * JSONB) into a queryable `citations` table — one row per cited URL per
- * prompt per engine — and seeds the `cited_pages` crawl queue that the
+ * JSONB) into a queryable `citations` table - one row per cited URL per
+ * prompt per engine - and seeds the `cited_pages` crawl queue that the
  * nightly /api/cron/crawl-citations job drains.
  *
  * Both prompt_runs persistence paths (the /run route's in-process after()
@@ -45,7 +45,7 @@ export function normalizeCitationUrl(raw: string): { url: string; domain: string
 /**
  * Merge engine-native citations (ChatGPT url annotations, Perplexity
  * `citations`) with the parser's regex-extracted URLs. Native lists come
- * first — they are the engine's authoritative source URLs; the regex pass
+ * first - they are the engine's authoritative source URLs; the regex pass
  * only sees what survived into the response text. Deduped on the cleaned
  * URL, capped at MAX_CITATIONS_PER_RESULT, original order preserved.
  */

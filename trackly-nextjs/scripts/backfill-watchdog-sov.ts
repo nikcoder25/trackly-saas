@@ -21,7 +21,7 @@
  *
  * Reversible (--down):
  *   Walks for entries with `sovBackfilledFrom === 0` and restores
- *   sov: 0 / removes the marker. Idempotent on its own — entries
+ *   sov: 0 / removes the marker. Idempotent on its own - entries
  *   without the marker are left alone.
  *
  * Default scope: the three brands that hit the bug after the
@@ -51,7 +51,7 @@ const APPLY = process.argv.includes('--apply');
 const DOWN = process.argv.includes('--down');
 const ALL_BRANDS = process.argv.includes('--all-brands');
 
-// Default scope — the three brands the operator confirmed hit the
+// Default scope - the three brands the operator confirmed hit the
 // bug. Passing additional --brand flags appends to this set.
 const DEFAULT_BRANDS = [
   'mnlcj7859d9c8e1b5ff1', // REIF Loans
@@ -133,7 +133,7 @@ interface BrandDiff {
 async function main(): Promise<void> {
   const customBrands = parseBrandFlags();
   const direction = DOWN ? 'DOWN (revert)' : 'UP (backfill)';
-  console.log(`\n=== Watchdog SOV backfill — ${direction} ${APPLY ? '(--apply, COMMITTING)' : '(dry-run)'} ===\n`);
+  console.log(`\n=== Watchdog SOV backfill - ${direction} ${APPLY ? '(--apply, COMMITTING)' : '(dry-run)'} ===\n`);
 
   // Resolve scope.
   let brandIds: string[];
@@ -143,7 +143,7 @@ async function main(): Promise<void> {
     console.log(`Scope: ALL brands (${brandIds.length})`);
   } else {
     brandIds = Array.from(new Set([...DEFAULT_BRANDS, ...customBrands]));
-    console.log(`Scope: ${brandIds.length} brand(s) — ${brandIds.join(', ')}`);
+    console.log(`Scope: ${brandIds.length} brand(s) - ${brandIds.join(', ')}`);
   }
 
   let touchedBrands = 0;
@@ -190,7 +190,7 @@ async function main(): Promise<void> {
       // Recompute using the same helper the dashboard + reaper use.
       const newSov = computeSovFromResults(run.allResults);
       // Don't emit a no-op entry. If the recompute also yields 0 (no
-      // mentions in allResults, despite totalM > 0 — corrupt data),
+      // mentions in allResults, despite totalM > 0 - corrupt data),
       // skip it rather than write `sov: 0, sovBackfilledFrom: 0`
       // which would be both pointless and confuse the down path.
       if (newSov <= 0) return run;
@@ -211,11 +211,11 @@ async function main(): Promise<void> {
     touchedRuns += diffs.length;
     allDiffs.push({ brandId, diffs });
 
-    // Per-brand logging — operator-readable diff.
-    console.log(`\n  brand ${brandId} — ${diffs.length} entr${diffs.length === 1 ? 'y' : 'ies'} ${DOWN ? 'to revert' : 'to backfill'}:`);
+    // Per-brand logging - operator-readable diff.
+    console.log(`\n  brand ${brandId} - ${diffs.length} entr${diffs.length === 1 ? 'y' : 'ies'} ${DOWN ? 'to revert' : 'to backfill'}:`);
     for (const d of diffs) {
       console.log(
-        `    [${d.index}] run ${d.runId ?? '(no id)'} — sov ${d.priorSov}% → ${d.newSov}%`
+        `    [${d.index}] run ${d.runId ?? '(no id)'} - sov ${d.priorSov}% → ${d.newSov}%`
         + ` (totalM=${d.totalM}, allResults.length=${d.resultsLen})`,
       );
     }

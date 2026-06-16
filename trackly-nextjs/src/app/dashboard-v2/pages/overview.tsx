@@ -304,7 +304,7 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   const fixedIssues = accIssues.filter((i: any) => i.fixed).length;
   if (!lastRun) {
     // Brand exists but has never completed a run. Return a genuine empty state
-    // — zeroed KPIs and no demo competitors/sources/trend — so the Overview
+    // - zeroed KPIs and no demo competitors/sources/trend - so the Overview
     // doesn't contradict the Query Tracker ("NO DATA") and Brand Health ("no
     // prior run"). The `noData` flag drives the onboarding panel in the page.
     return {
@@ -672,7 +672,7 @@ function OverviewEmptyState({ totalQ }: { totalQ: number }) {
         background: 'var(--primary-light, rgba(99,102,241,.1))', color: 'var(--primary)', fontSize: 22,
       }}>📡</div>
       <div style={{ flex: 1, minWidth: 220 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>No data yet — run your first scan</div>
+        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>No data yet - run your first scan</div>
         <div style={{ fontSize: 13, color: 'var(--mute, var(--muted))', lineHeight: 1.55 }}>
           {totalQ > 0
             ? <>You have <strong>{totalQ}</strong> tracked prompt{totalQ === 1 ? '' : 's'} ready. Run them across the AI engines to populate your Share of Voice, mentions and competitor data.</>
@@ -684,7 +684,7 @@ function OverviewEmptyState({ totalQ }: { totalQ: number }) {
         onClick={() => startRun(false)}
         disabled={running || selectedBrandLocked || totalQ === 0}
         style={(running || selectedBrandLocked || totalQ === 0) ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
-        title={selectedBrandLocked ? 'This brand is locked — upgrade to run' : totalQ === 0 ? 'Add tracked prompts first' : undefined}
+        title={selectedBrandLocked ? 'This brand is locked - upgrade to run' : totalQ === 0 ? 'Add tracked prompts first' : undefined}
       >
         {running ? 'Running…' : '▶ Run first scan'}
       </button>

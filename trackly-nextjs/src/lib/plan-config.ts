@@ -1,5 +1,5 @@
 /**
- * Livesov plan/credit configuration — single source of truth for the
+ * Livesov plan/credit configuration - single source of truth for the
  * credit-based pricing system. The legacy `PLAN_LIMITS` in `constants.ts`
  * still drives the per-brand quotas (queries/competitors/runsPerMonth)
  * that the older code paths depend on; this file augments those with the
@@ -16,7 +16,7 @@ export type ModelTier = 'economy' | 'premium';
 
 /**
  * How often the auto-runner picks up brands on this plan. Maps to a
- * minimum scheduling interval — Free is weekly (every 7 days),
+ * minimum scheduling interval - Free is weekly (every 7 days),
  * Starter every 2 days, Pro/Agency daily. The cron worker reads this
  * to decide whether a brand is eligible for an automated run.
  */
@@ -63,7 +63,7 @@ export interface PlanCreditConfig {
 
 /**
  * Plan → credit config. Numbers come from the Livesov v3 spec
- * (see PRICING_V3.md — final pricing table approved 2026-04-27).
+ * (see PRICING_V3.md - final pricing table approved 2026-04-27).
  * Tracked-prompt caps are ACCOUNT-WIDE (summed across all brands the
  * account owns), not per-brand:
  *
@@ -99,7 +99,7 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     // activation during the 7-day window. Spend stays bounded by the
     // per-user/global trial anti-abuse caps (TRIAL_DAILY_PROMPT_CAP_PER_USER /
     // TRIAL_DAILY_GLOBAL_PROMPT_CAP in constants.ts) and the per-tenant USD
-    // cost caps. Trial only — all other tiers are unchanged.
+    // cost caps. Trial only - all other tiers are unchanged.
     monthlyCredits: 500,
     // 60 = up to 12 prompts × 5 platforms in a day, so a full "Run all engines"
     // scan completes (at 30, an 11-prompt × 5-platform = 55-credit scan was
@@ -211,7 +211,7 @@ export const PLAN_DISPLAY_ORDER = [
  *
  * `trial` sits ABOVE `free` and below every paid tier. The previous
  * model collapsed `trial` and `free` to the same rank so the first paid
- * checkout from either state would still classify as an upgrade — but
+ * checkout from either state would still classify as an upgrade - but
  * that also made the trial → free transition register as `'same'`,
  * which silently suppresses any downgrade email a future trial-expiry
  * code path would want to send. With `trial = 1`, `free = 0`, the
@@ -316,7 +316,7 @@ export function resolveModelForPlan(
   // economy model (or unset), keep it; otherwise downgrade.
   if (!requestedModel) return economy || premium || '';
   if (requestedModel === economy) return economy;
-  // The requested model is a premium one — clamp to economy.
+  // The requested model is a premium one - clamp to economy.
   return economy || requestedModel;
 }
 
@@ -325,7 +325,7 @@ export function resolveModelForPlan(
 // Optional A/B that routes a percentage of premium-tier (Agency /
 // Enterprise) brands away from `gpt-5-search-api` ($2.50/$10.00 per
 // 1M tokens) and onto `gpt-4o-mini-search-preview` ($0.15/$0.60 per
-// 1M tokens) — ~17× cheaper on input. Off by default
+// 1M tokens) - ~17× cheaper on input. Off by default
 // (CHATGPT_COHORT_MINI_PERCENT unset or 0); ship the plumbing in this
 // PR, flip the percent at the env layer once we've A/B'd quality.
 //
@@ -335,7 +335,7 @@ export function resolveModelForPlan(
 // cohort. This means a brand promoted into the cohort stays there as
 // the percent climbs, so any A/B quality signal accumulates cleanly.
 //
-// Override only ever acts on the premium ChatGPT model — economy
+// Override only ever acts on the premium ChatGPT model - economy
 // tier (Free/Starter/Pro, already on gpt-4o-mini-search-preview) and
 // non-ChatGPT platforms are passthrough.
 

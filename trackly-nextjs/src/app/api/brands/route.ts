@@ -140,7 +140,7 @@ export async function POST(request: Request) {
     // Account-wide tracked-prompt cap (v3 spec). The new brand's
     // initial queries are added to the existing total across all the
     // owner's brands; reject if the sum would exceed the plan cap.
-    // Belt-and-braces server-side check — the setup form clamps too,
+    // Belt-and-braces server-side check - the setup form clamps too,
     // but never trust client input.
     if (limits.trackedPromptsPerAccount < 9999) {
       const existingPromptCount = await countTrackedPromptsForOwner(user.id);

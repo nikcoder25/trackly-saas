@@ -1,12 +1,12 @@
 /**
- * /api/geo-audits/[id] — single-audit detail (header + per-call results).
+ * /api/geo-audits/[id] - single-audit detail (header + per-call results).
  *
  * GET   /api/geo-audits/:id           → header + joined per-(region×prompt×platform) rows
  * POST  /api/geo-audits/:id/cancel    → optional: cancel a queued audit
  *
  * Cancel is implemented in this same file via an extra `?action=cancel`
  * query param on POST so the [id] sub-tree stays a single route file.
- * (Matches the repo's preference for thin route trees — see
+ * (Matches the repo's preference for thin route trees - see
  * brands/[id]/run-status/[runId] for a parallel pattern.)
  */
 
@@ -147,7 +147,7 @@ export async function POST(
   await ensureGeoAuditsSchema();
 
   // Only owner can cancel; only queued audits are cancellable. A
-  // 'running' audit is in the middle of provider calls — letting it
+  // 'running' audit is in the middle of provider calls - letting it
   // complete (or be reaped by the watchdog) is safer than racing the
   // worker.
   const res = await pool.query(
