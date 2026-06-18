@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { generateSchemaScriptTag, type CanonicalNap } from '@/lib/nap-verify';
 
 // Shared presentational view for NAP check results - an overview hero (score
@@ -129,21 +129,79 @@ export function scoreColor(score: number): string {
   return band(score).color;
 }
 
+// Per-status colour + word for the field-health consistency bars and legend.
+const SEG: Record<FieldStatus, { color: string; word: string }> = {
+  match: { color: 'var(--success)', word: 'match' },
+  variation: { color: 'var(--warn)', word: 'variation' },
+  mismatch: { color: 'var(--danger)', word: 'mismatch' },
+  missing: { color: 'var(--surface-3)', word: 'missing' },
+};
+const FH_ORDER: FieldStatus[] = ['match', 'variation', 'mismatch', 'missing'];
+
+/** Colour scale for a consistency percentage: green ≥80, amber ≥50, else red. */
+function pctColor(p: number): string {
+  if (p >= 80) return 'var(--success)';
+  if (p >= 50) return 'var(--warn)';
+  return 'var(--danger)';
+}
+
+interface FieldHealth {
+  key: keyof NapUrlResult['fields'];
+  label: string;
+  pct: number;
+  segs: Array<{ flex: number; color: string }>;
+  summary: string;
+}
+
+/** Share of listings that agree with the canonical value for one NAP field. */
+function fieldHealth(results: NapUrlResult[], key: keyof NapUrlResult['fields'], label: string): FieldHealth {
+  const counts: Record<FieldStatus, number> = { match: 0, variation: 0, mismatch: 0, missing: 0 };
+  results.forEach((r) => { counts[r.fields[key].status]++; });
+  const total = results.length || 1;
+  const pct = Math.round((counts.match / total) * 100);
+  const present = FH_ORDER.filter((s) => counts[s] > 0);
+  const segs = present.map((s) => ({ flex: counts[s], color: SEG[s].color }));
+  const summary = present.map((s) => `${counts[s]} ${SEG[s].word}`).join(' · ');
+  return { key, label, pct, segs, summary };
+}
+
+/** Segmented consistency bar (one block per status, sized by share). */
+function HealthBar({ segs, height }: { segs: FieldHealth['segs']; height: number }) {
+  return (
+    <div className="nap2-fh-bar" style={{ height }}>
+      {segs.map((sg, i) => (
+        <div key={i} className="nap2-fh-seg" style={{ flex: sg.flex, background: sg.color }} />
+      ))}
+    </div>
+  );
+}
+
 // Scoped styling for the citation table + overview grid. The table is a CSS-grid
 // of self-aligning columns that scrolls horizontally on narrow viewports rather
 // than collapsing the per-field readout, and each row expands in place.
 const napCss = `
-.lvx .nap2-ov { display: grid; grid-template-columns: 300px 1fr; }
-.lvx .nap2-hero { padding: 26px 24px; border-right: 1px solid var(--line); display: flex; align-items: center; justify-content: center; }
-.lvx .nap2-side { display: flex; flex-direction: column; min-width: 0; }
-.lvx .nap2-stats { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--line); }
+.lvx .nap2-topgrad { height: 3px; background: linear-gradient(90deg, var(--primary), transparent); }
+
+/* Scorecard: hero (gauge + diagnosis + CTA) | field-health panel */
+.lvx .nap2-score { display: grid; grid-template-columns: 312px 1fr; }
+.lvx .nap2-hero { padding: 24px 24px 22px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 20px; }
+.lvx .nap2-gauge-wrap { min-height: 172px; display: flex; align-items: center; justify-content: center; }
+.lvx .nap2-diag { border-top: 1px dashed var(--line); padding-top: 18px; }
+
+.lvx .nap2-health { padding: 24px; display: flex; flex-direction: column; gap: 18px; }
+.lvx .nap2-fh { display: flex; flex-direction: column; gap: 7px; }
+.lvx .nap2-fh-bar { display: flex; gap: 2px; }
+.lvx .nap2-fh-seg { border-radius: 3px; }
+.lvx .nap2-info { border-top: 1px solid var(--line); padding-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+
+/* Bottom strip: 5 KPIs + consistency sparkline */
+.lvx .nap2-strip { border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(5, 1fr) 1.4fr; }
 .lvx .nap2-stat { padding: 18px 16px; border-right: 1px solid var(--line); }
-.lvx .nap2-stat:last-child { border-right: none; }
-.lvx .nap2-stat-k { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); font-weight: 500; }
+.lvx .nap2-stat-k { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); font-weight: 500; display: flex; align-items: center; gap: 6px; }
 .lvx .nap2-stat-v { margin-top: 10px; display: flex; align-items: baseline; gap: 6px; }
 .lvx .nap2-stat-v b { font-size: 28px; font-weight: 700; letter-spacing: -.03em; line-height: 1; }
 .lvx .nap2-stat-v i { font-style: normal; font-size: 12px; color: var(--mute); }
-.lvx .nap2-trend { flex: 1; padding: 18px 22px; display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.lvx .nap2-spark { padding: 16px 22px; display: flex; flex-direction: column; justify-content: center; gap: 8px; min-width: 0; }
 
 .lvx .nap2-scroll { overflow-x: auto; }
 .lvx .nap2-tbl { min-width: 800px; }
@@ -163,12 +221,16 @@ const napCss = `
 .lvx .nap2-kv { display: grid; grid-template-columns: 96px 1fr auto; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
 .lvx .nap2-kv:last-child { border-bottom: none; }
 
-@media (max-width: 760px) {
-  .lvx .nap2-ov { grid-template-columns: 1fr; }
+@media (max-width: 860px) {
+  .lvx .nap2-score { grid-template-columns: 1fr; }
   .lvx .nap2-hero { border-right: none; border-bottom: 1px solid var(--line); }
-  .lvx .nap2-stats { grid-template-columns: repeat(2, 1fr); }
-  .lvx .nap2-stat:nth-child(2n) { border-right: none; }
+}
+@media (max-width: 760px) {
+  .lvx .nap2-strip { grid-template-columns: repeat(2, 1fr); }
   .lvx .nap2-stat { border-bottom: 1px solid var(--line); }
+  .lvx .nap2-stat:nth-child(2n) { border-right: none; }
+  .lvx .nap2-spark { grid-column: 1 / -1; border-top: 1px solid var(--line); }
+  .lvx .nap2-info { grid-template-columns: 1fr; gap: 14px; }
   .lvx .nap2-expand-grid { grid-template-columns: 1fr; }
 }
 `;
@@ -217,7 +279,7 @@ function buildCsv(data: NapResultsData, overrides: Record<string, boolean>): str
 
 /** Circular consistency-score gauge (SVG, themed via tokens). */
 function ScoreGauge({ score }: { score: number }) {
-  const size = 168, stroke = 13, r = 54, c = 2 * Math.PI * r;
+  const size = 172, stroke = 13, r = 54, c = 2 * Math.PI * r;
   const pct = Math.max(0, Math.min(100, score)) / 100;
   const b = band(score);
   return (
@@ -233,7 +295,7 @@ function ScoreGauge({ score }: { score: number }) {
         </svg>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-            <span style={{ fontSize: 46, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1, color: 'var(--text)' }}>{score}</span>
+            <span style={{ fontSize: 48, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1, color: 'var(--text)' }}>{score}</span>
             <span className="mono" style={{ fontSize: 14, color: 'var(--mute)' }}>/100</span>
           </div>
           <span className="mono" style={{ marginTop: 5, fontSize: 11, letterSpacing: '0.16em', fontWeight: 600, color: b.color }}>{b.word}</span>
@@ -348,6 +410,15 @@ function CitationRow({
 }) {
   const { host, path } = splitUrl(r.url);
   const flags = rowFlags(r);
+  // Left accent edge keyed to severity, so the eye lands on the worst rows first.
+  const { verdict } = napVerdict(r, overridden);
+  const accentEdge = overridden
+    ? 'var(--success-100)'
+    : verdict === 'ok'
+      ? 'transparent'
+      : verdict === 'unverified'
+        ? 'var(--warn)'
+        : r.matchScore < 50 ? 'var(--danger)' : 'var(--warn)';
   const fieldOrder: Array<{ k: string; status: FieldStatus; found?: string; mono?: boolean }> = [
     { k: 'Name', status: r.fields.name.status, found: r.extracted.name },
     { k: 'Phone', status: r.fields.phone.status, found: r.extracted.phone, mono: true },
@@ -365,7 +436,7 @@ function CitationRow({
         aria-expanded={expanded}
         onClick={onExpand}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onExpand(); } }}
-        style={{ background: expanded ? 'var(--surface-2)' : 'transparent' }}
+        style={{ background: expanded ? 'var(--surface-2)' : 'transparent', borderLeft: `3px solid ${accentEdge}` }}
       >
         <span className="nap2-caret" aria-hidden style={{ transform: expanded ? 'rotate(90deg)' : 'none' }}>▶</span>
         <div style={{ minWidth: 0 }}>
@@ -482,11 +553,31 @@ export default function NapResults({
   const interactive = typeof onToggleOverride === 'function';
   const [filter, setFilter] = useState<'all' | 'issues' | 'clean'>('all');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const tableRef = useRef<HTMLElement>(null);
 
-  const verifiedCount = data.results.filter((r) => ov[r.url]).length;
   const cleanCount = data.results.filter((r) => isCleanVerdict(r, !!ov[r.url])).length;
   const issueCount = data.results.length - cleanCount;
-  const blocked = data.summary.blocked ?? 0;
+
+  // Field health: share of listings that agree with the canonical value, per field.
+  // Name/Phone/Address drive the verdict; Postcode/Suite are informational.
+  const napFields = [
+    fieldHealth(data.results, 'name', 'Name'),
+    fieldHealth(data.results, 'phone', 'Phone'),
+    fieldHealth(data.results, 'address', 'Address'),
+  ];
+  const infoFields = [
+    fieldHealth(data.results, 'postcode', 'Postcode'),
+    fieldHealth(data.results, 'suite', 'Suite'),
+  ];
+  const weakest = [...napFields].sort((a, b) => a.pct - b.pct)[0];
+  const diagnosis = issueCount > 0 && weakest
+    ? `${weakest.label} is your weakest field — only ${weakest.pct}% of listings match.`
+    : 'Every listing agrees with your canonical NAP.';
+
+  const focusIssues = () => {
+    setFilter('issues');
+    tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const downloadCsv = () => {
     const blob = new Blob([buildCsv(data, ov)], { type: 'text/csv;charset=utf-8;' });
@@ -514,7 +605,15 @@ export default function NapResults({
     { key: 'clean', label: 'Clean', count: cleanCount },
   ];
 
-  const visible = data.results.filter((r) => {
+  // Worst-first: unresolved issues, then unverified, then clean; lower score first.
+  const verdictRank = (r: NapUrlResult): number => {
+    const { verdict } = napVerdict(r, !!ov[r.url]);
+    return verdict === 'issues' ? 0 : verdict === 'unverified' ? 1 : 2;
+  };
+  const sorted = [...data.results].sort(
+    (a, b) => verdictRank(a) - verdictRank(b) || a.matchScore - b.matchScore,
+  );
+  const visible = sorted.filter((r) => {
     if (filter === 'all') return true;
     const clean = isCleanVerdict(r, !!ov[r.url]);
     return filter === 'clean' ? clean : !clean;
@@ -524,8 +623,9 @@ export default function NapResults({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <style>{napCss}</style>
 
-      {/* ─── Overview: score gauge + 5-stat rail + consistency trend ─── */}
+      {/* ─── Overview: gauge + diagnosis/CTA · field health · KPI strip + trend ─── */}
       <section className="card">
+        <div className="nap2-topgrad" aria-hidden />
         <header className="card-h">
           <span className="card-tw" style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
             <span className="card-t">Audit overview</span>
@@ -538,30 +638,92 @@ export default function NapResults({
           </span>
         </header>
         <div className="card-b no-pad">
-          <div className="nap2-ov">
+          <div className="nap2-score">
+            {/* hero: gauge + diagnosis + fix CTA */}
             <div className="nap2-hero">
-              <ScoreGauge score={data.score} />
+              <div className="nap2-gauge-wrap">
+                <ScoreGauge score={data.score} />
+              </div>
+              <div className="nap2-diag">
+                <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, color: 'var(--text-2)' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text)' }}>{issueCount} of {data.results.length} listings</span>
+                  {' '}have NAP issues. {diagnosis}
+                </p>
+                {issueCount > 0 && (
+                  <button
+                    onClick={focusIssues}
+                    className="btn-p"
+                    style={{ marginTop: 14, width: '100%', justifyContent: 'center', padding: 11, fontSize: 13.5 }}
+                  >
+                    ⚡ Fix {issueCount} {issueCount === 1 ? 'issue' : 'issues'}
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="nap2-side">
-              <div className="nap2-stats">
-                {stats.map((s) => (
-                  <div className="nap2-stat" key={s.k}>
-                    <div className="nap2-stat-k">{s.k}</div>
-                    <div className="nap2-stat-v">
-                      <b style={{ color: s.color }}>{s.v}</b>
-                      {s.unit && <i>{s.unit}</i>}
+
+            {/* field health: per-field consistency bars */}
+            <div className="nap2-health">
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--text)' }}>NAP field health</div>
+                  <div style={{ marginTop: 3, fontSize: 12, color: 'var(--mute)' }}>Share of listings that agree with your canonical value</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  {FH_ORDER.map((s) => (
+                    <span key={s} className="mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--mute)' }}>
+                      <span aria-hidden style={{ width: 8, height: 8, borderRadius: 2, background: SEG[s].color }} />
+                      {FIELD_BADGE[s].label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+                {napFields.map((fh) => (
+                  <div className="nap2-fh" key={fh.key}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>{fh.label}</span>
+                      <span className="mono" style={{ fontSize: 12, fontWeight: 600, color: pctColor(fh.pct) }}>
+                        {fh.pct}%<span style={{ color: 'var(--mute)', fontWeight: 400 }}> consistent</span>
+                      </span>
                     </div>
+                    <HealthBar segs={fh.segs} height={10} />
+                    <span className="mono" style={{ fontSize: 10.5, color: 'var(--mute)' }}>{fh.summary}</span>
                   </div>
                 ))}
               </div>
-              <div className="nap2-trend">
-                <div style={{ flex: '0 0 auto' }}>
-                  <div className="mono" style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--mute)', fontWeight: 500 }}>Consistency over time</div>
-                </div>
-                <div style={{ flex: 1, minWidth: 220 }}>
-                  {trend ?? <p className="quiet" style={{ fontSize: 12.5, margin: 0, color: 'var(--text-3)' }}>Re-run this audit over time to see a consistency trend here.</p>}
+
+              <div className="nap2-info">
+                {infoFields.map((fh) => (
+                  <div className="nap2-fh" key={fh.key}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)' }}>
+                        {fh.label}{' '}
+                        <span className="mono" style={{ fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--mute)', fontWeight: 500 }}>· info</span>
+                      </span>
+                      <span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: pctColor(fh.pct) }}>{fh.pct}%</span>
+                    </div>
+                    <HealthBar segs={fh.segs} height={7} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* bottom strip: KPIs + consistency sparkline */}
+          <div className="nap2-strip">
+            {stats.map((s) => (
+              <div className="nap2-stat" key={s.k}>
+                <div className="nap2-stat-k">{s.k}</div>
+                <div className="nap2-stat-v">
+                  <b style={{ color: s.color }}>{s.v}</b>
+                  {s.unit && <i>{s.unit}</i>}
                 </div>
               </div>
+            ))}
+            <div className="nap2-spark">
+              <div className="mono" style={{ fontSize: 9.5, letterSpacing: '0.11em', textTransform: 'uppercase', color: 'var(--mute)', fontWeight: 500 }}>Consistency over time</div>
+              {trend ?? <p className="quiet" style={{ fontSize: 12, margin: 0, color: 'var(--text-3)' }}>Re-run this audit over time to see a consistency trend here.</p>}
             </div>
           </div>
         </div>
@@ -629,7 +791,7 @@ export default function NapResults({
       )}
 
       {/* ─── Citation details table ─── */}
-      <section className="card">
+      <section className="card" ref={tableRef} style={{ scrollMarginTop: 16 }}>
         <header className="card-h has-lede">
           <span className="card-tw" style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
             <span className="card-t">Citation details</span>
