@@ -184,24 +184,24 @@ const napCss = `
 
 /* Scorecard: hero (gauge + diagnosis + CTA) | field-health panel */
 .lvx .nap2-score { display: grid; grid-template-columns: 312px 1fr; }
-.lvx .nap2-hero { padding: 24px 24px 22px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 20px; }
-.lvx .nap2-gauge-wrap { min-height: 172px; display: flex; align-items: center; justify-content: center; }
-.lvx .nap2-diag { border-top: 1px dashed var(--line); padding-top: 18px; }
+.lvx .nap2-hero { padding: 20px 24px 18px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 16px; }
+.lvx .nap2-gauge-wrap { display: flex; align-items: center; justify-content: center; }
+.lvx .nap2-diag { border-top: 1px dashed var(--line); padding-top: 14px; }
 
-.lvx .nap2-health { padding: 24px; display: flex; flex-direction: column; gap: 18px; }
-.lvx .nap2-fh { display: flex; flex-direction: column; gap: 7px; }
+.lvx .nap2-health { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+.lvx .nap2-fh { display: flex; flex-direction: column; gap: 6px; }
 .lvx .nap2-fh-bar { display: flex; gap: 2px; }
 .lvx .nap2-fh-seg { border-radius: 3px; }
-.lvx .nap2-info { border-top: 1px solid var(--line); padding-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.lvx .nap2-info { border-top: 1px solid var(--line); padding-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 
 /* Bottom strip: 5 KPIs + consistency sparkline */
 .lvx .nap2-strip { border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(5, 1fr) 1.4fr; }
-.lvx .nap2-stat { padding: 18px 16px; border-right: 1px solid var(--line); }
+.lvx .nap2-stat { padding: 13px 16px; border-right: 1px solid var(--line); }
 .lvx .nap2-stat-k { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); font-weight: 500; display: flex; align-items: center; gap: 6px; }
-.lvx .nap2-stat-v { margin-top: 10px; display: flex; align-items: baseline; gap: 6px; }
-.lvx .nap2-stat-v b { font-size: 28px; font-weight: 700; letter-spacing: -.03em; line-height: 1; }
+.lvx .nap2-stat-v { margin-top: 7px; display: flex; align-items: baseline; gap: 6px; }
+.lvx .nap2-stat-v b { font-size: 26px; font-weight: 700; letter-spacing: -.03em; line-height: 1; }
 .lvx .nap2-stat-v i { font-style: normal; font-size: 12px; color: var(--mute); }
-.lvx .nap2-spark { padding: 16px 22px; display: flex; flex-direction: column; justify-content: center; gap: 8px; min-width: 0; }
+.lvx .nap2-spark { padding: 12px 22px; display: flex; flex-direction: column; justify-content: center; gap: 6px; min-width: 0; }
 
 .lvx .nap2-scroll { overflow-x: auto; }
 .lvx .nap2-tbl { min-width: 800px; }
@@ -283,7 +283,7 @@ function ScoreGauge({ score }: { score: number }) {
   const pct = Math.max(0, Math.min(100, score)) / 100;
   const b = band(score);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, width: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
       <div style={{ position: 'relative', width: size, height: size }}>
         <svg width={size} height={size} viewBox="0 0 128 128" style={{ transform: 'rotate(-90deg)', display: 'block' }}>
           <circle cx={64} cy={64} r={r} stroke="var(--surface-3)" strokeWidth={stroke} fill="none" />
@@ -653,7 +653,7 @@ export default function NapResults({
                   <button
                     onClick={focusIssues}
                     className="btn-p"
-                    style={{ marginTop: 14, width: '100%', justifyContent: 'center', padding: 11, fontSize: 13.5 }}
+                    style={{ marginTop: 12, width: '100%', justifyContent: 'center', padding: 10, fontSize: 13.5 }}
                   >
                     ⚡ Fix {issueCount} {issueCount === 1 ? 'issue' : 'issues'}
                   </button>
@@ -678,7 +678,7 @@ export default function NapResults({
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {napFields.map((fh) => (
                   <div className="nap2-fh" key={fh.key}>
                     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
