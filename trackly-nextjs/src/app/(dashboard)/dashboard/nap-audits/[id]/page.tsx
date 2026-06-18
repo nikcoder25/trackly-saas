@@ -40,7 +40,7 @@ function ScoreHistory({ history }: { history: HistoryPoint[] }) {
   if (history.length < 2) {
     return <p className="quiet" style={{ fontSize: 12, margin: 0 }}>Re-run this audit over time to see a consistency trend here.</p>;
   }
-  const w = 320, h = 64, pad = 6;
+  const w = 320, h = 38, pad = 4;
   const pts = history.map((p, i) => {
     const x = pad + (i / (history.length - 1)) * (w - pad * 2);
     const y = pad + (1 - p.score / 100) * (h - pad * 2);
@@ -49,13 +49,13 @@ function ScoreHistory({ history }: { history: HistoryPoint[] }) {
   const path = pts.map((pt, i) => `${i === 0 ? 'M' : 'L'}${pt.x.toFixed(1)},${pt.y.toFixed(1)}`).join(' ');
   const last = history[history.length - 1];
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-      <svg width={w} height={h} style={{ maxWidth: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', maxWidth: w, height: 'auto' }}>
         <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="var(--line)" strokeWidth={1} />
         <path d={path} fill="none" stroke={scoreColor(last.score)} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
         {pts.map((pt, i) => <circle key={i} cx={pt.x} cy={pt.y} r={2.5} fill={scoreColor(pt.p.score)} />)}
       </svg>
-      <div className="quiet" style={{ fontSize: 12 }}>
+      <div className="quiet mono" style={{ fontSize: 10.5 }}>
         {history.length} runs · {fmtDate(history[0].at)} → {fmtDate(last.at)}
       </div>
     </div>
