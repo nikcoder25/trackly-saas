@@ -289,7 +289,20 @@ export default function NapAuditDetailPage() {
     : '';
 
   return (
-    <div className="lvx">
+    <div className="lvx nap-zip">
+      {/* Match the "NAP Audit" design handoff for this page: Geist type + its
+          indigo accent, scoped here so the rest of the dashboard is untouched. */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
+        .nap-zip {
+          --primary: #6d5ee6; --primary-600: #5b4ed9;
+          --primary-50: rgba(109,94,230,.10); --primary-100: rgba(109,94,230,.18);
+          --sans: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+          --mono: 'Geist Mono', ui-monospace, 'JetBrains Mono', Menlo, monospace;
+          font-family: var(--sans);
+        }
+        .nap-zip .mono { font-family: var(--mono); }
+      `}</style>
       <PageHead
         title={audit?.label || 'NAP Audit'}
         sub={napLine || 'Saved citation audit'}

@@ -184,11 +184,11 @@ const napCss = `
 
 /* Scorecard: hero (gauge + diagnosis + CTA) | field-health panel */
 .lvx .nap2-score { display: grid; grid-template-columns: 312px 1fr; }
-.lvx .nap2-hero { padding: 20px 24px 18px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 16px; }
+.lvx .nap2-hero { padding: 20px 24px 18px; border-right: 1px solid var(--line); display: flex; flex-direction: column; justify-content: center; gap: 16px; }
 .lvx .nap2-gauge-wrap { display: flex; align-items: center; justify-content: center; }
 .lvx .nap2-diag { border-top: 1px dashed var(--line); padding-top: 14px; }
 
-.lvx .nap2-health { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+.lvx .nap2-health { padding: 20px 24px; display: flex; flex-direction: column; justify-content: center; gap: 14px; }
 .lvx .nap2-fh { display: flex; flex-direction: column; gap: 6px; }
 .lvx .nap2-fh-bar { display: flex; gap: 2px; }
 .lvx .nap2-fh-seg { border-radius: 3px; }
@@ -196,7 +196,7 @@ const napCss = `
 
 /* Bottom strip: 5 KPIs + consistency sparkline */
 .lvx .nap2-strip { border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(5, 1fr) 1.4fr; }
-.lvx .nap2-stat { padding: 13px 16px; border-right: 1px solid var(--line); }
+.lvx .nap2-stat { padding: 13px 16px; border-right: 1px solid var(--line); display: flex; flex-direction: column; justify-content: center; }
 .lvx .nap2-stat-k { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); font-weight: 500; display: flex; align-items: center; gap: 6px; }
 .lvx .nap2-stat-v { margin-top: 7px; display: flex; align-items: baseline; gap: 6px; }
 .lvx .nap2-stat-v b { font-size: 26px; font-weight: 700; letter-spacing: -.03em; line-height: 1; }
