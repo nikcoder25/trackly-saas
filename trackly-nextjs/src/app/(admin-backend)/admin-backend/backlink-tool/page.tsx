@@ -16,6 +16,12 @@ import {
 
 const STORAGE_KEY = 'trackly.backlink-tool.v2';
 const PRESETS_KEY = 'trackly.backlink-tool.presets.v1';
+// The Saved Batches library lives under its own key so archiving a campaign
+// survives "Clear All" or loading a different batch into the workspace.
+const SAVED_BATCHES_KEY = 'trackly.backlink-tool.saved-batches.v1';
+// Cap the library so the browser localStorage quota (~5MB per origin) isn't
+// blown by dozens of full 50-article batches. Oldest entries drop first.
+const MAX_SAVED_BATCHES = 25;
 const MAX_LINK_COUNT = 5;
 const INTERRUPTED_ERROR = 'Interrupted (page reloaded)';
 // The API route rejects prompts over 20,000 chars; leave headroom for the
@@ -281,6 +287,23 @@ type PersistedState = PresetState & {
   articles: Article[];
 };
 
+/**
+ * One archived campaign in the Saved Batches library. Holds a snapshot of
+ * the generated articles plus enough campaign context to label and reload
+ * it later. Stored under SAVED_BATCHES_KEY, independent of the live working
+ * set, so it persists across "Clear All" and reloads.
+ */
+type SavedBatch = {
+  id: string;
+  name: string;
+  /** Epoch millis the batch was archived - drives sort order and the cap. */
+  savedAt: number;
+  niche: string;
+  moneySite: string;
+  promptMode: PromptMode;
+  articles: Article[];
+};
+
 function clampCount(n: unknown): number | null {
   if (typeof n !== 'number' || !Number.isFinite(n)) return null;
   return Math.max(0, Math.min(MAX_LINK_COUNT, Math.floor(n)));
@@ -369,6 +392,7 @@ export default function BacklinkToolPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'done' | 'error' | 'pending'>('all');
   const [presets, setPresets] = useState<Record<string, PresetState>>({});
   const [activePresetName, setActivePresetName] = useState('');
+  const [savedBatches, setSavedBatches] = useState<SavedBatch[]>([]);
 
   // Load presets once. Stored separately from STORAGE_KEY so the form
   // state and the named presets evolve independently.
@@ -378,6 +402,26 @@ export default function BacklinkToolPage() {
       if (!raw) return;
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') setPresets(parsed);
+    } catch {
+      /* corrupt - ignore */
+    }
+  }, []);
+
+  // Load the Saved Batches library once. Kept separate from the working set
+  // so archived campaigns are never touched by generation/clear actions.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SAVED_BATCHES_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setSavedBatches(
+          parsed.filter(
+            (b): b is SavedBatch =>
+              b && typeof b.id === 'string' && Array.isArray(b.articles),
+          ),
+        );
+      }
     } catch {
       /* corrupt - ignore */
     }
@@ -464,6 +508,31 @@ export default function BacklinkToolPage() {
     includeTable, includeImages, anchorMix, useAnchorMix, promptMode, clientPrompt,
     includeMoneySiteSection, includeLinkPairsSection, includeSettingsSection, articles,
   ]);
+
+  // Persist the Saved Batches library on change, under its own key. Sorts
+  // newest-first, enforces MAX_SAVED_BATCHES, and trims the oldest entries
+  // whenever the serialized library would overflow the localStorage quota -
+  // then mirrors the trimmed list back into state so the UI matches storage.
+  useEffect(() => {
+    if (!hydrated) return;
+    const capped = [...savedBatches]
+      .sort((a, b) => b.savedAt - a.savedAt)
+      .slice(0, MAX_SAVED_BATCHES);
+    let storedCount = -1;
+    for (let n = capped.length; n >= 0; n--) {
+      try {
+        if (n === 0) localStorage.removeItem(SAVED_BATCHES_KEY);
+        else localStorage.setItem(SAVED_BATCHES_KEY, JSON.stringify(capped.slice(0, n)));
+        storedCount = n;
+        break;
+      } catch {
+        /* quota - drop the oldest entry and retry */
+      }
+    }
+    if (storedCount >= 0 && storedCount !== savedBatches.length) {
+      setSavedBatches(capped.slice(0, storedCount));
+    }
+  }, [hydrated, savedBatches]);
 
   function handleProviderChange(p: 'claude' | 'openai') {
     setProvider(p);
@@ -1015,7 +1084,12 @@ ${blocks.join('\n\n')}
     anchorLookup: Map<number, { type: AnchorType; text: string }>,
     promptLookup?: Map<number, string>,
   ) {
-    if (indices.length === 0) return;
+    // Accumulates each index's terminal changes (done/error) so callers get
+    // an authoritative final snapshot without reading React state. This lets
+    // the auto-archive run exactly once, outside any setState updater (which
+    // StrictMode double-invokes in dev).
+    const results = new Map<number, Partial<Article>>();
+    if (indices.length === 0) return results;
     const params = buildParams();
     const queue = [...indices];
 
@@ -1041,16 +1115,21 @@ ${blocks.join('\n\n')}
             const raw = await callGenerate(prompt);
             const content = cleanToHtml(raw);
             const title = extractTitle(content) || `Article ${idx + 1}`;
-            updateArticle(idx, { status: 'done', title, content, error: null });
+            const changes: Partial<Article> = { status: 'done', title, content, error: null };
+            results.set(idx, changes);
+            updateArticle(idx, changes);
           } catch (e) {
             const msg = e instanceof Error ? e.message : 'Unknown error';
-            updateArticle(idx, { status: 'error', error: msg });
+            const changes: Partial<Article> = { status: 'error', error: msg };
+            results.set(idx, changes);
+            updateArticle(idx, changes);
           }
           await new Promise((r) => setTimeout(r, 200));
         }
       })());
     }
     await Promise.all(workersList);
+    return results;
   }
 
   async function startGeneration() {
@@ -1107,17 +1186,25 @@ ${blocks.join('\n\n')}
     shouldStopRef.current = false;
     setGenStatus({ msg: `Generating ${count} articles with ${concurrency} parallel workers...`, type: 'loading' });
 
-    await runWorkers(Array.from({ length: count }, (_, i) => i), lookup, anchorLookup);
+    const results = await runWorkers(Array.from({ length: count }, (_, i) => i), lookup, anchorLookup);
     setIsRunning(false);
 
-    setArticles((prev) => {
-      const done = prev.filter((a) => a.status === 'done').length;
-      const failed = prev.filter((a) => a.status === 'error').length;
-      if (failed > 0) setGenStatus({ msg: `Finished. ${done} succeeded, ${failed} failed. Click Retry Failed to retry.`, type: 'warn' });
-      else if (shouldStopRef.current) setGenStatus({ msg: `Stopped. ${done} of ${count} completed.`, type: 'warn' });
-      else setGenStatus({ msg: `✓ All ${done} articles generated!`, type: 'success' });
-      return prev;
-    });
+    // Merge the worker results onto the planned articles for an authoritative
+    // final snapshot, then auto-archive the completed ones so the batch
+    // survives a Clear All or the next run. Done outside any setState updater
+    // so the non-idempotent archive runs exactly once (StrictMode-safe).
+    const finalArticles = initial.map((a) => ({ ...a, ...(results.get(a.index) ?? {}) }));
+    const doneArts = finalArticles.filter((a) => a.status === 'done');
+    const done = doneArts.length;
+    const failed = finalArticles.filter((a) => a.status === 'error').length;
+    let savedNote = '';
+    if (done > 0) {
+      archiveBatch(buildBatchName(doneArts), doneArts);
+      savedNote = ' Saved to the library below.';
+    }
+    if (failed > 0) setGenStatus({ msg: `Finished. ${done} succeeded, ${failed} failed. Click Retry Failed to retry.${savedNote}`, type: 'warn' });
+    else if (shouldStopRef.current) setGenStatus({ msg: `Stopped. ${done} of ${count} completed.${savedNote}`, type: 'warn' });
+    else setGenStatus({ msg: `✓ All ${done} articles generated!${savedNote}`, type: 'success' });
   }
 
   async function startCustomGeneration() {
@@ -1184,17 +1271,25 @@ ${blocks.join('\n\n')}
     shouldStopRef.current = false;
     setGenStatus({ msg: `Generating ${count} articles from the client prompt with ${concurrency} parallel workers...`, type: 'loading' });
 
-    await runWorkers(Array.from({ length: count }, (_, i) => i), new Map(), new Map(), promptLookup);
+    const results = await runWorkers(Array.from({ length: count }, (_, i) => i), new Map(), new Map(), promptLookup);
     setIsRunning(false);
 
-    setArticles((prev) => {
-      const done = prev.filter((a) => a.status === 'done').length;
-      const failed = prev.filter((a) => a.status === 'error').length;
-      if (failed > 0) setGenStatus({ msg: `Finished. ${done} succeeded, ${failed} failed. Click Retry Failed to retry.`, type: 'warn' });
-      else if (shouldStopRef.current) setGenStatus({ msg: `Stopped. ${done} of ${count} completed.`, type: 'warn' });
-      else setGenStatus({ msg: `✓ All ${done} articles generated!`, type: 'success' });
-      return prev;
-    });
+    // Merge the worker results onto the planned articles for an authoritative
+    // final snapshot, then auto-archive the completed ones so the batch
+    // survives a Clear All or the next run. Done outside any setState updater
+    // so the non-idempotent archive runs exactly once (StrictMode-safe).
+    const finalArticles = initial.map((a) => ({ ...a, ...(results.get(a.index) ?? {}) }));
+    const doneArts = finalArticles.filter((a) => a.status === 'done');
+    const done = doneArts.length;
+    const failed = finalArticles.filter((a) => a.status === 'error').length;
+    let savedNote = '';
+    if (done > 0) {
+      archiveBatch(buildBatchName(doneArts), doneArts);
+      savedNote = ' Saved to the library below.';
+    }
+    if (failed > 0) setGenStatus({ msg: `Finished. ${done} succeeded, ${failed} failed. Click Retry Failed to retry.${savedNote}`, type: 'warn' });
+    else if (shouldStopRef.current) setGenStatus({ msg: `Stopped. ${done} of ${count} completed.${savedNote}`, type: 'warn' });
+    else setGenStatus({ msg: `✓ All ${done} articles generated!${savedNote}`, type: 'success' });
   }
 
   async function regenerateIndices(indices: number[], statusMsg: string) {
@@ -1476,6 +1571,13 @@ ${blocks.join('\n\n')}
 
   async function downloadAllZip() {
     const done = articles.filter((a) => a.status === 'done');
+    await zipArticles(done, getBaseFilename());
+  }
+
+  // Bundles a set of done articles into a keyword-foldered ZIP and triggers
+  // a download. Shared by the live workspace and the Saved Batches library
+  // so both download the same structure (per-keyword folders + INDEX.tsv).
+  async function zipArticles(done: Article[], baseName: string) {
     if (done.length === 0) {
       setGenStatus({ msg: 'No articles to download yet', type: 'warn' });
       return;
@@ -1512,7 +1614,7 @@ ${blocks.join('\n\n')}
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${getBaseFilename()}.zip`;
+    link.download = `${baseName}.zip`;
     link.click();
     URL.revokeObjectURL(url);
     setGenStatus({ msg: `✓ Downloaded ${done.length} articles as ZIP`, type: 'success' });
@@ -1531,9 +1633,95 @@ ${blocks.join('\n\n')}
   }
 
   function clearResults() {
-    if (!confirm('Clear all articles?')) return;
+    if (!confirm('Clear all articles from the workspace? Batches you have saved to the library below are kept.')) return;
     setArticles([]);
     setGenStatus(null);
+  }
+
+  // ----- Saved Batches library -----------------------------------------
+  // Archive of completed batches kept in the browser so a campaign isn't
+  // lost when the workspace is cleared or replaced by the next run.
+
+  function buildBatchName(done: Article[]): string {
+    const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const label = niche.trim() || moneySite.replace(/^https?:\/\//, '').replace(/\/.*$/, '').trim() || 'Batch';
+    return `${label} - ${done.length} article${done.length === 1 ? '' : 's'} (${today})`;
+  }
+
+  // Prepend a snapshot of the done articles to the library. Functional
+  // state update so it's safe to call from inside a setArticles updater
+  // (the generation-complete auto-save path). The persist effect handles
+  // localStorage, the cap, and quota trimming.
+  function archiveBatch(name: string, done: Article[]) {
+    const batch: SavedBatch = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name,
+      savedAt: Date.now(),
+      niche: niche.trim(),
+      moneySite: moneySite.trim(),
+      promptMode,
+      articles: done.map((a) => ({ ...a })),
+    };
+    setSavedBatches((prev) => [batch, ...prev]);
+  }
+
+  function saveCurrentBatch() {
+    const done = articles.filter((a) => a.status === 'done');
+    if (done.length === 0) {
+      setGenStatus({ msg: 'No completed articles to save yet', type: 'warn' });
+      setTimeout(() => setGenStatus(null), 2000);
+      return;
+    }
+    const suggested = buildBatchName(done);
+    const name = prompt('Save this batch to the library. Name:', suggested);
+    if (name === null) return;
+    const finalName = name.trim() || suggested;
+    archiveBatch(finalName, done);
+    setGenStatus({ msg: `✓ Saved "${finalName}" to the library (${done.length} article${done.length === 1 ? '' : 's'})`, type: 'success' });
+    setTimeout(() => setGenStatus(null), 2600);
+  }
+
+  function loadSavedBatch(id: string) {
+    const batch = savedBatches.find((b) => b.id === id);
+    if (!batch) return;
+    if (isRunning) {
+      setGenStatus({ msg: 'Finish or stop the current generation before loading a saved batch', type: 'warn' });
+      return;
+    }
+    if (
+      articles.length > 0 &&
+      !confirm(
+        `Load "${batch.name}" (${batch.articles.length} article${batch.articles.length === 1 ? '' : 's'})? This replaces the ${articles.length} article${articles.length === 1 ? '' : 's'} currently in the workspace. Save the current batch first if you want to keep it.`,
+      )
+    ) {
+      return;
+    }
+    // Re-key indices to a clean 0..n-1 run so selection, regeneration, and
+    // downloads behave exactly like a freshly generated batch.
+    const restored = batch.articles.map((a, i) => ({ ...a, index: i }));
+    setArticles(restored);
+    setSelected(new Set());
+    setExpanded(new Set());
+    setSearchQuery('');
+    setStatusFilter('all');
+    setGenStatus({ msg: `✓ Loaded "${batch.name}" into the workspace (${restored.length} article${restored.length === 1 ? '' : 's'})`, type: 'success' });
+    setTimeout(() => setGenStatus(null), 2400);
+  }
+
+  async function downloadSavedBatchZip(id: string) {
+    const batch = savedBatches.find((b) => b.id === id);
+    if (!batch) return;
+    const done = batch.articles.filter((a) => a.status === 'done');
+    await zipArticles(done, slugify(batch.name) || 'saved-batch');
+  }
+
+  function deleteSavedBatch(id: string) {
+    const batch = savedBatches.find((b) => b.id === id);
+    if (!batch) return;
+    if (!confirm(`Delete saved batch "${batch.name}"? This cannot be undone.`)) return;
+    setSavedBatches((prev) => prev.filter((b) => b.id !== id));
+    setGenStatus({ msg: `Deleted "${batch.name}" from the library`, type: 'success' });
+    setTimeout(() => setGenStatus(null), 1800);
   }
 
   const totalDone = articles.filter((a) => a.status === 'done').length;
@@ -2243,6 +2431,7 @@ ${blocks.join('\n\n')}
               Copy {totalDone} {totalDone === 1 ? 'Article' : 'Articles'}
             </button>
             <button onClick={downloadAllZip} style={styles.btnSuccess}>Download All (ZIP)</button>
+            <button onClick={saveCurrentBatch} style={styles.btnSmall} disabled={totalDone === 0}>Save Batch to Library</button>
             <button onClick={exportCsv} style={styles.btnSmall}>Export CSV</button>
             <button onClick={clearResults} style={styles.btnDanger}>Clear All</button>
           </div>
@@ -2386,6 +2575,41 @@ ${blocks.join('\n\n')}
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* SAVED BATCHES LIBRARY */}
+      {savedBatches.length > 0 && (
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>Saved Batches ({savedBatches.length})</div>
+          <div style={{ ...styles.help, marginTop: -8, marginBottom: 14 }}>
+            Completed batches are archived here automatically (and whenever you click &ldquo;Save Batch to Library&rdquo;). They are stored in this browser, separate from the workspace above, so Clear All never removes them. Load one back in to copy, download, or regenerate it, or delete it when you no longer need it. Up to {MAX_SAVED_BATCHES} batches are kept - the oldest is dropped first.
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[...savedBatches].sort((a, b) => b.savedAt - a.savedAt).map((b) => {
+              const doneCount = b.articles.filter((a) => a.status === 'done').length;
+              return (
+                <div
+                  key={b.id}
+                  style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8 }}
+                >
+                  <div style={{ minWidth: 220, flex: 1 }}>
+                    <div style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text)', overflowWrap: 'anywhere' }}>{b.name}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: 3 }}>
+                      {doneCount} article{doneCount === 1 ? '' : 's'} · saved {new Date(b.savedAt).toLocaleString()}
+                      {b.niche ? ` · ${b.niche}` : ''}
+                      {` · ${b.promptMode === 'custom' ? 'Client Prompt' : 'Structured Form'}`}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <button onClick={() => loadSavedBatch(b.id)} style={styles.btnSmall} disabled={isRunning}>Load</button>
+                    <button onClick={() => downloadSavedBatchZip(b.id)} style={styles.btnSmall}>Download ZIP</button>
+                    <button onClick={() => deleteSavedBatch(b.id)} style={styles.btnSmallDanger}>Delete</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
