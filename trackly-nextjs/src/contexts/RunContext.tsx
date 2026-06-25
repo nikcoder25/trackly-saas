@@ -94,9 +94,9 @@ export function markPendingFirstRun(brandId: string) {
  * Persistent per-brand "already auto-ran" guard.
  *
  * The sessionStorage creation flag (above) is a single-shot signal that only
- * exists at the instant a brand is created. If it's lost — a refresh, a new
+ * exists at the instant a brand is created. If it's lost - a refresh, a new
  * tab, the email-verification redirect that bounces the user out and back, or
- * an earlier dispatch that errored — the first scan never starts on its own and
+ * an earlier dispatch that errored - the first scan never starts on its own and
  * the brand sits forever on "Run your first scan". This localStorage marker is
  * the durable counterpart: it records every brand we've auto-started a scan for
  * so the fallback path (below) can fire exactly once per brand per browser
@@ -121,13 +121,13 @@ export function markBrandAutoRan(brandId: string) {
     // realistically onboards.
     const trimmed = [...ids].slice(-200);
     localStorage.setItem(AUTORUN_DONE_KEY, JSON.stringify(trimmed));
-  } catch { /* storage unavailable — the in-memory firedRef guard still holds */ }
+  } catch { /* storage unavailable - the in-memory firedRef guard still holds */ }
 }
 
 export type FirstRunDecision =
   | { action: 'idle' }                  // nothing flagged
   | { action: 'wait' }                  // flagged, but not ready to dispatch yet
-  | { action: 'clear' }                 // flagged brand already has data — drop the flag
+  | { action: 'clear' }                 // flagged brand already has data - drop the flag
   | { action: 'run'; brandId: string }; // dispatch the first scan now
 
 /**
@@ -151,7 +151,7 @@ export function resolveFirstRunDispatch(
   if (!brand) return { action: 'wait' };       // brand list hasn't caught up yet
   const runs = brand.runs;
   if (Array.isArray(runs) && runs.length > 0) return { action: 'clear' }; // already has data
-  if (running) return { action: 'wait' };      // a run is already happening — leave it
+  if (running) return { action: 'wait' };      // a run is already happening - leave it
   return { action: 'run', brandId: pendingId };
 }
 
@@ -184,7 +184,7 @@ function brandHasQueries(b: AutoScanBrand): boolean {
  * Crucially, a brand is resolved from EITHER the loaded `brands` list OR the
  * in-memory `selectedBrand` object. On creation the modal sets `selectedBrand`
  * synchronously but `brands` only updates after the async refreshBrands()
- * round-trip — so keying solely off `brands` made the dispatch wait for that
+ * round-trip - so keying solely off `brands` made the dispatch wait for that
  * fetch, which is the race that left "Skip wizard & create now" firing late and
  * inconsistently. Reading `selectedBrand` directly lets every creation entry
  * point (full wizard, skip wizard, + Add brand) dispatch instantly. (BUG 2)

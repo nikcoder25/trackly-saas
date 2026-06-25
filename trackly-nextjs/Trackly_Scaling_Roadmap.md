@@ -180,7 +180,7 @@ Deferred (24h SLA risk needs more planning):
   as wired today.** The worker submits one single-item batch per query and
   polls it inline under the per-task abort budget
   (`RUN_PER_QUERY_TIMEOUT_MS`, default 180s), while OpenAI batches
-  routinely take minutes-to-hours — so nearly every batch would be
+  routinely take minutes-to-hours - so nearly every batch would be
   abandoned at 180s and the query re-billed on the sync fallback.
   Abandoned batches are now cancelled best-effort (POST
   /v1/batches/{id}/cancel) so the orphan can't also complete and
@@ -190,7 +190,7 @@ Deferred (24h SLA risk needs more planning):
   submit before / outside the per-query task loop, and harvest results
   into the response cache so the per-query path hits cache.
 
-June 2026 addendum — shipped after the public-tools cost review:
+June 2026 addendum - shipped after the public-tools cost review:
 7. **Response cache on all `queryAI` callers** - The free public tools
    (/api/free-check, chatgpt-mention-checker, citation-finder,
    competitor-finder) and the authed helpers (ai-generate-queries,

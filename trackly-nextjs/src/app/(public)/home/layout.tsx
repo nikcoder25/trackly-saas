@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 
 export const metadata: Metadata = {
-  title: 'Livesov — AI Visibility Tracker for ChatGPT, Perplexity, Claude & Gemini',
+  title: 'Livesov - AI Visibility Tracker for ChatGPT, Perplexity, Claude & Gemini',
   description:
     'Livesov is the AI visibility tracker that shows how ChatGPT, Perplexity, Claude, Gemini, and Grok talk about your brand. Track mentions, share of voice, and generative engine optimization in one platform. 7-day free trial, plans from $9/mo.',
   keywords: [
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     'AI SEO',
   ],
   openGraph: {
-    title: 'Livesov — AI Visibility Tracker for ChatGPT, Perplexity, Claude & Gemini',
+    title: 'Livesov - AI Visibility Tracker for ChatGPT, Perplexity, Claude & Gemini',
     description:
       'Livesov is the AI visibility tracker that shows how ChatGPT, Perplexity, Claude, Gemini, and Grok talk about your brand. Track mentions, share of voice, and generative engine optimization in one platform. 7-day free trial, plans from $9/mo.',
     type: 'website',
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Livesov — AI Visibility Tracker for ChatGPT, Perplexity, Claude & Gemini',
+    title: 'Livesov - AI Visibility Tracker for ChatGPT, Perplexity, Claude & Gemini',
     description:
       'Livesov is the AI visibility tracker that shows how ChatGPT, Perplexity, Claude, Gemini, and Grok talk about your brand. Track mentions, share of voice, and generative engine optimization in one platform. 7-day free trial, plans from $9/mo.',
   },

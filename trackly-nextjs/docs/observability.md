@@ -93,9 +93,9 @@ than the per-task timeout.
 
 Standard derived series:
 - `rate(trackly_ai_call_latency_ms_sum[5m]) / rate(trackly_ai_call_latency_ms_count[5m])`
-  — average latency over a 5-minute window.
+  - average latency over a 5-minute window.
 - `histogram_quantile(0.95, rate(trackly_ai_call_latency_ms_bucket[5m]))`
-  — p95 latency.
+  - p95 latency.
 
 ### `trackly_http_requests_total`
 
