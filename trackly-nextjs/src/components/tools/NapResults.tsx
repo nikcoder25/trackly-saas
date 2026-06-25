@@ -571,7 +571,7 @@ export default function NapResults({
   ];
   const weakest = [...napFields].sort((a, b) => a.pct - b.pct)[0];
   const diagnosis = issueCount > 0 && weakest
-    ? `${weakest.label} is your weakest field — only ${weakest.pct}% of listings match.`
+    ? `${weakest.label} is your weakest field - only ${weakest.pct}% of listings match.`
     : 'Every listing agrees with your canonical NAP.';
 
   const focusIssues = () => {

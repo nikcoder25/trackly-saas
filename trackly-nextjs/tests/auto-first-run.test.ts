@@ -94,7 +94,7 @@ describe('resolveAutoFirstScan', () => {
     expect(resolveAutoFirstScan(null, { id: 'b1', queries: [] }, [{ id: 'b1', queries: [] }], false, NONE)).toEqual({ action: 'idle' });
   });
 
-  it('FALLBACK: fires only once per brand — the persistent guard prevents loops', () => {
+  it('FALLBACK: fires only once per brand - the persistent guard prevents loops', () => {
     expect(resolveAutoFirstScan(null, withQ('b1'), [withQ('b1')], false, new Set(['b1']))).toEqual({ action: 'idle' });
   });
 

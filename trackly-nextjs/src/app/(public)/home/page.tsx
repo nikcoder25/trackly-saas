@@ -269,7 +269,7 @@ function Hero() {
         <div className="hero-copy">
           <div className="eyebrow"><span className="dot" /> Generative Engine Optimization</div>
           <h1 className="serif hero-h1">AI is the new search.<br /><em>Track your AI visibility.</em></h1>
-          <p className="hero-sub">Livesov is the AI visibility tool that shows exactly how ChatGPT, Claude, Gemini, Perplexity and Grok answer the questions your buyers ask - and whether your brand gets mentioned, recommended, or ignored.</p>
+          <p className="hero-sub">Livesov is the AI visibility tracker that shows exactly how ChatGPT, Claude, Gemini, Perplexity and Grok answer the questions your buyers ask - and whether your brand gets mentioned, recommended, or ignored.</p>
           <div className="hero-cta">
             <Link className="btn btn-pri btn-lg" href="/geo-audit">Run my free audit <span className="ar">→</span></Link>
           </div>
@@ -409,7 +409,7 @@ function Features() {
       <div className="container">
         <SecHead
           eyebrow="What's inside"
-          title={<>Your complete <em>AI visibility platform.</em></>}
+          title={<>Your complete <em>AI visibility tracker.</em></>}
           sub="Everything you need to make sure the answer is you - a full AI visibility platform built from scratch for how AI engines answer, not bolted onto a 2010 SEO tool."
         />
         <div className="feat-grid">

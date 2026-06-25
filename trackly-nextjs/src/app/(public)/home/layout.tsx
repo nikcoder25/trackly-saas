@@ -2,13 +2,13 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 
 export const metadata: Metadata = {
-  title: 'Livesov - AI Visibility Tool to Track Your Brand Across ChatGPT, Perplexity & Gemini',
+  title: 'Livesov - AI Visibility Tracker for ChatGPT, Perplexity, Claude & Gemini',
   description:
-    'Livesov is the AI visibility tool that shows how ChatGPT, Perplexity, Claude, Gemini, and Grok talk about your brand. Track mentions, share of voice, and generative engine optimization in one platform. 7-day free trial, plans from $9/mo.',
+    'Livesov is the AI visibility tracker that shows how ChatGPT, Perplexity, Claude, Gemini, and Grok talk about your brand. Track mentions, share of voice, and generative engine optimization in one platform. 7-day free trial, plans from $9/mo.',
   keywords: [
+    'AI visibility tracker',
     'AI visibility tool',
     'AI visibility platform',
-    'AI visibility tracker',
     'generative engine optimization',
     'AI brand monitoring',
     'ChatGPT brand tracking',
@@ -20,9 +20,9 @@ export const metadata: Metadata = {
     'AI SEO',
   ],
   openGraph: {
-    title: 'Livesov - AI Visibility Tool to Track Your Brand Across ChatGPT, Perplexity & Gemini',
+    title: 'Livesov - AI Visibility Tracker for ChatGPT, Perplexity, Claude & Gemini',
     description:
-      'Livesov is the AI visibility tool that shows how ChatGPT, Perplexity, Claude, Gemini, and Grok talk about your brand. Track mentions, share of voice, and generative engine optimization in one platform. 7-day free trial, plans from $9/mo.',
+      'Livesov is the AI visibility tracker that shows how ChatGPT, Perplexity, Claude, Gemini, and Grok talk about your brand. Track mentions, share of voice, and generative engine optimization in one platform. 7-day free trial, plans from $9/mo.',
     type: 'website',
     url: 'https://livesov.com/',
     siteName: 'Livesov',
@@ -30,14 +30,14 @@ export const metadata: Metadata = {
       url: 'https://livesov.com/og-image.png',
       width: 1200,
       height: 630,
-      alt: 'Livesov - AI visibility tool tracking brands across ChatGPT, Perplexity, Claude, Gemini, and Grok',
+      alt: 'Livesov - AI visibility tracker for brands across ChatGPT, Perplexity, Claude, Gemini, and Grok',
     }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Livesov - AI Visibility Tool to Track Your Brand Across ChatGPT, Perplexity & Gemini',
+    title: 'Livesov - AI Visibility Tracker for ChatGPT, Perplexity, Claude & Gemini',
     description:
-      'Livesov is the AI visibility tool that shows how ChatGPT, Perplexity, Claude, Gemini, and Grok talk about your brand. Track mentions, share of voice, and generative engine optimization in one platform. 7-day free trial, plans from $9/mo.',
+      'Livesov is the AI visibility tracker that shows how ChatGPT, Perplexity, Claude, Gemini, and Grok talk about your brand. Track mentions, share of voice, and generative engine optimization in one platform. 7-day free trial, plans from $9/mo.',
   },
   alternates: {
     canonical: '/',
@@ -52,7 +52,7 @@ const jsonLd = {
       '@type': 'Organization',
       name: 'Livesov',
       url: 'https://livesov.com',
-      description: 'AI visibility tool - monitor your brand across ChatGPT, Perplexity, Claude, Gemini & Grok.',
+      description: 'AI visibility tracker - monitor your brand across ChatGPT, Perplexity, Claude, Gemini & Grok.',
       contactPoint: {
         '@type': 'ContactPoint',
         email: 'hello@livesov.com',

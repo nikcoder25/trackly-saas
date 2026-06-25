@@ -907,7 +907,7 @@ function HealthBannerSkeleton() {
           <div className="hbar" key={label}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
               <span className="hbar-l">{label}</span>
-              <span className="hbar-v mono" style={{ opacity: .5 }}>—</span>
+              <span className="hbar-v mono" style={{ opacity: .5 }}>-</span>
             </div>
             <div className="hbar-track"><i style={{ width: '0%' }} /></div>
             <div className="hbar-sub">Scanning…</div>

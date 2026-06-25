@@ -34,7 +34,7 @@ function OnboardingModal() {
         setSelectedBrand(brand);
         // Flag the brand-new brand for an automatic first scan, then refresh.
         // <AutoFirstRun> below actually dispatches the run once the brand
-        // lands in context — this survives the modal unmounting on create.
+        // lands in context - this survives the modal unmounting on create.
         markPendingFirstRun(brand.id);
         refreshBrands();
       }}
@@ -47,18 +47,18 @@ function OnboardingModal() {
  *
  * Two triggers, in order of precedence:
  *   1. The explicit creation flag (markPendingFirstRun) set by "Create Brand &
- *      Run" — the fast path right after onboarding.
+ *      Run" - the fast path right after onboarding.
  *   2. A durable fallback: whenever the brand the user is looking at has
  *      tracked prompts but no results yet and has never been auto-scanned, the
  *      scan starts on its own. This rescues every case where the creation flag
- *      was lost — a refresh, a new tab, the email-verification redirect, or an
- *      earlier dispatch that errored — which is what left brands stranded on
+ *      was lost - a refresh, a new tab, the email-verification redirect, or an
+ *      earlier dispatch that errored - which is what left brands stranded on
  *      "Run your first scan" despite repeated fixes to the flag path alone.
  *
  * Mounted persistently under the providers so it fires regardless of which
  * modal created the brand. The per-brand localStorage guard (markBrandAutoRan)
  * plus the in-memory firedRef keep it to exactly one automatic attempt per
- * brand, so it never loops or burns credits twice — across reloads and tabs.
+ * brand, so it never loops or burns credits twice - across reloads and tabs.
  */
 function AutoFirstRun() {
   const { brands, loading, selectedBrand, selectedBrandLocked } = useBrands();
@@ -67,7 +67,7 @@ function AutoFirstRun() {
 
   useEffect(() => {
     if (loading || firedRef.current) return;
-    // A locked brand (over plan limit) can't run; don't auto-dispatch — the
+    // A locked brand (over plan limit) can't run; don't auto-dispatch - the
     // server would just reject it and we'd waste the one-shot guard.
     if (selectedBrandLocked) return;
 
@@ -85,7 +85,7 @@ function AutoFirstRun() {
       try { sessionStorage.removeItem(PENDING_FIRST_RUN_KEY); } catch {}
       return;
     }
-    if (decision.action !== 'run') return; // idle or wait — nothing to do yet
+    if (decision.action !== 'run') return; // idle or wait - nothing to do yet
 
     firedRef.current = true;
     markBrandAutoRan(decision.brandId);
@@ -94,7 +94,7 @@ function AutoFirstRun() {
     // see this line the moment the first scan kicks off on its own. If you
     // create a brand and this never logs, the auto-start didn't reach the
     // dispatch and we have a concrete signal to chase. Cheap and safe to keep
-    // — it only ever fires on the single automatic first scan per brand.
+    // - it only ever fires on the single automatic first scan per brand.
     // eslint-disable-next-line no-console
     console.info('[livesov] auto-first-scan: starting first scan automatically for brand', decision.brandId);
     startRun(false, { auto: true, brandId: decision.brandId });
