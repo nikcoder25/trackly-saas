@@ -146,6 +146,16 @@ function flattenRuns(brand: Brand | null): ResultRow[] {
       });
     });
   }
+  // Newest results first: the runs array isn't guaranteed to be ordered, so
+  // sort by timestamp descending. Rows with an unparseable timestamp sink to
+  // the bottom rather than jumping to the top.
+  rows.sort((a, b) => {
+    const ta = new Date(a.timestamp).getTime();
+    const tb = new Date(b.timestamp).getTime();
+    const va = isNaN(ta) ? -Infinity : ta;
+    const vb = isNaN(tb) ? -Infinity : tb;
+    return vb - va;
+  });
   return rows;
 }
 
