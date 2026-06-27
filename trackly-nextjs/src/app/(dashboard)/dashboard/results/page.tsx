@@ -122,6 +122,56 @@ function dateOnly(iso: string): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
+// Format a Date to a local YYYY-MM-DD string. Matches dateOnly's output so
+// preset bounds compare cleanly against a row's dateOnly(timestamp).
+function fmtLocalDate(d: Date): string {
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+// A Date `n` days before today (n=0 is today), at local midnight.
+function daysAgo(n: number): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - n);
+  return d;
+}
+
+type DatePreset = 'all' | 'today' | 'yesterday' | 'last7' | 'last15' | 'last30' | 'older' | 'custom';
+
+// Cut-off (in days back from today) that separates "recent" from "older" for
+// the Older-than-15-days preset.
+const OLDER_THAN_DAYS = 15;
+
+// Translate a preset into concrete from/to bounds (local YYYY-MM-DD).
+// 'all' clears both; 'older' sets only an upper bound; 'custom' is a no-op
+// (the user drives the raw date inputs directly).
+function presetRange(preset: DatePreset): { from: string; to: string } | null {
+  const today = fmtLocalDate(daysAgo(0));
+  switch (preset) {
+    case 'all': return { from: '', to: '' };
+    case 'today': return { from: today, to: today };
+    case 'yesterday': { const y = fmtLocalDate(daysAgo(1)); return { from: y, to: y }; }
+    case 'last7': return { from: fmtLocalDate(daysAgo(6)), to: today };
+    case 'last15': return { from: fmtLocalDate(daysAgo(14)), to: today };
+    case 'last30': return { from: fmtLocalDate(daysAgo(29)), to: today };
+    case 'older': return { from: '', to: fmtLocalDate(daysAgo(OLDER_THAN_DAYS + 1)) };
+    case 'custom': return null;
+  }
+}
+
+// Infer which preset the current from/to bounds correspond to, so the
+// dropdown reflects the active range (and falls back to 'custom').
+function presetFor(from: string, to: string): DatePreset {
+  if (!from && !to) return 'all';
+  for (const p of ['today', 'yesterday', 'last7', 'last15', 'last30', 'older'] as DatePreset[]) {
+    const r = presetRange(p);
+    if (r && r.from === from && r.to === to) return p;
+  }
+  return 'custom';
+}
+
 function flattenRuns(brand: Brand | null): ResultRow[] {
   if (!brand?.runs?.length) return [];
   const rows: ResultRow[] = [];
@@ -195,12 +245,36 @@ export default function ResultsPage() {
   // Which row is expanded to show its full response (collapsed by default).
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [tableScrolled, setTableScrolled] = useState(false);
+  // Sticky "Custom range" selection. Without it, choosing Custom before
+  // entering any dates would snap the dropdown back to "All time" (empty
+  // bounds infer as 'all'), hiding the date inputs the user just asked for.
+  const [customMode, setCustomMode] = useState(false);
 
   function setParam(key: string, value: string) {
     const next = new URLSearchParams(searchParams.toString());
     if (!value || value === 'all') next.delete(key);
     else next.set(key, value);
     router.replace(`?${next.toString()}`, { scroll: false });
+  }
+
+  // Set the from/to date bounds together in a single navigation so a preset
+  // (which touches both) doesn't trigger two router.replace calls.
+  function setRange(fromVal: string, toVal: string) {
+    const next = new URLSearchParams(searchParams.toString());
+    if (fromVal) next.set('from', fromVal); else next.delete('from');
+    if (toVal) next.set('to', toVal); else next.delete('to');
+    router.replace(`?${next.toString()}`, { scroll: false });
+  }
+
+  // Which preset the current bounds map to, and the handler that applies one.
+  // 'custom' leaves the bounds untouched and reveals the raw date inputs;
+  // customMode keeps it selected even while both bounds are still empty.
+  const datePreset: DatePreset = customMode ? 'custom' : presetFor(from, to);
+  function applyPreset(preset: string) {
+    if (preset === 'custom') { setCustomMode(true); return; }
+    setCustomMode(false);
+    const r = presetRange(preset as DatePreset);
+    if (r) setRange(r.from, r.to);
   }
 
   // Dedicated handler for ?size= - same router.replace pattern as setParam, but
@@ -213,6 +287,7 @@ export default function ResultsPage() {
   }
 
   function clearFilters() {
+    setCustomMode(false);
     router.replace('?', { scroll: false });
   }
 
@@ -290,10 +365,25 @@ export default function ResultsPage() {
                 <option value="no">Not found</option>
                 <option value="failed">Failed</option>
               </select>
-              <input type="date" className="sel" aria-label="From"
-                value={from} onChange={e => setParam('from', e.target.value)} />
-              <input type="date" className="sel" aria-label="To"
-                value={to} onChange={e => setParam('to', e.target.value)} />
+              <select className="sel" aria-label="Date range"
+                value={datePreset} onChange={e => applyPreset(e.target.value)}>
+                <option value="all">All time</option>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="last7">Last 7 days</option>
+                <option value="last15">Last 15 days</option>
+                <option value="last30">Last 30 days</option>
+                <option value="older">Older than 15 days</option>
+                <option value="custom">Custom range…</option>
+              </select>
+              {datePreset === 'custom' && (
+                <>
+                  <input type="date" className="sel" aria-label="From"
+                    value={from} onChange={e => setParam('from', e.target.value)} />
+                  <input type="date" className="sel" aria-label="To"
+                    value={to} onChange={e => setParam('to', e.target.value)} />
+                </>
+              )}
               <PageSizeSelect value={size} onChange={setSize} />
               <Pill>{filtered.length === 0 ? 'No matches' : `${filtered.length} result${filtered.length === 1 ? '' : 's'}`}</Pill>
               {!isAll && totalPages > 1 && (
