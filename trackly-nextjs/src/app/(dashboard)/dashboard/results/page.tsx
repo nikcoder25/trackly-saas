@@ -217,13 +217,22 @@ export default function ResultsPage() {
   const { startRun, live } = useRun();
   const { toast } = useToast();
 
-  // Re-run a single failed prompt across all engines. Goes through the normal
-  // run path (and its credit pre-flight) so a retry is costed and tracked like
-  // any other run; failed responses won't be charged thanks to the refund path.
-  const retryPrompt = (prompt: string) => {
+  // Re-run a single failed prompt against ONLY the platform that failed - not
+  // every engine. A failed Perplexity row retries on Perplexity alone, so the
+  // cost is 1 scan instead of one-per-engine. Goes through the normal run path
+  // (and its credit pre-flight) so the retry is costed and tracked like any
+  // other run; failed responses won't be charged thanks to the refund path.
+  const retryPrompt = (prompt: string, platform?: string) => {
     if (!prompt) return;
-    startRun(false, { queries: [prompt] });
-    toast(live.running ? 'Run in progress - this prompt is queued to retry next.' : 'Retrying this prompt across all engines…');
+    startRun(false, { queries: [prompt], ...(platform ? { platforms: [platform] } : {}) });
+    // While another run is active the retry is queued (its platform scope
+    // isn't preserved in the queue), so keep that toast generic. The
+    // immediate path is correctly scoped to the single platform.
+    if (live.running) {
+      toast('Run in progress - this prompt is queued to retry next.');
+    } else {
+      toast(platform ? `Retrying this prompt on ${platform}…` : 'Retrying this prompt across all engines…');
+    }
   };
 
   const allRows = useMemo(() => flattenRuns(brand), [brand]);
@@ -431,7 +440,7 @@ export default function ResultsPage() {
                         <button
                           type="button"
                           className="btn-d"
-                          onClick={e => { e.stopPropagation(); retryPrompt(r.prompt); }}
+                          onClick={e => { e.stopPropagation(); retryPrompt(r.prompt, r.model); }}
                           style={{ flexShrink: 0, fontSize: 11, padding: '3px 10px' }}
                           title="Re-run this prompt across all engines"
                         >
@@ -458,7 +467,7 @@ export default function ResultsPage() {
                               <button
                                 type="button"
                                 className="btn-d"
-                                onClick={() => retryPrompt(r.prompt)}
+                                onClick={() => retryPrompt(r.prompt, r.model)}
                                 style={{ fontSize: 11, padding: '2px 10px' }}
                               >
                                 ↻ Retry this prompt

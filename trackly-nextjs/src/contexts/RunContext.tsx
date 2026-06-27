@@ -48,6 +48,11 @@ interface StartRunOptions {
   // deterministically, even if BrandContext's selection is momentarily
   // stale or pointing at a different brand.
   brandId?: string;
+  // Restrict the run to specific AI platforms (e.g. ChatGPT, Perplexity)
+  // instead of the brand's full selection. Used by the Results page Retry
+  // button to re-run a single failed prompt against only the one platform
+  // that failed, so the cost is 1 scan rather than one-per-engine.
+  platforms?: string[];
 }
 
 interface RunContextType {
@@ -475,7 +480,12 @@ export function RunProvider({ children }: { children: ReactNode }) {
     // still enforces the cap in either case - this is purely UX so
     // the user knows the cost before clicking through.
     if (!options?.auto && selectedBrand) {
-      const platforms = (selectedBrand as { platforms?: string[] })?.platforms?.length ?? 0;
+      // When the caller targets specific platforms (e.g. a single-platform
+      // Retry), cost is scoped to those; otherwise it's the brand's full
+      // platform selection (default 5 when unknown).
+      const platforms = options?.platforms?.length
+        ? options.platforms.length
+        : ((selectedBrand as { platforms?: string[] })?.platforms?.length ?? 0);
       const queriesCount = options?.queries
         ? options.queries.length
         : ((selectedBrand as { queries?: string[] })?.queries?.length ?? 0);
@@ -508,11 +518,19 @@ export function RunProvider({ children }: { children: ReactNode }) {
       const forceParam = force ? '&force=1' : '';
       const autoParam = options?.auto ? '&auto=1' : '';
 
-      // POST to start the run - returns immediately with runId
+      // POST to start the run - returns immediately with runId. Forward an
+      // explicit queries / platforms scope when present so a single-prompt,
+      // single-platform Retry hits only that engine.
+      const runBody = (options?.queries || options?.platforms)
+        ? JSON.stringify({
+            ...(options?.queries ? { queries: options.queries } : {}),
+            ...(options?.platforms ? { platforms: options.platforms } : {}),
+          })
+        : undefined;
       const response = await fetch(`/api/brands/${brandId}/run?x=1${forceParam}${autoParam}`, {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: options?.queries ? JSON.stringify({ queries: options.queries }) : undefined,
+        body: runBody,
       });
 
       if (!response.ok) {
