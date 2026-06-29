@@ -95,6 +95,24 @@ jobs:
             -H "Authorization: Bearer $CRON_SECRET" \
             "https://livesov.com/api/cron/nap-audits-worker"
 
+  fix_engine_worker:
+    # Safety net for Fix Engine scan batches stuck in 'queued' (happy path
+    # is the Next.js after() callback fired from POST /api/brands/[id]/fixes).
+    # Runs every 15 min alongside the other workers.
+    name: Fix Engine worker cron
+    if: github.event.schedule == '*/15 * * * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'reconcile')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call /api/cron/fix-engine-worker
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --max-time 300 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://livesov.com/api/cron/fix-engine-worker"
+
   weekly:
     name: Weekly reports cron
     if: github.event.schedule == '0 8 * * 1' || (github.event_name == 'workflow_dispatch' && inputs.job == 'weekly')
