@@ -26,6 +26,9 @@ interface FixRow {
 interface PreviewBlock {
   kind: string; label: string; before?: string; after?: string; language?: string;
 }
+interface Connection {
+  id: string; provider: string; cmsType: string | null; siteUrl: string | null; status: string;
+}
 
 const STATUS_TONE: Record<string, string> = {
   detected: 'neu', generating: 'info', generated: 'info', preview_ready: 'info',
@@ -57,6 +60,9 @@ export function PageFixes() {
   const [previews, setPreviews] = React.useState<Record<string, PreviewBlock | null>>({});
   const [scanning, setScanning] = React.useState(false);
   const [scanMsg, setScanMsg] = React.useState<string | null>(null);
+  const [connections, setConnections] = React.useState<Connection[]>([]);
+  const [supportedCms, setSupportedCms] = React.useState<string[]>([]);
+  const [notice, setNotice] = React.useState<string | null>(null);
 
   const load = React.useCallback(async (id: string) => {
     setLoading(true); setError(null);
@@ -73,12 +79,67 @@ export function PageFixes() {
     } finally {
       setLoading(false);
     }
+    try {
+      const c = await api(`/api/brands/${id}/connections`);
+      setConnections(c.connections || []);
+      setSupportedCms(c.supportedCms || []);
+    } catch { /* connections are non-fatal for the list view */ }
   }, []);
 
   React.useEffect(() => {
     if (!brandId) { setFixes([]); setCatalog([]); return; }
     load(brandId);
   }, [brandId, load]);
+
+  // Surface the GSC OAuth round-trip result (?gsc=connected|denied|error).
+  React.useEffect(() => {
+    const g = new URLSearchParams(window.location.search).get('gsc');
+    if (!g) return;
+    const msg: Record<string, string> = {
+      connected: 'Google Search Console connected.',
+      denied: 'Google Search Console connection was denied.',
+      invalid: 'The connection link was invalid or expired — please retry.',
+      error: 'Connecting Google Search Console failed — please retry.',
+    };
+    setNotice(msg[g] || null);
+    // Clean the query param without reloading.
+    const u = new URL(window.location.href);
+    u.searchParams.delete('gsc');
+    window.history.replaceState({}, '', u.toString());
+  }, []);
+
+  const gscConn = connections.find((c) => c.provider === 'gsc' && c.status === 'active');
+  const cmsConn = connections.find((c) => c.provider === 'cms' && c.status === 'active');
+  const hasGscModule = catalog.some((c) => c.trigger === 'gsc');
+
+  const connectGsc = async () => {
+    if (!brandId) return;
+    try {
+      const d = await api(`/api/brands/${brandId}/connections/gsc/start`);
+      window.location.href = d.url;
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const connectCms = async (form: { cmsType: string; siteUrl: string; username: string; appPassword: string }) => {
+    if (!brandId) return;
+    setError(null);
+    try {
+      await api(`/api/brands/${brandId}/connections`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: 'cms', cmsType: form.cmsType, siteUrl: form.siteUrl,
+          creds: { username: form.username, appPassword: form.appPassword },
+        }),
+      });
+      setNotice('CMS connected and verified.');
+      await load(brandId);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
 
   const toggleModule = (k: string) => setSelected((s) => {
     const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n;
@@ -190,6 +251,19 @@ export function PageFixes() {
           </Card>
         )}
 
+        {notice && (
+          <Card title="Connections">
+            <p style={{ margin: 0, color: 'var(--pos, #059669)', fontSize: 13 }}>{notice}</p>
+          </Card>
+        )}
+
+        <ConnectionsCard
+          gsc={!!gscConn} gscSite={gscConn?.siteUrl ?? null} hasGscModule={hasGscModule}
+          cms={!!cmsConn} cmsType={cmsConn?.cmsType ?? null} cmsSite={cmsConn?.siteUrl ?? null}
+          supportedCms={supportedCms} defaultSite={(brand as any)?.website || ''}
+          disabled={!enabled} onConnectGsc={connectGsc} onConnectCms={connectCms}
+        />
+
         <KPIRail items={[
           { k: 'DETECTED', v: String(counts.detected || 0) },
           { k: 'GENERATED', v: String((counts.generated || 0) + (counts.approved || 0)) },
@@ -255,6 +329,65 @@ export function PageFixes() {
         </div>
       </div>
     </>
+  );
+}
+
+function ConnectionsCard({ gsc, gscSite, hasGscModule, cms, cmsType, cmsSite, supportedCms, defaultSite, disabled, onConnectGsc, onConnectCms }: {
+  gsc: boolean; gscSite: string | null; hasGscModule: boolean;
+  cms: boolean; cmsType: string | null; cmsSite: string | null;
+  supportedCms: string[]; defaultSite: string; disabled: boolean;
+  onConnectGsc: () => void;
+  onConnectCms: (f: { cmsType: string; siteUrl: string; username: string; appPassword: string }) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [cmsTypeSel, setCmsTypeSel] = React.useState(supportedCms[0] || 'wordpress');
+  const [siteUrl, setSiteUrl] = React.useState(defaultSite);
+  const [username, setUsername] = React.useState('');
+  const [appPassword, setAppPassword] = React.useState('');
+  React.useEffect(() => { if (defaultSite && !siteUrl) setSiteUrl(defaultSite); }, [defaultSite, siteUrl]);
+
+  return (
+    <Card title="Connections" lede="Connect a CMS to ship Channel-A fixes, and Google Search Console to power striking-distance & CTR rescue.">
+      <div style={{ display: 'grid', gap: 12 }}>
+        {/* CMS */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <strong style={{ fontSize: 13, minWidth: 130 }}>CMS (ship target)</strong>
+          {cms
+            ? <><Badge tone="pos">connected</Badge><span className="quiet mono" style={{ fontSize: 12 }}>{cmsType} · {cmsSite}</span></>
+            : <Badge tone="warn">not connected</Badge>}
+          <button className="btn-d" style={{ fontSize: 12, marginLeft: 'auto' }} onClick={() => setOpen((o) => !o)} disabled={disabled}>
+            {cms ? 'Reconnect' : 'Connect CMS'}
+          </button>
+        </div>
+        {open && (
+          <div style={{ display: 'grid', gap: 8, padding: 12, border: '1px solid var(--line)', borderRadius: 8 }}>
+            <select className="sel" value={cmsTypeSel} onChange={(e) => setCmsTypeSel(e.target.value)}>
+              {(supportedCms.length ? supportedCms : ['wordpress']).map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <input className="fld-in" placeholder="Site URL (https://example.com)" value={siteUrl} onChange={(e) => setSiteUrl(e.target.value)} />
+            <input className="fld-in" placeholder="WordPress username" value={username} onChange={(e) => setUsername(e.target.value)} />
+            <input className="fld-in" type="password" placeholder="Application password" value={appPassword} onChange={(e) => setAppPassword(e.target.value)} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn-p" style={{ fontSize: 12 }}
+                onClick={() => onConnectCms({ cmsType: cmsTypeSel, siteUrl, username, appPassword })}
+                disabled={!siteUrl || !username || !appPassword}>Verify & save</button>
+              <span className="quiet" style={{ fontSize: 11, alignSelf: 'center' }}>Credentials are verified against your site, then encrypted at rest.</span>
+            </div>
+          </div>
+        )}
+
+        {/* GSC */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <strong style={{ fontSize: 13, minWidth: 130 }}>Google Search Console</strong>
+          {gsc
+            ? <><Badge tone="pos">connected</Badge>{gscSite && <span className="quiet mono" style={{ fontSize: 12 }}>{gscSite}</span>}</>
+            : <Badge tone={hasGscModule ? 'warn' : 'neu'}>not connected</Badge>}
+          <button className="btn-d" style={{ fontSize: 12, marginLeft: 'auto' }} onClick={onConnectGsc} disabled={disabled}>
+            {gsc ? 'Reconnect' : 'Connect Search Console'}
+          </button>
+        </div>
+      </div>
+    </Card>
   );
 }
 

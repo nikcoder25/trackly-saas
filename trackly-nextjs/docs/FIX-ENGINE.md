@@ -74,15 +74,21 @@ blocked).
 
 ---
 
-## Phase-1 modules
+## Modules
 
-| Module | Channel | Trigger | Min plan |
-|---|---|---|---|
-| `title-rewrite` | A | crawl | starter |
-| `meta-rewrite` | A | crawl | starter |
-| `faq-schema` | A | crawl | starter |
-| `geo-page-rewrite` | A | crawl | pro |
-| `llms-txt` | B | crawl | starter |
+| Module | Channel | Trigger | Min plan | Phase |
+|---|---|---|---|---|
+| `title-rewrite` | A | crawl | starter | 1 |
+| `meta-rewrite` | A | crawl | starter | 1 |
+| `faq-schema` | A | crawl | starter | 1 |
+| `geo-page-rewrite` | A | crawl | pro | 1 |
+| `llms-txt` | B | crawl | starter | 1 |
+| `striking-distance` | A | gsc | pro | 2 |
+| `ctr-rescue` | A | gsc | pro | 2 |
+
+GSC-triggered modules read Google Search Console data in `detect()` and
+return `[]` when the brand has no active GSC connection (so a scan that
+includes them is harmless before GSC is connected).
 
 ---
 
@@ -98,8 +104,32 @@ POST /api/brands/[id]/fixes/[fixId]/approve          human approval gate
 POST /api/brands/[id]/fixes/[fixId]/ship             write to live site
 POST /api/brands/[id]/fixes/[fixId]/recheck          verify + score
 GET/POST /api/brands/[id]/connections                manage CMS/GSC/Connector creds
+GET  /api/brands/[id]/connections/gsc/start          begin GSC OAuth → returns {url}
+GET  /api/connections/gsc/callback                   fixed OAuth redirect URI
 GET  /api/cron/fix-engine-worker                     cold-restart safety net (Bearer CRON_SECRET)
 ```
+
+### Google Search Console connection (Phase 2)
+
+Server-side OAuth 2.0 Authorization-Code flow with offline access, so the
+engine can pull data on a schedule:
+
+1. `GET /api/brands/[id]/connections/gsc/start` returns the Google consent
+   URL (scope `webmasters.readonly`, `access_type=offline`,
+   `prompt=consent`, signed `state` carrying brandId+userId).
+2. The browser is redirected to Google; on approval Google calls the fixed
+   redirect URI `GET /api/connections/gsc/callback`.
+3. The callback authenticates the user (session cookie), verifies the
+   signed state, exchanges the code for tokens, picks the GSC property that
+   matches the brand website (URL-prefix or `sc-domain:` — see
+   `matchSite`), and stores the connection (access + refresh token,
+   encrypted). It redirects back to `/dashboard-v2?gsc=connected#fixes`.
+4. `getValidAccessToken()` transparently refreshes the access token from
+   the stored refresh token and persists the new token.
+
+Requires `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `APP_URL`. The
+redirect URI `$APP_URL/api/connections/gsc/callback` must be registered on
+the Google OAuth client.
 
 ### CMS connection (WordPress)
 

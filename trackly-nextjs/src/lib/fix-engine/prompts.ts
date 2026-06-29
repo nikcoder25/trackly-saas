@@ -203,3 +203,80 @@ ${list}
 
 Generate the llms.txt file for this site.`;
 }
+
+// ── Striking distance (GSC-driven) ───────────────────────────────
+
+export const STRIKING_SYSTEM = `You are an SEO specialist optimising a page that already ranks on the edge of page 1 (positions ~4-15) for several queries. Small, targeted on-page improvements can push it up.
+
+Produce:
+- A sharper <title> (50-60 chars) that better targets the near-ranking queries.
+- One focused content section (a question-style H2 + 2-3 fact-dense paragraphs) that directly answers the highest-opportunity queries, so the page covers intent the current copy misses.
+
+Hard rules:
+- Work only from the supplied page content + queries; never invent facts.
+- The section must read naturally and add genuine value, not keyword-stuff.
+
+Return ONLY a JSON object:
+{ "title": "<new title>", "sectionHeading": "<H2>", "sectionBody": "<markdown, 2-3 paragraphs>", "rationale": "<one sentence>" }`;
+
+export function strikingUserPrompt(args: {
+  brand: BrandPromptContext;
+  url: string;
+  title: string | null;
+  queries: { query: string; position: number; impressions: number }[];
+  pageText: string;
+}): string {
+  const q = args.queries
+    .slice(0, 10)
+    .map((x) => `- "${x.query}" (avg position ${x.position.toFixed(1)}, ${x.impressions} impressions)`)
+    .join('\n');
+  return `${brandBlock(args.brand)}
+
+Page URL: ${args.url}
+Current <title>: ${args.title ?? '(none)'}
+
+Near-ranking queries (striking distance) for this page:
+${q}
+
+Existing page content:
+"""
+${args.pageText.slice(0, 4000)}
+"""
+
+Optimise this page to climb for the queries above.`;
+}
+
+// ── CTR rescue (GSC-driven) ──────────────────────────────────────
+
+export const CTR_SYSTEM = `You are a CTR specialist. A page gets lots of impressions but few clicks, so its title + meta description aren't compelling. Rewrite both to lift click-through while staying accurate.
+
+Hard rules:
+- Title 50-60 chars; meta description 140-155 chars.
+- Lead with the searcher's intent + a concrete, specific hook (benefit, number, differentiator) — but never fabricate facts.
+- The pair should feel like the obviously-best result for the query.
+
+Return ONLY a JSON object:
+{ "title": "<new title>", "description": "<new meta description>", "rationale": "<one sentence>" }`;
+
+export function ctrUserPrompt(args: {
+  brand: BrandPromptContext;
+  url: string;
+  title: string | null;
+  meta: string | null;
+  queries: { query: string; impressions: number; ctr: number }[];
+}): string {
+  const q = args.queries
+    .slice(0, 10)
+    .map((x) => `- "${x.query}" (${x.impressions} impressions, CTR ${(x.ctr * 100).toFixed(1)}%)`)
+    .join('\n');
+  return `${brandBlock(args.brand)}
+
+Page URL: ${args.url}
+Current <title>: ${args.title ?? '(none)'}
+Current meta description: ${args.meta ?? '(none)'}
+
+High-impression, low-CTR queries for this page:
+${q}
+
+Rewrite the title and meta description to win more clicks.`;
+}

@@ -53,14 +53,23 @@ beforeEach(() => {
 });
 
 describe('registry + plan gating', () => {
-  it('registers exactly the 5 Phase-1 modules with unique keys', () => {
+  it('registers the Phase-1 + Phase-2 modules with unique keys', () => {
     const mods = listModules();
-    expect(mods).toHaveLength(5);
     const keys = mods.map((m) => m.key);
-    expect(new Set(keys).size).toBe(5);
+    expect(new Set(keys).size).toBe(keys.length);
     expect(keys).toEqual(expect.arrayContaining([
+      // Phase 1 (crawl)
       'title-rewrite', 'meta-rewrite', 'geo-page-rewrite', 'faq-schema', 'llms-txt',
+      // Phase 2 (GSC)
+      'striking-distance', 'ctr-rescue',
     ]));
+  });
+
+  it('GSC-triggered modules are declared as such', () => {
+    for (const k of ['striking-distance', 'ctr-rescue']) {
+      expect(getModule(k)?.trigger).toBe('gsc');
+      expect(getModule(k)?.channel).toBe('A');
+    }
   });
 
   it('every module implements the full contract', () => {

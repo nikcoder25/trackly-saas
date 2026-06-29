@@ -12,13 +12,19 @@ import { metaRewriteModule } from './modules/meta-rewrite';
 import { geoPageRewriteModule } from './modules/geo-page-rewrite';
 import { faqSchemaModule } from './modules/faq-schema';
 import { llmsTxtModule } from './modules/llms-txt';
+import { strikingDistanceModule } from './modules/striking-distance';
+import { ctrRescueModule } from './modules/ctr-rescue';
 
 const MODULES: FixModule[] = [
+  // Phase 1 (crawl-triggered wedge)
   titleRewriteModule,
   metaRewriteModule,
   geoPageRewriteModule,
   faqSchemaModule,
   llmsTxtModule,
+  // Phase 2 (GSC-triggered)
+  strikingDistanceModule,
+  ctrRescueModule,
 ];
 
 const BY_KEY = new Map<string, FixModule>(MODULES.map((m) => [m.key, m]));
