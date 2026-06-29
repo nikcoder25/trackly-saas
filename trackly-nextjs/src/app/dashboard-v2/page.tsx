@@ -15,6 +15,7 @@ import {
 } from './pages/analysis';
 import { PagePromptDiscovery, PageAgentAnalytics } from './pages/discovery';
 import { PageGeoAudit, PageRegional, PageOnboarding } from './pages/tools';
+import { PageFixes } from './pages/fixes';
 import { PageSetup, PagePrompts, PageAccount, PageBilling, PageAlerts } from './pages/settings';
 
 const PAGE_REGISTRY: Record<string, () => React.JSX.Element> = {
@@ -33,6 +34,7 @@ const PAGE_REGISTRY: Record<string, () => React.JSX.Element> = {
   recommendations: () => <PageRecommendations />,
   'geo-audit': () => <PageGeoAudit />,
   regional: () => <PageRegional />,
+  fixes: () => <PageFixes />,
   onboarding: () => <PageOnboarding />,
   setup: () => <PageSetup />,
   prompts: () => <PagePrompts />,
