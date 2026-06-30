@@ -48,6 +48,9 @@ const GENERATE_COST: Record<string, number> = {
   'schema-markup': 1,
   'indexing-repair': 2,
   'canonical-fix': 0, // deterministic, no LLM call
+  'comparison-pages': 3,
+  'citable-passages': 1,
+  'hallucination-correction': 1,
 };
 function generateCost(moduleKey: string): number {
   return GENERATE_COST[moduleKey] ?? 1;

@@ -89,6 +89,17 @@ blocked).
 | `schema-markup` | A | crawl | starter | 2 |
 | `indexing-repair` | A | gsc | pro | 3 |
 | `canonical-fix` | A | gsc | pro | 3 |
+| `comparison-pages` | A | crawl | pro | GEO |
+| `citable-passages` | A | crawl | pro | GEO |
+| `hallucination-correction` | A | manual | pro | GEO |
+
+The GEO modules are the product differentiator. `comparison-pages`
+creates new "Brand vs Competitor" pages (the format LLMs cite most) via
+the CMS adapter's `createPage`. `citable-passages` adds quotable,
+fact-dense answer blocks. `hallucination-correction` reuses the existing
+accuracy monitor (`accuracy_issues`) as its detection source — each open
+false-claim becomes a published correction passage; whether models stop
+repeating the claim is then tracked by the accuracy monitor over time.
 
 GSC-triggered modules read Google Search Console data in `detect()` and
 return `[]` when the brand has no active GSC connection (so a scan that

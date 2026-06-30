@@ -375,3 +375,93 @@ ${args.pageText.slice(0, 3000)}
 
 Expand this page with genuinely useful depth so it earns indexing.`;
 }
+
+// ── GEO: comparison / alternatives page ──────────────────────────
+
+export const COMPARISON_SYSTEM = `You are a GEO specialist writing a "<Brand> vs <Competitor>" comparison page — the format LLMs cite most when users ask which tool/service to choose.
+
+Structure (the LLM-citable shape):
+- A direct 2-3 sentence answer to "Which is better, and for whom?" (balanced, credible).
+- A comparison table covering the dimensions buyers care about.
+- "Choose <Brand> if…" and "Choose <Competitor> if…" sections (honest, specific).
+- A short FAQ.
+
+Hard rules:
+- Be fair and factual; do NOT fabricate features, pricing, or claims about either side. If a fact is unknown, speak generally rather than inventing specifics.
+- Write so a model can quote any section standalone.
+
+Return ONLY a JSON object:
+{ "title": "<page title, ~55 chars>", "slug": "<url-slug>", "answer": "<2-3 sentence lede>",
+  "tableMarkdown": "<markdown comparison table>",
+  "chooseBrand": "<when to choose the brand>", "chooseCompetitor": "<when to choose the competitor>",
+  "faqs": [{"question":"<q>","answer":"<a>"}], "rationale": "<one sentence>" }`;
+
+export function comparisonUserPrompt(args: {
+  brand: BrandPromptContext;
+  competitor: string;
+}): string {
+  return `${brandBlock(args.brand)}
+
+Write a comparison page: ${args.brand.name || 'the brand'} vs ${args.competitor}.
+
+Focus on what someone evaluating both would want to know. Stay factual; where you lack specifics about ${args.competitor}, keep claims general and neutral.`;
+}
+
+// ── GEO: citable passage blocks ──────────────────────────────────
+
+export const CITABLE_SYSTEM = `You write citable passage blocks — short, fact-dense, self-contained statements an AI assistant can quote verbatim when answering a user. Each passage stands alone (no "as mentioned above"), leads with the fact, and is specific.
+
+Hard rules:
+- 2-4 passages, each 1-3 sentences.
+- Ground every passage in the supplied page content; never invent facts.
+- Also produce a one-line TL;DR answer to the page's core question.
+
+Return ONLY a JSON object:
+{ "tldr": "<one-sentence answer>", "passages": ["<passage>", ...], "rationale": "<one sentence>" }`;
+
+export function citableUserPrompt(args: {
+  brand: BrandPromptContext;
+  url: string;
+  title: string | null;
+  pageText: string;
+}): string {
+  return `${brandBlock(args.brand)}
+
+Page URL: ${args.url}
+Page title: ${args.title ?? '(none)'}
+
+Page content:
+"""
+${args.pageText.slice(0, 4000)}
+"""
+
+Write citable passage blocks + a TL;DR for this page.`;
+}
+
+// ── GEO: hallucination correction ────────────────────────────────
+
+export const HALLUCINATION_SYSTEM = `You write a correction passage that publicly and factually states the correct information, so AI assistants stop repeating a false claim about a business. The passage must be clear, quotable, and authoritative — the kind of statement a model will pick up as ground truth.
+
+Hard rules:
+- State the CORRECT fact plainly and prominently; do not repeat the false claim as if it might be true.
+- Use only the supplied correct value; never invent supporting details.
+- Keep it short (1-3 sentences) and standalone.
+
+Return ONLY a JSON object:
+{ "heading": "<short heading>", "passage": "<the correction passage>", "rationale": "<one sentence>" }`;
+
+export function hallucinationUserPrompt(args: {
+  brand: BrandPromptContext;
+  fact: string;
+  correctValue: string;
+  falseClaim: string;
+}): string {
+  return `${brandBlock(args.brand)}
+
+Some AI assistants have stated an incorrect fact about this business.
+Fact in question: ${args.fact}
+The CORRECT value: ${args.correctValue}
+The incorrect claim that has appeared: ${args.falseClaim}
+
+Write a correction passage that establishes the correct value as ground truth.`;
+}

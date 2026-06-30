@@ -61,4 +61,6 @@ export interface CmsAdapter {
   injectSchema(creds: CmsCreds, target: CmsTarget, jsonLd: string): Promise<CmsWriteResult>;
   /** Set the canonical URL SEO field of the page at target.url. */
   updateCanonical(creds: CmsCreds, target: CmsTarget, canonical: string): Promise<CmsWriteResult>;
+  /** Create a new page. Returns the created resource id + public URL. */
+  createPage(creds: CmsCreds, page: { title: string; slug: string; html: string; status?: 'publish' | 'draft' }): Promise<CmsWriteResult>;
 }

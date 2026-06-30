@@ -18,6 +18,9 @@ import { internalLinkingModule } from './modules/internal-linking';
 import { schemaMarkupModule } from './modules/schema-markup';
 import { indexingRepairModule } from './modules/indexing-repair';
 import { canonicalFixModule } from './modules/canonical-fix';
+import { comparisonPagesModule } from './modules/comparison-pages';
+import { citablePassagesModule } from './modules/citable-passages';
+import { hallucinationCorrectionModule } from './modules/hallucination-correction';
 
 const MODULES: FixModule[] = [
   // Phase 1 (crawl-triggered wedge)
@@ -34,6 +37,10 @@ const MODULES: FixModule[] = [
   // Phase 3 (GSC indexing/canonical)
   indexingRepairModule,
   canonicalFixModule,
+  // GEO differentiators
+  comparisonPagesModule,
+  citablePassagesModule,
+  hallucinationCorrectionModule,
 ];
 
 const BY_KEY = new Map<string, FixModule>(MODULES.map((m) => [m.key, m]));

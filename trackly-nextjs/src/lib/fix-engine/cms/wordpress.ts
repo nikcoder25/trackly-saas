@@ -179,6 +179,37 @@ export const wordpressAdapter: CmsAdapter = {
     return patchResource(base, creds, r.kind, r.id, { content: html });
   },
 
+  async createPage(rawCreds, page) {
+    const creds = readCreds(rawCreds);
+    // createPage takes a slug, not a full URL, so the site origin is passed
+    // through on creds.site by the engine (resolveCmsForBrand supplies it).
+    const site = (rawCreds as { site?: string }).site;
+    if (!site) return { ok: false, detail: { reason: 'missing_site_for_create' } };
+    const base = apiBase(site);
+    const res = await safeFetch(`${base}/pages`, {
+      method: 'POST',
+      headers: { Authorization: authHeader(creds), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: page.title,
+        slug: page.slug,
+        content: page.html,
+        status: page.status || 'publish',
+      }),
+      timeoutMs: 15_000,
+    });
+    if (res.status === 401 || res.status === 403) {
+      throw new CmsAuthError('WordPress rejected the application password on create');
+    }
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) return { ok: false, detail: { status: res.status, response: json } };
+    return {
+      ok: true,
+      resourceId: json.id as number | undefined,
+      url: typeof json.link === 'string' ? json.link : undefined,
+      detail: { created: true },
+    };
+  },
+
   async updateCanonical(rawCreds, target, canonical) {
     const creds = readCreds(rawCreds);
     const base = apiBase(target.url);
