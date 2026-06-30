@@ -36,7 +36,12 @@ function ConnectConsent() {
         const res = await fetch('/api/brands', { credentials: 'include', cache: 'no-store' });
         if (res.status === 401) { setNeedsLogin(true); return; }
         const data = await res.json();
-        const list: Brand[] = (data.brands || data || []).map((b: any) => ({ id: b.id, name: b.data?.name || b.name, website: b.data?.website || b.website }));
+        // Owned brands + team-shared brands the user can manage (viewers are
+        // rejected at approve time, so include all shared and let the server
+        // gate). Brand fields are flattened onto the row by /api/brands.
+        const owned = (data.brands || []) as any[];
+        const shared = (data.sharedBrands || []) as any[];
+        const list: Brand[] = [...owned, ...shared].map((b: any) => ({ id: b.id, name: b.name, website: b.website }));
         setBrands(list);
         if (list.length) setSelected(list[0].id);
       } catch (e) { setError((e as Error).message); }
@@ -68,7 +73,7 @@ function ConnectConsent() {
       <div style={card}>
         <h2 style={{ marginTop: 0 }}>Connect your site to Livesov</h2>
         <p style={{ color: '#555' }}>Log in to Livesov to connect <b>{siteHost}</b>.</p>
-        <Link href={`/login?return=${encodeURIComponent(returnUrl)}`} style={{ ...btn, display: 'inline-block', textDecoration: 'none' }}>Log in to continue</Link>
+        <Link href={`/login?redirect=${encodeURIComponent(returnUrl)}`} style={{ ...btn, display: 'inline-block', textDecoration: 'none' }}>Log in to continue</Link>
       </div>
     );
   }

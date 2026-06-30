@@ -473,12 +473,19 @@ export async function getConnectorFix(fixId: string, brandId: string): Promise<F
 
 export interface StuckInstruction { id: string; brandId: string; createdAt: string }
 
-/** Channel-B fixes shipped but still not applied by the Connector after N minutes. */
+/**
+ * Connector deliveries the plugin never applied after N minutes: classic
+ * Channel-B shipped fixes, plus staged (ship-as-draft) fixes whose preview
+ * was never built (connector_delivered_at still NULL). A staged fix that HAS
+ * been applied keeps its delivered marker and is excluded — it's awaiting the
+ * user's Publish, not stuck.
+ */
 export async function findStuckConnectorInstructions(olderThanMinutes: number, limit = 50): Promise<StuckInstruction[]> {
   await ensureFixEngineSchema();
   const res = await pool.query(
     `SELECT id, brand_id, created_at FROM fixes
-      WHERE channel = 'B' AND status = 'shipped' AND connector_delivered_at IS NULL
+      WHERE connector_delivered_at IS NULL
+        AND ((channel = 'B' AND status = 'shipped') OR status = 'staged')
         AND created_at < NOW() - ($1 || ' minutes')::interval
       ORDER BY created_at ASC LIMIT $2`,
     [String(olderThanMinutes), limit],

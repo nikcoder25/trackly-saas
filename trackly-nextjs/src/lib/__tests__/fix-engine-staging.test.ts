@@ -78,7 +78,11 @@ describe('stageFix', () => {
     const fix = await stageFix(id, 'brand1', 'owner1');
     expect(fix.status).toBe('staged');
     expect((fix.shipResult as Record<string, unknown>).op).toBe('stage_content');
-    expect((fix.afterSnapshot as { patch?: { title?: string } }).patch?.title).toBe('New title');
+    const snap = fix.afterSnapshot as { patch?: { title?: string }; content?: string };
+    expect(snap.patch?.title).toBe('New title');
+    // `content` is the exact string both sides HMAC-sign over (cross-language
+    // parity with the PHP plugin) — must equal the JSON of the patch.
+    expect(snap.content).toBe(JSON.stringify(snap.patch));
     expect(store.resetCalls).toContain(id);
     expect(store.events).toContain('staged');
   });

@@ -307,7 +307,10 @@ export async function stageFix(fixId: string, brandId: string, userId: string | 
     status: 'staged',
     shipMode: 'draft',
     shipResult: { op: 'stage_content', channel: 'draft', delivery: 'connector_pull' },
-    afterSnapshot: { url: patch.url, patch },
+    // `content` is the exact string both sides HMAC-sign over (PHP's
+    // wp_json_encode escapes '/' differently from JSON.stringify, so we never
+    // sign the whole payload object for these ops — only this string).
+    afterSnapshot: { url: patch.url, patch, content: JSON.stringify(patch) },
     previewUrl: null,
     error: null,
   });
@@ -331,9 +334,12 @@ export async function publishStagedFix(fixId: string, brandId: string, userId: s
   }
   const url = (fix.afterSnapshot as { url?: string } | null)?.url;
   if (!url) throw new Error('Staged fix is missing its target URL');
+  const patch = (fix.afterSnapshot as { patch?: unknown } | null)?.patch;
   await updateFix(fix.id, {
     shipResult: { op: 'publish_content', channel: 'draft', delivery: 'connector_pull' },
-    afterSnapshot: { url, patch: (fix.afterSnapshot as { patch?: unknown } | null)?.patch },
+    // Stable signed string (see stageFix): publish carries the same patch so
+    // the plugin can apply it even if it never saw the stage step.
+    afterSnapshot: { url, patch, content: `publish:${url}` },
     error: null,
   });
   await resetConnectorDelivery(fix.id); // re-pull for the publish op

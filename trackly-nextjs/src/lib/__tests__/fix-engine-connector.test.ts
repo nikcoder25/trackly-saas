@@ -68,6 +68,14 @@ describe('connector signing + allow-list', () => {
     expect(toWireInstruction({ id: 's2', moduleKey: 'm', op: 'stage_content', payload: { url: 'https://acme.test/p' }, createdAt: 'now' }, 'secret', 'now')).toBeNull(); // missing patch
     expect(toWireInstruction({ id: 's3', moduleKey: 'm', op: 'stage_content', payload: { patch: {} }, createdAt: 'now' }, 'secret', 'now')).toBeNull(); // missing url
 
+    // When a `content` string is present (the real stage/publish payloads),
+    // it — not the JSON of the whole payload — is what gets signed, so the
+    // signature matches the PHP plugin (which escapes '/' differently).
+    const realStage = { id: 's9', moduleKey: 'title-rewrite', op: 'stage_content', payload: { url: 'https://acme.test/p', patch: { url: 'https://acme.test/p', title: 'N' }, content: '{"url":"https://acme.test/p","title":"N"}' }, createdAt: 'now' };
+    const realWire = toWireInstruction(realStage, 'secret', 'now')!;
+    expect(realWire.contentSha).toBe(sha256Hex(realStage.payload.content));
+    expect(realWire.sig).toBe(signInstruction('secret', 's9', 'stage_content', realStage.payload.content));
+
     const goodPublish = { id: 'p1', moduleKey: 'm', op: 'publish_content', payload: { url: 'https://acme.test/p' }, createdAt: 'now' };
     expect(toWireInstruction(goodPublish, 'secret', 'now')).not.toBeNull();
     expect(toWireInstruction({ id: 'p2', moduleKey: 'm', op: 'publish_content', payload: {}, createdAt: 'now' }, 'secret', 'now')).toBeNull();
