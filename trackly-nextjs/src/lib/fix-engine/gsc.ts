@@ -204,6 +204,30 @@ export async function inspectUrl(args: {
   return (await res.json()) as Record<string, unknown>;
 }
 
+export interface IndexStatus {
+  verdict: string | null;            // PASS | NEUTRAL | FAIL | null
+  coverageState: string | null;      // e.g. "Submitted and indexed", "Crawled - currently not indexed"
+  robotsTxtState: string | null;     // ALLOWED | DISALLOWED
+  indexingState: string | null;      // INDEXING_ALLOWED | BLOCKED_BY_META_TAG | ...
+  googleCanonical: string | null;
+  userCanonical: string | null;
+}
+
+/** Normalise a URL Inspection API response to the fields the modules use. */
+export function parseInspection(raw: Record<string, unknown>): IndexStatus {
+  const result = (raw.inspectionResult as Record<string, unknown> | undefined) || {};
+  const idx = (result.indexStatusResult as Record<string, unknown> | undefined) || {};
+  const str = (v: unknown) => (typeof v === 'string' ? v : null);
+  return {
+    verdict: str(idx.verdict),
+    coverageState: str(idx.coverageState),
+    robotsTxtState: str(idx.robotsTxtState),
+    indexingState: str(idx.indexingState),
+    googleCanonical: str(idx.googleCanonical),
+    userCanonical: str(idx.userCanonical),
+  };
+}
+
 /** Helper: dates for the trailing N days (GSC data lags ~2 days). */
 export function trailingDateRange(days: number): { startDate: string; endDate: string } {
   const end = new Date();

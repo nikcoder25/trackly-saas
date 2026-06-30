@@ -179,6 +179,17 @@ export const wordpressAdapter: CmsAdapter = {
     return patchResource(base, creds, r.kind, r.id, { content: html });
   },
 
+  async updateCanonical(rawCreds, target, canonical) {
+    const creds = readCreds(rawCreds);
+    const base = apiBase(target.url);
+    const r = await resolveResource(base, creds, target.url);
+    if (!r) return { ok: false, detail: { reason: 'page_not_found_in_wp' } };
+    // Canonical is plugin-managed; write both Yoast and Rank Math keys.
+    return patchResource(base, creds, r.kind, r.id, {
+      meta: { _yoast_wpseo_canonical: canonical, rank_math_canonical_url: canonical },
+    });
+  },
+
   async injectSchema(rawCreds, target, jsonLd) {
     // Without a Connector/plugin we can't touch <head>, so the pragmatic
     // Channel-A path appends the JSON-LD <script> to the post body, which

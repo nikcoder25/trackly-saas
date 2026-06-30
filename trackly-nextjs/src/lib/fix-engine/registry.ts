@@ -14,6 +14,10 @@ import { faqSchemaModule } from './modules/faq-schema';
 import { llmsTxtModule } from './modules/llms-txt';
 import { strikingDistanceModule } from './modules/striking-distance';
 import { ctrRescueModule } from './modules/ctr-rescue';
+import { internalLinkingModule } from './modules/internal-linking';
+import { schemaMarkupModule } from './modules/schema-markup';
+import { indexingRepairModule } from './modules/indexing-repair';
+import { canonicalFixModule } from './modules/canonical-fix';
 
 const MODULES: FixModule[] = [
   // Phase 1 (crawl-triggered wedge)
@@ -22,9 +26,14 @@ const MODULES: FixModule[] = [
   geoPageRewriteModule,
   faqSchemaModule,
   llmsTxtModule,
-  // Phase 2 (GSC-triggered)
+  // Phase 2 (GSC-triggered + crawl-side)
   strikingDistanceModule,
   ctrRescueModule,
+  internalLinkingModule,
+  schemaMarkupModule,
+  // Phase 3 (GSC indexing/canonical)
+  indexingRepairModule,
+  canonicalFixModule,
 ];
 
 const BY_KEY = new Map<string, FixModule>(MODULES.map((m) => [m.key, m]));

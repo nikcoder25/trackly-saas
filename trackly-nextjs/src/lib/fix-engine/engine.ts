@@ -42,6 +42,12 @@ const GENERATE_COST: Record<string, number> = {
   'faq-schema': 1,
   'geo-page-rewrite': 2,
   'llms-txt': 2,
+  'striking-distance': 2,
+  'ctr-rescue': 1,
+  'internal-linking': 1,
+  'schema-markup': 1,
+  'indexing-repair': 2,
+  'canonical-fix': 0, // deterministic, no LLM call
 };
 function generateCost(moduleKey: string): number {
   return GENERATE_COST[moduleKey] ?? 1;

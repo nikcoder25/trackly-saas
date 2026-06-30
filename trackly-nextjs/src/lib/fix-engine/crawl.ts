@@ -97,7 +97,7 @@ function extractJsonLd(html: string): unknown[] {
   return out;
 }
 
-function jsonLdHasType(blocks: unknown[], type: string): boolean {
+export function jsonLdHasType(blocks: unknown[], type: string): boolean {
   const walk = (node: unknown): boolean => {
     if (!node) return false;
     if (Array.isArray(node)) return node.some(walk);

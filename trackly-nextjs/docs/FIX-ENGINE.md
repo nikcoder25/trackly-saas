@@ -85,10 +85,18 @@ blocked).
 | `llms-txt` | B | crawl | starter | 1 |
 | `striking-distance` | A | gsc | pro | 2 |
 | `ctr-rescue` | A | gsc | pro | 2 |
+| `internal-linking` | A | crawl | pro | 2 |
+| `schema-markup` | A | crawl | starter | 2 |
+| `indexing-repair` | A | gsc | pro | 3 |
+| `canonical-fix` | A | gsc | pro | 3 |
 
 GSC-triggered modules read Google Search Console data in `detect()` and
 return `[]` when the brand has no active GSC connection (so a scan that
-includes them is harmless before GSC is connected).
+includes them is harmless before GSC is connected). `striking-distance`
+and `ctr-rescue` use the Search Analytics API; `indexing-repair` and
+`canonical-fix` use the URL Inspection API. `canonical-fix` is
+deterministic (no LLM call, zero credit cost) — the intended canonical is
+the page's own declared canonical.
 
 ---
 

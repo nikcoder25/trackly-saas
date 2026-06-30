@@ -59,4 +59,6 @@ export interface CmsAdapter {
   updateBody(creds: CmsCreds, target: CmsTarget, html: string, mode: 'replace' | 'append'): Promise<CmsWriteResult>;
   /** Inject a JSON-LD schema block into the page head/body. */
   injectSchema(creds: CmsCreds, target: CmsTarget, jsonLd: string): Promise<CmsWriteResult>;
+  /** Set the canonical URL SEO field of the page at target.url. */
+  updateCanonical(creds: CmsCreds, target: CmsTarget, canonical: string): Promise<CmsWriteResult>;
 }

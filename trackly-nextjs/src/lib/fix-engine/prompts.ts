@@ -280,3 +280,98 @@ ${q}
 
 Rewrite the title and meta description to win more clicks.`;
 }
+
+// ── Internal linking ─────────────────────────────────────────────
+
+export const INTERNAL_LINKING_SYSTEM = `You are an SEO specialist adding contextual internal links from one page to other relevant pages on the same site, to strengthen topical authority and crawl paths.
+
+Hard rules:
+- Only link to pages from the supplied list (real URLs on this site).
+- Choose 2-4 links that are genuinely relevant to the source page's topic.
+- Anchor text must be natural, descriptive, and specific (never "click here").
+- Do not link a page to itself.
+
+Return ONLY a JSON object:
+{ "links": [{ "anchor": "<anchor text>", "url": "<target url>", "reason": "<why relevant, one phrase>" }], "rationale": "<one sentence>" }`;
+
+export function internalLinkingUserPrompt(args: {
+  brand: BrandPromptContext;
+  url: string;
+  title: string | null;
+  pageText: string;
+  candidates: { url: string; title: string | null }[];
+}): string {
+  const list = args.candidates
+    .slice(0, 40)
+    .map((c) => `- ${c.url}${c.title ? ` — ${c.title}` : ''}`)
+    .join('\n');
+  return `${brandBlock(args.brand)}
+
+Source page: ${args.url}
+Source title: ${args.title ?? '(none)'}
+
+Source content:
+"""
+${args.pageText.slice(0, 3500)}
+"""
+
+Other pages on the site you may link to:
+${list}
+
+Suggest the best contextual internal links to add to the source page.`;
+}
+
+// ── Schema markup ────────────────────────────────────────────────
+
+export const SCHEMA_SYSTEM = `You generate valid schema.org JSON-LD for a web page, grounded ONLY in the facts provided. Never invent data (ratings, prices, addresses, dates) that isn't supplied or clearly present in the page content.
+
+Return ONLY a JSON object that is the JSON-LD itself (starting with "@context"). It must be valid schema.org for the requested @type. Omit fields you don't have real data for rather than guessing.`;
+
+export function schemaUserPrompt(args: {
+  brand: BrandPromptContext;
+  url: string;
+  schemaType: string;
+  title: string | null;
+  pageText: string;
+}): string {
+  return `${brandBlock(args.brand)}
+
+Generate JSON-LD of @type "${args.schemaType}" for this page.
+Page URL: ${args.url}
+Page title: ${args.title ?? '(none)'}
+
+Page content:
+"""
+${args.pageText.slice(0, 3500)}
+"""
+
+Return only the JSON-LD object for @type ${args.schemaType}.`;
+}
+
+// ── Content expansion (indexing repair: crawled-not-indexed) ──────
+
+export const CONTENT_EXPAND_SYSTEM = `You are an SEO content specialist. A page is too thin for Google to index ("Crawled - currently not indexed"). Add genuinely useful, original depth so it earns indexing.
+
+Produce one or more focused sections (question-style H2 + fact-dense paragraphs) that materially expand the page's coverage of its topic. Be specific and accurate; never fabricate facts about the business.
+
+Return ONLY a JSON object:
+{ "sections": [{ "heading": "<H2>", "body": "<markdown, 2-4 paragraphs>" }], "rationale": "<one sentence>" }`;
+
+export function contentExpandUserPrompt(args: {
+  brand: BrandPromptContext;
+  url: string;
+  title: string | null;
+  pageText: string;
+}): string {
+  return `${brandBlock(args.brand)}
+
+Page URL: ${args.url}
+Page title: ${args.title ?? '(none)'}
+
+Current (thin) page content:
+"""
+${args.pageText.slice(0, 3000)}
+"""
+
+Expand this page with genuinely useful depth so it earns indexing.`;
+}
