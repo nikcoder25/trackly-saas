@@ -21,7 +21,7 @@ import { pool } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { reserveCredits, refundCredits } from '@/lib/credits';
 import { getUserEffectivePlan } from '@/lib/helpers';
-import { getModule, listModules } from './registry';
+import { getModule, listModules, generateCost } from './registry';
 import {
   ensureFixEngineSchema,
   claimBatchForRunning,
@@ -35,31 +35,8 @@ import {
 } from './schema';
 import type { DetectedIssue, FixBrand, FixContext, FixRow } from './types';
 
-// Flat generation cost per module (quota credits, not provider $).
-const GENERATE_COST: Record<string, number> = {
-  'title-rewrite': 1,
-  'meta-rewrite': 1,
-  'faq-schema': 1,
-  'geo-page-rewrite': 2,
-  'llms-txt': 2,
-  'striking-distance': 2,
-  'ctr-rescue': 1,
-  'internal-linking': 1,
-  'schema-markup': 1,
-  'indexing-repair': 2,
-  'canonical-fix': 0, // deterministic, no LLM call
-  'comparison-pages': 3,
-  'citable-passages': 1,
-  'hallucination-correction': 1,
-  'robots-ai-access': 0, // deterministic, no LLM call
-  'noindex-removal': 0,  // deterministic, no LLM call
-  'og-cards': 1,
-  'passage-rewrite': 1,
-  'external-citations': 1,
-};
-function generateCost(moduleKey: string): number {
-  return GENERATE_COST[moduleKey] ?? 1;
-}
+// Generation cost lives in the registry (single source of truth) and is
+// imported as generateCost().
 
 interface BrandRow { id: string; user_id: string; data: Record<string, unknown> }
 
@@ -307,4 +284,42 @@ export async function recheckFix(fixId: string, brandId: string, userId: string 
   });
   await logFixEvent(fix.id, brandId, userId, 'rechecked', { verified: verdict.verified, score: verdict.scoreAfter, note: verdict.note });
   return (await getFix(fixId, brandId))!;
+}
+
+// ── revert (undo a shipped fix) ──────────────────────────────────
+
+export async function revertFix(fixId: string, brandId: string, userId: string | null): Promise<FixRow> {
+  const fix = await getFix(fixId, brandId);
+  if (!fix) throw new Error('Fix not found');
+  const mod = getModule(fix.moduleKey);
+  if (!mod) throw new Error(`Unknown module: ${fix.moduleKey}`);
+  if (!mod.revert) throw new Error('This fix type cannot be auto-reverted — undo it manually on your site.');
+  if (!['shipped', 'verified'].includes(fix.status)) {
+    throw new Error(`Only a shipped fix can be reverted (status: ${fix.status})`);
+  }
+  if (!fix.generated) throw new Error('Fix has no record to revert');
+  if (!(await claimFixTransition(fix.id, fix.status, 'shipping'))) {
+    return (await getFix(fixId, brandId))!;
+  }
+
+  const ctx = await buildContext(brandId);
+  if (!ctx) { await updateFix(fix.id, { status: 'failed', error: 'Brand not found' }); throw new Error('Brand not found'); }
+
+  try {
+    const issue = issueFromRow(fix);
+    const result = await mod.revert(issue, { generated: fix.generated }, ctx);
+    if (result.ok) {
+      await updateFix(fix.id, { status: 'reverted', shipResult: result.detail, error: null });
+      await logFixEvent(fix.id, brandId, userId, 'reverted', { detail: result.detail });
+    } else {
+      // Put it back to shipped so the user can retry / handle manually.
+      await updateFix(fix.id, { status: 'shipped', error: result.error ?? 'Revert failed' });
+      await logFixEvent(fix.id, brandId, userId, 'revert.failed', { error: result.error });
+    }
+    return (await getFix(fixId, brandId))!;
+  } catch (e) {
+    await updateFix(fix.id, { status: 'shipped', error: (e as Error).message });
+    await logFixEvent(fix.id, brandId, userId, 'revert.failed', { error: (e as Error).message });
+    throw e;
+  }
 }

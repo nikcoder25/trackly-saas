@@ -13,7 +13,9 @@ import { useBrandData } from '@/hooks/useBrandData';
 interface CatalogItem {
   key: string; title: string; description: string;
   channel: 'A' | 'B'; trigger: string; minPlan: string; phase: number; available: boolean;
+  cost: number; revertable: boolean;
 }
+interface FixEvent { id: string; event: string; detail: any; userId: string | null; createdAt: string }
 interface FixRow {
   id: string; moduleKey: string; channel: 'A' | 'B'; targetUrl: string | null;
   status: string; severity: string; summary: string;
@@ -127,6 +129,11 @@ export function PageFixes() {
   const [armed, setArmed] = React.useState<Record<string, boolean>>({});
   const [previews, setPreviews] = React.useState<Record<string, PreviewBlock | null>>({});
   const [scanning, setScanning] = React.useState(false);
+  const [picked, setPicked] = React.useState<Set<string>>(new Set());
+  const [events, setEvents] = React.useState<Record<string, FixEvent[]>>({});
+  const [quickWins, setQuickWins] = React.useState(false);
+  const [groupByPage, setGroupByPage] = React.useState(false);
+  const [bulkBusy, setBulkBusy] = React.useState(false);
   const [connections, setConnections] = React.useState<Connection[]>([]);
   const [supportedCms, setSupportedCms] = React.useState<string[]>([]);
   const [toast, setToast] = React.useState<string | null>(null);
@@ -201,7 +208,7 @@ export function PageFixes() {
     } catch (e) { setError((e as Error).message); } finally { setScanning(false); }
   };
 
-  const act = async (fixId: string, action: 'generate' | 'approve' | 'ship' | 'recheck') => {
+  const act = async (fixId: string, action: 'generate' | 'approve' | 'ship' | 'recheck' | 'revert') => {
     if (!brandId) return;
     setBusy((b) => ({ ...b, [fixId]: true }));
     try {
@@ -211,6 +218,7 @@ export function PageFixes() {
       if (action === 'approve') flash('Approved — ready to ship');
       if (action === 'ship') { if (d.ok === false) setError(d.error || 'Ship failed'); else flash('Shipped to live site'); }
       if (action === 'recheck') flash('Re-check complete');
+      if (action === 'revert') { if (d.ok === false) setError(d.error || 'Revert failed'); else flash('Reverted'); }
     } catch (e) { setError((e as Error).message); } finally { setBusy((b) => ({ ...b, [fixId]: false })); }
   };
   const shipConfirm = async (fixId: string) => {
@@ -221,8 +229,35 @@ export function PageFixes() {
 
   const loadPreview = async (fixId: string) => {
     if (!brandId) return;
-    try { const d = await api(`/api/brands/${brandId}/fixes/${fixId}`); setPreviews((p) => ({ ...p, [fixId]: d.preview || null })); }
-    catch { setPreviews((p) => ({ ...p, [fixId]: null })); }
+    try {
+      const d = await api(`/api/brands/${brandId}/fixes/${fixId}`);
+      setPreviews((p) => ({ ...p, [fixId]: d.preview || null }));
+      if (d.events) setEvents((e) => ({ ...e, [fixId]: d.events }));
+    } catch { setPreviews((p) => ({ ...p, [fixId]: null })); }
+  };
+
+  // Bulk: run an action over the picked fixes that are eligible for it.
+  const eligibleFor = (f: FixRow, action: 'generate' | 'approve' | 'ship'): boolean => {
+    if (action === 'generate') return f.status === 'detected' || f.status === 'failed';
+    if (action === 'approve') return f.status === 'generated' || f.status === 'preview_ready';
+    if (action === 'ship') return f.status === 'approved';
+    return false;
+  };
+  const runBulk = async (action: 'generate' | 'approve' | 'ship') => {
+    if (!brandId || picked.size === 0) return;
+    if (action === 'ship' && !canShip) { flash('Connect a CMS or the Connector first'); return; }
+    const ids = fixes.filter((f) => picked.has(f.id) && eligibleFor(f, action)).map((f) => f.id);
+    if (ids.length === 0) { flash(`No picked fixes are ready to ${action}`); return; }
+    setBulkBusy(true); flash(`${action[0].toUpperCase()}${action.slice(1)}ing ${ids.length}…`);
+    for (const id of ids) { await act(id, action); } // sequential = safe ordering + clear progress
+    setBulkBusy(false); setPicked(new Set());
+  };
+  const togglePick = (id: string) => setPicked((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  const exportCsv = () => {
+    if (!brandId) return;
+    const qs = filter === 'all' ? '' : `?status=${encodeURIComponent(filter)}`;
+    window.open(`/api/brands/${brandId}/fixes/export${qs}`, '_blank');
   };
 
   const toggleModule = (k: string) => setSelected((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
@@ -257,11 +292,22 @@ export function PageFixes() {
   const counts = React.useMemo(() => { const c: Record<string, number> = {}; for (const f of fixes) c[bucketOf(f.status)] = (c[bucketOf(f.status)] || 0) + 1; return c; }, [fixes]);
   const sevCount = React.useMemo(() => { const c: Record<string, number> = {}; for (const f of fixes) c[f.severity] = (c[f.severity] || 0) + 1; return c; }, [fixes]);
   const statusCount = React.useMemo(() => { const c: Record<string, number> = {}; for (const f of fixes) c[f.status] = (c[f.status] || 0) + 1; return c; }, [fixes]);
+  const moduleMeta = React.useCallback((k: string) => catalog.find((c) => c.key === k), [catalog]);
+  const moduleTitle = (k: string) => moduleMeta(k)?.title || k;
+  const scanCost = React.useMemo(() => catalog.filter((c) => selected.has(c.key)).reduce((s, c) => s + (c.cost || 0), 0), [catalog, selected]);
+
   const shown = React.useMemo(() => {
-    const list = filter === 'all' ? fixes : fixes.filter((f) => bucketOf(f.status) === filter);
+    let list = filter === 'all' ? fixes : fixes.filter((f) => bucketOf(f.status) === filter);
+    if (quickWins) list = list.filter((f) => (moduleMeta(f.moduleKey)?.cost ?? 1) === 0 || f.severity === 'critical' || f.severity === 'high');
     return [...list].sort((a, b) => (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9));
-  }, [fixes, filter]);
-  const moduleTitle = (k: string) => catalog.find((c) => c.key === k)?.title || k;
+  }, [fixes, filter, quickWins, moduleMeta]);
+
+  // Group the shown fixes by target URL for the "by page" view.
+  const groupedByPage = React.useMemo(() => {
+    const by = new Map<string, FixRow[]>();
+    for (const f of shown) { const k = f.targetUrl || '(site-wide)'; (by.get(k) || by.set(k, []).get(k))!.push(f); }
+    return Array.from(by.entries());
+  }, [shown]);
 
   const moduleGroups = React.useMemo(() => {
     const by: Record<string, CatalogItem[]> = {};
@@ -397,6 +443,7 @@ export function PageFixes() {
                     <span className="disp" style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>{m.title}</span>
                     <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-2)', display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: "'JetBrains Mono',monospace" }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: TRIG_DOT[m.trigger] || 'var(--text-3)' }} />{m.trigger}</span>
                     <span className="chip" style={{ background: cf.chBg, color: cf.chFg, borderColor: cf.chFg }}>CH {m.channel}</span>
+                    <span className="chip" title="generation cost" style={{ color: m.cost === 0 ? 'var(--success)' : 'var(--text-2)', borderColor: m.cost === 0 ? 'var(--success)' : 'var(--ink)' }}>{m.cost === 0 ? 'FREE' : `${m.cost}c`}</span>
                     {!m.available && <span className="chip" style={{ background: 'var(--warn-50)', color: 'var(--warn)', borderColor: 'var(--warn)' }}>{m.minPlan.toUpperCase()}</span>}
                   </label>
                 );
@@ -405,7 +452,7 @@ export function PageFixes() {
           ))}
           {catalog.length === 0 && !loading && <p style={{ fontSize: 13, color: 'var(--text-2)' }}>No modules available.</p>}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, flexWrap: 'wrap', gap: 10 }}>
-            <span className="xlbl" style={{ color: 'var(--text-2)' }}>{selected.size}/{catalog.length || 19} selected</span>
+            <span className="xlbl" style={{ color: 'var(--text-2)' }}>{selected.size}/{catalog.length || 19} selected · est {scanCost} credits</span>
             <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0}>▶ RUN ON SELECTION</button>
           </div>
         </div>
@@ -416,15 +463,31 @@ export function PageFixes() {
 
     {/* FIXES */}
     <section>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginBottom: 12 }}>
         <h2 className="disp" style={{ margin: 0, fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>THE FIXES</h2>
-        <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', alignItems: 'center' }}>
           {filterDefs.map((d) => {
             const on = filter === d.key;
             return <button key={d.key} className="chip" onClick={() => setFilter(d.key)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: on ? 'var(--text)' : 'var(--surface)', color: on ? 'var(--bg)' : 'var(--text-2)', boxShadow: on ? '3px 3px 0 var(--primary)' : 'none' }}>{d.label} · {d.count}</button>;
           })}
         </div>
       </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 9, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
+        <button className="chip" onClick={() => setQuickWins((q) => !q)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: quickWins ? 'var(--success-50)' : 'var(--surface)', color: quickWins ? 'var(--success)' : 'var(--text-2)', borderColor: quickWins ? 'var(--success)' : 'var(--ink)' }}>⚡ QUICK WINS</button>
+        <button className="chip" onClick={() => setGroupByPage((g) => !g)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: groupByPage ? 'var(--text)' : 'var(--surface)', color: groupByPage ? 'var(--bg)' : 'var(--text-2)' }}>▦ BY PAGE</button>
+        <button className="chip" onClick={exportCsv} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>⤓ EXPORT CSV</button>
+      </div>
+
+      {picked.size > 0 && (
+        <div className="nb-sm" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', marginBottom: 16, background: 'var(--primary-50)', boxShadow: '3px 3px 0 var(--primary)', flexWrap: 'wrap' }}>
+          <span className="disp" style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{picked.size} selected</span>
+          <span style={{ flex: 1 }} />
+          <button className="gbtn" style={{ padding: '7px 13px', fontSize: 12 }} disabled={bulkBusy} onClick={() => runBulk('generate')}>✦ Generate</button>
+          <button className="xbtn" style={{ padding: '7px 13px', fontSize: 12, background: 'var(--success)' }} disabled={bulkBusy} onClick={() => runBulk('approve')}>✓ Approve</button>
+          <button className="xbtn" style={{ padding: '7px 13px', fontSize: 12, background: 'var(--success)' }} disabled={bulkBusy || !canShip} onClick={() => runBulk('ship')}>⬢ Ship</button>
+          <button className="tbtn" onClick={() => setPicked(new Set())}>Clear</button>
+        </div>
+      )}
 
       {enabled && !canShip && (
         <div className="nb-sm" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', marginBottom: 16, background: 'var(--warn-50)', borderColor: 'var(--warn)', boxShadow: '4px 4px 0 var(--warn)' }}>
@@ -450,19 +513,32 @@ export function PageFixes() {
         </div>
       )}
 
-      {shown.length > 0 && (
-        <div style={{ display: 'grid', gap: 18 }}>
-          {shown.map((f) => (
-            <FixCard
-              key={f.id} fix={f} title={moduleTitle(f.moduleKey)} preview={previews[f.id]}
-              busy={!!busy[f.id]} armed={!!armed[f.id]} canShip={canShip} scoreCount={null}
-              onGenerate={() => act(f.id, 'generate')} onApprove={() => act(f.id, 'approve')}
-              onArm={() => setArmed((a) => ({ ...a, [f.id]: true }))} onCancelArm={() => setArmed((a) => ({ ...a, [f.id]: false }))}
-              onShipConfirm={() => shipConfirm(f.id)} onRecheck={() => act(f.id, 'recheck')} onRetry={() => act(f.id, 'generate')}
-            />
-          ))}
-        </div>
-      )}
+      {shown.length > 0 && (() => {
+        const renderCard = (f: FixRow) => (
+          <FixCard
+            key={f.id} fix={f} title={moduleTitle(f.moduleKey)} preview={previews[f.id]}
+            cost={moduleMeta(f.moduleKey)?.cost ?? 1} revertable={!!moduleMeta(f.moduleKey)?.revertable}
+            events={events[f.id]} busy={!!busy[f.id]} armed={!!armed[f.id]} canShip={canShip}
+            picked={picked.has(f.id)} onTogglePick={() => togglePick(f.id)}
+            onGenerate={() => act(f.id, 'generate')} onApprove={() => act(f.id, 'approve')}
+            onArm={() => setArmed((a) => ({ ...a, [f.id]: true }))} onCancelArm={() => setArmed((a) => ({ ...a, [f.id]: false }))}
+            onShipConfirm={() => shipConfirm(f.id)} onRecheck={() => act(f.id, 'recheck')} onRetry={() => act(f.id, 'generate')}
+            onRevert={() => act(f.id, 'revert')} onLoadHistory={() => loadPreview(f.id)}
+          />
+        );
+        return groupByPage ? (
+          <div style={{ display: 'grid', gap: 26 }}>
+            {groupedByPage.map(([url, list]) => (
+              <div key={url}>
+                <div className="xlbl" style={{ color: 'var(--primary)', marginBottom: 10, wordBreak: 'break-all' }}>▸ {url.replace(/^https?:\/\//, '')} · {list.length}</div>
+                <div style={{ display: 'grid', gap: 18 }}>{list.map(renderCard)}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: 18 }}>{shown.map(renderCard)}</div>
+        );
+      })()}
       {/* keep lint happy about unused maps */}
       <span style={{ display: 'none' }}>{sevCount.low}{statusCount.detected}</span>
     </section>
@@ -634,10 +710,13 @@ function PassageSection({ disabled, onSubmit }: { disabled: boolean; onSubmit: (
 }
 
 // ── Fix card ──
-function FixCard({ fix, title, preview, busy, armed, canShip, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry }: {
-  fix: FixRow; title: string; preview: PreviewBlock | null | undefined; busy: boolean; armed: boolean; canShip: boolean; scoreCount: null;
-  onGenerate: () => void; onApprove: () => void; onArm: () => void; onCancelArm: () => void; onShipConfirm: () => void; onRecheck: () => void; onRetry: () => void;
+function FixCard({ fix, title, preview, cost, revertable, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRevert, onLoadHistory }: {
+  fix: FixRow; title: string; preview: PreviewBlock | null | undefined; cost: number; revertable: boolean;
+  events: FixEvent[] | undefined; busy: boolean; armed: boolean; canShip: boolean; picked: boolean;
+  onTogglePick: () => void; onGenerate: () => void; onApprove: () => void; onArm: () => void; onCancelArm: () => void;
+  onShipConfirm: () => void; onRecheck: () => void; onRetry: () => void; onRevert: () => void; onLoadHistory: () => void;
 }) {
+  const [showHistory, setShowHistory] = React.useState(false);
   const s = fix.status;
   const sm = statusMeta(s); const sev = sevMeta(fix.severity); const cf = chanFill(fix.channel);
   const isDetected = s === 'detected';
@@ -651,6 +730,7 @@ function FixCard({ fix, title, preview, busy, armed, canShip, onGenerate, onAppr
   return (
     <article className="nb" style={{ padding: 0, overflow: 'hidden', boxShadow: `5px 5px 0 ${sev.color}` }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: sev.bg, borderBottom: '2.5px solid var(--ink)' }}>
+        <input type="checkbox" checked={picked} onChange={onTogglePick} aria-label="Select fix for bulk action" style={{ accentColor: 'var(--primary)', width: 15, height: 15, flexShrink: 0 }} />
         <span className="disp" style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.04em', color: sev.color, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{sev.glyph} {sev.label} SEVERITY</span>
         <span style={{ flex: 1 }} />
         <span className="chip" style={{ background: sm.bg, color: sm.color, borderColor: sm.color }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: sm.color }} />{sm.label}</span>
@@ -700,7 +780,7 @@ function FixCard({ fix, title, preview, busy, armed, canShip, onGenerate, onAppr
 
         {/* actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingTop: 13, borderTop: '2.5px solid var(--ink)' }}>
-          {isDetected && (<><button className="xbtn" onClick={onGenerate} disabled={busy}>✦ GENERATE FIX</button><span className="xlbl" style={{ color: 'var(--text-2)' }}>1 credit</span></>)}
+          {isDetected && (<><button className="xbtn" onClick={onGenerate} disabled={busy}>✦ GENERATE FIX</button><span className="xlbl" style={{ color: cost === 0 ? 'var(--success)' : 'var(--text-2)' }}>{cost === 0 ? 'free · no LLM' : `${cost} credit${cost === 1 ? '' : 's'}`}</span></>)}
           {isReview && (<>
             <button className="xbtn" onClick={onApprove} disabled={busy} style={{ background: 'var(--success)' }}>✓ APPROVE</button>
             <button className="gbtn" onClick={onGenerate} disabled={busy}>↻ Regenerate</button>
@@ -718,10 +798,30 @@ function FixCard({ fix, title, preview, busy, armed, canShip, onGenerate, onAppr
           {isLive && (<>
             <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)', fontSize: 11, padding: '6px 12px' }}>✓ {s === 'verified' ? 'VERIFIED' : 'SHIPPED'}</span>
             <button className="gbtn" onClick={onRecheck} disabled={busy} style={{ padding: '7px 13px' }}>↻ Re-check</button>
+            {revertable && <button className="gbtn" onClick={onRevert} disabled={busy} style={{ padding: '7px 13px' }}>⤺ Undo</button>}
             {url && <a className="tbtn" href={url} target="_blank" rel="noreferrer">View on site</a>}
           </>)}
+          {s === 'reverted' && <span className="chip" style={{ background: 'var(--warn-50)', color: 'var(--warn)', borderColor: 'var(--warn)', fontSize: 11, padding: '6px 12px' }}>⤺ REVERTED</span>}
           {isAttention && (<button className="xbtn" onClick={onRetry} disabled={busy} style={{ background: 'var(--danger)' }}>↻ RETRY</button>)}
+          <span style={{ flex: 1 }} />
+          <button className="tbtn" onClick={() => { if (!showHistory && !events) onLoadHistory(); setShowHistory((h) => !h); }}>{showHistory ? 'Hide history' : 'History'}</button>
         </div>
+
+        {showHistory && (
+          <div className="nb-sm" style={{ padding: '12px 14px', boxShadow: 'none', background: 'var(--surface-2)' }}>
+            <div className="xlbl" style={{ color: 'var(--primary)', marginBottom: 8 }}>Activity</div>
+            {events && events.length > 0 ? (
+              <div style={{ display: 'grid', gap: 6 }}>
+                {events.map((ev) => (
+                  <div key={ev.id} style={{ display: 'flex', gap: 10, fontSize: 12, color: 'var(--text-2)' }}>
+                    <span className="mono" style={{ color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{new Date(ev.createdAt).toLocaleString()}</span>
+                    <span className="disp" style={{ fontWeight: 600, color: 'var(--text)' }}>{ev.event}</span>
+                  </div>
+                ))}
+              </div>
+            ) : <p style={{ margin: 0, fontSize: 12, color: 'var(--text-2)' }}>{events ? 'No activity recorded yet.' : 'Loading…'}</p>}
+          </div>
+        )}
       </div>
     </article>
   );

@@ -55,6 +55,21 @@ const MODULES: FixModule[] = [
 
 const BY_KEY = new Map<string, FixModule>(MODULES.map((m) => [m.key, m]));
 
+// Flat per-module generation cost (quota credits, not provider $). The
+// single source of truth — the engine reserves this, the catalog surfaces
+// it, and the dashboard shows it. Deterministic modules cost 0.
+const MODULE_COST: Record<string, number> = {
+  'title-rewrite': 1, 'meta-rewrite': 1, 'faq-schema': 1, 'geo-page-rewrite': 2,
+  'llms-txt': 2, 'passage-rewrite': 1, 'striking-distance': 2, 'ctr-rescue': 1,
+  'internal-linking': 1, 'external-citations': 1, 'schema-markup': 1,
+  'indexing-repair': 2, 'canonical-fix': 0, 'robots-ai-access': 0,
+  'noindex-removal': 0, 'og-cards': 1, 'comparison-pages': 3,
+  'citable-passages': 1, 'hallucination-correction': 1,
+};
+export function generateCost(moduleKey: string): number {
+  return MODULE_COST[moduleKey] ?? 1;
+}
+
 export function getModule(key: string): FixModule | undefined {
   return BY_KEY.get(key);
 }
@@ -72,6 +87,10 @@ export interface ModuleCatalogItem {
   trigger: 'crawl' | 'gsc' | 'manual';
   minPlan: string;
   phase: 1 | 2 | 3;
+  /** Quota credits a generate costs (0 = deterministic, no LLM). */
+  cost: number;
+  /** True when the module can undo a shipped fix. */
+  revertable: boolean;
 }
 
 // Plan ranking for gating: a module with minPlan 'pro' requires an
@@ -106,5 +125,7 @@ export function moduleCatalog(): ModuleCatalogItem[] {
     trigger: m.trigger,
     minPlan: m.minPlan,
     phase: m.phase,
+    cost: generateCost(m.key),
+    revertable: typeof m.revert === 'function',
   }));
 }

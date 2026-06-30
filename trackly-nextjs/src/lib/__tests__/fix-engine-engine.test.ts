@@ -20,6 +20,7 @@ const store = vi.hoisted(() => {
       generateThrows: false,
       shipOk: true,
       recheckVerified: true,
+      revertOk: true,
     },
   };
 });
@@ -62,10 +63,14 @@ vi.mock('@/lib/fix-engine/registry', () => {
       ? { ok: true, detail: { wrote: true }, after: { value: 'NEW' } }
       : { ok: false, detail: {}, error: 'cms failed' })),
     recheck: vi.fn(async () => ({ verified: store.moduleBehavior.recheckVerified, scoreAfter: 100 })),
+    revert: vi.fn(async () => (store.moduleBehavior.revertOk
+      ? { ok: true, detail: { restored: true }, after: { value: 'OLD' } }
+      : { ok: false, detail: {}, error: 'revert failed' })),
   };
   return {
     getModule: (k: string) => (k === 'fake' ? fake : undefined),
     listModules: () => [fake],
+    generateCost: () => 1,
   };
 });
 
@@ -95,7 +100,7 @@ vi.mock('@/lib/fix-engine/schema', () => ({
   findStuckQueuedBatches: vi.fn(async () => []),
 }));
 
-import { generateFix, approveFix, shipFix, recheckFix } from '@/lib/fix-engine/engine';
+import { generateFix, approveFix, shipFix, recheckFix, revertFix } from '@/lib/fix-engine/engine';
 import { refundCredits } from '@/lib/credits';
 
 function seedFix(over: Partial<FixRow> = {}): string {
@@ -115,7 +120,7 @@ beforeEach(() => {
   store.fixes.clear();
   store.reserveOk = true;
   store.refundCalls = [];
-  store.moduleBehavior = { generateThrows: false, shipOk: true, recheckVerified: true };
+  store.moduleBehavior = { generateThrows: false, shipOk: true, recheckVerified: true, revertOk: true };
   vi.clearAllMocks();
 });
 afterEach(() => vi.clearAllMocks());
@@ -183,5 +188,24 @@ describe('approve + ship + recheck', () => {
   it('refuses to ship a non-approved fix', async () => {
     const id = seedFix({ status: 'generated', generated: { value: 'NEW' } });
     await expect(shipFix(id, 'brand1', 'owner1')).rejects.toThrow();
+  });
+});
+
+describe('revert', () => {
+  it('reverts a shipped fix to reverted', async () => {
+    const id = seedFix({ status: 'shipped', generated: { value: 'NEW' } });
+    const fix = await revertFix(id, 'brand1', 'owner1');
+    expect(fix.status).toBe('reverted');
+  });
+  it('puts the fix back to shipped when revert reports not-ok', async () => {
+    store.moduleBehavior.revertOk = false;
+    const id = seedFix({ status: 'verified', generated: { value: 'NEW' } });
+    const fix = await revertFix(id, 'brand1', 'owner1');
+    expect(fix.status).toBe('shipped');
+    expect(fix.error).toContain('revert failed');
+  });
+  it('refuses to revert a fix that has not shipped', async () => {
+    const id = seedFix({ status: 'generated', generated: { value: 'NEW' } });
+    await expect(revertFix(id, 'brand1', 'owner1')).rejects.toThrow();
   });
 });

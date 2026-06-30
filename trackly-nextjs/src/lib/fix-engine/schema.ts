@@ -425,6 +425,32 @@ export async function markConnectorDelivered(fixId: string): Promise<void> {
   );
 }
 
+export interface FixEventRow {
+  id: string;
+  event: string;
+  detail: Record<string, unknown>;
+  userId: string | null;
+  createdAt: string;
+}
+
+/** Read the audit trail for a fix, newest first. */
+export async function getFixEvents(fixId: string, limit = 50): Promise<FixEventRow[]> {
+  await ensureFixEngineSchema();
+  const res = await pool.query(
+    `SELECT id, event, detail, user_id, created_at
+       FROM fix_events WHERE fix_id = $1
+      ORDER BY created_at DESC LIMIT $2`,
+    [fixId, limit],
+  );
+  return res.rows.map((r: DbRow) => ({
+    id: String(r.id),
+    event: String(r.event),
+    detail: (r.detail as Record<string, unknown>) ?? {},
+    userId: (r.user_id as string | null) ?? null,
+    createdAt: String(r.created_at),
+  }));
+}
+
 export async function logFixEvent(
   fixId: string | null,
   brandId: string,

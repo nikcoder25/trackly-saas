@@ -119,4 +119,14 @@ export const titleRewriteModule: FixModule = {
       return { verified: false, scoreAfter: null, note: (e as Error).message };
     }
   },
+
+  // Undo: restore the title that was live before we shipped.
+  async revert(issue: DetectedIssue, _draft: GeneratedDraft, ctx: FixContext): Promise<ShipResult> {
+    const prev = (issue.before as { title?: string })?.title;
+    if (prev == null) return { ok: false, detail: { reason: 'no_before_snapshot' }, error: 'No prior title recorded to restore' };
+    const cms = await resolveCmsForBrand(ctx);
+    if ('error' in cms) return cms.error;
+    const result = await cms.adapter.updateTitle(cms.creds, { url: issue.targetUrl! }, prev);
+    return { ok: result.ok, detail: result.detail ?? {}, after: { title: prev }, error: result.ok ? undefined : 'CMS write failed' };
+  },
 };

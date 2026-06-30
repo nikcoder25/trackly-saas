@@ -204,6 +204,8 @@ POST /api/brands/[id]/fixes/[fixId]/generate         run generation
 POST /api/brands/[id]/fixes/[fixId]/approve          human approval gate
 POST /api/brands/[id]/fixes/[fixId]/ship             write to live site
 POST /api/brands/[id]/fixes/[fixId]/recheck          verify + score
+POST   /api/brands/[id]/fixes/[fixId]/revert         undo a shipped fix (revertable modules)
+GET    /api/brands/[id]/fixes/export                 download fixes as CSV (honours filters)
 GET/POST /api/brands/[id]/connections                manage CMS/GSC/Connector creds
 GET  /api/brands/[id]/connections/gsc/start          begin GSC OAuth → returns {url}
 GET  /api/connections/gsc/callback                   fixed OAuth redirect URI

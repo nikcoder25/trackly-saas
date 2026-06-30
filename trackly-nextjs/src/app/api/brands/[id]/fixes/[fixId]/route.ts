@@ -9,7 +9,7 @@ import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { logger } from '@/lib/logger';
-import { getFix } from '@/lib/fix-engine/schema';
+import { getFix, getFixEvents } from '@/lib/fix-engine/schema';
 import { getModule } from '@/lib/fix-engine/registry';
 import type { PreviewBlock } from '@/lib/fix-engine/types';
 
@@ -48,7 +48,8 @@ export async function GET(
       }
     }
 
-    return Response.json({ fix, preview }, { headers: { 'Cache-Control': 'no-store' } });
+    const events = await getFixEvents(fixId);
+    return Response.json({ fix, preview, events }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) {
     logger.error('fix_engine.detail_failed', { err: (e as Error).message });
     return Response.json({ error: 'Failed to load fix', message: (e as Error).message }, { status: 500 });

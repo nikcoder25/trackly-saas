@@ -109,4 +109,14 @@ export const metaRewriteModule: FixModule = {
       return { verified: false, scoreAfter: null, note: (e as Error).message };
     }
   },
+
+  // Undo: restore the meta description that was live before we shipped.
+  async revert(issue: DetectedIssue, _draft: GeneratedDraft, ctx: FixContext): Promise<ShipResult> {
+    const prev = (issue.before as { description?: string })?.description;
+    if (prev == null) return { ok: false, detail: { reason: 'no_before_snapshot' }, error: 'No prior meta recorded to restore' };
+    const cms = await resolveCmsForBrand(ctx);
+    if ('error' in cms) return cms.error;
+    const result = await cms.adapter.updateMetaDescription(cms.creds, { url: issue.targetUrl! }, prev);
+    return { ok: result.ok, detail: result.detail ?? {}, after: { description: prev }, error: result.ok ? undefined : 'CMS write failed' };
+  },
 };

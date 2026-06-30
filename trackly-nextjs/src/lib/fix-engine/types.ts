@@ -177,6 +177,16 @@ export interface FixModule {
     draft: GeneratedDraft,
     ctx: FixContext,
   ): Promise<RecheckVerdict>;
+  /**
+   * Optional: undo a shipped fix by restoring the pre-fix value (from the
+   * issue's `before` snapshot). Modules that can't cleanly reverse a
+   * change simply omit this; the engine then reports "manual revert".
+   */
+  revert?(
+    issue: DetectedIssue,
+    draft: GeneratedDraft,
+    ctx: FixContext,
+  ): Promise<ShipResult>;
 }
 
 /** A persisted fix row, as read back from the DB. */
