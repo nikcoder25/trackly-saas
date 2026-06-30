@@ -139,6 +139,13 @@ export function PageFixes() {
   const [toast, setToast] = React.useState<string | null>(null);
   const [brain, setBrain] = React.useState<{ content: string; isCustom: boolean; base: string; presets: { key: string; title: string; description: string; content: string }[]; maxChars?: number } | null>(null);
   const [pairing, setPairing] = React.useState<{ token: string; hmacSecret: string; pullUrl: string } | null>(null);
+  const [automation, setAutomation] = React.useState<any>(null);
+
+  const saveAutomation = async (patch: any) => {
+    if (!brandId) return; setError(null);
+    try { const d = await api(`/api/brands/${brandId}/automation`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) }); setAutomation(d.automation); flash('Automation updated'); }
+    catch (e) { setError((e as Error).message); }
+  };
 
   const flash = React.useCallback((msg: string) => { setToast(msg); }, []);
   React.useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2600); return () => clearTimeout(t); }, [toast]);
@@ -155,6 +162,7 @@ export function PageFixes() {
     } catch (e) { setError((e as Error).message); } finally { setLoading(false); }
     try { const c = await api(`/api/brands/${id}/connections`); setConnections(c.connections || []); setSupportedCms(c.supportedCms || []); } catch { /* non-fatal */ }
     try { const b = await api(`/api/brands/${id}/seo-brain`); setBrain(b); } catch { /* non-fatal */ }
+    try { const a = await api(`/api/brands/${id}/automation`); setAutomation(a.automation); } catch { /* non-fatal */ }
   }, []);
 
   React.useEffect(() => { if (!brandId) { setFixes([]); setCatalog([]); return; } load(brandId); }, [brandId, load]);
@@ -421,6 +429,9 @@ export function PageFixes() {
     {/* SEO BRAIN */}
     <SeoBrainSection brain={brain} disabled={!enabled} onSave={saveBrain} onReset={resetBrain} />
 
+    {/* AUTOMATION */}
+    <AutomationSection automation={automation} canShip={canShip} disabled={!enabled} onSave={saveAutomation} />
+
     {/* MODULES + PASSAGE */}
     <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 18, alignItems: 'start' }}>
       <section className="nb" style={{ padding: 0, overflow: 'hidden' }}>
@@ -685,6 +696,47 @@ function SeoBrainSection({ brain, disabled, onSave, onReset }: {
             </div>
           </div>
         )}
+      </div>
+    </section>
+  );
+}
+
+// ── Automation (scheduled scans + auto-pilot) ──
+function AutomationSection({ automation, canShip, disabled, onSave }: {
+  automation: any; canShip: boolean; disabled: boolean; onSave: (patch: any) => void;
+}) {
+  const a = automation || {};
+  const Toggle = ({ on, onClick, children, dim }: { on: boolean; onClick: () => void; children: React.ReactNode; dim?: boolean }) => (
+    <button className="chip" onClick={onClick} disabled={disabled || dim} style={{ cursor: disabled || dim ? 'not-allowed' : 'pointer', fontSize: 11, padding: '6px 12px', opacity: dim ? 0.5 : 1, background: on ? 'var(--success-50)' : 'var(--surface)', color: on ? 'var(--success)' : 'var(--text-2)', borderColor: on ? 'var(--success)' : 'var(--ink)' }}>{on ? '● ' : '○ '}{children}</button>
+  );
+  const nextRun = a.scanEnabled && a.nextScanAt ? new Date(a.nextScanAt).toLocaleString() : null;
+  return (
+    <section className="nb" style={{ padding: 0, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: 'var(--text)', color: 'var(--bg)', flexWrap: 'wrap', gap: 10 }}>
+        <div className="disp" style={{ fontSize: 17, fontWeight: 700 }}>AUTOMATION</div>
+        {a.scanEnabled && <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)' }}>SCHEDULED</span>}
+      </div>
+      <div style={{ padding: '16px 20px', display: 'grid', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <strong className="disp" style={{ fontSize: 14, minWidth: 150 }}>Scheduled scans</strong>
+          <Toggle on={!!a.scanEnabled} onClick={() => onSave({ scanEnabled: !a.scanEnabled })}>{a.scanEnabled ? 'ON' : 'OFF'}</Toggle>
+          {a.scanEnabled && (
+            <select className="xin" style={{ width: 'auto', boxShadow: 'none', padding: '6px 10px' }} value={a.scanFrequency || 'weekly'} onChange={(e) => onSave({ scanFrequency: e.target.value })} disabled={disabled}>
+              <option value="weekly">Weekly</option><option value="daily">Daily</option>
+            </select>
+          )}
+          {nextRun && <span className="quiet mono" style={{ fontSize: 11, color: 'var(--text-2)' }}>next: {nextRun}</span>}
+          <span className="quiet" style={{ fontSize: 12, color: 'var(--text-2)', marginLeft: 'auto' }}>Re-scan this brand automatically.</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingTop: 12, borderTop: '2px dashed var(--line)' }}>
+          <strong className="disp" style={{ fontSize: 14, minWidth: 150 }}>Auto-pilot</strong>
+          <Toggle on={!!a.autopilotGenerate} onClick={() => onSave({ autopilotGenerate: !a.autopilotGenerate })} dim={!a.scanEnabled}>Auto-generate</Toggle>
+          <Toggle on={!!a.autopilotShipDeterministic} onClick={() => onSave({ autopilotShipDeterministic: !a.autopilotShipDeterministic })} dim={!a.scanEnabled || !canShip}>Auto-ship safe fixes</Toggle>
+          <span className="quiet" style={{ fontSize: 12, color: 'var(--text-2)', marginLeft: 'auto' }}>
+            After each scheduled scan, draft fixes{a.autopilotShipDeterministic ? ' and auto-ship the deterministic (FREE) ones' : ''}. LLM-written content always waits for your approval.
+          </span>
+        </div>
+        {!canShip && a.autopilotShipDeterministic && <p className="quiet" style={{ margin: 0, fontSize: 11, color: 'var(--warn)' }}>Connect a CMS or the Connector to enable auto-ship.</p>}
       </div>
     </section>
   );

@@ -206,11 +206,23 @@ POST /api/brands/[id]/fixes/[fixId]/ship             write to live site
 POST /api/brands/[id]/fixes/[fixId]/recheck          verify + score
 POST   /api/brands/[id]/fixes/[fixId]/revert         undo a shipped fix (revertable modules)
 GET    /api/brands/[id]/fixes/export                 download fixes as CSV (honours filters)
+GET/PUT  /api/brands/[id]/automation                 scheduled scans + auto-pilot settings
 GET/POST /api/brands/[id]/connections                manage CMS/GSC/Connector creds
 GET  /api/brands/[id]/connections/gsc/start          begin GSC OAuth → returns {url}
 GET  /api/connections/gsc/callback                   fixed OAuth redirect URI
 GET  /api/cron/fix-engine-worker                     cold-restart safety net (Bearer CRON_SECRET)
+GET  /api/cron/fix-engine-scheduler                  scheduled scans + auto-pilot driver (Bearer CRON_SECRET)
 ```
+
+### Automation (scheduled scans + auto-pilot)
+
+`fix_automation` (per brand) drives recurring scans and auto-pilot. The
+`/api/cron/fix-engine-scheduler` cron (wired into `cron.yml`) finds brands
+whose `next_scan_at` is due, runs the scan to completion, then applies
+auto-pilot and reschedules. Auto-pilot can **auto-generate** detected
+fixes and **auto-ship only deterministic (cost-0, no-LLM-content) fixes**
+when a ship channel is connected — LLM-written content always waits for
+human approval.
 
 ### Google Search Console connection (Phase 2)
 

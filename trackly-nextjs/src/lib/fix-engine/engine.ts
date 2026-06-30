@@ -208,7 +208,7 @@ export async function generateFix(fixId: string, brandId: string): Promise<FixRo
 
 // ── approve ──────────────────────────────────────────────────────
 
-export async function approveFix(fixId: string, brandId: string, userId: string): Promise<FixRow> {
+export async function approveFix(fixId: string, brandId: string, userId: string | null): Promise<FixRow> {
   const fix = await getFix(fixId, brandId);
   if (!fix) throw new Error('Fix not found');
   if (fix.status !== 'generated') throw new Error(`Only a generated fix can be approved (status: ${fix.status})`);

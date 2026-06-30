@@ -112,6 +112,14 @@ jobs:
             --max-time 300 \
             -H "Authorization: Bearer $CRON_SECRET" \
             "https://livesov.com/api/cron/fix-engine-worker"
+      - name: Call /api/cron/fix-engine-scheduler
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --max-time 300 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://livesov.com/api/cron/fix-engine-scheduler"
 
   weekly:
     name: Weekly reports cron
