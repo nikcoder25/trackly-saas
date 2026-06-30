@@ -23,6 +23,7 @@ interface FixRow {
   aiBefore?: { sov?: number; at?: string } | null; aiAfter?: { sov?: number; at?: string } | null;
   note?: string | null; assignee?: string | null;
   shipMode?: 'live' | 'draft'; previewUrl?: string | null;
+  shipResult?: { op?: string } | null;
 }
 interface PreviewBlock { kind: string; label: string; before?: string; after?: string; language?: string }
 interface Connection { id: string; provider: string; cmsType: string | null; siteUrl: string | null; status: string; lastSeenAt?: string | null }
@@ -970,13 +971,18 @@ function FixCard({ fix, title, preview, cost, revertable, events, busy, armed, c
             )}
             <span className="xlbl" style={{ color: 'var(--text-2)' }}>approved · writes live</span>
           </>)}
-          {isStaged && (<>
-            <span className="chip" style={{ background: 'var(--info-50)', color: 'var(--info)', borderColor: 'var(--info)', fontSize: 11, padding: '6px 12px' }}>⎘ STAGED DRAFT</span>
-            {fix.previewUrl
-              ? <a className="xbtn" href={fix.previewUrl} target="_blank" rel="noreferrer" style={{ background: 'var(--info)' }}>↗ PREVIEW</a>
-              : <span className="xlbl" style={{ color: 'var(--text-2)' }}>waiting for the Connector to build the preview…</span>}
-            <button className="xbtn" onClick={onPublish} disabled={busy} style={{ background: 'var(--success)' }}>⬢ PUBLISH LIVE</button>
-          </>)}
+          {isStaged && (() => {
+            const publishing = fix.shipResult?.op === 'publish_content';
+            return (<>
+              <span className="chip" style={{ background: 'var(--info-50)', color: 'var(--info)', borderColor: 'var(--info)', fontSize: 11, padding: '6px 12px' }}>⎘ STAGED DRAFT</span>
+              {fix.previewUrl
+                ? <a className="xbtn" href={fix.previewUrl} target="_blank" rel="noreferrer" style={{ background: 'var(--info)' }}>↗ PREVIEW</a>
+                : <span className="xlbl" style={{ color: 'var(--text-2)' }}>waiting for the Connector to build the preview…</span>}
+              {publishing
+                ? <span className="xlbl" style={{ color: 'var(--success)' }}>publishing… (your site applies it within ~5 min)</span>
+                : <button className="xbtn" onClick={onPublish} disabled={busy} style={{ background: 'var(--success)' }}>⬢ PUBLISH LIVE</button>}
+            </>);
+          })()}
           {isApproved && armed && (
             <div className="nb-sm" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', width: '100%', padding: '13px 15px', background: 'var(--warn-50)', borderColor: 'var(--warn)', boxShadow: 'none' }}>
               <span className="disp" style={{ fontSize: 20 }}>⚠</span>
