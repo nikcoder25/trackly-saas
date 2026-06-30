@@ -10,30 +10,72 @@ vi.mock('@/lib/logger', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+// Per-brand brain reads/writes go through pool.query — mock it.
+const dbState = vi.hoisted(() => ({ brandBrain: null as string | null }));
+vi.mock('@/lib/db', () => ({
+  pool: {
+    query: vi.fn(async (sql: string) => {
+      if (/SELECT content FROM fix_seo_brains/i.test(sql)) {
+        return { rows: dbState.brandBrain ? [{ content: dbState.brandBrain }] : [] };
+      }
+      return { rows: [] };
+    }),
+  },
+}));
+
 // ── SEO brain ──
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getSeoBrain, DEFAULT_SEO_BRAIN, resetSeoBrainCache } from '@/lib/fix-engine/seo-brain';
+import {
+  getSeoBrain, getBaseSeoBrain, getSeoBrainStatus, DEFAULT_SEO_BRAIN, MATT_DIGGITY_SEO_BRAIN,
+  SEO_BRAIN_PRESETS, resetSeoBrainCache,
+} from '@/lib/fix-engine/seo-brain';
 
 describe('seo-brain', () => {
-  beforeEach(() => { delete process.env.FIX_ENGINE_SEO_BRAIN; delete process.env.FIX_ENGINE_SEO_BRAIN_PATH; resetSeoBrainCache(); });
+  beforeEach(() => {
+    delete process.env.FIX_ENGINE_SEO_BRAIN;
+    delete process.env.FIX_ENGINE_SEO_BRAIN_PATH;
+    dbState.brandBrain = null;
+    resetSeoBrainCache();
+  });
 
-  it('returns the default playbook when no override is set', () => {
-    expect(getSeoBrain()).toBe(DEFAULT_SEO_BRAIN);
-    expect(getSeoBrain()).toMatch(/E-E-A-T/);
+  it('base returns the default playbook when no override is set', () => {
+    expect(getBaseSeoBrain()).toBe(DEFAULT_SEO_BRAIN);
+    expect(getBaseSeoBrain()).toMatch(/E-E-A-T/);
   });
-  it('honours an env override (e.g. a Growth Atlas brain)', () => {
+  it('base honours an env override (e.g. a Growth Atlas brain)', () => {
     process.env.FIX_ENGINE_SEO_BRAIN = 'MY CUSTOM PLAYBOOK';
-    expect(getSeoBrain()).toBe('MY CUSTOM PLAYBOOK');
+    expect(getBaseSeoBrain()).toBe('MY CUSTOM PLAYBOOK');
   });
-  it('loads a Growth Atlas brain from a repo file (drop-in path)', () => {
+  it('base loads a Growth Atlas brain from a repo file (drop-in path)', () => {
     const file = path.join(os.tmpdir(), `ga-brain-${process.pid}.md`);
     fs.writeFileSync(file, 'GROWTH ATLAS SEO BRAIN — custom rules');
     process.env.FIX_ENGINE_SEO_BRAIN_PATH = file;
     resetSeoBrainCache();
-    expect(getSeoBrain()).toBe('GROWTH ATLAS SEO BRAIN — custom rules');
+    expect(getBaseSeoBrain()).toBe('GROWTH ATLAS SEO BRAIN — custom rules');
     fs.unlinkSync(file);
+  });
+
+  it('per-brand DB brain wins over the base for active generation', async () => {
+    dbState.brandBrain = 'PER-BRAND USER BRAIN';
+    expect(await getSeoBrain('brand1')).toBe('PER-BRAND USER BRAIN');
+  });
+  it('falls back to base when the brand has no custom brain', async () => {
+    dbState.brandBrain = null;
+    resetSeoBrainCache();
+    expect(await getSeoBrain('brand2')).toBe(DEFAULT_SEO_BRAIN);
+  });
+  it('status reports custom vs default', async () => {
+    dbState.brandBrain = 'X'; resetSeoBrainCache();
+    expect((await getSeoBrainStatus('b')).isCustom).toBe(true);
+    dbState.brandBrain = null; resetSeoBrainCache();
+    expect((await getSeoBrainStatus('b')).isCustom).toBe(false);
+  });
+  it('ships a Matt Diggity preset', () => {
+    const matt = SEO_BRAIN_PRESETS.find((p) => p.key === 'matt-diggity');
+    expect(matt?.content).toBe(MATT_DIGGITY_SEO_BRAIN);
+    expect(MATT_DIGGITY_SEO_BRAIN).toMatch(/answer capsule/i);
   });
 });
 

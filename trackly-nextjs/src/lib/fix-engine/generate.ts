@@ -59,10 +59,10 @@ export interface GenerateOutput {
  */
 export async function generateContent(args: GenerateArgs): Promise<GenerateOutput> {
   const { ctx, user, maxTokens = 1500 } = args;
-  // Ground every generation in the shared SEO brain, then the module's
-  // own system prompt. The brain establishes the playbook; the module
-  // prompt specifies the task + output format.
-  const system = `${getSeoBrain()}\n\n---\n\n${args.system}`;
+  // Ground every generation in the brand's SEO brain (the user's saved
+  // brain if set, else env/file/default), then the module's own system
+  // prompt. The brain is the playbook; the module prompt is the task.
+  const system = `${await getSeoBrain(ctx.brand.id)}\n\n---\n\n${args.system}`;
   const candidates = args.platform ? [args.platform] : [...GENERATION_PLATFORMS];
   const serverKeys = getServerKeys() as Record<string, string[]>;
   const errors: string[] = [];

@@ -63,6 +63,29 @@ export function PageFixes() {
   const [connections, setConnections] = React.useState<Connection[]>([]);
   const [supportedCms, setSupportedCms] = React.useState<string[]>([]);
   const [notice, setNotice] = React.useState<string | null>(null);
+  const [brain, setBrain] = React.useState<{ content: string; isCustom: boolean; base: string; presets: { key: string; title: string; description: string; content: string }[]; maxChars?: number } | null>(null);
+
+  const saveBrain = async (content: string) => {
+    if (!brandId) return;
+    setError(null);
+    try {
+      const b = await api(`/api/brands/${brandId}/seo-brain`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      });
+      setBrain((prev) => (prev ? { ...prev, ...b } : b));
+      setNotice('SEO brain saved — all fixes now generate to it.');
+    } catch (e) { setError((e as Error).message); }
+  };
+  const resetBrain = async () => {
+    if (!brandId) return;
+    setError(null);
+    try {
+      const b = await api(`/api/brands/${brandId}/seo-brain`, { method: 'DELETE' });
+      setBrain((prev) => (prev ? { ...prev, ...b } : b));
+      setNotice('SEO brain reset to the default.');
+    } catch (e) { setError((e as Error).message); }
+  };
 
   const load = React.useCallback(async (id: string) => {
     setLoading(true); setError(null);
@@ -84,6 +107,10 @@ export function PageFixes() {
       setConnections(c.connections || []);
       setSupportedCms(c.supportedCms || []);
     } catch { /* connections are non-fatal for the list view */ }
+    try {
+      const b = await api(`/api/brands/${id}/seo-brain`);
+      setBrain(b);
+    } catch { /* brain is non-fatal */ }
   }, []);
 
   React.useEffect(() => {
@@ -297,6 +324,8 @@ export function PageFixes() {
           disabled={!enabled} onConnectGsc={connectGsc} onConnectCms={connectCms} onPairConnector={pairConnector}
         />
 
+        <SeoBrainCard brain={brain} disabled={!enabled} onSave={saveBrain} onReset={resetBrain} />
+
         <KPIRail items={[
           { k: 'DETECTED', v: String(counts.detected || 0) },
           { k: 'GENERATED', v: String((counts.generated || 0) + (counts.approved || 0)) },
@@ -365,6 +394,66 @@ export function PageFixes() {
         </div>
       </div>
     </>
+  );
+}
+
+function SeoBrainCard({ brain, disabled, onSave, onReset }: {
+  brain: { content: string; isCustom: boolean; base: string; presets: { key: string; title: string; description: string; content: string }[]; maxChars?: number } | null;
+  disabled: boolean;
+  onSave: (content: string) => void;
+  onReset: () => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [text, setText] = React.useState('');
+  const [preset, setPreset] = React.useState('');
+  // Seed the editor from the loaded brain the first time it opens.
+  React.useEffect(() => { if (brain && !text) setText(brain.content); }, [brain, text]);
+
+  const presets = brain?.presets ?? [];
+  return (
+    <Card
+      title="SEO brain"
+      lede="The playbook every fix is generated to. Edit it, or load a preset — all modules follow it."
+      right={
+        <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Badge tone={brain?.isCustom ? 'pos' : 'neu'}>{brain?.isCustom ? 'custom' : 'default'}</Badge>
+          <button className="btn-d" style={{ fontSize: 12 }} onClick={() => setOpen((o) => !o)} disabled={disabled}>{open ? 'Close' : 'Edit'}</button>
+        </span>
+      }
+    >
+      {open ? (
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="quiet" style={{ fontSize: 12 }}>Load preset:</span>
+            <select className="sel" value={preset} onChange={(e) => {
+              const p = presets.find((x) => x.key === e.target.value);
+              setPreset(e.target.value);
+              if (p) setText(p.content);
+            }}>
+              <option value="">— choose —</option>
+              {presets.map((p) => <option key={p.key} value={p.key}>{p.title}</option>)}
+            </select>
+            {preset && <span className="quiet" style={{ fontSize: 11 }}>{presets.find((p) => p.key === preset)?.description}</span>}
+          </div>
+          <textarea
+            value={text} onChange={(e) => setText(e.target.value)} rows={14}
+            placeholder="Paste your SEO/GEO playbook (your Growth Atlas brain, agency methodology, brand voice, linking & citation rules…)"
+            style={{ width: '100%', fontSize: 12.5, lineHeight: 1.5, padding: 10, borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontFamily: 'var(--mono, ui-monospace, monospace)' }}
+          />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button className="btn-p" style={{ fontSize: 12 }} onClick={() => onSave(text)} disabled={!text.trim()}>Save brain</button>
+            {brain?.isCustom && <button className="btn-d" style={{ fontSize: 12 }} onClick={onReset}>Reset to default</button>}
+            <span className="quiet mono" style={{ fontSize: 11, marginLeft: 'auto' }}>{text.length}{brain?.maxChars ? ` / ${brain.maxChars}` : ''}</span>
+          </div>
+        </div>
+      ) : (
+        <p className="quiet" style={{ margin: 0, fontSize: 13, lineHeight: 1.6 }}>
+          {brain?.isCustom
+            ? 'Using your custom SEO brain. Click Edit to change it or load a preset.'
+            : 'Using the default SEO brain. Click Edit to paste your own (e.g. your Growth Atlas) or load the Matt Diggity preset.'}
+        </p>
+      )}
+    </Card>
   );
 }
 

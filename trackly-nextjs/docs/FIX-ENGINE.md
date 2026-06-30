@@ -25,12 +25,22 @@ citations, on-page hygiene, no fabrication) that is prepended to each
 module's system prompt. So a title rewrite, a new comparison page, a schema
 block, and a passage rewrite all follow the same principles.
 
-Override it without code changes (first non-empty wins):
-1. `FIX_ENGINE_SEO_BRAIN` env — inline playbook text.
-2. A repo file — `FIX_ENGINE_SEO_BRAIN_PATH`, else `growth-atlas-seo-brain.md`
-   at the project root. **Drop your Growth Atlas brain there, commit it, and
-   every module follows it verbatim.** (See `growth-atlas-seo-brain.md.example`.)
-3. The codified `DEFAULT_SEO_BRAIN`.
+Set or change the brain (first non-empty wins):
+1. **From the dashboard** — the **SEO brain** card in the Fix Engine tab.
+   Users edit the playbook, or load a built-in preset, and Save. Stored
+   per brand in `fix_seo_brains` and applied to every generation for that
+   brand. (`GET/PUT/DELETE /api/brands/[id]/seo-brain`.)
+2. `FIX_ENGINE_SEO_BRAIN` env — inline playbook text (ops-level default).
+3. A repo file — `FIX_ENGINE_SEO_BRAIN_PATH`, else `growth-atlas-seo-brain.md`
+   at the project root. (See `growth-atlas-seo-brain.md.example`.)
+4. The codified `DEFAULT_SEO_BRAIN`.
+
+**Presets** (`SEO_BRAIN_PRESETS`): _Livesov default_ and _Matt Diggity
+(Diggity Marketing / TSI)_ — the latter distilled from Matt Diggity's
+published playbooks (intent-first prioritisation, answer capsules + original
+data for LLM citation, topical clusters, hub-and-sibling internal linking,
+E-E-A-T/author pages, structured data). Users load a preset in the editor
+and Save it as their brain.
 
 ## SEO coverage map
 
