@@ -416,12 +416,20 @@ Connecting is one click, no copy-paste, via WP core's own authorize screen:
 The site must be served over **HTTPS** (a WordPress requirement for
 Application Passwords).
 
-**What still needs the Connector plugin:** writing site-root files
-(`/llms.txt`, `/robots.txt` AI-crawler access), `<head>`-level injection, and
-the connector-staged *draft preview* of edits to already-published pages.
-These can't be done through the REST API, so the `llms-txt` and
-`robots-ai-access` modules and ship-as-draft require the plugin (or a manual
-file upload). Everything else runs plugin-free.
+**Site-root files without a plugin:** WordPress core's REST API has no way to
+write `/llms.txt` or `/robots.txt`, so those two modules (`llms-txt`,
+`robots-ai-access`) normally use the Connector. For a fully plugin-free setup
+the engine instead serves the generated file for **one-time manual upload**:
+`GET …/fixes/[fixId]/file` returns the `llms.txt` / `robots.txt` content as a
+download; the user drops it at their site root once and clicks **Re-check**,
+which fetches the live file and verifies it. The dashboard shows a **Download
+file** button on these fixes.
+
+So the only things that *require* the Connector plugin are the conveniences it
+automates: zero-touch delivery of those root files and the connector-staged
+*draft preview* of edits to already-published pages. Every fix can otherwise
+be applied with **no plugin** — on-page changes via REST, root files via the
+one-time download.
 
 ## One-click connect (handshake)
 
