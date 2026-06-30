@@ -35,6 +35,8 @@ export interface CrawledPage {
   xRobotsTag: string | null;
   /** True when the page already has Open Graph + Twitter card meta. */
   hasOgTags: boolean;
+  /** Count of outbound links to a different host (external links). */
+  externalLinkCount: number;
 }
 
 function decodeEntities(s: string): string {
@@ -129,6 +131,7 @@ export async function crawlPage(url: string, _signal?: AbortSignal): Promise<Cra
   const metaRobots = extractMeta(html, 'robots');
   const og = extractMeta(html, 'og:title');
   const twitter = extractMeta(html, 'twitter:card');
+  const externalLinkCount = countExternalLinks(html, url);
   return {
     url,
     status: res.status,
@@ -143,7 +146,22 @@ export async function crawlPage(url: string, _signal?: AbortSignal): Promise<Cra
     metaRobots: metaRobots ? metaRobots.toLowerCase() : null,
     xRobotsTag: (res.headers.get('x-robots-tag') || '').toLowerCase() || null,
     hasOgTags: !!og && !!twitter,
+    externalLinkCount,
   };
+}
+
+function countExternalLinks(html: string, pageUrl: string): number {
+  let host = '';
+  try { host = new URL(pageUrl).host; } catch { /* leave blank */ }
+  const hrefs = html.match(/<a\b[^>]*href=["']([^"']+)["']/gi) || [];
+  let count = 0;
+  for (const a of hrefs) {
+    const m = a.match(/href=["']([^"']+)["']/i);
+    const href = m?.[1] || '';
+    if (!/^https?:\/\//i.test(href)) continue;
+    try { if (new URL(href).host !== host) count++; } catch { /* skip */ }
+  }
+  return count;
 }
 
 /**

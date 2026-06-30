@@ -466,6 +466,39 @@ The incorrect claim that has appeared: ${args.falseClaim}
 Write a correction passage that establishes the correct value as ground truth.`;
 }
 
+// ── External citations (authoritative outbound links) ────────────
+
+export const CITATIONS_SYSTEM = `You add citations to authoritative, official external sources that support the factual claims on a page — strengthening E-E-A-T and making the content more quotable/trustworthy for AI answer engines.
+
+Choose sources like: primary sources, official documentation, government (.gov) and education (.edu) sites, standards bodies, peer-reviewed or well-established reference works, and the official sites of any organisations mentioned.
+
+Hard rules:
+- Suggest ONLY real, well-known, stable URLs you are confident exist. Prefer canonical homepages/docs over deep links you're unsure about. Never invent URLs.
+- Each citation must genuinely support a specific claim on the page.
+- 2-5 citations. Do NOT cite the page's own domain or direct competitors.
+
+Return ONLY a JSON object:
+{ "citations": [{ "claim": "<the claim it supports>", "anchor": "<anchor text>", "url": "<https URL>", "source": "<source name>" }], "rationale": "<one sentence>" }`;
+
+export function citationsUserPrompt(args: {
+  brand: BrandPromptContext;
+  url: string;
+  title: string | null;
+  pageText: string;
+}): string {
+  return `${brandBlock(args.brand)}
+
+Page URL: ${args.url}
+Page title: ${args.title ?? '(none)'}
+
+Page content:
+"""
+${args.pageText.slice(0, 4000)}
+"""
+
+Suggest authoritative external citations that support this page's factual claims.`;
+}
+
 // ── Targeted passage rewrite (in-place edit) ─────────────────────
 
 export const PASSAGE_REWRITE_SYSTEM = `You rewrite ONE specific passage of a web page in place, following the user's instruction. You return a drop-in replacement for exactly that passage — same topic, same facts — improved per the instruction.

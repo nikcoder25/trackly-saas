@@ -16,6 +16,36 @@ specified for Channel B.
 
 ---
 
+## The SEO brain (grounding)
+
+Every module's generation is grounded in a shared **SEO brain**
+(`src/lib/fix-engine/seo-brain.ts`): a codified SEO/GEO playbook
+(intent + E-E-A-T, entities, GEO structure, internal links + authoritative
+citations, on-page hygiene, no fabrication) that is prepended to each
+module's system prompt. So a title rewrite, a new comparison page, a schema
+block, and a passage rewrite all follow the same principles.
+
+Override it without code changes by setting `FIX_ENGINE_SEO_BRAIN` to your
+own playbook text (e.g. paste your Growth Atlas SEO brain) — all modules
+then follow it verbatim.
+
+## SEO coverage map
+
+| SEO need | Module(s) |
+|---|---|
+| Titles / meta / CTR | title-rewrite, meta-rewrite, ctr-rescue |
+| Content depth & GEO structure | geo-page-rewrite, citable-passages, indexing-repair |
+| **Internal linking** | internal-linking |
+| **External authoritative citations** | external-citations (verified URLs) |
+| Structured data | faq-schema, schema-markup (Org/LocalBusiness/Article/Product/Service) |
+| Rankings (near page-1) | striking-distance |
+| Indexing & canonical | indexing-repair, canonical-fix, noindex-removal |
+| Crawlability / AI access | robots-ai-access, llms-txt |
+| Social / sharing | og-cards |
+| Comparison/alternatives (GEO) | comparison-pages |
+| Accuracy / corrections | hallucination-correction |
+| Surgical edits | passage-rewrite |
+
 ## Setup checklist (to run it live)
 
 Already used by the app (no action if set): `DATABASE_URL`, `JWT_SECRET`,
@@ -117,6 +147,13 @@ blocked).
 | `noindex-removal` | A | crawl | starter | 3 |
 | `og-cards` | B | crawl | starter | 3 |
 | `passage-rewrite` | A | manual | starter | 1 |
+| `external-citations` | A | crawl | pro | 2 |
+
+`external-citations` adds authoritative outbound links (official docs,
+.gov/.edu, standards bodies) to support a page's claims. Every
+LLM-suggested URL is **verified to resolve (`safeFetch` < 400) before it's
+shown or shipped**, so hallucinated/dead links never reach the live site;
+unverifiable suggestions are dropped and counted in the preview.
 
 `passage-rewrite` is user-initiated (not surfaced by scans): the user
 supplies a URL + the exact passage + an instruction via

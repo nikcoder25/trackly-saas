@@ -25,6 +25,7 @@ import { robotsAiAccessModule } from './modules/robots-ai-access';
 import { noindexRemovalModule } from './modules/noindex-removal';
 import { ogCardsModule } from './modules/og-cards';
 import { passageRewriteModule } from './modules/passage-rewrite';
+import { externalCitationsModule } from './modules/external-citations';
 
 const MODULES: FixModule[] = [
   // Phase 1 (crawl-triggered wedge)
@@ -38,6 +39,7 @@ const MODULES: FixModule[] = [
   strikingDistanceModule,
   ctrRescueModule,
   internalLinkingModule,
+  externalCitationsModule,
   schemaMarkupModule,
   // Phase 3 (GSC indexing/canonical + Channel B technical)
   indexingRepairModule,

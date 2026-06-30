@@ -21,6 +21,7 @@ import {
 import { resolveKeysForTenant } from '@/lib/tenant-keys';
 import { getServerKeys } from '@/lib/server-keys';
 import { logger } from '@/lib/logger';
+import { getSeoBrain } from './seo-brain';
 import type { FixContext } from './types';
 
 // Display name → key name, mirroring PLATFORM_KEY_MAP elsewhere in the repo.
@@ -57,7 +58,11 @@ export interface GenerateOutput {
  * platform could produce output.
  */
 export async function generateContent(args: GenerateArgs): Promise<GenerateOutput> {
-  const { ctx, system, user, maxTokens = 1500 } = args;
+  const { ctx, user, maxTokens = 1500 } = args;
+  // Ground every generation in the shared SEO brain, then the module's
+  // own system prompt. The brain establishes the playbook; the module
+  // prompt specifies the task + output format.
+  const system = `${getSeoBrain()}\n\n---\n\n${args.system}`;
   const candidates = args.platform ? [args.platform] : [...GENERATION_PLATFORMS];
   const serverKeys = getServerKeys() as Record<string, string[]>;
   const errors: string[] = [];

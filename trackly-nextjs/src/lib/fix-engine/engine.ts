@@ -55,6 +55,7 @@ const GENERATE_COST: Record<string, number> = {
   'noindex-removal': 0,  // deterministic, no LLM call
   'og-cards': 1,
   'passage-rewrite': 1,
+  'external-citations': 1,
 };
 function generateCost(moduleKey: string): number {
   return GENERATE_COST[moduleKey] ?? 1;
