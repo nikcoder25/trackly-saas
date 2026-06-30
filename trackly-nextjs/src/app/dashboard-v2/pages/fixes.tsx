@@ -187,6 +187,19 @@ export function PageFixes() {
     const u = new URL(window.location.href); u.searchParams.delete('gsc'); window.history.replaceState({}, '', u.toString());
   }, []);
 
+  // Surface the no-plugin WordPress connect result (?wp=connected|rejected|…).
+  React.useEffect(() => {
+    const w = new URLSearchParams(window.location.search).get('wp');
+    if (!w) return;
+    const msg: Record<string, string> = {
+      connected: 'WordPress connected — no plugin needed', rejected: 'WordPress connection was declined',
+      invalid: 'Connection link expired — retry', verifyfailed: 'Could not verify the WordPress credentials — retry',
+      error: 'WordPress connection failed — retry',
+    };
+    if (msg[w]) setToast(msg[w]);
+    const u = new URL(window.location.href); u.searchParams.delete('wp'); window.history.replaceState({}, '', u.toString());
+  }, []);
+
   // Auto-load previews for fixes that already have generated content.
   React.useEffect(() => {
     fixes.forEach((f) => { if (f.generated && previews[f.id] === undefined) loadPreview(f.id); });
@@ -316,6 +329,12 @@ export function PageFixes() {
   const connectCms = async (form: { cmsType: string; siteUrl: string; username: string; appPassword: string }) => {
     if (!brandId) return; setError(null);
     try { await api(`/api/brands/${brandId}/connections`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'cms', cmsType: form.cmsType, siteUrl: form.siteUrl, creds: { username: form.username, appPassword: form.appPassword } }) }); flash('CMS connected'); await load(brandId); }
+    catch (e) { setError((e as Error).message); }
+  };
+  // No-plugin one-click WordPress connect (WP core Application Passwords).
+  const connectWp = async (site: string) => {
+    if (!brandId) return; setError(null);
+    try { const d = await api(`/api/brands/${brandId}/connections/cms/wp-authorize/start${site ? `?site=${encodeURIComponent(site)}` : ''}`); window.location.href = d.url; }
     catch (e) { setError((e as Error).message); }
   };
   const pairConnector = async () => { if (!brandId) return; try { const d = await api(`/api/brands/${brandId}/connections/connector/pair`, { method: 'POST' }); setPairing({ token: d.token, hmacSecret: d.hmacSecret, pullUrl: d.pullUrl }); await load(brandId); flash('Connector paired'); } catch (e) { setError((e as Error).message); } };
@@ -459,7 +478,7 @@ export function PageFixes() {
       connector={!!connectorConn} connectorLastSeen={connectorConn?.lastSeenAt ?? null} pairing={pairing}
       supportedCms={supportedCms} defaultSite={(brand as any)?.website || ''} disabled={!enabled}
       linear={!!linearConn} jira={!!jiraConn} onConnectTracker={connectTracker}
-      onConnectCms={connectCms} onConnectGsc={connectGsc} onPairConnector={pairConnector} onRevokeConnector={revokeConnector} onCopy={(label) => flash(`${label} copied`)}
+      onConnectCms={connectCms} onConnectWp={connectWp} onConnectGsc={connectGsc} onPairConnector={pairConnector} onRevokeConnector={revokeConnector} onCopy={(label) => flash(`${label} copied`)}
     />
 
     {/* SEO BRAIN */}
@@ -602,13 +621,14 @@ export function PageFixes() {
 }
 
 // ── Connections ──
-function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, linear, jira, onConnectTracker, onConnectCms, onConnectGsc, onPairConnector, onRevokeConnector, onCopy }: {
+function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, linear, jira, onConnectTracker, onConnectCms, onConnectWp, onConnectGsc, onPairConnector, onRevokeConnector, onCopy }: {
   cms: boolean; cmsMeta: string; gsc: boolean; gscSite: string | null; connector: boolean; connectorLastSeen: string | null;
   pairing: { token: string; hmacSecret: string; pullUrl: string } | null;
   supportedCms: string[]; defaultSite: string; disabled: boolean;
   linear: boolean; jira: boolean;
   onConnectTracker: (provider: 'linear' | 'jira', creds: Record<string, string>) => void;
   onConnectCms: (f: { cmsType: string; siteUrl: string; username: string; appPassword: string }) => void;
+  onConnectWp: (site: string) => void;
   onConnectGsc: () => void; onPairConnector: () => void; onRevokeConnector: () => void; onCopy: (label: string) => void;
 }) {
   const [showForm, setShowForm] = React.useState(false);
@@ -649,17 +669,29 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
           <button className={cms ? 'tbtn' : 'xbtn'} onClick={() => setShowForm((s) => !s)} disabled={disabled}>{cms ? 'Reconnect' : 'CONNECT'}</button>
         </Row>
         {showForm && (
-          <div className="nb-sm" style={{ padding: 18, margin: '6px 0 14px', background: 'var(--surface-2)', display: 'grid', gap: 14 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Site URL</div><input className="xin" value={siteUrl} onChange={(e) => setSiteUrl(e.target.value)} placeholder="https://acme.com" /></div>
-              <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>WP username</div><input className="xin" value={username} onChange={(e) => setUsername(e.target.value)} /></div>
+          <div className="nb-sm" style={{ padding: 18, margin: '6px 0 14px', background: 'var(--surface-2)', display: 'grid', gap: 16 }}>
+            {/* No-plugin one-click connect via WordPress core Application Passwords */}
+            <div style={{ display: 'grid', gap: 10 }}>
+              <div className="disp" style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>One-click · no plugin</div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 180 }}><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Site URL</div><input className="xin" value={siteUrl} onChange={(e) => setSiteUrl(e.target.value)} placeholder="https://acme.com" /></div>
+                <button className="xbtn" onClick={() => onConnectWp(siteUrl)} disabled={!siteUrl} style={{ background: 'var(--primary)' }}>CONNECT WORDPRESS →</button>
+              </div>
+              <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Approve once in your WordPress admin (Application Passwords — built into WP, no plugin). You&apos;ll come straight back, connected.</span>
             </div>
-            <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Application password</div><input className="xin" type="password" value={appPassword} onChange={(e) => setAppPassword(e.target.value)} placeholder="xxxx xxxx xxxx" /></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Verified against your site, then encrypted at rest.</span>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button className="gbtn" onClick={() => setShowForm(false)}>Cancel</button>
-                <button className="xbtn" onClick={() => onConnectCms({ cmsType, siteUrl, username, appPassword })} disabled={!siteUrl || !username || !appPassword}>CONNECT WP</button>
+
+            <div style={{ borderTop: '2px dashed var(--line-2)', paddingTop: 14, display: 'grid', gap: 12 }}>
+              <div className="disp" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)' }}>Or enter an Application Password manually</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>WP username</div><input className="xin" value={username} onChange={(e) => setUsername(e.target.value)} /></div>
+                <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Application password</div><input className="xin" type="password" value={appPassword} onChange={(e) => setAppPassword(e.target.value)} placeholder="xxxx xxxx xxxx" /></div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Verified against your site, then encrypted at rest.</span>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button className="gbtn" onClick={() => setShowForm(false)}>Cancel</button>
+                  <button className="xbtn" onClick={() => onConnectCms({ cmsType, siteUrl, username, appPassword })} disabled={!siteUrl || !username || !appPassword}>CONNECT WP</button>
+                </div>
               </div>
             </div>
           </div>

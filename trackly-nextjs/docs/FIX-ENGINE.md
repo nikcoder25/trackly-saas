@@ -390,6 +390,39 @@ fetches the live `/llms.txt`) flips it to `verified`. A failed ack
 
 ---
 
+## No-plugin WordPress (Application Passwords)
+
+Most fixes need **no plugin at all** — the Channel-A WordPress adapter writes
+through the standard WordPress REST API authenticated with an **Application
+Password** (WP core since 5.6). That covers every on-page change: title, meta
+description, canonical, indexable, body rewrites, FAQ/JSON-LD (appended to the
+body), citable passages, in-place passage edits, and new pages.
+
+Connecting is one click, no copy-paste, via WP core's own authorize screen:
+
+1. Dashboard → Connections → **Connect WordPress** (enter the site URL).
+   `GET …/connections/cms/wp-authorize/start` builds a link to the site's
+   `wp-admin/authorize-application.php?app_name=Livesov…&success_url=…` with
+   our signed `state`.
+2. The user approves once in their **own** WP admin. WordPress mints an
+   Application Password and redirects back to
+   `GET /api/connections/cms/wp-authorize/callback` with
+   `site_url / user_login / password` (+ our `state`).
+3. The callback verifies the signed state belongs to the signed-in user,
+   verifies the credentials against the live site, and stores the CMS
+   connection (encrypted). Manual Application-Password entry remains as a
+   fallback.
+
+The site must be served over **HTTPS** (a WordPress requirement for
+Application Passwords).
+
+**What still needs the Connector plugin:** writing site-root files
+(`/llms.txt`, `/robots.txt` AI-crawler access), `<head>`-level injection, and
+the connector-staged *draft preview* of edits to already-published pages.
+These can't be done through the REST API, so the `llms-txt` and
+`robots-ai-access` modules and ship-as-draft require the plugin (or a manual
+file upload). Everything else runs plugin-free.
+
 ## One-click connect (handshake)
 
 Instead of copy-pasting the pull URL + token + secret into the plugin, the
