@@ -54,6 +54,7 @@ const GENERATE_COST: Record<string, number> = {
   'robots-ai-access': 0, // deterministic, no LLM call
   'noindex-removal': 0,  // deterministic, no LLM call
   'og-cards': 1,
+  'passage-rewrite': 1,
 };
 function generateCost(moduleKey: string): number {
   return GENERATE_COST[moduleKey] ?? 1;

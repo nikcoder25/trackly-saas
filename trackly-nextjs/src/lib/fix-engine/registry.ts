@@ -24,6 +24,7 @@ import { hallucinationCorrectionModule } from './modules/hallucination-correctio
 import { robotsAiAccessModule } from './modules/robots-ai-access';
 import { noindexRemovalModule } from './modules/noindex-removal';
 import { ogCardsModule } from './modules/og-cards';
+import { passageRewriteModule } from './modules/passage-rewrite';
 
 const MODULES: FixModule[] = [
   // Phase 1 (crawl-triggered wedge)
@@ -32,6 +33,7 @@ const MODULES: FixModule[] = [
   geoPageRewriteModule,
   faqSchemaModule,
   llmsTxtModule,
+  passageRewriteModule, // manual, in-place targeted edits
   // Phase 2 (GSC-triggered + crawl-side)
   strikingDistanceModule,
   ctrRescueModule,

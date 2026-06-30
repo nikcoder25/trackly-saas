@@ -16,6 +16,27 @@ specified for Channel B.
 
 ---
 
+## Setup checklist (to run it live)
+
+Already used by the app (no action if set): `DATABASE_URL`, `JWT_SECRET`,
+`ENCRYPTION_KEY`, `CRON_SECRET`, and the AI provider keys.
+
+Fix-Engine-specific:
+
+1. **Google Search Console** (for `striking-distance`, `ctr-rescue`,
+   `indexing-repair`, `canonical-fix`):
+   - Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+   - In Google Cloud Console, add the OAuth redirect URI
+     `$APP_URL/api/connections/gsc/callback`.
+   - Enable the **Search Console API** on the Google project.
+2. **CMS shipping (Channel A)**: in each brand's WordPress, create an
+   Application Password and connect it in **Fix Engine → Connections**.
+3. **Connector (Channel B)** for `llms-txt`, `robots-ai-access`,
+   `og-cards`: install `connector-plugin/livesov-connector.php`, then
+   **Pair Connector** in the dashboard and paste the token/secret/pull URL.
+4. The cron safety-net (`/api/cron/fix-engine-worker`) is already wired
+   into `.github/workflows/cron.yml` (every 15 min, `Bearer CRON_SECRET`).
+
 ## Architecture
 
 It reuses the repo's existing detect→store→surface pattern (geo-audits,
@@ -95,6 +116,14 @@ blocked).
 | `robots-ai-access` | B | crawl | starter | 3 |
 | `noindex-removal` | A | crawl | starter | 3 |
 | `og-cards` | B | crawl | starter | 3 |
+| `passage-rewrite` | A | manual | starter | 1 |
+
+`passage-rewrite` is user-initiated (not surfaced by scans): the user
+supplies a URL + the exact passage + an instruction via
+`POST /api/brands/[id]/fixes/targeted`, and ship does an in-place
+find-and-replace of that passage in the CMS body (`replaceInBody`). If the
+exact text isn't in the stored body (e.g. theme-rendered), ship returns a
+clear "passage not found" error rather than guessing.
 
 The GEO modules are the product differentiator. `comparison-pages`
 creates new "Brand vs Competitor" pages (the format LLMs cite most) via

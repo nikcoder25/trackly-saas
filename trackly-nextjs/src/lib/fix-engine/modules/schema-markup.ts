@@ -26,6 +26,8 @@ function expectedType(url: string, hasCity: boolean): string | null {
   const p = pathOf(url).toLowerCase();
   if (p === '/' || p === '') return hasCity ? 'LocalBusiness' : 'Organization';
   if (/(^|\/)(blog|article|news|post|guide|learn)(\/|$)/.test(p)) return 'BlogPosting';
+  if (/(^|\/)(product|products|shop|store|item)(\/|$)/.test(p)) return 'Product';
+  if (/(^|\/)(service|services|solutions)(\/|$)/.test(p)) return 'Service';
   return null;
 }
 

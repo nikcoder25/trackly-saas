@@ -65,4 +65,10 @@ export interface CmsAdapter {
   createPage(creds: CmsCreds, page: { title: string; slug: string; html: string; status?: 'publish' | 'draft' }): Promise<CmsWriteResult>;
   /** Make the page at target.url indexable (clear an accidental noindex). */
   setIndexable(creds: CmsCreds, target: CmsTarget): Promise<CmsWriteResult>;
+  /**
+   * Replace an exact passage in the page body with new text (in-place
+   * edit). `found:false` in the result means the passage wasn't present
+   * (e.g. it's rendered by the theme, not stored in the post body).
+   */
+  replaceInBody(creds: CmsCreds, target: CmsTarget, find: string, replace: string): Promise<CmsWriteResult & { found?: boolean }>;
 }

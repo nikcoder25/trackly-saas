@@ -155,6 +155,24 @@ export function PageFixes() {
     }
   };
 
+  const createTargeted = async (form: { url: string; passage: string; instruction: string }) => {
+    if (!brandId) return;
+    setError(null);
+    try {
+      const d = await api(`/api/brands/${brandId}/fixes/targeted`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      // Immediately generate so the user sees the rewrite, then refresh.
+      if (d.fix?.id) { try { await act(d.fix.id, 'generate'); } catch { /* surfaced via list */ } }
+      await load(brandId);
+      setNotice('Passage rewrite created — review the preview, then Approve & Ship.');
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
   const toggleModule = (k: string) => setSelected((s) => {
     const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n;
   });
@@ -308,6 +326,9 @@ export function PageFixes() {
           {scanMsg && <p className="quiet mono" style={{ marginTop: 10, fontSize: 12 }}>{scanMsg}</p>}
         </Card>
 
+        {/* Targeted passage rewrite */}
+        <TargetedRewriteCard disabled={!enabled} onSubmit={createTargeted} />
+
         {/* Filter */}
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '4px 0' }}>
           {['all', 'detected', 'generated', 'approved', 'shipped', 'verified', 'failed'].map((s) => (
@@ -344,6 +365,42 @@ export function PageFixes() {
         </div>
       </div>
     </>
+  );
+}
+
+function TargetedRewriteCard({ disabled, onSubmit }: {
+  disabled: boolean;
+  onSubmit: (f: { url: string; passage: string; instruction: string }) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [url, setUrl] = React.useState('');
+  const [passage, setPassage] = React.useState('');
+  const [instruction, setInstruction] = React.useState('');
+  return (
+    <Card
+      title="Optimize a specific passage"
+      lede="Paste a paragraph or a few lines from a page, say how to improve it, and ship the rewrite in place."
+      right={<button className="btn-d" style={{ fontSize: 12 }} onClick={() => setOpen((o) => !o)} disabled={disabled}>{open ? 'Close' : 'New rewrite'}</button>}
+    >
+      {open && (
+        <div style={{ display: 'grid', gap: 8 }}>
+          <input className="fld-in" placeholder="Page URL (https://example.com/page)" value={url} onChange={(e) => setUrl(e.target.value)} />
+          <textarea
+            placeholder="Paste the exact paragraph or lines to rewrite…"
+            value={passage} onChange={(e) => setPassage(e.target.value)}
+            rows={4}
+            style={{ width: '100%', fontSize: 13, padding: 8, borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontFamily: 'inherit' }}
+          />
+          <input className="fld-in" placeholder={'Instruction (e.g. make it more concise and target "best CRM for startups")'} value={instruction} onChange={(e) => setInstruction(e.target.value)} />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button className="btn-p" style={{ fontSize: 12 }}
+              onClick={() => { onSubmit({ url, passage, instruction }); setPassage(''); setInstruction(''); }}
+              disabled={!url || passage.trim().length < 12}>Rewrite passage</button>
+            <span className="quiet" style={{ fontSize: 11 }}>The exact text must exist on the page (in the CMS body) so it can be replaced in place.</span>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 

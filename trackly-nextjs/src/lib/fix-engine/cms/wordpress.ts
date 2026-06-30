@@ -234,6 +234,27 @@ export const wordpressAdapter: CmsAdapter = {
     });
   },
 
+  async replaceInBody(rawCreds, target, find, replace) {
+    const creds = readCreds(rawCreds);
+    const base = apiBase(target.url);
+    const r = await resolveResource(base, creds, target.url);
+    if (!r) return { ok: false, found: false, detail: { reason: 'page_not_found_in_wp' } };
+    // Read the raw post body, do an exact in-place replacement, write back.
+    const cur = await safeFetch(`${base}/${r.kind}/${r.id}?context=edit`, {
+      headers: { Authorization: authHeader(creds) },
+      timeoutMs: 10_000,
+    });
+    const curJson = (await cur.json().catch(() => ({}))) as { content?: { raw?: string; rendered?: string } };
+    const body = curJson.content?.raw ?? curJson.content?.rendered ?? '';
+    if (!body || !body.includes(find)) {
+      // Passage isn't in the stored body (likely theme-rendered).
+      return { ok: false, found: false, detail: { reason: 'passage_not_found_in_body' } };
+    }
+    const updated = body.replace(find, replace); // first occurrence only
+    const res = await patchResource(base, creds, r.kind, r.id, { content: updated });
+    return { ...res, found: true };
+  },
+
   async injectSchema(rawCreds, target, jsonLd) {
     // Without a Connector/plugin we can't touch <head>, so the pragmatic
     // Channel-A path appends the JSON-LD <script> to the post body, which

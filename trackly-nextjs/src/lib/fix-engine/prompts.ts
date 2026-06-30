@@ -466,6 +466,37 @@ The incorrect claim that has appeared: ${args.falseClaim}
 Write a correction passage that establishes the correct value as ground truth.`;
 }
 
+// ── Targeted passage rewrite (in-place edit) ─────────────────────
+
+export const PASSAGE_REWRITE_SYSTEM = `You rewrite ONE specific passage of a web page in place, following the user's instruction. You return a drop-in replacement for exactly that passage — same topic, same facts — improved per the instruction.
+
+Hard rules:
+- Rewrite ONLY the supplied passage; do not add unrelated content or headings.
+- Preserve every real fact; never invent claims, numbers, or names.
+- Keep roughly the same length unless the instruction says otherwise.
+- Return plain text/inline-HTML matching the original's format (no markdown fences, no commentary).
+
+Return ONLY a JSON object: { "rewritten": "<the replacement passage>", "rationale": "<one sentence>" }`;
+
+export function passageRewriteUserPrompt(args: {
+  brand: BrandPromptContext;
+  url: string;
+  passage: string;
+  instruction: string;
+}): string {
+  return `${brandBlock(args.brand)}
+
+Page URL: ${args.url}
+Instruction: ${args.instruction || 'Improve clarity and SEO/GEO quality.'}
+
+The exact passage to rewrite:
+"""
+${args.passage.slice(0, 4000)}
+"""
+
+Return the improved replacement for this passage only.`;
+}
+
 // ── Open Graph / Twitter cards ───────────────────────────────────
 
 export const OG_SYSTEM = `You write Open Graph + Twitter card copy for a website's homepage so links shared to social and surfaced by AI render with a compelling title and description.
