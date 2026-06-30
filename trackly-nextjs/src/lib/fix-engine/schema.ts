@@ -521,6 +521,31 @@ export async function findStuckConnectorInstructions(olderThanMinutes: number, l
   return res.rows.map((r: DbRow) => ({ id: String(r.id), brandId: String(r.brand_id), createdAt: String(r.created_at) }));
 }
 
+/**
+ * Operator attention summary for a brand: fixes that failed, and Connector
+ * deliveries stuck undelivered past the grace window. Surfaced in the
+ * dashboard so silent breakage (offline plugin, failed ship) is visible.
+ */
+export async function getAttentionSummary(
+  brandId: string,
+  stuckMinutes = 120,
+): Promise<{ failed: number; stuckConnector: number }> {
+  await ensureFixEngineSchema();
+  const res = await pool.query(
+    `SELECT
+        COUNT(*) FILTER (WHERE status = 'failed') AS failed,
+        COUNT(*) FILTER (
+          WHERE connector_delivered_at IS NULL
+            AND ((channel = 'B' AND status = 'shipped') OR status = 'staged')
+            AND created_at < NOW() - ($2 || ' minutes')::interval
+        ) AS stuck
+       FROM fixes WHERE brand_id = $1`,
+    [brandId, String(stuckMinutes)],
+  );
+  const row = res.rows[0] || {};
+  return { failed: Number(row.failed) || 0, stuckConnector: Number(row.stuck) || 0 };
+}
+
 /** Whether a fix already has an event of the given type (dedupe watchdog alerts). */
 export async function hasFixEvent(fixId: string, event: string): Promise<boolean> {
   const res = await pool.query(`SELECT 1 FROM fix_events WHERE fix_id = $1 AND event = $2 LIMIT 1`, [fixId, event]);

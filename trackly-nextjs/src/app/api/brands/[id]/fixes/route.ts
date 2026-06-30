@@ -15,7 +15,7 @@ import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, getUserEffectivePlan } from '@/lib/helpers';
 import { logger } from '@/lib/logger';
-import { listFixes, ensureFixEngineSchema } from '@/lib/fix-engine/schema';
+import { listFixes, ensureFixEngineSchema, getAttentionSummary } from '@/lib/fix-engine/schema';
 import { dispatchScan } from '@/lib/fix-engine/engine';
 import { moduleCatalog, getModule, meetsPlan } from '@/lib/fix-engine/registry';
 
@@ -41,9 +41,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const ownerId = access.brand.userId || user.id;
     const plan = await getUserEffectivePlan(ownerId);
     const catalog = moduleCatalog().map((m) => ({ ...m, available: meetsPlan(plan, m.minPlan) }));
+    const attention = await getAttentionSummary(id);
 
     return Response.json(
-      { fixes, catalog, plan, enabled: meetsPlan(plan, FIX_ENGINE_MIN_PLAN) },
+      { fixes, catalog, plan, enabled: meetsPlan(plan, FIX_ENGINE_MIN_PLAN), attention },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (e) {

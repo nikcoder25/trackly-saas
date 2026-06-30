@@ -8,9 +8,15 @@
 
 import type { CmsAdapter } from './types';
 import { wordpressAdapter } from './wordpress';
+import { shopifyAdapter } from './shopify';
+import { ghostAdapter } from './ghost';
+import { webflowAdapter } from './webflow';
 
 const ADAPTERS: Record<string, CmsAdapter> = {
   wordpress: wordpressAdapter,
+  shopify: shopifyAdapter,
+  ghost: ghostAdapter,
+  webflow: webflowAdapter,
 };
 
 export function getCmsAdapter(type: string | null | undefined): CmsAdapter | null {
