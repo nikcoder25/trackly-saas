@@ -25,9 +25,12 @@ citations, on-page hygiene, no fabrication) that is prepended to each
 module's system prompt. So a title rewrite, a new comparison page, a schema
 block, and a passage rewrite all follow the same principles.
 
-Override it without code changes by setting `FIX_ENGINE_SEO_BRAIN` to your
-own playbook text (e.g. paste your Growth Atlas SEO brain) — all modules
-then follow it verbatim.
+Override it without code changes (first non-empty wins):
+1. `FIX_ENGINE_SEO_BRAIN` env — inline playbook text.
+2. A repo file — `FIX_ENGINE_SEO_BRAIN_PATH`, else `growth-atlas-seo-brain.md`
+   at the project root. **Drop your Growth Atlas brain there, commit it, and
+   every module follows it verbatim.** (See `growth-atlas-seo-brain.md.example`.)
+3. The codified `DEFAULT_SEO_BRAIN`.
 
 ## SEO coverage map
 

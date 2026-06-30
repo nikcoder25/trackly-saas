@@ -11,18 +11,29 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 // ── SEO brain ──
-import { getSeoBrain, DEFAULT_SEO_BRAIN } from '@/lib/fix-engine/seo-brain';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { getSeoBrain, DEFAULT_SEO_BRAIN, resetSeoBrainCache } from '@/lib/fix-engine/seo-brain';
 
 describe('seo-brain', () => {
+  beforeEach(() => { delete process.env.FIX_ENGINE_SEO_BRAIN; delete process.env.FIX_ENGINE_SEO_BRAIN_PATH; resetSeoBrainCache(); });
+
   it('returns the default playbook when no override is set', () => {
-    delete process.env.FIX_ENGINE_SEO_BRAIN;
     expect(getSeoBrain()).toBe(DEFAULT_SEO_BRAIN);
     expect(getSeoBrain()).toMatch(/E-E-A-T/);
   });
   it('honours an env override (e.g. a Growth Atlas brain)', () => {
     process.env.FIX_ENGINE_SEO_BRAIN = 'MY CUSTOM PLAYBOOK';
     expect(getSeoBrain()).toBe('MY CUSTOM PLAYBOOK');
-    delete process.env.FIX_ENGINE_SEO_BRAIN;
+  });
+  it('loads a Growth Atlas brain from a repo file (drop-in path)', () => {
+    const file = path.join(os.tmpdir(), `ga-brain-${process.pid}.md`);
+    fs.writeFileSync(file, 'GROWTH ATLAS SEO BRAIN — custom rules');
+    process.env.FIX_ENGINE_SEO_BRAIN_PATH = file;
+    resetSeoBrainCache();
+    expect(getSeoBrain()).toBe('GROWTH ATLAS SEO BRAIN — custom rules');
+    fs.unlinkSync(file);
   });
 });
 

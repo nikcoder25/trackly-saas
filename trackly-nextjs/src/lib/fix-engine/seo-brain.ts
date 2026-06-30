@@ -46,11 +46,44 @@ TONE
   unverifiable superlatives.`;
 
 /**
- * The active SEO brain — env override wins, else the codified default.
- * Kept as a function so a future DB-backed/per-tenant brain can slot in
- * without changing call sites.
+ * The active SEO brain. Resolution order (first non-empty wins):
+ *   1. FIX_ENGINE_SEO_BRAIN env (inline playbook text)
+ *   2. a repo file — FIX_ENGINE_SEO_BRAIN_PATH, else `growth-atlas-seo-brain.md`
+ *      at the project root (drop your Growth Atlas brain there and commit it)
+ *   3. the codified DEFAULT_SEO_BRAIN
+ *
+ * The file is read once per process and memoised. Server-only (this module
+ * is only imported by the generation path, never by client code).
  */
+let cachedBrain: string | null = null;
+
 export function getSeoBrain(): string {
-  const override = process.env.FIX_ENGINE_SEO_BRAIN?.trim();
-  return override && override.length > 0 ? override : DEFAULT_SEO_BRAIN;
+  const env = process.env.FIX_ENGINE_SEO_BRAIN?.trim();
+  if (env) return env;
+  if (cachedBrain !== null) return cachedBrain;
+
+  let fromFile = '';
+  try {
+    // Lazy require so bundlers never pull `fs` into a client chunk.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs') as typeof import('fs');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require('path') as typeof import('path');
+    const file = process.env.FIX_ENGINE_SEO_BRAIN_PATH
+      || path.join(process.cwd(), 'growth-atlas-seo-brain.md');
+    if (fs.existsSync(file)) {
+      const text = fs.readFileSync(file, 'utf8').trim();
+      if (text) fromFile = text;
+    }
+  } catch {
+    // No filesystem (edge) or unreadable file — fall through to default.
+  }
+
+  cachedBrain = fromFile || DEFAULT_SEO_BRAIN;
+  return cachedBrain;
+}
+
+/** Test/hot-reload seam: clear the memoised file-loaded brain. */
+export function resetSeoBrainCache(): void {
+  cachedBrain = null;
 }
