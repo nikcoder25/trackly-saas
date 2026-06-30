@@ -811,14 +811,15 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                 + `// No WordPress plugin required. Route it to your zone, then it stays in sync.\n`
                 + `const T = ${JSON.stringify(pairing.token)};\n`
                 + `const BASE = ${JSON.stringify(edgeBase)};\n`
+                + `const H = { headers: { Authorization: 'Bearer ' + T } };\n`
                 + `export default {\n`
                 + `  async fetch(req) {\n`
                 + `    const p = new URL(req.url).pathname;\n`
-                + `    if (p === '/llms.txt') return fetch(BASE + '?file=llms.txt&token=' + T);\n`
+                + `    if (p === '/llms.txt') return fetch(BASE + '?file=llms.txt', H);\n`
                 + `    if (p === '/robots.txt') {\n`
                 + `      const [base, add] = await Promise.all([\n`
                 + `        fetch(req).then(r => r.text()).catch(() => ''),\n`
-                + `        fetch(BASE + '?file=robots.txt&token=' + T).then(r => r.ok ? r.text() : '').catch(() => ''),\n`
+                + `        fetch(BASE + '?file=robots.txt', H).then(r => r.ok ? r.text() : '').catch(() => ''),\n`
                 + `      ]);\n`
                 + `      return new Response((base + '\\n' + add).trim() + '\\n', { headers: { 'content-type': 'text/plain' } });\n`
                 + `    }\n`

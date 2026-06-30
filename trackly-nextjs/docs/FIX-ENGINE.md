@@ -515,6 +515,46 @@ Hand a fix off to your dev team as a real ticket, not just a chat message.
 
 ---
 
+## Security model (public endpoints)
+
+The engine's internet-facing endpoints follow one consistent model:
+
+- **Token-gated, hashed at rest:** `/api/connector/instructions` (+ ack) and
+  `/api/edge/serve` resolve the per-brand Connector token via a SHA-256 hash
+  lookup that honours `status='active'` + `expires_at`. `/edge/serve` accepts
+  the token via `Authorization: Bearer` (preferred — keeps it out of URLs/logs)
+  or a query param.
+- **Signed, short-TTL handshakes:** the one-click connect (`/connect/connector`
+  → `/approve` → `/exchange`) and the WordPress Application-Password flow use
+  HMAC-signed state and single-use, expiring codes (consumed atomically). The
+  approve step requires the plugin callback to be on the **same host** as the
+  site being connected.
+- **SSRF-safe:** every outbound fetch (crawl, CMS adapters, detection, edge
+  serve) goes through `safeFetch`, which blocks private/link-local/loopback
+  targets. The CMS detect endpoint is additionally rate-limited per user.
+- **Authn/authz:** brand-scoped routes use `requireVerifiedAuth` +
+  `getBrandWithAccess` and block viewers from write/connect actions. Secrets
+  are encrypted at rest (AES-256-GCM); read paths never return them.
+
+> Known trade-off (inherent to WordPress): the Application-Password
+> authorize flow returns the new password in the redirect URL — that's WP's
+> own design; we never log it, store it only encrypted, and the manual path
+> remains available.
+
+## Testing & ops notes
+
+- **Unit/integration:** ~1,190 Vitest tests cover the engine state machine,
+  every module, the connector protocol + watchdog, staging, trackers, the
+  handshake/edge endpoints, CMS detection, and all CMS adapters (with
+  `safeFetch` mocked).
+- **Beta adapters:** the Shopify / Ghost / Webflow adapters are written to
+  each platform's documented API but have **not** been exercised against a
+  live store — validate before relying on them in production. WordPress
+  (REST) is the proven path.
+- **Connector plugin:** the PHP plugin passes `php -l`; its `stage_content` /
+  `publish_content` ops can't be unit-tested here — verify on a staging
+  WordPress before production use of ship-as-draft.
+
 ## The agent prompts
 
 Generation prompts live in `src/lib/fix-engine/prompts.ts`. Each is a

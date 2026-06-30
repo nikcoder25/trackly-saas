@@ -38,6 +38,12 @@ describe('edge serve', () => {
     expect(await res.text()).toContain('Allow: /');
   });
 
+  it('accepts the token via Authorization header (kept out of the URL)', async () => {
+    const res = await GET(new Request('https://livesov.com/api/edge/serve?file=llms.txt', { headers: { authorization: 'Bearer tok' } }));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('Allow: /');
+  });
+
   it('serves robots.txt AI directives', async () => {
     const res = await GET(req('token=tok&file=robots.txt'));
     expect(res.status).toBe(200);

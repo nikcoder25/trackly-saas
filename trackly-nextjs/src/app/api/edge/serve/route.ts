@@ -23,9 +23,16 @@ const FILES: Record<string, { moduleKey: string; field: string }> = {
   'robots.txt': { moduleKey: 'robots-ai-access', field: 'directives' },
 };
 
+function bearer(request: Request): string {
+  const h = request.headers.get('authorization') || '';
+  return h.startsWith('Bearer ') ? h.slice(7).trim() : '';
+}
+
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
-  const token = (url.searchParams.get('token') || '').trim();
+  // Prefer the Authorization header (keeps the token out of URLs/logs);
+  // fall back to the query param for simple setups.
+  const token = bearer(request) || (url.searchParams.get('token') || '').trim();
   const file = (url.searchParams.get('file') || '').trim();
   const spec = FILES[file];
   if (!token || !spec) return new Response('Not found', { status: 404 });
