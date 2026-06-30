@@ -17,6 +17,18 @@ import type { ConnectorInstructionRow } from './schema';
 export const CONNECTOR_OPS = ['write_file', 'set_header_block', 'patch_robots'] as const;
 export type ConnectorOp = typeof CONNECTOR_OPS[number];
 
+/** Re-deliver a failing instruction up to this many times before failing it. */
+export const CONNECTOR_MAX_ATTEMPTS = 5;
+/** A connector that hasn't polled within this window is considered offline. */
+export const CONNECTOR_STALE_MS = 12 * 60_000;
+
+/** True when the connector last polled recently enough to be "online". */
+export function connectorOnline(lastSeenAt: string | null | undefined, now = Date.now()): boolean {
+  if (!lastSeenAt) return false;
+  const t = Date.parse(lastSeenAt);
+  return Number.isFinite(t) && now - t <= CONNECTOR_STALE_MS;
+}
+
 export function sha256Hex(s: string): string {
   return crypto.createHash('sha256').update(s).digest('hex');
 }

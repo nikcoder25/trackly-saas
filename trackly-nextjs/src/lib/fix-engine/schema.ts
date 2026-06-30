@@ -93,6 +93,7 @@ export async function ensureFixEngineSchema(): Promise<void> {
   // Channel-B delivery marker: set when the Connector plugin has pulled +
   // applied + acked the instruction, so the pull endpoint stops returning it.
   await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS connector_delivered_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS connector_attempts INTEGER NOT NULL DEFAULT 0`);
   // AI-visibility (SOV) snapshots captured at ship and at recheck.
   await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS ai_before JSONB`);
   await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS ai_after JSONB`);
@@ -127,6 +128,8 @@ export async function ensureFixEngineSchema(): Promise<void> {
   // once and never stored; the HMAC secret lives in encrypted_creds).
   await pool.query(`ALTER TABLE fix_connections ADD COLUMN IF NOT EXISTS token_hash TEXT`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_fix_connections_token_hash ON fix_connections (token_hash)`);
+  // Connector heartbeat: updated on every successful pull.
+  await pool.query(`ALTER TABLE fix_connections ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS fix_events (
@@ -441,6 +444,16 @@ export async function markConnectorDelivered(fixId: string): Promise<void> {
       WHERE id = $1 AND connector_delivered_at IS NULL`,
     [fixId],
   );
+}
+
+/** Record a failed apply attempt; returns the new attempt count. */
+export async function recordConnectorAttempt(fixId: string): Promise<number> {
+  const res = await pool.query(
+    `UPDATE fixes SET connector_attempts = connector_attempts + 1, updated_at = NOW()
+      WHERE id = $1 RETURNING connector_attempts`,
+    [fixId],
+  );
+  return Number(res.rows[0]?.connector_attempts ?? 0);
 }
 
 export interface FixEventRow {

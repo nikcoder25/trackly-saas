@@ -25,6 +25,8 @@ export interface ConnectionPublic {
   status: 'active' | 'revoked' | 'error';
   meta: Record<string, unknown>;
   expiresAt: string | null;
+  /** Last time the Connector polled (heartbeat); null until first poll. */
+  lastSeenAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -42,6 +44,7 @@ function toPublic(r: Record<string, unknown>): ConnectionPublic {
     status: r.status as ConnectionPublic['status'],
     meta: (r.meta as Record<string, unknown>) ?? {},
     expiresAt: (r.expires_at as string | null) ?? null,
+    lastSeenAt: (r.last_seen_at as string | null) ?? null,
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
   };
@@ -174,6 +177,16 @@ export async function getConnectorByToken(rawToken: string): Promise<ResolvedCon
     if (dec) { try { hmacSecret = (JSON.parse(dec) as { hmacSecret?: string }).hmacSecret ?? null; } catch { /* ignore */ } }
   }
   return { brandId: String(row.brand_id), userId: String(row.user_id), hmacSecret };
+}
+
+/** Heartbeat: stamp the connector's last-poll time (best-effort). */
+export async function touchConnectorSeen(brandId: string): Promise<void> {
+  try {
+    await pool.query(
+      `UPDATE fix_connections SET last_seen_at = NOW() WHERE brand_id = $1 AND provider = 'connector'`,
+      [brandId],
+    );
+  } catch { /* heartbeat is best-effort */ }
 }
 
 export async function setConnectionStatus(

@@ -361,6 +361,19 @@ fetches the live `/llms.txt`) flips it to `verified`. A failed ack
 > `wp_head`), and acks. The flagship Channel-B module `robots-ai-access`
 > uses `patch_robots` to explicitly allow GPTBot/ClaudeBot/PerplexityBot/
 > Google-Extended.
+>
+> **Reliability (built for "set it and forget it"):**
+> - *Heartbeat* — every pull stamps `fix_connections.last_seen_at`; the
+>   dashboard shows the Connector as **Online / Offline / last-polled**, so
+>   a silently-broken plugin is visible (`connectorOnline()` ⇒ 12-min
+>   window).
+> - *Self-healing retries* — a failed apply isn't fatal: the ack bumps
+>   `fixes.connector_attempts` and the instruction is **re-delivered on the
+>   next pull** until `CONNECTOR_MAX_ATTEMPTS` (5), then marked `failed`.
+>   All ops are idempotent overwrites, so re-delivery is safe.
+> - *Auto-verify* — on a successful ack the engine auto-runs `recheck`
+>   (non-blocking via `after()`), so Channel-B fixes flip to `verified`
+>   with no manual step.
 
 ---
 

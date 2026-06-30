@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Livesov Connector
  * Description: Applies Livesov Fix Engine Channel-B instructions (llms.txt, robots.txt, head schema) by securely pulling them from your Livesov account. No inbound access to your server is required — the plugin only makes outbound requests.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Livesov
  * License: GPL-2.0-or-later
  *
@@ -15,9 +15,15 @@
 
 if (!defined('ABSPATH')) { exit; }
 
+define('LVX_CONN_VERSION', '1.1.0');
 define('LVX_CONN_OPT', 'livesov_connector_settings');
 define('LVX_CONN_HEAD_OPT', 'livesov_connector_head');     // set_header_block content
 define('LVX_CONN_ROBOTS_OPT', 'livesov_connector_robots'); // patch_robots content
+define('LVX_CONN_STATUS_OPT', 'livesov_connector_status'); // last poll result + time
+
+function lvx_conn_ua() {
+    return 'LivesovConnector/' . LVX_CONN_VERSION . '; ' . home_url('/');
+}
 
 /* ─────────────── Settings ─────────────── */
 
@@ -66,6 +72,13 @@ function lvx_conn_admin_page() {
             <?php wp_nonce_field('lvx_poll_now'); ?>
             <input type="submit" name="lvx_poll_now" class="button button-secondary" value="Poll now">
         </form>
+        <?php $st = get_option(LVX_CONN_STATUS_OPT); if (is_array($st)) : ?>
+            <p style="margin-top:14px;color:#555;">
+                <strong>Last poll:</strong> <?php echo esc_html($st['msg']); ?>
+                <em>(<?php echo esc_html(human_time_diff($st['at'], time())); ?> ago)</em>
+            </p>
+        <?php endif; ?>
+        <p style="color:#888;">Plugin v<?php echo esc_html(LVX_CONN_VERSION); ?> · polls every 5 minutes.</p>
     </div>
     <?php
 }
@@ -109,16 +122,16 @@ function lvx_conn_poll() {
     if (empty($s['pull_url']) || empty($s['token'])) { return 'not configured'; }
 
     $resp = wp_remote_get($s['pull_url'], array(
-        'headers' => array('Authorization' => 'Bearer ' . $s['token']),
+        'headers' => array('Authorization' => 'Bearer ' . $s['token'], 'User-Agent' => lvx_conn_ua()),
         'timeout' => 20,
     ));
-    if (is_wp_error($resp)) { return 'pull error: ' . $resp->get_error_message(); }
+    if (is_wp_error($resp)) { return lvx_conn_status('pull error: ' . $resp->get_error_message()); }
     $code = wp_remote_retrieve_response_code($resp);
-    if ($code !== 200) { return 'pull HTTP ' . $code; }
+    if ($code !== 200) { return lvx_conn_status('pull HTTP ' . $code); }
 
     $body = json_decode(wp_remote_retrieve_body($resp), true);
     $instructions = isset($body['instructions']) && is_array($body['instructions']) ? $body['instructions'] : array();
-    if (empty($instructions)) { return 'no pending instructions'; }
+    if (empty($instructions)) { return lvx_conn_status('connected · no pending instructions'); }
 
     $applied = 0; $failed = 0;
     foreach ($instructions as $ins) {
@@ -137,7 +150,13 @@ function lvx_conn_poll() {
         if ($err === '') { lvx_conn_ack($s, $id, true, null); $applied++; }
         else { lvx_conn_ack($s, $id, false, $err); $failed++; }
     }
-    return "applied $applied, failed $failed";
+    return lvx_conn_status("applied $applied, failed $failed");
+}
+
+/** Persist + return the last-poll status string for the settings page. */
+function lvx_conn_status($msg) {
+    update_option(LVX_CONN_STATUS_OPT, array('msg' => $msg, 'at' => time()));
+    return $msg;
 }
 
 /** Apply one instruction. Returns '' on success or an error string. */
@@ -169,7 +188,7 @@ function lvx_conn_apply($op, $payload) {
 function lvx_conn_ack($s, $id, $ok, $error) {
     $url = rtrim($s['pull_url'], '/') . '/' . rawurlencode($id) . '/ack';
     wp_remote_post($url, array(
-        'headers' => array('Authorization' => 'Bearer ' . $s['token'], 'Content-Type' => 'application/json'),
+        'headers' => array('Authorization' => 'Bearer ' . $s['token'], 'Content-Type' => 'application/json', 'User-Agent' => lvx_conn_ua()),
         'timeout' => 15,
         'body'    => wp_json_encode($ok ? array('ok' => true) : array('ok' => false, 'error' => $error)),
     ));

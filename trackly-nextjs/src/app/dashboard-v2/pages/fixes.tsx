@@ -24,7 +24,7 @@ interface FixRow {
   note?: string | null; assignee?: string | null;
 }
 interface PreviewBlock { kind: string; label: string; before?: string; after?: string; language?: string }
-interface Connection { id: string; provider: string; cmsType: string | null; siteUrl: string | null; status: string }
+interface Connection { id: string; provider: string; cmsType: string | null; siteUrl: string | null; status: string; lastSeenAt?: string | null }
 
 async function api(path: string, init?: RequestInit) {
   const res = await fetch(path, { credentials: 'include', cache: 'no-store', ...init });
@@ -437,7 +437,7 @@ export function PageFixes() {
     <ConnectionsSection
       cms={!!cmsConn} cmsMeta={cmsConn ? `${cmsConn.cmsType} · ${cmsConn.siteUrl}` : 'Required to ship on-site fixes'}
       gsc={!!gscConn} gscSite={gscConn?.siteUrl ?? null}
-      connector={!!connectorConn} pairing={pairing}
+      connector={!!connectorConn} connectorLastSeen={connectorConn?.lastSeenAt ?? null} pairing={pairing}
       supportedCms={supportedCms} defaultSite={(brand as any)?.website || ''} disabled={!enabled}
       onConnectCms={connectCms} onConnectGsc={connectGsc} onPairConnector={pairConnector} onCopy={(label) => flash(`${label} copied`)}
     />
@@ -580,8 +580,8 @@ export function PageFixes() {
 }
 
 // ── Connections ──
-function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, pairing, supportedCms, defaultSite, disabled, onConnectCms, onConnectGsc, onPairConnector, onCopy }: {
-  cms: boolean; cmsMeta: string; gsc: boolean; gscSite: string | null; connector: boolean;
+function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, onConnectCms, onConnectGsc, onPairConnector, onCopy }: {
+  cms: boolean; cmsMeta: string; gsc: boolean; gscSite: string | null; connector: boolean; connectorLastSeen: string | null;
   pairing: { token: string; hmacSecret: string; pullUrl: string } | null;
   supportedCms: string[]; defaultSite: string; disabled: boolean;
   onConnectCms: (f: { cmsType: string; siteUrl: string; username: string; appPassword: string }) => void;
@@ -647,9 +647,21 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, pairing, su
           <span className="disp nb-sm" style={{ width: 46, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 18, background: 'var(--primary)', color: '#fff', flexShrink: 0 }}>⤓</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="disp" style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Connector plugin</div>
-            <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2, fontWeight: 500 }}>Pull-based · your site fetches approved fixes. No inbound access.</div>
+            <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2, fontWeight: 500 }}>
+            {(() => {
+              if (!connector) return 'Pull-based · your site fetches approved fixes. No inbound access.';
+              if (!connectorLastSeen) return 'Paired · waiting for the plugin’s first poll (within 5 min)…';
+              const online = Date.now() - Date.parse(connectorLastSeen) <= 12 * 60_000;
+              const mins = Math.max(0, Math.round((Date.now() - Date.parse(connectorLastSeen)) / 60_000));
+              return online ? `● Online · last polled ${mins}m ago` : `○ Offline · last seen ${mins}m ago (check the plugin)`;
+            })()}
           </div>
-          {connector ? okChip('INSTALLED') : <span className="chip" style={{ color: 'var(--text-3)' }}>○ NOT PAIRED</span>}
+          </div>
+          {connector
+            ? (connectorLastSeen && Date.now() - Date.parse(connectorLastSeen) <= 12 * 60_000
+                ? okChip('ONLINE')
+                : <span className="chip" style={{ background: 'var(--warn-50)', color: 'var(--warn)', borderColor: 'var(--warn)' }}>{connectorLastSeen ? '○ OFFLINE' : '● PAIRED'}</span>)
+            : <span className="chip" style={{ color: 'var(--text-3)' }}>○ NOT PAIRED</span>}
           <button className="gbtn" onClick={() => { onPairConnector(); setReveal(true); }} disabled={disabled} style={{ padding: '7px 13px', fontSize: 12 }}>{connector ? 'Re-pair' : 'Pair'}</button>
         </div>
 

@@ -9,7 +9,7 @@
 
 import { NextResponse } from 'next/server';
 import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
-import { getConnectorByToken } from '@/lib/fix-engine/connections';
+import { getConnectorByToken, touchConnectorSeen } from '@/lib/fix-engine/connections';
 import { listPendingConnectorInstructions } from '@/lib/fix-engine/schema';
 import { toWireInstruction } from '@/lib/fix-engine/connector';
 import { logger } from '@/lib/logger';
@@ -29,6 +29,9 @@ export async function GET(request: Request): Promise<Response> {
 
   const conn = await getConnectorByToken(token);
   if (!conn) return NextResponse.json({ error: 'Invalid or revoked token' }, { status: 401 });
+
+  // Heartbeat — lets the dashboard show the connector as online.
+  await touchConnectorSeen(conn.brandId);
 
   try {
     const rows = await listPendingConnectorInstructions(conn.brandId);

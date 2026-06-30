@@ -9,10 +9,12 @@
  * Body: { ok: boolean, detail?: object, error?: string }
  */
 
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { getConnectorByToken } from '@/lib/fix-engine/connections';
-import { getConnectorFix, markConnectorDelivered, updateFix, logFixEvent } from '@/lib/fix-engine/schema';
+import { getConnectorFix, markConnectorDelivered, recordConnectorAttempt, updateFix, logFixEvent } from '@/lib/fix-engine/schema';
+import { CONNECTOR_MAX_ATTEMPTS } from '@/lib/fix-engine/connector';
+import { recheckFix } from '@/lib/fix-engine/engine';
 import { logger } from '@/lib/logger';
 
 function bearer(request: Request): string {
@@ -52,12 +54,27 @@ export async function POST(
       await logFixEvent(fixId, conn.brandId, conn.userId, 'connector.applied', {
         detail: (body.detail && typeof body.detail === 'object') ? body.detail : undefined,
       });
-    } else {
-      const err = typeof body.error === 'string' ? body.error : 'Connector reported failure';
-      await updateFix(fixId, { status: 'failed', error: err });
-      await logFixEvent(fixId, conn.brandId, conn.userId, 'connector.failed', { error: err });
+      // Auto-verify: confirm the change is actually live (re-fetch the
+      // file/page) without the user lifting a finger. Non-blocking so the
+      // connector's ack returns immediately.
+      after(async () => {
+        try { await recheckFix(fixId, conn.brandId, null); }
+        catch (e) { logger.warn('fix_engine.connector_autorecheck_failed', { fixId, err: (e as Error).message }); }
+      });
+      return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
     }
-    return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
+
+    // Failure: re-deliver on the next pull until we hit the attempt cap,
+    // then mark the fix failed so it stops looping and surfaces to the user.
+    const err = typeof body.error === 'string' ? body.error : 'Connector reported failure';
+    const attempts = await recordConnectorAttempt(fixId);
+    if (attempts >= CONNECTOR_MAX_ATTEMPTS) {
+      await updateFix(fixId, { status: 'failed', error: `${err} (after ${attempts} attempts)` });
+      await logFixEvent(fixId, conn.brandId, conn.userId, 'connector.failed', { error: err, attempts });
+      return NextResponse.json({ ok: true, retry: false }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+    await logFixEvent(fixId, conn.brandId, conn.userId, 'connector.retry', { error: err, attempts });
+    return NextResponse.json({ ok: true, retry: true, attempt: attempts }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) {
     logger.error('fix_engine.connector_ack_failed', { fixId, err: (e as Error).message });
     return NextResponse.json({ error: 'Failed to record ack' }, { status: 500 });

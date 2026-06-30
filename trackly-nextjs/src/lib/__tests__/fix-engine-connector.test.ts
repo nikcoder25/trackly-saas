@@ -12,7 +12,21 @@ vi.mock('@/lib/logger', () => ({
 
 import {
   signInstruction, isAllowedFilePath, toWireInstruction, sha256Hex,
+  connectorOnline, CONNECTOR_MAX_ATTEMPTS, CONNECTOR_STALE_MS,
 } from '@/lib/fix-engine/connector';
+
+describe('connector health + retry policy', () => {
+  it('treats a recent poll as online and a stale one as offline', () => {
+    const now = Date.now();
+    expect(connectorOnline(new Date(now - 60_000).toISOString(), now)).toBe(true);
+    expect(connectorOnline(new Date(now - CONNECTOR_STALE_MS - 1000).toISOString(), now)).toBe(false);
+    expect(connectorOnline(null, now)).toBe(false);
+    expect(connectorOnline('not-a-date', now)).toBe(false);
+  });
+  it('has a sane retry cap', () => {
+    expect(CONNECTOR_MAX_ATTEMPTS).toBeGreaterThanOrEqual(3);
+  });
+});
 
 describe('connector signing + allow-list', () => {
   it('signature is stable and verifiable', () => {
