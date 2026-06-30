@@ -133,22 +133,29 @@ export interface ConnectorPairing {
  * token HASH (queryable) and the HMAC secret (encrypted); returns the raw
  * token + secret to show the user once.
  */
-export async function createConnectorPairing(userId: string, brandId: string): Promise<ConnectorPairing> {
+export async function createConnectorPairing(userId: string, brandId: string, expiresInDays?: number): Promise<ConnectorPairing> {
   await ensureFixEngineSchema();
   const token = crypto.randomBytes(24).toString('hex');
   const hmacSecret = crypto.randomBytes(24).toString('hex');
   const id = crypto.randomUUID();
   const encrypted = encryptValue(JSON.stringify({ hmacSecret }));
+  // Default: no expiry (the plugin polls indefinitely). Re-pairing rotates
+  // the token (the old hash is overwritten); revoke is the kill switch.
+  const expiresAt = expiresInDays && expiresInDays > 0
+    ? new Date(Date.now() + expiresInDays * 86_400_000).toISOString()
+    : null;
   await pool.query(
     `INSERT INTO fix_connections
-       (id, user_id, brand_id, provider, token_hash, encrypted_creds, meta, status)
-     VALUES ($1,$2,$3,'connector',$4,$5,$6,'active')
+       (id, user_id, brand_id, provider, token_hash, encrypted_creds, meta, status, expires_at)
+     VALUES ($1,$2,$3,'connector',$4,$5,$6,'active',$7)
      ON CONFLICT (brand_id, provider) DO UPDATE
        SET token_hash = EXCLUDED.token_hash,
            encrypted_creds = EXCLUDED.encrypted_creds,
            status = 'active',
+           expires_at = EXCLUDED.expires_at,
+           last_seen_at = NULL,
            updated_at = NOW()`,
-    [id, userId, brandId, sha256(token), encrypted, JSON.stringify({ pairedBy: userId })],
+    [id, userId, brandId, sha256(token), encrypted, JSON.stringify({ pairedBy: userId }), expiresAt],
   );
   return { token, hmacSecret };
 }
@@ -164,13 +171,15 @@ export async function getConnectorByToken(rawToken: string): Promise<ResolvedCon
   if (!rawToken) return null;
   await ensureFixEngineSchema();
   const res = await pool.query(
-    `SELECT user_id, brand_id, encrypted_creds FROM fix_connections
+    `SELECT user_id, brand_id, encrypted_creds, expires_at FROM fix_connections
       WHERE provider = 'connector' AND token_hash = $1 AND status = 'active'
       LIMIT 1`,
     [sha256(rawToken)],
   );
   const row = res.rows[0];
   if (!row) return null;
+  // Honour an optional expiry (revocable, time-boxed tokens).
+  if (row.expires_at && Date.parse(String(row.expires_at)) <= Date.now()) return null;
   let hmacSecret: string | null = null;
   if (row.encrypted_creds) {
     const dec = decryptValue(String(row.encrypted_creds));

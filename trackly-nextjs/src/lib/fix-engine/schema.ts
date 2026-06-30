@@ -437,6 +437,27 @@ export async function getConnectorFix(fixId: string, brandId: string): Promise<F
   return getFix(fixId, brandId);
 }
 
+export interface StuckInstruction { id: string; brandId: string; createdAt: string }
+
+/** Channel-B fixes shipped but still not applied by the Connector after N minutes. */
+export async function findStuckConnectorInstructions(olderThanMinutes: number, limit = 50): Promise<StuckInstruction[]> {
+  await ensureFixEngineSchema();
+  const res = await pool.query(
+    `SELECT id, brand_id, created_at FROM fixes
+      WHERE channel = 'B' AND status = 'shipped' AND connector_delivered_at IS NULL
+        AND created_at < NOW() - ($1 || ' minutes')::interval
+      ORDER BY created_at ASC LIMIT $2`,
+    [String(olderThanMinutes), limit],
+  );
+  return res.rows.map((r: DbRow) => ({ id: String(r.id), brandId: String(r.brand_id), createdAt: String(r.created_at) }));
+}
+
+/** Whether a fix already has an event of the given type (dedupe watchdog alerts). */
+export async function hasFixEvent(fixId: string, event: string): Promise<boolean> {
+  const res = await pool.query(`SELECT 1 FROM fix_events WHERE fix_id = $1 AND event = $2 LIMIT 1`, [fixId, event]);
+  return (res.rowCount || 0) > 0;
+}
+
 /** Mark a connector instruction applied (acked OK by the plugin). */
 export async function markConnectorDelivered(fixId: string): Promise<void> {
   await pool.query(

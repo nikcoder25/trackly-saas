@@ -306,6 +306,7 @@ export function PageFixes() {
     catch (e) { setError((e as Error).message); }
   };
   const pairConnector = async () => { if (!brandId) return; try { const d = await api(`/api/brands/${brandId}/connections/connector/pair`, { method: 'POST' }); setPairing({ token: d.token, hmacSecret: d.hmacSecret, pullUrl: d.pullUrl }); await load(brandId); flash('Connector paired'); } catch (e) { setError((e as Error).message); } };
+  const revokeConnector = async () => { if (!brandId) return; try { await api(`/api/brands/${brandId}/connections/connector/revoke`, { method: 'POST' }); setPairing(null); await load(brandId); flash('Connector token revoked'); } catch (e) { setError((e as Error).message); } };
   const createTargeted = async (form: { url: string; passage: string; instruction: string }) => {
     if (!brandId) return; setError(null);
     try { const d = await api(`/api/brands/${brandId}/fixes/targeted`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) }); if (d.fix?.id) { try { await act(d.fix.id, 'generate'); } catch { /* surfaced */ } } await load(brandId); flash('Passage fix created'); }
@@ -439,7 +440,7 @@ export function PageFixes() {
       gsc={!!gscConn} gscSite={gscConn?.siteUrl ?? null}
       connector={!!connectorConn} connectorLastSeen={connectorConn?.lastSeenAt ?? null} pairing={pairing}
       supportedCms={supportedCms} defaultSite={(brand as any)?.website || ''} disabled={!enabled}
-      onConnectCms={connectCms} onConnectGsc={connectGsc} onPairConnector={pairConnector} onCopy={(label) => flash(`${label} copied`)}
+      onConnectCms={connectCms} onConnectGsc={connectGsc} onPairConnector={pairConnector} onRevokeConnector={revokeConnector} onCopy={(label) => flash(`${label} copied`)}
     />
 
     {/* SEO BRAIN */}
@@ -580,12 +581,12 @@ export function PageFixes() {
 }
 
 // ── Connections ──
-function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, onConnectCms, onConnectGsc, onPairConnector, onCopy }: {
+function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, onConnectCms, onConnectGsc, onPairConnector, onRevokeConnector, onCopy }: {
   cms: boolean; cmsMeta: string; gsc: boolean; gscSite: string | null; connector: boolean; connectorLastSeen: string | null;
   pairing: { token: string; hmacSecret: string; pullUrl: string } | null;
   supportedCms: string[]; defaultSite: string; disabled: boolean;
   onConnectCms: (f: { cmsType: string; siteUrl: string; username: string; appPassword: string }) => void;
-  onConnectGsc: () => void; onPairConnector: () => void; onCopy: (label: string) => void;
+  onConnectGsc: () => void; onPairConnector: () => void; onRevokeConnector: () => void; onCopy: (label: string) => void;
 }) {
   const [showForm, setShowForm] = React.useState(false);
   const [reveal, setReveal] = React.useState(false);
@@ -663,6 +664,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                 : <span className="chip" style={{ background: 'var(--warn-50)', color: 'var(--warn)', borderColor: 'var(--warn)' }}>{connectorLastSeen ? '○ OFFLINE' : '● PAIRED'}</span>)
             : <span className="chip" style={{ color: 'var(--text-3)' }}>○ NOT PAIRED</span>}
           <button className="gbtn" onClick={() => { onPairConnector(); setReveal(true); }} disabled={disabled} style={{ padding: '7px 13px', fontSize: 12 }}>{connector ? 'Re-pair' : 'Pair'}</button>
+          {connector && <button className="tbtn" onClick={onRevokeConnector} disabled={disabled} style={{ color: 'var(--danger)', textDecorationColor: 'var(--danger)' }}>Revoke</button>}
         </div>
 
         {pairing && reveal && (

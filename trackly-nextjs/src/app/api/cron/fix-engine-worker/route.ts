@@ -18,6 +18,7 @@ import { acquireCronLock } from '@/lib/cron-lock';
 import { logger } from '@/lib/logger';
 import { findStuckQueuedBatches } from '@/lib/fix-engine/schema';
 import { runScan } from '@/lib/fix-engine/engine';
+import { runConnectorWatchdog } from '@/lib/fix-engine/connector-watchdog';
 
 const MAX_PER_TICK = 5;
 const STUCK_AFTER_SECONDS = 60;
@@ -48,9 +49,14 @@ export async function GET(request: Request): Promise<Response> {
       try { await runScan(batchId); succeeded++; }
       catch (e) { failed++; errors.push(`${batchId}: ${(e as Error).message}`); }
     }
-    logger.info('cron.fix_engine_worker.done', { stuckFound: stuck.length, claimed, succeeded, failed, durationMs: Date.now() - startedAt });
+    // Flag Channel-B fixes the Connector never applied (offline/broken).
+    let watchdog = { stuck: 0, flagged: 0 };
+    try { watchdog = await runConnectorWatchdog(); }
+    catch (e) { logger.warn('cron.fix_engine_worker.watchdog_failed', { err: (e as Error).message }); }
+
+    logger.info('cron.fix_engine_worker.done', { stuckFound: stuck.length, claimed, succeeded, failed, watchdog, durationMs: Date.now() - startedAt });
     return NextResponse.json({
-      ok: true, stuckFound: stuck.length, claimed, succeeded, failed,
+      ok: true, stuckFound: stuck.length, claimed, succeeded, failed, watchdog,
       errors: errors.slice(0, 5), durationMs: Date.now() - startedAt,
       timestamp: new Date().toISOString(),
     });

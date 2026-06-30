@@ -374,6 +374,19 @@ fetches the live `/llms.txt`) flips it to `verified`. A failed ack
 > - *Auto-verify* — on a successful ack the engine auto-runs `recheck`
 >   (non-blocking via `after()`), so Channel-B fixes flip to `verified`
 >   with no manual step.
+> - *Server-side watchdog* — the `fix-engine-worker` cron runs
+>   `runConnectorWatchdog()` each tick (`connector-watchdog.ts`). It finds
+>   Channel-B fixes still undelivered after a grace period (default 2h) and
+>   flags each **once** with a `connector.stuck` event recording
+>   `hoursStuck` + whether the Connector looks online — so a stuck queue
+>   surfaces even when the plugin never polls (offline, deactivated). Idempotent
+>   via `hasFixEvent()`.
+> - *Token revoke + expiry* — `POST /api/brands/[id]/connections/connector/revoke`
+>   is the kill switch for a leaked token (flips the connection to `revoked`;
+>   pull/ack reject it immediately). `createConnectorPairing(userId, brandId,
+>   expiresInDays?)` can issue a time-boxed token (`fix_connections.expires_at`,
+>   honoured by `getConnectorByToken`); re-pairing rotates the token and resets
+>   `last_seen_at`. The dashboard exposes a **Revoke** button alongside Re-pair.
 
 ---
 
