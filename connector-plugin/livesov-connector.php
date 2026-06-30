@@ -32,7 +32,7 @@ function lvx_conn_ua() {
 /* ─────────────── Settings ─────────────── */
 
 function lvx_conn_settings() {
-    $d = array('pull_url' => '', 'token' => '', 'secret' => '');
+    $d = array('pull_url' => '', 'token' => '', 'secret' => '', 'livesov_url' => 'https://livesov.com');
     return wp_parse_args(get_option(LVX_CONN_OPT, array()), $d);
 }
 
@@ -45,10 +45,14 @@ add_action('admin_init', function () {
 });
 
 function lvx_conn_sanitize($in) {
+    $existing = get_option(LVX_CONN_OPT, array());
     return array(
-        'pull_url' => esc_url_raw(trim($in['pull_url'] ?? '')),
-        'token'    => sanitize_text_field(trim($in['token'] ?? '')),
-        'secret'   => sanitize_text_field(trim($in['secret'] ?? '')),
+        'pull_url'    => esc_url_raw(trim($in['pull_url'] ?? '')),
+        'token'       => sanitize_text_field(trim($in['token'] ?? '')),
+        'secret'      => sanitize_text_field(trim($in['secret'] ?? '')),
+        // Preserve a livesov_url set via the one-click flow if the manual
+        // form doesn't include it.
+        'livesov_url' => esc_url_raw(trim($in['livesov_url'] ?? ($existing['livesov_url'] ?? 'https://livesov.com'))),
     );
 }
 
@@ -59,16 +63,37 @@ function lvx_conn_admin_page() {
         echo '<div class="notice notice-info"><p>Poll result: ' . esc_html($res) . '</p></div>';
     }
     $s = lvx_conn_settings();
+    $connected = !empty($s['pull_url']) && !empty($s['token']);
     ?>
     <div class="wrap">
         <h1>Livesov Connector</h1>
-        <p>Paste the values from your Livesov dashboard (Fix Engine → Connections → Connector).</p>
+
+        <?php if ($connected) : ?>
+            <div class="notice notice-success inline" style="margin:14px 0;"><p><strong>Connected to Livesov.</strong> Approved fixes will be applied automatically every 5 minutes.</p></div>
+        <?php endif; ?>
+
+        <h2>Connect in one click</h2>
+        <p>The easy way — like “Sign in with Google”. Click connect, approve the site in Livesov, and the credentials fill in automatically. No copy-paste.</p>
+        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+            <input type="hidden" name="action" value="lvx_connect_start">
+            <?php wp_nonce_field('lvx_connect_start'); ?>
+            <table class="form-table">
+                <tr><th>Livesov URL</th><td><input type="url" name="livesov_url" value="<?php echo esc_attr($s['livesov_url']); ?>" class="regular-text" placeholder="https://livesov.com"><p class="description">Change only if you self-host Livesov.</p></td></tr>
+            </table>
+            <?php submit_button($connected ? 'Reconnect with Livesov' : 'Connect with Livesov', 'primary'); ?>
+        </form>
+
+        <hr style="margin:26px 0;">
+
+        <h2>Connect manually</h2>
+        <p>Or paste the values from your Livesov dashboard (Fix Engine → Connections → Connector).</p>
         <form method="post" action="options.php">
             <?php settings_fields('lvx_conn_group'); ?>
             <table class="form-table">
                 <tr><th>Pull URL</th><td><input type="url" name="<?php echo LVX_CONN_OPT; ?>[pull_url]" value="<?php echo esc_attr($s['pull_url']); ?>" class="regular-text" placeholder="https://livesov.com/api/connector/instructions"></td></tr>
                 <tr><th>Token</th><td><input type="text" name="<?php echo LVX_CONN_OPT; ?>[token]" value="<?php echo esc_attr($s['token']); ?>" class="regular-text"></td></tr>
                 <tr><th>Signing secret</th><td><input type="text" name="<?php echo LVX_CONN_OPT; ?>[secret]" value="<?php echo esc_attr($s['secret']); ?>" class="regular-text"></td></tr>
+                <input type="hidden" name="<?php echo LVX_CONN_OPT; ?>[livesov_url]" value="<?php echo esc_attr($s['livesov_url']); ?>">
             </table>
             <?php submit_button('Save settings'); ?>
         </form>
@@ -103,6 +128,88 @@ register_deactivation_hook(__FILE__, function () {
     wp_clear_scheduled_hook('lvx_conn_poll_event');
 });
 add_action('lvx_conn_poll_event', 'lvx_conn_poll');
+
+/* ─────────────── One-click connect handshake ─────────────── */
+
+/** Start: persist the Livesov URL, mint a state nonce, bounce to consent. */
+add_action('admin_post_lvx_connect_start', function () {
+    if (!current_user_can('manage_options')) { wp_die('Forbidden'); }
+    check_admin_referer('lvx_connect_start');
+
+    $livesov = esc_url_raw(trim($_POST['livesov_url'] ?? 'https://livesov.com'));
+    if (empty($livesov)) { $livesov = 'https://livesov.com'; }
+    $s = lvx_conn_settings();
+    $s['livesov_url'] = $livesov;
+    update_option(LVX_CONN_OPT, $s);
+
+    $state = wp_generate_password(32, false);
+    set_transient('lvx_conn_state', $state, 15 * MINUTE_IN_SECONDS);
+
+    $callback = admin_url('admin-post.php?action=lvx_connect_callback');
+    $authorize = trailingslashit($livesov) . 'connect/connector?' . http_build_query(array(
+        'site'     => home_url('/'),
+        'callback' => $callback,
+        'state'    => $state,
+    ));
+    wp_redirect($authorize);
+    exit;
+});
+
+/** Callback: verify state, exchange the one-time code for credentials. */
+add_action('admin_post_lvx_connect_callback', function () {
+    if (!current_user_can('manage_options')) { wp_die('Forbidden'); }
+
+    $code  = isset($_GET['code']) ? sanitize_text_field($_GET['code']) : '';
+    $state = isset($_GET['state']) ? sanitize_text_field($_GET['state']) : '';
+    $saved = get_transient('lvx_conn_state');
+    delete_transient('lvx_conn_state');
+
+    $settings_url = admin_url('options-general.php?page=livesov-connector');
+    if ($code === '' || $state === '' || !is_string($saved) || !hash_equals($saved, $state)) {
+        wp_redirect(add_query_arg('lvx_connect', 'badstate', $settings_url));
+        exit;
+    }
+
+    $s = lvx_conn_settings();
+    $exchange = trailingslashit($s['livesov_url']) . 'api/connect/connector/exchange';
+    $resp = wp_remote_post($exchange, array(
+        'headers' => array('Content-Type' => 'application/json', 'User-Agent' => lvx_conn_ua()),
+        'timeout' => 20,
+        'body'    => wp_json_encode(array('code' => $code)),
+    ));
+    if (is_wp_error($resp) || wp_remote_retrieve_response_code($resp) !== 200) {
+        wp_redirect(add_query_arg('lvx_connect', 'exchangefail', $settings_url));
+        exit;
+    }
+    $body = json_decode(wp_remote_retrieve_body($resp), true);
+    if (empty($body['token']) || empty($body['pullUrl'])) {
+        wp_redirect(add_query_arg('lvx_connect', 'exchangefail', $settings_url));
+        exit;
+    }
+
+    $s['pull_url'] = esc_url_raw((string) $body['pullUrl']);
+    $s['token']    = sanitize_text_field((string) $body['token']);
+    $s['secret']   = sanitize_text_field((string) ($body['hmacSecret'] ?? ''));
+    update_option(LVX_CONN_OPT, $s);
+
+    // Apply anything already pending right away.
+    lvx_conn_poll();
+    wp_redirect(add_query_arg('lvx_connect', 'ok', $settings_url));
+    exit;
+});
+
+// Surface the handshake result on the settings page.
+add_action('admin_notices', function () {
+    if (empty($_GET['page']) || $_GET['page'] !== 'livesov-connector' || empty($_GET['lvx_connect'])) { return; }
+    $map = array(
+        'ok'           => array('success', 'Connected to Livesov — credentials saved and the first sync ran.'),
+        'badstate'     => array('error', 'Connect failed: the request expired or didn’t match. Please try again.'),
+        'exchangefail' => array('error', 'Connect failed: could not exchange the authorization code with Livesov.'),
+    );
+    $k = sanitize_text_field($_GET['lvx_connect']);
+    if (!isset($map[$k])) { return; }
+    echo '<div class="notice notice-' . esc_attr($map[$k][0]) . ' is-dismissible"><p>' . esc_html($map[$k][1]) . '</p></div>';
+});
 
 /* ─────────────── Allow-list + signature ─────────────── */
 

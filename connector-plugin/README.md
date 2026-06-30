@@ -11,10 +11,24 @@ inbound access to the site.
 1. Copy `livesov-connector.php` into `wp-content/plugins/livesov-connector/`
    (or zip it and upload via **Plugins → Add New → Upload Plugin**).
 2. Activate **Livesov Connector**.
+
+### Connect — one click (recommended)
+
+3. In WordPress: **Settings → Livesov Connector → Connect with Livesov**.
+4. Approve the site for a brand in Livesov. You're bounced back and the
+   credentials fill in automatically — no copy-paste. The first sync runs
+   immediately.
+
+This is an OAuth-style handshake: the browser only ever carries a
+short-lived, single-use code; the plugin exchanges it server-to-server for
+the token + signing secret, so the secret never appears in the URL.
+
+### Connect — manually (fallback)
+
 3. In Livesov: **Fix Engine → Connections → Pair Connector**. Copy the
    **Pull URL**, **Token**, and **Signing secret** (shown once).
-4. In WordPress: **Settings → Livesov Connector**, paste the three values,
-   Save. Click **Poll now** to apply anything pending immediately.
+4. In WordPress: **Settings → Livesov Connector → Connect manually**, paste
+   the three values, Save. Click **Poll now** to apply anything pending.
 
 ## How it works
 

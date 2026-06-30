@@ -140,6 +140,22 @@ export async function ensureFixEngineSchema(): Promise<void> {
   await pool.query(`ALTER TABLE fix_connections ADD CONSTRAINT fix_connections_provider_check
     CHECK (provider IN ('cms','gsc','connector','linear','jira'))`);
 
+  // One-click connect handshake: short-lived, single-use authorization codes
+  // exchanged by the Connector plugin for its token + HMAC secret (so the
+  // secrets never travel through the browser). Rows are consumed on exchange
+  // and expire after a few minutes.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS fix_connector_handshakes (
+      code_hash   TEXT PRIMARY KEY,
+      brand_id    TEXT NOT NULL,
+      user_id     TEXT NOT NULL,
+      payload     TEXT NOT NULL,
+      expires_at  TIMESTAMPTZ NOT NULL,
+      used_at     TIMESTAMPTZ,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS fix_events (
       id          UUID PRIMARY KEY,

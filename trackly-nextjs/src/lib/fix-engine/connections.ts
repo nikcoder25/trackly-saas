@@ -198,6 +198,59 @@ export async function touchConnectorSeen(brandId: string): Promise<void> {
   } catch { /* heartbeat is best-effort */ }
 }
 
+// ── One-click connect handshake ──────────────────────────────────
+
+export interface HandshakePayload {
+  token: string;
+  hmacSecret: string;
+  pullUrl: string;
+}
+
+/**
+ * Mint a short-lived, single-use authorization code that the Connector
+ * plugin exchanges (server-to-server) for its credentials. Returns the raw
+ * code; only its hash + the encrypted payload are stored.
+ */
+export async function createHandshakeCode(
+  userId: string,
+  brandId: string,
+  payload: HandshakePayload,
+  ttlMinutes = 10,
+): Promise<string> {
+  await ensureFixEngineSchema();
+  const code = crypto.randomBytes(32).toString('hex');
+  const encrypted = encryptValue(JSON.stringify(payload));
+  const expiresAt = new Date(Date.now() + ttlMinutes * 60_000).toISOString();
+  await pool.query(
+    `INSERT INTO fix_connector_handshakes (code_hash, brand_id, user_id, payload, expires_at)
+     VALUES ($1,$2,$3,$4,$5)`,
+    [sha256(code), brandId, userId, encrypted, expiresAt],
+  );
+  return code;
+}
+
+/**
+ * Atomically consume a handshake code: returns the decrypted payload exactly
+ * once (single-use), or null if the code is unknown, already used, or
+ * expired. The UPDATE ... WHERE used_at IS NULL makes the claim race-safe.
+ */
+export async function consumeHandshakeCode(code: string): Promise<HandshakePayload | null> {
+  if (!code) return null;
+  await ensureFixEngineSchema();
+  const res = await pool.query(
+    `UPDATE fix_connector_handshakes
+        SET used_at = NOW()
+      WHERE code_hash = $1 AND used_at IS NULL AND expires_at > NOW()
+      RETURNING payload`,
+    [sha256(code)],
+  );
+  const row = res.rows[0];
+  if (!row?.payload) return null;
+  const dec = decryptValue(String(row.payload));
+  if (!dec) return null;
+  try { return JSON.parse(dec) as HandshakePayload; } catch { return null; }
+}
+
 export async function setConnectionStatus(
   brandId: string,
   provider: ConnectionProvider,

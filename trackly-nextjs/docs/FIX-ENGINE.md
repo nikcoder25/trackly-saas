@@ -390,6 +390,30 @@ fetches the live `/llms.txt`) flips it to `verified`. A failed ack
 
 ---
 
+## One-click connect (handshake)
+
+Instead of copy-pasting the pull URL + token + secret into the plugin, the
+Connector can be linked in one click — like "Sign in with Google":
+
+1. In the plugin (Settings → Livesov Connector) the user clicks **Connect
+   with Livesov**. The plugin mints a `state` nonce and bounces the browser
+   to `…/connect/connector?site=&callback=&state=` (callback = the plugin's
+   `admin-post.php?action=lvx_connect_callback`).
+2. The consent screen (`/connect/connector`) confirms who's signed in, lists
+   the user's brands, and on **Approve** calls
+   `POST /api/connect/connector/approve`. That route verifies brand access,
+   checks the **callback is on the same host as the site** (so a code can't
+   be redirected to a foreign origin), creates/rotates the pairing, mints a
+   **single-use, short-lived code** (`fix_connector_handshakes`, payload
+   encrypted at rest), and returns the callback redirect (`code` + `state`).
+3. The browser lands back on the plugin's callback, which verifies `state`
+   and exchanges the code **server-to-server** at
+   `POST /api/connect/connector/exchange` for `{ pullUrl, token, hmacSecret }`,
+   stores them, and runs the first poll. The token/secret never travel
+   through the URL or browser history.
+
+Manual pairing (`/connections/connector/pair`) remains as a fallback.
+
 ## Ship-as-draft (staged preview)
 
 For page-content fixes you don't want to push straight to production, the

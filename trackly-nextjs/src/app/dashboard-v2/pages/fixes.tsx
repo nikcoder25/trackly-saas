@@ -675,7 +675,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
             <div className="disp" style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Connector plugin</div>
             <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2, fontWeight: 500 }}>
             {(() => {
-              if (!connector) return 'Pull-based · your site fetches approved fixes. No inbound access.';
+              if (!connector) return 'Easiest: install the plugin & click “Connect with Livesov” (one-click, no copy-paste). Or Pair here for manual setup.';
               if (!connectorLastSeen) return 'Paired · waiting for the plugin’s first poll (within 5 min)…';
               const online = Date.now() - Date.parse(connectorLastSeen) <= 12 * 60_000;
               const mins = Math.max(0, Math.round((Date.now() - Date.parse(connectorLastSeen)) / 60_000));
