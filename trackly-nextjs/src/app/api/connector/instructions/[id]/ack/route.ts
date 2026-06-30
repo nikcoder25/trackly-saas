@@ -1,0 +1,65 @@
+/**
+ * POST /api/connector/instructions/[id]/ack
+ *
+ * The Connector plugin acknowledges applying an instruction. On success
+ * the fix is marked delivered (the pull endpoint stops returning it); the
+ * next recheck confirms it's actually live. On failure the fix is moved
+ * to 'failed' with the reported reason.
+ *
+ * Body: { ok: boolean, detail?: object, error?: string }
+ */
+
+import { NextResponse } from 'next/server';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
+import { getConnectorByToken } from '@/lib/fix-engine/connections';
+import { getConnectorFix, markConnectorDelivered, updateFix, logFixEvent } from '@/lib/fix-engine/schema';
+import { logger } from '@/lib/logger';
+
+function bearer(request: Request): string {
+  const h = request.headers.get('authorization') || '';
+  return h.startsWith('Bearer ') ? h.slice(7).trim() : '';
+}
+
+interface AckBody { ok?: unknown; detail?: unknown; error?: unknown }
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<Response> {
+  const token = bearer(request);
+  if (!token) return NextResponse.json({ error: 'Missing bearer token' }, { status: 401 });
+
+  const rl = await rateLimit(`connector:ack:${getClientIp(request)}`, 60_000, 120);
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
+
+  const conn = await getConnectorByToken(token);
+  if (!conn) return NextResponse.json({ error: 'Invalid or revoked token' }, { status: 401 });
+
+  const { id: fixId } = await params;
+  // The fix must belong to the token's brand and be a queued Channel-B item.
+  const fix = await getConnectorFix(fixId, conn.brandId);
+  if (!fix || fix.channel !== 'B') {
+    return NextResponse.json({ error: 'Instruction not found' }, { status: 404 });
+  }
+
+  let body: AckBody = {};
+  try { body = (await request.json()) as AckBody; } catch { /* tolerate empty body */ }
+  const ok = body.ok !== false; // default to success unless explicitly false
+
+  try {
+    if (ok) {
+      await markConnectorDelivered(fixId);
+      await logFixEvent(fixId, conn.brandId, conn.userId, 'connector.applied', {
+        detail: (body.detail && typeof body.detail === 'object') ? body.detail : undefined,
+      });
+    } else {
+      const err = typeof body.error === 'string' ? body.error : 'Connector reported failure';
+      await updateFix(fixId, { status: 'failed', error: err });
+      await logFixEvent(fixId, conn.brandId, conn.userId, 'connector.failed', { error: err });
+    }
+    return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (e) {
+    logger.error('fix_engine.connector_ack_failed', { fixId, err: (e as Error).message });
+    return NextResponse.json({ error: 'Failed to record ack' }, { status: 500 });
+  }
+}

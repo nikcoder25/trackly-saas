@@ -92,6 +92,7 @@ blocked).
 | `comparison-pages` | A | crawl | pro | GEO |
 | `citable-passages` | A | crawl | pro | GEO |
 | `hallucination-correction` | A | manual | pro | GEO |
+| `robots-ai-access` | B | crawl | starter | 3 |
 
 The GEO modules are the product differentiator. `comparison-pages`
 creates new "Brand vs Competitor" pages (the format LLMs cite most) via
@@ -229,10 +230,28 @@ fetches the live `/llms.txt`) flips it to `verified`. A failed ack
 - Rate-limited pull + ack endpoints; revocation flips the connection to
   `revoked` and the Connector stops receiving instructions.
 
-> The `/api/connector/*` endpoints and the plugin itself are the Phase-3
-> deliverable. The engine side (instruction generation, storage, the
-> connection model) is already built; Channel-B fixes ship as
-> `pending_connector` until the plugin lands.
+> **Status: built.** The `/api/connector/*` endpoints and a reference
+> WordPress plugin (`connector-plugin/livesov-connector.php`) are
+> implemented:
+>
+> - `POST /api/brands/[id]/connections/connector/pair` → issues the raw
+>   token + HMAC secret once (only the token *hash* + encrypted secret are
+>   stored, on `fix_connections.token_hash` / `encrypted_creds`).
+> - `GET /api/connector/instructions` (Bearer token) → returns the brand's
+>   pending Channel-B fixes (`status='shipped'`, not yet delivered) as
+>   signed, validated wire instructions. `write_file` paths are checked
+>   against the allow-list (`/llms.txt`, `/robots.txt`, `/.well-known/*`)
+>   before being served.
+> - `POST /api/connector/instructions/[id]/ack` (Bearer token) → on
+>   success marks the fix delivered (`connector_delivered_at`); on failure
+>   moves it to `failed`. The next `recheck` confirms it's actually live.
+>
+> The plugin polls every 5 minutes via wp-cron, verifies each instruction's
+> HMAC signature, applies it (`write_file` to allow-listed root files;
+> `patch_robots` via the `robots_txt` filter; `set_header_block` via
+> `wp_head`), and acks. The flagship Channel-B module `robots-ai-access`
+> uses `patch_robots` to explicitly allow GPTBot/ClaudeBot/PerplexityBot/
+> Google-Extended.
 
 ---
 

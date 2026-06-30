@@ -110,7 +110,21 @@ export function PageFixes() {
 
   const gscConn = connections.find((c) => c.provider === 'gsc' && c.status === 'active');
   const cmsConn = connections.find((c) => c.provider === 'cms' && c.status === 'active');
+  const connectorConn = connections.find((c) => c.provider === 'connector' && c.status === 'active');
   const hasGscModule = catalog.some((c) => c.trigger === 'gsc');
+  const hasChannelB = catalog.some((c) => c.channel === 'B');
+  const [pairing, setPairing] = React.useState<{ token: string; hmacSecret: string; pullUrl: string } | null>(null);
+
+  const pairConnector = async () => {
+    if (!brandId) return;
+    try {
+      const d = await api(`/api/brands/${brandId}/connections/connector/pair`, { method: 'POST' });
+      setPairing({ token: d.token, hmacSecret: d.hmacSecret, pullUrl: d.pullUrl });
+      await load(brandId);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
 
   const connectGsc = async () => {
     if (!brandId) return;
@@ -260,8 +274,9 @@ export function PageFixes() {
         <ConnectionsCard
           gsc={!!gscConn} gscSite={gscConn?.siteUrl ?? null} hasGscModule={hasGscModule}
           cms={!!cmsConn} cmsType={cmsConn?.cmsType ?? null} cmsSite={cmsConn?.siteUrl ?? null}
+          connector={!!connectorConn} hasChannelB={hasChannelB} pairing={pairing}
           supportedCms={supportedCms} defaultSite={(brand as any)?.website || ''}
-          disabled={!enabled} onConnectGsc={connectGsc} onConnectCms={connectCms}
+          disabled={!enabled} onConnectGsc={connectGsc} onConnectCms={connectCms} onPairConnector={pairConnector}
         />
 
         <KPIRail items={[
@@ -332,12 +347,14 @@ export function PageFixes() {
   );
 }
 
-function ConnectionsCard({ gsc, gscSite, hasGscModule, cms, cmsType, cmsSite, supportedCms, defaultSite, disabled, onConnectGsc, onConnectCms }: {
+function ConnectionsCard({ gsc, gscSite, hasGscModule, cms, cmsType, cmsSite, connector, hasChannelB, pairing, supportedCms, defaultSite, disabled, onConnectGsc, onConnectCms, onPairConnector }: {
   gsc: boolean; gscSite: string | null; hasGscModule: boolean;
   cms: boolean; cmsType: string | null; cmsSite: string | null;
+  connector: boolean; hasChannelB: boolean; pairing: { token: string; hmacSecret: string; pullUrl: string } | null;
   supportedCms: string[]; defaultSite: string; disabled: boolean;
   onConnectGsc: () => void;
   onConnectCms: (f: { cmsType: string; siteUrl: string; username: string; appPassword: string }) => void;
+  onPairConnector: () => void;
 }) {
   const [open, setOpen] = React.useState(false);
   const [cmsTypeSel, setCmsTypeSel] = React.useState(supportedCms[0] || 'wordpress');
@@ -386,6 +403,28 @@ function ConnectionsCard({ gsc, gscSite, hasGscModule, cms, cmsType, cmsSite, su
             {gsc ? 'Reconnect' : 'Connect Search Console'}
           </button>
         </div>
+
+        {/* Connector (Channel B) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <strong style={{ fontSize: 13, minWidth: 130 }}>Connector plugin</strong>
+          {connector
+            ? <Badge tone="pos">paired</Badge>
+            : <Badge tone={hasChannelB ? 'warn' : 'neu'}>not paired</Badge>}
+          <span className="quiet" style={{ fontSize: 12 }}>Needed to ship robots.txt, llms.txt & head changes.</span>
+          <button className="btn-d" style={{ fontSize: 12, marginLeft: 'auto' }} onClick={onPairConnector} disabled={disabled}>
+            {connector ? 'Re-pair' : 'Pair Connector'}
+          </button>
+        </div>
+        {pairing && (
+          <div style={{ display: 'grid', gap: 6, padding: 12, border: '1px solid var(--line)', borderRadius: 8 }}>
+            <p className="quiet" style={{ margin: 0, fontSize: 12, color: 'var(--warn, #EA580C)' }}>
+              Copy these now — the token is shown only once. Paste them into the Livesov Connector plugin.
+            </p>
+            <label className="mono" style={{ fontSize: 11 }}>Pull URL<input className="fld-in mono" readOnly value={pairing.pullUrl} onFocus={(e) => e.currentTarget.select()} /></label>
+            <label className="mono" style={{ fontSize: 11 }}>Token<input className="fld-in mono" readOnly value={pairing.token} onFocus={(e) => e.currentTarget.select()} /></label>
+            <label className="mono" style={{ fontSize: 11 }}>Signing secret<input className="fld-in mono" readOnly value={pairing.hmacSecret} onFocus={(e) => e.currentTarget.select()} /></label>
+          </div>
+        )}
       </div>
     </Card>
   );

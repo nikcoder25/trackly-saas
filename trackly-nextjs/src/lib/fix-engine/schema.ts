@@ -90,6 +90,9 @@ export async function ensureFixEngineSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_fixes_brand_status
       ON fixes (brand_id, status, created_at DESC)
   `);
+  // Channel-B delivery marker: set when the Connector plugin has pulled +
+  // applied + acked the instruction, so the pull endpoint stops returning it.
+  await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS connector_delivered_at TIMESTAMPTZ`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS fix_connections (
@@ -114,6 +117,10 @@ export async function ensureFixEngineSchema(): Promise<void> {
     CREATE UNIQUE INDEX IF NOT EXISTS uniq_fix_connections_brand_provider
       ON fix_connections (brand_id, provider)
   `);
+  // Queryable hash of the Connector pairing token (the raw token is shown
+  // once and never stored; the HMAC secret lives in encrypted_creds).
+  await pool.query(`ALTER TABLE fix_connections ADD COLUMN IF NOT EXISTS token_hash TEXT`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_fix_connections_token_hash ON fix_connections (token_hash)`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS fix_events (
@@ -362,6 +369,60 @@ export async function claimFixTransition(
     [fixId, from, to],
   );
   return (res.rowCount || 0) > 0;
+}
+
+// ── connector (Channel B) delivery queue ─────────────────────────
+
+export interface ConnectorInstructionRow {
+  id: string;
+  moduleKey: string;
+  op: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+}
+
+/**
+ * Channel-B fixes that have been shipped (queued) but not yet pulled +
+ * applied + acked by the Connector. The op lives in ship_result.detail.op
+ * and the payload in after_snapshot (set by queueConnectorInstruction).
+ */
+export async function listPendingConnectorInstructions(
+  brandId: string,
+  limit = 50,
+): Promise<ConnectorInstructionRow[]> {
+  await ensureFixEngineSchema();
+  const res = await pool.query(
+    `SELECT id, module_key, ship_result, after_snapshot, created_at
+       FROM fixes
+      WHERE brand_id = $1
+        AND channel = 'B'
+        AND status = 'shipped'
+        AND connector_delivered_at IS NULL
+      ORDER BY created_at ASC
+      LIMIT $2`,
+    [brandId, limit],
+  );
+  return res.rows.map((r: DbRow) => ({
+    id: String(r.id),
+    moduleKey: String(r.module_key),
+    op: String((r.ship_result as Record<string, unknown> | null)?.op ?? 'write_file'),
+    payload: (r.after_snapshot as Record<string, unknown>) ?? {},
+    createdAt: String(r.created_at),
+  }));
+}
+
+/** Look up the fix backing a connector instruction, scoped to the brand. */
+export async function getConnectorFix(fixId: string, brandId: string): Promise<FixRow | null> {
+  return getFix(fixId, brandId);
+}
+
+/** Mark a connector instruction applied (acked OK by the plugin). */
+export async function markConnectorDelivered(fixId: string): Promise<void> {
+  await pool.query(
+    `UPDATE fixes SET connector_delivered_at = NOW(), updated_at = NOW()
+      WHERE id = $1 AND connector_delivered_at IS NULL`,
+    [fixId],
+  );
 }
 
 export async function logFixEvent(

@@ -21,6 +21,7 @@ import { canonicalFixModule } from './modules/canonical-fix';
 import { comparisonPagesModule } from './modules/comparison-pages';
 import { citablePassagesModule } from './modules/citable-passages';
 import { hallucinationCorrectionModule } from './modules/hallucination-correction';
+import { robotsAiAccessModule } from './modules/robots-ai-access';
 
 const MODULES: FixModule[] = [
   // Phase 1 (crawl-triggered wedge)
@@ -34,9 +35,10 @@ const MODULES: FixModule[] = [
   ctrRescueModule,
   internalLinkingModule,
   schemaMarkupModule,
-  // Phase 3 (GSC indexing/canonical)
+  // Phase 3 (GSC indexing/canonical + Channel B technical)
   indexingRepairModule,
   canonicalFixModule,
+  robotsAiAccessModule,
   // GEO differentiators
   comparisonPagesModule,
   citablePassagesModule,
