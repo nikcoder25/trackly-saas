@@ -93,6 +93,8 @@ blocked).
 | `citable-passages` | A | crawl | pro | GEO |
 | `hallucination-correction` | A | manual | pro | GEO |
 | `robots-ai-access` | B | crawl | starter | 3 |
+| `noindex-removal` | A | crawl | starter | 3 |
+| `og-cards` | B | crawl | starter | 3 |
 
 The GEO modules are the product differentiator. `comparison-pages`
 creates new "Brand vs Competitor" pages (the format LLMs cite most) via

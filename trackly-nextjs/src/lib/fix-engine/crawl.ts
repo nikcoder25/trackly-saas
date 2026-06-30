@@ -29,6 +29,12 @@ export interface CrawledPage {
   wordCount: number;
   /** True when the page already serves an FAQPage schema block. */
   hasFaqSchema: boolean;
+  /** `<meta name="robots">` content, lowercased (e.g. "noindex,follow"). */
+  metaRobots: string | null;
+  /** X-Robots-Tag response header, lowercased. */
+  xRobotsTag: string | null;
+  /** True when the page already has Open Graph + Twitter card meta. */
+  hasOgTags: boolean;
 }
 
 function decodeEntities(s: string): string {
@@ -120,6 +126,9 @@ export async function crawlPage(url: string, _signal?: AbortSignal): Promise<Cra
   const headings = extractHeadings(html);
   const text = stripTags(html).slice(0, 8000);
   const jsonLd = extractJsonLd(html);
+  const metaRobots = extractMeta(html, 'robots');
+  const og = extractMeta(html, 'og:title');
+  const twitter = extractMeta(html, 'twitter:card');
   return {
     url,
     status: res.status,
@@ -131,6 +140,9 @@ export async function crawlPage(url: string, _signal?: AbortSignal): Promise<Cra
     jsonLd,
     wordCount: text ? text.split(/\s+/).filter(Boolean).length : 0,
     hasFaqSchema: jsonLdHasType(jsonLd, 'FAQPage'),
+    metaRobots: metaRobots ? metaRobots.toLowerCase() : null,
+    xRobotsTag: (res.headers.get('x-robots-tag') || '').toLowerCase() || null,
+    hasOgTags: !!og && !!twitter,
   };
 }
 

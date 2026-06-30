@@ -52,6 +52,8 @@ const GENERATE_COST: Record<string, number> = {
   'citable-passages': 1,
   'hallucination-correction': 1,
   'robots-ai-access': 0, // deterministic, no LLM call
+  'noindex-removal': 0,  // deterministic, no LLM call
+  'og-cards': 1,
 };
 function generateCost(moduleKey: string): number {
   return GENERATE_COST[moduleKey] ?? 1;

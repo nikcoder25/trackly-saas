@@ -221,6 +221,19 @@ export const wordpressAdapter: CmsAdapter = {
     });
   },
 
+  async setIndexable(rawCreds, target) {
+    const creds = readCreds(rawCreds);
+    const base = apiBase(target.url);
+    const r = await resolveResource(base, creds, target.url);
+    if (!r) return { ok: false, detail: { reason: 'page_not_found_in_wp' } };
+    // Clear the SEO plugins' per-post noindex. Yoast: '2' = noindex, set
+    // '0' to follow the (indexable) site default. Rank Math stores robots
+    // as an array; index/follow makes the page indexable.
+    return patchResource(base, creds, r.kind, r.id, {
+      meta: { '_yoast_wpseo_meta-robots-noindex': '0', rank_math_robots: ['index', 'follow'] },
+    });
+  },
+
   async injectSchema(rawCreds, target, jsonLd) {
     // Without a Connector/plugin we can't touch <head>, so the pragmatic
     // Channel-A path appends the JSON-LD <script> to the post body, which

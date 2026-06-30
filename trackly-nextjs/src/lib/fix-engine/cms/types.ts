@@ -63,4 +63,6 @@ export interface CmsAdapter {
   updateCanonical(creds: CmsCreds, target: CmsTarget, canonical: string): Promise<CmsWriteResult>;
   /** Create a new page. Returns the created resource id + public URL. */
   createPage(creds: CmsCreds, page: { title: string; slug: string; html: string; status?: 'publish' | 'draft' }): Promise<CmsWriteResult>;
+  /** Make the page at target.url indexable (clear an accidental noindex). */
+  setIndexable(creds: CmsCreds, target: CmsTarget): Promise<CmsWriteResult>;
 }

@@ -22,6 +22,8 @@ import { comparisonPagesModule } from './modules/comparison-pages';
 import { citablePassagesModule } from './modules/citable-passages';
 import { hallucinationCorrectionModule } from './modules/hallucination-correction';
 import { robotsAiAccessModule } from './modules/robots-ai-access';
+import { noindexRemovalModule } from './modules/noindex-removal';
+import { ogCardsModule } from './modules/og-cards';
 
 const MODULES: FixModule[] = [
   // Phase 1 (crawl-triggered wedge)
@@ -39,6 +41,8 @@ const MODULES: FixModule[] = [
   indexingRepairModule,
   canonicalFixModule,
   robotsAiAccessModule,
+  noindexRemovalModule,
+  ogCardsModule,
   // GEO differentiators
   comparisonPagesModule,
   citablePassagesModule,

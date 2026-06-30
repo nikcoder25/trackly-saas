@@ -465,3 +465,29 @@ The incorrect claim that has appeared: ${args.falseClaim}
 
 Write a correction passage that establishes the correct value as ground truth.`;
 }
+
+// ── Open Graph / Twitter cards ───────────────────────────────────
+
+export const OG_SYSTEM = `You write Open Graph + Twitter card copy for a website's homepage so links shared to social and surfaced by AI render with a compelling title and description.
+
+Hard rules:
+- og:title ≤ 60 chars; og:description ≤ 150 chars.
+- Accurate to the business; never invent claims.
+
+Return ONLY a JSON object: { "ogTitle": "<title>", "ogDescription": "<description>", "rationale": "<one sentence>" }`;
+
+export function ogUserPrompt(args: {
+  brand: BrandPromptContext;
+  title: string | null;
+  pageText: string;
+}): string {
+  return `${brandBlock(args.brand)}
+
+Homepage title: ${args.title ?? '(none)'}
+Homepage content:
+"""
+${args.pageText.slice(0, 1500)}
+"""
+
+Write Open Graph + Twitter card title and description for the homepage.`;
+}
