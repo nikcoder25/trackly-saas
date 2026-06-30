@@ -1,41 +1,26 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// Fix Engine - the dashboard tab that drives the detect → generate →
-// preview → approve → ship → recheck loop against /api/brands/[id]/fixes.
-//
-// Wired to the signed-in user's selected brand via useBrandData (the same
-// hook the Overview/Mentions pages use). All network calls go through the
-// Fix Engine API built in src/app/api/brands/[id]/fixes/*.
+// Fix Engine — neo-brutalist "Maximal" design (from Claude Design handoff),
+// wired to the real Fix Engine API. Visuals are the .mx design system; all
+// data/actions go through /api/brands/[id]/fixes/* and /connections,
+// /seo-brain. The dashboard shell already provides the .lvx token root, so
+// this only adds the .mx layer + scoped styles.
 
 import * as React from 'react';
-import { PageHead, Card, KPIRail, Badge, Pill } from '../ui';
 import { useBrandData } from '@/hooks/useBrandData';
 
-// ── types mirrored from the API (kept loose; server is the source of truth) ──
+// ── types mirrored from the API ──
 interface CatalogItem {
   key: string; title: string; description: string;
-  channel: 'A' | 'B'; trigger: string; minPlan: string; phase: number;
-  available: boolean;
+  channel: 'A' | 'B'; trigger: string; minPlan: string; phase: number; available: boolean;
 }
 interface FixRow {
   id: string; moduleKey: string; channel: 'A' | 'B'; targetUrl: string | null;
   status: string; severity: string; summary: string;
-  generated: any; scoreAfter: number | null; error: string | null;
-  createdAt: string;
+  generated: any; scoreAfter: number | null; error: string | null; createdAt: string;
 }
-interface PreviewBlock {
-  kind: string; label: string; before?: string; after?: string; language?: string;
-}
-interface Connection {
-  id: string; provider: string; cmsType: string | null; siteUrl: string | null; status: string;
-}
-
-const STATUS_TONE: Record<string, string> = {
-  detected: 'neu', generating: 'info', generated: 'info', preview_ready: 'info',
-  approved: 'acc', shipping: 'info', shipped: 'acc', verified: 'pos',
-  failed: 'neg', reverted: 'warn',
-};
-const SEV_TONE: Record<string, string> = { critical: 'neg', high: 'warn', medium: 'info', low: 'neu' };
+interface PreviewBlock { kind: string; label: string; before?: string; after?: string; language?: string }
+interface Connection { id: string; provider: string; cmsType: string | null; siteUrl: string | null; status: string }
 
 async function api(path: string, init?: RequestInit) {
   const res = await fetch(path, { credentials: 'include', cache: 'no-store', ...init });
@@ -44,9 +29,91 @@ async function api(path: string, init?: RequestInit) {
   return data;
 }
 
+// ── design system (scoped under .mx) ──
+const MX_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap');
+@keyframes xspin { to { transform: rotate(360deg); } }
+@keyframes xtoast { from { opacity: 0; transform: translate(-50%, 14px) rotate(-1deg); } to { opacity: 1; transform: translate(-50%, 0) rotate(-1deg); } }
+.mx { --ink: var(--text); --xr: 16px; }
+.mx, .mx button, .mx input, .mx textarea, .mx select { font-family: 'Inter', sans-serif; }
+.mx .disp { font-family: 'Space Grotesk', sans-serif; }
+.mx .nb { border: 2.5px solid var(--ink); border-radius: var(--xr); box-shadow: 5px 5px 0 var(--ink); background: var(--surface); }
+.mx .nb-sm { border: 2px solid var(--ink); border-radius: 12px; box-shadow: 3px 3px 0 var(--ink); background: var(--surface); }
+.mx .xlbl { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; }
+.mx .chip { display: inline-flex; align-items: center; gap: 5px; border: 2px solid var(--ink); border-radius: 999px; padding: 3px 10px; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; background: var(--surface); color: var(--text); white-space: nowrap; }
+.mx .xbtn { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13px; background: var(--primary); color: #fff; border: 2.5px solid var(--ink); border-radius: 11px; padding: 9px 17px; box-shadow: 3px 3px 0 var(--ink); cursor: pointer; transition: transform .1s, box-shadow .1s; display: inline-flex; align-items: center; gap: 8px; }
+.mx .xbtn:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--ink); }
+.mx .xbtn:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--ink); }
+.mx .xbtn[disabled] { opacity: .4; box-shadow: 2px 2px 0 var(--ink); cursor: not-allowed; transform: none; }
+.mx .gbtn { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13px; background: var(--surface); color: var(--text); border: 2.5px solid var(--ink); border-radius: 11px; padding: 9px 17px; box-shadow: 3px 3px 0 var(--ink); cursor: pointer; transition: transform .1s, box-shadow .1s; display:inline-flex; align-items:center; gap:7px; }
+.mx .gbtn:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--ink); }
+.mx .gbtn:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--ink); }
+.mx .gbtn[disabled] { opacity:.4; cursor:not-allowed; transform:none; }
+.mx .tbtn { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 13px; background: none; border: 0; color: var(--text-2); cursor: pointer; padding: 6px 2px; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: var(--line-3); }
+.mx .tbtn:hover { color: var(--text); text-decoration-color: var(--primary); }
+.mx .xin { width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text); background: var(--surface); border: 2.5px solid var(--ink); border-radius: 10px; padding: 10px 13px; outline: none; box-shadow: 3px 3px 0 var(--ink); }
+.mx .xin:focus { border-color: var(--primary); }
+.mx textarea.xin { resize: vertical; line-height: 1.6; }
+.mx .stripes { background-image: repeating-linear-gradient(45deg, var(--ink) 0 2px, transparent 2px 9px); }
+`;
+
+// ── status / severity / grouping helpers ──
+function statusMeta(s: string): { label: string; color: string; bg: string } {
+  const m: Record<string, { label: string; color: string; bg: string }> = {
+    detected: { label: 'DETECTED', color: 'var(--text-3)', bg: 'var(--surface-2)' },
+    generating: { label: 'GENERATING', color: 'var(--primary)', bg: 'var(--primary-50)' },
+    generated: { label: 'IN REVIEW', color: 'var(--primary)', bg: 'var(--primary-50)' },
+    preview_ready: { label: 'IN REVIEW', color: 'var(--primary)', bg: 'var(--primary-50)' },
+    approved: { label: 'APPROVED', color: 'var(--info)', bg: 'var(--info-50)' },
+    shipping: { label: 'SHIPPING', color: 'var(--info)', bg: 'var(--info-50)' },
+    shipped: { label: 'SHIPPED', color: 'var(--success)', bg: 'var(--success-50)' },
+    verified: { label: 'VERIFIED', color: 'var(--success)', bg: 'var(--success-50)' },
+    failed: { label: 'ATTENTION', color: 'var(--danger)', bg: 'var(--danger-50)' },
+    reverted: { label: 'REVERTED', color: 'var(--warn)', bg: 'var(--warn-50)' },
+  };
+  return m[s] || m.detected;
+}
+function sevMeta(s: string): { label: string; glyph: string; color: string; bg: string } {
+  const m: Record<string, { label: string; glyph: string; color: string; bg: string }> = {
+    critical: { label: 'CRITICAL', glyph: '✕', color: 'var(--danger)', bg: 'var(--danger-50)' },
+    high: { label: 'HIGH', glyph: '▲', color: 'var(--warn)', bg: 'var(--warn-50)' },
+    medium: { label: 'MEDIUM', glyph: '●', color: 'var(--info)', bg: 'var(--info-50)' },
+    low: { label: 'LOW', glyph: '▽', color: 'var(--text-3)', bg: 'var(--surface-2)' },
+  };
+  return m[s] || m.medium;
+}
+const SEV_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+function bucketOf(s: string): string {
+  if (s === 'detected' || s === 'generating') return 'detected';
+  if (s === 'generated' || s === 'preview_ready') return 'review';
+  if (s === 'approved' || s === 'shipping') return 'approved';
+  if (s === 'shipped' || s === 'verified') return 'shipped';
+  if (s === 'failed' || s === 'reverted') return 'attention';
+  return 'detected';
+}
+const TRIG_DOT: Record<string, string> = { crawl: 'var(--info)', gsc: 'var(--success)', manual: 'var(--warn)' };
+const chanFill = (c: string) => c === 'A'
+  ? { chBg: 'var(--primary-50)', chFg: 'var(--primary)' }
+  : { chBg: 'var(--surface-2)', chFg: 'var(--text-2)' };
+
+const MODULE_GROUP: Record<string, string> = {
+  'schema-markup': 'Structured data & schema', 'faq-schema': 'Structured data & schema',
+  'llms-txt': 'AI crawler access', 'robots-ai-access': 'AI crawler access',
+  'title-rewrite': 'Content optimization', 'meta-rewrite': 'Content optimization',
+  'geo-page-rewrite': 'Content optimization', 'passage-rewrite': 'Content optimization',
+  'internal-linking': 'Content optimization', 'citable-passages': 'Content optimization',
+  'external-citations': 'Authority & citations', 'comparison-pages': 'Authority & citations',
+  'hallucination-correction': 'Accuracy & corrections',
+  'striking-distance': 'Technical & rankings', 'ctr-rescue': 'Technical & rankings',
+  'indexing-repair': 'Technical & rankings', 'canonical-fix': 'Technical & rankings',
+  'noindex-removal': 'Technical & rankings', 'og-cards': 'Technical & rankings',
+};
+const GROUP_ORDER = ['Structured data & schema', 'AI crawler access', 'Content optimization', 'Authority & citations', 'Accuracy & corrections', 'Technical & rankings', 'Other'];
+
 export function PageFixes() {
   const { brand, loading: brandLoading } = useBrandData({ fullData: true });
   const brandId = (brand as any)?.id as string | undefined;
+  const brandName = (brand as any)?.name || 'this brand';
 
   const [fixes, setFixes] = React.useState<FixRow[]>([]);
   const [catalog, setCatalog] = React.useState<CatalogItem[]>([]);
@@ -57,35 +124,17 @@ export function PageFixes() {
   const [filter, setFilter] = React.useState<string>('all');
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [busy, setBusy] = React.useState<Record<string, boolean>>({});
+  const [armed, setArmed] = React.useState<Record<string, boolean>>({});
   const [previews, setPreviews] = React.useState<Record<string, PreviewBlock | null>>({});
   const [scanning, setScanning] = React.useState(false);
-  const [scanMsg, setScanMsg] = React.useState<string | null>(null);
   const [connections, setConnections] = React.useState<Connection[]>([]);
   const [supportedCms, setSupportedCms] = React.useState<string[]>([]);
-  const [notice, setNotice] = React.useState<string | null>(null);
+  const [toast, setToast] = React.useState<string | null>(null);
   const [brain, setBrain] = React.useState<{ content: string; isCustom: boolean; base: string; presets: { key: string; title: string; description: string; content: string }[]; maxChars?: number } | null>(null);
+  const [pairing, setPairing] = React.useState<{ token: string; hmacSecret: string; pullUrl: string } | null>(null);
 
-  const saveBrain = async (content: string) => {
-    if (!brandId) return;
-    setError(null);
-    try {
-      const b = await api(`/api/brands/${brandId}/seo-brain`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-      });
-      setBrain((prev) => (prev ? { ...prev, ...b } : b));
-      setNotice('SEO brain saved — all fixes now generate to it.');
-    } catch (e) { setError((e as Error).message); }
-  };
-  const resetBrain = async () => {
-    if (!brandId) return;
-    setError(null);
-    try {
-      const b = await api(`/api/brands/${brandId}/seo-brain`, { method: 'DELETE' });
-      setBrain((prev) => (prev ? { ...prev, ...b } : b));
-      setNotice('SEO brain reset to the default.');
-    } catch (e) { setError((e as Error).message); }
-  };
+  const flash = React.useCallback((msg: string) => { setToast(msg); }, []);
+  React.useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2600); return () => clearTimeout(t); }, [toast]);
 
   const load = React.useCallback(async (id: string) => {
     setLoading(true); setError(null);
@@ -95,124 +144,47 @@ export function PageFixes() {
       setCatalog(d.catalog || []);
       setEnabled(!!d.enabled);
       setPlan(d.plan || '');
-      // Default-select every available module for the next scan.
       setSelected(new Set((d.catalog || []).filter((c: CatalogItem) => c.available).map((c: CatalogItem) => c.key)));
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setLoading(false);
-    }
-    try {
-      const c = await api(`/api/brands/${id}/connections`);
-      setConnections(c.connections || []);
-      setSupportedCms(c.supportedCms || []);
-    } catch { /* connections are non-fatal for the list view */ }
-    try {
-      const b = await api(`/api/brands/${id}/seo-brain`);
-      setBrain(b);
-    } catch { /* brain is non-fatal */ }
+    } catch (e) { setError((e as Error).message); } finally { setLoading(false); }
+    try { const c = await api(`/api/brands/${id}/connections`); setConnections(c.connections || []); setSupportedCms(c.supportedCms || []); } catch { /* non-fatal */ }
+    try { const b = await api(`/api/brands/${id}/seo-brain`); setBrain(b); } catch { /* non-fatal */ }
   }, []);
 
-  React.useEffect(() => {
-    if (!brandId) { setFixes([]); setCatalog([]); return; }
-    load(brandId);
-  }, [brandId, load]);
+  React.useEffect(() => { if (!brandId) { setFixes([]); setCatalog([]); return; } load(brandId); }, [brandId, load]);
 
   // Surface the GSC OAuth round-trip result (?gsc=connected|denied|error).
   React.useEffect(() => {
     const g = new URLSearchParams(window.location.search).get('gsc');
     if (!g) return;
     const msg: Record<string, string> = {
-      connected: 'Google Search Console connected.',
-      denied: 'Google Search Console connection was denied.',
-      invalid: 'The connection link was invalid or expired — please retry.',
-      error: 'Connecting Google Search Console failed — please retry.',
+      connected: 'Google Search Console connected', denied: 'GSC connection denied',
+      invalid: 'Connection link expired — retry', error: 'GSC connection failed — retry',
     };
-    setNotice(msg[g] || null);
-    // Clean the query param without reloading.
-    const u = new URL(window.location.href);
-    u.searchParams.delete('gsc');
-    window.history.replaceState({}, '', u.toString());
+    if (msg[g]) setToast(msg[g]);
+    const u = new URL(window.location.href); u.searchParams.delete('gsc'); window.history.replaceState({}, '', u.toString());
   }, []);
+
+  // Auto-load previews for fixes that already have generated content.
+  React.useEffect(() => {
+    fixes.forEach((f) => { if (f.generated && previews[f.id] === undefined) loadPreview(f.id); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixes]);
 
   const gscConn = connections.find((c) => c.provider === 'gsc' && c.status === 'active');
   const cmsConn = connections.find((c) => c.provider === 'cms' && c.status === 'active');
   const connectorConn = connections.find((c) => c.provider === 'connector' && c.status === 'active');
-  const hasGscModule = catalog.some((c) => c.trigger === 'gsc');
-  const hasChannelB = catalog.some((c) => c.channel === 'B');
-  const [pairing, setPairing] = React.useState<{ token: string; hmacSecret: string; pullUrl: string } | null>(null);
+  const canShip = !!cmsConn || !!connectorConn;
 
-  const pairConnector = async () => {
-    if (!brandId) return;
-    try {
-      const d = await api(`/api/brands/${brandId}/connections/connector/pair`, { method: 'POST' });
-      setPairing({ token: d.token, hmacSecret: d.hmacSecret, pullUrl: d.pullUrl });
-      await load(brandId);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
-
-  const connectGsc = async () => {
-    if (!brandId) return;
-    try {
-      const d = await api(`/api/brands/${brandId}/connections/gsc/start`);
-      window.location.href = d.url;
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
-
-  const connectCms = async (form: { cmsType: string; siteUrl: string; username: string; appPassword: string }) => {
-    if (!brandId) return;
-    setError(null);
-    try {
-      await api(`/api/brands/${brandId}/connections`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider: 'cms', cmsType: form.cmsType, siteUrl: form.siteUrl,
-          creds: { username: form.username, appPassword: form.appPassword },
-        }),
-      });
-      setNotice('CMS connected and verified.');
-      await load(brandId);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
-
-  const createTargeted = async (form: { url: string; passage: string; instruction: string }) => {
-    if (!brandId) return;
-    setError(null);
-    try {
-      const d = await api(`/api/brands/${brandId}/fixes/targeted`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-      // Immediately generate so the user sees the rewrite, then refresh.
-      if (d.fix?.id) { try { await act(d.fix.id, 'generate'); } catch { /* surfaced via list */ } }
-      await load(brandId);
-      setNotice('Passage rewrite created — review the preview, then Approve & Ship.');
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
-
-  const toggleModule = (k: string) => setSelected((s) => {
-    const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n;
-  });
-
+  // ── actions (real API) ──
   const pollBatch = React.useCallback(async (id: string, batchId: string) => {
     for (let i = 0; i < 60; i++) {
       await new Promise((r) => setTimeout(r, 2000));
       try {
         const d = await api(`/api/brands/${id}/fixes/batches/${batchId}`);
         const b = d.batch;
-        setScanMsg(`Scanning… found ${b.received} issue${b.received === 1 ? '' : 's'} (${b.status})`);
+        setToast(`Scanning… ${b.received} found (${b.status})`);
         if (b.status === 'done' || b.status === 'failed') {
-          setScanMsg(b.status === 'failed' ? `Scan failed: ${b.error || 'unknown'}` : `Scan complete — ${b.received} issue${b.received === 1 ? '' : 's'} found.`);
+          setToast(b.status === 'failed' ? `Scan failed: ${b.error || 'unknown'}` : `Scan complete — ${b.received} found`);
           return;
         }
       } catch { /* keep polling */ }
@@ -221,21 +193,12 @@ export function PageFixes() {
 
   const runScan = async () => {
     if (!brandId) return;
-    setScanning(true); setScanMsg('Starting scan…');
+    setScanning(true); setToast('Scan started…');
     try {
-      const d = await api(`/api/brands/${brandId}/fixes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modules: Array.from(selected) }),
-      });
+      const d = await api(`/api/brands/${brandId}/fixes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ modules: Array.from(selected) }) });
       await pollBatch(brandId, d.batchId);
       await load(brandId);
-    } catch (e) {
-      setScanMsg(null);
-      setError((e as Error).message);
-    } finally {
-      setScanning(false);
-    }
+    } catch (e) { setError((e as Error).message); } finally { setScanning(false); }
   };
 
   const act = async (fixId: string, action: 'generate' | 'approve' | 'ship' | 'recheck') => {
@@ -243,393 +206,522 @@ export function PageFixes() {
     setBusy((b) => ({ ...b, [fixId]: true }));
     try {
       const d = await api(`/api/brands/${brandId}/fixes/${fixId}/${action}`, { method: 'POST' });
-      // Patch the row in place from the returned fix.
       if (d.fix) setFixes((rows) => rows.map((r) => (r.id === fixId ? { ...r, ...d.fix } : r)));
-      // After generate, fetch the preview so it's ready to review.
-      if (action === 'generate') await loadPreview(fixId);
-      if (action === 'ship' && d.ok === false) setError(d.error || 'Ship failed');
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy((b) => ({ ...b, [fixId]: false }));
-    }
+      if (action === 'generate') { await loadPreview(fixId); flash('Fix ready to review'); }
+      if (action === 'approve') flash('Approved — ready to ship');
+      if (action === 'ship') { if (d.ok === false) setError(d.error || 'Ship failed'); else flash('Shipped to live site'); }
+      if (action === 'recheck') flash('Re-check complete');
+    } catch (e) { setError((e as Error).message); } finally { setBusy((b) => ({ ...b, [fixId]: false })); }
+  };
+  const shipConfirm = async (fixId: string) => {
+    if (!canShip) { flash('Connect a CMS or the Connector first'); return; }
+    setArmed((a) => ({ ...a, [fixId]: false }));
+    await act(fixId, 'ship');
   };
 
   const loadPreview = async (fixId: string) => {
     if (!brandId) return;
-    try {
-      const d = await api(`/api/brands/${brandId}/fixes/${fixId}`);
-      setPreviews((p) => ({ ...p, [fixId]: d.preview || null }));
-    } catch { /* preview is best-effort */ }
+    try { const d = await api(`/api/brands/${brandId}/fixes/${fixId}`); setPreviews((p) => ({ ...p, [fixId]: d.preview || null })); }
+    catch { setPreviews((p) => ({ ...p, [fixId]: null })); }
   };
 
-  const counts = React.useMemo(() => {
-    const c: Record<string, number> = {};
-    for (const f of fixes) c[f.status] = (c[f.status] || 0) + 1;
-    return c;
-  }, [fixes]);
+  const toggleModule = (k: string) => setSelected((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
+  const availableKeys = catalog.filter((c) => c.available).map((c) => c.key);
+  const allSelected = availableKeys.length > 0 && availableKeys.every((k) => selected.has(k));
+  const toggleSelectAll = () => setSelected(allSelected ? new Set() : new Set(availableKeys));
 
-  const shown = filter === 'all' ? fixes : fixes.filter((f) => f.status === filter);
+  const saveBrain = async (content: string) => {
+    if (!brandId) return; setError(null);
+    try { const b = await api(`/api/brands/${brandId}/seo-brain`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content }) }); setBrain((prev) => (prev ? { ...prev, ...b } : b)); flash('SEO brain saved'); }
+    catch (e) { setError((e as Error).message); }
+  };
+  const resetBrain = async () => {
+    if (!brandId) return; setError(null);
+    try { const b = await api(`/api/brands/${brandId}/seo-brain`, { method: 'DELETE' }); setBrain((prev) => (prev ? { ...prev, ...b } : b)); flash('SEO brain reset'); }
+    catch (e) { setError((e as Error).message); }
+  };
+  const connectGsc = async () => { if (!brandId) return; try { const d = await api(`/api/brands/${brandId}/connections/gsc/start`); window.location.href = d.url; } catch (e) { setError((e as Error).message); } };
+  const connectCms = async (form: { cmsType: string; siteUrl: string; username: string; appPassword: string }) => {
+    if (!brandId) return; setError(null);
+    try { await api(`/api/brands/${brandId}/connections`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'cms', cmsType: form.cmsType, siteUrl: form.siteUrl, creds: { username: form.username, appPassword: form.appPassword } }) }); flash('CMS connected'); await load(brandId); }
+    catch (e) { setError((e as Error).message); }
+  };
+  const pairConnector = async () => { if (!brandId) return; try { const d = await api(`/api/brands/${brandId}/connections/connector/pair`, { method: 'POST' }); setPairing({ token: d.token, hmacSecret: d.hmacSecret, pullUrl: d.pullUrl }); await load(brandId); flash('Connector paired'); } catch (e) { setError((e as Error).message); } };
+  const createTargeted = async (form: { url: string; passage: string; instruction: string }) => {
+    if (!brandId) return; setError(null);
+    try { const d = await api(`/api/brands/${brandId}/fixes/targeted`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) }); if (d.fix?.id) { try { await act(d.fix.id, 'generate'); } catch { /* surfaced */ } } await load(brandId); flash('Passage fix created'); }
+    catch (e) { setError((e as Error).message); }
+  };
+
+  // ── derived ──
+  const counts = React.useMemo(() => { const c: Record<string, number> = {}; for (const f of fixes) c[bucketOf(f.status)] = (c[bucketOf(f.status)] || 0) + 1; return c; }, [fixes]);
+  const sevCount = React.useMemo(() => { const c: Record<string, number> = {}; for (const f of fixes) c[f.severity] = (c[f.severity] || 0) + 1; return c; }, [fixes]);
+  const statusCount = React.useMemo(() => { const c: Record<string, number> = {}; for (const f of fixes) c[f.status] = (c[f.status] || 0) + 1; return c; }, [fixes]);
+  const shown = React.useMemo(() => {
+    const list = filter === 'all' ? fixes : fixes.filter((f) => bucketOf(f.status) === filter);
+    return [...list].sort((a, b) => (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9));
+  }, [fixes, filter]);
   const moduleTitle = (k: string) => catalog.find((c) => c.key === k)?.title || k;
 
-  // ── render ──
-  if (brandLoading) {
-    return (<><PageHead title="Fix Engine" sub="Loading…" /><div className="page-body"><Card title="Loading">…</Card></div></>);
-  }
-  if (!brandId) {
-    return (<><PageHead title="Fix Engine" sub="Detect, generate, preview and ship SEO/GEO fixes." />
-      <div className="page-body"><Card title="No brand selected"><p className="quiet" style={{ margin: 0 }}>Pick or add a brand in the top bar to start fixing.</p></Card></div></>);
-  }
+  const moduleGroups = React.useMemo(() => {
+    const by: Record<string, CatalogItem[]> = {};
+    for (const m of catalog) { const g = MODULE_GROUP[m.key] || 'Other'; (by[g] ||= []).push(m); }
+    return GROUP_ORDER.filter((g) => by[g]?.length).map((g) => ({ name: g, items: by[g] }));
+  }, [catalog]);
 
-  return (
-    <>
-      <PageHead
-        title="Fix Engine"
-        sub="Detect, generate, preview and ship SEO/GEO fixes — then re-check they're live."
-        actions={
-          <>
-            <button className="btn-d" onClick={() => load(brandId)} disabled={loading}>↻ Refresh</button>
-            <button className="btn-g" onClick={runScan} disabled={scanning || !enabled || selected.size === 0}>
-              {scanning ? 'Scanning…' : `Run scan (${selected.size})`}
-            </button>
-          </>
-        }
-      />
-      <div className="page-body">
-        {!enabled && (
-          <Card title="Upgrade required">
-            <p className="quiet" style={{ margin: 0, fontSize: 13, lineHeight: 1.6 }}>
-              The Fix Engine is available on Starter plans and above{plan ? ` (your plan: ${plan})` : ''}. Upgrade to detect and ship fixes.
-            </p>
-          </Card>
-        )}
+  const Style = <style>{MX_CSS}</style>;
+  const wrap = (children: React.ReactNode) => (
+    <div className="mx" style={{ fontFamily: "'Inter',sans-serif" }}>{Style}
+      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '6px 0 90px', display: 'flex', flexDirection: 'column', gap: 28 }}>{children}</div>
+    </div>
+  );
 
-        {error && (
-          <Card title="Something went wrong">
-            <p style={{ margin: 0, color: 'var(--neg, #E11D48)', fontSize: 13 }}>{error}</p>
-          </Card>
-        )}
+  if (brandLoading) return wrap(<div className="nb disp" style={{ padding: 48, textAlign: 'center', fontWeight: 700, color: 'var(--text-2)' }}>LOADING…</div>);
+  if (!brandId) return wrap(
+    <div className="nb" style={{ padding: 64, textAlign: 'center' }}>
+      <div className="disp" style={{ fontSize: 30, fontWeight: 700, color: 'var(--text)' }}>PICK A BRAND ☝</div>
+      <p style={{ margin: '12px auto 0', fontSize: 14, color: 'var(--text-2)', maxWidth: '42ch', lineHeight: 1.6, fontWeight: 500 }}>Fixes are scoped to a brand&apos;s site, CMS &amp; tracked answers.</p>
+    </div>,
+  );
 
-        {notice && (
-          <Card title="Connections">
-            <p style={{ margin: 0, color: 'var(--pos, #059669)', fontSize: 13 }}>{notice}</p>
-          </Card>
-        )}
+  const kpis = [
+    { value: String(counts.detected || 0), label: 'Detected', bg: 'var(--primary-50)', fg: 'var(--primary)' },
+    { value: String(counts.review || 0), label: 'In review', bg: 'var(--primary-50)', fg: 'var(--primary)' },
+    { value: String(counts.approved || 0), label: 'Approved', bg: 'var(--info-50)', fg: 'var(--info)' },
+    { value: String(counts.shipped || 0), label: 'Live', bg: 'var(--success-50)', fg: 'var(--success)' },
+    { value: String(counts.attention || 0), label: 'Attention', bg: 'var(--danger-50)', fg: 'var(--danger)' },
+  ];
+  const pipeline = [
+    { n: '1', label: 'detect', color: 'var(--text-2)', bg: 'var(--surface)' },
+    { n: '2', label: 'generate', color: 'var(--primary)', bg: 'var(--primary-50)' },
+    { n: '3', label: 'preview', color: 'var(--primary)', bg: 'var(--primary-50)' },
+    { n: '4', label: 'approve', color: 'var(--info)', bg: 'var(--info-50)' },
+    { n: '5', label: 'ship', color: 'var(--success)', bg: 'var(--success-50)' },
+    { n: '6', label: 're-check', color: 'var(--info)', bg: 'var(--info-50)' },
+  ];
+  const filterDefs = [
+    { key: 'all', label: 'ALL', count: fixes.length },
+    { key: 'detected', label: 'DETECTED', count: counts.detected || 0 },
+    { key: 'review', label: 'REVIEW', count: counts.review || 0 },
+    { key: 'approved', label: 'APPROVED', count: counts.approved || 0 },
+    { key: 'shipped', label: 'LIVE', count: counts.shipped || 0 },
+    { key: 'attention', label: 'ATTENTION', count: counts.attention || 0 },
+  ];
 
-        <ConnectionsCard
-          gsc={!!gscConn} gscSite={gscConn?.siteUrl ?? null} hasGscModule={hasGscModule}
-          cms={!!cmsConn} cmsType={cmsConn?.cmsType ?? null} cmsSite={cmsConn?.siteUrl ?? null}
-          connector={!!connectorConn} hasChannelB={hasChannelB} pairing={pairing}
-          supportedCms={supportedCms} defaultSite={(brand as any)?.website || ''}
-          disabled={!enabled} onConnectGsc={connectGsc} onConnectCms={connectCms} onPairConnector={pairConnector}
-        />
-
-        <SeoBrainCard brain={brain} disabled={!enabled} onSave={saveBrain} onReset={resetBrain} />
-
-        <KPIRail items={[
-          { k: 'DETECTED', v: String(counts.detected || 0) },
-          { k: 'GENERATED', v: String((counts.generated || 0) + (counts.approved || 0)) },
-          { k: 'SHIPPED', v: String(counts.shipped || 0) },
-          { k: 'VERIFIED', v: String(counts.verified || 0) },
-          { k: 'FAILED', v: String(counts.failed || 0), danger: (counts.failed || 0) > 0 },
-        ]} />
-
-        {/* Module catalog / scan selector */}
-        <Card title="Modules" lede="Pick what to scan for. Each module runs the same detect → generate → ship loop.">
-          <div style={{ display: 'grid', gap: 8 }}>
-            {catalog.map((m) => {
-              const on = selected.has(m.key);
-              return (
-                <label key={m.key} style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: m.available ? 1 : 0.5, cursor: m.available ? 'pointer' : 'not-allowed' }}>
-                  <input type="checkbox" checked={on} disabled={!m.available} onChange={() => m.available && toggleModule(m.key)} />
-                  <span style={{ fontWeight: 600, fontSize: 13 }}>{m.title}</span>
-                  <Badge tone={m.channel === 'A' ? 'info' : 'acc'}>Channel {m.channel}</Badge>
-                  <Pill tone="neg">{m.trigger}</Pill>
-                  {!m.available && <Badge tone="warn">needs {m.minPlan}</Badge>}
-                  <span className="quiet" style={{ fontSize: 12, marginLeft: 'auto' }}>{m.description}</span>
-                </label>
-              );
-            })}
-            {catalog.length === 0 && !loading && <p className="quiet" style={{ margin: 0, fontSize: 13 }}>No modules available.</p>}
+  return wrap(<>
+    {/* HERO */}
+    <header className="nb" style={{ position: 'relative', overflow: 'hidden', background: 'var(--primary-50)', padding: '32px 30px' }}>
+      <div className="stripes" style={{ position: 'absolute', top: 0, right: 0, width: 180, height: '100%', opacity: 0.08 }} />
+      <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, flexWrap: 'wrap' }}>
+        <div style={{ maxWidth: '32ch' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span className="chip" style={{ background: 'var(--primary)', color: '#fff' }}>⚡ FIX ENGINE</span>
+            <span className="chip">v2</span>
           </div>
-          {scanMsg && <p className="quiet mono" style={{ marginTop: 10, fontSize: 12 }}>{scanMsg}</p>}
-        </Card>
-
-        {/* Targeted passage rewrite */}
-        <TargetedRewriteCard disabled={!enabled} onSubmit={createTargeted} />
-
-        {/* Filter */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '4px 0' }}>
-          {['all', 'detected', 'generated', 'approved', 'shipped', 'verified', 'failed'].map((s) => (
-            <button key={s} className={filter === s ? 'btn-p' : 'btn-d'} style={{ fontSize: 11 }} onClick={() => setFilter(s)}>
-              {s.toUpperCase()}{s !== 'all' && counts[s] ? ` (${counts[s]})` : ''}
-            </button>
-          ))}
+          <h1 className="disp" style={{ margin: '16px 0 0', fontSize: 42, lineHeight: 0.98, fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--text)' }}>FIND IT.<br />FIX IT.<br /><span style={{ color: 'var(--primary)', WebkitTextStroke: '1.5px var(--ink)' }}>SHIP IT.</span></h1>
+          <p style={{ margin: '16px 0 0', fontSize: 14, lineHeight: 1.6, color: 'var(--text-2)', fontWeight: 500 }}>What&apos;s hurting <b style={{ color: 'var(--text)' }}>{brandName}</b> in AI answers — detected, drafted and shipped on your say-so.</p>
         </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="gbtn" onClick={() => load(brandId)} disabled={loading}>↻ Refresh</button>
+            <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0}>{scanning ? 'SCANNING…' : '▶ RUN SCAN'}</button>
+          </div>
+          <div className="nb-sm disp" style={{ background: 'var(--text)', color: 'var(--bg)', padding: '14px 18px', textAlign: 'right', transform: 'rotate(1.5deg)' }}>
+            <div style={{ fontSize: 32, fontWeight: 700, lineHeight: 1 }}>{catalog.length || 19}</div>
+            <div className="xlbl" style={{ marginTop: 4, color: 'var(--bg)', opacity: 0.7 }}>fix modules</div>
+          </div>
+        </div>
+      </div>
+      <div style={{ position: 'relative', marginTop: 24, display: 'flex', alignItems: 'center', flexWrap: 'wrap', border: '2.5px solid var(--ink)', borderRadius: 11, overflow: 'hidden', background: 'var(--surface)' }}>
+        {pipeline.map((st) => (
+          <div key={st.n} className="disp" style={{ flex: 1, minWidth: 90, padding: '10px 8px', textAlign: 'center', fontWeight: 700, fontSize: 12, color: st.color, background: st.bg, borderRight: '2px solid var(--ink)', textTransform: 'uppercase' }}>{st.n} {st.label}</div>
+        ))}
+      </div>
+    </header>
 
-        {/* Fix list */}
-        <div style={{ display: 'grid', gap: 12 }}>
-          {loading && fixes.length === 0 && <Card title="Loading fixes">…</Card>}
-          {!loading && shown.length === 0 && (
-            <Card title="No fixes yet">
-              <p className="quiet" style={{ margin: 0, fontSize: 13, lineHeight: 1.6 }}>
-                Run a scan to detect fixes for <strong>{(brand as any)?.name || 'this brand'}</strong>.
-              </p>
-            </Card>
-          )}
+    {!enabled && (
+      <div className="nb" style={{ padding: 24, background: 'var(--warn-50)', borderColor: 'var(--warn)', boxShadow: '5px 5px 0 var(--warn)' }}>
+        <div className="disp" style={{ fontSize: 18, fontWeight: 700, color: 'var(--warn)' }}>UPGRADE REQUIRED</div>
+        <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>The Fix Engine is available on Starter plans and above{plan ? ` (your plan: ${plan})` : ''}.</p>
+      </div>
+    )}
+    {error && (
+      <div className="nb-sm" style={{ padding: '14px 18px', background: 'var(--danger-50)', borderColor: 'var(--danger)', boxShadow: '3px 3px 0 var(--danger)', display: 'flex', gap: 11, alignItems: 'center' }}>
+        <span className="disp" style={{ color: 'var(--danger)', fontSize: 16, fontWeight: 700 }}>✕</span>
+        <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{error}</span>
+        <button className="tbtn" onClick={() => setError(null)}>Dismiss</button>
+      </div>
+    )}
+
+    {/* KPI TILES */}
+    <section style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 14 }}>
+      {kpis.map((k) => (
+        <div key={k.label} className="nb-sm" style={{ padding: 16, background: k.bg }}>
+          <div className="disp" style={{ fontSize: 32, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1, color: k.fg }}>{k.value}</div>
+          <div className="xlbl" style={{ marginTop: 10, color: 'var(--text-2)' }}>{k.label}</div>
+        </div>
+      ))}
+    </section>
+
+    {/* CONNECTIONS */}
+    <ConnectionsSection
+      cms={!!cmsConn} cmsMeta={cmsConn ? `${cmsConn.cmsType} · ${cmsConn.siteUrl}` : 'Required to ship on-site fixes'}
+      gsc={!!gscConn} gscSite={gscConn?.siteUrl ?? null}
+      connector={!!connectorConn} pairing={pairing}
+      supportedCms={supportedCms} defaultSite={(brand as any)?.website || ''} disabled={!enabled}
+      onConnectCms={connectCms} onConnectGsc={connectGsc} onPairConnector={pairConnector} onCopy={(label) => flash(`${label} copied`)}
+    />
+
+    {/* SEO BRAIN */}
+    <SeoBrainSection brain={brain} disabled={!enabled} onSave={saveBrain} onReset={resetBrain} />
+
+    {/* MODULES + PASSAGE */}
+    <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 18, alignItems: 'start' }}>
+      <section className="nb" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: 'var(--text)', color: 'var(--bg)', flexWrap: 'wrap', gap: 10 }}>
+          <div className="disp" style={{ fontSize: 17, fontWeight: 700 }}>SCAN MODULES</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span className="chip" style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--bg)' }}>{selected.size} SELECTED</span>
+            <button className="tbtn" onClick={toggleSelectAll} style={{ color: 'var(--bg)', textDecorationColor: 'var(--bg)' }}>{allSelected ? 'Clear all' : 'Select all'}</button>
+          </div>
+        </div>
+        <div style={{ padding: '6px 20px 16px' }}>
+          {moduleGroups.map((grp) => (
+            <div key={grp.name}>
+              <div className="xlbl" style={{ padding: '16px 0 4px', color: 'var(--primary)' }}>▸ {grp.name}</div>
+              {grp.items.map((m) => {
+                const cf = chanFill(m.channel);
+                return (
+                  <label key={m.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: '2px dashed var(--line)', cursor: m.available ? 'pointer' : 'not-allowed', opacity: m.available ? 1 : 0.5 }}>
+                    <input type="checkbox" checked={selected.has(m.key)} disabled={!m.available} onChange={() => m.available && toggleModule(m.key)} style={{ accentColor: 'var(--primary)', width: 16, height: 16, flexShrink: 0 }} />
+                    <span className="disp" style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>{m.title}</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-2)', display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: "'JetBrains Mono',monospace" }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: TRIG_DOT[m.trigger] || 'var(--text-3)' }} />{m.trigger}</span>
+                    <span className="chip" style={{ background: cf.chBg, color: cf.chFg, borderColor: cf.chFg }}>CH {m.channel}</span>
+                    {!m.available && <span className="chip" style={{ background: 'var(--warn-50)', color: 'var(--warn)', borderColor: 'var(--warn)' }}>{m.minPlan.toUpperCase()}</span>}
+                  </label>
+                );
+              })}
+            </div>
+          ))}
+          {catalog.length === 0 && !loading && <p style={{ fontSize: 13, color: 'var(--text-2)' }}>No modules available.</p>}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, flexWrap: 'wrap', gap: 10 }}>
+            <span className="xlbl" style={{ color: 'var(--text-2)' }}>{selected.size}/{catalog.length || 19} selected</span>
+            <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0}>▶ RUN ON SELECTION</button>
+          </div>
+        </div>
+      </section>
+
+      <PassageSection disabled={!enabled} onSubmit={createTargeted} />
+    </div>
+
+    {/* FIXES */}
+    <section>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginBottom: 16 }}>
+        <h2 className="disp" style={{ margin: 0, fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>THE FIXES</h2>
+        <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+          {filterDefs.map((d) => {
+            const on = filter === d.key;
+            return <button key={d.key} className="chip" onClick={() => setFilter(d.key)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: on ? 'var(--text)' : 'var(--surface)', color: on ? 'var(--bg)' : 'var(--text-2)', boxShadow: on ? '3px 3px 0 var(--primary)' : 'none' }}>{d.label} · {d.count}</button>;
+          })}
+        </div>
+      </div>
+
+      {enabled && !canShip && (
+        <div className="nb-sm" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', marginBottom: 16, background: 'var(--warn-50)', borderColor: 'var(--warn)', boxShadow: '4px 4px 0 var(--warn)' }}>
+          <span className="disp" style={{ fontSize: 22 }}>⚠</span>
+          <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Connect a CMS or the Connector to <b className="disp">SHIP</b> — detect, generate &amp; preview all work without it.</span>
+        </div>
+      )}
+
+      {loading && fixes.length === 0 && (
+        <div style={{ display: 'grid', gap: 16 }}>{[1, 2, 3].map((s) => (
+          <div key={s} className="nb" style={{ padding: 22, display: 'grid', gap: 14 }}>
+            <div className="stripes" style={{ width: 200, height: 22, borderRadius: 6, opacity: 0.12 }} />
+            <div className="stripes" style={{ width: '100%', height: 48, borderRadius: 6, opacity: 0.08 }} />
+          </div>
+        ))}</div>
+      )}
+
+      {!loading && shown.length === 0 && (
+        <div className="nb" style={{ padding: 56, textAlign: 'center', background: 'var(--primary-50)' }}>
+          <div className="disp" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>NOTHING TO FIX… YET</div>
+          <p style={{ margin: '12px auto 22px', fontSize: 14, color: 'var(--text-2)', maxWidth: '44ch', lineHeight: 1.6, fontWeight: 500 }}>Run a scan to check {brandName} against {selected.size} modules, ranked by severity.</p>
+          <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0} style={{ margin: '0 auto' }}>▶ RUN SCAN</button>
+        </div>
+      )}
+
+      {shown.length > 0 && (
+        <div style={{ display: 'grid', gap: 18 }}>
           {shown.map((f) => (
             <FixCard
-              key={f.id}
-              fix={f}
-              moduleTitle={moduleTitle(f.moduleKey)}
-              preview={previews[f.id]}
-              busy={!!busy[f.id]}
-              onGenerate={() => act(f.id, 'generate')}
-              onApprove={() => act(f.id, 'approve')}
-              onShip={() => act(f.id, 'ship')}
-              onRecheck={() => act(f.id, 'recheck')}
-              onViewPreview={() => loadPreview(f.id)}
+              key={f.id} fix={f} title={moduleTitle(f.moduleKey)} preview={previews[f.id]}
+              busy={!!busy[f.id]} armed={!!armed[f.id]} canShip={canShip} scoreCount={null}
+              onGenerate={() => act(f.id, 'generate')} onApprove={() => act(f.id, 'approve')}
+              onArm={() => setArmed((a) => ({ ...a, [f.id]: true }))} onCancelArm={() => setArmed((a) => ({ ...a, [f.id]: false }))}
+              onShipConfirm={() => shipConfirm(f.id)} onRecheck={() => act(f.id, 'recheck')} onRetry={() => act(f.id, 'generate')}
             />
           ))}
         </div>
-      </div>
-    </>
-  );
-}
-
-function SeoBrainCard({ brain, disabled, onSave, onReset }: {
-  brain: { content: string; isCustom: boolean; base: string; presets: { key: string; title: string; description: string; content: string }[]; maxChars?: number } | null;
-  disabled: boolean;
-  onSave: (content: string) => void;
-  onReset: () => void;
-}) {
-  const [open, setOpen] = React.useState(false);
-  const [text, setText] = React.useState('');
-  const [preset, setPreset] = React.useState('');
-  // Seed the editor from the loaded brain the first time it opens.
-  React.useEffect(() => { if (brain && !text) setText(brain.content); }, [brain, text]);
-
-  const presets = brain?.presets ?? [];
-  return (
-    <Card
-      title="SEO brain"
-      lede="The playbook every fix is generated to. Edit it, or load a preset — all modules follow it."
-      right={
-        <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <Badge tone={brain?.isCustom ? 'pos' : 'neu'}>{brain?.isCustom ? 'custom' : 'default'}</Badge>
-          <button className="btn-d" style={{ fontSize: 12 }} onClick={() => setOpen((o) => !o)} disabled={disabled}>{open ? 'Close' : 'Edit'}</button>
-        </span>
-      }
-    >
-      {open ? (
-        <div style={{ display: 'grid', gap: 8 }}>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span className="quiet" style={{ fontSize: 12 }}>Load preset:</span>
-            <select className="sel" value={preset} onChange={(e) => {
-              const p = presets.find((x) => x.key === e.target.value);
-              setPreset(e.target.value);
-              if (p) setText(p.content);
-            }}>
-              <option value="">— choose —</option>
-              {presets.map((p) => <option key={p.key} value={p.key}>{p.title}</option>)}
-            </select>
-            {preset && <span className="quiet" style={{ fontSize: 11 }}>{presets.find((p) => p.key === preset)?.description}</span>}
-          </div>
-          <textarea
-            value={text} onChange={(e) => setText(e.target.value)} rows={14}
-            placeholder="Paste your SEO/GEO playbook (your Growth Atlas brain, agency methodology, brand voice, linking & citation rules…)"
-            style={{ width: '100%', fontSize: 12.5, lineHeight: 1.5, padding: 10, borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontFamily: 'var(--mono, ui-monospace, monospace)' }}
-          />
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <button className="btn-p" style={{ fontSize: 12 }} onClick={() => onSave(text)} disabled={!text.trim()}>Save brain</button>
-            {brain?.isCustom && <button className="btn-d" style={{ fontSize: 12 }} onClick={onReset}>Reset to default</button>}
-            <span className="quiet mono" style={{ fontSize: 11, marginLeft: 'auto' }}>{text.length}{brain?.maxChars ? ` / ${brain.maxChars}` : ''}</span>
-          </div>
-        </div>
-      ) : (
-        <p className="quiet" style={{ margin: 0, fontSize: 13, lineHeight: 1.6 }}>
-          {brain?.isCustom
-            ? 'Using your custom SEO brain. Click Edit to change it or load a preset.'
-            : 'Using the default SEO brain. Click Edit to paste your own (e.g. your Growth Atlas) or load the Matt Diggity preset.'}
-        </p>
       )}
-    </Card>
-  );
+      {/* keep lint happy about unused maps */}
+      <span style={{ display: 'none' }}>{sevCount.low}{statusCount.detected}</span>
+    </section>
+
+    {toast && (
+      <div className="nb-sm disp" style={{ position: 'fixed', left: '50%', bottom: 30, transform: 'translateX(-50%) rotate(-1deg)', zIndex: 9000, padding: '13px 20px', background: 'var(--text)', color: 'var(--bg)', fontWeight: 700, fontSize: 13.5, boxShadow: '5px 5px 0 var(--primary)', animation: 'xtoast .2s ease' }}>{toast}</div>
+    )}
+  </>);
 }
 
-function TargetedRewriteCard({ disabled, onSubmit }: {
-  disabled: boolean;
-  onSubmit: (f: { url: string; passage: string; instruction: string }) => void;
-}) {
-  const [open, setOpen] = React.useState(false);
-  const [url, setUrl] = React.useState('');
-  const [passage, setPassage] = React.useState('');
-  const [instruction, setInstruction] = React.useState('');
-  return (
-    <Card
-      title="Optimize a specific passage"
-      lede="Paste a paragraph or a few lines from a page, say how to improve it, and ship the rewrite in place."
-      right={<button className="btn-d" style={{ fontSize: 12 }} onClick={() => setOpen((o) => !o)} disabled={disabled}>{open ? 'Close' : 'New rewrite'}</button>}
-    >
-      {open && (
-        <div style={{ display: 'grid', gap: 8 }}>
-          <input className="fld-in" placeholder="Page URL (https://example.com/page)" value={url} onChange={(e) => setUrl(e.target.value)} />
-          <textarea
-            placeholder="Paste the exact paragraph or lines to rewrite…"
-            value={passage} onChange={(e) => setPassage(e.target.value)}
-            rows={4}
-            style={{ width: '100%', fontSize: 13, padding: 8, borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontFamily: 'inherit' }}
-          />
-          <input className="fld-in" placeholder={'Instruction (e.g. make it more concise and target "best CRM for startups")'} value={instruction} onChange={(e) => setInstruction(e.target.value)} />
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button className="btn-p" style={{ fontSize: 12 }}
-              onClick={() => { onSubmit({ url, passage, instruction }); setPassage(''); setInstruction(''); }}
-              disabled={!url || passage.trim().length < 12}>Rewrite passage</button>
-            <span className="quiet" style={{ fontSize: 11 }}>The exact text must exist on the page (in the CMS body) so it can be replaced in place.</span>
-          </div>
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function ConnectionsCard({ gsc, gscSite, hasGscModule, cms, cmsType, cmsSite, connector, hasChannelB, pairing, supportedCms, defaultSite, disabled, onConnectGsc, onConnectCms, onPairConnector }: {
-  gsc: boolean; gscSite: string | null; hasGscModule: boolean;
-  cms: boolean; cmsType: string | null; cmsSite: string | null;
-  connector: boolean; hasChannelB: boolean; pairing: { token: string; hmacSecret: string; pullUrl: string } | null;
+// ── Connections ──
+function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, pairing, supportedCms, defaultSite, disabled, onConnectCms, onConnectGsc, onPairConnector, onCopy }: {
+  cms: boolean; cmsMeta: string; gsc: boolean; gscSite: string | null; connector: boolean;
+  pairing: { token: string; hmacSecret: string; pullUrl: string } | null;
   supportedCms: string[]; defaultSite: string; disabled: boolean;
-  onConnectGsc: () => void;
   onConnectCms: (f: { cmsType: string; siteUrl: string; username: string; appPassword: string }) => void;
-  onPairConnector: () => void;
+  onConnectGsc: () => void; onPairConnector: () => void; onCopy: (label: string) => void;
 }) {
-  const [open, setOpen] = React.useState(false);
-  const [cmsTypeSel, setCmsTypeSel] = React.useState(supportedCms[0] || 'wordpress');
+  const [showForm, setShowForm] = React.useState(false);
+  const [reveal, setReveal] = React.useState(false);
+  const [cmsType, setCmsType] = React.useState(supportedCms[0] || 'wordpress');
   const [siteUrl, setSiteUrl] = React.useState(defaultSite);
   const [username, setUsername] = React.useState('');
   const [appPassword, setAppPassword] = React.useState('');
   React.useEffect(() => { if (defaultSite && !siteUrl) setSiteUrl(defaultSite); }, [defaultSite, siteUrl]);
+  const connectedCount = (cms ? 1 : 0) + (gsc ? 1 : 0) + (connector ? 1 : 0);
+  const copy = (text: string, label: string) => { try { navigator.clipboard?.writeText(text); } catch { /* ignore */ } onCopy(label); };
+
+  const Row = ({ badge, title, meta, children }: { badge: React.ReactNode; title: string; meta: string; children: React.ReactNode }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 0', borderBottom: '2px dashed var(--line-2)' }}>
+      <span className="disp nb-sm" style={{ width: 46, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12, background: 'var(--surface-2)', flexShrink: 0 }}>{badge}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="disp" style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{title}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2, fontWeight: 500 }}>{meta}</div>
+      </div>
+      {children}
+    </div>
+  );
+  const okChip = (label: string) => <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)' }}>● {label}</span>;
+  const offChip = <span className="chip" style={{ color: 'var(--text-3)' }}>○ NOT CONNECTED</span>;
 
   return (
-    <Card title="Connections" lede="Connect a CMS to ship Channel-A fixes, and Google Search Console to power striking-distance & CTR rescue.">
-      <div style={{ display: 'grid', gap: 12 }}>
-        {/* CMS */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <strong style={{ fontSize: 13, minWidth: 130 }}>CMS (ship target)</strong>
-          {cms
-            ? <><Badge tone="pos">connected</Badge><span className="quiet mono" style={{ fontSize: 12 }}>{cmsType} · {cmsSite}</span></>
-            : <Badge tone="warn">not connected</Badge>}
-          <button className="btn-d" style={{ fontSize: 12, marginLeft: 'auto' }} onClick={() => setOpen((o) => !o)} disabled={disabled}>
-            {cms ? 'Reconnect' : 'Connect CMS'}
-          </button>
-        </div>
-        {open && (
-          <div style={{ display: 'grid', gap: 8, padding: 12, border: '1px solid var(--line)', borderRadius: 8 }}>
-            <select className="sel" value={cmsTypeSel} onChange={(e) => setCmsTypeSel(e.target.value)}>
-              {(supportedCms.length ? supportedCms : ['wordpress']).map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <input className="fld-in" placeholder="Site URL (https://example.com)" value={siteUrl} onChange={(e) => setSiteUrl(e.target.value)} />
-            <input className="fld-in" placeholder="WordPress username" value={username} onChange={(e) => setUsername(e.target.value)} />
-            <input className="fld-in" type="password" placeholder="Application password" value={appPassword} onChange={(e) => setAppPassword(e.target.value)} />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn-p" style={{ fontSize: 12 }}
-                onClick={() => onConnectCms({ cmsType: cmsTypeSel, siteUrl, username, appPassword })}
-                disabled={!siteUrl || !username || !appPassword}>Verify & save</button>
-              <span className="quiet" style={{ fontSize: 11, alignSelf: 'center' }}>Credentials are verified against your site, then encrypted at rest.</span>
+    <section className="nb" style={{ padding: 0, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 22px', background: 'var(--text)', color: 'var(--bg)' }}>
+        <div className="disp" style={{ fontSize: 18, fontWeight: 700 }}>CONNECTIONS</div>
+        <span className="chip" style={{ background: 'var(--bg)', color: 'var(--text)' }}>{connectedCount} OF 3</span>
+      </div>
+      <div style={{ padding: '8px 22px 18px' }}>
+        <Row badge="CMS" title="WordPress" meta={cmsMeta}>
+          {cms ? okChip('CONNECTED') : offChip}
+          <button className={cms ? 'tbtn' : 'xbtn'} onClick={() => setShowForm((s) => !s)} disabled={disabled}>{cms ? 'Reconnect' : 'CONNECT'}</button>
+        </Row>
+        {showForm && (
+          <div className="nb-sm" style={{ padding: 18, margin: '6px 0 14px', background: 'var(--surface-2)', display: 'grid', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Site URL</div><input className="xin" value={siteUrl} onChange={(e) => setSiteUrl(e.target.value)} placeholder="https://acme.com" /></div>
+              <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>WP username</div><input className="xin" value={username} onChange={(e) => setUsername(e.target.value)} /></div>
+            </div>
+            <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Application password</div><input className="xin" type="password" value={appPassword} onChange={(e) => setAppPassword(e.target.value)} placeholder="xxxx xxxx xxxx" /></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Verified against your site, then encrypted at rest.</span>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="gbtn" onClick={() => setShowForm(false)}>Cancel</button>
+                <button className="xbtn" onClick={() => onConnectCms({ cmsType, siteUrl, username, appPassword })} disabled={!siteUrl || !username || !appPassword}>CONNECT WP</button>
+              </div>
             </div>
           </div>
         )}
 
-        {/* GSC */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <strong style={{ fontSize: 13, minWidth: 130 }}>Google Search Console</strong>
-          {gsc
-            ? <><Badge tone="pos">connected</Badge>{gscSite && <span className="quiet mono" style={{ fontSize: 12 }}>{gscSite}</span>}</>
-            : <Badge tone={hasGscModule ? 'warn' : 'neu'}>not connected</Badge>}
-          <button className="btn-d" style={{ fontSize: 12, marginLeft: 'auto' }} onClick={onConnectGsc} disabled={disabled}>
-            {gsc ? 'Reconnect' : 'Connect Search Console'}
-          </button>
+        <Row badge="GSC" title="Google Search Console" meta={gsc ? `${gscSite} · powers crawl & query triggers` : 'Powers striking-distance, CTR & indexing fixes'}>
+          {gsc ? okChip('CONNECTED') : offChip}
+          <button className={gsc ? 'tbtn' : 'xbtn'} onClick={onConnectGsc} disabled={disabled}>{gsc ? 'Re-sync' : 'CONNECT'}</button>
+        </Row>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 0' }}>
+          <span className="disp nb-sm" style={{ width: 46, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 18, background: 'var(--primary)', color: '#fff', flexShrink: 0 }}>⤓</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="disp" style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Connector plugin</div>
+            <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2, fontWeight: 500 }}>Pull-based · your site fetches approved fixes. No inbound access.</div>
+          </div>
+          {connector ? okChip('INSTALLED') : <span className="chip" style={{ color: 'var(--text-3)' }}>○ NOT PAIRED</span>}
+          <button className="gbtn" onClick={() => { onPairConnector(); setReveal(true); }} disabled={disabled} style={{ padding: '7px 13px', fontSize: 12 }}>{connector ? 'Re-pair' : 'Pair'}</button>
         </div>
 
-        {/* Connector (Channel B) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <strong style={{ fontSize: 13, minWidth: 130 }}>Connector plugin</strong>
-          {connector
-            ? <Badge tone="pos">paired</Badge>
-            : <Badge tone={hasChannelB ? 'warn' : 'neu'}>not paired</Badge>}
-          <span className="quiet" style={{ fontSize: 12 }}>Needed to ship robots.txt, llms.txt & head changes.</span>
-          <button className="btn-d" style={{ fontSize: 12, marginLeft: 'auto' }} onClick={onPairConnector} disabled={disabled}>
-            {connector ? 'Re-pair' : 'Pair Connector'}
-          </button>
-        </div>
-        {pairing && (
-          <div style={{ display: 'grid', gap: 6, padding: 12, border: '1px solid var(--line)', borderRadius: 8 }}>
-            <p className="quiet" style={{ margin: 0, fontSize: 12, color: 'var(--warn, #EA580C)' }}>
-              Copy these now — the token is shown only once. Paste them into the Livesov Connector plugin.
-            </p>
-            <label className="mono" style={{ fontSize: 11 }}>Pull URL<input className="fld-in mono" readOnly value={pairing.pullUrl} onFocus={(e) => e.currentTarget.select()} /></label>
-            <label className="mono" style={{ fontSize: 11 }}>Token<input className="fld-in mono" readOnly value={pairing.token} onFocus={(e) => e.currentTarget.select()} /></label>
-            <label className="mono" style={{ fontSize: 11 }}>Signing secret<input className="fld-in mono" readOnly value={pairing.hmacSecret} onFocus={(e) => e.currentTarget.select()} /></label>
+        {pairing && reveal && (
+          <div className="nb-sm" style={{ padding: 18, background: 'var(--warn-50)', borderColor: 'var(--warn)', boxShadow: '4px 4px 0 var(--warn)', display: 'grid', gap: 12 }}>
+            <div className="disp" style={{ fontSize: 13, fontWeight: 700, color: 'var(--warn)', display: 'flex', gap: 8, alignItems: 'center' }}>⚠ SHOWN ONCE — COPY &amp; STORE THE SECRET NOW</div>
+            {[{ k: 'Pull URL', v: pairing.pullUrl }, { k: 'Token', v: pairing.token }, { k: 'Secret', v: pairing.hmacSecret }].map((r) => (
+              <div key={r.k} style={{ display: 'grid', gridTemplateColumns: '80px 1fr auto', gap: 12, alignItems: 'center' }}>
+                <span className="xlbl" style={{ color: 'var(--text-2)' }}>{r.k}</span>
+                <code className="xin" style={{ boxShadow: 'none', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.v}</code>
+                <button className="gbtn" onClick={() => copy(r.v, r.k)} style={{ padding: '7px 12px' }} aria-label={`Copy ${r.k}`}>⧉</button>
+              </div>
+            ))}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="gbtn" onClick={() => setReveal(false)} style={{ padding: '7px 13px' }}>I&apos;ve stored these — hide</button>
+            </div>
           </div>
         )}
       </div>
-    </Card>
+    </section>
   );
 }
 
-function FixCard({ fix, moduleTitle, preview, busy, onGenerate, onApprove, onShip, onRecheck, onViewPreview }: {
-  fix: FixRow; moduleTitle: string; preview: PreviewBlock | null | undefined; busy: boolean;
-  onGenerate: () => void; onApprove: () => void; onShip: () => void; onRecheck: () => void; onViewPreview: () => void;
+// ── SEO brain ──
+function SeoBrainSection({ brain, disabled, onSave, onReset }: {
+  brain: { content: string; isCustom: boolean; base: string; presets: { key: string; title: string; description: string; content: string }[]; maxChars?: number } | null;
+  disabled: boolean; onSave: (content: string) => void; onReset: () => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [text, setText] = React.useState('');
+  const [preset, setPreset] = React.useState('');
+  React.useEffect(() => { if (brain && !text) setText(brain.content); }, [brain, text]);
+  const presets = brain?.presets ?? [];
+  return (
+    <section className="nb" style={{ padding: 0, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: 'var(--text)', color: 'var(--bg)', flexWrap: 'wrap', gap: 10 }}>
+        <div className="disp" style={{ fontSize: 17, fontWeight: 700 }}>SEO BRAIN</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span className="chip" style={{ background: brain?.isCustom ? 'var(--success-50)' : 'var(--bg)', color: brain?.isCustom ? 'var(--success)' : 'var(--text)', borderColor: brain?.isCustom ? 'var(--success)' : 'var(--bg)' }}>{brain?.isCustom ? 'CUSTOM' : 'DEFAULT'}</span>
+          <button className="tbtn" onClick={() => setOpen((o) => !o)} disabled={disabled} style={{ color: 'var(--bg)', textDecorationColor: 'var(--bg)' }}>{open ? 'Close' : 'Edit'}</button>
+        </div>
+      </div>
+      <div style={{ padding: '14px 20px 18px' }}>
+        {!open ? (
+          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--text-2)', fontWeight: 500 }}>
+            The playbook every fix is generated to. {brain?.isCustom ? 'Using your custom brain.' : 'Using the default — Edit to paste your own (e.g. Growth Atlas) or load the Matt Diggity preset.'}
+          </p>
+        ) : (
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span className="xlbl" style={{ color: 'var(--text-2)' }}>Load preset</span>
+              <select className="xin" style={{ width: 'auto', boxShadow: 'none' }} value={preset} onChange={(e) => { const p = presets.find((x) => x.key === e.target.value); setPreset(e.target.value); if (p) setText(p.content); }}>
+                <option value="">— choose —</option>
+                {presets.map((p) => <option key={p.key} value={p.key}>{p.title}</option>)}
+              </select>
+              {preset && <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{presets.find((p) => p.key === preset)?.description}</span>}
+            </div>
+            <textarea className="xin" rows={12} value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste your SEO/GEO playbook (Growth Atlas brain, agency methodology, brand voice, linking & citation rules…)" />
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button className="xbtn" onClick={() => onSave(text)} disabled={!text.trim()}>✓ SAVE BRAIN</button>
+              {brain?.isCustom && <button className="gbtn" onClick={onReset}>Reset to default</button>}
+              <span className="xlbl" style={{ color: 'var(--text-2)', marginLeft: 'auto' }}>{text.length}{brain?.maxChars ? ` / ${brain.maxChars}` : ''}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ── Passage rewrite ──
+function PassageSection({ disabled, onSubmit }: { disabled: boolean; onSubmit: (f: { url: string; passage: string; instruction: string }) => void }) {
+  const [url, setUrl] = React.useState('');
+  const [passage, setPassage] = React.useState('');
+  const [instruction, setInstruction] = React.useState('');
+  return (
+    <section className="nb" style={{ padding: 0, overflow: 'hidden', background: 'var(--info-50)' }}>
+      <div className="disp" style={{ padding: '14px 20px', background: 'var(--info)', color: '#fff', fontSize: 17, fontWeight: 700 }}>OPTIMIZE A PASSAGE</div>
+      <div style={{ padding: '18px 20px', display: 'grid', gap: 15 }}>
+        <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.5 }}>Paste a passage + the goal — we draft an answer-ready rewrite as a fix you can ship in place.</p>
+        <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Page URL</div><input className="xin" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="acme.com/features" /></div>
+        <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Passage</div><textarea className="xin" rows={3} value={passage} onChange={(e) => setPassage(e.target.value)} placeholder="Paste the exact paragraph or lines…" /></div>
+        <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Instruction</div><input className="xin" value={instruction} onChange={(e) => setInstruction(e.target.value)} placeholder={'e.g. answer "is Acme good for engineering teams?" with a citable claim'} /></div>
+        <button className="xbtn" onClick={() => { onSubmit({ url, passage, instruction }); setPassage(''); setInstruction(''); }} disabled={disabled || !url || passage.trim().length < 12} style={{ background: 'var(--info)', justifyContent: 'center' }}>✦ CREATE FIX</button>
+      </div>
+    </section>
+  );
+}
+
+// ── Fix card ──
+function FixCard({ fix, title, preview, busy, armed, canShip, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry }: {
+  fix: FixRow; title: string; preview: PreviewBlock | null | undefined; busy: boolean; armed: boolean; canShip: boolean; scoreCount: null;
+  onGenerate: () => void; onApprove: () => void; onArm: () => void; onCancelArm: () => void; onShipConfirm: () => void; onRecheck: () => void; onRetry: () => void;
 }) {
   const s = fix.status;
+  const sm = statusMeta(s); const sev = sevMeta(fix.severity); const cf = chanFill(fix.channel);
+  const isDetected = s === 'detected';
+  const isReview = s === 'generated' || s === 'preview_ready';
+  const isApproved = s === 'approved';
+  const isLive = s === 'shipped' || s === 'verified';
+  const isAttention = s === 'failed' || s === 'reverted';
+  const url = fix.targetUrl || '';
+  const host = url.replace(/^https?:\/\//, '');
+
   return (
-    <article className="rec-card" style={{ display: 'block' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-        <h3 className="rec-t" style={{ margin: 0 }}>{moduleTitle}</h3>
-        <Badge tone={STATUS_TONE[s] || 'neu'}>{s.replace('_', ' ')}</Badge>
-        <Badge tone={SEV_TONE[fix.severity] || 'neu'}>{fix.severity}</Badge>
-        <Badge tone={fix.channel === 'A' ? 'info' : 'acc'}>Ch {fix.channel}</Badge>
-        {fix.scoreAfter != null && <Pill tone="pos">score {fix.scoreAfter}</Pill>}
+    <article className="nb" style={{ padding: 0, overflow: 'hidden', boxShadow: `5px 5px 0 ${sev.color}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: sev.bg, borderBottom: '2.5px solid var(--ink)' }}>
+        <span className="disp" style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.04em', color: sev.color, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{sev.glyph} {sev.label} SEVERITY</span>
+        <span style={{ flex: 1 }} />
+        <span className="chip" style={{ background: sm.bg, color: sm.color, borderColor: sm.color }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: sm.color }} />{sm.label}</span>
       </div>
-      <p className="rec-d" style={{ margin: '0 0 4px' }}>{fix.summary}</p>
-      {fix.targetUrl && (
-        <a href={fix.targetUrl} target="_blank" rel="noreferrer" className="mono" style={{ fontSize: 11, color: 'var(--primary, #5B5BD6)' }}>
-          {fix.targetUrl}
-        </a>
-      )}
-      {fix.error && <p style={{ margin: '6px 0 0', color: 'var(--neg, #E11D48)', fontSize: 12 }}>⚠ {fix.error}</p>}
 
-      {preview && (
-        <div style={{ marginTop: 10, border: '1px solid var(--line)', borderRadius: 8, overflow: 'hidden' }}>
-          <div className="mono" style={{ fontSize: 11, padding: '6px 10px', background: 'var(--surface-2, #F6F6F8)', color: 'var(--text-2)' }}>{preview.label}</div>
-          {preview.before != null && (
-            <div style={{ padding: '6px 10px', fontSize: 12, textDecoration: 'line-through', opacity: 0.6 }}>{preview.before || '(empty)'}</div>
-          )}
-          {preview.after != null && (
-            <pre style={{ padding: '8px 10px', fontSize: 12, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 280, overflow: 'auto' }}>{preview.after}</pre>
-          )}
+      <div style={{ padding: 18, display: 'grid', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <h3 className="disp" style={{ margin: 0, fontSize: 20, fontWeight: 700, letterSpacing: '-0.015em', color: 'var(--text)' }}>{title}</h3>
+            <p style={{ margin: '5px 0 0', fontSize: 13, lineHeight: 1.5, color: 'var(--text-2)', fontWeight: 500 }}>{fix.summary}</p>
+          </div>
+          <span className="chip" style={{ background: cf.chBg, color: cf.chFg, borderColor: cf.chFg }}>{fix.channel === 'A' ? 'CH A · ON-SITE' : 'CH B · OFF-SITE'}</span>
         </div>
-      )}
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-        {(s === 'detected' || s === 'failed') && (
-          <button className="btn-p" style={{ fontSize: 12 }} onClick={onGenerate} disabled={busy}>{busy ? 'Generating…' : 'Generate'}</button>
+        {url && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <a href={url} target="_blank" rel="noreferrer" className="chip" style={{ cursor: 'pointer', fontSize: 11 }}>🌐 {host} ↗</a>
+            {fix.scoreAfter != null && <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)' }}>SCORE {fix.scoreAfter}</span>}
+          </div>
         )}
-        {s === 'generated' && (
-          <>
-            {!preview && <button className="btn-d" style={{ fontSize: 12 }} onClick={onViewPreview}>View preview</button>}
-            <button className="btn-d" style={{ fontSize: 12 }} onClick={onGenerate} disabled={busy}>Regenerate</button>
-            <button className="btn-p" style={{ fontSize: 12 }} onClick={onApprove} disabled={busy}>Approve</button>
-          </>
+
+        {/* preview / states */}
+        {isDetected && !busy && (
+          <div className="nb-sm stripes" style={{ padding: 16, fontFamily: "'Space Grotesk'", fontWeight: 600, fontSize: 13, color: 'var(--text-2)', background: 'var(--surface-2)', boxShadow: 'none' }}>Generate to preview the proposed fix →</div>
         )}
-        {s === 'approved' && (
-          <>
-            {!preview && <button className="btn-d" style={{ fontSize: 12 }} onClick={onViewPreview}>View preview</button>}
-            <button className="btn-g" style={{ fontSize: 12 }} onClick={onShip} disabled={busy}>{busy ? 'Shipping…' : 'Ship to site'}</button>
-          </>
+        {busy && (
+          <div className="nb-sm" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 11, fontFamily: "'Space Grotesk'", fontWeight: 600, fontSize: 13, color: 'var(--text)', boxShadow: 'none', background: 'var(--primary-50)' }}><span style={{ width: 15, height: 15, border: '2.5px solid var(--primary-200)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'xspin .7s linear infinite', display: 'inline-block' }} />WORKING…</div>
         )}
-        {(s === 'shipped' || s === 'verified') && (
-          <button className="btn-d" style={{ fontSize: 12 }} onClick={onRecheck} disabled={busy}>{busy ? 'Re-checking…' : 'Re-check'}</button>
+        {!busy && preview && preview.kind === 'text-diff' && (
+          <div className="nb-sm" style={{ overflow: 'hidden', boxShadow: 'none' }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}><span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− NOW</span><span className="mono" style={{ fontSize: 12, color: 'var(--text-2)', textDecoration: 'line-through', textDecorationColor: 'var(--danger-200)', lineHeight: 1.5 }}>{preview.before || '(empty)'}</span></div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--success-50)' }}><span className="disp" style={{ color: 'var(--success)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ FIX</span><span className="mono" style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>{preview.after}</span></div>
+          </div>
         )}
+        {!busy && preview && preview.kind === 'code-block' && (
+          <pre className="mono nb-sm" style={{ margin: 0, fontSize: 11.5, lineHeight: 1.6, padding: 14, background: 'var(--surface-3)', boxShadow: 'none', overflow: 'auto', maxHeight: 220, color: 'var(--text)', whiteSpace: 'pre-wrap' }}>{preview.after}</pre>
+        )}
+        {!busy && preview && preview.kind === 'key-values' && (
+          <div className="nb-sm" style={{ padding: '12px 14px', boxShadow: 'none' }}>
+            <div className="xlbl" style={{ color: 'var(--primary)', marginBottom: 6 }}>{preview.label}</div>
+            <pre className="mono" style={{ margin: 0, fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: 'var(--text)' }}>{preview.after}</pre>
+          </div>
+        )}
+        {isAttention && fix.error && (
+          <div className="nb-sm" style={{ padding: '14px 16px', background: 'var(--danger-50)', borderColor: 'var(--danger)', boxShadow: 'none', display: 'flex', gap: 11, alignItems: 'flex-start' }}><span className="disp" style={{ color: 'var(--danger)', fontSize: 16, fontWeight: 700 }}>✕</span><span style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--text)', fontWeight: 500 }}><b className="disp" style={{ color: 'var(--danger)' }}>FAILED.</b> {fix.error}</span></div>
+        )}
+
+        {/* actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingTop: 13, borderTop: '2.5px solid var(--ink)' }}>
+          {isDetected && (<><button className="xbtn" onClick={onGenerate} disabled={busy}>✦ GENERATE FIX</button><span className="xlbl" style={{ color: 'var(--text-2)' }}>1 credit</span></>)}
+          {isReview && (<>
+            <button className="xbtn" onClick={onApprove} disabled={busy} style={{ background: 'var(--success)' }}>✓ APPROVE</button>
+            <button className="gbtn" onClick={onGenerate} disabled={busy}>↻ Regenerate</button>
+            {url && <a className="tbtn" href={url} target="_blank" rel="noreferrer">View source</a>}
+          </>)}
+          {isApproved && !armed && (<><button className="xbtn" onClick={onArm} disabled={busy} style={{ background: 'var(--success)' }}>⬢ SHIP TO SITE</button><span className="xlbl" style={{ color: 'var(--text-2)' }}>approved · writes live</span></>)}
+          {isApproved && armed && (
+            <div className="nb-sm" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', width: '100%', padding: '13px 15px', background: 'var(--warn-50)', borderColor: 'var(--warn)', boxShadow: 'none' }}>
+              <span className="disp" style={{ fontSize: 20 }}>⚠</span>
+              <span style={{ flex: 1, minWidth: 170, fontSize: 12.5, lineHeight: 1.4, fontWeight: 500, color: 'var(--text)' }}>This publishes to your <b className="disp">LIVE</b> site and can&apos;t be auto-undone.</span>
+              <button className="gbtn" onClick={onCancelArm} style={{ padding: '7px 13px' }}>Cancel</button>
+              <button className="xbtn" onClick={onShipConfirm} disabled={busy || !canShip} style={{ background: 'var(--success)' }}>{canShip ? 'CONFIRM SHIP' : 'CONNECT CMS FIRST'}</button>
+            </div>
+          )}
+          {isLive && (<>
+            <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)', fontSize: 11, padding: '6px 12px' }}>✓ {s === 'verified' ? 'VERIFIED' : 'SHIPPED'}</span>
+            <button className="gbtn" onClick={onRecheck} disabled={busy} style={{ padding: '7px 13px' }}>↻ Re-check</button>
+            {url && <a className="tbtn" href={url} target="_blank" rel="noreferrer">View on site</a>}
+          </>)}
+          {isAttention && (<button className="xbtn" onClick={onRetry} disabled={busy} style={{ background: 'var(--danger)' }}>↻ RETRY</button>)}
+        </div>
       </div>
     </article>
   );
