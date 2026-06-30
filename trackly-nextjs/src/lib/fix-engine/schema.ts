@@ -96,6 +96,9 @@ export async function ensureFixEngineSchema(): Promise<void> {
   // AI-visibility (SOV) snapshots captured at ship and at recheck.
   await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS ai_before JSONB`);
   await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS ai_after JSONB`);
+  // Collaboration: free-text note + assignee.
+  await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS note TEXT`);
+  await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS assignee TEXT`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS fix_connections (
@@ -169,6 +172,8 @@ export function mapFixRow(r: DbRow): FixRow {
     scoreAfter: r.score_after == null ? null : Number(r.score_after),
     aiBefore: (r.ai_before as Record<string, unknown> | null) ?? null,
     aiAfter: (r.ai_after as Record<string, unknown> | null) ?? null,
+    note: (r.note as string | null) ?? null,
+    assignee: (r.assignee as string | null) ?? null,
     error: (r.error as string | null) ?? null,
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
@@ -344,6 +349,8 @@ export async function updateFix(
     scoreAfter?: number | null;
     aiBefore?: Record<string, unknown> | null;
     aiAfter?: Record<string, unknown> | null;
+    note?: string | null;
+    assignee?: string | null;
     error?: string | null;
   },
 ): Promise<void> {
@@ -358,6 +365,8 @@ export async function updateFix(
   if (patch.scoreAfter !== undefined) { sets.push(`score_after = $${i++}`); values.push(patch.scoreAfter); }
   if (patch.aiBefore !== undefined) { sets.push(`ai_before = $${i++}`); values.push(patch.aiBefore ? JSON.stringify(patch.aiBefore) : null); }
   if (patch.aiAfter !== undefined) { sets.push(`ai_after = $${i++}`); values.push(patch.aiAfter ? JSON.stringify(patch.aiAfter) : null); }
+  if (patch.note !== undefined) { sets.push(`note = $${i++}`); values.push(patch.note); }
+  if (patch.assignee !== undefined) { sets.push(`assignee = $${i++}`); values.push(patch.assignee); }
   if (patch.error !== undefined) { sets.push(`error = $${i++}`); values.push(patch.error); }
   await pool.query(`UPDATE fixes SET ${sets.join(', ')} WHERE id = $1`, values);
 }

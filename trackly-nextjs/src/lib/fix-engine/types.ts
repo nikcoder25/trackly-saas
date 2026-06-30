@@ -211,6 +211,8 @@ export interface FixRow {
   /** AI-visibility (SOV) snapshots captured at ship / recheck. */
   aiBefore: Record<string, unknown> | null;
   aiAfter: Record<string, unknown> | null;
+  note: string | null;
+  assignee: string | null;
   error: string | null;
   createdAt: string;
   updatedAt: string;

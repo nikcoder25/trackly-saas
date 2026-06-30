@@ -21,6 +21,7 @@ interface FixRow {
   status: string; severity: string; summary: string;
   generated: any; scoreAfter: number | null; error: string | null; createdAt: string;
   aiBefore?: { sov?: number; at?: string } | null; aiAfter?: { sov?: number; at?: string } | null;
+  note?: string | null; assignee?: string | null;
 }
 interface PreviewBlock { kind: string; label: string; before?: string; after?: string; language?: string }
 interface Connection { id: string; provider: string; cmsType: string | null; siteUrl: string | null; status: string }
@@ -268,6 +269,20 @@ export function PageFixes() {
     const qs = filter === 'all' ? '' : `?status=${encodeURIComponent(filter)}`;
     window.open(`/api/brands/${brandId}/fixes/export${qs}`, '_blank');
   };
+  const pdfReport = () => { if (brandId) window.open(`/api/brands/${brandId}/fixes/report`, '_blank'); };
+  const notify = async () => {
+    if (!brandId) return;
+    try { await api(`/api/brands/${brandId}/fixes/notify`, { method: 'POST' }); flash('Summary sent to webhook'); }
+    catch (e) { setError((e as Error).message); }
+  };
+  const saveMeta = async (fixId: string, patch: { note?: string; assignee?: string }) => {
+    if (!brandId) return;
+    try {
+      const d = await api(`/api/brands/${brandId}/fixes/${fixId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
+      if (d.fix) setFixes((rows) => rows.map((r) => (r.id === fixId ? { ...r, ...d.fix } : r)));
+      flash('Saved');
+    } catch (e) { setError((e as Error).message); }
+  };
 
   const toggleModule = (k: string) => setSelected((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const availableKeys = catalog.filter((c) => c.available).map((c) => c.key);
@@ -488,6 +503,8 @@ export function PageFixes() {
         <button className="chip" onClick={() => setQuickWins((q) => !q)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: quickWins ? 'var(--success-50)' : 'var(--surface)', color: quickWins ? 'var(--success)' : 'var(--text-2)', borderColor: quickWins ? 'var(--success)' : 'var(--ink)' }}>⚡ QUICK WINS</button>
         <button className="chip" onClick={() => setGroupByPage((g) => !g)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: groupByPage ? 'var(--text)' : 'var(--surface)', color: groupByPage ? 'var(--bg)' : 'var(--text-2)' }}>▦ BY PAGE</button>
         <button className="chip" onClick={exportCsv} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>⤓ EXPORT CSV</button>
+        <button className="chip" onClick={pdfReport} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>📄 PDF REPORT</button>
+        <button className="chip" onClick={notify} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>🔔 NOTIFY</button>
       </div>
 
       {picked.size > 0 && (
@@ -536,6 +553,7 @@ export function PageFixes() {
             onArm={() => setArmed((a) => ({ ...a, [f.id]: true }))} onCancelArm={() => setArmed((a) => ({ ...a, [f.id]: false }))}
             onShipConfirm={() => shipConfirm(f.id)} onRecheck={() => act(f.id, 'recheck')} onRetry={() => act(f.id, 'generate')}
             onRevert={() => act(f.id, 'revert')} onLoadHistory={() => loadPreview(f.id)}
+            onSaveMeta={(patch) => saveMeta(f.id, patch)}
           />
         );
         return groupByPage ? (
@@ -763,13 +781,17 @@ function PassageSection({ disabled, onSubmit }: { disabled: boolean; onSubmit: (
 }
 
 // ── Fix card ──
-function FixCard({ fix, title, preview, cost, revertable, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRevert, onLoadHistory }: {
+function FixCard({ fix, title, preview, cost, revertable, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRevert, onLoadHistory, onSaveMeta }: {
   fix: FixRow; title: string; preview: PreviewBlock | null | undefined; cost: number; revertable: boolean;
   events: FixEvent[] | undefined; busy: boolean; armed: boolean; canShip: boolean; picked: boolean;
   onTogglePick: () => void; onGenerate: () => void; onApprove: () => void; onArm: () => void; onCancelArm: () => void;
   onShipConfirm: () => void; onRecheck: () => void; onRetry: () => void; onRevert: () => void; onLoadHistory: () => void;
+  onSaveMeta: (patch: { note?: string; assignee?: string }) => void;
 }) {
   const [showHistory, setShowHistory] = React.useState(false);
+  const [note, setNote] = React.useState(fix.note || '');
+  const [assignee, setAssignee] = React.useState(fix.assignee || '');
+  React.useEffect(() => { setNote(fix.note || ''); setAssignee(fix.assignee || ''); }, [fix.note, fix.assignee]);
   const s = fix.status;
   const sm = statusMeta(s); const sev = sevMeta(fix.severity); const cf = chanFill(fix.channel);
   const isDetected = s === 'detected';
@@ -795,7 +817,10 @@ function FixCard({ fix, title, preview, cost, revertable, events, busy, armed, c
             <h3 className="disp" style={{ margin: 0, fontSize: 20, fontWeight: 700, letterSpacing: '-0.015em', color: 'var(--text)' }}>{title}</h3>
             <p style={{ margin: '5px 0 0', fontSize: 13, lineHeight: 1.5, color: 'var(--text-2)', fontWeight: 500 }}>{fix.summary}</p>
           </div>
-          <span className="chip" style={{ background: cf.chBg, color: cf.chFg, borderColor: cf.chFg }}>{fix.channel === 'A' ? 'CH A · ON-SITE' : 'CH B · OFF-SITE'}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+            <span className="chip" style={{ background: cf.chBg, color: cf.chFg, borderColor: cf.chFg }}>{fix.channel === 'A' ? 'CH A · ON-SITE' : 'CH B · OFF-SITE'}</span>
+            {fix.assignee && <span className="chip" title="assignee">👤 {fix.assignee}</span>}
+          </div>
         </div>
 
         {(url || fix.aiBefore) && (
@@ -872,6 +897,12 @@ function FixCard({ fix, title, preview, cost, revertable, events, busy, armed, c
 
         {showHistory && (
           <div className="nb-sm" style={{ padding: '12px 14px', boxShadow: 'none', background: 'var(--surface-2)' }}>
+            <div className="xlbl" style={{ color: 'var(--primary)', marginBottom: 8 }}>Notes & assignee</div>
+            <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
+              <input className="xin" style={{ boxShadow: 'none', fontSize: 12 }} placeholder="Assignee (name or email)" value={assignee} onChange={(e) => setAssignee(e.target.value)} />
+              <textarea className="xin" style={{ boxShadow: 'none', fontSize: 12 }} rows={2} placeholder="Add a note for your team…" value={note} onChange={(e) => setNote(e.target.value)} />
+              <div><button className="gbtn" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => onSaveMeta({ note, assignee })}>Save note</button></div>
+            </div>
             <div className="xlbl" style={{ color: 'var(--primary)', marginBottom: 8 }}>Activity</div>
             {events && events.length > 0 ? (
               <div style={{ display: 'grid', gap: 6 }}>

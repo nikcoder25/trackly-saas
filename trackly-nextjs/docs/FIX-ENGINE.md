@@ -216,7 +216,10 @@ POST /api/brands/[id]/fixes/[fixId]/approve          human approval gate
 POST /api/brands/[id]/fixes/[fixId]/ship             write to live site
 POST /api/brands/[id]/fixes/[fixId]/recheck          verify + score
 POST   /api/brands/[id]/fixes/[fixId]/revert         undo a shipped fix (revertable modules)
+PATCH  /api/brands/[id]/fixes/[fixId]                set a fix's note / assignee
 GET    /api/brands/[id]/fixes/export                 download fixes as CSV (honours filters)
+GET    /api/brands/[id]/fixes/report                 client-ready PDF report
+POST   /api/brands/[id]/fixes/notify                 send a status summary to the brand webhook (Slack/Zapier)
 GET/PUT  /api/brands/[id]/automation                 scheduled scans + auto-pilot settings
 GET/POST /api/brands/[id]/connections                manage CMS/GSC/Connector creds
 GET  /api/brands/[id]/connections/gsc/start          begin GSC OAuth → returns {url}

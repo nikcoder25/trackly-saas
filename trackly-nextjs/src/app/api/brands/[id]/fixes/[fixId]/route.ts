@@ -9,7 +9,7 @@ import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { logger } from '@/lib/logger';
-import { getFix, getFixEvents } from '@/lib/fix-engine/schema';
+import { getFix, getFixEvents, updateFix } from '@/lib/fix-engine/schema';
 import { getModule } from '@/lib/fix-engine/registry';
 import type { PreviewBlock } from '@/lib/fix-engine/types';
 
@@ -53,5 +53,39 @@ export async function GET(
   } catch (e) {
     logger.error('fix_engine.detail_failed', { err: (e as Error).message });
     return Response.json({ error: 'Failed to load fix', message: (e as Error).message }, { status: 500 });
+  }
+}
+
+interface PatchBody { note?: unknown; assignee?: unknown }
+
+/** PATCH — set the fix's note / assignee (collaboration metadata). */
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string; fixId: string }> },
+): Promise<Response> {
+  const auth = await requireVerifiedAuth(request, pool);
+  if (auth instanceof Response) return auth;
+  const user = auth;
+  try {
+    const { id, fixId } = await params;
+    const access = await getBrandWithAccess(id, user.id);
+    if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
+    if (access.role === 'viewer') return Response.json({ error: 'Viewers cannot edit fixes.' }, { status: 403 });
+    const existing = await getFix(fixId, id);
+    if (!existing) return Response.json({ error: 'Fix not found' }, { status: 404 });
+
+    let body: PatchBody;
+    try { body = (await request.json()) as PatchBody; } catch { return Response.json({ error: 'Invalid JSON body' }, { status: 400 }); }
+    const patch: { note?: string | null; assignee?: string | null } = {};
+    if (body.note !== undefined) patch.note = typeof body.note === 'string' ? body.note.slice(0, 2000) : null;
+    if (body.assignee !== undefined) patch.assignee = typeof body.assignee === 'string' ? body.assignee.slice(0, 120) : null;
+    if (Object.keys(patch).length === 0) return Response.json({ error: 'Nothing to update' }, { status: 400 });
+
+    await updateFix(fixId, patch);
+    const fix = await getFix(fixId, id);
+    return Response.json({ fix }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (e) {
+    logger.error('fix_engine.patch_failed', { err: (e as Error).message });
+    return Response.json({ error: 'Failed to update fix', message: (e as Error).message }, { status: 500 });
   }
 }
