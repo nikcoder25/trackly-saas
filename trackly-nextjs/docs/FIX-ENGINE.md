@@ -425,11 +425,24 @@ download; the user drops it at their site root once and clicks **Re-check**,
 which fetches the live file and verifies it. The dashboard shows a **Download
 file** button on these fixes.
 
-So the only things that *require* the Connector plugin are the conveniences it
-automates: zero-touch delivery of those root files and the connector-staged
-*draft preview* of edits to already-published pages. Every fix can otherwise
-be applied with **no plugin** — on-page changes via REST, root files via the
-one-time download.
+**Edge delivery (Cloudflare / any reverse proxy) — automatic, no plugin:**
+For sites behind a CDN, the root files can also stay in sync automatically
+without our plugin. `GET /api/edge/serve?token=<connector-token>&file=llms.txt|robots.txt`
+returns the brand's latest ready content (gated by the Connector token, the
+same one the plugin uses; rate-limited). The dashboard generates a ready-to-
+paste **Cloudflare Worker** (token embedded) that serves `/llms.txt` and
+appends the AI directives to the origin's `/robots.txt`. Once routed, future
+fixes go live with zero further action — and it's CMS-agnostic.
+
+So the only thing that *requires* the Connector plugin is the connector-staged
+*draft preview* of edits to already-published pages. Everything else can be
+applied with **no plugin**:
+
+| Need | No-plugin path |
+|---|---|
+| On-page fixes (title/meta/body/schema/…) | WordPress REST (Application Passwords) |
+| `/llms.txt`, `/robots.txt` — automatic | Cloudflare Worker → `/api/edge/serve` |
+| `/llms.txt`, `/robots.txt` — manual | Download file → drop at site root → Re-check |
 
 ## One-click connect (handshake)
 

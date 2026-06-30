@@ -736,6 +736,37 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                 <button className="gbtn" onClick={() => copy(r.v, r.k)} style={{ padding: '7px 12px' }} aria-label={`Copy ${r.k}`}>⧉</button>
               </div>
             ))}
+            {(() => {
+              const edgeBase = pairing.pullUrl.replace(/\/api\/connector\/instructions\/?$/, '/api/edge/serve');
+              const worker = `// Cloudflare Worker — serves /llms.txt and appends AI rules to /robots.txt.\n`
+                + `// No WordPress plugin required. Route it to your zone, then it stays in sync.\n`
+                + `const T = ${JSON.stringify(pairing.token)};\n`
+                + `const BASE = ${JSON.stringify(edgeBase)};\n`
+                + `export default {\n`
+                + `  async fetch(req) {\n`
+                + `    const p = new URL(req.url).pathname;\n`
+                + `    if (p === '/llms.txt') return fetch(BASE + '?file=llms.txt&token=' + T);\n`
+                + `    if (p === '/robots.txt') {\n`
+                + `      const [base, add] = await Promise.all([\n`
+                + `        fetch(req).then(r => r.text()).catch(() => ''),\n`
+                + `        fetch(BASE + '?file=robots.txt&token=' + T).then(r => r.ok ? r.text() : '').catch(() => ''),\n`
+                + `      ]);\n`
+                + `      return new Response((base + '\\n' + add).trim() + '\\n', { headers: { 'content-type': 'text/plain' } });\n`
+                + `    }\n`
+                + `    return fetch(req);\n`
+                + `  }\n`
+                + `};\n`;
+              return (
+                <details style={{ borderTop: '2px dashed var(--warn)', paddingTop: 10 }}>
+                  <summary className="disp" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', cursor: 'pointer' }}>No WordPress plugin? Serve at the edge (Cloudflare) →</summary>
+                  <p style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500, margin: '8px 0' }}>Paste this into a Cloudflare Worker on your zone. It serves your latest <code>/llms.txt</code> and appends AI-crawler rules to <code>/robots.txt</code> — and stays in sync automatically as you ship new fixes.</p>
+                  <pre className="mono nb-sm" style={{ margin: 0, fontSize: 10.5, lineHeight: 1.5, padding: 12, background: 'var(--surface-3)', boxShadow: 'none', overflow: 'auto', maxHeight: 200, color: 'var(--text)', whiteSpace: 'pre' }}>{worker}</pre>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                    <button className="gbtn" onClick={() => copy(worker, 'Cloudflare Worker')} style={{ padding: '7px 12px' }}>Copy Worker</button>
+                  </div>
+                </details>
+              );
+            })()}
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button className="gbtn" onClick={() => setReveal(false)} style={{ padding: '7px 13px' }}>I&apos;ve stored these — hide</button>
             </div>

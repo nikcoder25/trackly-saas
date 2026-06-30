@@ -466,6 +466,34 @@ export async function listPendingConnectorInstructions(
   }));
 }
 
+/**
+ * Latest "ready" content for a site-root file module (llms-txt /
+ * robots-ai-access), for edge delivery (Cloudflare Worker / reverse proxy).
+ * Returns the most recently updated fix's content, or null if none is ready.
+ * `field` is where the module stores its text in `generated`.
+ */
+export async function getLatestRootFileContent(
+  brandId: string,
+  moduleKey: string,
+  field: string,
+): Promise<string | null> {
+  await ensureFixEngineSchema();
+  const res = await pool.query(
+    `SELECT generated, after_snapshot FROM fixes
+      WHERE brand_id = $1 AND module_key = $2
+        AND status IN ('generated','approved','shipped','verified')
+      ORDER BY updated_at DESC LIMIT 1`,
+    [brandId, moduleKey],
+  );
+  const row = res.rows[0];
+  if (!row) return null;
+  const gen = (row.generated as Record<string, unknown> | null) ?? {};
+  const after = (row.after_snapshot as Record<string, unknown> | null) ?? {};
+  const content = (typeof gen[field] === 'string' ? gen[field] : undefined)
+    ?? (typeof after.content === 'string' ? after.content : undefined);
+  return typeof content === 'string' && content.length ? content : null;
+}
+
 /** Look up the fix backing a connector instruction, scoped to the brand. */
 export async function getConnectorFix(fixId: string, brandId: string): Promise<FixRow | null> {
   return getFix(fixId, brandId);
