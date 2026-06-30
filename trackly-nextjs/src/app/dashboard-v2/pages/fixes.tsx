@@ -20,6 +20,7 @@ interface FixRow {
   id: string; moduleKey: string; channel: 'A' | 'B'; targetUrl: string | null;
   status: string; severity: string; summary: string;
   generated: any; scoreAfter: number | null; error: string | null; createdAt: string;
+  aiBefore?: { sov?: number; at?: string } | null; aiAfter?: { sov?: number; at?: string } | null;
 }
 interface PreviewBlock { kind: string; label: string; before?: string; after?: string; language?: string }
 interface Connection { id: string; provider: string; cmsType: string | null; siteUrl: string | null; status: string }
@@ -797,10 +798,20 @@ function FixCard({ fix, title, preview, cost, revertable, events, busy, armed, c
           <span className="chip" style={{ background: cf.chBg, color: cf.chFg, borderColor: cf.chFg }}>{fix.channel === 'A' ? 'CH A · ON-SITE' : 'CH B · OFF-SITE'}</span>
         </div>
 
-        {url && (
+        {(url || fix.aiBefore) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <a href={url} target="_blank" rel="noreferrer" className="chip" style={{ cursor: 'pointer', fontSize: 11 }}>🌐 {host} ↗</a>
+            {url && <a href={url} target="_blank" rel="noreferrer" className="chip" style={{ cursor: 'pointer', fontSize: 11 }}>🌐 {host} ↗</a>}
             {fix.scoreAfter != null && <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)' }}>SCORE {fix.scoreAfter}</span>}
+            {(isLive) && fix.aiBefore?.sov != null && (() => {
+              const before = fix.aiBefore!.sov!; const after = fix.aiAfter?.sov;
+              const delta = after != null ? after - before : null;
+              const tone = delta == null ? 'var(--text-2)' : delta > 0 ? 'var(--success)' : delta < 0 ? 'var(--danger)' : 'var(--text-2)';
+              return (
+                <span className="chip" title="Brand AI Share-of-Voice at ship vs latest run (directional)" style={{ color: tone, borderColor: tone }}>
+                  🤖 AI SOV {before}%{after != null ? ` → ${after}%` : ' → …'}{delta != null && delta !== 0 ? ` (${delta > 0 ? '+' : ''}${delta})` : ''}
+                </span>
+              );
+            })()}
           </div>
         )}
 

@@ -42,6 +42,17 @@ data for LLM citation, topical clusters, hub-and-sibling internal linking,
 E-E-A-T/author pages, structured data). Users load a preset in the editor
 and Save it as their brain.
 
+## AI-answer before/after (the loop)
+
+When a fix ships, the engine snapshots the brand's **Share-of-Voice**
+(SOV — the % of tracked AI prompts that mention the brand) into
+`fixes.ai_before`; on `recheck` it captures `ai_after`. The card shows the
+delta (`🤖 AI SOV 20% → 45% (+25)`). This reads the brand's existing run
+history (`src/lib/fix-engine/ai-visibility.ts`) — no extra provider calls.
+It is brand-level and only moves once the brand's tracking runs again
+after the fix, so it's surfaced as a **directional** signal, not per-fix
+attribution.
+
 ## SEO coverage map
 
 | SEO need | Module(s) |

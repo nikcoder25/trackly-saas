@@ -93,6 +93,9 @@ export async function ensureFixEngineSchema(): Promise<void> {
   // Channel-B delivery marker: set when the Connector plugin has pulled +
   // applied + acked the instruction, so the pull endpoint stops returning it.
   await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS connector_delivered_at TIMESTAMPTZ`);
+  // AI-visibility (SOV) snapshots captured at ship and at recheck.
+  await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS ai_before JSONB`);
+  await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS ai_after JSONB`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS fix_connections (
@@ -164,6 +167,8 @@ export function mapFixRow(r: DbRow): FixRow {
     shipResult: (r.ship_result as Record<string, unknown> | null) ?? null,
     scoreBefore: r.score_before == null ? null : Number(r.score_before),
     scoreAfter: r.score_after == null ? null : Number(r.score_after),
+    aiBefore: (r.ai_before as Record<string, unknown> | null) ?? null,
+    aiAfter: (r.ai_after as Record<string, unknown> | null) ?? null,
     error: (r.error as string | null) ?? null,
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
@@ -337,6 +342,8 @@ export async function updateFix(
     shipResult?: Record<string, unknown> | null;
     scoreBefore?: number | null;
     scoreAfter?: number | null;
+    aiBefore?: Record<string, unknown> | null;
+    aiAfter?: Record<string, unknown> | null;
     error?: string | null;
   },
 ): Promise<void> {
@@ -349,6 +356,8 @@ export async function updateFix(
   if (patch.shipResult !== undefined) { sets.push(`ship_result = $${i++}`); values.push(patch.shipResult ? JSON.stringify(patch.shipResult) : null); }
   if (patch.scoreBefore !== undefined) { sets.push(`score_before = $${i++}`); values.push(patch.scoreBefore); }
   if (patch.scoreAfter !== undefined) { sets.push(`score_after = $${i++}`); values.push(patch.scoreAfter); }
+  if (patch.aiBefore !== undefined) { sets.push(`ai_before = $${i++}`); values.push(patch.aiBefore ? JSON.stringify(patch.aiBefore) : null); }
+  if (patch.aiAfter !== undefined) { sets.push(`ai_after = $${i++}`); values.push(patch.aiAfter ? JSON.stringify(patch.aiAfter) : null); }
   if (patch.error !== undefined) { sets.push(`error = $${i++}`); values.push(patch.error); }
   await pool.query(`UPDATE fixes SET ${sets.join(', ')} WHERE id = $1`, values);
 }

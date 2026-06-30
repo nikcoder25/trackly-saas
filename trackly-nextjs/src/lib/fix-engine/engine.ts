@@ -33,6 +33,7 @@ import {
   claimFixTransition,
   logFixEvent,
 } from './schema';
+import { getBrandAiVisibility } from './ai-visibility';
 import type { DetectedIssue, FixBrand, FixContext, FixRow } from './types';
 
 // Generation cost lives in the registry (single source of truth) and is
@@ -242,10 +243,14 @@ export async function shipFix(fixId: string, brandId: string, userId: string | n
     const issue = issueFromRow(fix);
     const result = await mod.ship(issue, { generated: fix.generated }, ctx);
     if (result.ok) {
+      // Snapshot the brand's current AI visibility (SOV) so we can show
+      // the before/after once the brand's tracking runs again.
+      const aiBefore = await getBrandAiVisibility(brandId);
       await updateFix(fix.id, {
         status: 'shipped',
         shipResult: result.detail,
         afterSnapshot: result.after ?? null,
+        aiBefore: aiBefore ? { ...aiBefore } : null,
         error: null,
       });
       await logFixEvent(fix.id, brandId, userId, 'shipped', { channel: mod.channel, detail: result.detail });
@@ -278,9 +283,11 @@ export async function recheckFix(fixId: string, brandId: string, userId: string 
 
   const issue = issueFromRow(fix);
   const verdict = await mod.recheck(issue, { generated: fix.generated }, ctx);
+  const aiAfter = await getBrandAiVisibility(brandId);
   await updateFix(fix.id, {
     status: verdict.verified ? 'verified' : 'shipped',
     scoreAfter: verdict.scoreAfter ?? null,
+    aiAfter: aiAfter ? { ...aiAfter } : null,
   });
   await logFixEvent(fix.id, brandId, userId, 'rechecked', { verified: verdict.verified, score: verdict.scoreAfter, note: verdict.note });
   return (await getFix(fixId, brandId))!;
