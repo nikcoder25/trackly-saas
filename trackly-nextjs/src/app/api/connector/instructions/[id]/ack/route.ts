@@ -38,22 +38,42 @@ export async function POST(
   if (!conn) return NextResponse.json({ error: 'Invalid or revoked token' }, { status: 401 });
 
   const { id: fixId } = await params;
-  // The fix must belong to the token's brand and be a queued Channel-B item.
+  // The fix must belong to the token's brand and be a Connector-delivered
+  // item: a classic Channel-B fix, or a staged (ship-as-draft) page edit.
   const fix = await getConnectorFix(fixId, conn.brandId);
-  if (!fix || fix.channel !== 'B') {
+  if (!fix || (fix.channel !== 'B' && fix.status !== 'staged')) {
     return NextResponse.json({ error: 'Instruction not found' }, { status: 404 });
   }
+  const op = String((fix.shipResult as Record<string, unknown> | null)?.op ?? 'write_file');
 
   let body: AckBody = {};
   try { body = (await request.json()) as AckBody; } catch { /* tolerate empty body */ }
   const ok = body.ok !== false; // default to success unless explicitly false
+  const detail = (body.detail && typeof body.detail === 'object') ? (body.detail as Record<string, unknown>) : {};
 
   try {
     if (ok) {
       await markConnectorDelivered(fixId);
-      await logFixEvent(fixId, conn.brandId, conn.userId, 'connector.applied', {
-        detail: (body.detail && typeof body.detail === 'object') ? body.detail : undefined,
-      });
+
+      // stage_content: the draft revision exists but is NOT live. Capture
+      // the plugin-supplied preview URL and keep the fix 'staged' (the user
+      // promotes it via publishStagedFix). No recheck — nothing is live yet.
+      if (op === 'stage_content') {
+        const previewUrl = typeof detail.previewUrl === 'string' ? detail.previewUrl
+          : typeof detail.preview_url === 'string' ? detail.preview_url : null;
+        await updateFix(fixId, { previewUrl, error: null });
+        await logFixEvent(fixId, conn.brandId, conn.userId, 'connector.staged', { previewUrl });
+        return NextResponse.json({ ok: true, staged: true }, { headers: { 'Cache-Control': 'no-store' } });
+      }
+
+      // publish_content: the staged draft was promoted to live → ship it.
+      if (op === 'publish_content') {
+        await updateFix(fixId, { status: 'shipped', error: null });
+        await logFixEvent(fixId, conn.brandId, conn.userId, 'connector.published', { detail });
+      } else {
+        await logFixEvent(fixId, conn.brandId, conn.userId, 'connector.applied', { detail });
+      }
+
       // Auto-verify: confirm the change is actually live (re-fetch the
       // file/page) without the user lifting a finger. Non-blocking so the
       // connector's ack returns immediately.

@@ -30,6 +30,8 @@ export type FixTrigger = 'crawl' | 'gsc' | 'manual';
  *   preview_ready alias used by the UI once a preview block is attached
  *   approved      a human approved the draft; eligible to ship
  *   shipping      ship() is running
+ *   staged        handed to the Connector as a DRAFT revision (not live);
+ *                 a preview URL is available and the user can Publish it
  *   shipped       written to the live site (Channel A) or handed to the
  *                 Connector (Channel B)
  *   verified      recheck() confirmed the change is live + scored
@@ -43,6 +45,7 @@ export type FixStatus =
   | 'preview_ready'
   | 'approved'
   | 'shipping'
+  | 'staged'
   | 'shipped'
   | 'verified'
   | 'failed'
@@ -111,6 +114,33 @@ export interface ShipResult {
   error?: string;
 }
 
+/**
+ * A normalised, CMS-agnostic description of a page-content change, used by
+ * the staged-preview path: instead of writing the change live, the engine
+ * hands this patch to the Connector, which applies it as a DRAFT revision
+ * the user previews before publishing. A module that can express its change
+ * as a ContentPatch implements `contentPatch()`; modules that can't (e.g.
+ * site-root file writes) simply omit it and can only ship live.
+ */
+export interface ContentPatch {
+  /** Page to stage. Required — staging targets an existing published page. */
+  url: string;
+  /** New SEO/post title. */
+  title?: string;
+  /** New meta description. */
+  metaDescription?: string;
+  /** New canonical URL. */
+  canonical?: string;
+  /** Make the page indexable (clear noindex). */
+  indexable?: boolean;
+  /** Replace the entire post body. */
+  bodyHtml?: string;
+  /** Append to the post body (schema blocks, FAQ, TL;DR). */
+  bodyAppend?: string;
+  /** Exact in-place replacement within the body (first occurrence). */
+  bodyReplace?: { find: string; replace: string };
+}
+
 /** Result of recheck(). */
 export interface RecheckVerdict {
   verified: boolean;
@@ -133,6 +163,12 @@ export interface FixContext {
   userKeysLegacy: Record<string, string | null | undefined>;
   /** Abort signal for long crawls/LLM calls. */
   signal?: AbortSignal;
+  /**
+   * How the current operation should write. 'live' (default) writes
+   * straight to the production page; 'draft' routes the change through the
+   * Connector as a previewable draft revision (see ContentPatch / stageFix).
+   */
+  shipMode?: 'live' | 'draft';
 }
 
 /** The contract every module implements. */
@@ -187,6 +223,13 @@ export interface FixModule {
     draft: GeneratedDraft,
     ctx: FixContext,
   ): Promise<ShipResult>;
+  /**
+   * Optional: express this fix's change as a normalised ContentPatch so it
+   * can be staged as a Connector draft revision (ship-as-draft / preview).
+   * Return null when the change can't be staged (e.g. the target passage
+   * isn't in the stored body). Modules that omit this can only ship live.
+   */
+  contentPatch?(issue: DetectedIssue, draft: GeneratedDraft): ContentPatch | null;
 }
 
 /** A persisted fix row, as read back from the DB. */
@@ -213,6 +256,10 @@ export interface FixRow {
   aiAfter: Record<string, unknown> | null;
   note: string | null;
   assignee: string | null;
+  /** 'live' (write straight to production) or 'draft' (staged via Connector). */
+  shipMode: 'live' | 'draft';
+  /** Connector-supplied preview URL for a staged (draft) change, if any. */
+  previewUrl: string | null;
   error: string | null;
   createdAt: string;
   updatedAt: string;

@@ -13,6 +13,7 @@ import { generateJson } from '../generate';
 import { TITLE_SYSTEM, titleUserPrompt } from '../prompts';
 import { resolveCmsForBrand } from './_shared';
 import type {
+  ContentPatch,
   DetectedIssue,
   FixContext,
   FixModule,
@@ -118,6 +119,12 @@ export const titleRewriteModule: FixModule = {
     } catch (e) {
       return { verified: false, scoreAfter: null, note: (e as Error).message };
     }
+  },
+
+  // Stageable: the title change maps cleanly to a draft-revision patch.
+  contentPatch(issue: DetectedIssue, draft: GeneratedDraft): ContentPatch | null {
+    if (!issue.targetUrl) return null;
+    return { url: issue.targetUrl, title: String(draft.generated.title) };
   },
 
   // Undo: restore the title that was live before we shipped.

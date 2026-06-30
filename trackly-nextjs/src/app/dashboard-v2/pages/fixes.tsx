@@ -22,6 +22,7 @@ interface FixRow {
   generated: any; scoreAfter: number | null; error: string | null; createdAt: string;
   aiBefore?: { sov?: number; at?: string } | null; aiAfter?: { sov?: number; at?: string } | null;
   note?: string | null; assignee?: string | null;
+  shipMode?: 'live' | 'draft'; previewUrl?: string | null;
 }
 interface PreviewBlock { kind: string; label: string; before?: string; after?: string; language?: string }
 interface Connection { id: string; provider: string; cmsType: string | null; siteUrl: string | null; status: string; lastSeenAt?: string | null }
@@ -70,6 +71,7 @@ function statusMeta(s: string): { label: string; color: string; bg: string } {
     preview_ready: { label: 'IN REVIEW', color: 'var(--primary)', bg: 'var(--primary-50)' },
     approved: { label: 'APPROVED', color: 'var(--info)', bg: 'var(--info-50)' },
     shipping: { label: 'SHIPPING', color: 'var(--info)', bg: 'var(--info-50)' },
+    staged: { label: 'STAGED DRAFT', color: 'var(--info)', bg: 'var(--info-50)' },
     shipped: { label: 'SHIPPED', color: 'var(--success)', bg: 'var(--success-50)' },
     verified: { label: 'VERIFIED', color: 'var(--success)', bg: 'var(--success-50)' },
     failed: { label: 'ATTENTION', color: 'var(--danger)', bg: 'var(--danger-50)' },
@@ -90,7 +92,7 @@ const SEV_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low:
 function bucketOf(s: string): string {
   if (s === 'detected' || s === 'generating') return 'detected';
   if (s === 'generated' || s === 'preview_ready') return 'review';
-  if (s === 'approved' || s === 'shipping') return 'approved';
+  if (s === 'approved' || s === 'shipping' || s === 'staged') return 'approved';
   if (s === 'shipped' || s === 'verified') return 'shipped';
   if (s === 'failed' || s === 'reverted') return 'attention';
   return 'detected';
@@ -113,6 +115,9 @@ const MODULE_GROUP: Record<string, string> = {
   'noindex-removal': 'Technical & rankings', 'og-cards': 'Technical & rankings',
 };
 const GROUP_ORDER = ['Structured data & schema', 'AI crawler access', 'Content optimization', 'Authority & citations', 'Accuracy & corrections', 'Technical & rankings', 'Other'];
+// Modules whose change can be staged as a Connector draft revision
+// (mirrors the modules that implement contentPatch() server-side).
+const STAGEABLE_MODULES = new Set(['title-rewrite', 'meta-rewrite', 'geo-page-rewrite', 'faq-schema', 'canonical-fix', 'passage-rewrite', 'citable-passages']);
 
 export function PageFixes() {
   const { brand, loading: brandLoading } = useBrandData({ fullData: true });
@@ -190,7 +195,11 @@ export function PageFixes() {
   const gscConn = connections.find((c) => c.provider === 'gsc' && c.status === 'active');
   const cmsConn = connections.find((c) => c.provider === 'cms' && c.status === 'active');
   const connectorConn = connections.find((c) => c.provider === 'connector' && c.status === 'active');
+  const linearConn = connections.find((c) => c.provider === 'linear' && c.status === 'active');
+  const jiraConn = connections.find((c) => c.provider === 'jira' && c.status === 'active');
   const canShip = !!cmsConn || !!connectorConn;
+  const hasConnector = !!connectorConn;
+  const hasTracker = !!linearConn || !!jiraConn;
 
   // ── actions (real API) ──
   const pollBatch = React.useCallback(async (id: string, batchId: string) => {
@@ -218,7 +227,7 @@ export function PageFixes() {
     } catch (e) { setError((e as Error).message); } finally { setScanning(false); }
   };
 
-  const act = async (fixId: string, action: 'generate' | 'approve' | 'ship' | 'recheck' | 'revert') => {
+  const act = async (fixId: string, action: 'generate' | 'approve' | 'ship' | 'stage' | 'publish' | 'recheck' | 'revert' | 'ticket') => {
     if (!brandId) return;
     setBusy((b) => ({ ...b, [fixId]: true }));
     try {
@@ -227,8 +236,11 @@ export function PageFixes() {
       if (action === 'generate') { await loadPreview(fixId); flash('Fix ready to review'); }
       if (action === 'approve') flash('Approved — ready to ship');
       if (action === 'ship') { if (d.ok === false) setError(d.error || 'Ship failed'); else flash('Shipped to live site'); }
+      if (action === 'stage') { if (d.ok === false) setError(d.error || 'Staging failed'); else flash('Staged as a draft — the Connector will create a preview shortly'); }
+      if (action === 'publish') flash('Publishing the staged draft…');
       if (action === 'recheck') flash('Re-check complete');
       if (action === 'revert') { if (d.ok === false) setError(d.error || 'Revert failed'); else flash('Reverted'); }
+      if (action === 'ticket') flash(d.url ? `Ticket created in ${d.channel}` : `Sent to ${d.channel}`);
     } catch (e) { setError((e as Error).message); } finally { setBusy((b) => ({ ...b, [fixId]: false })); }
   };
   const shipConfirm = async (fixId: string) => {
@@ -307,6 +319,11 @@ export function PageFixes() {
   };
   const pairConnector = async () => { if (!brandId) return; try { const d = await api(`/api/brands/${brandId}/connections/connector/pair`, { method: 'POST' }); setPairing({ token: d.token, hmacSecret: d.hmacSecret, pullUrl: d.pullUrl }); await load(brandId); flash('Connector paired'); } catch (e) { setError((e as Error).message); } };
   const revokeConnector = async () => { if (!brandId) return; try { await api(`/api/brands/${brandId}/connections/connector/revoke`, { method: 'POST' }); setPairing(null); await load(brandId); flash('Connector token revoked'); } catch (e) { setError((e as Error).message); } };
+  const connectTracker = async (provider: 'linear' | 'jira', creds: Record<string, string>) => {
+    if (!brandId) return; setError(null);
+    try { await api(`/api/brands/${brandId}/connections`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider, creds }) }); flash(`${provider === 'linear' ? 'Linear' : 'Jira'} connected`); await load(brandId); }
+    catch (e) { setError((e as Error).message); }
+  };
   const createTargeted = async (form: { url: string; passage: string; instruction: string }) => {
     if (!brandId) return; setError(null);
     try { const d = await api(`/api/brands/${brandId}/fixes/targeted`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) }); if (d.fix?.id) { try { await act(d.fix.id, 'generate'); } catch { /* surfaced */ } } await load(brandId); flash('Passage fix created'); }
@@ -440,6 +457,7 @@ export function PageFixes() {
       gsc={!!gscConn} gscSite={gscConn?.siteUrl ?? null}
       connector={!!connectorConn} connectorLastSeen={connectorConn?.lastSeenAt ?? null} pairing={pairing}
       supportedCms={supportedCms} defaultSite={(brand as any)?.website || ''} disabled={!enabled}
+      linear={!!linearConn} jira={!!jiraConn} onConnectTracker={connectTracker}
       onConnectCms={connectCms} onConnectGsc={connectGsc} onPairConnector={pairConnector} onRevokeConnector={revokeConnector} onCopy={(label) => flash(`${label} copied`)}
     />
 
@@ -555,6 +573,8 @@ export function PageFixes() {
             onShipConfirm={() => shipConfirm(f.id)} onRecheck={() => act(f.id, 'recheck')} onRetry={() => act(f.id, 'generate')}
             onRevert={() => act(f.id, 'revert')} onLoadHistory={() => loadPreview(f.id)}
             onSaveMeta={(patch) => saveMeta(f.id, patch)}
+            hasConnector={hasConnector} hasTracker={hasTracker}
+            onStage={() => act(f.id, 'stage')} onPublish={() => act(f.id, 'publish')} onTicket={() => act(f.id, 'ticket')}
           />
         );
         return groupByPage ? (
@@ -581,10 +601,12 @@ export function PageFixes() {
 }
 
 // ── Connections ──
-function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, onConnectCms, onConnectGsc, onPairConnector, onRevokeConnector, onCopy }: {
+function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, linear, jira, onConnectTracker, onConnectCms, onConnectGsc, onPairConnector, onRevokeConnector, onCopy }: {
   cms: boolean; cmsMeta: string; gsc: boolean; gscSite: string | null; connector: boolean; connectorLastSeen: string | null;
   pairing: { token: string; hmacSecret: string; pullUrl: string } | null;
   supportedCms: string[]; defaultSite: string; disabled: boolean;
+  linear: boolean; jira: boolean;
+  onConnectTracker: (provider: 'linear' | 'jira', creds: Record<string, string>) => void;
   onConnectCms: (f: { cmsType: string; siteUrl: string; username: string; appPassword: string }) => void;
   onConnectGsc: () => void; onPairConnector: () => void; onRevokeConnector: () => void; onCopy: (label: string) => void;
 }) {
@@ -594,6 +616,9 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
   const [siteUrl, setSiteUrl] = React.useState(defaultSite);
   const [username, setUsername] = React.useState('');
   const [appPassword, setAppPassword] = React.useState('');
+  const [tracker, setTracker] = React.useState<'' | 'linear' | 'jira'>('');
+  const [tk, setTk] = React.useState<Record<string, string>>({});
+  const tkSet = (k: string, v: string) => setTk((p) => ({ ...p, [k]: v }));
   React.useEffect(() => { if (defaultSite && !siteUrl) setSiteUrl(defaultSite); }, [defaultSite, siteUrl]);
   const connectedCount = (cms ? 1 : 0) + (gsc ? 1 : 0) + (connector ? 1 : 0);
   const copy = (text: string, label: string) => { try { navigator.clipboard?.writeText(text); } catch { /* ignore */ } onCopy(label); };
@@ -679,6 +704,49 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
             ))}
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button className="gbtn" onClick={() => setReveal(false)} style={{ padding: '7px 13px' }}>I&apos;ve stored these — hide</button>
+            </div>
+          </div>
+        )}
+
+        {/* Issue trackers — turn fixes into native Linear/Jira tickets */}
+        <Row badge="↗" title="Linear" meta={linear ? 'Connected · hand fixes off as Linear issues' : 'Turn a fix into a Linear issue (API key)'}>
+          {linear ? okChip('CONNECTED') : offChip}
+          <button className={linear ? 'tbtn' : 'xbtn'} onClick={() => setTracker((t) => (t === 'linear' ? '' : 'linear'))} disabled={disabled}>{linear ? 'Reconnect' : 'CONNECT'}</button>
+        </Row>
+        {tracker === 'linear' && (
+          <div className="nb-sm" style={{ padding: 18, margin: '6px 0 14px', background: 'var(--surface-2)', display: 'grid', gap: 14 }}>
+            <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>API key</div><input className="xin" type="password" placeholder="lin_api_…" onChange={(e) => tkSet('apiKey', e.target.value)} /></div>
+            <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Team ID</div><input className="xin" placeholder="Linear team UUID" onChange={(e) => tkSet('teamId', e.target.value)} /></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Personal API key from Linear → Settings → API. Verified, then encrypted.</span>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="gbtn" onClick={() => setTracker('')}>Cancel</button>
+                <button className="xbtn" onClick={() => onConnectTracker('linear', tk)} disabled={!tk.apiKey || !tk.teamId}>CONNECT LINEAR</button>
+              </div>
+            </div>
+          </div>
+        )}
+        <Row badge="↗" title="Jira" meta={jira ? 'Connected · hand fixes off as Jira issues' : 'Turn a fix into a Jira issue (API token)'}>
+          {jira ? okChip('CONNECTED') : offChip}
+          <button className={jira ? 'tbtn' : 'xbtn'} onClick={() => setTracker((t) => (t === 'jira' ? '' : 'jira'))} disabled={disabled}>{jira ? 'Reconnect' : 'CONNECT'}</button>
+        </Row>
+        {tracker === 'jira' && (
+          <div className="nb-sm" style={{ padding: 18, margin: '6px 0 14px', background: 'var(--surface-2)', display: 'grid', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Account email</div><input className="xin" placeholder="you@acme.com" onChange={(e) => tkSet('email', e.target.value)} /></div>
+              <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Site domain</div><input className="xin" placeholder="acme (→ acme.atlassian.net)" onChange={(e) => tkSet('domain', e.target.value)} /></div>
+            </div>
+            <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>API token</div><input className="xin" type="password" placeholder="Atlassian API token" onChange={(e) => tkSet('apiToken', e.target.value)} /></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Project key</div><input className="xin" placeholder="SEO" onChange={(e) => tkSet('projectKey', e.target.value)} /></div>
+              <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Issue type</div><input className="xin" placeholder="Task" onChange={(e) => tkSet('issueType', e.target.value)} /></div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>API token from id.atlassian.com → Security. Verified, then encrypted.</span>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="gbtn" onClick={() => setTracker('')}>Cancel</button>
+                <button className="xbtn" onClick={() => onConnectTracker('jira', tk)} disabled={!tk.email || !tk.apiToken || !tk.domain || !tk.projectKey}>CONNECT JIRA</button>
+              </div>
             </div>
           </div>
         )}
@@ -795,12 +863,13 @@ function PassageSection({ disabled, onSubmit }: { disabled: boolean; onSubmit: (
 }
 
 // ── Fix card ──
-function FixCard({ fix, title, preview, cost, revertable, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRevert, onLoadHistory, onSaveMeta }: {
+function FixCard({ fix, title, preview, cost, revertable, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket }: {
   fix: FixRow; title: string; preview: PreviewBlock | null | undefined; cost: number; revertable: boolean;
   events: FixEvent[] | undefined; busy: boolean; armed: boolean; canShip: boolean; picked: boolean;
   onTogglePick: () => void; onGenerate: () => void; onApprove: () => void; onArm: () => void; onCancelArm: () => void;
   onShipConfirm: () => void; onRecheck: () => void; onRetry: () => void; onRevert: () => void; onLoadHistory: () => void;
   onSaveMeta: (patch: { note?: string; assignee?: string }) => void;
+  hasConnector: boolean; hasTracker: boolean; onStage: () => void; onPublish: () => void; onTicket: () => void;
 }) {
   const [showHistory, setShowHistory] = React.useState(false);
   const [note, setNote] = React.useState(fix.note || '');
@@ -811,8 +880,12 @@ function FixCard({ fix, title, preview, cost, revertable, events, busy, armed, c
   const isDetected = s === 'detected';
   const isReview = s === 'generated' || s === 'preview_ready';
   const isApproved = s === 'approved';
+  const isStaged = s === 'staged';
   const isLive = s === 'shipped' || s === 'verified';
   const isAttention = s === 'failed' || s === 'reverted';
+  // Staging is offered only for fixes whose module can express a draft patch
+  // (page-content edits) and only once the Connector is paired.
+  const stageable = STAGEABLE_MODULES.has(fix.moduleKey);
   const url = fix.targetUrl || '';
   const host = url.replace(/^https?:\/\//, '');
 
@@ -888,7 +961,22 @@ function FixCard({ fix, title, preview, cost, revertable, events, busy, armed, c
             <button className="gbtn" onClick={onGenerate} disabled={busy}>↻ Regenerate</button>
             {url && <a className="tbtn" href={url} target="_blank" rel="noreferrer">View source</a>}
           </>)}
-          {isApproved && !armed && (<><button className="xbtn" onClick={onArm} disabled={busy} style={{ background: 'var(--success)' }}>⬢ SHIP TO SITE</button><span className="xlbl" style={{ color: 'var(--text-2)' }}>approved · writes live</span></>)}
+          {isApproved && !armed && (<>
+            <button className="xbtn" onClick={onArm} disabled={busy} style={{ background: 'var(--success)' }}>⬢ SHIP TO SITE</button>
+            {stageable && (
+              hasConnector
+                ? <button className="gbtn" onClick={onStage} disabled={busy} style={{ padding: '7px 13px' }} title="Stage as a draft revision on your site and preview it before going live">⎘ Ship as draft</button>
+                : <span className="xlbl" style={{ color: 'var(--text-3)' }}>pair the Connector to preview as a draft</span>
+            )}
+            <span className="xlbl" style={{ color: 'var(--text-2)' }}>approved · writes live</span>
+          </>)}
+          {isStaged && (<>
+            <span className="chip" style={{ background: 'var(--info-50)', color: 'var(--info)', borderColor: 'var(--info)', fontSize: 11, padding: '6px 12px' }}>⎘ STAGED DRAFT</span>
+            {fix.previewUrl
+              ? <a className="xbtn" href={fix.previewUrl} target="_blank" rel="noreferrer" style={{ background: 'var(--info)' }}>↗ PREVIEW</a>
+              : <span className="xlbl" style={{ color: 'var(--text-2)' }}>waiting for the Connector to build the preview…</span>}
+            <button className="xbtn" onClick={onPublish} disabled={busy} style={{ background: 'var(--success)' }}>⬢ PUBLISH LIVE</button>
+          </>)}
           {isApproved && armed && (
             <div className="nb-sm" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', width: '100%', padding: '13px 15px', background: 'var(--warn-50)', borderColor: 'var(--warn)', boxShadow: 'none' }}>
               <span className="disp" style={{ fontSize: 20 }}>⚠</span>
@@ -906,6 +994,7 @@ function FixCard({ fix, title, preview, cost, revertable, events, busy, armed, c
           {s === 'reverted' && <span className="chip" style={{ background: 'var(--warn-50)', color: 'var(--warn)', borderColor: 'var(--warn)', fontSize: 11, padding: '6px 12px' }}>⤺ REVERTED</span>}
           {isAttention && (<button className="xbtn" onClick={onRetry} disabled={busy} style={{ background: 'var(--danger)' }}>↻ RETRY</button>)}
           <span style={{ flex: 1 }} />
+          <button className="tbtn" onClick={onTicket} disabled={busy} title={hasTracker ? 'Create a Linear/Jira issue for this fix' : 'Connect Linear or Jira (or a webhook) to hand this off'}>⊕ {hasTracker ? 'Ticket' : 'Hand off'}</button>
           <button className="tbtn" onClick={() => { if (!showHistory && !events) onLoadHistory(); setShowHistory((h) => !h); }}>{showHistory ? 'Hide history' : 'History'}</button>
         </div>
 

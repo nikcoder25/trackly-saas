@@ -16,6 +16,7 @@ import { getBrandWithAccess } from '@/lib/helpers';
 import { logger } from '@/lib/logger';
 import { listConnections, upsertConnection } from '@/lib/fix-engine/connections';
 import { getCmsAdapter, listSupportedCms } from '@/lib/fix-engine/cms';
+import { getTracker } from '@/lib/fix-engine/trackers';
 
 export async function GET(
   request: Request,
@@ -66,8 +67,8 @@ export async function POST(
     try { body = (await request.json()) as ConnBody; } catch { return Response.json({ error: 'Invalid JSON body' }, { status: 400 }); }
 
     const provider = typeof body.provider === 'string' ? body.provider : '';
-    if (!['cms', 'gsc', 'connector'].includes(provider)) {
-      return Response.json({ error: 'provider must be one of: cms, gsc, connector' }, { status: 400 });
+    if (!['cms', 'gsc', 'connector', 'linear', 'jira'].includes(provider)) {
+      return Response.json({ error: 'provider must be one of: cms, gsc, connector, linear, jira' }, { status: 400 });
     }
     const creds = (body.creds && typeof body.creds === 'object') ? (body.creds as Record<string, unknown>) : {};
     const siteUrl = typeof body.siteUrl === 'string' ? body.siteUrl.trim() : (access.brand.website as string | undefined) ?? null;
@@ -88,6 +89,21 @@ export async function POST(
       const conn = await upsertConnection({
         userId: access.brand.userId || user.id, brandId: id, provider: 'cms',
         cmsType, siteUrl, creds, meta,
+      });
+      return Response.json({ connection: conn, verified: true }, { status: 201 });
+    }
+
+    if (provider === 'linear' || provider === 'jira') {
+      // Verify the API token before storing so we never persist creds that
+      // don't work (and so the connect button gives instant feedback).
+      const tracker = getTracker(provider)!;
+      const check = await tracker.verify(creds);
+      if (!check.ok) {
+        return Response.json({ error: `${provider} verification failed: ${check.detail ?? 'unknown error'}` }, { status: 400 });
+      }
+      const conn = await upsertConnection({
+        userId: access.brand.userId || user.id, brandId: id, provider,
+        siteUrl: null, creds, meta,
       });
       return Response.json({ connection: conn, verified: true }, { status: 201 });
     }

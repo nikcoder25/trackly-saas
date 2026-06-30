@@ -16,7 +16,7 @@ import { generateJson } from '../generate';
 import { PASSAGE_REWRITE_SYSTEM, passageRewriteUserPrompt } from '../prompts';
 import { resolveCmsForBrand } from './_shared';
 import type {
-  DetectedIssue, FixContext, FixModule, GeneratedDraft, PreviewBlock, RecheckVerdict, ShipResult,
+  ContentPatch, DetectedIssue, FixContext, FixModule, GeneratedDraft, PreviewBlock, RecheckVerdict, ShipResult,
 } from '../types';
 
 export const passageRewriteModule: FixModule = {
@@ -63,6 +63,13 @@ export const passageRewriteModule: FixModule = {
       return { ok: false, detail: result.detail ?? {}, error: 'Passage not found in the page body (it may be theme-rendered). Edit the source paragraph directly.' };
     }
     return { ok: result.ok, detail: result.detail ?? {}, after: { rewritten: draft.generated.rewritten }, error: result.ok ? undefined : 'CMS write failed' };
+  },
+
+  contentPatch(issue: DetectedIssue, draft: GeneratedDraft): ContentPatch | null {
+    if (!issue.targetUrl) return null;
+    const d = issue.detected as { passage?: string };
+    if (!d.passage) return null;
+    return { url: issue.targetUrl, bodyReplace: { find: d.passage, replace: String(draft.generated.rewritten) } };
   },
 
   async recheck(issue: DetectedIssue, draft: GeneratedDraft, ctx: FixContext): Promise<RecheckVerdict> {

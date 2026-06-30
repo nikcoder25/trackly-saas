@@ -31,8 +31,10 @@ import {
   getFix,
   updateFix,
   claimFixTransition,
+  resetConnectorDelivery,
   logFixEvent,
 } from './schema';
+import { getConnection } from './connections';
 import { getBrandAiVisibility } from './ai-visibility';
 import type { DetectedIssue, FixBrand, FixContext, FixRow } from './types';
 
@@ -264,6 +266,79 @@ export async function shipFix(fixId: string, brandId: string, userId: string | n
     await logFixEvent(fix.id, brandId, userId, 'ship.failed', { error: (e as Error).message });
     throw e;
   }
+}
+
+// ── stage (ship-as-draft via the Connector) ──────────────────────
+
+/**
+ * Stage an approved fix as a DRAFT revision instead of writing it live.
+ * Requires (a) the module to express its change as a ContentPatch and
+ * (b) an active Connector — the plugin creates a draft revision and returns
+ * a preview URL (captured on ack). The fix moves to 'staged'; the user
+ * later calls publishStagedFix to promote it live.
+ */
+export async function stageFix(fixId: string, brandId: string, userId: string | null): Promise<FixRow> {
+  const fix = await getFix(fixId, brandId);
+  if (!fix) throw new Error('Fix not found');
+  const mod = getModule(fix.moduleKey);
+  if (!mod) throw new Error(`Unknown module: ${fix.moduleKey}`);
+  if (!fix.generated) throw new Error('Fix has no generated content to stage');
+  if (typeof mod.contentPatch !== 'function') {
+    throw new Error('This fix type can’t be staged as a draft — ship it live instead.');
+  }
+  if (!['approved', 'failed'].includes(fix.status)) {
+    throw new Error(`Cannot stage a fix in status '${fix.status}'`);
+  }
+  const conn = await getConnection(brandId, 'connector');
+  if (!conn || conn.status !== 'active') {
+    throw new Error('Staging needs the Connector plugin. Pair the Connector (Connections), or ship live.');
+  }
+
+  const issue = issueFromRow(fix);
+  const patch = mod.contentPatch(issue, { generated: fix.generated });
+  if (!patch || !patch.url) {
+    throw new Error('This change can’t be staged (the target isn’t an editable page body). Ship it live or edit manually.');
+  }
+
+  if (!(await claimFixTransition(fix.id, fix.status, 'shipping'))) {
+    return (await getFix(fixId, brandId))!;
+  }
+  await updateFix(fix.id, {
+    status: 'staged',
+    shipMode: 'draft',
+    shipResult: { op: 'stage_content', channel: 'draft', delivery: 'connector_pull' },
+    afterSnapshot: { url: patch.url, patch },
+    previewUrl: null,
+    error: null,
+  });
+  await resetConnectorDelivery(fix.id); // ensure the Connector pulls it
+  await logFixEvent(fix.id, brandId, userId, 'staged', { url: patch.url });
+  return (await getFix(fixId, brandId))!;
+}
+
+/**
+ * Promote a staged draft to live. Re-queues the fix for the Connector with
+ * the 'publish_content' op; on ack the fix flips to 'shipped' and auto-
+ * rechecks (handled in the ack route).
+ */
+export async function publishStagedFix(fixId: string, brandId: string, userId: string | null): Promise<FixRow> {
+  const fix = await getFix(fixId, brandId);
+  if (!fix) throw new Error('Fix not found');
+  if (fix.status !== 'staged') throw new Error(`Only a staged fix can be published (status: ${fix.status})`);
+  const conn = await getConnection(brandId, 'connector');
+  if (!conn || conn.status !== 'active') {
+    throw new Error('Publishing a staged draft needs the Connector plugin to be active.');
+  }
+  const url = (fix.afterSnapshot as { url?: string } | null)?.url;
+  if (!url) throw new Error('Staged fix is missing its target URL');
+  await updateFix(fix.id, {
+    shipResult: { op: 'publish_content', channel: 'draft', delivery: 'connector_pull' },
+    afterSnapshot: { url, patch: (fix.afterSnapshot as { patch?: unknown } | null)?.patch },
+    error: null,
+  });
+  await resetConnectorDelivery(fix.id); // re-pull for the publish op
+  await logFixEvent(fix.id, brandId, userId, 'publish.requested', { url });
+  return (await getFix(fixId, brandId))!;
 }
 
 // ── recheck ──────────────────────────────────────────────────────

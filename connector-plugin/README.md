@@ -1,9 +1,10 @@
 # Livesov Connector (WordPress plugin)
 
 Applies Livesov Fix Engine **Channel B** instructions — `llms.txt`,
-`robots.txt` AI-crawler access, and `<head>` schema/meta — to a WordPress
-site. The plugin is **outbound-only**: it pulls instructions from Livesov,
-applies them, and acknowledges. Nothing needs inbound access to the site.
+`robots.txt` AI-crawler access, `<head>` schema/meta — and **ship-as-draft**
+page edits to a WordPress site. The plugin is **outbound-only**: it pulls
+instructions from Livesov, applies them, and acknowledges. Nothing needs
+inbound access to the site.
 
 ## Install
 
@@ -27,9 +28,16 @@ applies them, and acknowledges. Nothing needs inbound access to the site.
   - `patch_robots` — appended to WordPress's virtual robots.txt via the
     `robots_txt` filter.
   - `set_header_block` — printed on `wp_head` (no theme files are edited).
-- After applying, the plugin `POST`s `{pull_url}/{id}/ack`. On success the
-  fix is marked delivered in Livesov; on failure it's flagged with the
-  reported reason.
+  - `stage_content` — saves a page edit (title / meta / canonical / body) as
+    a **draft revision** via `wp_create_post_autosave` **without changing the
+    live page**, and returns a preview URL in the ack. For ship-as-draft.
+  - `publish_content` — promotes the staged change to live via
+    `wp_update_post` (which snapshots the prior content into a revision, so
+    it's reversible from **wp-admin → Revisions**).
+- After applying, the plugin `POST`s `{pull_url}/{id}/ack` (with a `detail`
+  object, e.g. the preview URL for `stage_content`). On success the fix is
+  marked delivered in Livesov; on failure it's flagged with the reported
+  reason and re-tried on the next poll.
 
 ## Security
 

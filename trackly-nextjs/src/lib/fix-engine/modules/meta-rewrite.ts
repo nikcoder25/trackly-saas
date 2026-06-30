@@ -12,6 +12,7 @@ import { generateJson } from '../generate';
 import { META_SYSTEM, metaUserPrompt } from '../prompts';
 import { resolveCmsForBrand } from './_shared';
 import type {
+  ContentPatch,
   DetectedIssue,
   FixContext,
   FixModule,
@@ -93,6 +94,11 @@ export const metaRewriteModule: FixModule = {
       after: { description: draft.generated.description },
       error: result.ok ? undefined : 'CMS write failed',
     };
+  },
+
+  contentPatch(issue: DetectedIssue, draft: GeneratedDraft): ContentPatch | null {
+    if (!issue.targetUrl) return null;
+    return { url: issue.targetUrl, metaDescription: String(draft.generated.description) };
   },
 
   async recheck(issue: DetectedIssue, draft: GeneratedDraft, ctx: FixContext): Promise<RecheckVerdict> {

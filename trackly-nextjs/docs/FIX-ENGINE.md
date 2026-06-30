@@ -390,6 +390,53 @@ fetches the live `/llms.txt`) flips it to `verified`. A failed ack
 
 ---
 
+## Ship-as-draft (staged preview)
+
+For page-content fixes you don't want to push straight to production, the
+engine can stage the change as a **draft revision** the Connector creates on
+your site, give you a **preview URL**, and only go live when you click
+**Publish**.
+
+How it works:
+
+1. A module that can express its change as a normalised `ContentPatch`
+   implements `contentPatch()` (title / meta / canonical / indexable / body
+   append / body replace). Today: title-rewrite, meta-rewrite,
+   geo-page-rewrite, faq-schema, canonical-fix, passage-rewrite,
+   citable-passages.
+2. `POST /api/brands/[id]/fixes/[fixId]/stage` (`stageFix`) — requires an
+   approved fix + an active Connector. Queues a `stage_content` Connector
+   instruction carrying `{ url, patch }` and moves the fix to **`staged`**.
+3. The plugin (`stage_content`) saves a preview-able draft revision via
+   `wp_create_post_autosave` **without touching the live page**, and returns
+   a preview URL in its ack. The ack route stores `fixes.preview_url` and
+   keeps the fix `staged` (no recheck — nothing is live yet).
+4. `POST /api/brands/[id]/fixes/[fixId]/publish` (`publishStagedFix`) —
+   re-queues the fix with the `publish_content` op. The plugin promotes the
+   change with `wp_update_post` (which snapshots the prior content into a
+   revision, so it's reversible from wp-admin → Revisions), the ack flips the
+   fix to **`shipped`**, and the usual auto-recheck verifies it live.
+
+Staging requires the Connector (it's the component that can create a draft
+revision); without it, the dashboard nudges you to pair it or ship live.
+
+## Native issue trackers (Linear / Jira)
+
+Hand a fix off to your dev team as a real ticket, not just a chat message.
+
+- Connect a tracker under **Connections** with a per-user API token (Linear
+  API key + team id; Jira email + API token + site domain + project key).
+  Tokens are verified on connect and stored encrypted in `fix_connections`
+  (providers `linear` / `jira`), exactly like the CMS creds.
+- `POST /api/brands/[id]/fixes/[fixId]/ticket` builds a title/body from the
+  fix and calls `notifyBrand()`, which creates a native issue via
+  `dispatchTracker()` (Linear preferred when both are connected) and **falls
+  back to the brand webhook** when no tracker is connected.
+- The digest endpoint (`/fixes/notify`) still posts the Slack-compatible
+  summary to the webhook — trackers are for per-fix hand-offs.
+
+---
+
 ## The agent prompts
 
 Generation prompts live in `src/lib/fix-engine/prompts.ts`. Each is a

@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Livesov Connector
- * Description: Applies Livesov Fix Engine Channel-B instructions (llms.txt, robots.txt, head schema) by securely pulling them from your Livesov account. No inbound access to your server is required — the plugin only makes outbound requests.
- * Version: 1.1.0
+ * Description: Applies Livesov Fix Engine Channel-B instructions (llms.txt, robots.txt, head schema) and ship-as-draft page edits by securely pulling them from your Livesov account. No inbound access to your server is required — the plugin only makes outbound requests.
+ * Version: 1.2.0
  * Author: Livesov
  * License: GPL-2.0-or-later
  *
@@ -10,16 +10,20 @@
  *   - Authenticates with a per-brand bearer token (paste from Livesov).
  *   - Verifies each instruction's HMAC signature with the paired secret.
  *   - write_file is restricted to a root-file allow-list (no traversal).
+ *   - stage_content saves a DRAFT revision (never touches the live page);
+ *     publish_content promotes it. A backup of the live content is kept so
+ *     publish is reversible from wp-admin → Revisions.
  *   - Pull + apply + ack run on wp-cron every 5 minutes (or "Poll now").
  */
 
 if (!defined('ABSPATH')) { exit; }
 
-define('LVX_CONN_VERSION', '1.1.0');
+define('LVX_CONN_VERSION', '1.2.0');
 define('LVX_CONN_OPT', 'livesov_connector_settings');
 define('LVX_CONN_HEAD_OPT', 'livesov_connector_head');     // set_header_block content
 define('LVX_CONN_ROBOTS_OPT', 'livesov_connector_robots'); // patch_robots content
 define('LVX_CONN_STATUS_OPT', 'livesov_connector_status'); // last poll result + time
+define('LVX_CONN_STAGED_OPT', 'livesov_connector_staged');  // post_id => staged patch
 
 function lvx_conn_ua() {
     return 'LivesovConnector/' . LVX_CONN_VERSION . '; ' . home_url('/');
@@ -146,9 +150,9 @@ function lvx_conn_poll() {
             lvx_conn_ack($s, $id, false, 'signature mismatch'); $failed++; continue;
         }
 
-        $err = lvx_conn_apply($op, $payload);
-        if ($err === '') { lvx_conn_ack($s, $id, true, null); $applied++; }
-        else { lvx_conn_ack($s, $id, false, $err); $failed++; }
+        $res = lvx_conn_apply($op, $payload);
+        if ($res['err'] === '') { lvx_conn_ack($s, $id, true, null, $res['detail']); $applied++; }
+        else { lvx_conn_ack($s, $id, false, $res['err'], array()); $failed++; }
     }
     return lvx_conn_status("applied $applied, failed $failed");
 }
@@ -159,38 +163,165 @@ function lvx_conn_status($msg) {
     return $msg;
 }
 
-/** Apply one instruction. Returns '' on success or an error string. */
+/**
+ * Apply one instruction. Returns array('err' => '' on success or an error
+ * string, 'detail' => extra data for the ack, e.g. a preview URL).
+ */
 function lvx_conn_apply($op, $payload) {
+    $ok = array('err' => '', 'detail' => array());
     switch ($op) {
         case 'write_file':
             $path = isset($payload['path']) ? $payload['path'] : '';
-            if (!lvx_conn_path_allowed($path)) { return 'path not allowed: ' . $path; }
+            if (!lvx_conn_path_allowed($path)) { return array('err' => 'path not allowed: ' . $path, 'detail' => array()); }
             $content = isset($payload['content']) ? (string) $payload['content'] : '';
             $full = rtrim(ABSPATH, '/') . '/' . ltrim($path, '/');
-            $ok = @file_put_contents($full, $content);
-            return ($ok === false) ? 'could not write ' . $path : '';
+            $w = @file_put_contents($full, $content);
+            return ($w === false) ? array('err' => 'could not write ' . $path, 'detail' => array()) : $ok;
 
         case 'set_header_block':
             // Stored and echoed on wp_head (we never edit theme files).
             update_option(LVX_CONN_HEAD_OPT, (string) ($payload['content'] ?? ''));
-            return '';
+            return $ok;
 
         case 'patch_robots':
             // Appended via the robots_txt filter (works with WP's virtual robots.txt).
             update_option(LVX_CONN_ROBOTS_OPT, (string) ($payload['content'] ?? ''));
-            return '';
+            return $ok;
+
+        case 'stage_content':
+            // Ship-as-draft: save the change as a DRAFT revision + preview
+            // link, WITHOUT touching the live page.
+            return lvx_conn_stage_content($payload);
+
+        case 'publish_content':
+            // Promote the staged draft to live.
+            return lvx_conn_publish_content($payload);
 
         default:
-            return 'unknown op: ' . $op;
+            return array('err' => 'unknown op: ' . $op, 'detail' => array());
     }
 }
 
-function lvx_conn_ack($s, $id, $ok, $error) {
+/* ─────────────── Ship-as-draft (stage / publish) ─────────────── */
+
+/** Resolve a payload URL to a local post id, or 0. */
+function lvx_conn_resolve_post($payload) {
+    $url = isset($payload['url']) ? (string) $payload['url'] : '';
+    if ($url === '') { return 0; }
+    $pid = url_to_postid($url);
+    return $pid ? (int) $pid : 0;
+}
+
+/**
+ * Compute the new post_content from a patch + the current content, so both
+ * staging (preview) and publishing apply the body change identically.
+ */
+function lvx_conn_patched_content($current, $patch) {
+    $content = (string) $current;
+    if (isset($patch['bodyHtml'])) {
+        $content = (string) $patch['bodyHtml'];
+    }
+    if (isset($patch['bodyReplace']) && is_array($patch['bodyReplace'])
+        && isset($patch['bodyReplace']['find'])) {
+        $find = (string) $patch['bodyReplace']['find'];
+        $repl = isset($patch['bodyReplace']['replace']) ? (string) $patch['bodyReplace']['replace'] : '';
+        if ($find !== '' && strpos($content, $find) !== false) {
+            $pos = strpos($content, $find);
+            $content = substr($content, 0, $pos) . $repl . substr($content, $pos + strlen($find));
+        }
+    }
+    if (isset($patch['bodyAppend'])) {
+        $content .= "\n\n" . (string) $patch['bodyAppend'];
+    }
+    return $content;
+}
+
+/** Write the SEO meta fields a patch carries (Yoast + Rank Math). */
+function lvx_conn_apply_meta($post_id, $patch) {
+    if (isset($patch['title'])) {
+        update_post_meta($post_id, '_yoast_wpseo_title', (string) $patch['title']);
+        update_post_meta($post_id, 'rank_math_title', (string) $patch['title']);
+    }
+    if (isset($patch['metaDescription'])) {
+        update_post_meta($post_id, '_yoast_wpseo_metadesc', (string) $patch['metaDescription']);
+        update_post_meta($post_id, 'rank_math_description', (string) $patch['metaDescription']);
+    }
+    if (isset($patch['canonical'])) {
+        update_post_meta($post_id, '_yoast_wpseo_canonical', (string) $patch['canonical']);
+        update_post_meta($post_id, 'rank_math_canonical_url', (string) $patch['canonical']);
+    }
+    if (isset($patch['indexable']) && $patch['indexable']) {
+        update_post_meta($post_id, '_yoast_wpseo_meta-robots-noindex', '0');
+        update_post_meta($post_id, 'rank_math_robots', array('index', 'follow'));
+    }
+}
+
+function lvx_conn_stage_content($payload) {
+    $pid = lvx_conn_resolve_post($payload);
+    if (!$pid) { return array('err' => 'page not found on this site', 'detail' => array()); }
+    $patch = isset($payload['patch']) && is_array($payload['patch']) ? $payload['patch'] : array();
+    $post  = get_post($pid);
+    if (!$post) { return array('err' => 'post load failed', 'detail' => array()); }
+
+    // Persist the pending patch so publish can re-apply it deterministically.
+    $staged = get_option(LVX_CONN_STAGED_OPT, array());
+    if (!is_array($staged)) { $staged = array(); }
+    $staged[$pid] = array('patch' => $patch, 'at' => time());
+    update_option(LVX_CONN_STAGED_OPT, $staged);
+
+    // Create a preview-able draft revision (autosave) carrying the new
+    // content/title — this NEVER changes the published page.
+    $new_content = lvx_conn_patched_content($post->post_content, $patch);
+    $new_title   = isset($patch['title']) ? (string) $patch['title'] : $post->post_title;
+    if (function_exists('wp_create_post_autosave')) {
+        wp_create_post_autosave(array(
+            'post_ID'      => $pid,
+            'post_title'   => $new_title,
+            'post_content' => $new_content,
+            'post_type'    => $post->post_type,
+        ));
+    } else {
+        wp_save_post_revision($pid);
+    }
+
+    $preview = get_preview_post_link($pid);
+    return array('err' => '', 'detail' => array('previewUrl' => $preview ? $preview : get_permalink($pid)));
+}
+
+function lvx_conn_publish_content($payload) {
+    $pid = lvx_conn_resolve_post($payload);
+    if (!$pid) { return array('err' => 'page not found on this site', 'detail' => array()); }
+    $post = get_post($pid);
+    if (!$post) { return array('err' => 'post load failed', 'detail' => array()); }
+
+    // Prefer the patch saved at stage time; fall back to the one on the
+    // publish payload (covers a publish without a prior stage on this host).
+    $staged = get_option(LVX_CONN_STAGED_OPT, array());
+    $patch  = (is_array($staged) && isset($staged[$pid]['patch']) && is_array($staged[$pid]['patch']))
+        ? $staged[$pid]['patch']
+        : (isset($payload['patch']) && is_array($payload['patch']) ? $payload['patch'] : array());
+
+    // wp_update_post snapshots the prior content into a revision first, so
+    // this is reversible from wp-admin → Revisions.
+    $new_content = lvx_conn_patched_content($post->post_content, $patch);
+    $update = array('ID' => $pid, 'post_content' => $new_content);
+    if (isset($patch['title'])) { $update['post_title'] = (string) $patch['title']; }
+    $r = wp_update_post($update, true);
+    if (is_wp_error($r)) { return array('err' => 'publish failed: ' . $r->get_error_message(), 'detail' => array()); }
+    lvx_conn_apply_meta($pid, $patch);
+
+    // Clear the staged entry now that it's live.
+    if (is_array($staged) && isset($staged[$pid])) { unset($staged[$pid]); update_option(LVX_CONN_STAGED_OPT, $staged); }
+    return array('err' => '', 'detail' => array('url' => get_permalink($pid)));
+}
+
+function lvx_conn_ack($s, $id, $ok, $error, $detail = array()) {
     $url = rtrim($s['pull_url'], '/') . '/' . rawurlencode($id) . '/ack';
+    $payload = $ok ? array('ok' => true, 'detail' => $detail) : array('ok' => false, 'error' => $error);
     wp_remote_post($url, array(
         'headers' => array('Authorization' => 'Bearer ' . $s['token'], 'Content-Type' => 'application/json', 'User-Agent' => lvx_conn_ua()),
         'timeout' => 15,
-        'body'    => wp_json_encode($ok ? array('ok' => true) : array('ok' => false, 'error' => $error)),
+        'body'    => wp_json_encode($payload),
     ));
 }
 

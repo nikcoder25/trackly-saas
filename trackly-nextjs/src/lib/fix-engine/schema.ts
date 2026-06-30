@@ -100,13 +100,17 @@ export async function ensureFixEngineSchema(): Promise<void> {
   // Collaboration: free-text note + assignee.
   await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS note TEXT`);
   await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS assignee TEXT`);
+  // Staged preview (ship-as-draft): how the fix is written, and the
+  // Connector-supplied preview URL once it's staged as a draft revision.
+  await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS ship_mode TEXT NOT NULL DEFAULT 'live'`);
+  await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS preview_url TEXT`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS fix_connections (
       id              UUID PRIMARY KEY,
       user_id         TEXT NOT NULL,
       brand_id        TEXT NOT NULL,
-      provider        TEXT NOT NULL CHECK (provider IN ('cms','gsc','connector')),
+      provider        TEXT NOT NULL CHECK (provider IN ('cms','gsc','connector','linear','jira')),
       cms_type        TEXT,
       site_url        TEXT,
       encrypted_creds TEXT,
@@ -130,6 +134,11 @@ export async function ensureFixEngineSchema(): Promise<void> {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_fix_connections_token_hash ON fix_connections (token_hash)`);
   // Connector heartbeat: updated on every successful pull.
   await pool.query(`ALTER TABLE fix_connections ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`);
+  // Allow native issue-tracker providers (linear, jira) on existing DBs
+  // whose CHECK constraint predates them. Drop + re-add idempotently.
+  await pool.query(`ALTER TABLE fix_connections DROP CONSTRAINT IF EXISTS fix_connections_provider_check`);
+  await pool.query(`ALTER TABLE fix_connections ADD CONSTRAINT fix_connections_provider_check
+    CHECK (provider IN ('cms','gsc','connector','linear','jira'))`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS fix_events (
@@ -177,6 +186,8 @@ export function mapFixRow(r: DbRow): FixRow {
     aiAfter: (r.ai_after as Record<string, unknown> | null) ?? null,
     note: (r.note as string | null) ?? null,
     assignee: (r.assignee as string | null) ?? null,
+    shipMode: (r.ship_mode as 'live' | 'draft' | null) ?? 'live',
+    previewUrl: (r.preview_url as string | null) ?? null,
     error: (r.error as string | null) ?? null,
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
@@ -354,6 +365,8 @@ export async function updateFix(
     aiAfter?: Record<string, unknown> | null;
     note?: string | null;
     assignee?: string | null;
+    shipMode?: 'live' | 'draft';
+    previewUrl?: string | null;
     error?: string | null;
   },
 ): Promise<void> {
@@ -370,6 +383,8 @@ export async function updateFix(
   if (patch.aiAfter !== undefined) { sets.push(`ai_after = $${i++}`); values.push(patch.aiAfter ? JSON.stringify(patch.aiAfter) : null); }
   if (patch.note !== undefined) { sets.push(`note = $${i++}`); values.push(patch.note); }
   if (patch.assignee !== undefined) { sets.push(`assignee = $${i++}`); values.push(patch.assignee); }
+  if (patch.shipMode !== undefined) { sets.push(`ship_mode = $${i++}`); values.push(patch.shipMode); }
+  if (patch.previewUrl !== undefined) { sets.push(`preview_url = $${i++}`); values.push(patch.previewUrl); }
   if (patch.error !== undefined) { sets.push(`error = $${i++}`); values.push(patch.error); }
   await pool.query(`UPDATE fixes SET ${sets.join(', ')} WHERE id = $1`, values);
 }
@@ -403,9 +418,13 @@ export interface ConnectorInstructionRow {
 }
 
 /**
- * Channel-B fixes that have been shipped (queued) but not yet pulled +
- * applied + acked by the Connector. The op lives in ship_result.detail.op
- * and the payload in after_snapshot (set by queueConnectorInstruction).
+ * Connector instructions awaiting pull + apply + ack. Two kinds:
+ *   1. Classic Channel-B fixes (site-root files / head blocks): channel='B',
+ *      status='shipped', op in ship_result.op, payload in after_snapshot.
+ *   2. Staged page edits (ship-as-draft): status='staged' with op
+ *      'stage_content' (create the draft revision) or 'publish_content'
+ *      (promote it live). Set by stageFix / publishStagedFix.
+ * In both cases connector_delivered_at IS NULL means "still pending".
  */
 export async function listPendingConnectorInstructions(
   brandId: string,
@@ -416,9 +435,8 @@ export async function listPendingConnectorInstructions(
     `SELECT id, module_key, ship_result, after_snapshot, created_at
        FROM fixes
       WHERE brand_id = $1
-        AND channel = 'B'
-        AND status = 'shipped'
         AND connector_delivered_at IS NULL
+        AND ((channel = 'B' AND status = 'shipped') OR status = 'staged')
       ORDER BY created_at ASC
       LIMIT $2`,
     [brandId, limit],
@@ -463,6 +481,19 @@ export async function markConnectorDelivered(fixId: string): Promise<void> {
   await pool.query(
     `UPDATE fixes SET connector_delivered_at = NOW(), updated_at = NOW()
       WHERE id = $1 AND connector_delivered_at IS NULL`,
+    [fixId],
+  );
+}
+
+/**
+ * Re-queue a fix for the Connector to pull again (used when promoting a
+ * staged draft to live): clears the delivered marker + attempt counter so
+ * the pull endpoint hands it out once more.
+ */
+export async function resetConnectorDelivery(fixId: string): Promise<void> {
+  await pool.query(
+    `UPDATE fixes SET connector_delivered_at = NULL, connector_attempts = 0, updated_at = NOW()
+      WHERE id = $1`,
     [fixId],
   );
 }

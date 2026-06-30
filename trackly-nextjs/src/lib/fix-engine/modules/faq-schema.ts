@@ -13,6 +13,7 @@ import { generateJson } from '../generate';
 import { FAQ_SYSTEM, faqUserPrompt } from '../prompts';
 import { resolveCmsForBrand } from './_shared';
 import type {
+  ContentPatch,
   DetectedIssue,
   FixContext,
   FixModule,
@@ -122,6 +123,12 @@ export const faqSchemaModule: FixModule = {
       after: { faqs: draft.generated.faqs },
       error: result.ok ? undefined : 'CMS write failed',
     };
+  },
+
+  contentPatch(issue: DetectedIssue, draft: GeneratedDraft): ContentPatch | null {
+    if (!issue.targetUrl) return null;
+    const block = `${draft.generated.html}\n<script type="application/ld+json">${draft.generated.schema}</script>`;
+    return { url: issue.targetUrl, bodyAppend: block };
   },
 
   async recheck(issue: DetectedIssue, _draft: GeneratedDraft, ctx: FixContext): Promise<RecheckVerdict> {

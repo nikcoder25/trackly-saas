@@ -9,6 +9,8 @@
 
 import { pool } from '@/lib/db';
 import { safeFetch } from '@/lib/safe-fetch';
+import { dispatchTracker } from './trackers';
+import type { TrackerIssue } from './trackers/types';
 
 export type NotifyResult = { ok: true } | { ok: false; reason: 'no_webhook' | 'send_failed'; detail?: string };
 
@@ -32,4 +34,27 @@ export async function sendBrandWebhook(brandId: string, text: string): Promise<N
   } catch (e) {
     return { ok: false, reason: 'send_failed', detail: (e as Error).message };
   }
+}
+
+export type BrandNotify =
+  | { ok: true; channel: 'linear' | 'jira'; url?: string }
+  | { ok: true; channel: 'webhook' }
+  | { ok: false; reason: 'no_destination' | 'send_failed'; detail?: string };
+
+/**
+ * Notify a brand about a single fix: create a native issue in the brand's
+ * connected tracker (Linear / Jira) when one exists, otherwise post to the
+ * webhook. This is what per-fix "Create ticket" uses.
+ */
+export async function notifyBrand(brandId: string, issue: TrackerIssue): Promise<BrandNotify> {
+  const t = await dispatchTracker(brandId, issue);
+  if (t.ok) return { ok: true, channel: t.provider as 'linear' | 'jira', url: t.url };
+  if (t.reason === 'create_failed') return { ok: false, reason: 'send_failed', detail: t.detail };
+
+  // No tracker connected → fall back to the webhook.
+  const text = `*${issue.title}*\n${issue.description}${issue.url ? `\n${issue.url}` : ''}`;
+  const w = await sendBrandWebhook(brandId, text);
+  if (w.ok) return { ok: true, channel: 'webhook' };
+  if (w.reason === 'no_webhook') return { ok: false, reason: 'no_destination' };
+  return { ok: false, reason: 'send_failed', detail: w.detail };
 }

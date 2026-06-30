@@ -12,7 +12,7 @@ import { generateJson } from '../generate';
 import { CITABLE_SYSTEM, citableUserPrompt } from '../prompts';
 import { resolveCmsForBrand } from './_shared';
 import type {
-  DetectedIssue, FixContext, FixModule, GeneratedDraft, PreviewBlock, RecheckVerdict, ShipResult,
+  ContentPatch, DetectedIssue, FixContext, FixModule, GeneratedDraft, PreviewBlock, RecheckVerdict, ShipResult,
 } from '../types';
 
 const MIN_WORDS = 400;
@@ -83,6 +83,11 @@ export const citablePassagesModule: FixModule = {
     if ('error' in cms) return cms.error;
     const result = await cms.adapter.updateBody(cms.creds, { url: issue.targetUrl! }, String(draft.generated.html), 'append');
     return { ok: result.ok, detail: result.detail ?? {}, after: { tldr: draft.generated.tldr }, error: result.ok ? undefined : 'CMS write failed' };
+  },
+
+  contentPatch(issue: DetectedIssue, draft: GeneratedDraft): ContentPatch | null {
+    if (!issue.targetUrl) return null;
+    return { url: issue.targetUrl, bodyAppend: String(draft.generated.html) };
   },
 
   async recheck(issue: DetectedIssue, _draft: GeneratedDraft, ctx: FixContext): Promise<RecheckVerdict> {

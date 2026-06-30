@@ -13,6 +13,7 @@ import { generateJson } from '../generate';
 import { GEO_REWRITE_SYSTEM, geoRewriteUserPrompt } from '../prompts';
 import { resolveCmsForBrand } from './_shared';
 import type {
+  ContentPatch,
   DetectedIssue,
   FixContext,
   FixModule,
@@ -111,6 +112,11 @@ export const geoPageRewriteModule: FixModule = {
       after: { html: draft.generated.html },
       error: result.ok ? undefined : 'CMS write failed',
     };
+  },
+
+  contentPatch(issue: DetectedIssue, draft: GeneratedDraft): ContentPatch | null {
+    if (!issue.targetUrl) return null;
+    return { url: issue.targetUrl, bodyAppend: String(draft.generated.html) };
   },
 
   async recheck(issue: DetectedIssue, draft: GeneratedDraft, ctx: FixContext): Promise<RecheckVerdict> {

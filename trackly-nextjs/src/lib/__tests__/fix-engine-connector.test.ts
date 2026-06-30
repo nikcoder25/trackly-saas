@@ -57,6 +57,21 @@ describe('connector signing + allow-list', () => {
     expect(wire.contentSha).toBe(sha256Hex('hi'));
     expect(wire.sig).toBe(signInstruction('secret', 'x', 'write_file', 'hi'));
   });
+
+  it('validates stage_content (needs url + patch) and publish_content (needs url)', () => {
+    const goodStage = { id: 's1', moduleKey: 'title-rewrite', op: 'stage_content', payload: { url: 'https://acme.test/p', patch: { url: 'https://acme.test/p', title: 'New' } }, createdAt: 'now' };
+    const wire = toWireInstruction(goodStage, 'secret', 'now')!;
+    expect(wire).not.toBeNull();
+    // signed over the JSON payload (no payload.content field)
+    expect(wire.sig).toBe(signInstruction('secret', 's1', 'stage_content', JSON.stringify(goodStage.payload)));
+
+    expect(toWireInstruction({ id: 's2', moduleKey: 'm', op: 'stage_content', payload: { url: 'https://acme.test/p' }, createdAt: 'now' }, 'secret', 'now')).toBeNull(); // missing patch
+    expect(toWireInstruction({ id: 's3', moduleKey: 'm', op: 'stage_content', payload: { patch: {} }, createdAt: 'now' }, 'secret', 'now')).toBeNull(); // missing url
+
+    const goodPublish = { id: 'p1', moduleKey: 'm', op: 'publish_content', payload: { url: 'https://acme.test/p' }, createdAt: 'now' };
+    expect(toWireInstruction(goodPublish, 'secret', 'now')).not.toBeNull();
+    expect(toWireInstruction({ id: 'p2', moduleKey: 'm', op: 'publish_content', payload: {}, createdAt: 'now' }, 'secret', 'now')).toBeNull();
+  });
 });
 
 // ── robots-ai-access module ──

@@ -14,7 +14,12 @@
 import crypto from 'crypto';
 import type { ConnectorInstructionRow } from './schema';
 
-export const CONNECTOR_OPS = ['write_file', 'set_header_block', 'patch_robots'] as const;
+export const CONNECTOR_OPS = [
+  'write_file', 'set_header_block', 'patch_robots',
+  // Staged preview (ship-as-draft): the plugin saves the change as a draft
+  // revision and returns a preview URL; publish promotes it to live.
+  'stage_content', 'publish_content',
+] as const;
 export type ConnectorOp = typeof CONNECTOR_OPS[number];
 
 /** Re-deliver a failing instruction up to this many times before failing it. */
@@ -74,6 +79,12 @@ export function toWireInstruction(
   const content = typeof row.payload.content === 'string' ? row.payload.content : JSON.stringify(row.payload);
   if (row.op === 'write_file' && !isAllowedFilePath(row.payload.path)) return null;
   if (row.op === 'patch_robots' && typeof row.payload.content !== 'string') return null;
+  // Staged-content ops carry a page URL (+ a patch for stage_content). They
+  // never touch the filesystem, so no path allow-list — but reject malformed
+  // payloads so a bad instruction is never served.
+  if (row.op === 'stage_content'
+    && !(typeof row.payload.url === 'string' && row.payload.patch && typeof row.payload.patch === 'object')) return null;
+  if (row.op === 'publish_content' && typeof row.payload.url !== 'string') return null;
   const contentSha = sha256Hex(content);
   const sig = secret ? signInstruction(secret, row.id, row.op, content) : '';
   return { id: row.id, op: row.op, payload: row.payload, contentSha, sig, issuedAt };

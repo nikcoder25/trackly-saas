@@ -14,7 +14,7 @@ import { resolveCrawlTargets } from '../crawl';
 import { getValidAccessToken, inspectUrl, parseInspection } from '../gsc';
 import { resolveCmsForBrand } from './_shared';
 import type {
-  DetectedIssue, FixContext, FixModule, GeneratedDraft, PreviewBlock, RecheckVerdict, ShipResult,
+  ContentPatch, DetectedIssue, FixContext, FixModule, GeneratedDraft, PreviewBlock, RecheckVerdict, ShipResult,
 } from '../types';
 
 const MAX_INSPECT = 15;
@@ -76,6 +76,11 @@ export const canonicalFixModule: FixModule = {
     if ('error' in cms) return cms.error;
     const result = await cms.adapter.updateCanonical(cms.creds, { url: issue.targetUrl! }, String(draft.generated.canonical));
     return { ok: result.ok, detail: result.detail ?? {}, after: { canonical: draft.generated.canonical }, error: result.ok ? undefined : 'CMS write failed' };
+  },
+
+  contentPatch(issue: DetectedIssue, draft: GeneratedDraft): ContentPatch | null {
+    if (!issue.targetUrl) return null;
+    return { url: issue.targetUrl, canonical: String(draft.generated.canonical) };
   },
 
   async recheck(issue: DetectedIssue, draft: GeneratedDraft, ctx: FixContext): Promise<RecheckVerdict> {
