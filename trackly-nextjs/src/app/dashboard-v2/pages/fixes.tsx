@@ -13,7 +13,7 @@ import { useBrandData } from '@/hooks/useBrandData';
 interface CatalogItem {
   key: string; title: string; description: string;
   channel: 'A' | 'B'; trigger: string; minPlan: string; phase: number; available: boolean;
-  cost: number; revertable: boolean;
+  cost: number; revertable: boolean; impact?: 1 | 2 | 3;
 }
 interface FixEvent { id: string; event: string; detail: any; userId: string | null; createdAt: string }
 interface FixRow {
@@ -130,6 +130,11 @@ export function PageFixes() {
   const [enabled, setEnabled] = React.useState(true);
   const [plan, setPlan] = React.useState<string>('');
   const [attention, setAttention] = React.useState<{ failed: number; stuckConnector: number } | null>(null);
+  const [aiVis, setAiVis] = React.useState<{ sov: number; at: string } | null>(null);
+  const [wizSite, setWizSite] = React.useState('');
+  const [wizDetected, setWizDetected] = React.useState<{ cms: string; confidence: string; hasAdapter: boolean } | null>(null);
+  const [wizBusy, setWizBusy] = React.useState(false);
+  const [wizDismissed, setWizDismissed] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [filter, setFilter] = React.useState<string>('all');
@@ -168,6 +173,7 @@ export function PageFixes() {
       setEnabled(!!d.enabled);
       setPlan(d.plan || '');
       setAttention(d.attention || null);
+      setAiVis(d.aiVisibility || null);
       setSelected(new Set((d.catalog || []).filter((c: CatalogItem) => c.available).map((c: CatalogItem) => c.key)));
     } catch (e) { setError((e as Error).message); } finally { setLoading(false); }
     try { const c = await api(`/api/brands/${id}/connections`); setConnections(c.connections || []); setSupportedCms(c.supportedCms || []); } catch { /* non-fatal */ }
@@ -292,6 +298,33 @@ export function PageFixes() {
   };
   const togglePick = (id: string) => setPicked((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
+  // "Safe" = deterministic, no-LLM fixes (cost 0) that aren't live yet — the
+  // ones auto-pilot would ship. One button drives each from wherever it is
+  // (detected → generate → approve → ship). Everything remains revertable.
+  const safeFixes = React.useMemo(() =>
+    fixes.filter((f) => (catalog.find((c) => c.key === f.moduleKey)?.cost ?? 1) === 0 && !['shipped', 'verified', 'staged'].includes(f.status)),
+    [fixes, catalog]);
+  const applyAllSafe = async () => {
+    if (!brandId) return;
+    if (!canShip) { flash('Connect a CMS or the Connector first'); return; }
+    if (safeFixes.length === 0) { flash('No safe fixes ready to apply'); return; }
+    setBulkBusy(true);
+    flash(`Applying ${safeFixes.length} safe fix${safeFixes.length === 1 ? '' : 'es'}…`);
+    // Drive each fix through the pipeline in order; act() advances the server
+    // state and no-ops (surfacing nothing fatal) on steps already done.
+    for (const f of safeFixes) {
+      await act(f.id, 'generate');
+      await act(f.id, 'approve');
+      await act(f.id, 'ship');
+    }
+    setBulkBusy(false);
+    await load(brandId);
+  };
+  const toggleAutofix = async () => {
+    const next = !automation?.autopilotShipDeterministic;
+    await saveAutomation({ autopilotShipDeterministic: next, ...(next && !automation?.scanEnabled ? { scanEnabled: true } : {}) });
+  };
+
   const exportCsv = () => {
     if (!brandId) return;
     const qs = filter === 'all' ? '' : `?status=${encodeURIComponent(filter)}`;
@@ -374,7 +407,12 @@ export function PageFixes() {
   const shown = React.useMemo(() => {
     let list = filter === 'all' ? fixes : fixes.filter((f) => bucketOf(f.status) === filter);
     if (quickWins) list = list.filter((f) => (moduleMeta(f.moduleKey)?.cost ?? 1) === 0 || f.severity === 'critical' || f.severity === 'high');
-    return [...list].sort((a, b) => (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9));
+    // Rank by severity, then by estimated impact so high-value fixes surface first.
+    return [...list].sort((a, b) => {
+      const sev = (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9);
+      if (sev !== 0) return sev;
+      return (moduleMeta(b.moduleKey)?.impact ?? 2) - (moduleMeta(a.moduleKey)?.impact ?? 2);
+    });
   }, [fixes, filter, quickWins, moduleMeta]);
 
   // Group the shown fixes by target URL for the "by page" view.
@@ -406,6 +444,7 @@ export function PageFixes() {
   );
 
   const kpis = [
+    { value: aiVis ? `${Math.round(aiVis.sov)}%` : '—', label: aiVis ? `AI visibility · ${aiVis.at}` : 'AI visibility', bg: 'var(--text)', fg: 'var(--bg)' },
     { value: String(counts.detected || 0), label: 'Detected', bg: 'var(--primary-50)', fg: 'var(--primary)' },
     { value: String(counts.review || 0), label: 'In review', bg: 'var(--primary-50)', fg: 'var(--primary)' },
     { value: String(counts.approved || 0), label: 'Approved', bg: 'var(--info-50)', fg: 'var(--info)' },
@@ -487,8 +526,40 @@ export function PageFixes() {
       </div>
     )}
 
+    {/* FIRST-RUN WIZARD */}
+    {enabled && !wizDismissed && !cmsConn && !gscConn && !connectorConn && (
+      <section className="nb" style={{ padding: 0, overflow: 'hidden', boxShadow: '6px 6px 0 var(--primary)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 22px', background: 'var(--primary)', color: '#fff' }}>
+          <div className="disp" style={{ fontSize: 17, fontWeight: 700 }}>GET STARTED — 3 STEPS</div>
+          <button className="tbtn" onClick={() => setWizDismissed(true)} style={{ color: '#fff', textDecorationColor: '#fff' }}>Dismiss</button>
+        </div>
+        <div style={{ padding: '18px 22px', display: 'grid', gap: 16 }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <span className="disp nb-sm" style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, background: 'var(--surface-2)', flexShrink: 0 }}>1</span>
+            <div style={{ flex: 1, minWidth: 200 }}><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Your site</div><input className="xin" value={wizSite || (brand as any)?.website || ''} onChange={(e) => setWizSite(e.target.value)} placeholder="https://acme.com" /></div>
+            <button className="gbtn" onClick={async () => { const s = wizSite || (brand as any)?.website || ''; setWizSite(s); setWizBusy(true); setWizDetected(await detectCms(s)); setWizBusy(false); }} disabled={wizBusy} style={{ padding: '9px 14px' }}>{wizBusy ? 'Detecting…' : 'Detect platform'}</button>
+          </div>
+          {wizDetected && (
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: wizDetected.hasAdapter ? 'var(--success)' : 'var(--warn)', paddingLeft: 46 }}>
+              {wizDetected.cms === 'unknown' ? 'Couldn’t identify the platform — connect WordPress below, or use Connections for another CMS / the plugin-free edge path.' : `Detected ${wizDetected.cms}.`}
+            </span>
+          )}
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="disp nb-sm" style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, background: 'var(--surface-2)', flexShrink: 0 }}>2</span>
+            <button className="xbtn" onClick={() => connectWp(wizSite || (brand as any)?.website || '')} disabled={!(wizSite || (brand as any)?.website)} style={{ background: 'var(--primary)' }}>CONNECT WORDPRESS — ONE CLICK →</button>
+            <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>No plugin. Not WordPress? Use <b>Connections</b> below (Shopify / Ghost / Webflow / edge).</span>
+          </div>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="disp nb-sm" style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, background: 'var(--surface-2)', flexShrink: 0 }}>3</span>
+            <button className="xbtn" onClick={runScan} disabled={scanning || selected.size === 0} style={{ background: 'var(--text)' }}>{scanning ? 'SCANNING…' : '▶ RUN YOUR FIRST SCAN'}</button>
+            <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Scans {selected.size} checks against your site — you can do this before connecting.</span>
+          </div>
+        </div>
+      </section>
+    )}
+
     {/* KPI TILES */}
-    <section style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 14 }}>
+    <section style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 14 }}>
       {kpis.map((k) => (
         <div key={k.label} className="nb-sm" style={{ padding: 16, background: k.bg }}>
           <div className="disp" style={{ fontSize: 32, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1, color: k.fg }}>{k.value}</div>
@@ -573,6 +644,21 @@ export function PageFixes() {
         <button className="chip" onClick={notify} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>🔔 NOTIFY</button>
       </div>
 
+      {(safeFixes.length > 0 || automation) && (
+        <div className="nb-sm" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 18px', marginBottom: 16, background: 'var(--success-50)', borderColor: 'var(--success)', boxShadow: '4px 4px 0 var(--success)', flexWrap: 'wrap' }}>
+          <span className="disp" style={{ fontSize: 20 }}>✨</span>
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <div className="disp" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{safeFixes.length > 0 ? `${safeFixes.length} safe fix${safeFixes.length === 1 ? '' : 'es'} ready` : 'No safe fixes pending'}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Deterministic, no-AI changes — applied in one click. Every change is reversible.</div>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: 'var(--text-2)', cursor: 'pointer' }}>
+            <input type="checkbox" checked={!!automation?.autopilotShipDeterministic} onChange={toggleAutofix} disabled={!canShip} style={{ accentColor: 'var(--success)', width: 15, height: 15 }} />
+            Autofix on
+          </label>
+          <button className="xbtn" onClick={applyAllSafe} disabled={bulkBusy || safeFixes.length === 0 || !canShip} style={{ background: 'var(--success)' }}>{bulkBusy ? 'APPLYING…' : `APPLY ${safeFixes.length} SAFE FIX${safeFixes.length === 1 ? '' : 'ES'}`}</button>
+        </div>
+      )}
+
       {picked.size > 0 && (
         <div className="nb-sm" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', marginBottom: 16, background: 'var(--primary-50)', boxShadow: '3px 3px 0 var(--primary)', flexWrap: 'wrap' }}>
           <span className="disp" style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{picked.size} selected</span>
@@ -612,7 +698,7 @@ export function PageFixes() {
         const renderCard = (f: FixRow) => (
           <FixCard
             key={f.id} fix={f} title={moduleTitle(f.moduleKey)} preview={previews[f.id]}
-            cost={moduleMeta(f.moduleKey)?.cost ?? 1} revertable={!!moduleMeta(f.moduleKey)?.revertable}
+            cost={moduleMeta(f.moduleKey)?.cost ?? 1} revertable={!!moduleMeta(f.moduleKey)?.revertable} impact={moduleMeta(f.moduleKey)?.impact ?? 2}
             events={events[f.id]} busy={!!busy[f.id]} armed={!!armed[f.id]} canShip={canShip}
             picked={picked.has(f.id)} onTogglePick={() => togglePick(f.id)}
             onGenerate={() => act(f.id, 'generate')} onApprove={() => act(f.id, 'approve')}
@@ -997,9 +1083,22 @@ function PassageSection({ disabled, onSubmit }: { disabled: boolean; onSubmit: (
   );
 }
 
+// A Google-result-style snippet, used to preview how a title/meta change
+// will actually look in search results and AI answers.
+function SerpCard({ label, host, title, desc, color }: { label: string; host: string; title: string; desc: string; color: string }) {
+  return (
+    <div className="nb-sm" style={{ padding: '10px 12px', boxShadow: 'none', background: 'var(--surface)', borderColor: color }}>
+      <div className="disp" style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.06em', color, marginBottom: 5 }}>{label}</div>
+      <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{host}</div>
+      <div style={{ fontSize: 14, color: '#1a0dab', fontWeight: 600, lineHeight: 1.25, margin: '1px 0 3px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{title}</div>
+      <div style={{ fontSize: 11.5, color: 'var(--text-2)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{desc}</div>
+    </div>
+  );
+}
+
 // ── Fix card ──
-function FixCard({ fix, title, preview, cost, revertable, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, downloadHref }: {
-  fix: FixRow; title: string; preview: PreviewBlock | null | undefined; cost: number; revertable: boolean;
+function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, downloadHref }: {
+  fix: FixRow; title: string; preview: PreviewBlock | null | undefined; cost: number; revertable: boolean; impact?: 1 | 2 | 3;
   events: FixEvent[] | undefined; busy: boolean; armed: boolean; canShip: boolean; picked: boolean;
   onTogglePick: () => void; onGenerate: () => void; onApprove: () => void; onArm: () => void; onCancelArm: () => void;
   onShipConfirm: () => void; onRecheck: () => void; onRetry: () => void; onRevert: () => void; onLoadHistory: () => void;
@@ -1031,6 +1130,10 @@ function FixCard({ fix, title, preview, cost, revertable, events, busy, armed, c
         <input type="checkbox" checked={picked} onChange={onTogglePick} aria-label="Select fix for bulk action" style={{ accentColor: 'var(--primary)', width: 15, height: 15, flexShrink: 0 }} />
         <span className="disp" style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.04em', color: sev.color, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{sev.glyph} {sev.label} SEVERITY</span>
         <span style={{ flex: 1 }} />
+        {impact && (() => {
+          const m = impact === 3 ? { l: 'HIGH IMPACT', c: 'var(--success)' } : impact === 1 ? { l: 'LOW IMPACT', c: 'var(--text-3)' } : { l: 'MED IMPACT', c: 'var(--info)' };
+          return <span className="chip" title="Estimated SEO/GEO impact" style={{ color: m.c, borderColor: m.c }}>{'▲'.repeat(impact)} {m.l}</span>;
+        })()}
         <span className="chip" style={{ background: sm.bg, color: sm.color, borderColor: sm.color }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: sm.color }} />{sm.label}</span>
       </div>
 
@@ -1076,6 +1179,23 @@ function FixCard({ fix, title, preview, cost, revertable, events, busy, armed, c
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--success-50)' }}><span className="disp" style={{ color: 'var(--success)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ FIX</span><span className="mono" style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>{preview.after}</span></div>
           </div>
         )}
+        {!busy && preview && preview.kind === 'text-diff' && (fix.moduleKey === 'title-rewrite' || fix.moduleKey === 'meta-rewrite') && (() => {
+          const isTitle = fix.moduleKey === 'title-rewrite';
+          const gTitle = 'Your page title'; const gDesc = 'Your meta description appears here in Google results and AI answers.';
+          const nowT = isTitle ? (preview.before || gTitle) : gTitle;
+          const fixT = isTitle ? (preview.after || gTitle) : gTitle;
+          const nowD = !isTitle ? (preview.before || gDesc) : gDesc;
+          const fixD = !isTitle ? (preview.after || gDesc) : gDesc;
+          return (
+            <div style={{ display: 'grid', gap: 8 }}>
+              <div className="xlbl" style={{ color: 'var(--primary)' }}>How it looks in search &amp; AI answers</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <SerpCard label="NOW" host={host || 'your-site.com'} title={nowT} desc={nowD} color="var(--danger)" />
+                <SerpCard label="AFTER" host={host || 'your-site.com'} title={fixT} desc={fixD} color="var(--success)" />
+              </div>
+            </div>
+          );
+        })()}
         {!busy && preview && preview.kind === 'code-block' && (
           <pre className="mono nb-sm" style={{ margin: 0, fontSize: 11.5, lineHeight: 1.6, padding: 14, background: 'var(--surface-3)', boxShadow: 'none', overflow: 'auto', maxHeight: 220, color: 'var(--text)', whiteSpace: 'pre-wrap' }}>{preview.after}</pre>
         )}

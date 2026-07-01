@@ -86,6 +86,12 @@ describe('registry + plan gating', () => {
     }
   });
 
+  it('every catalog item has a valid impact weight (1-3)', () => {
+    for (const item of moduleCatalog()) {
+      expect([1, 2, 3]).toContain(item.impact);
+    }
+  });
+
   it('ranks and gates plans correctly', () => {
     expect(planRank('pro')).toBeGreaterThan(planRank('starter'));
     expect(meetsPlan('pro', 'starter')).toBe(true);

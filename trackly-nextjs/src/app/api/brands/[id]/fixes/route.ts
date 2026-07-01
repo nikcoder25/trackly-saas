@@ -18,6 +18,7 @@ import { logger } from '@/lib/logger';
 import { listFixes, ensureFixEngineSchema, getAttentionSummary } from '@/lib/fix-engine/schema';
 import { dispatchScan } from '@/lib/fix-engine/engine';
 import { moduleCatalog, getModule, meetsPlan } from '@/lib/fix-engine/registry';
+import { getBrandAiVisibility } from '@/lib/fix-engine/ai-visibility';
 
 const FIX_ENGINE_MIN_PLAN = 'starter';
 
@@ -42,9 +43,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const plan = await getUserEffectivePlan(ownerId);
     const catalog = moduleCatalog().map((m) => ({ ...m, available: meetsPlan(plan, m.minPlan) }));
     const attention = await getAttentionSummary(id);
+    const aiVisibility = await getBrandAiVisibility(id);
 
     return Response.json(
-      { fixes, catalog, plan, enabled: meetsPlan(plan, FIX_ENGINE_MIN_PLAN), attention },
+      { fixes, catalog, plan, enabled: meetsPlan(plan, FIX_ENGINE_MIN_PLAN), attention, aiVisibility },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (e) {

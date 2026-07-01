@@ -70,6 +70,20 @@ export function generateCost(moduleKey: string): number {
   return MODULE_COST[moduleKey] ?? 1;
 }
 
+// Relative SEO/GEO impact of each module, used to rank fixes so customers do
+// the high-value ones first. 3 = high, 2 = medium, 1 = low.
+const MODULE_IMPACT: Record<string, 1 | 2 | 3> = {
+  'title-rewrite': 3, 'meta-rewrite': 2, 'faq-schema': 2, 'geo-page-rewrite': 3,
+  'llms-txt': 3, 'passage-rewrite': 2, 'striking-distance': 3, 'ctr-rescue': 3,
+  'internal-linking': 2, 'external-citations': 2, 'schema-markup': 2,
+  'indexing-repair': 3, 'canonical-fix': 2, 'robots-ai-access': 3,
+  'noindex-removal': 3, 'og-cards': 1, 'comparison-pages': 3,
+  'citable-passages': 3, 'hallucination-correction': 3,
+};
+export function moduleImpact(moduleKey: string): 1 | 2 | 3 {
+  return MODULE_IMPACT[moduleKey] ?? 2;
+}
+
 export function getModule(key: string): FixModule | undefined {
   return BY_KEY.get(key);
 }
@@ -91,6 +105,8 @@ export interface ModuleCatalogItem {
   cost: number;
   /** True when the module can undo a shipped fix. */
   revertable: boolean;
+  /** Relative impact for ranking: 3 = high, 2 = medium, 1 = low. */
+  impact: 1 | 2 | 3;
 }
 
 // Plan ranking for gating: a module with minPlan 'pro' requires an
@@ -127,5 +143,6 @@ export function moduleCatalog(): ModuleCatalogItem[] {
     phase: m.phase,
     cost: generateCost(m.key),
     revertable: typeof m.revert === 'function',
+    impact: moduleImpact(m.key),
   }));
 }
