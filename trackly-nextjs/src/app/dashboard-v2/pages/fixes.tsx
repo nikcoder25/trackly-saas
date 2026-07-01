@@ -300,7 +300,8 @@ export function PageFixes() {
 
   // "Safe" = deterministic, no-LLM fixes (cost 0) that aren't live yet — the
   // ones auto-pilot would ship. One button drives each from wherever it is
-  // (detected → generate → approve → ship). Everything remains revertable.
+  // (detected → generate → approve → ship). These are low-risk standard SEO
+  // best practices (canonical alignment, AI-crawler allow, noindex cleanup).
   const safeFixes = React.useMemo(() =>
     fixes.filter((f) => (catalog.find((c) => c.key === f.moduleKey)?.cost ?? 1) === 0 && !['shipped', 'verified', 'staged'].includes(f.status)),
     [fixes, catalog]);
@@ -649,7 +650,7 @@ export function PageFixes() {
           <span className="disp" style={{ fontSize: 20 }}>✨</span>
           <div style={{ flex: 1, minWidth: 180 }}>
             <div className="disp" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{safeFixes.length > 0 ? `${safeFixes.length} safe fix${safeFixes.length === 1 ? '' : 'es'} ready` : 'No safe fixes pending'}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Deterministic, no-AI changes — applied in one click. Every change is reversible.</div>
+            <div style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Deterministic, no-AI technical fixes (canonical, AI-crawler access, accidental-noindex) — safe, standard SEO best practices, applied in one click.</div>
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: 'var(--text-2)', cursor: 'pointer' }}>
             <input type="checkbox" checked={!!automation?.autopilotShipDeterministic} onChange={toggleAutofix} disabled={!canShip} style={{ accentColor: 'var(--success)', width: 15, height: 15 }} />
@@ -1148,6 +1149,13 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
             {fix.assignee && <span className="chip" title="assignee">👤 {fix.assignee}</span>}
           </div>
         </div>
+
+        {typeof (fix.generated as { rationale?: unknown } | null)?.rationale === 'string' && (fix.generated as { rationale: string }).rationale.trim() && (
+          <div className="nb-sm" style={{ padding: '10px 13px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+            <span style={{ fontSize: 13, flexShrink: 0 }}>💡</span>
+            <span style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--text)', fontWeight: 500 }}><b className="disp" style={{ color: 'var(--info)' }}>Why this matters:</b> {(fix.generated as { rationale: string }).rationale}</span>
+          </div>
+        )}
 
         {(url || fix.aiBefore) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
