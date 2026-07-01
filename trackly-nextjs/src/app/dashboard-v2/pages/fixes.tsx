@@ -1060,6 +1060,13 @@ function AutomationSection({ automation, canShip, disabled, onSave }: {
           </span>
         </div>
         {!canShip && a.autopilotShipDeterministic && <p className="quiet" style={{ margin: 0, fontSize: 11, color: 'var(--warn)' }}>Connect a CMS or the Connector to enable auto-ship.</p>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingTop: 12, borderTop: '2px dashed var(--line)' }}>
+          <strong className="disp" style={{ fontSize: 14, minWidth: 150 }}>Digest</strong>
+          <Toggle on={!!a.notifyOnScan} onClick={() => onSave({ notifyOnScan: !a.notifyOnScan })} dim={!a.scanEnabled}>Notify me after each scan</Toggle>
+          <span className="quiet" style={{ fontSize: 12, color: 'var(--text-2)', marginLeft: 'auto' }}>
+            Sends a summary to your connected Linear/Jira or webhook (Slack) — no need to log in to see progress.
+          </span>
+        </div>
       </div>
     </section>
   );

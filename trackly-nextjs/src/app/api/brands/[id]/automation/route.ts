@@ -30,7 +30,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 interface Body {
   scanEnabled?: unknown; scanFrequency?: unknown; scanModules?: unknown;
-  autopilotGenerate?: unknown; autopilotShipDeterministic?: unknown;
+  autopilotGenerate?: unknown; autopilotShipDeterministic?: unknown; notifyOnScan?: unknown;
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
@@ -58,6 +58,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (Array.isArray(body.scanModules)) patch.scanModules = body.scanModules.filter((m): m is string => typeof m === 'string');
     if (typeof body.autopilotGenerate === 'boolean') patch.autopilotGenerate = body.autopilotGenerate;
     if (typeof body.autopilotShipDeterministic === 'boolean') patch.autopilotShipDeterministic = body.autopilotShipDeterministic;
+    if (typeof body.notifyOnScan === 'boolean') patch.notifyOnScan = body.notifyOnScan;
 
     const automation = await setAutomation(id, patch);
     return Response.json({ automation }, { headers: { 'Cache-Control': 'no-store' } });

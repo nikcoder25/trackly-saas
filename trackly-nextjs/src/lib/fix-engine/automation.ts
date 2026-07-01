@@ -17,6 +17,7 @@ import { createBatch, listFixes } from './schema';
 import { runScan, generateFix, approveFix, shipFix } from './engine';
 import { generateCost, listModules } from './registry';
 import { getConnection } from './connections';
+import { notifyBrand } from './notify';
 
 export type ScanFrequency = 'daily' | 'weekly';
 
@@ -27,6 +28,7 @@ export interface Automation {
   scanModules: string[];          // empty = all available
   autopilotGenerate: boolean;     // auto-generate detected fixes
   autopilotShipDeterministic: boolean; // auto-ship cost-0 fixes
+  notifyOnScan: boolean;          // send a digest to the brand's webhook/tracker after each scheduled scan
   lastScanAt: string | null;
   nextScanAt: string | null;
 }
@@ -54,6 +56,7 @@ async function ensureAutomationSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_fix_automation_due
       ON fix_automation (next_scan_at) WHERE scan_enabled = TRUE
   `);
+  await pool.query(`ALTER TABLE fix_automation ADD COLUMN IF NOT EXISTS notify_on_scan BOOLEAN NOT NULL DEFAULT FALSE`);
   schemaEnsured = true;
 }
 
@@ -65,6 +68,7 @@ function mapRow(r: Record<string, unknown>): Automation {
     scanModules: (r.scan_modules as string[]) ?? [],
     autopilotGenerate: !!r.autopilot_generate,
     autopilotShipDeterministic: !!r.autopilot_ship_deterministic,
+    notifyOnScan: !!r.notify_on_scan,
     lastScanAt: (r.last_scan_at as string | null) ?? null,
     nextScanAt: (r.next_scan_at as string | null) ?? null,
   };
@@ -72,7 +76,7 @@ function mapRow(r: Record<string, unknown>): Automation {
 
 const DEFAULT_AUTOMATION = (brandId: string): Automation => ({
   brandId, scanEnabled: false, scanFrequency: 'weekly', scanModules: [],
-  autopilotGenerate: false, autopilotShipDeterministic: false, lastScanAt: null, nextScanAt: null,
+  autopilotGenerate: false, autopilotShipDeterministic: false, notifyOnScan: false, lastScanAt: null, nextScanAt: null,
 });
 
 export async function getAutomation(brandId: string): Promise<Automation> {
@@ -87,6 +91,7 @@ export interface AutomationPatch {
   scanModules?: string[];
   autopilotGenerate?: boolean;
   autopilotShipDeterministic?: boolean;
+  notifyOnScan?: boolean;
 }
 
 export async function setAutomation(brandId: string, patch: AutomationPatch): Promise<Automation> {
@@ -97,17 +102,18 @@ export async function setAutomation(brandId: string, patch: AutomationPatch): Pr
   const interval = next.scanFrequency === 'daily' ? '1 day' : '7 days';
   await pool.query(
     `INSERT INTO fix_automation
-       (brand_id, scan_enabled, scan_frequency, scan_modules, autopilot_generate, autopilot_ship_deterministic, next_scan_at, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6, CASE WHEN $2 THEN NOW() + ($7)::interval ELSE NULL END, NOW())
+       (brand_id, scan_enabled, scan_frequency, scan_modules, autopilot_generate, autopilot_ship_deterministic, notify_on_scan, next_scan_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$8, CASE WHEN $2 THEN NOW() + ($7)::interval ELSE NULL END, NOW())
      ON CONFLICT (brand_id) DO UPDATE
        SET scan_enabled = EXCLUDED.scan_enabled,
            scan_frequency = EXCLUDED.scan_frequency,
            scan_modules = EXCLUDED.scan_modules,
            autopilot_generate = EXCLUDED.autopilot_generate,
            autopilot_ship_deterministic = EXCLUDED.autopilot_ship_deterministic,
+           notify_on_scan = EXCLUDED.notify_on_scan,
            next_scan_at = CASE WHEN EXCLUDED.scan_enabled THEN NOW() + ($7)::interval ELSE NULL END,
            updated_at = NOW()`,
-    [brandId, next.scanEnabled, next.scanFrequency, next.scanModules, next.autopilotGenerate, next.autopilotShipDeterministic, interval],
+    [brandId, next.scanEnabled, next.scanFrequency, next.scanModules, next.autopilotGenerate, next.autopilotShipDeterministic, interval, next.notifyOnScan],
   );
   return getAutomation(brandId);
 }
@@ -156,6 +162,27 @@ export async function processScheduledScan(brandId: string): Promise<{ scanned: 
     if (auto.autopilotGenerate || auto.autopilotShipDeterministic) {
       const result = await applyAutopilot(brandId, auto);
       generated = result.generated; shipped = result.shipped;
+    }
+
+    // Opt-in digest: summarise the scan to the brand's tracker/webhook so the
+    // customer gets progress without logging in. Best-effort.
+    if (auto.notifyOnScan) {
+      try {
+        const all = await listFixes(brandId);
+        const live = all.filter((f) => f.status === 'shipped' || f.status === 'verified').length;
+        const review = all.filter((f) => f.status === 'generated' || f.status === 'preview_ready').length;
+        const detected = all.filter((f) => f.status === 'detected').length;
+        await notifyBrand(brandId, {
+          title: 'Fix Engine — scan complete',
+          description: [
+            `${all.length} fixes tracked`,
+            `${detected} newly detected · ${review} in review · ${live} live`,
+            shipped ? `${shipped} safe fix(es) auto-applied this run` : null,
+          ].filter(Boolean).join('\n'),
+        });
+      } catch (e) {
+        logger.warn('fix_engine.scan_digest_failed', { brandId, err: (e as Error).message });
+      }
     }
   } catch (e) {
     logger.error('fix_engine.scheduled_scan_failed', { brandId, err: (e as Error).message });
