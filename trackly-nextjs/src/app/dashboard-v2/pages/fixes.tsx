@@ -311,15 +311,24 @@ export function PageFixes() {
     if (safeFixes.length === 0) { flash('No safe fixes ready to apply'); return; }
     setBulkBusy(true);
     flash(`Applying ${safeFixes.length} safe fix${safeFixes.length === 1 ? '' : 'es'}…`);
-    // Drive each fix through the pipeline in order; act() advances the server
-    // state and no-ops (surfacing nothing fatal) on steps already done.
+    const post = (id: string, action: string) => api(`/api/brands/${brandId}/fixes/${id}/${action}`, { method: 'POST' });
+    let ok = 0, fail = 0;
+    // Advance each fix from wherever it actually is — only call the steps it
+    // needs, so an already-approved fix doesn't hit a spurious error.
     for (const f of safeFixes) {
-      await act(f.id, 'generate');
-      await act(f.id, 'approve');
-      await act(f.id, 'ship');
+      try {
+        let status = f.status;
+        if (status === 'detected' || status === 'failed') { await post(f.id, 'generate'); status = 'generated'; }
+        if (status === 'generated' || status === 'preview_ready') { await post(f.id, 'approve'); status = 'approved'; }
+        if (status === 'approved') {
+          const d = await post(f.id, 'ship');
+          d.ok === false ? fail++ : ok++;
+        }
+      } catch { fail++; }
     }
     setBulkBusy(false);
     await load(brandId);
+    flash(`Applied ${ok} fix${ok === 1 ? '' : 'es'}${fail ? ` · ${fail} need attention` : ''}`);
   };
   const toggleAutofix = async () => {
     const next = !automation?.autopilotShipDeterministic;
