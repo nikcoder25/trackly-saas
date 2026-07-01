@@ -41,6 +41,12 @@ describe('detectCms', () => {
     expect((await detectCms('https://site.com')).cms).toBe('webflow');
   });
 
+  it('detects the generator regardless of attribute order', async () => {
+    fetchMock.mockResolvedValueOnce(res(404, ''));
+    fetchMock.mockResolvedValueOnce(res(200, '<meta content="Ghost 5.2" name="generator">')); // content before name
+    expect((await detectCms('https://blog.com')).cms).toBe('ghost');
+  });
+
   it('returns unknown when nothing matches', async () => {
     fetchMock.mockResolvedValueOnce(res(404, ''));
     fetchMock.mockResolvedValueOnce(res(200, '<html><body>hand-rolled</body></html>'));

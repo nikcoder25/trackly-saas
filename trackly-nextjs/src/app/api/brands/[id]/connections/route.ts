@@ -80,9 +80,13 @@ export async function POST(
       if (!adapter) {
         return Response.json({ error: `Unsupported CMS type. Supported: ${listSupportedCms().join(', ')}` }, { status: 400 });
       }
-      if (!siteUrl) return Response.json({ error: 'siteUrl is required for a CMS connection' }, { status: 400 });
+      // WordPress needs the site URL as its REST base; Shopify/Ghost/Webflow
+      // carry their target in the creds (shop / adminApiUrl / siteId).
+      if (cmsType === 'wordpress' && !siteUrl) {
+        return Response.json({ error: 'siteUrl is required for a WordPress connection' }, { status: 400 });
+      }
       // Verify before storing so we never persist creds that don't work.
-      const check = await adapter.verify(creds, siteUrl);
+      const check = await adapter.verify(creds, siteUrl || '');
       if (!check.ok) {
         return Response.json({ error: `CMS verification failed: ${check.detail ?? 'unknown error'}` }, { status: 400 });
       }

@@ -45,10 +45,10 @@ async function resolvePageId(creds: WebflowCreds, url: string): Promise<string |
   return pages.find((p) => p.slug === slug)?.id ?? null;
 }
 
-async function patchSeo(creds: WebflowCreds, pageId: string, seo: Record<string, string>, title?: string): Promise<CmsWriteResult> {
-  const body: Record<string, unknown> = { seo };
-  if (title) body.title = title;
-  const res = await safeFetch(`${API}/pages/${pageId}`, { method: 'PATCH', headers: headers(creds), body: JSON.stringify(body), timeoutMs: 15_000 });
+async function patchSeo(creds: WebflowCreds, pageId: string, seo: Record<string, string>): Promise<CmsWriteResult> {
+  // Only touch SEO metadata — never the page `title` (that renames the page
+  // in the designer / nav). Webflow's `seo.title` drives the <title> tag.
+  const res = await safeFetch(`${API}/pages/${pageId}`, { method: 'PATCH', headers: headers(creds), body: JSON.stringify({ seo }), timeoutMs: 15_000 });
   if (res.status === 401 || res.status === 403) throw new CmsAuthError('Webflow rejected the API token on write');
   if (!res.ok) return { ok: false, detail: { status: res.status } };
   // Best-effort publish so the change goes live; don't fail the op if it errors.
@@ -76,7 +76,7 @@ export const webflowAdapter: CmsAdapter = {
     const creds = readCreds(rawCreds);
     const id = await resolvePageId(creds, target.url);
     if (!id) return { ok: false, detail: { reason: 'page_not_found' } };
-    return patchSeo(creds, id, { title }, title);
+    return patchSeo(creds, id, { title });
   },
 
   async updateMetaDescription(rawCreds, target, description) {

@@ -57,7 +57,10 @@ export async function detectCms(siteUrl: string): Promise<CmsDetection> {
   const home = await getText(`${base}/`);
   const html = home?.body ?? '';
   const hdr = (k: string) => home?.headers.get(k)?.toLowerCase() ?? '';
-  const generator = (html.match(/<meta[^>]+name=["']generator["'][^>]+content=["']([^"']+)["']/i)?.[1] || '').toLowerCase();
+  // Grab the generator <meta> tag first, then its content — order-independent
+  // (some sites emit content=… before name="generator").
+  const genTag = html.match(/<meta[^>]*\bname=["']generator["'][^>]*>/i)?.[0] || '';
+  const generator = (genTag.match(/content=["']([^"']+)["']/i)?.[1] || '').toLowerCase();
 
   if (/shopify/.test(hdr('x-shopify-stage') + hdr('x-sorting-hat-podid') + hdr('powered-by'))
       || /cdn\.shopify\.com|myshopify\.com|Shopify\.theme/i.test(html)) {
