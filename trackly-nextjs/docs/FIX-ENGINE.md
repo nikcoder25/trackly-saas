@@ -541,6 +541,41 @@ The engine's internet-facing endpoints follow one consistent model:
 > own design; we never log it, store it only encrypted, and the manual path
 > remains available.
 
+## Workflow layer (scale, proof, guardrails)
+
+Features that make the detect→fix→automate loop scale and prove itself:
+
+- **Grouped bulk cards** — ≥4 same-module fixes collapse into one card
+  ("Meta description rewrite — 47 pages") with Generate/Approve/Ship-all and
+  an expandable per-page review.
+- **Page-weighted ranking** — `page-metrics.ts` caches each page's 28-day
+  GSC clicks/impressions (`fix_page_metrics`, 12h TTL); fixes are ranked by
+  severity → module impact × log(page impressions), with an impressions chip
+  on each card.
+- **GEO Health Score** — `health.ts`: 0-100 from the open queue (severity-
+  weighted), a needle that moves as fixes ship (unlike SOV, which waits for
+  the next tracking run).
+- **Per-fix outcome measurement** — ship captures the page's GSC baseline
+  (`gsc_before`); the worker cron's `runOutcomePass()` measures the +28-day
+  window (`gsc_after`), logs `outcome.measured` with the relative CTR delta,
+  and the card shows "MEASURED: CTR +x%". Thin data (<100 impressions either
+  side) reports no delta rather than a misleading one.
+- **Regression watch** — `runRegressionWatch()` rechecks verified fixes
+  older than 7 days; ones a CMS edit wiped get `regression.detected`, count
+  into the needs-attention banner, and can be re-shipped.
+- **Brand rules** — deterministic guardrails on every LLM draft
+  (`rules.ts`, stored on `fix_automation.rules`): title suffix, title/meta
+  length caps, banned phrases. Applied centrally in `generateFix` with a
+  `rules.applied` audit event.
+- **Approval workflow** — `POST …/fixes/[fixId]/request-review` pings the
+  assignee via the connected tracker/webhook (`approval.requested` event).
+- **Change-rate throttle** — autopilot ships at most
+  `MAX_AUTOPILOT_SHIPS_PER_RUN` (10) live changes per scheduled run.
+- **New-page trigger** — scheduled scans diff crawl targets against
+  `fix_seen_pages` and log `trigger.new_pages` (first run seeds silently).
+- **Automation activity feed** — recent `fix_events` surfaced in the
+  Automation section, so autopilot's work is visible.
+
 ## Testing & ops notes
 
 - **Unit/integration:** ~1,190 Vitest tests cover the engine state machine,

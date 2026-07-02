@@ -36,6 +36,7 @@ import {
 } from './schema';
 import { getConnection } from './connections';
 import { getBrandAiVisibility } from './ai-visibility';
+import { applyBrandRules } from './rules';
 import type { DetectedIssue, FixBrand, FixContext, FixRow } from './types';
 
 // Generation cost lives in the registry (single source of truth) and is
@@ -49,6 +50,12 @@ async function loadBrand(brandId: string): Promise<BrandRow | null> {
     [brandId],
   );
   return (res.rows[0] as BrandRow | undefined) ?? null;
+}
+
+/** The brand owner's user id (tenant key), or null when the brand is gone. */
+export async function getOwnerId(brandId: string): Promise<string | null> {
+  const row = await loadBrand(brandId);
+  return row ? row.user_id : null;
 }
 
 /**
@@ -198,7 +205,22 @@ export async function generateFix(fixId: string, brandId: string): Promise<FixRo
   try {
     const issue = issueFromRow(fix);
     const draft = await mod.generate(issue, ctx);
-    await updateFix(fix.id, { status: 'generated', generated: draft.generated, error: null });
+    // Brand guardrails: deterministic post-generation policies (title suffix,
+    // length caps, banned phrases). Dynamic import avoids the automation ⇄
+    // engine module cycle.
+    let generated = draft.generated;
+    try {
+      const { getAutomation } = await import('./automation');
+      const auto = await getAutomation(brandId);
+      const ruled = applyBrandRules(generated, auto.rules);
+      generated = ruled.generated;
+      if (ruled.applied.length) {
+        await logFixEvent(fix.id, brandId, ctx.brand.userId, 'rules.applied', { applied: ruled.applied });
+      }
+    } catch (e) {
+      logger.warn('fix_engine.rules_apply_failed', { fixId: fix.id, err: (e as Error).message });
+    }
+    await updateFix(fix.id, { status: 'generated', generated, error: null });
     await logFixEvent(fix.id, brandId, ctx.brand.userId, 'generated', { module: mod.key, cost });
     return (await getFix(fixId, brandId))!;
   } catch (e) {
@@ -248,11 +270,22 @@ export async function shipFix(fixId: string, brandId: string, userId: string | n
       // Snapshot the brand's current AI visibility (SOV) so we can show
       // the before/after once the brand's tracking runs again.
       const aiBefore = await getBrandAiVisibility(brandId);
+      // And the target page's 28-day GSC baseline for the outcome pass
+      // (cached metrics; null when GSC isn't connected or URL unseen).
+      let gscBefore: Record<string, unknown> | null = null;
+      if (fix.targetUrl) {
+        try {
+          const { getPageMetrics, normUrl } = await import('./page-metrics');
+          const m = (await getPageMetrics(brandId, [fix.targetUrl])).get(normUrl(fix.targetUrl));
+          if (m) gscBefore = { clicks: m.clicks, impressions: m.impressions, ctr: m.ctr, position: m.position, at: new Date().toISOString() };
+        } catch { /* enrichment only */ }
+      }
       await updateFix(fix.id, {
         status: 'shipped',
         shipResult: result.detail,
         afterSnapshot: result.after ?? null,
         aiBefore: aiBefore ? { ...aiBefore } : null,
+        gscBefore,
         error: null,
       });
       await logFixEvent(fix.id, brandId, userId, 'shipped', { channel: mod.channel, detail: result.detail });

@@ -19,6 +19,7 @@ import { logger } from '@/lib/logger';
 import { findStuckQueuedBatches } from '@/lib/fix-engine/schema';
 import { runScan } from '@/lib/fix-engine/engine';
 import { runConnectorWatchdog } from '@/lib/fix-engine/connector-watchdog';
+import { runOutcomePass, runRegressionWatch } from '@/lib/fix-engine/outcomes';
 
 const MAX_PER_TICK = 5;
 const STUCK_AFTER_SECONDS = 60;
@@ -54,9 +55,19 @@ export async function GET(request: Request): Promise<Response> {
     try { watchdog = await runConnectorWatchdog(); }
     catch (e) { logger.warn('cron.fix_engine_worker.watchdog_failed', { err: (e as Error).message }); }
 
-    logger.info('cron.fix_engine_worker.done', { stuckFound: stuck.length, claimed, succeeded, failed, watchdog, durationMs: Date.now() - startedAt });
+    // Measure 28-day outcomes for shipped fixes with a GSC baseline.
+    let outcomes = { measured: 0, improved: 0, declined: 0 };
+    try { outcomes = await runOutcomePass(); }
+    catch (e) { logger.warn('cron.fix_engine_worker.outcomes_failed', { err: (e as Error).message }); }
+
+    // Regression watch: re-confirm old verified fixes are still live.
+    let regressions = { checked: 0, regressed: 0 };
+    try { regressions = await runRegressionWatch(); }
+    catch (e) { logger.warn('cron.fix_engine_worker.regression_failed', { err: (e as Error).message }); }
+
+    logger.info('cron.fix_engine_worker.done', { stuckFound: stuck.length, claimed, succeeded, failed, watchdog, outcomes, regressions, durationMs: Date.now() - startedAt });
     return NextResponse.json({
-      ok: true, stuckFound: stuck.length, claimed, succeeded, failed, watchdog,
+      ok: true, stuckFound: stuck.length, claimed, succeeded, failed, watchdog, outcomes, regressions,
       errors: errors.slice(0, 5), durationMs: Date.now() - startedAt,
       timestamp: new Date().toISOString(),
     });

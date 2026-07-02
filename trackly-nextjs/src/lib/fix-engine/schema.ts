@@ -104,6 +104,10 @@ export async function ensureFixEngineSchema(): Promise<void> {
   // Connector-supplied preview URL once it's staged as a draft revision.
   await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS ship_mode TEXT NOT NULL DEFAULT 'live'`);
   await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS preview_url TEXT`);
+  // Per-fix outcome measurement: the target page's 28-day GSC metrics at
+  // ship time, and again ~28 days later (set by the outcome cron pass).
+  await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS gsc_before JSONB`);
+  await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS gsc_after JSONB`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS fix_connections (
@@ -204,6 +208,8 @@ export function mapFixRow(r: DbRow): FixRow {
     assignee: (r.assignee as string | null) ?? null,
     shipMode: (r.ship_mode as 'live' | 'draft' | null) ?? 'live',
     previewUrl: (r.preview_url as string | null) ?? null,
+    gscBefore: (r.gsc_before as Record<string, unknown> | null) ?? null,
+    gscAfter: (r.gsc_after as Record<string, unknown> | null) ?? null,
     error: (r.error as string | null) ?? null,
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
@@ -383,6 +389,8 @@ export async function updateFix(
     assignee?: string | null;
     shipMode?: 'live' | 'draft';
     previewUrl?: string | null;
+    gscBefore?: Record<string, unknown> | null;
+    gscAfter?: Record<string, unknown> | null;
     error?: string | null;
   },
 ): Promise<void> {
@@ -401,6 +409,8 @@ export async function updateFix(
   if (patch.assignee !== undefined) { sets.push(`assignee = $${i++}`); values.push(patch.assignee); }
   if (patch.shipMode !== undefined) { sets.push(`ship_mode = $${i++}`); values.push(patch.shipMode); }
   if (patch.previewUrl !== undefined) { sets.push(`preview_url = $${i++}`); values.push(patch.previewUrl); }
+  if (patch.gscBefore !== undefined) { sets.push(`gsc_before = $${i++}`); values.push(patch.gscBefore ? JSON.stringify(patch.gscBefore) : null); }
+  if (patch.gscAfter !== undefined) { sets.push(`gsc_after = $${i++}`); values.push(patch.gscAfter ? JSON.stringify(patch.gscAfter) : null); }
   if (patch.error !== undefined) { sets.push(`error = $${i++}`); values.push(patch.error); }
   await pool.query(`UPDATE fixes SET ${sets.join(', ')} WHERE id = $1`, values);
 }
@@ -529,7 +539,7 @@ export async function findStuckConnectorInstructions(olderThanMinutes: number, l
 export async function getAttentionSummary(
   brandId: string,
   stuckMinutes = 120,
-): Promise<{ failed: number; stuckConnector: number }> {
+): Promise<{ failed: number; stuckConnector: number; regressed: number }> {
   await ensureFixEngineSchema();
   const res = await pool.query(
     `SELECT
@@ -542,8 +552,74 @@ export async function getAttentionSummary(
        FROM fixes WHERE brand_id = $1`,
     [brandId, String(stuckMinutes)],
   );
+  // Regressions: previously-verified fixes the regression watch found undone
+  // (event within 14d) that haven't been re-verified since.
+  const reg = await pool.query(
+    `SELECT COUNT(DISTINCT f.id) AS regressed
+       FROM fixes f
+       JOIN fix_events e ON e.fix_id = f.id AND e.event = 'regression.detected'
+      WHERE f.brand_id = $1 AND f.status = 'shipped'
+        AND e.created_at > NOW() - interval '14 days'`,
+    [brandId],
+  );
   const row = res.rows[0] || {};
-  return { failed: Number(row.failed) || 0, stuckConnector: Number(row.stuck) || 0 };
+  return {
+    failed: Number(row.failed) || 0,
+    stuckConnector: Number(row.stuck) || 0,
+    regressed: Number(reg.rows[0]?.regressed) || 0,
+  };
+}
+
+/**
+ * Fixes whose post-ship outcome window has elapsed: shipped/verified, a
+ * gsc_before snapshot exists, no gsc_after yet, and the snapshot is older
+ * than `windowDays`. The outcome cron measures these.
+ */
+export async function findFixesDueOutcome(windowDays: number, limit = 20): Promise<FixRow[]> {
+  await ensureFixEngineSchema();
+  const res = await pool.query(
+    `SELECT * FROM fixes
+      WHERE status IN ('shipped','verified')
+        AND gsc_before IS NOT NULL AND gsc_after IS NULL
+        AND (gsc_before->>'at')::timestamptz < NOW() - ($1 || ' days')::interval
+      ORDER BY updated_at ASC LIMIT $2`,
+    [String(windowDays), limit],
+  );
+  return res.rows.map(mapFixRow);
+}
+
+/**
+ * Verified fixes that haven't been re-confirmed recently — candidates for
+ * the regression watch (a CMS edit or theme change may have wiped them).
+ */
+export async function findStaleVerifiedFixes(olderThanDays: number, limit = 10): Promise<FixRow[]> {
+  await ensureFixEngineSchema();
+  const res = await pool.query(
+    `SELECT * FROM fixes
+      WHERE status = 'verified' AND target_url IS NOT NULL
+        AND updated_at < NOW() - ($1 || ' days')::interval
+      ORDER BY updated_at ASC LIMIT $2`,
+    [String(olderThanDays), limit],
+  );
+  return res.rows.map(mapFixRow);
+}
+
+/** Recent activity for a brand (automation feed), newest first. */
+export async function listBrandEvents(brandId: string, limit = 20): Promise<FixEventRow[]> {
+  await ensureFixEngineSchema();
+  const res = await pool.query(
+    `SELECT id, event, detail, user_id, created_at
+       FROM fix_events WHERE brand_id = $1
+      ORDER BY created_at DESC LIMIT $2`,
+    [brandId, limit],
+  );
+  return res.rows.map((r: DbRow) => ({
+    id: String(r.id),
+    event: String(r.event),
+    detail: (r.detail as Record<string, unknown>) ?? {},
+    userId: (r.user_id as string | null) ?? null,
+    createdAt: String(r.created_at),
+  }));
 }
 
 /** Whether a fix already has an event of the given type (dedupe watchdog alerts). */

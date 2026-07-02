@@ -11,6 +11,7 @@ import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, getUserEffectivePlan } from '@/lib/helpers';
 import { logger } from '@/lib/logger';
 import { getAutomation, setAutomation, type AutomationPatch, type ScanFrequency } from '@/lib/fix-engine/automation';
+import { listBrandEvents } from '@/lib/fix-engine/schema';
 import { meetsPlan } from '@/lib/fix-engine/registry';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
@@ -21,7 +22,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const access = await getBrandWithAccess(id, user.id);
     if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
-    return Response.json({ automation: await getAutomation(id) }, { headers: { 'Cache-Control': 'no-store' } });
+    const [automation, activity] = await Promise.all([getAutomation(id), listBrandEvents(id, 15)]);
+    return Response.json({ automation, activity }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) {
     logger.error('fix_engine.automation_get_failed', { err: (e as Error).message });
     return Response.json({ error: 'Failed to load automation', message: (e as Error).message }, { status: 500 });
@@ -31,6 +33,25 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 interface Body {
   scanEnabled?: unknown; scanFrequency?: unknown; scanModules?: unknown;
   autopilotGenerate?: unknown; autopilotShipDeterministic?: unknown; notifyOnScan?: unknown;
+  rules?: unknown;
+}
+
+/** Sanitise the rules object: known keys, bounded values, strings trimmed. */
+function cleanRules(raw: unknown): { titleSuffix?: string; titleMaxLen?: number; metaMaxLen?: number; bannedPhrases?: string[] } | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const out: { titleSuffix?: string; titleMaxLen?: number; metaMaxLen?: number; bannedPhrases?: string[] } = {};
+  if (typeof r.titleSuffix === 'string') out.titleSuffix = r.titleSuffix.slice(0, 40);
+  if (typeof r.titleMaxLen === 'number' && r.titleMaxLen >= 20 && r.titleMaxLen <= 120) out.titleMaxLen = Math.round(r.titleMaxLen);
+  if (typeof r.metaMaxLen === 'number' && r.metaMaxLen >= 50 && r.metaMaxLen <= 400) out.metaMaxLen = Math.round(r.metaMaxLen);
+  if (Array.isArray(r.bannedPhrases)) {
+    out.bannedPhrases = r.bannedPhrases
+      .filter((p): p is string => typeof p === 'string')
+      .map((p) => p.trim().slice(0, 60))
+      .filter(Boolean)
+      .slice(0, 25);
+  }
+  return out;
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
@@ -59,6 +80,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (typeof body.autopilotGenerate === 'boolean') patch.autopilotGenerate = body.autopilotGenerate;
     if (typeof body.autopilotShipDeterministic === 'boolean') patch.autopilotShipDeterministic = body.autopilotShipDeterministic;
     if (typeof body.notifyOnScan === 'boolean') patch.notifyOnScan = body.notifyOnScan;
+    const rules = cleanRules(body.rules);
+    if (rules) patch.rules = rules;
 
     const automation = await setAutomation(id, patch);
     return Response.json({ automation }, { headers: { 'Cache-Control': 'no-store' } });

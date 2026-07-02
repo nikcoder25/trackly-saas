@@ -260,6 +260,9 @@ export interface FixRow {
   shipMode: 'live' | 'draft';
   /** Connector-supplied preview URL for a staged (draft) change, if any. */
   previewUrl: string | null;
+  /** Target page's 28-day GSC metrics captured at ship / ~28 days later. */
+  gscBefore: Record<string, unknown> | null;
+  gscAfter: Record<string, unknown> | null;
   error: string | null;
   createdAt: string;
   updatedAt: string;

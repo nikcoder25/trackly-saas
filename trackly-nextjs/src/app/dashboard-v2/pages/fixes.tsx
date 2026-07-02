@@ -24,6 +24,9 @@ interface FixRow {
   note?: string | null; assignee?: string | null;
   shipMode?: 'live' | 'draft'; previewUrl?: string | null;
   shipResult?: { op?: string } | null;
+  pageImpressions?: number;
+  gscBefore?: { ctr?: number; impressions?: number } | null;
+  gscAfter?: { ctr?: number; impressions?: number; unavailable?: boolean } | null;
 }
 interface PreviewBlock { kind: string; label: string; before?: string; after?: string; language?: string }
 interface Connection { id: string; provider: string; cmsType: string | null; siteUrl: string | null; status: string; lastSeenAt?: string | null }
@@ -129,12 +132,15 @@ export function PageFixes() {
   const [catalog, setCatalog] = React.useState<CatalogItem[]>([]);
   const [enabled, setEnabled] = React.useState(true);
   const [plan, setPlan] = React.useState<string>('');
-  const [attention, setAttention] = React.useState<{ failed: number; stuckConnector: number } | null>(null);
+  const [attention, setAttention] = React.useState<{ failed: number; stuckConnector: number; regressed?: number } | null>(null);
   const [aiVis, setAiVis] = React.useState<{ sov: number; at: string } | null>(null);
+  const [health, setHealth] = React.useState<{ score: number; openIssues: number } | null>(null);
+  const [activity, setActivity] = React.useState<{ id: string; event: string; detail: any; createdAt: string }[]>([]);
   const [wizSite, setWizSite] = React.useState('');
   const [wizDetected, setWizDetected] = React.useState<{ cms: string; confidence: string; hasAdapter: boolean } | null>(null);
   const [wizBusy, setWizBusy] = React.useState(false);
   const [wizDismissed, setWizDismissed] = React.useState(false);
+  const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(new Set());
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [filter, setFilter] = React.useState<string>('all');
@@ -174,11 +180,12 @@ export function PageFixes() {
       setPlan(d.plan || '');
       setAttention(d.attention || null);
       setAiVis(d.aiVisibility || null);
+      setHealth(d.health || null);
       setSelected(new Set((d.catalog || []).filter((c: CatalogItem) => c.available).map((c: CatalogItem) => c.key)));
     } catch (e) { setError((e as Error).message); } finally { setLoading(false); }
     try { const c = await api(`/api/brands/${id}/connections`); setConnections(c.connections || []); setSupportedCms(c.supportedCms || []); } catch { /* non-fatal */ }
     try { const b = await api(`/api/brands/${id}/seo-brain`); setBrain(b); } catch { /* non-fatal */ }
-    try { const a = await api(`/api/brands/${id}/automation`); setAutomation(a.automation); } catch { /* non-fatal */ }
+    try { const a = await api(`/api/brands/${id}/automation`); setAutomation(a.automation); setActivity(a.activity || []); } catch { /* non-fatal */ }
   }, []);
 
   React.useEffect(() => { if (!brandId) { setFixes([]); setCatalog([]); return; } load(brandId); }, [brandId, load]);
@@ -249,7 +256,7 @@ export function PageFixes() {
     } catch (e) { setError((e as Error).message); } finally { setScanning(false); }
   };
 
-  const act = async (fixId: string, action: 'generate' | 'approve' | 'ship' | 'stage' | 'publish' | 'recheck' | 'revert' | 'ticket') => {
+  const act = async (fixId: string, action: 'generate' | 'approve' | 'ship' | 'stage' | 'publish' | 'recheck' | 'revert' | 'ticket' | 'request-review') => {
     if (!brandId) return;
     setBusy((b) => ({ ...b, [fixId]: true }));
     try {
@@ -263,6 +270,7 @@ export function PageFixes() {
       if (action === 'recheck') flash('Re-check complete');
       if (action === 'revert') { if (d.ok === false) setError(d.error || 'Revert failed'); else flash('Reverted'); }
       if (action === 'ticket') flash(d.url ? `Ticket created in ${d.channel}` : `Sent to ${d.channel}`);
+      if (action === 'request-review') flash(d.notified ? 'Review requested — reviewer notified' : 'Review requested');
     } catch (e) { setError((e as Error).message); } finally { setBusy((b) => ({ ...b, [fixId]: false })); }
   };
   const shipConfirm = async (fixId: string) => {
@@ -297,6 +305,17 @@ export function PageFixes() {
     setBulkBusy(false); setPicked(new Set());
   };
   const togglePick = (id: string) => setPicked((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  // One-click bulk over a module group ("47 pages missing meta → Ship all").
+  const runGroupBulk = async (list: FixRow[], action: 'generate' | 'approve' | 'ship') => {
+    if (!brandId) return;
+    if (action === 'ship' && !canShip) { flash('Connect a CMS or the Connector first'); return; }
+    const ids = list.filter((f) => eligibleFor(f, action)).map((f) => f.id);
+    if (ids.length === 0) { flash(`No fixes in this group are ready to ${action}`); return; }
+    setBulkBusy(true); flash(`${action[0].toUpperCase()}${action.slice(1)}ing ${ids.length} in group…`);
+    for (const id of ids) { await act(id, action); }
+    setBulkBusy(false);
+  };
 
   // "Safe" = deterministic, no-LLM fixes (cost 0) that aren't live yet — the
   // ones auto-pilot would ship. One button drives each from wherever it is
@@ -417,11 +436,14 @@ export function PageFixes() {
   const shown = React.useMemo(() => {
     let list = filter === 'all' ? fixes : fixes.filter((f) => bucketOf(f.status) === filter);
     if (quickWins) list = list.filter((f) => (moduleMeta(f.moduleKey)?.cost ?? 1) === 0 || f.severity === 'critical' || f.severity === 'high');
-    // Rank by severity, then by estimated impact so high-value fixes surface first.
+    // Rank by severity, then by estimated value: module impact weighted by
+    // the target page's real 28-day GSC impressions (log-scaled so a huge
+    // page doesn't drown everything). Falls back to impact alone.
+    const value = (f: FixRow) => (moduleMeta(f.moduleKey)?.impact ?? 2) * Math.log10((f.pageImpressions ?? 0) + 10);
     return [...list].sort((a, b) => {
       const sev = (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9);
       if (sev !== 0) return sev;
-      return (moduleMeta(b.moduleKey)?.impact ?? 2) - (moduleMeta(a.moduleKey)?.impact ?? 2);
+      return value(b) - value(a);
     });
   }, [fixes, filter, quickWins, moduleMeta]);
 
@@ -454,6 +476,7 @@ export function PageFixes() {
   );
 
   const kpis = [
+    { value: health ? String(health.score) : '—', label: 'GEO health', bg: health && health.score < 50 ? 'var(--danger-50)' : 'var(--success-50)', fg: health && health.score < 50 ? 'var(--danger)' : 'var(--success)' },
     { value: aiVis ? `${Math.round(aiVis.sov)}%` : '—', label: aiVis ? `AI visibility · ${aiVis.at}` : 'AI visibility', bg: 'var(--text)', fg: 'var(--bg)' },
     { value: String(counts.detected || 0), label: 'Detected', bg: 'var(--primary-50)', fg: 'var(--primary)' },
     { value: String(counts.review || 0), label: 'In review', bg: 'var(--primary-50)', fg: 'var(--primary)' },
@@ -523,14 +546,16 @@ export function PageFixes() {
       </div>
     )}
 
-    {attention && (attention.failed > 0 || attention.stuckConnector > 0) && (
+    {attention && (attention.failed > 0 || attention.stuckConnector > 0 || (attention.regressed || 0) > 0) && (
       <div className="nb-sm" style={{ padding: '12px 18px', background: 'var(--warn-50)', borderColor: 'var(--warn)', boxShadow: '3px 3px 0 var(--warn)', display: 'flex', gap: 11, alignItems: 'center', flexWrap: 'wrap' }}>
         <span className="disp" style={{ color: 'var(--warn)', fontSize: 16, fontWeight: 700 }}>⚠</span>
         <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
           Needs attention:
-          {attention.failed > 0 && ` ${attention.failed} failed fix${attention.failed === 1 ? '' : 'es'}`}
-          {attention.failed > 0 && attention.stuckConnector > 0 && ' ·'}
-          {attention.stuckConnector > 0 && ` ${attention.stuckConnector} not applied by your site yet (connector offline?)`}
+          {[
+            attention.failed > 0 ? `${attention.failed} failed fix${attention.failed === 1 ? '' : 'es'}` : null,
+            attention.stuckConnector > 0 ? `${attention.stuckConnector} not applied by your site yet (connector offline?)` : null,
+            (attention.regressed || 0) > 0 ? `${attention.regressed} fix${attention.regressed === 1 ? '' : 'es'} regressed (overwritten on your site — re-ship)` : null,
+          ].filter(Boolean).join(' · ')}
         </span>
         {attention.failed > 0 && <button className="tbtn" onClick={() => setFilter('attention')}>View</button>}
       </div>
@@ -569,7 +594,7 @@ export function PageFixes() {
     )}
 
     {/* KPI TILES */}
-    <section style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 14 }}>
+    <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 14 }}>
       {kpis.map((k) => (
         <div key={k.label} className="nb-sm" style={{ padding: 16, background: k.bg }}>
           <div className="disp" style={{ fontSize: 32, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1, color: k.fg }}>{k.value}</div>
@@ -593,7 +618,7 @@ export function PageFixes() {
     <SeoBrainSection brain={brain} disabled={!enabled} onSave={saveBrain} onReset={resetBrain} />
 
     {/* AUTOMATION */}
-    <AutomationSection automation={automation} canShip={canShip} disabled={!enabled} onSave={saveAutomation} />
+    <AutomationSection automation={automation} activity={activity} canShip={canShip} disabled={!enabled} onSave={saveAutomation} />
 
     {/* MODULES + PASSAGE */}
     <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 18, alignItems: 'start' }}>
@@ -718,6 +743,7 @@ export function PageFixes() {
             onSaveMeta={(patch) => saveMeta(f.id, patch)}
             hasConnector={hasConnector} hasTracker={hasTracker}
             onStage={() => act(f.id, 'stage')} onPublish={() => act(f.id, 'publish')} onTicket={() => act(f.id, 'ticket')}
+            onRequestReview={() => act(f.id, 'request-review')}
             downloadHref={f.channel === 'B' ? `/api/brands/${brandId}/fixes/${f.id}/file` : undefined}
           />
         );
@@ -731,7 +757,33 @@ export function PageFixes() {
             ))}
           </div>
         ) : (
-          <div style={{ display: 'grid', gap: 18 }}>{shown.map(renderCard)}</div>
+          // Group runs of ≥4 same-module fixes into one bulk card so large
+          // sites (e.g. "meta missing on 47 pages") stay manageable.
+          <div style={{ display: 'grid', gap: 18 }}>
+            {(() => {
+              const byModule = new Map<string, FixRow[]>();
+              for (const f of shown) (byModule.get(f.moduleKey) || byModule.set(f.moduleKey, []).get(f.moduleKey))!.push(f);
+              const out: React.ReactNode[] = [];
+              const groupedKeys = new Set([...byModule.entries()].filter(([, l]) => l.length >= 4).map(([k]) => k));
+              const rendered = new Set<string>();
+              for (const f of shown) {
+                if (!groupedKeys.has(f.moduleKey)) { out.push(renderCard(f)); continue; }
+                if (rendered.has(f.moduleKey)) continue;
+                rendered.add(f.moduleKey);
+                const list = byModule.get(f.moduleKey)!;
+                out.push(
+                  <GroupCard
+                    key={`grp-${f.moduleKey}`} moduleKey={f.moduleKey} title={moduleTitle(f.moduleKey)}
+                    fixes={list} expanded={expandedGroups.has(f.moduleKey)} busy={bulkBusy} canShip={canShip}
+                    onToggle={() => setExpandedGroups((s) => { const n = new Set(s); n.has(f.moduleKey) ? n.delete(f.moduleKey) : n.add(f.moduleKey); return n; })}
+                    onBulk={(action) => runGroupBulk(list, action)}
+                    renderCard={renderCard}
+                  />,
+                );
+              }
+              return out;
+            })()}
+          </div>
         );
       })()}
       {/* keep lint happy about unused maps */}
@@ -1034,9 +1086,33 @@ function SeoBrainSection({ brain, disabled, onSave, onReset }: {
 }
 
 // ── Automation (scheduled scans + auto-pilot) ──
-function AutomationSection({ automation, canShip, disabled, onSave }: {
-  automation: any; canShip: boolean; disabled: boolean; onSave: (patch: any) => void;
+function AutomationSection({ automation, activity, canShip, disabled, onSave }: {
+  automation: any; activity: { id: string; event: string; detail: any; createdAt: string }[];
+  canShip: boolean; disabled: boolean; onSave: (patch: any) => void;
 }) {
+  const [showRules, setShowRules] = React.useState(false);
+  const [rules, setRules] = React.useState<{ titleSuffix: string; titleMaxLen: string; metaMaxLen: string; bannedPhrases: string }>({ titleSuffix: '', titleMaxLen: '', metaMaxLen: '', bannedPhrases: '' });
+  React.useEffect(() => {
+    const r = automation?.rules || {};
+    setRules({
+      titleSuffix: r.titleSuffix || '', titleMaxLen: r.titleMaxLen ? String(r.titleMaxLen) : '',
+      metaMaxLen: r.metaMaxLen ? String(r.metaMaxLen) : '', bannedPhrases: (r.bannedPhrases || []).join(', '),
+    });
+  }, [automation?.rules]);
+  const saveRules = () => onSave({
+    rules: {
+      titleSuffix: rules.titleSuffix || undefined,
+      titleMaxLen: rules.titleMaxLen ? Number(rules.titleMaxLen) : undefined,
+      metaMaxLen: rules.metaMaxLen ? Number(rules.metaMaxLen) : undefined,
+      bannedPhrases: rules.bannedPhrases.split(',').map((p) => p.trim()).filter(Boolean),
+    },
+  });
+  const EVENT_LABEL: Record<string, string> = {
+    'scan.done': 'Scan finished', generated: 'Draft generated', approved: 'Approved', shipped: 'Shipped',
+    rechecked: 'Re-checked', 'rules.applied': 'Guardrails applied', 'regression.detected': 'Regression detected',
+    'outcome.measured': 'Outcome measured', 'trigger.new_pages': 'New pages detected', 'approval.requested': 'Review requested',
+    'connector.applied': 'Applied by your site', 'connector.stuck': 'Delivery stuck', 'ticket.created': 'Ticket created',
+  };
   const a = automation || {};
   const Toggle = ({ on, onClick, children, dim }: { on: boolean; onClick: () => void; children: React.ReactNode; dim?: boolean }) => (
     <button className="chip" onClick={onClick} disabled={disabled || dim} style={{ cursor: disabled || dim ? 'not-allowed' : 'pointer', fontSize: 11, padding: '6px 12px', opacity: dim ? 0.5 : 1, background: on ? 'var(--success-50)' : 'var(--surface)', color: on ? 'var(--success)' : 'var(--text-2)', borderColor: on ? 'var(--success)' : 'var(--ink)' }}>{on ? '● ' : '○ '}{children}</button>
@@ -1076,6 +1152,45 @@ function AutomationSection({ automation, canShip, disabled, onSave }: {
             Sends a summary to your connected Linear/Jira or webhook (Slack) — no need to log in to see progress.
           </span>
         </div>
+
+        {/* Brand rules — deterministic guardrails on every AI draft */}
+        <div style={{ display: 'grid', gap: 10, paddingTop: 12, borderTop: '2px dashed var(--line)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <strong className="disp" style={{ fontSize: 14, minWidth: 150 }}>Brand rules</strong>
+            <Toggle on={showRules} onClick={() => setShowRules((s) => !s)}>{showRules ? 'Editing' : 'Edit rules'}</Toggle>
+            <span className="quiet" style={{ fontSize: 12, color: 'var(--text-2)', marginLeft: 'auto' }}>
+              Hard guardrails enforced on every AI draft: title suffix, length caps, banned phrases.
+            </span>
+          </div>
+          {showRules && (
+            <div className="nb-sm" style={{ padding: 14, background: 'var(--surface-2)', display: 'grid', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12 }}>
+                <div><div className="xlbl" style={{ marginBottom: 6, color: 'var(--text-2)' }}>Title suffix</div><input className="xin" value={rules.titleSuffix} placeholder="| Acme" onChange={(e) => setRules((r) => ({ ...r, titleSuffix: e.target.value }))} /></div>
+                <div><div className="xlbl" style={{ marginBottom: 6, color: 'var(--text-2)' }}>Title max</div><input className="xin" value={rules.titleMaxLen} placeholder="60" onChange={(e) => setRules((r) => ({ ...r, titleMaxLen: e.target.value.replace(/\D/g, '') }))} /></div>
+                <div><div className="xlbl" style={{ marginBottom: 6, color: 'var(--text-2)' }}>Meta max</div><input className="xin" value={rules.metaMaxLen} placeholder="155" onChange={(e) => setRules((r) => ({ ...r, metaMaxLen: e.target.value.replace(/\D/g, '') }))} /></div>
+              </div>
+              <div><div className="xlbl" style={{ marginBottom: 6, color: 'var(--text-2)' }}>Banned phrases (comma-separated)</div><input className="xin" value={rules.bannedPhrases} placeholder="world-class, game-changing, revolutionary" onChange={(e) => setRules((r) => ({ ...r, bannedPhrases: e.target.value }))} /></div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}><button className="xbtn" onClick={saveRules} disabled={disabled} style={{ padding: '8px 14px' }}>SAVE RULES</button></div>
+            </div>
+          )}
+        </div>
+
+        {/* Automation activity — what the engine did on its own */}
+        {activity.length > 0 && (
+          <div style={{ display: 'grid', gap: 8, paddingTop: 12, borderTop: '2px dashed var(--line)' }}>
+            <strong className="disp" style={{ fontSize: 14 }}>Recent activity</strong>
+            <div style={{ display: 'grid', gap: 5, maxHeight: 180, overflow: 'auto' }}>
+              {activity.slice(0, 12).map((ev) => (
+                <div key={ev.id} style={{ display: 'flex', gap: 10, alignItems: 'baseline', fontSize: 12 }}>
+                  <span className="mono quiet" style={{ color: 'var(--text-3)', flexShrink: 0, fontSize: 10.5 }}>{new Date(ev.createdAt).toLocaleString()}</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text)' }}>{EVENT_LABEL[ev.event] || ev.event}</span>
+                  {ev.event === 'trigger.new_pages' && ev.detail?.count && <span className="quiet" style={{ color: 'var(--text-2)' }}>{ev.detail.count} new page{ev.detail.count === 1 ? '' : 's'}</span>}
+                  {ev.event === 'outcome.measured' && typeof ev.detail?.ctrDelta === 'number' && <span style={{ color: ev.detail.ctrDelta >= 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>CTR {ev.detail.ctrDelta >= 0 ? '+' : ''}{Math.round(ev.detail.ctrDelta * 100)}%</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -1100,6 +1215,40 @@ function PassageSection({ disabled, onSubmit }: { disabled: boolean; onSubmit: (
   );
 }
 
+// ── Grouped module card (bulk over N same-module fixes) ──
+function GroupCard({ moduleKey, title, fixes, expanded, busy, canShip, onToggle, onBulk, renderCard }: {
+  moduleKey: string; title: string; fixes: FixRow[]; expanded: boolean; busy: boolean; canShip: boolean;
+  onToggle: () => void; onBulk: (action: 'generate' | 'approve' | 'ship') => void;
+  renderCard: (f: FixRow) => React.ReactNode;
+}) {
+  const count = (s: (f: FixRow) => boolean) => fixes.filter(s).length;
+  const detected = count((f) => f.status === 'detected' || f.status === 'failed');
+  const review = count((f) => f.status === 'generated' || f.status === 'preview_ready');
+  const approved = count((f) => f.status === 'approved');
+  const live = count((f) => f.status === 'shipped' || f.status === 'verified');
+  const hosts = [...new Set(fixes.map((f) => (f.targetUrl || '').replace(/^https?:\/\/[^/]+/, '') || '/'))].slice(0, 3);
+  return (
+    <article className="nb" style={{ padding: 0, overflow: 'hidden', boxShadow: '5px 5px 0 var(--primary)' }} data-group={moduleKey}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 18px', background: 'var(--primary-50)', borderBottom: '2.5px solid var(--ink)', flexWrap: 'wrap' }}>
+        <span className="disp nb-sm" style={{ padding: '4px 10px', fontWeight: 700, fontSize: 13, background: 'var(--primary)', color: '#fff' }}>{fixes.length}×</span>
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <div className="disp" style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{title} — {fixes.length} pages</div>
+          <div style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>{hosts.join(' · ')}{fixes.length > hosts.length ? ' · …' : ''}</div>
+        </div>
+        <span className="chip" style={{ fontSize: 10.5 }}>{detected} to draft · {review} in review · {approved} ready · {live} live</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', flexWrap: 'wrap' }}>
+        {detected > 0 && <button className="gbtn" disabled={busy} onClick={() => onBulk('generate')} style={{ padding: '7px 13px', fontSize: 12 }}>✦ Generate all ({detected})</button>}
+        {review > 0 && <button className="xbtn" disabled={busy} onClick={() => onBulk('approve')} style={{ padding: '7px 13px', fontSize: 12, background: 'var(--success)' }}>✓ Approve all ({review})</button>}
+        {approved > 0 && <button className="xbtn" disabled={busy || !canShip} onClick={() => onBulk('ship')} style={{ padding: '7px 13px', fontSize: 12, background: 'var(--success)' }}>⬢ Ship all ({approved})</button>}
+        <span style={{ flex: 1 }} />
+        <button className="tbtn" onClick={onToggle}>{expanded ? 'Collapse' : `Review individually (${fixes.length})`}</button>
+      </div>
+      {expanded && <div style={{ display: 'grid', gap: 18, padding: '0 18px 18px' }}>{fixes.map((f) => renderCard(f))}</div>}
+    </article>
+  );
+}
+
 // A Google-result-style snippet, used to preview how a title/meta change
 // will actually look in search results and AI answers.
 function SerpCard({ label, host, title, desc, color }: { label: string; host: string; title: string; desc: string; color: string }) {
@@ -1114,13 +1263,14 @@ function SerpCard({ label, host, title, desc, color }: { label: string; host: st
 }
 
 // ── Fix card ──
-function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, downloadHref }: {
+function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, downloadHref }: {
   fix: FixRow; title: string; preview: PreviewBlock | null | undefined; cost: number; revertable: boolean; impact?: 1 | 2 | 3;
   events: FixEvent[] | undefined; busy: boolean; armed: boolean; canShip: boolean; picked: boolean;
   onTogglePick: () => void; onGenerate: () => void; onApprove: () => void; onArm: () => void; onCancelArm: () => void;
   onShipConfirm: () => void; onRecheck: () => void; onRetry: () => void; onRevert: () => void; onLoadHistory: () => void;
   onSaveMeta: (patch: { note?: string; assignee?: string }) => void;
   hasConnector: boolean; hasTracker: boolean; onStage: () => void; onPublish: () => void; onTicket: () => void;
+  onRequestReview: () => void;
   downloadHref?: string;
 }) {
   const [showHistory, setShowHistory] = React.useState(false);
@@ -1176,6 +1326,22 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
         {(url || fix.aiBefore) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             {url && <a href={url} target="_blank" rel="noreferrer" className="chip" style={{ cursor: 'pointer', fontSize: 11 }}>🌐 {host} ↗</a>}
+            {(fix.pageImpressions ?? 0) > 0 && (
+              <span className="chip" title="This page's Google impressions, last 28 days (GSC)" style={{ color: 'var(--info)', borderColor: 'var(--info)' }}>
+                👁 {fix.pageImpressions! >= 1000 ? `${(fix.pageImpressions! / 1000).toFixed(1)}k` : fix.pageImpressions} impressions/28d
+              </span>
+            )}
+            {fix.gscBefore && fix.gscAfter && !fix.gscAfter.unavailable && (() => {
+              const b = Number(fix.gscBefore.ctr) || 0; const a = Number(fix.gscAfter.ctr) || 0;
+              if (!(Number(fix.gscBefore.impressions) >= 100 && Number(fix.gscAfter.impressions) >= 100 && b > 0)) return null;
+              const rel = Math.round(((a - b) / b) * 100);
+              const tone = rel > 0 ? 'var(--success)' : rel < 0 ? 'var(--danger)' : 'var(--text-2)';
+              return (
+                <span className="chip" title="This page's Google CTR, 28 days before vs after this fix shipped" style={{ color: tone, borderColor: tone, background: rel > 0 ? 'var(--success-50)' : undefined }}>
+                  📈 MEASURED: CTR {rel > 0 ? '+' : ''}{rel}%
+                </span>
+              );
+            })()}
             {fix.scoreAfter != null && <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)' }}>SCORE {fix.scoreAfter}</span>}
             {(isLive) && fix.aiBefore?.sov != null && (() => {
               const before = fix.aiBefore!.sov!; const after = fix.aiAfter?.sov;
@@ -1239,6 +1405,7 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
           {isReview && (<>
             <button className="xbtn" onClick={onApprove} disabled={busy} style={{ background: 'var(--success)' }}>✓ APPROVE</button>
             <button className="gbtn" onClick={onGenerate} disabled={busy}>↻ Regenerate</button>
+            <button className="gbtn" onClick={onRequestReview} disabled={busy} title="Ping a teammate (assignee) to review this draft via Linear/Jira/Slack">✋ Request approval</button>
             {url && <a className="tbtn" href={url} target="_blank" rel="noreferrer">View source</a>}
           </>)}
           {isApproved && !armed && (<>
