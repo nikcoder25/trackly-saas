@@ -17,6 +17,7 @@ import { PagePromptDiscovery, PageAgentAnalytics } from './pages/discovery';
 import { PageGeoAudit, PageRegional, PageOnboarding } from './pages/tools';
 import { PageFixes } from './pages/fixes';
 import { PageSetup, PagePrompts, PageAccount, PageBilling, PageAlerts } from './pages/settings';
+import { BrandProvider } from '@/contexts/BrandContext';
 
 const PAGE_REGISTRY: Record<string, () => React.JSX.Element> = {
   overview: () => <PageOverview />,
@@ -107,13 +108,18 @@ export default function DashboardV2() {
   const setTweak = (k: string, v: any) => setT(prev => ({ ...prev, [k]: v }));
   return (
     <div className="lvx lvx-standalone" data-theme={t.dark ? 'dark' : 'light'} data-accent={t.accent} data-density={t.density}>
-      <RouterProvider>
-        <ExtrasProvider>
-          <Shell>
-            <PageRouter />
-          </Shell>
-        </ExtrasProvider>
-      </RouterProvider>
+      {/* BrandProvider is mounted by the classic /dashboard layout but NOT by
+          this standalone shell — without it, useBrandData never resolves
+          (context default is loading:true) and data pages spin forever. */}
+      <BrandProvider>
+        <RouterProvider>
+          <ExtrasProvider>
+            <Shell>
+              <PageRouter />
+            </Shell>
+          </ExtrasProvider>
+        </RouterProvider>
+      </BrandProvider>
       <AppearanceDock t={t} setTweak={setTweak} />
     </div>
   );
