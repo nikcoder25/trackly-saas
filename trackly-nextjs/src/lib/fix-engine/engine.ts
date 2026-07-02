@@ -114,6 +114,11 @@ export async function runScan(batchId: string, opts: RunScanOptions = {}): Promi
   let totalExpected = 0;
   const errors: string[] = [];
 
+  // Every module re-crawls the same targets; the scan-scoped cache makes
+  // that one fetch per page for the whole scan (see crawl.ts).
+  const { beginCrawlCache, endCrawlCache } = await import('./crawl');
+  beginCrawlCache();
+  try {
   for (const key of keys) {
     const mod = getModule(key);
     if (!mod) continue;
@@ -140,6 +145,9 @@ export async function runScan(batchId: string, opts: RunScanOptions = {}): Promi
       errors.push(`${key}: ${(e as Error).message}`);
       logger.error('fix_engine.detect_failed', { module: key, brandId: ctx.brand.id, err: (e as Error).message });
     }
+  }
+  } finally {
+    endCrawlCache();
   }
 
   await finalizeBatch(batchId, errors.length && received === 0 ? 'failed' : 'done', received, totalExpected, errors.slice(0, 5).join('; ') || null);

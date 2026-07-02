@@ -599,6 +599,28 @@ Features that make the detect→fix→automate loop scale and prove itself:
   150-200 words, source-grounded only, never invented) and 40-60-word
   answer capsules, per the Princeton/Georgia-Tech GEO finding that adding
   statistics lifts AI visibility ~41%.
+- **Agency scale (batched crawling)** — crawl scans cover up to **200
+  pages** by default (`FIX_ENGINE_MAX_PAGES` to override). A scan-scoped
+  crawl cache (`beginCrawlCache`/`endCrawlCache`, wrapped around runScan's
+  module loop) fetches each page ONCE per scan instead of once per module —
+  200 pages × 8 crawl modules is 200 fetches, not 1,600. The cache never
+  applies outside a scan, so recheck/verification always reads the live page.
+- **Image alt module** (`image-alt`) — the crawler extracts `<img>` tags
+  with no alt attribute (empty `alt=""` is valid decorative markup and left
+  alone); one fix per page generates context-grounded alts (filename + page
+  topic — the prompt is explicit that it can't see pixels) and ships them as
+  per-image in-place body edits. Images not present in the editable body
+  (theme/builder-rendered) surface as a clear "add it in your builder"
+  handoff instead of a fake success.
+- **Keyword opportunities** (`keyword-opportunities`, needs GSC +
+  **Keywords Everywhere**) — the classic agency motion, automated: page-2/3
+  queries from the brand's own GSC (positions 8-30, real impressions)
+  enriched with KWE volume + ad competition; an opportunity = volume ≥ 100
+  and competition ≤ 0.4. Generates a targeting plan (suggested title +
+  specific actions) plus one ready-to-publish intent-answering section.
+  The KWE API key is a per-brand connection (provider `kwe`, encrypted,
+  verified on connect — verification spends 1 credit); volume lookups are
+  cached 7 days (`fix_keyword_metrics`) to conserve credits.
 
 ## Testing & ops notes
 

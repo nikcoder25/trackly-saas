@@ -17,6 +17,7 @@ import { logger } from '@/lib/logger';
 import { listConnections, upsertConnection } from '@/lib/fix-engine/connections';
 import { getCmsAdapter, listSupportedCms } from '@/lib/fix-engine/cms';
 import { getTracker } from '@/lib/fix-engine/trackers';
+import { verifyKeywordsEverywhere } from '@/lib/fix-engine/keywords';
 
 export async function GET(
   request: Request,
@@ -67,8 +68,8 @@ export async function POST(
     try { body = (await request.json()) as ConnBody; } catch { return Response.json({ error: 'Invalid JSON body' }, { status: 400 }); }
 
     const provider = typeof body.provider === 'string' ? body.provider : '';
-    if (!['cms', 'gsc', 'connector', 'linear', 'jira'].includes(provider)) {
-      return Response.json({ error: 'provider must be one of: cms, gsc, connector, linear, jira' }, { status: 400 });
+    if (!['cms', 'gsc', 'connector', 'linear', 'jira', 'kwe'].includes(provider)) {
+      return Response.json({ error: 'provider must be one of: cms, gsc, connector, linear, jira, kwe' }, { status: 400 });
     }
     const creds = (body.creds && typeof body.creds === 'object') ? (body.creds as Record<string, unknown>) : {};
     const siteUrl = typeof body.siteUrl === 'string' ? body.siteUrl.trim() : (access.brand.website as string | undefined) ?? null;
@@ -93,6 +94,21 @@ export async function POST(
       const conn = await upsertConnection({
         userId: access.brand.userId || user.id, brandId: id, provider: 'cms',
         cmsType, siteUrl, creds, meta,
+      });
+      return Response.json({ connection: conn, verified: true }, { status: 201 });
+    }
+
+    if (provider === 'kwe') {
+      const apiKey = typeof (creds as { apiKey?: unknown }).apiKey === 'string' ? String((creds as { apiKey: string }).apiKey).trim() : '';
+      if (!apiKey) return Response.json({ error: 'Keywords Everywhere API key is required' }, { status: 400 });
+      // Verify before storing (note: KWE has no free ping — this spends 1 credit).
+      const check = await verifyKeywordsEverywhere(apiKey);
+      if (!check.ok) {
+        return Response.json({ error: `Keywords Everywhere verification failed: ${check.detail ?? 'unknown error'}` }, { status: 400 });
+      }
+      const conn = await upsertConnection({
+        userId: access.brand.userId || user.id, brandId: id, provider: 'kwe',
+        siteUrl: null, creds: { apiKey }, meta,
       });
       return Response.json({ connection: conn, verified: true }, { status: 201 });
     }

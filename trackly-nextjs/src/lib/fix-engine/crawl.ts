@@ -39,6 +39,28 @@ export interface CrawledPage {
   externalLinkCount: number;
   /** Best-effort last-modified ISO date (meta/JSON-LD/HTTP), or null. */
   lastModified: string | null;
+  /** Rendered <img> srcs that have no alt attribute at all (capped at 20). */
+  imagesMissingAlt: string[];
+}
+
+// ── Scan-scoped crawl cache ──────────────────────────────────────
+//
+// A scan runs every module's detect() over the same target list, so without
+// a cache a 200-page site × 8 crawl modules = 1,600 fetches. runScan wraps
+// the module loop in beginCrawlCache()/endCrawlCache(); while active, each
+// page (and the sitemap target list) is fetched exactly once. Outside a
+// scan (recheck paths) nothing is cached, so verification always sees the
+// live page. Ref-counted for overlapping scans in one process.
+
+let cacheDepth = 0;
+const pageCache = new Map<string, CrawledPage>();
+const targetsCache = new Map<string, string[]>();
+const PAGE_CACHE_MAX = 500;
+
+export function beginCrawlCache(): void { cacheDepth++; }
+export function endCrawlCache(): void {
+  cacheDepth = Math.max(0, cacheDepth - 1);
+  if (cacheDepth === 0) { pageCache.clear(); targetsCache.clear(); }
 }
 
 function decodeEntities(s: string): string {
@@ -148,6 +170,10 @@ export function extractLastModified(html: string, jsonLd: unknown[], httpLastMod
 }
 
 export async function crawlPage(url: string, _signal?: AbortSignal): Promise<CrawledPage> {
+  if (cacheDepth > 0) {
+    const hit = pageCache.get(url);
+    if (hit) return hit;
+  }
   // safeFetch manages its own timeout/abort internally; the optional
   // signal arg is kept for call-site symmetry with the engine context.
   const res = await safeFetch(url, { timeoutMs: 12_000, maxBytes: 3 * 1024 * 1024 });
@@ -159,7 +185,7 @@ export async function crawlPage(url: string, _signal?: AbortSignal): Promise<Cra
   const og = extractMeta(html, 'og:title');
   const twitter = extractMeta(html, 'twitter:card');
   const externalLinkCount = countExternalLinks(html, url);
-  return {
+  const page: CrawledPage = {
     url,
     status: res.status,
     title: extractTag(html, 'title'),
@@ -175,7 +201,24 @@ export async function crawlPage(url: string, _signal?: AbortSignal): Promise<Cra
     hasOgTags: !!og && !!twitter,
     externalLinkCount,
     lastModified: extractLastModified(html, jsonLd, res.headers.get('last-modified')),
+    imagesMissingAlt: extractImagesMissingAlt(html),
   };
+  if (cacheDepth > 0 && pageCache.size < PAGE_CACHE_MAX) pageCache.set(url, page);
+  return page;
+}
+
+/** <img> tags with NO alt attribute at all (empty alt="" is intentional-
+ * decorative per WCAG, so it's left alone). Returns unique srcs, capped. */
+export function extractImagesMissingAlt(html: string, cap = 20): string[] {
+  const out = new Set<string>();
+  const tags = html.match(/<img\b[^>]*>/gi) || [];
+  for (const tag of tags) {
+    if (/\balt\s*=/i.test(tag)) continue;
+    const src = tag.match(/\bsrc=["']([^"']+)["']/i)?.[1];
+    if (src && !src.startsWith('data:')) out.add(src);
+    if (out.size >= cap) break;
+  }
+  return [...out];
 }
 
 function countExternalLinks(html: string, pageUrl: string): number {
@@ -200,9 +243,16 @@ function countExternalLinks(html: string, pageUrl: string): number {
  */
 export async function resolveCrawlTargets(
   website: string | undefined,
-  max = 20,
+  max?: number,
 ): Promise<string[]> {
   if (!website) return [];
+  // Default page budget per scan; override with FIX_ENGINE_MAX_PAGES.
+  const cap = max ?? (Number(process.env.FIX_ENGINE_MAX_PAGES) || 200);
+  const cacheKey = `${website}|${cap}`;
+  if (cacheDepth > 0) {
+    const hit = targetsCache.get(cacheKey);
+    if (hit) return hit;
+  }
   const base = website.startsWith('http') ? website : `https://${website}`;
   const targets = new Set<string>([base]);
 
@@ -219,12 +269,14 @@ export async function resolveCrawlTargets(
       for (const loc of locs) {
         const u = loc.replace(/<\/?loc>/g, '').trim();
         if (u && !u.endsWith('.xml')) targets.add(u);
-        if (targets.size >= max) break;
+        if (targets.size >= cap) break;
       }
     }
   } catch {
     // No sitemap - homepage only.
   }
 
-  return Array.from(targets).slice(0, max);
+  const list = Array.from(targets).slice(0, cap);
+  if (cacheDepth > 0) targetsCache.set(cacheKey, list);
+  return list;
 }

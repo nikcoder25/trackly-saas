@@ -15,7 +15,7 @@ import { pool } from '@/lib/db';
 import { encryptValue, decryptValue } from '@/lib/helpers';
 import { ensureFixEngineSchema } from './schema';
 
-export type ConnectionProvider = 'cms' | 'gsc' | 'connector' | 'linear' | 'jira';
+export type ConnectionProvider = 'cms' | 'gsc' | 'connector' | 'linear' | 'jira' | 'kwe';
 
 export interface ConnectionPublic {
   id: string;

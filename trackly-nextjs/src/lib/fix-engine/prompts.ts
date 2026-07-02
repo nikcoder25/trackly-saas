@@ -592,3 +592,82 @@ ${args.pageText.slice(0, 2500)}
 
 Write the freshness update block for this page.`;
 }
+
+// ── Image alt text (module: image-alt) ───────────────────────────
+
+export const IMAGE_ALT_SYSTEM = `You write alt text for images on a web page. You cannot see the images — you infer meaning from each image's filename/path and the page's topic. Alt text serves screen-reader users first and search engines second.
+
+Hard rules:
+- 4-14 words per alt, concrete and descriptive; no "image of"/"picture of".
+- Use the filename's words when meaningful (e.g. "team-dashboard-dark.png" → describe a team dashboard); when the filename is meaningless (IMG_1234), describe what an image in that spot on THIS page most plausibly shows, staying generic but useful.
+- Natural language only — no keyword stuffing, no invented product claims.
+- One alt per image, in the same order as supplied.
+
+Return ONLY a JSON object: { "alts": [{"src": "<src>", "alt": "<alt text>"}], "rationale": "<one sentence>" }`;
+
+export function imageAltUserPrompt(args: {
+  brand: { name?: string; description?: string };
+  url: string;
+  title: string | null;
+  pageText: string;
+  images: string[];
+}): string {
+  return `Brand: ${args.brand.name ?? 'Unknown'}
+About: ${args.brand.description ?? '(none)'}
+Page: ${args.url}
+Page title: ${args.title ?? '(none)'}
+Page content summary:
+"""
+${args.pageText.slice(0, 1500)}
+"""
+
+Images missing alt text (src paths, in order):
+${args.images.map((s, i) => `${i + 1}. ${s}`).join('\n')}
+
+Write alt text for each image.`;
+}
+
+// ── Keyword opportunity plan (module: keyword-opportunities) ─────
+
+export const KEYWORD_PLAN_SYSTEM = `You are an SEO strategist turning a keyword opportunity into an on-page plan plus one ready-to-publish section. The site already ranks on page 2-3 for this keyword (real Search Console data) and third-party data shows meaningful volume with low ad competition — a low-competition, high-value target.
+
+Hard rules:
+- The section must directly answer the keyword's search intent: open with a 40-60 word answer capsule, then 2-3 short fact-dense paragraphs or a compact list.
+- Ground everything in the supplied page content and brand facts; NEVER invent statistics, prices, or claims.
+- Include the keyword naturally (exact or close variant) in the suggested title and the section heading — no stuffing.
+- suggestedTitle: 50-60 chars. The plan items must be specific to THIS page, not generic advice.
+
+Return ONLY a JSON object:
+{
+  "suggestedTitle": "<50-60 char title targeting the keyword>",
+  "plan": ["<specific on-page action>", ...],
+  "heading": "<question-style H2 containing the keyword>",
+  "html": "<the section: <h2> + paragraphs/list as clean HTML>",
+  "rationale": "<one sentence: why this keyword is winnable>"
+}`;
+
+export function keywordPlanUserPrompt(args: {
+  brand: { name?: string; description?: string };
+  url: string;
+  keyword: string;
+  volume: number;
+  competition: number;
+  position: number;
+  title: string | null;
+  pageText: string;
+}): string {
+  return `Brand: ${args.brand.name ?? 'Unknown'}
+About: ${args.brand.description ?? '(none)'}
+Target keyword: "${args.keyword}"
+Monthly search volume: ${args.volume} · Ad competition: ${args.competition} (0-1, lower = easier)
+Current Google position: ${args.position.toFixed(1)}
+Page to optimise: ${args.url}
+Current title: ${args.title ?? '(none)'}
+
+Current page content:
+"""
+${args.pageText.slice(0, 3000)}
+"""
+
+Produce the targeting plan and the ready-to-publish section for this keyword.`;
+}

@@ -112,7 +112,8 @@ const MODULE_GROUP: Record<string, string> = {
   'title-rewrite': 'Content optimization', 'meta-rewrite': 'Content optimization',
   'geo-page-rewrite': 'Content optimization', 'passage-rewrite': 'Content optimization',
   'internal-linking': 'Content optimization', 'citable-passages': 'Content optimization',
-  'content-freshness': 'Content optimization',
+  'content-freshness': 'Content optimization', 'keyword-opportunities': 'Content optimization',
+  'image-alt': 'Technical & rankings',
   'external-citations': 'Authority & citations', 'comparison-pages': 'Authority & citations',
   'hallucination-correction': 'Accuracy & corrections',
   'striking-distance': 'Technical & rankings', 'ctr-rescue': 'Technical & rankings',
@@ -122,7 +123,7 @@ const MODULE_GROUP: Record<string, string> = {
 const GROUP_ORDER = ['Structured data & schema', 'AI crawler access', 'Content optimization', 'Authority & citations', 'Accuracy & corrections', 'Technical & rankings', 'Other'];
 // Modules whose change can be staged as a Connector draft revision
 // (mirrors the modules that implement contentPatch() server-side).
-const STAGEABLE_MODULES = new Set(['title-rewrite', 'meta-rewrite', 'geo-page-rewrite', 'faq-schema', 'canonical-fix', 'passage-rewrite', 'citable-passages', 'content-freshness']);
+const STAGEABLE_MODULES = new Set(['title-rewrite', 'meta-rewrite', 'geo-page-rewrite', 'faq-schema', 'canonical-fix', 'passage-rewrite', 'citable-passages', 'content-freshness', 'keyword-opportunities']);
 // Draft field a reviewer can edit inline before approving (mirrors each
 // module's generated shape — only clean single-text drafts are editable).
 const EDITABLE_FIELD: Record<string, string> = {
@@ -233,6 +234,7 @@ export function PageFixes() {
   const connectorConn = connections.find((c) => c.provider === 'connector' && c.status === 'active');
   const linearConn = connections.find((c) => c.provider === 'linear' && c.status === 'active');
   const jiraConn = connections.find((c) => c.provider === 'jira' && c.status === 'active');
+  const kweConn = connections.find((c) => c.provider === 'kwe' && c.status === 'active');
   const canShip = !!cmsConn || !!connectorConn;
   const hasConnector = !!connectorConn;
   const hasTracker = !!linearConn || !!jiraConn;
@@ -439,6 +441,11 @@ export function PageFixes() {
     try { await api(`/api/brands/${brandId}/connections`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider, creds }) }); flash(`${provider === 'linear' ? 'Linear' : 'Jira'} connected`); await load(brandId); }
     catch (e) { setError((e as Error).message); }
   };
+  const connectKwe = async (apiKey: string) => {
+    if (!brandId) return; setError(null);
+    try { await api(`/api/brands/${brandId}/connections`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'kwe', creds: { apiKey } }) }); flash('Keywords Everywhere connected'); await load(brandId); }
+    catch (e) { setError((e as Error).message); }
+  };
   const createTargeted = async (form: { url: string; passage: string; instruction: string }) => {
     if (!brandId) return; setError(null);
     try { const d = await api(`/api/brands/${brandId}/fixes/targeted`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) }); if (d.fix?.id) { try { await act(d.fix.id, 'generate'); } catch { /* surfaced */ } } await load(brandId); flash('Passage fix created'); }
@@ -629,7 +636,7 @@ export function PageFixes() {
       gsc={!!gscConn} gscSite={gscConn?.siteUrl ?? null}
       connector={!!connectorConn} connectorLastSeen={connectorConn?.lastSeenAt ?? null} pairing={pairing}
       supportedCms={supportedCms} defaultSite={(brand as any)?.website || ''} disabled={!enabled}
-      linear={!!linearConn} jira={!!jiraConn} onConnectTracker={connectTracker}
+      linear={!!linearConn} jira={!!jiraConn} kwe={!!kweConn} onConnectTracker={connectTracker} onConnectKwe={connectKwe}
       onConnectCms={connectCms} onConnectWp={connectWp} onConnectCmsGeneric={connectCmsGeneric} onDetectCms={detectCms}
       onConnectGsc={connectGsc} onPairConnector={pairConnector} onRevokeConnector={revokeConnector} onCopy={(label) => flash(`${label} copied`)}
     />
@@ -819,12 +826,13 @@ export function PageFixes() {
 }
 
 // ── Connections ──
-function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, linear, jira, onConnectTracker, onConnectCms, onConnectWp, onConnectCmsGeneric, onDetectCms, onConnectGsc, onPairConnector, onRevokeConnector, onCopy }: {
+function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, linear, jira, kwe, onConnectTracker, onConnectKwe, onConnectCms, onConnectWp, onConnectCmsGeneric, onDetectCms, onConnectGsc, onPairConnector, onRevokeConnector, onCopy }: {
   cms: boolean; cmsMeta: string; gsc: boolean; gscSite: string | null; connector: boolean; connectorLastSeen: string | null;
   pairing: { token: string; hmacSecret: string; pullUrl: string } | null;
   supportedCms: string[]; defaultSite: string; disabled: boolean;
-  linear: boolean; jira: boolean;
+  linear: boolean; jira: boolean; kwe: boolean;
   onConnectTracker: (provider: 'linear' | 'jira', creds: Record<string, string>) => void;
+  onConnectKwe: (apiKey: string) => void;
   onConnectCms: (f: { cmsType: string; siteUrl: string; username: string; appPassword: string }) => void;
   onConnectWp: (site: string) => void;
   onConnectCmsGeneric: (cmsType: string, siteUrl: string, creds: Record<string, string>) => void;
@@ -844,6 +852,8 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
   const runDetect = async () => { if (!siteUrl) return; setDetecting(true); const d = await onDetectCms(siteUrl); setDetected(d); if (d?.hasAdapter && d.cms !== 'unknown') setCmsType(d.cms); setDetecting(false); };
   const [tracker, setTracker] = React.useState<'' | 'linear' | 'jira'>('');
   const [tk, setTk] = React.useState<Record<string, string>>({});
+  const [kweOpen, setKweOpen] = React.useState(false);
+  const [kweKey, setKweKey] = React.useState('');
   const tkSet = (k: string, v: string) => setTk((p) => ({ ...p, [k]: v }));
   React.useEffect(() => { if (defaultSite && !siteUrl) setSiteUrl(defaultSite); }, [defaultSite, siteUrl]);
   const connectedCount = (cms ? 1 : 0) + (gsc ? 1 : 0) + (connector ? 1 : 0);
@@ -1051,6 +1061,24 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="gbtn" onClick={() => setTracker('')}>Cancel</button>
                 <button className="xbtn" onClick={() => onConnectTracker('jira', tk)} disabled={!tk.email || !tk.apiToken || !tk.domain || !tk.projectKey}>CONNECT JIRA</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Keyword data — powers the keyword-opportunities module */}
+        <Row badge="KW" title="Keywords Everywhere" meta={kwe ? 'Connected · powers low-competition keyword targeting' : 'Search volume + competition for keyword targeting (API key)'}>
+          {kwe ? okChip('CONNECTED') : offChip}
+          <button className={kwe ? 'tbtn' : 'xbtn'} onClick={() => setKweOpen((o) => !o)} disabled={disabled}>{kwe ? 'Reconnect' : 'CONNECT'}</button>
+        </Row>
+        {kweOpen && (
+          <div className="nb-sm" style={{ padding: 18, margin: '6px 0 14px', background: 'var(--surface-2)', display: 'grid', gap: 14 }}>
+            <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>API key</div><input className="xin" type="password" value={kweKey} placeholder="Keywords Everywhere API key" onChange={(e) => setKweKey(e.target.value)} /></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>From keywordseverywhere.com → API. Verified (uses 1 credit), then encrypted. Volume lookups are cached 7 days to save credits.</span>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="gbtn" onClick={() => setKweOpen(false)}>Cancel</button>
+                <button className="xbtn" onClick={() => { onConnectKwe(kweKey.trim()); setKweOpen(false); }} disabled={!kweKey.trim()}>CONNECT</button>
               </div>
             </div>
           </div>
