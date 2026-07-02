@@ -9,8 +9,10 @@ import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { logger } from '@/lib/logger';
-import { getFix, getFixEvents, updateFix } from '@/lib/fix-engine/schema';
+import { getFix, getFixEvents, updateFix, logFixEvent } from '@/lib/fix-engine/schema';
 import { getModule } from '@/lib/fix-engine/registry';
+import { getAutomation } from '@/lib/fix-engine/automation';
+import { applyBrandRules } from '@/lib/fix-engine/rules';
 import type { PreviewBlock } from '@/lib/fix-engine/types';
 
 export async function GET(
@@ -56,9 +58,15 @@ export async function GET(
   }
 }
 
-interface PatchBody { note?: unknown; assignee?: unknown }
+interface PatchBody { note?: unknown; assignee?: unknown; generated?: unknown }
 
-/** PATCH — set the fix's note / assignee (collaboration metadata). */
+/**
+ * PATCH — set the fix's note / assignee (collaboration metadata), or edit
+ * the generated draft's text fields before approval (inline draft editing).
+ * Draft edits only merge string values into keys that already exist on the
+ * draft, only while the fix is awaiting review, and re-apply the brand's
+ * guardrail rules so a manual edit can't bypass them.
+ */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string; fixId: string }> },
@@ -76,9 +84,32 @@ export async function PATCH(
 
     let body: PatchBody;
     try { body = (await request.json()) as PatchBody; } catch { return Response.json({ error: 'Invalid JSON body' }, { status: 400 }); }
-    const patch: { note?: string | null; assignee?: string | null } = {};
+    const patch: { note?: string | null; assignee?: string | null; generated?: Record<string, unknown> } = {};
     if (body.note !== undefined) patch.note = typeof body.note === 'string' ? body.note.slice(0, 2000) : null;
     if (body.assignee !== undefined) patch.assignee = typeof body.assignee === 'string' ? body.assignee.slice(0, 120) : null;
+
+    if (body.generated !== undefined) {
+      if (!existing.generated || !['generated', 'preview_ready'].includes(existing.status)) {
+        return Response.json({ error: 'Only a draft awaiting review can be edited.' }, { status: 400 });
+      }
+      if (!body.generated || typeof body.generated !== 'object' || Array.isArray(body.generated)) {
+        return Response.json({ error: 'generated must be an object of draft fields' }, { status: 400 });
+      }
+      const merged = { ...existing.generated };
+      const edited: string[] = [];
+      for (const [k, v] of Object.entries(body.generated as Record<string, unknown>)) {
+        // Only string fields the draft already has — the module's shape is law.
+        if (typeof v !== 'string' || typeof merged[k] !== 'string') continue;
+        const val = v.slice(0, 20_000);
+        if (val !== merged[k]) { merged[k] = val; edited.push(k); }
+      }
+      if (edited.length) {
+        const auto = await getAutomation(id).catch(() => null);
+        patch.generated = applyBrandRules(merged, auto?.rules).generated;
+        await logFixEvent(fixId, id, user.id, 'draft.edited', { fields: edited });
+      }
+    }
+
     if (Object.keys(patch).length === 0) return Response.json({ error: 'Nothing to update' }, { status: 400 });
 
     await updateFix(fixId, patch);

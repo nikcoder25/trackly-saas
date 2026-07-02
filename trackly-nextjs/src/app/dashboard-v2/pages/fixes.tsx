@@ -112,6 +112,7 @@ const MODULE_GROUP: Record<string, string> = {
   'title-rewrite': 'Content optimization', 'meta-rewrite': 'Content optimization',
   'geo-page-rewrite': 'Content optimization', 'passage-rewrite': 'Content optimization',
   'internal-linking': 'Content optimization', 'citable-passages': 'Content optimization',
+  'content-freshness': 'Content optimization',
   'external-citations': 'Authority & citations', 'comparison-pages': 'Authority & citations',
   'hallucination-correction': 'Accuracy & corrections',
   'striking-distance': 'Technical & rankings', 'ctr-rescue': 'Technical & rankings',
@@ -121,7 +122,13 @@ const MODULE_GROUP: Record<string, string> = {
 const GROUP_ORDER = ['Structured data & schema', 'AI crawler access', 'Content optimization', 'Authority & citations', 'Accuracy & corrections', 'Technical & rankings', 'Other'];
 // Modules whose change can be staged as a Connector draft revision
 // (mirrors the modules that implement contentPatch() server-side).
-const STAGEABLE_MODULES = new Set(['title-rewrite', 'meta-rewrite', 'geo-page-rewrite', 'faq-schema', 'canonical-fix', 'passage-rewrite', 'citable-passages']);
+const STAGEABLE_MODULES = new Set(['title-rewrite', 'meta-rewrite', 'geo-page-rewrite', 'faq-schema', 'canonical-fix', 'passage-rewrite', 'citable-passages', 'content-freshness']);
+// Draft field a reviewer can edit inline before approving (mirrors each
+// module's generated shape — only clean single-text drafts are editable).
+const EDITABLE_FIELD: Record<string, string> = {
+  'title-rewrite': 'title', 'meta-rewrite': 'description', 'ctr-rescue': 'title',
+  'passage-rewrite': 'rewritten', 'content-freshness': 'update', 'llms-txt': 'content',
+};
 
 export function PageFixes() {
   const { brand, loading: brandLoading } = useBrandData({ fullData: true });
@@ -365,6 +372,19 @@ export function PageFixes() {
     try { await api(`/api/brands/${brandId}/fixes/notify`, { method: 'POST' }); flash('Summary sent to webhook'); }
     catch (e) { setError((e as Error).message); }
   };
+  // Inline draft editing: merge an edited text field into the draft, then
+  // refresh the card + preview (server re-applies brand rules).
+  const editDraft = async (fixId: string, field: string, value: string) => {
+    if (!brandId) return;
+    setBusy((b) => ({ ...b, [fixId]: true }));
+    try {
+      const d = await api(`/api/brands/${brandId}/fixes/${fixId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ generated: { [field]: value } }) });
+      if (d.fix) setFixes((rows) => rows.map((r) => (r.id === fixId ? { ...r, ...d.fix } : r)));
+      await loadPreview(fixId);
+      flash('Draft updated');
+    } catch (e) { setError((e as Error).message); } finally { setBusy((b) => ({ ...b, [fixId]: false })); }
+  };
+
   const saveMeta = async (fixId: string, patch: { note?: string; assignee?: string }) => {
     if (!brandId) return;
     try {
@@ -744,6 +764,8 @@ export function PageFixes() {
             hasConnector={hasConnector} hasTracker={hasTracker}
             onStage={() => act(f.id, 'stage')} onPublish={() => act(f.id, 'publish')} onTicket={() => act(f.id, 'ticket')}
             onRequestReview={() => act(f.id, 'request-review')}
+            editableField={EDITABLE_FIELD[f.moduleKey]}
+            onEditDraft={(field, value) => editDraft(f.id, field, value)}
             downloadHref={f.channel === 'B' ? `/api/brands/${brandId}/fixes/${f.id}/file` : undefined}
           />
         );
@@ -1265,7 +1287,7 @@ function SerpCard({ label, host, title, desc, color }: { label: string; host: st
 }
 
 // ── Fix card ──
-function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, downloadHref }: {
+function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, editableField, onEditDraft, downloadHref }: {
   fix: FixRow; title: string; preview: PreviewBlock | null | undefined; cost: number; revertable: boolean; impact?: 1 | 2 | 3;
   events: FixEvent[] | undefined; busy: boolean; armed: boolean; canShip: boolean; picked: boolean;
   onTogglePick: () => void; onGenerate: () => void; onApprove: () => void; onArm: () => void; onCancelArm: () => void;
@@ -1273,8 +1295,12 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
   onSaveMeta: (patch: { note?: string; assignee?: string }) => void;
   hasConnector: boolean; hasTracker: boolean; onStage: () => void; onPublish: () => void; onTicket: () => void;
   onRequestReview: () => void;
+  editableField?: string;
+  onEditDraft: (field: string, value: string) => void;
   downloadHref?: string;
 }) {
+  const [editing, setEditing] = React.useState(false);
+  const [editText, setEditText] = React.useState('');
   const [showHistory, setShowHistory] = React.useState(false);
   const [note, setNote] = React.useState(fix.note || '');
   const [assignee, setAssignee] = React.useState(fix.assignee || '');
@@ -1406,6 +1432,9 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
           {isDetected && (<><button className="xbtn" onClick={onGenerate} disabled={busy}>✦ GENERATE FIX</button><span className="xlbl" style={{ color: cost === 0 ? 'var(--success)' : 'var(--text-2)' }}>{cost === 0 ? 'free · no LLM' : `${cost} credit${cost === 1 ? '' : 's'}`}</span></>)}
           {isReview && (<>
             <button className="xbtn" onClick={onApprove} disabled={busy} style={{ background: 'var(--success)' }}>✓ APPROVE</button>
+            {editableField && typeof (fix.generated as Record<string, unknown> | null)?.[editableField] === 'string' && (
+              <button className="gbtn" disabled={busy} onClick={() => { setEditText(String((fix.generated as Record<string, unknown>)[editableField])); setEditing((e) => !e); }}>✎ Edit</button>
+            )}
             <button className="gbtn" onClick={onGenerate} disabled={busy}>↻ Regenerate</button>
             <button className="gbtn" onClick={onRequestReview} disabled={busy} title="Ping a teammate (assignee) to review this draft via Linear/Jira/Slack">✋ Request approval</button>
             {url && <a className="tbtn" href={url} target="_blank" rel="noreferrer">View source</a>}
@@ -1455,6 +1484,17 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
           <button className="tbtn" onClick={onTicket} disabled={busy} title={hasTracker ? 'Create a Linear/Jira issue for this fix' : 'Connect Linear or Jira (or a webhook) to hand this off'}>⊕ {hasTracker ? 'Ticket' : 'Hand off'}</button>
           <button className="tbtn" onClick={() => { if (!showHistory && !events) onLoadHistory(); setShowHistory((h) => !h); }}>{showHistory ? 'Hide history' : 'History'}</button>
         </div>
+
+        {editing && isReview && editableField && (
+          <div className="nb-sm" style={{ padding: 14, background: 'var(--surface-2)', display: 'grid', gap: 10 }}>
+            <div className="xlbl" style={{ color: 'var(--primary)' }}>Edit the draft ({editableField}) — your brand rules still apply on save</div>
+            <textarea className="xin" rows={editText.length > 160 ? 5 : 2} value={editText} onChange={(e) => setEditText(e.target.value)} style={{ boxShadow: 'none', fontSize: 13, lineHeight: 1.5 }} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button className="gbtn" onClick={() => setEditing(false)} style={{ padding: '7px 13px' }}>Cancel</button>
+              <button className="xbtn" disabled={busy || !editText.trim()} onClick={() => { onEditDraft(editableField, editText.trim()); setEditing(false); }} style={{ padding: '7px 13px' }}>SAVE DRAFT</button>
+            </div>
+          </div>
+        )}
 
         {showHistory && (
           <div className="nb-sm" style={{ padding: '12px 14px', boxShadow: 'none', background: 'var(--surface-2)' }}>

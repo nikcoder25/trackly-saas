@@ -37,6 +37,8 @@ export interface CrawledPage {
   hasOgTags: boolean;
   /** Count of outbound links to a different host (external links). */
   externalLinkCount: number;
+  /** Best-effort last-modified ISO date (meta/JSON-LD/HTTP), or null. */
+  lastModified: string | null;
 }
 
 function decodeEntities(s: string): string {
@@ -120,6 +122,31 @@ export function jsonLdHasType(blocks: unknown[], type: string): boolean {
   return blocks.some(walk);
 }
 
+/**
+ * Best-effort page last-modified date for freshness checks, in preference
+ * order: article:modified/published_time meta → JSON-LD dateModified/
+ * datePublished → HTTP Last-Modified. Returns an ISO string, or null when
+ * the page exposes no parseable date (callers must treat null as
+ * "unknown", never as "stale").
+ */
+export function extractLastModified(html: string, jsonLd: unknown[], httpLastModified: string | null): string | null {
+  const meta = extractMeta(html, 'article:modified_time') || extractMeta(html, 'article:published_time');
+  const walk = (node: unknown): string | null => {
+    if (Array.isArray(node)) { for (const n of node) { const r = walk(n); if (r) return r; } return null; }
+    if (node && typeof node === 'object') {
+      const o = node as Record<string, unknown>;
+      if (typeof o.dateModified === 'string') return o.dateModified;
+      if (typeof o.datePublished === 'string') return o.datePublished;
+      if (Array.isArray(o['@graph'])) return walk(o['@graph']);
+    }
+    return null;
+  };
+  for (const cand of [meta, walk(jsonLd), httpLastModified]) {
+    if (cand && Number.isFinite(Date.parse(cand))) return new Date(cand).toISOString();
+  }
+  return null;
+}
+
 export async function crawlPage(url: string, _signal?: AbortSignal): Promise<CrawledPage> {
   // safeFetch manages its own timeout/abort internally; the optional
   // signal arg is kept for call-site symmetry with the engine context.
@@ -147,6 +174,7 @@ export async function crawlPage(url: string, _signal?: AbortSignal): Promise<Cra
     xRobotsTag: (res.headers.get('x-robots-tag') || '').toLowerCase() || null,
     hasOgTags: !!og && !!twitter,
     externalLinkCount,
+    lastModified: extractLastModified(html, jsonLd, res.headers.get('last-modified')),
   };
 }
 

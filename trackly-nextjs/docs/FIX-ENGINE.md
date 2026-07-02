@@ -582,6 +582,23 @@ Features that make the detect→fix→automate loop scale and prove itself:
   `fix_seen_pages` and log `trigger.new_pages` (first run seeds silently).
 - **Automation activity feed** — recent `fix_events` surfaced in the
   Automation section, so autopilot's work is visible.
+- **Inline draft editing** — a reviewer can edit the AI's draft text
+  (title/meta/passage/llms.txt/freshness update) before approving: PATCH
+  `…/fixes/[fixId]` with `generated:{field}` merges string fields the draft
+  already has, only while awaiting review, re-applies the brand rules, and
+  logs `draft.edited`.
+- **Content freshness module** (`content-freshness`) — flags pages whose
+  last-modified date (article meta → JSON-LD → HTTP header, via
+  `extractLastModified`) is older than 180 days (high severity past a
+  year; pages with NO detectable date are skipped — unknown ≠ stale).
+  Generates a dated 40-60-word update block grounded in the page's own
+  facts; shipping it also bumps the CMS modified date. Stageable +
+  autopilot-friendly.
+- **Stats-injection prompts** — the GEO rewrite / citable-passages /
+  passage-rewrite prompts now require concrete statistics density (~1 per
+  150-200 words, source-grounded only, never invented) and 40-60-word
+  answer capsules, per the Princeton/Georgia-Tech GEO finding that adding
+  statistics lifts AI visibility ~41%.
 
 ## Testing & ops notes
 

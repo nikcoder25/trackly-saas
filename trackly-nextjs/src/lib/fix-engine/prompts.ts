@@ -99,6 +99,8 @@ Apply these GEO principles:
 - Use clear question-style H2s that match how people ask AI assistants.
 - Add short, fact-dense, standalone passages an LLM can lift verbatim.
 - Prefer specific facts, numbers, and named entities over vague marketing language.
+- Statistics density (adding stats measurably lifts AI visibility): work one concrete number, date, or measurable fact into roughly every 150-200 words — drawn ONLY from the supplied content. If the source has no numbers, use concrete specifics (named entities, versions, locations) instead; NEVER invent statistics.
+- The lede must be a 40-60 word "answer capsule": a self-contained answer an assistant can quote whole.
 - Preserve the business's real facts; never fabricate.
 
 Return ONLY a JSON object:
@@ -414,7 +416,8 @@ export const CITABLE_SYSTEM = `You write citable passage blocks — short, fact-
 Hard rules:
 - 2-4 passages, each 1-3 sentences.
 - Ground every passage in the supplied page content; never invent facts.
-- Also produce a one-line TL;DR answer to the page's core question.
+- Lead with numbers: every passage that CAN carry a concrete statistic, date, or measurable fact from the source MUST (stats are the strongest measured driver of AI citations). When the source has none, use concrete specifics instead — never invent a number.
+- The TL;DR must be a 40-60 word answer capsule: a self-contained answer to the page's core question that an assistant can quote whole.
 
 Return ONLY a JSON object:
 { "tldr": "<one-sentence answer>", "passages": ["<passage>", ...], "rationale": "<one sentence>" }`;
@@ -506,6 +509,7 @@ export const PASSAGE_REWRITE_SYSTEM = `You rewrite ONE specific passage of a web
 Hard rules:
 - Rewrite ONLY the supplied passage; do not add unrelated content or headings.
 - Preserve every real fact; never invent claims, numbers, or names.
+- Where the original passage contains numbers, dates, or measurable facts, keep them prominent — lead with them where natural (stats make passages far more quotable by AI engines). Never add a number that isn't in the source.
 - Keep roughly the same length unless the instruction says otherwise.
 - Return plain text/inline-HTML matching the original's format (no markdown fences, no commentary).
 
@@ -554,4 +558,37 @@ ${args.pageText.slice(0, 1500)}
 """
 
 Write Open Graph + Twitter card title and description for the homepage.`;
+}
+
+// ── Content freshness (module: content-freshness) ────────────────
+
+export const FRESHNESS_SYSTEM = `You write a short "freshness update" block for a page that hasn't been updated in a long time. AI answer engines strongly prefer recently-updated sources, so this block gives the page a current, quotable summary — and shipping it also bumps the CMS's modified date.
+
+Hard rules:
+- 40-60 words, one paragraph, self-contained (an assistant can quote it whole).
+- Ground it ONLY in the supplied page content and brand facts; NEVER invent numbers, dates, or claims.
+- Include at least one concrete fact from the source (a number, named entity, or specific capability). If the source has no numbers, use concrete specifics instead.
+- Present tense, plain factual tone — no "we're excited", no marketing fluff.
+
+Return ONLY a JSON object: { "update": "<40-60 word current summary>", "rationale": "<one sentence: why refreshing this page matters>" }`;
+
+export function freshnessUserPrompt(args: {
+  brand: { name?: string; description?: string };
+  url: string;
+  title: string | null;
+  lastModified: string;
+  pageText: string;
+}): string {
+  return `Brand: ${args.brand.name ?? 'Unknown'}
+About: ${args.brand.description ?? '(none)'}
+Page: ${args.url}
+Title: ${args.title ?? '(none)'}
+Last updated: ${args.lastModified}
+
+Page content:
+"""
+${args.pageText.slice(0, 2500)}
+"""
+
+Write the freshness update block for this page.`;
 }

@@ -26,6 +26,7 @@ import { noindexRemovalModule } from './modules/noindex-removal';
 import { ogCardsModule } from './modules/og-cards';
 import { passageRewriteModule } from './modules/passage-rewrite';
 import { externalCitationsModule } from './modules/external-citations';
+import { contentFreshnessModule } from './modules/content-freshness';
 
 const MODULES: FixModule[] = [
   // Phase 1 (crawl-triggered wedge)
@@ -41,6 +42,7 @@ const MODULES: FixModule[] = [
   internalLinkingModule,
   externalCitationsModule,
   schemaMarkupModule,
+  contentFreshnessModule,
   // Phase 3 (GSC indexing/canonical + Channel B technical)
   indexingRepairModule,
   canonicalFixModule,
@@ -64,7 +66,7 @@ const MODULE_COST: Record<string, number> = {
   'internal-linking': 1, 'external-citations': 1, 'schema-markup': 1,
   'indexing-repair': 2, 'canonical-fix': 0, 'robots-ai-access': 0,
   'noindex-removal': 0, 'og-cards': 1, 'comparison-pages': 3,
-  'citable-passages': 1, 'hallucination-correction': 1,
+  'citable-passages': 1, 'hallucination-correction': 1, 'content-freshness': 1,
 };
 export function generateCost(moduleKey: string): number {
   return MODULE_COST[moduleKey] ?? 1;
@@ -78,7 +80,7 @@ const MODULE_IMPACT: Record<string, 1 | 2 | 3> = {
   'internal-linking': 2, 'external-citations': 2, 'schema-markup': 2,
   'indexing-repair': 3, 'canonical-fix': 2, 'robots-ai-access': 3,
   'noindex-removal': 3, 'og-cards': 1, 'comparison-pages': 3,
-  'citable-passages': 3, 'hallucination-correction': 3,
+  'citable-passages': 3, 'hallucination-correction': 3, 'content-freshness': 3,
 };
 export function moduleImpact(moduleKey: string): 1 | 2 | 3 {
   return MODULE_IMPACT[moduleKey] ?? 2;
