@@ -60,6 +60,14 @@ export const metaRewriteModule: FixModule = {
 
   async generate(issue: DetectedIssue, ctx: FixContext): Promise<GeneratedDraft> {
     const d = issue.detected as { url: string; currentMeta: string | null; title: string | null; pageSummary: string };
+    // Competitive context: the descriptions currently ranking for this page's
+    // primary query, so the rewrite wins the click on the real SERP. Best-effort.
+    let query: string | null = null;
+    let competitors: { title: string; description: string }[] = [];
+    try {
+      const { getCompetitorContext } = await import('../serp');
+      ({ query, competitors } = await getCompetitorContext(ctx, d.url, d.title, null));
+    } catch { /* generate without competitor context */ }
     const { data } = await generateJson<{ description: string; rationale: string }>({
       ctx,
       system: META_SYSTEM,
@@ -69,10 +77,12 @@ export const metaRewriteModule: FixModule = {
         currentMeta: d.currentMeta,
         title: d.title,
         pageSummary: d.pageSummary || '',
+        query,
+        competitors,
       }),
       maxTokens: 400,
     });
-    return { generated: { description: data.description.trim(), rationale: data.rationale }, creditsUsed: 1 };
+    return { generated: { description: data.description.trim(), rationale: data.rationale, serpQuery: query, serpCompared: competitors.length }, creditsUsed: 1 };
   },
 
   preview(issue: DetectedIssue, draft: GeneratedDraft): PreviewBlock {

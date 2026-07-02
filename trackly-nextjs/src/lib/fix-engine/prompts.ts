@@ -31,6 +31,20 @@ function brandBlock(b: BrandPromptContext): string {
   return lines.length ? lines.join('\n') : '(no extra brand context provided)';
 }
 
+/** What's currently ranking for the page's query — the SERP to beat. */
+export interface SerpCompetitor { title: string; description: string; url?: string }
+
+function competitorBlock(query: string | null | undefined, competitors: SerpCompetitor[] | undefined): string {
+  if (!query || !competitors?.length) return '';
+  const rows = competitors.slice(0, 8).map((c, i) =>
+    `${i + 1}. "${c.title}"${c.description ? `\n   snippet: ${c.description.slice(0, 180)}` : ''}`,
+  ).join('\n');
+  return `\n\nCurrently ranking for "${query}" (the SERP you must beat):\n${rows}\n`;
+}
+
+// Differentiation rules shared by the title/meta/CTR prompts.
+const BEAT_THE_SERP = `- When "currently ranking" competitor results are supplied, study them and write something MORE clickable: cover the angle they all miss, be more specific/concrete, and never echo their exact phrasing. If every competitor leads with the same formula, break the pattern. Still: never fabricate claims to out-promise them.`;
+
 // ── Title tag rewrite ────────────────────────────────────────────
 
 export const TITLE_SYSTEM = `You are an expert SEO and GEO copywriter. You rewrite HTML <title> tags so they rank in classic search AND get cited by AI answer engines (ChatGPT, Perplexity, Gemini).
@@ -39,6 +53,7 @@ Hard rules:
 - 50-60 characters, never over 60.
 - Lead with the primary keyword/intent; brand name last after a "|" or "-".
 - Specific and factual. Never invent claims, awards, or numbers not in the context.
+${BEAT_THE_SERP}
 - One title only. No quotes around it.
 
 Return ONLY a JSON object: {"title": "<new title>", "rationale": "<one sentence>"}`;
@@ -49,15 +64,17 @@ export function titleUserPrompt(args: {
   currentTitle: string | null;
   h1: string | null;
   pageSummary: string;
+  query?: string | null;
+  competitors?: SerpCompetitor[];
 }): string {
   return `${brandBlock(args.brand)}
 
 Page URL: ${args.url}
 Current <title>: ${args.currentTitle ?? '(missing)'}
 Page H1: ${args.h1 ?? '(none)'}
-Page content summary: ${args.pageSummary.slice(0, 1200)}
+Page content summary: ${args.pageSummary.slice(0, 1200)}${competitorBlock(args.query, args.competitors)}
 
-Rewrite the <title> for this page.`;
+Rewrite the <title> for this page${args.competitors?.length ? ' so it wins the click against the results above' : ''}.`;
 }
 
 // ── Meta description rewrite ─────────────────────────────────────
@@ -69,6 +86,7 @@ Hard rules:
 - Active voice, include the primary intent + one concrete benefit or differentiator.
 - Include a soft call to action where natural.
 - Never invent facts, prices, or guarantees not present in the context.
+${BEAT_THE_SERP}
 - One description only.
 
 Return ONLY a JSON object: {"description": "<new meta description>", "rationale": "<one sentence>"}`;
@@ -79,15 +97,17 @@ export function metaUserPrompt(args: {
   currentMeta: string | null;
   title: string | null;
   pageSummary: string;
+  query?: string | null;
+  competitors?: SerpCompetitor[];
 }): string {
   return `${brandBlock(args.brand)}
 
 Page URL: ${args.url}
 Current meta description: ${args.currentMeta ?? '(missing)'}
 Page title: ${args.title ?? '(none)'}
-Page content summary: ${args.pageSummary.slice(0, 1500)}
+Page content summary: ${args.pageSummary.slice(0, 1500)}${competitorBlock(args.query, args.competitors)}
 
-Rewrite the meta description for this page.`;
+Rewrite the meta description for this page${args.competitors?.length ? ' so it wins the click against the results above' : ''}.`;
 }
 
 // ── GEO page rewrite ─────────────────────────────────────────────
@@ -255,6 +275,7 @@ export const CTR_SYSTEM = `You are a CTR specialist. A page gets lots of impress
 Hard rules:
 - Title 50-60 chars; meta description 140-155 chars.
 - Lead with the searcher's intent + a concrete, specific hook (benefit, number, differentiator) — but never fabricate facts.
+${BEAT_THE_SERP}
 - The pair should feel like the obviously-best result for the query.
 
 Return ONLY a JSON object:
@@ -266,6 +287,7 @@ export function ctrUserPrompt(args: {
   title: string | null;
   meta: string | null;
   queries: { query: string; impressions: number; ctr: number }[];
+  competitors?: SerpCompetitor[];
 }): string {
   const q = args.queries
     .slice(0, 10)
@@ -278,9 +300,9 @@ Current <title>: ${args.title ?? '(none)'}
 Current meta description: ${args.meta ?? '(none)'}
 
 High-impression, low-CTR queries for this page:
-${q}
+${q}${competitorBlock(args.queries[0]?.query ?? null, args.competitors)}
 
-Rewrite the title and meta description to win more clicks.`;
+Rewrite the title and meta description to win more clicks${args.competitors?.length ? ' against the results above' : ''}.`;
 }
 
 // ── Internal linking ─────────────────────────────────────────────

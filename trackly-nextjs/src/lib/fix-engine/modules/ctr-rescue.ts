@@ -95,13 +95,23 @@ export const ctrRescueModule: FixModule = {
       const page = await crawlPage(d.url, ctx.signal);
       title = page.title; meta = page.metaDescription;
     } catch { /* fall back to query-only generation */ }
+    // Competitive context: what currently wins the click for the page's top
+    // query — the exact SERP the rewrite has to beat. Best-effort.
+    let competitors: { title: string; description: string }[] = [];
+    const topQuery = d.queries[0]?.query ?? null;
+    if (topQuery) {
+      try {
+        const { getTopSerpResults } = await import('../serp');
+        competitors = await getTopSerpResults(ctx, topQuery);
+      } catch { /* generate without competitor context */ }
+    }
     const { data } = await generateJson<{ title: string; description: string; rationale: string }>({
       ctx,
       system: CTR_SYSTEM,
-      user: ctrUserPrompt({ brand: ctx.brand, url: d.url, title, meta, queries: d.queries }),
+      user: ctrUserPrompt({ brand: ctx.brand, url: d.url, title, meta, queries: d.queries, competitors }),
       maxTokens: 500,
     });
-    return { generated: { ...data, before: { title, description: meta } }, creditsUsed: 1 };
+    return { generated: { ...data, before: { title, description: meta }, serpQuery: topQuery, serpCompared: competitors.length }, creditsUsed: 1 };
   },
 
   preview(_issue: DetectedIssue, draft: GeneratedDraft): PreviewBlock {

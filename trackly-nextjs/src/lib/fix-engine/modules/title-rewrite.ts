@@ -71,6 +71,14 @@ export const titleRewriteModule: FixModule = {
 
   async generate(issue: DetectedIssue, ctx: FixContext): Promise<GeneratedDraft> {
     const d = issue.detected as { url: string; currentTitle: string | null; h1: string | null; pageSummary: string };
+    // Competitive context: what currently ranks for this page's primary
+    // query, so the new title is written to beat the live SERP. Best-effort.
+    let query: string | null = null;
+    let competitors: { title: string; description: string }[] = [];
+    try {
+      const { getCompetitorContext } = await import('../serp');
+      ({ query, competitors } = await getCompetitorContext(ctx, d.url, d.currentTitle, d.h1));
+    } catch { /* generate without competitor context */ }
     const { data } = await generateJson<{ title: string; rationale: string }>({
       ctx,
       system: TITLE_SYSTEM,
@@ -80,10 +88,12 @@ export const titleRewriteModule: FixModule = {
         currentTitle: d.currentTitle,
         h1: d.h1,
         pageSummary: d.pageSummary || '',
+        query,
+        competitors,
       }),
       maxTokens: 400,
     });
-    return { generated: { title: data.title.trim(), rationale: data.rationale }, creditsUsed: 1 };
+    return { generated: { title: data.title.trim(), rationale: data.rationale, serpQuery: query, serpCompared: competitors.length }, creditsUsed: 1 };
   },
 
   preview(issue: DetectedIssue, draft: GeneratedDraft): PreviewBlock {

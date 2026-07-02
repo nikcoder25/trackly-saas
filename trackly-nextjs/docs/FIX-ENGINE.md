@@ -202,6 +202,31 @@ and `ctr-rescue` use the Search Analytics API; `indexing-repair` and
 deterministic (no LLM call, zero credit cost) — the intended canonical is
 the page's own declared canonical.
 
+### Competitor-SERP-aware titles & metas (`serp.ts`)
+
+`title-rewrite`, `meta-rewrite`, and `ctr-rescue` don't rewrite in a
+vacuum: before generating, they pull the **current top-ranking results**
+for the page's primary query and hand the competitors' titles +
+descriptions to the prompt with an explicit "beat the SERP" instruction
+(cover what they miss, be more specific, break the pattern of the
+results — never fabricate). The goal is a title/meta that wins the click
+against the real SERP, which is what moves CTR and, over time, rankings.
+
+- **Primary query**: the page's top GSC query by impressions (28d) when
+  GSC is connected; otherwise derived from the page's own title/H1 with
+  the brand suffix stripped (`deriveQuery`).
+- **SERP source**: one web-grounded model call (Perplexity — the same
+  grounded engine tracking uses), asked to report the real ranking pages
+  with their real metadata. The brand's own domain is filtered out, and
+  results are capped at 8. This approximates Google's live SERP without
+  a scraping dependency.
+- **Cache**: `fix_serp_cache (brand_id, query)`, 7-day TTL — one fetch
+  covers every fix generated for that query within the week.
+- **Best-effort**: any failure (no query, no GSC, provider error) returns
+  no competitors and generation proceeds exactly as before. Drafts record
+  `serpQuery` and `serpCompared` (how many competitor results were
+  considered) in their generated payload for observability.
+
 ---
 
 ## API
