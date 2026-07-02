@@ -560,6 +560,13 @@ Features that make the detect→fix→automate loop scale and prove itself:
   window (`gsc_after`), logs `outcome.measured` with the relative CTR delta,
   and the card shows "MEASURED: CTR +x%". Thin data (<100 impressions either
   side) reports no delta rather than a misleading one.
+- **Measured mode (guarded auto-revert)** — opt-in per brand
+  (`fix_automation.measured_revert`): when an auto-revertable fix
+  (title/meta) measures a relative CTR drop ≥20% with ≥300 impressions in
+  BOTH windows, the outcome pass reverts it automatically, logs
+  `outcome.autoreverted`, and notifies the brand's tracker/webhook. Keep is
+  the default; revert is the strictly-guarded exception, so noise can't
+  un-ship a fine change.
 - **Regression watch** — `runRegressionWatch()` rechecks verified fixes
   older than 7 days; ones a CMS edit wiped get `regression.detected`, count
   into the needs-attention banner, and can be re-shipped.

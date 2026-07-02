@@ -31,6 +31,8 @@ export interface Automation {
   autopilotGenerate: boolean;     // auto-generate detected fixes
   autopilotShipDeterministic: boolean; // auto-ship cost-0 fixes
   notifyOnScan: boolean;          // send a digest to the brand's webhook/tracker after each scheduled scan
+  /** Auto-undo revertable fixes whose measured 28d CTR dropped sharply. */
+  measuredRevert: boolean;
   /** Generation guardrails (title suffix, length caps, banned phrases). */
   rules: BrandRules;
   lastScanAt: string | null;
@@ -62,6 +64,7 @@ async function ensureAutomationSchema(): Promise<void> {
   `);
   await pool.query(`ALTER TABLE fix_automation ADD COLUMN IF NOT EXISTS notify_on_scan BOOLEAN NOT NULL DEFAULT FALSE`);
   await pool.query(`ALTER TABLE fix_automation ADD COLUMN IF NOT EXISTS rules JSONB NOT NULL DEFAULT '{}'::jsonb`);
+  await pool.query(`ALTER TABLE fix_automation ADD COLUMN IF NOT EXISTS measured_revert BOOLEAN NOT NULL DEFAULT FALSE`);
   // New-page trigger: pages we've seen before, so a scheduled scan can flag
   // freshly-published ones.
   await pool.query(`
@@ -84,6 +87,7 @@ function mapRow(r: Record<string, unknown>): Automation {
     autopilotGenerate: !!r.autopilot_generate,
     autopilotShipDeterministic: !!r.autopilot_ship_deterministic,
     notifyOnScan: !!r.notify_on_scan,
+    measuredRevert: !!r.measured_revert,
     rules: (r.rules as BrandRules) ?? {},
     lastScanAt: (r.last_scan_at as string | null) ?? null,
     nextScanAt: (r.next_scan_at as string | null) ?? null,
@@ -92,7 +96,7 @@ function mapRow(r: Record<string, unknown>): Automation {
 
 const DEFAULT_AUTOMATION = (brandId: string): Automation => ({
   brandId, scanEnabled: false, scanFrequency: 'weekly', scanModules: [],
-  autopilotGenerate: false, autopilotShipDeterministic: false, notifyOnScan: false, rules: {}, lastScanAt: null, nextScanAt: null,
+  autopilotGenerate: false, autopilotShipDeterministic: false, notifyOnScan: false, measuredRevert: false, rules: {}, lastScanAt: null, nextScanAt: null,
 });
 
 export async function getAutomation(brandId: string): Promise<Automation> {
@@ -108,6 +112,7 @@ export interface AutomationPatch {
   autopilotGenerate?: boolean;
   autopilotShipDeterministic?: boolean;
   notifyOnScan?: boolean;
+  measuredRevert?: boolean;
   rules?: BrandRules;
 }
 
@@ -119,8 +124,8 @@ export async function setAutomation(brandId: string, patch: AutomationPatch): Pr
   const interval = next.scanFrequency === 'daily' ? '1 day' : '7 days';
   await pool.query(
     `INSERT INTO fix_automation
-       (brand_id, scan_enabled, scan_frequency, scan_modules, autopilot_generate, autopilot_ship_deterministic, notify_on_scan, rules, next_scan_at, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$8,$9, CASE WHEN $2 THEN NOW() + ($7)::interval ELSE NULL END, NOW())
+       (brand_id, scan_enabled, scan_frequency, scan_modules, autopilot_generate, autopilot_ship_deterministic, notify_on_scan, rules, measured_revert, next_scan_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$8,$9,$10, CASE WHEN $2 THEN NOW() + ($7)::interval ELSE NULL END, NOW())
      ON CONFLICT (brand_id) DO UPDATE
        SET scan_enabled = EXCLUDED.scan_enabled,
            scan_frequency = EXCLUDED.scan_frequency,
@@ -129,9 +134,10 @@ export async function setAutomation(brandId: string, patch: AutomationPatch): Pr
            autopilot_ship_deterministic = EXCLUDED.autopilot_ship_deterministic,
            notify_on_scan = EXCLUDED.notify_on_scan,
            rules = EXCLUDED.rules,
+           measured_revert = EXCLUDED.measured_revert,
            next_scan_at = CASE WHEN EXCLUDED.scan_enabled THEN NOW() + ($7)::interval ELSE NULL END,
            updated_at = NOW()`,
-    [brandId, next.scanEnabled, next.scanFrequency, next.scanModules, next.autopilotGenerate, next.autopilotShipDeterministic, interval, next.notifyOnScan, JSON.stringify(next.rules ?? {})],
+    [brandId, next.scanEnabled, next.scanFrequency, next.scanModules, next.autopilotGenerate, next.autopilotShipDeterministic, interval, next.notifyOnScan, JSON.stringify(next.rules ?? {}), next.measuredRevert],
   );
   return getAutomation(brandId);
 }

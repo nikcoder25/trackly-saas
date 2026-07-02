@@ -33,6 +33,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 interface Body {
   scanEnabled?: unknown; scanFrequency?: unknown; scanModules?: unknown;
   autopilotGenerate?: unknown; autopilotShipDeterministic?: unknown; notifyOnScan?: unknown;
+  measuredRevert?: unknown;
   rules?: unknown;
 }
 
@@ -80,6 +81,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (typeof body.autopilotGenerate === 'boolean') patch.autopilotGenerate = body.autopilotGenerate;
     if (typeof body.autopilotShipDeterministic === 'boolean') patch.autopilotShipDeterministic = body.autopilotShipDeterministic;
     if (typeof body.notifyOnScan === 'boolean') patch.notifyOnScan = body.notifyOnScan;
+    if (typeof body.measuredRevert === 'boolean') patch.measuredRevert = body.measuredRevert;
     const rules = cleanRules(body.rules);
     if (rules) patch.rules = rules;
 

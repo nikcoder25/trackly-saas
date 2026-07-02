@@ -1140,8 +1140,10 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
           <strong className="disp" style={{ fontSize: 14, minWidth: 150 }}>Auto-pilot</strong>
           <Toggle on={!!a.autopilotGenerate} onClick={() => onSave({ autopilotGenerate: !a.autopilotGenerate })} dim={!a.scanEnabled}>Auto-generate</Toggle>
           <Toggle on={!!a.autopilotShipDeterministic} onClick={() => onSave({ autopilotShipDeterministic: !a.autopilotShipDeterministic })} dim={!a.scanEnabled || !canShip}>Auto-ship safe fixes</Toggle>
+          <Toggle on={!!a.measuredRevert} onClick={() => onSave({ measuredRevert: !a.measuredRevert })}>Measured mode</Toggle>
           <span className="quiet" style={{ fontSize: 12, color: 'var(--text-2)', marginLeft: 'auto' }}>
             After each scheduled scan, draft fixes{a.autopilotShipDeterministic ? ' and auto-ship the deterministic (FREE) ones' : ''}. LLM-written content always waits for your approval.
+            {a.measuredRevert ? ' Measured mode: a title/meta fix whose CTR drops ≥20% over 28 days (300+ impressions both windows) is auto-undone.' : ''}
           </span>
         </div>
         {!canShip && a.autopilotShipDeterministic && <p className="quiet" style={{ margin: 0, fontSize: 11, color: 'var(--warn)' }}>Connect a CMS or the Connector to enable auto-ship.</p>}

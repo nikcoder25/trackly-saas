@@ -24,13 +24,22 @@ import {
   updateFix,
   logFixEvent,
 } from './schema';
-import { recheckFix, getOwnerId } from './engine';
+import { recheckFix, revertFix, getOwnerId } from './engine';
+import { getModule } from './registry';
+import { getAutomation } from './automation';
+import { notifyBrand } from './notify';
 import { fetchUrlMetricsLive, PAGE_METRICS_WINDOW_DAYS } from './page-metrics';
 
 export const OUTCOME_WINDOW_DAYS = PAGE_METRICS_WINDOW_DAYS; // measure after a full comparable window
 export const REGRESSION_AFTER_DAYS = 7;
 
-export interface OutcomeSummary { measured: number; improved: number; declined: number }
+// Measured auto-revert guards (deliberately stricter than measurement):
+// only act on a large relative drop backed by real traffic in BOTH windows,
+// so noise can't un-ship a fine change.
+export const REVERT_CTR_DROP = -0.2;        // ≥20% relative CTR decline
+export const REVERT_MIN_IMPRESSIONS = 300;  // per window
+
+export interface OutcomeSummary { measured: number; improved: number; declined: number; reverted: number }
 
 /** Relative CTR change, null when the baseline is too thin to be meaningful. */
 export function ctrDelta(
@@ -48,7 +57,7 @@ export function ctrDelta(
 
 export async function runOutcomePass(limit = 20): Promise<OutcomeSummary> {
   const due = await findFixesDueOutcome(OUTCOME_WINDOW_DAYS, limit);
-  let measured = 0, improved = 0, declined = 0;
+  let measured = 0, improved = 0, declined = 0, reverted = 0;
   for (const fix of due) {
     try {
       if (!fix.targetUrl) continue;
@@ -65,11 +74,47 @@ export async function runOutcomePass(limit = 20): Promise<OutcomeSummary> {
       await logFixEvent(fix.id, fix.brandId, null, 'outcome.measured', {
         ctrDelta: delta, before: fix.gscBefore, after: gscAfter,
       });
+
+      // Guarded measured auto-revert (opt-in per brand): a big, well-fed
+      // CTR decline on an auto-revertable module gets undone automatically.
+      if (delta != null && delta <= REVERT_CTR_DROP && (await shouldAutoRevert(fix.brandId, fix.moduleKey, fix.gscBefore, gscAfter))) {
+        try {
+          const out = await revertFix(fix.id, fix.brandId, null);
+          if (out.status === 'reverted') {
+            reverted++;
+            await logFixEvent(fix.id, fix.brandId, null, 'outcome.autoreverted', {
+              ctrDelta: delta, module: fix.moduleKey, targetUrl: fix.targetUrl,
+            });
+            await notifyBrand(fix.brandId, {
+              title: 'Fix Engine — a fix was auto-undone',
+              description: `The ${fix.moduleKey} change on ${fix.targetUrl} measured CTR ${Math.round(delta * 100)}% after 28 days, so it was reverted to the previous version (Measured mode).`,
+            }).catch(() => undefined);
+          }
+        } catch (e) {
+          logger.warn('fix_engine.autorevert_failed', { fixId: fix.id, err: (e as Error).message });
+        }
+      }
     } catch (e) {
       logger.warn('fix_engine.outcome_pass_fix_failed', { fixId: fix.id, err: (e as Error).message });
     }
   }
-  return { measured, improved, declined };
+  return { measured, improved, declined, reverted };
+}
+
+/** All auto-revert preconditions except the delta itself. */
+async function shouldAutoRevert(
+  brandId: string,
+  moduleKey: string,
+  before: Record<string, unknown> | null,
+  after: Record<string, unknown>,
+): Promise<boolean> {
+  const mod = getModule(moduleKey);
+  if (!mod || typeof mod.revert !== 'function') return false;
+  const bi = Number((before as { impressions?: number } | null)?.impressions) || 0;
+  const ai = Number((after as { impressions?: number }).impressions) || 0;
+  if (bi < REVERT_MIN_IMPRESSIONS || ai < REVERT_MIN_IMPRESSIONS) return false;
+  const auto = await getAutomation(brandId);
+  return !!auto.measuredRevert;
 }
 
 export interface RegressionSummary { checked: number; regressed: number }
