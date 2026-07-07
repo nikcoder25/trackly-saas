@@ -120,8 +120,10 @@ export async function GET(
       auditId: id,
       userId: user.id,
     });
+    // Detail stays in the server log above - raw pg error text (SQL
+    // fragments, column names) must not reach the client.
     return Response.json(
-      { error: 'Failed to load audit', message: (e as Error).message },
+      { error: 'Failed to load audit' },
       { status: 500 },
     );
   }

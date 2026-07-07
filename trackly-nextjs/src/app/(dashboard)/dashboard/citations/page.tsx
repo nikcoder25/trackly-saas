@@ -82,30 +82,32 @@ export default function CitationsPage() {
               No citations captured yet. Citations will appear after your next run.
             </div>
           ) : (
-            <table className="tbl">
-              <thead><tr>
-                <th>DOMAIN</th><th>CITES</th><th>SHARE</th><th>SHARE BAR</th>
-              </tr></thead>
-              <tbody>
-                {sortedDomains.map(([domain, count]) => {
-                  const isOwn = !!ownDomainName && domain.includes(ownDomainName);
-                  const share = totalCitations > 0 ? (count / totalCitations) * 100 : 0;
-                  return (
-                    <tr key={domain}>
-                      <td>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          <Cit url={domain} />
-                          {isOwn && <Badge tone="acc">YOU</Badge>}
-                        </span>
-                      </td>
-                      <td className="num"><b>{count}</b></td>
-                      <td className="num">{share.toFixed(1)}%</td>
-                      <td><Bar value={count} max={maxCount} color={isOwn ? 'var(--success)' : undefined} /></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="tbl-wrap">
+              <table className="tbl">
+                <thead><tr>
+                  <th>DOMAIN</th><th>CITES</th><th>SHARE</th><th>SHARE BAR</th>
+                </tr></thead>
+                <tbody>
+                  {sortedDomains.map(([domain, count]) => {
+                    const isOwn = !!ownDomainName && domain.includes(ownDomainName);
+                    const share = totalCitations > 0 ? (count / totalCitations) * 100 : 0;
+                    return (
+                      <tr key={domain}>
+                        <td>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                            <Cit url={domain} />
+                            {isOwn && <Badge tone="acc">YOU</Badge>}
+                          </span>
+                        </td>
+                        <td className="num"><b>{count}</b></td>
+                        <td className="num">{share.toFixed(1)}%</td>
+                        <td><Bar value={count} max={maxCount} color={isOwn ? 'var(--success)' : undefined} /></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </Card>
       </div>

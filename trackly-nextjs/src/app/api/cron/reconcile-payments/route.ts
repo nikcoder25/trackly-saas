@@ -58,8 +58,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Dodo API key not configured' }, { status: 500 });
     }
 
-    const isLiveMode = process.env.DODO_LIVE_MODE === 'true';
-    const baseUrl = isLiveMode
+    // Same env selector as checkout/cancel/refresh/webhook and the boot
+    // guard in instrumentation.ts. This route previously keyed off a
+    // separate DODO_LIVE_MODE var; when that var was unset in production
+    // the cron queried the TEST API for live subscription IDs, every
+    // lookup 404'd, and the stale-subscription branch below downgraded
+    // paying users to 'free' and emailed them cancellation notices.
+    const env = process.env.DODO_PAYMENTS_ENVIRONMENT || 'test_mode';
+    const baseUrl = env === 'live_mode'
       ? 'https://live.dodopayments.com'
       : 'https://test.dodopayments.com';
 

@@ -448,77 +448,79 @@ export default function TrackedPromptsPage() {
                     No prompts on this brand.
                   </div>
                 ) : brandRows.length === 0 ? null : (
-                  <table className="tbl">
-                    <thead>
-                      <tr>
-                        <th style={{ width: 32 }}>
-                          <input
-                            type="checkbox"
-                            checked={
-                              brandRows.length > 0 &&
-                              brandRows.every((r) => selected.has(rowKey(r)))
-                            }
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelected((prev) => {
-                                  const next = new Set(prev);
-                                  for (const r of brandRows) next.add(rowKey(r));
-                                  return next;
-                                });
-                              } else {
-                                setSelected((prev) => {
-                                  const next = new Set(prev);
-                                  for (const r of brandRows) next.delete(rowKey(r));
-                                  return next;
-                                });
+                  <div className="tbl-wrap">
+                    <table className="tbl">
+                      <thead>
+                        <tr>
+                          <th style={{ width: 32 }}>
+                            <input
+                              type="checkbox"
+                              checked={
+                                brandRows.length > 0 &&
+                                brandRows.every((r) => selected.has(rowKey(r)))
                               }
-                            }}
-                          />
-                        </th>
-                        <th>PROMPT</th>
-                        <th>BRAND</th>
-                        <th>STATUS</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {brandRows.map((r) => {
-                        const key = rowKey(r);
-                        const isSelected = selected.has(key);
-                        return (
-                          <tr key={key}>
-                            <td>
-                              <input
-                                id={`prompt-${key}`}
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => toggle(key)}
-                              />
-                            </td>
-                            <td>
-                              <label
-                                htmlFor={`prompt-${key}`}
-                                style={{ cursor: 'pointer', wordBreak: 'break-word' }}
-                              >
-                                <b>{r.query}</b>
-                              </label>
-                            </td>
-                            <td className="mono dim" style={{ fontSize: 11 }}>
-                              {r.brandName}
-                            </td>
-                            <td>
-                              {r.locked ? (
-                                <Badge tone="warn">LOCKED</Badge>
-                              ) : r.hasData ? (
-                                <Badge tone="pos">TRACKING</Badge>
-                              ) : (
-                                <Badge tone="neu">PENDING</Badge>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelected((prev) => {
+                                    const next = new Set(prev);
+                                    for (const r of brandRows) next.add(rowKey(r));
+                                    return next;
+                                  });
+                                } else {
+                                  setSelected((prev) => {
+                                    const next = new Set(prev);
+                                    for (const r of brandRows) next.delete(rowKey(r));
+                                    return next;
+                                  });
+                                }
+                              }}
+                            />
+                          </th>
+                          <th>PROMPT</th>
+                          <th>BRAND</th>
+                          <th>STATUS</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {brandRows.map((r) => {
+                          const key = rowKey(r);
+                          const isSelected = selected.has(key);
+                          return (
+                            <tr key={key}>
+                              <td>
+                                <input
+                                  id={`prompt-${key}`}
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggle(key)}
+                                />
+                              </td>
+                              <td>
+                                <label
+                                  htmlFor={`prompt-${key}`}
+                                  style={{ cursor: 'pointer', wordBreak: 'break-word' }}
+                                >
+                                  <b>{r.query}</b>
+                                </label>
+                              </td>
+                              <td className="mono dim" style={{ fontSize: 11 }}>
+                                {r.brandName}
+                              </td>
+                              <td>
+                                {r.locked ? (
+                                  <Badge tone="warn">LOCKED</Badge>
+                                ) : r.hasData ? (
+                                  <Badge tone="pos">TRACKING</Badge>
+                                ) : (
+                                  <Badge tone="neu">PENDING</Badge>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </Card>
             );

@@ -299,22 +299,24 @@ export default function ReportsPage() {
               {queries.length === 0 ? (
                 <div className="quiet" style={{ padding: '20px 16px', fontSize: 13, textAlign: 'center' }}>No queries added yet.</div>
               ) : (
-                <table className="tbl">
-                  <thead><tr><th>QUERY</th><th className="right">SOV</th><th className="right">ENGINES</th><th /></tr></thead>
-                  <tbody>
-                    {queries.map(it => {
-                      const p = it.payload as Record<string, unknown>;
-                      return (
-                        <tr key={it.id}>
-                          <td><b>{String(p.q || '')}</b></td>
-                          <td className="right num">{Number(p.sov) || 0}%</td>
-                          <td className="right num">{Number(p.engines) || 0}/5</td>
-                          <td className="right"><button className="btn-d" style={{ padding: '4px 8px', fontSize: 11 }} onClick={() => removeItem(it.id)} disabled={busy}>Remove</button></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                <div className="tbl-wrap">
+                  <table className="tbl">
+                    <thead><tr><th>QUERY</th><th className="right">SOV</th><th className="right">ENGINES</th><th /></tr></thead>
+                    <tbody>
+                      {queries.map(it => {
+                        const p = it.payload as Record<string, unknown>;
+                        return (
+                          <tr key={it.id}>
+                            <td><b>{String(p.q || '')}</b></td>
+                            <td className="right num">{Number(p.sov) || 0}%</td>
+                            <td className="right num">{Number(p.engines) || 0}/5</td>
+                            <td className="right"><button className="btn-d" style={{ padding: '4px 8px', fontSize: 11 }} onClick={() => removeItem(it.id)} disabled={busy}>Remove</button></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </Card>
           </>

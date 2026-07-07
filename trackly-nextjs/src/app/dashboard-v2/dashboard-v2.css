@@ -488,6 +488,7 @@
 .lvx .btn-danger:hover { background: var(--danger-50); border-color: var(--danger-200); }
 
 /* Tables */
+.lvx .tbl-wrap { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
 .lvx .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
 .lvx .tbl th { text-align: left; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; color: var(--text-3); padding: 11px var(--pad); border-bottom: 1px solid var(--line); background: var(--surface-2); font-weight: 600; text-transform: uppercase; white-space: nowrap; }
 .lvx .tbl th .lv-info { color: var(--mute); margin-left: 4px; }
@@ -501,9 +502,9 @@
 .lvx .tbl input[type="checkbox"] { accent-color: var(--primary); }
 
 /* Grids */
-.lvx .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.lvx .g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-.lvx .g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.lvx .g2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.lvx .g3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.lvx .g4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 .lvx .span-2 { grid-column: span 2; }
 .lvx .span-3 { grid-column: span 3; }
 
@@ -1085,7 +1086,7 @@ a.cit, .lvx a.cit { text-decoration: none; }
 @media (max-width: 1200px) { .lvx .pd-hero { grid-template-columns: 1fr; } .lvx .pd-hero-mini { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 1180px) {
   .lvx .app { grid-template-columns: 220px 1fr; }
-  .lvx .g3, .lvx .g4 { grid-template-columns: 1fr 1fr; }
+  .lvx .g3, .lvx .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lvx .kpi-rail { grid-template-columns: repeat(3, 1fr) !important; }
   .lvx .kpi { border-bottom: 1px solid var(--line); }
   .lvx .kpi:nth-child(3n) { border-right: 0; }
@@ -1096,7 +1097,7 @@ a.cit, .lvx a.cit { text-decoration: none; }
   .lvx .sidebar { display: none; }
   .lvx .canvas { grid-column: 1; grid-row: 2/4; }
   .lvx .topbar { grid-column: 1; }
-  .lvx .g2, .lvx .g3, .lvx .g4 { grid-template-columns: 1fr; }
+  .lvx .g2, .lvx .g3, .lvx .g4 { grid-template-columns: minmax(0, 1fr); }
   .lvx .kpi-rail { grid-template-columns: 1fr 1fr !important; }
   .lvx .kpi { border-right: 1px solid var(--line) !important; border-bottom: 1px solid var(--line); }
   .lvx .kpi:nth-child(2n) { border-right: 0 !important; }

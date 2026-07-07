@@ -129,19 +129,21 @@ export default function AlertsPage() {
                 No alert rules configured. Click &quot;+ Add Alert&quot; to create one.
               </div>
             ) : (
-              <table className="tbl">
-                <thead><tr><th>WHEN</th><th>CHANNELS</th><th>THRESHOLD · COOLDOWN</th><th>STATUS</th></tr></thead>
-                <tbody>
-                  {rules.map(r => (
-                    <tr key={r.id}>
-                      <td><b>{r.name}</b></td>
-                      <td className="mono dim">{r.action} · {r.condition}</td>
-                      <td className="num mono"><b>{r.threshold}%</b> <span className="dim">· {r.cooldown}h</span></td>
-                      <td><Badge tone={r.enabled ? 'pos' : 'neu'}>{r.enabled ? 'ACTIVE' : 'DISABLED'}</Badge></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="tbl-wrap">
+                <table className="tbl">
+                  <thead><tr><th>WHEN</th><th>CHANNELS</th><th>THRESHOLD · COOLDOWN</th><th>STATUS</th></tr></thead>
+                  <tbody>
+                    {rules.map(r => (
+                      <tr key={r.id}>
+                        <td><b>{r.name}</b></td>
+                        <td className="mono dim">{r.action} · {r.condition}</td>
+                        <td className="num mono"><b>{r.threshold}%</b> <span className="dim">· {r.cooldown}h</span></td>
+                        <td><Badge tone={r.enabled ? 'pos' : 'neu'}>{r.enabled ? 'ACTIVE' : 'DISABLED'}</Badge></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </Card>
 

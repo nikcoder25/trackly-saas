@@ -15,6 +15,12 @@ export interface Platform {
   delta: number;
   ok: boolean;
   ms: number;
+  /** True when the engine has no results in the brand's runs - tiles render
+   *  an explicit "no data" state instead of the design-sample numbers. */
+  noData?: boolean;
+  /** Real per-engine SOV history (oldest -> newest). Absent on the static
+   *  design tiles, which are only shown in the sample-data fallback. */
+  spark?: number[];
 }
 
 export const PLATFORMS: Platform[] = [

@@ -314,99 +314,101 @@ export default function CreditLedgerPage() {
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table className="tbl" style={{ width: '100%' }}>
-              <thead>
-                <tr>
-                  <th className="th" style={{ whiteSpace: 'nowrap' }}>Timestamp (UTC)</th>
-                  <th className="th">Run</th>
-                  <th className="th">Prompt</th>
-                  <th className="th">Platform</th>
-                  <th className="th" style={{ textAlign: 'right' }}>Credits</th>
-                  <th className="th">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => {
-                  const badge = statusBadge(r.status);
-                  const platformColor = PLATFORM_COLORS[r.platform] || 'var(--muted)';
-                  const localTooltip = (() => {
-                    const d = new Date(r.createdAt);
-                    if (Number.isNaN(d.getTime())) return r.createdAt;
-                    return `Local: ${d.toLocaleString()}`;
-                  })();
-                  const promptLabel = r.prompts.length === 0
-                    ? '-'
-                    : r.prompts.length === 1
-                      ? r.prompts[0]
-                      : `${r.prompts[0]} +${r.prompts.length - 1}`;
-                  return (
-                    <tr key={r.id} className="trow">
-                      <td className="td" title={localTooltip} style={{ fontFamily: 'var(--mono)', fontSize: 12, whiteSpace: 'nowrap' }}>
-                        {formatUtcTimestamp(r.createdAt)}
-                      </td>
-                      <td className="td" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>
-                        {r.runId
-                          ? (r.brandId
-                            ? (
-                              <Link
-                                href={`/dashboard/activity?run=${encodeURIComponent(r.runId)}`}
-                                style={{ color: 'var(--primary)', textDecoration: 'none' }}
-                                title={r.runId}
-                              >
-                                {r.runId.slice(0, 8)}
-                              </Link>
+            <div className="tbl-wrap">
+              <table className="tbl" style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th className="th" style={{ whiteSpace: 'nowrap' }}>Timestamp (UTC)</th>
+                    <th className="th">Run</th>
+                    <th className="th">Prompt</th>
+                    <th className="th">Platform</th>
+                    <th className="th" style={{ textAlign: 'right' }}>Credits</th>
+                    <th className="th">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => {
+                    const badge = statusBadge(r.status);
+                    const platformColor = PLATFORM_COLORS[r.platform] || 'var(--muted)';
+                    const localTooltip = (() => {
+                      const d = new Date(r.createdAt);
+                      if (Number.isNaN(d.getTime())) return r.createdAt;
+                      return `Local: ${d.toLocaleString()}`;
+                    })();
+                    const promptLabel = r.prompts.length === 0
+                      ? '-'
+                      : r.prompts.length === 1
+                        ? r.prompts[0]
+                        : `${r.prompts[0]} +${r.prompts.length - 1}`;
+                    return (
+                      <tr key={r.id} className="trow">
+                        <td className="td" title={localTooltip} style={{ fontFamily: 'var(--mono)', fontSize: 12, whiteSpace: 'nowrap' }}>
+                          {formatUtcTimestamp(r.createdAt)}
+                        </td>
+                        <td className="td" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>
+                          {r.runId
+                            ? (r.brandId
+                              ? (
+                                <Link
+                                  href={`/dashboard/activity?run=${encodeURIComponent(r.runId)}`}
+                                  style={{ color: 'var(--primary)', textDecoration: 'none' }}
+                                  title={r.runId}
+                                >
+                                  {r.runId.slice(0, 8)}
+                                </Link>
+                              )
+                              : <span title={r.runId}>{r.runId.slice(0, 8)}</span>
                             )
-                            : <span title={r.runId}>{r.runId.slice(0, 8)}</span>
-                          )
-                          : <span style={{ color: 'var(--muted)' }}>-</span>}
-                        {r.brandName && (
-                          <div style={{ fontFamily: 'var(--font)', fontSize: 11, color: 'var(--muted)' }}>
-                            {r.brandName}
+                            : <span style={{ color: 'var(--muted)' }}>-</span>}
+                          {r.brandName && (
+                            <div style={{ fontFamily: 'var(--font)', fontSize: 11, color: 'var(--muted)' }}>
+                              {r.brandName}
+                            </div>
+                          )}
+                        </td>
+                        <td className="td" style={{ fontSize: 12, maxWidth: 320 }}>
+                          <div
+                            title={r.prompts.join('\n')}
+                            style={{
+                              overflow: 'hidden', textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap', maxWidth: 320,
+                            }}
+                          >
+                            {promptLabel}
                           </div>
-                        )}
-                      </td>
-                      <td className="td" style={{ fontSize: 12, maxWidth: 320 }}>
-                        <div
-                          title={r.prompts.join('\n')}
-                          style={{
-                            overflow: 'hidden', textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap', maxWidth: 320,
-                          }}
-                        >
-                          {promptLabel}
-                        </div>
-                      </td>
-                      <td className="td">
-                        <span
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 6,
-                            padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600,
-                            background: 'var(--bg3)', color: 'var(--text)',
-                          }}
-                        >
-                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: platformColor }} />
-                          {r.platform}
-                        </span>
-                      </td>
-                      <td className="td" style={{ textAlign: 'right', fontFamily: 'var(--mono)', fontWeight: 600 }}>
-                        {r.credits}
-                      </td>
-                      <td className="td">
-                        <span
-                          style={{
-                            fontSize: 10, fontWeight: 700, fontFamily: 'var(--mono)',
-                            padding: '3px 8px', borderRadius: 100, textTransform: 'uppercase',
-                            background: badge.bg, color: badge.fg,
-                          }}
-                        >
-                          {badge.label}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                        <td className="td">
+                          <span
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 6,
+                              padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600,
+                              background: 'var(--bg3)', color: 'var(--text)',
+                            }}
+                          >
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: platformColor }} />
+                            {r.platform}
+                          </span>
+                        </td>
+                        <td className="td" style={{ textAlign: 'right', fontFamily: 'var(--mono)', fontWeight: 600 }}>
+                          {r.credits}
+                        </td>
+                        <td className="td">
+                          <span
+                            style={{
+                              fontSize: 10, fontWeight: 700, fontFamily: 'var(--mono)',
+                              padding: '3px 8px', borderRadius: 100, textTransform: 'uppercase',
+                              background: badge.bg, color: badge.fg,
+                            }}
+                          >
+                            {badge.label}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
             {nextCursor && (
               <div style={{ padding: 14, textAlign: 'center', borderTop: '1px solid var(--border)' }}>
                 <button
