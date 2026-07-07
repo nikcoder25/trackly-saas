@@ -1243,26 +1243,28 @@ function OverviewQueriesTable({ rows, totalQ }: { rows: QueryRow[]; totalQ: numb
           No tracked prompts yet - add prompts in Brand Setup to start tracking.
         </div>
       ) : (
-      <table className="tbl">
-        <thead><tr><th>QUERY</th><th className="right">SOV</th><th className="right">Δ</th><th className="right">MENTIONS</th><th className="right">ENGINES</th><th /></tr></thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={i}>
-              <td><b>{r.q}</b></td>
-              <td className="right num">{r.sov}%</td>
-              <td className="right"><Delta v={r.d} suffix="%" /></td>
-              <td className="right num">{r.mentions}</td>
-              <td className="right num">{r.eng}/5</td>
-              <td className="right">
-                <button className="btn-d" style={{ padding: '3px 8px', fontSize: 10.5, whiteSpace: 'nowrap' }}
-                  onClick={() => addQuery(r)} disabled={!!addedQ[r.q]} title="Add this query to your report">
-                  {addedQ[r.q] ? 'Added ✓' : '+ Report'}
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="tbl-wrap">
+        <table className="tbl">
+          <thead><tr><th>QUERY</th><th className="right">SOV</th><th className="right">Δ</th><th className="right">MENTIONS</th><th className="right">ENGINES</th><th /></tr></thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td><b>{r.q}</b></td>
+                <td className="right num">{r.sov}%</td>
+                <td className="right"><Delta v={r.d} suffix="%" /></td>
+                <td className="right num">{r.mentions}</td>
+                <td className="right num">{r.eng}/5</td>
+                <td className="right">
+                  <button className="btn-d" style={{ padding: '3px 8px', fontSize: 10.5, whiteSpace: 'nowrap' }}
+                    onClick={() => addQuery(r)} disabled={!!addedQ[r.q]} title="Add this query to your report">
+                    {addedQ[r.q] ? 'Added ✓' : '+ Report'}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       )}
     </Card>
   );

@@ -41,24 +41,26 @@ export function PageMentions() {
         <Card title="All mentions" info="mention"
           lede="One row per AI answer. “Verdict” is how you showed up; “position” is where you ranked in the answer’s list."
           padding={false} foot={<><span>Showing {filtered.length} of 1,284</span><span>Auto-refreshing · live</span></>}>
-          <table className="tbl">
-            <thead><tr>
-              <th>ENGINE</th><th>QUERY</th><th>VERDICT <Info>How you showed up in this answer - named first, mentioned, missed, or a false claim.</Info></th><th>POSITION <Info term="position"/></th><th>SOURCES <Info term="citation"/></th><th>SENTIMENT <Info term="sentiment"/></th><th className="right">TIME</th>
-            </tr></thead>
-            <tbody>
-              {filtered.slice(0, 18).map((m,i) => (
-                <tr key={i} style={{cursor:'pointer'}}>
-                  <td><span style={{display:'inline-flex',alignItems:'center',gap:8}}><PlatformTile p={m.p} size={22}/> <b>{m.p.name}</b></span></td>
-                  <td><span style={{color:'var(--text)'}}>&ldquo;{m.q}&rdquo;</span></td>
-                  <td><Badge tone={m.tag}>{m.tagLabel}</Badge></td>
-                  <td className="num">{m.pos}</td>
-                  <td><span className="mono dim" style={{fontSize:11}}>{m.sources} cited</span></td>
-                  <td><span className="num">{m.sent > 0 ? '+' : ''}{m.sent.toFixed(2)}</span></td>
-                  <td className="right num dim">{m.t}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr>
+                <th>ENGINE</th><th>QUERY</th><th>VERDICT <Info>How you showed up in this answer - named first, mentioned, missed, or a false claim.</Info></th><th>POSITION <Info term="position"/></th><th>SOURCES <Info term="citation"/></th><th>SENTIMENT <Info term="sentiment"/></th><th className="right">TIME</th>
+              </tr></thead>
+              <tbody>
+                {filtered.slice(0, 18).map((m,i) => (
+                  <tr key={i} style={{cursor:'pointer'}}>
+                    <td><span style={{display:'inline-flex',alignItems:'center',gap:8}}><PlatformTile p={m.p} size={22}/> <b>{m.p.name}</b></span></td>
+                    <td><span style={{color:'var(--text)'}}>&ldquo;{m.q}&rdquo;</span></td>
+                    <td><Badge tone={m.tag}>{m.tagLabel}</Badge></td>
+                    <td className="num">{m.pos}</td>
+                    <td><span className="mono dim" style={{fontSize:11}}>{m.sources} cited</span></td>
+                    <td><span className="num">{m.sent > 0 ? '+' : ''}{m.sent.toFixed(2)}</span></td>
+                    <td className="right num dim">{m.t}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Card>
       </div>
     </>
@@ -128,15 +130,17 @@ export function PageProof() {
           </Card>
 
           <Card title="Mentions in this answer" padding={false}>
-            <table className="tbl">
-              <thead><tr><th>BRAND</th><th>POS.</th><th>SENTIMENT</th><th>LINKED</th></tr></thead>
-              <tbody>
-                <tr><td><b>Linear</b></td><td className="num">1</td><td className="pos num">+0.78</td><td className="mono dim">linear.app/why</td></tr>
-                <tr><td><b style={{color:'var(--accent)'}}>Acme</b> <Badge tone="acc">YOU</Badge></td><td className="num">2</td><td className="pos num">+0.71</td><td className="mono dim">acme.com/customers</td></tr>
-                <tr><td><b>Asana</b></td><td className="num">3</td><td className="pos num">+0.62</td><td className="mono dim">asana.com/eng</td></tr>
-                <tr><td><b>Jira</b></td><td className="num">4</td><td className="neu num">+0.05</td><td className="mono dim">-</td></tr>
-              </tbody>
-            </table>
+            <div className="tbl-wrap">
+              <table className="tbl">
+                <thead><tr><th>BRAND</th><th>POS.</th><th>SENTIMENT</th><th>LINKED</th></tr></thead>
+                <tbody>
+                  <tr><td><b>Linear</b></td><td className="num">1</td><td className="pos num">+0.78</td><td className="mono dim">linear.app/why</td></tr>
+                  <tr><td><b style={{color:'var(--accent)'}}>Acme</b> <Badge tone="acc">YOU</Badge></td><td className="num">2</td><td className="pos num">+0.71</td><td className="mono dim">acme.com/customers</td></tr>
+                  <tr><td><b>Asana</b></td><td className="num">3</td><td className="pos num">+0.62</td><td className="mono dim">asana.com/eng</td></tr>
+                  <tr><td><b>Jira</b></td><td className="num">4</td><td className="neu num">+0.05</td><td className="mono dim">-</td></tr>
+                </tbody>
+              </table>
+            </div>
           </Card>
 
           <Card title="Same query across engines" padding={false}>
@@ -221,21 +225,23 @@ export function PagePlatforms() {
         </div>
 
         <Card title="Recent run timeline" padding={false}>
-          <table className="tbl">
-            <thead><tr><th>RUN</th><th>STARTED</th><th>ENGINES</th><th>QUERIES</th><th>DURATION</th><th>RESULT</th></tr></thead>
-            <tbody>
-              {Array.from({length: 8}).map((_,i) => (
-                <tr key={i}>
-                  <td className="num"><b>#1284 - {i}</b></td>
-                  <td className="num">{`${(14 - i).toString().padStart(2,'0')}:02:18`}</td>
-                  <td><div style={{display:'inline-flex',gap:4}}>{PLATFORMS.map(p => <PlatformTile key={p.id} p={p} size={18}/>)}</div></td>
-                  <td className="num">142</td>
-                  <td className="num">{(38 + i*2)}s</td>
-                  <td>{i === 3 ? <Badge tone="warn">PARTIAL · grok 429</Badge> : <Badge tone="pos">SUCCESS</Badge>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr><th>RUN</th><th>STARTED</th><th>ENGINES</th><th>QUERIES</th><th>DURATION</th><th>RESULT</th></tr></thead>
+              <tbody>
+                {Array.from({length: 8}).map((_,i) => (
+                  <tr key={i}>
+                    <td className="num"><b>#1284 - {i}</b></td>
+                    <td className="num">{`${(14 - i).toString().padStart(2,'0')}:02:18`}</td>
+                    <td><div style={{display:'inline-flex',gap:4}}>{PLATFORMS.map(p => <PlatformTile key={p.id} p={p} size={18}/>)}</div></td>
+                    <td className="num">142</td>
+                    <td className="num">{(38 + i*2)}s</td>
+                    <td>{i === 3 ? <Badge tone="warn">PARTIAL · grok 429</Badge> : <Badge tone="pos">SUCCESS</Badge>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Card>
       </div>
     </>
@@ -332,28 +338,30 @@ export function PageCompetitors() {
         <Card title="Competitor leaderboard" info="sov"
           lede="Every brand you track, ranked by Share of Voice. Green = gaining, red = slipping."
           padding={false}>
-          <table className="tbl">
-            <thead><tr>
-              <th>RANK</th><th>BRAND</th><th>SOV</th><th>Δ 7D</th><th>MENTIONS</th><th>SOV TREND</th><th>WHEN MENTIONED</th>
-            </tr></thead>
-            <tbody>
-              {comps.map((c,i) => (
-                <tr key={c.name}>
-                  <td className="num"><b>{(i+1).toString().padStart(2,'0')}</b></td>
-                  <td><span style={{display:'inline-flex',alignItems:'center',gap:8}}>
-                    <span style={{width:10,height:10,background:c.color,borderRadius:2,display:'inline-block'}}/>
-                    <b style={{color: c.me ? 'var(--accent)':'var(--text)'}}>{c.name}</b>
-                    {c.me && <Badge tone="acc">YOU</Badge>}
-                  </span></td>
-                  <td className="num"><b>{c.sov}%</b></td>
-                  <td><Delta v={c.d} suffix="%"/></td>
-                  <td className="num">{c.mentions.toLocaleString()}</td>
-                  <td><Spark data={Array.from({length:14}).map((_,j) => c.sov + Math.sin(j*0.8 + i)*3)} width={120} height={24} color={c.me ? 'var(--accent)' : c.color}/></td>
-                  <td><div style={{display:'inline-flex',gap:3}}>{PLATFORMS.map((p,j) => <span key={p.id} className="mono" style={{fontSize:9,padding:'2px 5px',borderRadius:2,background:`color-mix(in oklch, ${c.color} ${[55,45,30,20,10][j]}%, transparent)`,color:'var(--text)'}}>{p.short}</span>)}</div></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr>
+                <th>RANK</th><th>BRAND</th><th>SOV</th><th>Δ 7D</th><th>MENTIONS</th><th>SOV TREND</th><th>WHEN MENTIONED</th>
+              </tr></thead>
+              <tbody>
+                {comps.map((c,i) => (
+                  <tr key={c.name}>
+                    <td className="num"><b>{(i+1).toString().padStart(2,'0')}</b></td>
+                    <td><span style={{display:'inline-flex',alignItems:'center',gap:8}}>
+                      <span style={{width:10,height:10,background:c.color,borderRadius:2,display:'inline-block'}}/>
+                      <b style={{color: c.me ? 'var(--accent)':'var(--text)'}}>{c.name}</b>
+                      {c.me && <Badge tone="acc">YOU</Badge>}
+                    </span></td>
+                    <td className="num"><b>{c.sov}%</b></td>
+                    <td><Delta v={c.d} suffix="%"/></td>
+                    <td className="num">{c.mentions.toLocaleString()}</td>
+                    <td><Spark data={Array.from({length:14}).map((_,j) => c.sov + Math.sin(j*0.8 + i)*3)} width={120} height={24} color={c.me ? 'var(--accent)' : c.color}/></td>
+                    <td><div style={{display:'inline-flex',gap:3}}>{PLATFORMS.map((p,j) => <span key={p.id} className="mono" style={{fontSize:9,padding:'2px 5px',borderRadius:2,background:`color-mix(in oklch, ${c.color} ${[55,45,30,20,10][j]}%, transparent)`,color:'var(--text)'}}>{p.short}</span>)}</div></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Card>
       </div>
     </>
@@ -561,24 +569,26 @@ export function PageCitations() {
         </div>
 
         <Card title="All cited sources" right={<Pill>184 unique</Pill>} padding={false}>
-          <table className="tbl">
-            <thead><tr>
-              <th>DOMAIN</th><th>TYPE</th><th>CITES</th><th>SHARE</th><th>TREND</th><th>ENGINES</th><th>LAST SEEN</th>
-            </tr></thead>
-            <tbody>
-              {sources.map((s,i) => (
-                <tr key={i}>
-                  <td><Cit url={s.d}/></td>
-                  <td><Badge tone={s.kind === 'own' ? 'acc' : s.kind === 'review' ? 'info' : s.kind === 'news' ? 'warn' : 'neu'}>{s.kind.toUpperCase()}</Badge></td>
-                  <td className="num"><b>{s.n}</b></td>
-                  <td className="num">{s.share}%</td>
-                  <td>{s.trend === 'up' ? <span className="pos mono">▲ rising</span> : s.trend === 'down' ? <span className="neg mono">▼ falling</span> : <span className="mono dim">- flat</span>}</td>
-                  <td><div style={{display:'inline-flex',gap:3}}>{PLATFORMS.slice(0, 3+(i%3)).map(p => <PlatformTile key={p.id} p={p} size={18}/>)}</div></td>
-                  <td className="num dim">{(i+1)*3}d</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr>
+                <th>DOMAIN</th><th>TYPE</th><th>CITES</th><th>SHARE</th><th>TREND</th><th>ENGINES</th><th>LAST SEEN</th>
+              </tr></thead>
+              <tbody>
+                {sources.map((s,i) => (
+                  <tr key={i}>
+                    <td><Cit url={s.d}/></td>
+                    <td><Badge tone={s.kind === 'own' ? 'acc' : s.kind === 'review' ? 'info' : s.kind === 'news' ? 'warn' : 'neu'}>{s.kind.toUpperCase()}</Badge></td>
+                    <td className="num"><b>{s.n}</b></td>
+                    <td className="num">{s.share}%</td>
+                    <td>{s.trend === 'up' ? <span className="pos mono">▲ rising</span> : s.trend === 'down' ? <span className="neg mono">▼ falling</span> : <span className="mono dim">- flat</span>}</td>
+                    <td><div style={{display:'inline-flex',gap:3}}>{PLATFORMS.slice(0, 3+(i%3)).map(p => <PlatformTile key={p.id} p={p} size={18}/>)}</div></td>
+                    <td className="num dim">{(i+1)*3}d</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Card>
       </div>
     </>
@@ -690,34 +700,36 @@ export function PageQueryTracker() {
         </Filter>
 
         <Card padding={false}>
-          <table className="tbl">
-            <thead><tr>
-              <th><input type="checkbox" /></th>
-              <th>QUERY</th>
-              <th>STATUS</th>
-              <th>SOV</th>
-              <th>Δ 7D</th>
-              <th>MENTIONS</th>
-              <th>ENGINES</th>
-              <th>SOV TREND</th>
-              <th className="right">RUNS</th>
-            </tr></thead>
-            <tbody>
-              {queries.map((r,i) => (
-                <tr key={i}>
-                  <td><input type="checkbox" /></td>
-                  <td><b>{r.q}</b></td>
-                  <td><Badge tone={r.status === 'priority' ? 'acc' : r.status === 'losing' ? 'neg' : 'neu'}>{r.status.toUpperCase()}</Badge></td>
-                  <td className="num"><b>{r.sov}%</b></td>
-                  <td><Delta v={r.d} suffix="%"/></td>
-                  <td className="num">{r.mentions}</td>
-                  <td className="num">{r.eng}/5</td>
-                  <td><Spark data={Array.from({length:14}).map((_,j) => Math.max(0, r.sov + Math.sin(j*0.5+i)*5))} width={120} height={24} color={r.d >= 0 ? 'var(--primary)' : 'var(--danger)'}/></td>
-                  <td className="right num dim">{r.runs}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr>
+                <th><input type="checkbox" /></th>
+                <th>QUERY</th>
+                <th>STATUS</th>
+                <th>SOV</th>
+                <th>Δ 7D</th>
+                <th>MENTIONS</th>
+                <th>ENGINES</th>
+                <th>SOV TREND</th>
+                <th className="right">RUNS</th>
+              </tr></thead>
+              <tbody>
+                {queries.map((r,i) => (
+                  <tr key={i}>
+                    <td><input type="checkbox" /></td>
+                    <td><b>{r.q}</b></td>
+                    <td><Badge tone={r.status === 'priority' ? 'acc' : r.status === 'losing' ? 'neg' : 'neu'}>{r.status.toUpperCase()}</Badge></td>
+                    <td className="num"><b>{r.sov}%</b></td>
+                    <td><Delta v={r.d} suffix="%"/></td>
+                    <td className="num">{r.mentions}</td>
+                    <td className="num">{r.eng}/5</td>
+                    <td><Spark data={Array.from({length:14}).map((_,j) => Math.max(0, r.sov + Math.sin(j*0.5+i)*5))} width={120} height={24} color={r.d >= 0 ? 'var(--primary)' : 'var(--danger)'}/></td>
+                    <td className="right num dim">{r.runs}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Card>
       </div>
     </>

@@ -285,19 +285,21 @@ export default function AccountPage() {
         {billingHistory.length > 0 && (
           <Card title="Billing history" padding={false}
             right={<a href={BILLING_PORTAL_URL} target="_blank" rel="noopener" className="mono dim" style={{ fontSize: 11, textDecoration: 'none' }}>MANAGE BILLING →</a>}>
-            <table className="tbl">
-              <thead><tr><th>DATE</th><th>EVENT</th><th className="right">AMOUNT</th><th>STATUS</th></tr></thead>
-              <tbody>
-                {billingHistory.map((b, i) => (
-                  <tr key={i}>
-                    <td className="num">{b.date && !isNaN(new Date(b.date).getTime()) ? new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}</td>
-                    <td><b>{b.event}</b></td>
-                    <td className="right num">{b.amount || '-'}</td>
-                    <td><Badge tone={b.status === 'succeeded' || b.status === 'paid' || b.status === 'upgraded' || b.status === 'renewed' ? 'pos' : 'neu'}>{(b.status || '').toUpperCase()}</Badge></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="tbl-wrap">
+              <table className="tbl">
+                <thead><tr><th>DATE</th><th>EVENT</th><th className="right">AMOUNT</th><th>STATUS</th></tr></thead>
+                <tbody>
+                  {billingHistory.map((b, i) => (
+                    <tr key={i}>
+                      <td className="num">{b.date && !isNaN(new Date(b.date).getTime()) ? new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}</td>
+                      <td><b>{b.event}</b></td>
+                      <td className="right num">{b.amount || '-'}</td>
+                      <td><Badge tone={b.status === 'succeeded' || b.status === 'paid' || b.status === 'upgraded' || b.status === 'renewed' ? 'pos' : 'neu'}>{(b.status || '').toUpperCase()}</Badge></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Card>
         )}
 

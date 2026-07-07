@@ -419,23 +419,25 @@ export default function BillingPage() {
               No billing activity yet.
             </div>
           ) : (
-            <table className="tbl">
-              <thead><tr><th>DATE</th><th>EVENT</th><th className="right">AMOUNT</th><th>STATUS</th></tr></thead>
-              <tbody>
-                {billingHistory.map((row, i) => (
-                  <tr key={i}>
-                    <td className="num">{fmtBillDate(row.date)}</td>
-                    <td><b>{row.event}</b></td>
-                    <td className="right num">{row.amount || '-'}</td>
-                    <td>
-                      <Badge tone={/fail|declin|error/i.test(row.status) ? 'neg' : 'pos'}>
-                        {(row.status || 'PROCESSED').toUpperCase()}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="tbl-wrap">
+              <table className="tbl">
+                <thead><tr><th>DATE</th><th>EVENT</th><th className="right">AMOUNT</th><th>STATUS</th></tr></thead>
+                <tbody>
+                  {billingHistory.map((row, i) => (
+                    <tr key={i}>
+                      <td className="num">{fmtBillDate(row.date)}</td>
+                      <td><b>{row.event}</b></td>
+                      <td className="right num">{row.amount || '-'}</td>
+                      <td>
+                        <Badge tone={/fail|declin|error/i.test(row.status) ? 'neg' : 'pos'}>
+                          {(row.status || 'PROCESSED').toUpperCase()}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </Card>
 
@@ -453,21 +455,23 @@ export default function BillingPage() {
         {/* Owner-only API cost breakdown stays as an admin view. */}
         {currentPlan === 'owner' && Object.keys(apiCosts).length > 0 && (
           <Card title="API cost breakdown" padding={false}>
-            <table className="tbl">
-              <thead><tr><th>PLATFORM</th><th className="right">TOTAL COST</th></tr></thead>
-              <tbody>
-                {Object.entries(apiCosts).sort((a, b) => b[1] - a[1]).map(([platform, cost]) => (
-                  <tr key={platform}>
-                    <td><b>{platform}</b></td>
-                    <td className="right num">${cost.toFixed(2)}</td>
+            <div className="tbl-wrap">
+              <table className="tbl">
+                <thead><tr><th>PLATFORM</th><th className="right">TOTAL COST</th></tr></thead>
+                <tbody>
+                  {Object.entries(apiCosts).sort((a, b) => b[1] - a[1]).map(([platform, cost]) => (
+                    <tr key={platform}>
+                      <td><b>{platform}</b></td>
+                      <td className="right num">${cost.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td><b>Total</b></td>
+                    <td className="right num"><b>${Object.values(apiCosts).reduce((a, b) => a + b, 0).toFixed(2)}</b></td>
                   </tr>
-                ))}
-                <tr>
-                  <td><b>Total</b></td>
-                  <td className="right num"><b>${Object.values(apiCosts).reduce((a, b) => a + b, 0).toFixed(2)}</b></td>
-                </tr>
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
           </Card>
         )}
       </div>
