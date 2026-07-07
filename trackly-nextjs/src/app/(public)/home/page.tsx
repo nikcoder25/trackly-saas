@@ -148,6 +148,20 @@ const DASH_METRICS = [
   { k: 'Competitive', v: 68, sub: 'leads in 5 / 8 categories' },
 ];
 
+const DASH_ENGINES = [
+  { n: 'ChatGPT', v: 46 },
+  { n: 'Claude', v: 38 },
+  { n: 'Gemini', v: 31 },
+  { n: 'Perplexity', v: 24 },
+  { n: 'Grok', v: 18 },
+];
+
+const DASH_MENTIONS = [
+  { e: 'C', t: '“Acme PM is a top pick for roadmap planning — strong AI features.”', s: 'pos', sl: 'Positive' },
+  { e: 'P', t: '“Acme and Linear both stand out for fast-moving product teams.”', s: 'neu', sl: 'Neutral' },
+  { e: 'G', t: '“Teams praise Acme’s new AI summaries and clean interface.”', s: 'pos', sl: 'Positive' },
+];
+
 function DashIcon({ d }: { d: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
@@ -230,18 +244,19 @@ function DashboardUI() {
           </div>
 
           <div className="dash-health">
-            <svg className="wave" viewBox="0 0 200 100" preserveAspectRatio="none">
-              <path d="M0 78 C 35 78 50 34 88 32 S 158 14 200 8" stroke="#fff" strokeWidth="2.5" fill="none" />
+            <svg className="wave" viewBox="0 0 300 120" preserveAspectRatio="none">
+              <path className="wa" d="M0 102 C 45 98 70 78 105 70 S 165 54 200 40 S 262 16 300 10 L 300 120 L 0 120 Z" />
+              <path className="wl" d="M0 102 C 45 98 70 78 105 70 S 165 54 200 40 S 262 16 300 10" vectorEffect="non-scaling-stroke" />
             </svg>
             <div className="dash-health-top">
               <svg className="dash-gauge" viewBox="0 0 80 80">
                 <circle className="dash-gauge-track" cx="40" cy="40" r={R} />
                 <circle className="dash-gauge-val" cx="40" cy="40" r={R} strokeDasharray={`${(health / 100) * C} ${C}`} transform="rotate(-90 40 40)" />
-                <text x="40" y="41">{health}</text>
+                <text x="40" y="42">{health}</text>
               </svg>
               <div>
                 <div className="dash-health-lbl">Brand health</div>
-                <div className="dash-health-big">{health}<span>/100</span></div>
+                <div className="dash-health-sub">Weighted across the 5 AI engines</div>
                 <span className="dash-health-chip">▲ 6 vs last week</span>
               </div>
             </div>
@@ -251,6 +266,29 @@ function DashboardUI() {
                   <div className="mrow"><span className="mk">{m.k}</span><span className="mv">{m.v}</span></div>
                   <div className="mbar"><i style={{ width: `${m.v}%` }} /></div>
                   <div className="msub">{m.sub}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="dash-row">
+            <div className="dash-panel">
+              <div className="dash-panel-h"><span>Share of voice · 7 days</span><span className="lnk">View all</span></div>
+              {DASH_ENGINES.map((e) => (
+                <div className="dash-sov" key={e.n}>
+                  <span className="en">{e.n}</span>
+                  <span className="ebar"><i style={{ width: `${e.v * 2}%` }} /></span>
+                  <span className="ev">{e.v}%</span>
+                </div>
+              ))}
+            </div>
+            <div className="dash-panel">
+              <div className="dash-panel-h"><span>Latest mentions</span><span className="lnk">1.2k total</span></div>
+              {DASH_MENTIONS.map((m, i) => (
+                <div className="dash-mn" key={i}>
+                  <span className="eb">{m.e}</span>
+                  <span className="mt">{m.t}</span>
+                  <span className={'sent ' + m.s}>{m.sl}</span>
                 </div>
               ))}
             </div>
