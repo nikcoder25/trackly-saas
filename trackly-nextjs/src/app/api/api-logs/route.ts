@@ -160,9 +160,11 @@ export async function GET(request: Request): Promise<Response> {
     pageRows = pageRes.rows as typeof pageRows;
     totals = (totalsRes.rows[0] as typeof totals) || { count: 0, tokens: 0 };
   } catch (e) {
+    // Log the detail server-side only - raw pg error text must not
+    // reach the client.
+    console.error('api_logs.list_failed', (e as Error).message);
     return Response.json({
       error: 'Failed to load API call logs',
-      detail: (e as Error).message,
     }, { status: 500 });
   }
 

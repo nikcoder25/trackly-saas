@@ -15,6 +15,7 @@ import { useBrandData } from '@/hooks/useBrandData';
 import { useRun } from '@/contexts/RunContext';
 import { useToast } from '@/components/dashboard/Toast';
 import { useBrands } from '@/contexts/BrandContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { KpiCardsSkeleton } from '@/components/dashboard/Skeleton';
 import { highlightBrand as highlightBrandText, sanitizeHtml } from '@/lib/sanitize';
 
@@ -78,6 +79,9 @@ interface OverviewData {
   sentimentSub: string;
   competitive: number | null;
   competitiveSub: string;
+  /** Timestamp of the most recent completed run, for the "updated X ago"
+   *  label on the engine grid. Null/absent when there is no real run. */
+  lastRunAt?: string | null;
 }
 
 interface InsightItem { icon: string; tone: 'pos' | 'warn' | 'info'; t: string; d: string; cta: string; href: string }
@@ -416,11 +420,34 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   // recompute its SOV from the filtered result set so the tile agrees with
   // the KPI rail.
   const rawPlatforms = lastRun.platforms || {};
+  const prevRawPlatforms = prevRun?.platforms || {};
+  const platformKey = (obj: Record<string, unknown>, name: string) =>
+    Object.keys(obj).find(k => k.toLowerCase() === name.toLowerCase());
   const platformsAll: Platform[] = PLATFORMS.map(p => {
-    const key = Object.keys(rawPlatforms).find(k => k.toLowerCase() === p.name.toLowerCase());
-    if (!key) return p;
+    // Real per-engine SOV history (oldest -> newest) for the tile sparkline;
+    // previously the grid rendered a hardcoded design array for every engine.
+    const spark = sorted
+      .map(run => {
+        const rp = run.platforms || {};
+        const k = platformKey(rp, p.name);
+        return k ? Math.round(normPlatform(rp[k]).sov) : null;
+      })
+      .filter((v): v is number => v !== null)
+      .slice(-13);
+    const key = platformKey(rawPlatforms, p.name);
+    if (!key) {
+      // Engine not covered by this brand's runs. Show an explicit no-data
+      // tile - the old code fell through to the static design tile, which
+      // presented fake SOV/latency and a permanent "DEGRADED" badge (Grok)
+      // as if they were live measurements.
+      return { ...p, sov: 0, delta: 0, ok: true, ms: 0, noData: true, spark: [] };
+    }
     const n = normPlatform(rawPlatforms[key]);
-    return { ...p, sov: Math.round(n.sov), ok: n.errors === 0, ms: p.ms };
+    const prevKey = platformKey(prevRawPlatforms, p.name);
+    const delta = prevKey ? Math.round(n.sov) - Math.round(normPlatform(prevRawPlatforms[prevKey]).sov) : 0;
+    // ms: 0 hides the latency readout - runs don't record per-engine latency,
+    // and the static design values (1840ms etc.) read as real measurements.
+    return { ...p, sov: Math.round(n.sov), delta, ok: n.errors === 0, ms: 0, noData: false, spark };
   });
   const platforms: Platform[] = engineFiltered
     ? platformsAll.filter(p => p.name.toLowerCase() === filters.engine.toLowerCase()).map(p => ({ ...p, sov }))
@@ -605,7 +632,10 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
     totalM, mentionsDelta: prevRun ? totalM - prevTotalM : 0,
     totalQ, health, sentiment,
     platforms, competitors, sources,
-    trend: trend.length >= 2 ? trend : fb.trend,
+    // Never substitute the demo trend for a real brand: with a single run,
+    // draw a flat line at the real value instead of fabricated history.
+    trend: trend.length >= 2 ? trend : (trend.length === 1 ? [trend[0], trend[0]] : []),
+    lastRunAt: (lastRun.date || lastRun.time || lastRun.created_at || null) as string | null,
     queries,
     recent,
     insights: insights.slice(0, 3),
@@ -721,6 +751,10 @@ export function PageOverview() {
   // state until the run is done so we only ever display final, complete scores.
   const { live } = useRun();
   const scanning = live.running;
+  const { user } = useAuth();
+  // First name only, and never an email fragment - fall back to a plain
+  // greeting when the account has no display name.
+  const firstName = (user?.name || '').trim().split(/\s+/)[0] || null;
 
   // With real data we only have the brand's own SOV history, so show just that
   // line rather than fabricated competitor trends. The demo overlay is kept for
@@ -737,7 +771,7 @@ export function PageOverview() {
 
   return (
     <>
-      <PageHead title={<>Welcome back, <span style={{ color: 'var(--primary)' }}>Nikhil</span>.</>}
+      <PageHead title={firstName ? <>Welcome back, <span style={{ color: 'var(--primary)' }}>{firstName}</span>.</> : <>Welcome back.</>}
         sub={
           !d.hasReal
             ? <>Sample data - add your brand to replace these example figures with real AI visibility.</>
@@ -838,7 +872,7 @@ export function PageOverview() {
           </Card>
         </div>
 
-        <OverviewEngineGrid platforms={d.platforms} />
+        <OverviewEngineGrid platforms={d.platforms} hasReal={d.hasReal} lastRunAt={d.lastRunAt} />
 
         <div className="g2">
           <OverviewRecentMentions onOpen={setDrawer} total={d.totalM} items={d.recent} />
@@ -1153,31 +1187,48 @@ function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => voi
   );
 }
 
-function OverviewEngineGrid({ platforms }: { platforms: Platform[] }) {
+function OverviewEngineGrid({ platforms, hasReal, lastRunAt }: { platforms: Platform[]; hasReal?: boolean; lastRunAt?: string | null }) {
+  // Real data gets a real freshness label; the sample fallback keeps the
+  // design copy (the page already shows a "Sample data" badge in that state).
+  const rel = lastRunAt ? relTime(lastRunAt) : '';
+  const updated = hasReal
+    ? (rel ? (rel === 'now' ? 'UPDATED JUST NOW' : `UPDATED ${rel.toUpperCase()} AGO`) : 'NO RUNS YET')
+    : 'SAMPLE DATA';
   return (
     <Card title="By engine - today" info="sov"
-      lede="Your Share of Voice inside each AI assistant, refreshed this hour."
-      right={<span className="mono dim" style={{ fontSize: 11 }}>UPDATED 2 MIN AGO</span>} padding={false}>
+      lede="Your Share of Voice inside each AI assistant, from your latest scan."
+      right={<span className="mono dim" style={{ fontSize: 11 }}>{updated}</span>} padding={false}>
       <div className="eg-grid">
-        {platforms.map(p => (
+        {platforms.map(p => {
+          // Sample tiles (no spark array) keep the illustrative sparkline;
+          // real tiles only chart actual run history.
+          const sparkData = p.spark ?? [12, 14, 11, 18, 16, 22, 20, 24, 22, 28, 26, 30, p.sov];
+          return (
           <div key={p.id} className="eg-cell">
             <div className="eg-h">
               <PlatformTile p={p} size={26} />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</div>
                 <div className="mono" style={{ fontSize: 10, color: 'var(--mute)', letterSpacing: '0.08em' }}>
-                  {p.ok ? <><span className="pulse" style={{ width: 5, height: 5 }} /> OK · {p.ms}ms</> : <span className="neg">⚠ DEGRADED</span>}
+                  {p.noData
+                    ? <>NO DATA YET</>
+                    : p.ok
+                      ? <><span className="pulse" style={{ width: 5, height: 5 }} /> OK{p.ms > 0 ? <> · {p.ms}ms</> : null}</>
+                      : <span className="neg">⚠ ERRORS IN LAST RUN</span>}
                 </div>
               </div>
-              <Badge tone={p.delta >= 0 ? 'pos' : 'neg'}>{p.delta >= 0 ? '▲' : '▼'} {Math.abs(p.delta)}</Badge>
+              {!p.noData && <Badge tone={p.delta >= 0 ? 'pos' : 'neg'}>{p.delta >= 0 ? '▲' : '▼'} {Math.abs(p.delta)}</Badge>}
             </div>
-            <div className="eg-v mono">{p.sov}<i>%</i></div>
-            <Bar value={p.sov} />
+            <div className="eg-v mono">{p.noData ? <span className="dim">—</span> : <>{p.sov}<i>%</i></>}</div>
+            <Bar value={p.noData ? 0 : p.sov} />
             <div className="eg-spark">
-              <Spark data={[12, 14, 11, 18, 16, 22, 20, 24, 22, 28, 26, 30, p.sov]} width={200} height={26} color={p.delta >= 0 ? 'var(--accent)' : 'var(--mute)'} fill />
+              {sparkData.length >= 2
+                ? <Spark data={sparkData} width={200} height={26} color={p.delta >= 0 ? 'var(--accent)' : 'var(--mute)'} fill />
+                : <div style={{ height: 26 }} />}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </Card>
   );

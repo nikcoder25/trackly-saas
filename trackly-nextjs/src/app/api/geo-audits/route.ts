@@ -114,8 +114,10 @@ export async function GET(request: Request): Promise<Response> {
       err: (e as Error).message,
       userId: user.id,
     });
+    // Detail stays in the server log above - raw pg error text (SQL
+    // fragments, column names) must not reach the client.
     return Response.json(
-      { error: 'Failed to load audits', message: (e as Error).message },
+      { error: 'Failed to load audits' },
       { status: 500 },
     );
   }

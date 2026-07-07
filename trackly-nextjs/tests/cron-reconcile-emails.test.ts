@@ -32,7 +32,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.hoisted(() => {
   process.env.CRON_SECRET = 'test_cron_secret_value_32chars_long_xxxx';
   process.env.DODO_PAYMENTS_API_KEY = 'test_dodo_api_key';
-  process.env.DODO_LIVE_MODE = 'false';
+  process.env.DODO_PAYMENTS_ENVIRONMENT = 'test_mode';
   process.env.DODO_AGENCY_PRODUCT_ID = 'prod_agency';
   process.env.DODO_PRO_PRODUCT_ID = 'prod_pro';
   process.env.DODO_STARTER_PRODUCT_ID = 'prod_starter';
