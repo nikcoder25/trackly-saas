@@ -16,6 +16,7 @@ import {
 import { PagePromptDiscovery, PageAgentAnalytics } from './pages/discovery';
 import { PageGeoAudit, PageRegional, PageOnboarding } from './pages/tools';
 import { PageSetup, PagePrompts, PageAccount, PageBilling, PageAlerts } from './pages/settings';
+import { useAuth } from '@/contexts/AuthContext';
 
 const PAGE_REGISTRY: Record<string, () => React.JSX.Element> = {
   overview: () => <PageOverview />,
@@ -103,6 +104,32 @@ function AppearanceDock({ t, setTweak }: { t: any; setTweak: (k: string, v: any)
 export default function DashboardV2() {
   const [t, setT] = useLS('lvx_tweaks', { dark: false, accent: 'indigo', density: 'comfortable' });
   const setTweak = (k: string, v: any) => setT(prev => ({ ...prev, [k]: v }));
+  // This is an internal design-preview route: it renders fabricated
+  // "Acme PM" sample data, an appearance dev-dock, and "Under design"
+  // placeholder screens. Middleware only auth-gates it (startsWith
+  // '/dashboard'), so any logged-in customer who guesses the URL could
+  // see unfinished UI. Restrict it to admins/owners.
+  const { user, loading: authLoading } = useAuth();
+  const isStaff = user?.role === 'admin' || user?.plan === 'owner';
+  if (authLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+        <div style={{ width: 32, height: 32, border: '2px solid #5B5BD6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+      </div>
+    );
+  }
+  if (!isStaff) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', fontFamily: 'system-ui, sans-serif' }}>
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 16, padding: '48px 40px', textAlign: 'center', maxWidth: 420 }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>🔒</div>
+          <p style={{ fontSize: 18, fontWeight: 700, color: '#e11d48', marginBottom: 8 }}>Not available</p>
+          <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 20px' }}>This is an internal preview. Head to your dashboard to see your real data.</p>
+          <a href="/dashboard" style={{ display: 'inline-block', padding: '9px 18px', borderRadius: 8, background: '#5B5BD6', color: '#fff', textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>Go to dashboard</a>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="lvx lvx-standalone" data-theme={t.dark ? 'dark' : 'light'} data-accent={t.accent} data-density={t.density}>
       <RouterProvider>

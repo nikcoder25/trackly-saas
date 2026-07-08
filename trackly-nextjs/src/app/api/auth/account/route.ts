@@ -32,6 +32,8 @@ export async function DELETE(request: Request) {
     try {
       await client.query('BEGIN');
       await client.query('DELETE FROM accuracy_issues WHERE brand_id IN (SELECT id FROM brands WHERE user_id = $1)', [user.id]);
+      await client.query('DELETE FROM citations WHERE brand_id IN (SELECT id FROM brands WHERE user_id = $1)', [user.id]);
+      await client.query('DELETE FROM recommendations WHERE brand_id IN (SELECT id FROM brands WHERE user_id = $1)', [user.id]);
       await client.query('DELETE FROM brand_facts WHERE brand_id IN (SELECT id FROM brands WHERE user_id = $1)', [user.id]);
       await client.query('DELETE FROM prompt_runs WHERE brand_id IN (SELECT id FROM brands WHERE user_id = $1)', [user.id]);
       await client.query('DELETE FROM active_runs WHERE user_id = $1', [user.id]);

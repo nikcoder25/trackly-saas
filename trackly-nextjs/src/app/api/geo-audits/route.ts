@@ -19,6 +19,7 @@ import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getEffectivePlan, getPlanLimits } from '@/lib/constants';
 import { logger } from '@/lib/logger';
+import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import {
   ensureGeoAuditsSchema,
   createAuditRecord,
@@ -134,6 +135,15 @@ export async function POST(request: Request): Promise<Response> {
   if (auth instanceof Response) return auth;
   const user = auth;
 
+  // Per-user + per-IP rate limit. Each POST fans out a background
+  // processGeoAudit (regions x prompts x platforms of LLM calls), so cap
+  // trigger frequency the same way brands/[id]/run does.
+  const rl = await checkUserIpRateLimit('geo_audit_create', user.id, getClientIp(request), {
+    user: { max: 10, windowMs: 15 * 60 * 1000 },
+    ip: { max: 30, windowMs: 15 * 60 * 1000 },
+  });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
+
   let body: PostBody;
   try {
     body = (await request.json()) as PostBody;
@@ -192,6 +202,35 @@ export async function POST(request: Request): Promise<Response> {
       { error: 'Your plan does not include Regional Audits. Upgrade to unlock.' },
       { status: 403 },
     );
+  }
+
+  // Numeric monthly cap on Regional Audits. limits.geoAudits is a count,
+  // not a boolean - enforce it against the number of audits this user has
+  // created in the trailing 30 days (mirrors the runsPerMonth check in
+  // brands/[id]/run). Owner accounts skip the count. Cancelled audits
+  // don't consume the quota. ensureGeoAuditsSchema first so a first-ever
+  // call on a fresh DB doesn't hit an undefined table.
+  if (effectivePlan !== 'owner') {
+    await ensureGeoAuditsSchema();
+    const usedRes = await pool.query(
+      `SELECT COUNT(*)::int AS used FROM geo_audits
+        WHERE user_id = $1
+          AND created_at >= NOW() - INTERVAL '30 days'
+          AND status <> 'cancelled'`,
+      [user.id],
+    );
+    const auditsUsed = Number(usedRes.rows[0]?.used) || 0;
+    if (auditsUsed >= (limits.geoAudits ?? 0)) {
+      return Response.json(
+        {
+          error: `Monthly Regional Audit limit reached (${auditsUsed}/${limits.geoAudits} used). Upgrade your plan or wait for the monthly reset.`,
+          planLimit: true,
+          auditsUsed,
+          auditsLimit: limits.geoAudits,
+        },
+        { status: 429 },
+      );
+    }
   }
 
   const totalExpected = regions.length * prompts.length * GEO_AUDIT_PLATFORMS.length;
