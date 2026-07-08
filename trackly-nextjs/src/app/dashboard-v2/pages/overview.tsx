@@ -6,6 +6,7 @@
 // temporary fallback where the app does not yet compute a figure.
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import {
   PLATFORMS, type Platform, PlatformTile, Card, Badge, Delta, Bar, Pill, Spark,
   LineChart, type LineSeries, Filter, Seg, KPIRail, PageHead, Info, Cit,
@@ -993,6 +994,7 @@ function HealthBanner({ health, healthDelta, sentiment, sentimentSub, sov, total
 }
 
 function InsightsStrip({ items }: { items: InsightItem[] }) {
+  const router = useRouter();
   if (!items.length) return null;
   return (
     <div>
@@ -1002,7 +1004,7 @@ function InsightsStrip({ items }: { items: InsightItem[] }) {
       </div>
       <div className="ins-strip">
         {items.map((it, i) => (
-          <button key={i} className={'ins-card ins-' + it.tone} onClick={() => { window.location.href = it.href; }}>
+          <button key={i} className={'ins-card ins-' + it.tone} onClick={() => router.push(it.href)}>
             <span className="ins-icon">{it.icon}</span>
             <div className="ins-body">
               <div className="ins-t">{it.t}</div>
@@ -1054,6 +1056,7 @@ async function downloadBrandReport(brandId: string | undefined, brandName: strin
 }
 
 function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => void }) {
+  const router = useRouter();
   const { startRun } = useRun();
   const { toast } = useToast();
   const { selectedBrand } = useBrands();
@@ -1088,7 +1091,7 @@ function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => voi
   const handleFlag = () => {
     // Hallucinations / false claims are managed on the Accuracy Monitor.
     onClose();
-    window.location.href = '/dashboard/accuracy';
+    router.push('/dashboard/accuracy');
   };
   const handleShare = async () => {
     const text = `${item.platform || item.p?.name} · "${item.q}"\nVerdict: ${verdictLabel} - ${item.meta}\n\n${item.answer || '(no response text captured)'}`;
@@ -1247,7 +1250,10 @@ function OverviewRecentMentions({ onOpen, total, items }: { onOpen: (it: RecentI
       ) : (
       <ul className="feed">
         {items.map((it, i) => (
-          <li key={i} className="feed-i" onClick={() => onOpen(it)}>
+          <li key={i} className="feed-i" role="button" tabIndex={0}
+            aria-label={`Open AI answer for "${it.q}"`}
+            onClick={() => onOpen(it)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(it); } }}>
             <PlatformTile p={it.p} size={24} />
             <div style={{ minWidth: 0 }}>
               <div className="feed-q">&ldquo;{it.q}&rdquo;</div>

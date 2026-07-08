@@ -222,10 +222,16 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
         return Response.json({ error: 'Brand not found' }, { status: 404 });
       }
       await client.query('DELETE FROM accuracy_issues WHERE brand_id = $1', [id]);
+      await client.query('DELETE FROM citations WHERE brand_id = $1', [id]);
+      await client.query('DELETE FROM recommendations WHERE brand_id = $1', [id]);
       await client.query('DELETE FROM brand_facts WHERE brand_id = $1', [id]);
       await client.query('DELETE FROM prompt_runs WHERE brand_id = $1', [id]);
       await client.query('DELETE FROM active_runs WHERE brand_id = $1', [id]);
       await client.query('DELETE FROM alert_rules WHERE brand_id = $1', [id]);
+      // geo_audits (+ geo_audit_results), nap_audits and report_drafts/
+      // items/history/schedules are removed automatically via ON DELETE
+      // CASCADE FKs on brands(id). response_cache is a shared cross-tenant
+      // cache and is intentionally left intact.
       await client.query('DELETE FROM brands WHERE id = $1 AND user_id = $2', [id, user.id]);
       await client.query('COMMIT');
     } catch (txErr) {

@@ -260,36 +260,45 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!activePlatforms.length) return Response.json({ error: 'No API keys configured.' }, { status: 400 });
   }
 
-  // --- Monthly run limit check ---
+  // --- Monthly run limit check (manual runs only) ---
+  // Cron-triggered runs are exempt: their volume is a function of the
+  // plan's auto-run cadence x brand count, and their spend is already
+  // bounded by monthly credits. Counting them here would 429 scheduled
+  // runs the moment a brand's auto-runs reach the (low) runsPerMonth cap
+  // - e.g. Free's 4/month is one month of weekly auto-runs, which would
+  // then freeze the dashboard. Only manual "Run" clicks consume this
+  // quota, matched via kind='manual' so cron 'auto' rows never count.
   // NOTE: no FOR UPDATE here - Postgres rejects FOR UPDATE combined with
   // an aggregate (SQLSTATE 0A000), which made the previous version of
   // this query throw on every call; the bare catch swallowed the error
   // and the runsPerMonth plan limit was silently never enforced. A plain
   // COUNT is sufficient: two racing requests can at worst overshoot the
   // cap by one, which is acceptable for a monthly quota.
-  try {
-    const runsResult = await pool.query(
-      `SELECT COUNT(*) as used FROM active_runs ar JOIN brands b ON ar.brand_id = b.id
-       WHERE b.user_id = $1 AND ar.started_at >= NOW() - INTERVAL '30 days'
-       AND ar.status IN ('done', 'running')`,
-      [ownerId]
-    );
-    const runsUsed = parseInt(runsResult.rows[0]?.used, 10) || 0;
-    if (runsUsed >= limits.runsPerMonth) {
-      return Response.json({
-        error: `Monthly run limit reached (${runsUsed}/${limits.runsPerMonth} runs used). Upgrade your plan or wait for the monthly reset.`,
-        planLimit: true,
-        runsUsed,
-        runsLimit: limits.runsPerMonth,
-      }, { status: 429 });
-    }
-  } catch (e) {
-    // Only skip the check when the active_runs table doesn't exist yet
-    // (fresh install mid-migration). Any other DB error fails the request
-    // rather than silently waiving the plan limit.
-    if ((e as { code?: string }).code !== '42P01') {
-      console.error('run.limit_check_failed', (e as Error).message);
-      return Response.json({ error: 'Could not verify your plan limits. Please try again.' }, { status: 500 });
+  if (!isCronCall) {
+    try {
+      const runsResult = await pool.query(
+        `SELECT COUNT(*) as used FROM active_runs ar JOIN brands b ON ar.brand_id = b.id
+         WHERE b.user_id = $1 AND ar.started_at >= NOW() - INTERVAL '30 days'
+         AND ar.status IN ('done', 'running') AND ar.kind = 'manual'`,
+        [ownerId]
+      );
+      const runsUsed = parseInt(runsResult.rows[0]?.used, 10) || 0;
+      if (runsUsed >= limits.runsPerMonth) {
+        return Response.json({
+          error: `Monthly run limit reached (${runsUsed}/${limits.runsPerMonth} runs used). Upgrade your plan or wait for the monthly reset.`,
+          planLimit: true,
+          runsUsed,
+          runsLimit: limits.runsPerMonth,
+        }, { status: 429 });
+      }
+    } catch (e) {
+      // Only skip the check when the active_runs table doesn't exist yet
+      // (fresh install mid-migration). Any other DB error fails the request
+      // rather than silently waiving the plan limit.
+      if ((e as { code?: string }).code !== '42P01') {
+        console.error('run.limit_check_failed', (e as Error).message);
+        return Response.json({ error: 'Could not verify your plan limits. Please try again.' }, { status: 500 });
+      }
     }
   }
 

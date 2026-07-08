@@ -67,14 +67,24 @@ export async function POST(request: NextRequest) {
 
     const ok = await bcrypt.compare(password, user ? user.password_hash : DUMMY_HASH);
     if (!user || !ok) {
-      // Track failed login attempt
+      // Track failed login attempt. Increment atomically from the row's
+      // own current value (not the earlier non-locked SELECT snapshot) so
+      // concurrent wrong-password requests can't all read the same count
+      // and let an attacker exceed the lockout threshold before any write
+      // lands. Each UPDATE locks the row, so the increments serialize.
       if (user) {
-        const currentFails = (user.settings as Record<string, unknown>)?.failed_login_attempts as number || 0;
-        await pool.query(
-          `UPDATE users SET settings = settings || $1::jsonb WHERE id = $2`,
-          [JSON.stringify({ failed_login_attempts: currentFails + 1, last_failed_login: new Date().toISOString() }), user.id]
+        const updated = await pool.query(
+          `UPDATE users
+             SET settings = settings || jsonb_build_object(
+               'failed_login_attempts', COALESCE((settings->>'failed_login_attempts')::int, 0) + 1,
+               'last_failed_login', $2::text
+             )
+           WHERE id = $1
+           RETURNING (settings->>'failed_login_attempts')::int AS attempts`,
+          [user.id, new Date().toISOString()]
         );
-        auditLog(user.id, 'login_failed', 'user', user.id, { attempt: currentFails + 1, ip }, ip);
+        const attempt = updated.rows[0]?.attempts ?? null;
+        auditLog(user.id, 'login_failed', 'user', user.id, { attempt, ip }, ip);
       }
       return Response.json({ error: 'Invalid email or password' }, { status: 400 });
     }
