@@ -9,11 +9,13 @@
 import { getConnection } from '../connections';
 import { linearTracker } from './linear';
 import { jiraTracker } from './jira';
+import { sheetTracker } from './sheet';
 import type { Tracker, TrackerCreds, TrackerIssue } from './types';
 
 const TRACKERS: Record<string, Tracker> = {
   linear: linearTracker,
   jira: jiraTracker,
+  sheet: sheetTracker,
 };
 
 export type TrackerProvider = keyof typeof TRACKERS;
@@ -36,7 +38,7 @@ export type TrackerDispatch =
  * connected so the caller can fall back to the webhook.
  */
 export async function dispatchTracker(brandId: string, issue: TrackerIssue): Promise<TrackerDispatch> {
-  for (const provider of ['linear', 'jira'] as const) {
+  for (const provider of ['linear', 'jira', 'sheet'] as const) {
     const conn = await getConnection(brandId, provider);
     if (!conn || conn.status !== 'active' || !conn.creds) continue;
     const tracker = getTracker(provider)!;

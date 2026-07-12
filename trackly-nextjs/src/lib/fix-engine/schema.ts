@@ -114,7 +114,7 @@ export async function ensureFixEngineSchema(): Promise<void> {
       id              UUID PRIMARY KEY,
       user_id         TEXT NOT NULL,
       brand_id        TEXT NOT NULL,
-      provider        TEXT NOT NULL CHECK (provider IN ('cms','gsc','connector','linear','jira','kwe')),
+      provider        TEXT NOT NULL CHECK (provider IN ('cms','gsc','connector','linear','jira','kwe','sheet')),
       cms_type        TEXT,
       site_url        TEXT,
       encrypted_creds TEXT,
@@ -142,7 +142,7 @@ export async function ensureFixEngineSchema(): Promise<void> {
   // whose CHECK constraint predates them. Drop + re-add idempotently.
   await pool.query(`ALTER TABLE fix_connections DROP CONSTRAINT IF EXISTS fix_connections_provider_check`);
   await pool.query(`ALTER TABLE fix_connections ADD CONSTRAINT fix_connections_provider_check
-    CHECK (provider IN ('cms','gsc','connector','linear','jira','kwe'))`);
+    CHECK (provider IN ('cms','gsc','connector','linear','jira','kwe','sheet'))`);
 
   // One-click connect handshake: short-lived, single-use authorization codes
   // exchanged by the Connector plugin for its token + HMAC secret (so the

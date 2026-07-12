@@ -32,7 +32,7 @@ export interface TrackerCreateResult {
 }
 
 export interface Tracker {
-  type: 'linear' | 'jira';
+  type: 'linear' | 'jira' | 'sheet';
   /** Validate creds (used by the connect flow before storing). */
   verify(creds: TrackerCreds): Promise<TrackerVerifyResult>;
   /** Create an issue. */

@@ -59,7 +59,7 @@ export async function GET(
 
   const state = signState(id, user.id);
   const successUrl = `${appBase()}/api/connections/cms/wp-authorize/callback?state=${encodeURIComponent(state)}`;
-  const rejectUrl = `${appBase()}/dashboard-v2?wp=rejected#fixes`;
+  const rejectUrl = `${appBase()}/dashboard/fixes?wp=rejected`;
 
   const authorize = `${origin}/wp-admin/authorize-application.php`
     + `?app_name=${encodeURIComponent('Livesov Fix Engine')}`

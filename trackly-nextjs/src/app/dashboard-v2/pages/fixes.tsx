@@ -104,6 +104,25 @@ switch ($p['op']) {
 }
 `;
 
+// Google Apps Script template for the Spreadsheet hand-off.
+// Sheet → Extensions → Apps Script → paste → Deploy as Web app (Execute as Me, access: Anyone).
+const SHEET_APPS_SCRIPT = `function doPost(e) {
+  var SECRET = 'PASTE_THE_SAME_SECRET_HERE'; // must match the secret in Livesov
+  var out = function (o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); };
+  try {
+    var p = JSON.parse(e.postData.contents);
+    if (p.secret !== SECRET) return out({ ok: false, error: 'bad secret' });
+    if (p.ping) return out({ ok: true });
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    if (sheet.getLastRow() === 0) sheet.appendRow(['Date', 'Fix', 'Details', 'Link']);
+    sheet.appendRow([new Date(), p.title || '', p.description || '', p.link || '']);
+    return out({ ok: true });
+  } catch (err) {
+    return out({ ok: false, error: String(err) });
+  }
+}
+`;
+
 const MX_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap');
 @keyframes xspin { to { transform: rotate(360deg); } }
@@ -302,11 +321,12 @@ export function PageFixes() {
   const cmsConn = connections.find((c) => c.provider === 'cms' && c.status === 'active');
   const connectorConn = connections.find((c) => c.provider === 'connector' && c.status === 'active');
   const linearConn = connections.find((c) => c.provider === 'linear' && c.status === 'active');
+  const sheetConn = connections.find((c) => c.provider === 'sheet' && c.status === 'active');
   const jiraConn = connections.find((c) => c.provider === 'jira' && c.status === 'active');
   const kweConn = connections.find((c) => c.provider === 'kwe' && c.status === 'active');
   const canShip = !!cmsConn || !!connectorConn;
   const hasConnector = !!connectorConn;
-  const hasTracker = !!linearConn || !!jiraConn;
+  const hasTracker = !!linearConn || !!jiraConn || !!sheetConn;
 
   // ── actions (real API) ──
   const pollBatch = React.useCallback(async (id: string, batchId: string) => {
@@ -505,9 +525,9 @@ export function PageFixes() {
   };
   const pairConnector = async () => { if (!brandId) return; try { const d = await api(`/api/brands/${brandId}/connections/connector/pair`, { method: 'POST' }); setPairing({ token: d.token, hmacSecret: d.hmacSecret, pullUrl: d.pullUrl }); await load(brandId); flash('Connector paired'); } catch (e) { setError((e as Error).message); } };
   const revokeConnector = async () => { if (!brandId) return; try { await api(`/api/brands/${brandId}/connections/connector/revoke`, { method: 'POST' }); setPairing(null); await load(brandId); flash('Connector token revoked'); } catch (e) { setError((e as Error).message); } };
-  const connectTracker = async (provider: 'linear' | 'jira', creds: Record<string, string>) => {
+  const connectTracker = async (provider: 'linear' | 'jira' | 'sheet', creds: Record<string, string>) => {
     if (!brandId) return; setError(null);
-    try { await api(`/api/brands/${brandId}/connections`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider, creds }) }); flash(`${provider === 'linear' ? 'Linear' : 'Jira'} connected`); await load(brandId); }
+    try { await api(`/api/brands/${brandId}/connections`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider, creds }) }); flash(`${provider === 'linear' ? 'Linear' : provider === 'jira' ? 'Jira' : 'Spreadsheet'} connected`); await load(brandId); }
     catch (e) { setError((e as Error).message); }
   };
   const connectKwe = async (apiKey: string) => {
@@ -518,7 +538,9 @@ export function PageFixes() {
   const createTargeted = async (form: { url: string; passage: string; instruction: string }) => {
     if (!brandId) return; setError(null);
     try { const d = await api(`/api/brands/${brandId}/fixes/targeted`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) }); if (d.fix?.id) { try { await act(d.fix.id, 'generate'); } catch { /* surfaced */ } } await load(brandId); flash('Passage fix created'); }
-    catch (e) { setError((e as Error).message); }
+    // The passage card sits far below the error banner — toast the failure
+    // too so the click never appears to do nothing.
+    catch (e) { setError((e as Error).message); flash(`\u2715 ${(e as Error).message}`); }
   };
 
   // ── derived ──
@@ -705,7 +727,7 @@ export function PageFixes() {
       gsc={!!gscConn} gscSite={gscConn?.siteUrl ?? null}
       connector={!!connectorConn} connectorLastSeen={connectorConn?.lastSeenAt ?? null} pairing={pairing}
       supportedCms={supportedCms} defaultSite={(brand as any)?.website || ''} disabled={!enabled}
-      linear={!!linearConn} jira={!!jiraConn} kwe={!!kweConn} onConnectTracker={connectTracker} onConnectKwe={connectKwe}
+      linear={!!linearConn} jira={!!jiraConn} sheet={!!sheetConn} kwe={!!kweConn} onConnectTracker={connectTracker} onConnectKwe={connectKwe}
       onConnectCms={connectCms} onConnectWp={connectWp} onConnectCmsGeneric={connectCmsGeneric} onDetectCms={detectCms}
       onConnectGsc={connectGsc} onPairConnector={pairConnector} onRevokeConnector={revokeConnector} onCopy={(label) => flash(`${label} copied`)}
     />
@@ -899,12 +921,12 @@ export function PageFixes() {
 }
 
 // ── Connections ──
-function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, linear, jira, kwe, onConnectTracker, onConnectKwe, onConnectCms, onConnectWp, onConnectCmsGeneric, onDetectCms, onConnectGsc, onPairConnector, onRevokeConnector, onCopy }: {
+function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, linear, jira, sheet, kwe, onConnectTracker, onConnectKwe, onConnectCms, onConnectWp, onConnectCmsGeneric, onDetectCms, onConnectGsc, onPairConnector, onRevokeConnector, onCopy }: {
   cms: boolean; cmsMeta: string; gsc: boolean; gscSite: string | null; connector: boolean; connectorLastSeen: string | null;
   pairing: { token: string; hmacSecret: string; pullUrl: string } | null;
   supportedCms: string[]; defaultSite: string; disabled: boolean;
-  linear: boolean; jira: boolean; kwe: boolean;
-  onConnectTracker: (provider: 'linear' | 'jira', creds: Record<string, string>) => void;
+  linear: boolean; jira: boolean; sheet: boolean; kwe: boolean;
+  onConnectTracker: (provider: 'linear' | 'jira' | 'sheet', creds: Record<string, string>) => void;
   onConnectKwe: (apiKey: string) => void;
   onConnectCms: (f: { cmsType: string; siteUrl: string; username: string; appPassword: string }) => void;
   onConnectWp: (site: string) => void;
@@ -923,7 +945,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
   const [detected, setDetected] = React.useState<{ cms: string; confidence: string; hasAdapter: boolean } | null>(null);
   const [detecting, setDetecting] = React.useState(false);
   const runDetect = async () => { if (!siteUrl) return; setDetecting(true); const d = await onDetectCms(siteUrl); setDetected(d); if (d?.hasAdapter && d.cms !== 'unknown') setCmsType(d.cms); setDetecting(false); };
-  const [tracker, setTracker] = React.useState<'' | 'linear' | 'jira'>('');
+  const [tracker, setTracker] = React.useState<'' | 'linear' | 'jira' | 'sheet'>('');
   const [tk, setTk] = React.useState<Record<string, string>>({});
   const [kweOpen, setKweOpen] = React.useState(false);
   const [kweKey, setKweKey] = React.useState('');
@@ -1160,6 +1182,36 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
           </div>
         )}
 
+        <Row badge="▤" title="Spreadsheet" meta={sheet ? 'Connected · handed-off fixes append rows to your sheet' : 'No Jira/Linear? Hand fixes off as rows in a Google Sheet'}>
+          {sheet ? okChip('CONNECTED') : offChip}
+          <button className={sheet ? 'tbtn' : 'xbtn'} onClick={() => setTracker((t) => (t === 'sheet' ? '' : 'sheet'))} disabled={disabled}>{sheet ? 'Reconnect' : 'CONNECT'}</button>
+        </Row>
+        {tracker === 'sheet' && (
+          <div className="nb-sm" style={{ padding: 18, margin: '6px 0 14px', background: 'var(--surface-2)', display: 'grid', gap: 14 }}>
+            <div className="nb-sm" style={{ padding: '11px 14px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', display: 'grid', gap: 7 }}>
+              <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--info)' }}>2-MINUTE SETUP, NO API KEY NEEDED</div>
+              <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.6, color: 'var(--text)', fontWeight: 500, display: 'grid', gap: 3 }}>
+                <li>Open (or create) your Google Sheet → Extensions → <b>Apps Script</b>.</li>
+                <li>Paste the script (copy below), set the secret inside it, then <b>Deploy → New deployment → Web app</b> — Execute as <b>Me</b>, access <b>Anyone</b>.</li>
+                <li>Paste the deployment&apos;s <code>/exec</code> URL and the same secret here.</li>
+              </ol>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button className="gbtn" style={{ padding: '7px 12px', fontSize: 12 }} onClick={() => copy(SHEET_APPS_SCRIPT, 'Apps Script template')}>⧉ Copy Apps Script</button>
+                <button className="gbtn" style={{ padding: '7px 12px', fontSize: 12 }} onClick={() => { const b = new Uint8Array(16); crypto.getRandomValues(b); tkSet('secret', Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')); }}>⚄ Generate secret</button>
+              </div>
+            </div>
+            <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Web app URL</div><input className="xin" placeholder="https://script.google.com/macros/s/…/exec" value={tk.url || ''} onChange={(e) => tkSet('url', e.target.value)} /></div>
+            <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Secret (same as in the script)</div><input className="xin" type="password" value={tk.secret || ''} placeholder="8+ characters" onChange={(e) => tkSet('secret', e.target.value)} /></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Verified with a test ping, then encrypted. Each handed-off fix appends one row: date · fix · details · link. Zapier/Make webhooks work too.</span>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="gbtn" onClick={() => setTracker('')}>Cancel</button>
+                <button className="xbtn" onClick={() => onConnectTracker('sheet', tk)} disabled={!(tk.url || '').startsWith('https://') || (tk.secret || '').length < 8}>CONNECT SHEET</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Keyword data — powers the keyword-opportunities module */}
         <Row badge="KW" title="Keywords Everywhere" meta={kwe ? 'Connected · powers low-competition keyword targeting' : 'Search volume + competition for keyword targeting (API key)'}>
           {kwe ? okChip('CONNECTED') : offChip}
@@ -1355,7 +1407,17 @@ function PassageSection({ disabled, onSubmit }: { disabled: boolean; onSubmit: (
         <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Page URL</div><input className="xin" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="acme.com/features" /></div>
         <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Passage</div><textarea className="xin" rows={3} value={passage} onChange={(e) => setPassage(e.target.value)} placeholder="Paste the exact paragraph or lines…" /></div>
         <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Instruction</div><input className="xin" value={instruction} onChange={(e) => setInstruction(e.target.value)} placeholder={'e.g. answer "is Acme good for engineering teams?" with a citable claim'} /></div>
-        <button className="xbtn" onClick={() => { onSubmit({ url, passage, instruction }); setPassage(''); setInstruction(''); }} disabled={disabled || !url || passage.trim().length < 12} style={{ background: 'var(--info)', justifyContent: 'center' }}>✦ CREATE FIX</button>
+        {(() => {
+          // Say WHY the button is disabled instead of leaving it silently grey.
+          const missing = disabled ? 'Fix Engine is not enabled on your plan'
+            : !url.trim() ? 'Add the page URL to continue'
+            : passage.trim().length < 12 ? `Paste the passage from the page (${Math.max(0, 12 - passage.trim().length)} more characters needed)`
+            : null;
+          return (<>
+            <button className="xbtn" onClick={() => { onSubmit({ url, passage, instruction }); setPassage(''); setInstruction(''); }} disabled={!!missing} style={{ background: 'var(--info)', justifyContent: 'center' }}>✦ CREATE FIX</button>
+            {missing && <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-2)', textAlign: 'center' }}>{missing}</span>}
+          </>);
+        })()}
       </div>
     </section>
   );
