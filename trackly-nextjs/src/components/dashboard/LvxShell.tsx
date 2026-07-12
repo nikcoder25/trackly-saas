@@ -37,6 +37,7 @@ const NAV: { label: string; items: NavItem[] }[] = [
     { id: 'recommendations', href: '/dashboard/recommendations', label: 'Recommendations' },
   ] },
   { label: 'Tools', items: [
+    { id: 'fixes', href: '/dashboard/fixes', label: 'Fix Engine', badge: 'NEW' },
     { id: 'reports', href: '/dashboard/reports', label: 'Reports' },
     { id: 'geo-audit', href: '/dashboard/geo-audit', label: 'GEO Audit' },
     { id: 'regional', href: '/dashboard/geo-audits', label: 'Regional Audits' },
@@ -58,6 +59,7 @@ const ALL_ITEMS = NAV.flatMap(g => g.items.map(it => ({ ...it, group: g.label })
 // they line up with the Overview. Add a route here once its page is themed.
 const THEMED_ROUTES = new Set<string>([
   '/dashboard',
+  '/dashboard/fixes',
   '/dashboard/mentions',
   '/dashboard/competitors',
   '/dashboard/citations',
