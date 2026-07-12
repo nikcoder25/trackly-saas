@@ -1382,6 +1382,15 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
         {(url || fix.aiBefore) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             {url && <a href={url} target="_blank" rel="noreferrer" className="chip" style={{ cursor: 'pointer', fontSize: 11 }}>🌐 {host} ↗</a>}
+            {(() => {
+              const g = fix.generated as { serpQuery?: unknown; serpCompared?: unknown } | null;
+              if (!g || typeof g.serpQuery !== 'string' || !g.serpQuery || !Number(g.serpCompared)) return null;
+              return (
+                <span className="chip" title={`Draft was written against the ${Number(g.serpCompared)} pages currently ranking for "${g.serpQuery}" — to win the click on the live SERP`} style={{ color: 'var(--warning, #b45309)', borderColor: 'var(--warning, #b45309)' }}>
+                  ⚔ VS {Number(g.serpCompared)} RANKING RESULTS · “{g.serpQuery.length > 32 ? `${g.serpQuery.slice(0, 32)}…` : g.serpQuery}”
+                </span>
+              );
+            })()}
             {(fix.pageImpressions ?? 0) > 0 && (
               <span className="chip" title="This page's Google impressions, last 28 days (GSC)" style={{ color: 'var(--info)', borderColor: 'var(--info)' }}>
                 👁 {fix.pageImpressions! >= 1000 ? `${(fix.pageImpressions! / 1000).toFixed(1)}k` : fix.pageImpressions} impressions/28d
