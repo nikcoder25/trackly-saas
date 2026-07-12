@@ -149,6 +149,10 @@ export function PageFixes() {
   const [wizBusy, setWizBusy] = React.useState(false);
   const [wizDismissed, setWizDismissed] = React.useState(false);
   const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(new Set());
+  // Cards start collapsed (one line each) so long queues stay scannable;
+  // clicking a row opens the full card. Expand/collapse-all lives in the
+  // queue toolbar.
+  const [openCards, setOpenCards] = React.useState<Set<string>>(new Set());
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [filter, setFilter] = React.useState<string>('all');
@@ -699,6 +703,8 @@ export function PageFixes() {
         </div>
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 9, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
+        <button className="chip" onClick={() => { setOpenCards(new Set(shown.map((f) => f.id))); setExpandedGroups(new Set(shown.map((f) => f.moduleKey))); }} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>▾ EXPAND ALL</button>
+        <button className="chip" onClick={() => { setOpenCards(new Set()); setExpandedGroups(new Set()); }} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>▴ COLLAPSE ALL</button>
         <button className="chip" onClick={() => setQuickWins((q) => !q)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: quickWins ? 'var(--success-50)' : 'var(--surface)', color: quickWins ? 'var(--success)' : 'var(--text-2)', borderColor: quickWins ? 'var(--success)' : 'var(--ink)' }}>⚡ QUICK WINS</button>
         <button className="chip" onClick={() => setGroupByPage((g) => !g)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: groupByPage ? 'var(--text)' : 'var(--surface)', color: groupByPage ? 'var(--bg)' : 'var(--text-2)' }}>▦ BY PAGE</button>
         <button className="chip" onClick={exportCsv} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>⤓ EXPORT CSV</button>
@@ -760,6 +766,8 @@ export function PageFixes() {
         const renderCard = (f: FixRow) => (
           <FixCard
             key={f.id} fix={f} title={moduleTitle(f.moduleKey)} preview={previews[f.id]}
+            open={openCards.has(f.id)}
+            onToggleOpen={() => setOpenCards((s) => { const n = new Set(s); if (n.has(f.id)) n.delete(f.id); else n.add(f.id); return n; })}
             cost={moduleMeta(f.moduleKey)?.cost ?? 1} revertable={!!moduleMeta(f.moduleKey)?.revertable} impact={moduleMeta(f.moduleKey)?.impact ?? 2}
             events={events[f.id]} busy={!!busy[f.id]} armed={!!armed[f.id]} canShip={canShip}
             picked={picked.has(f.id)} onTogglePick={() => togglePick(f.id)}
@@ -1315,7 +1323,7 @@ function SerpCard({ label, host, title, desc, color }: { label: string; host: st
 }
 
 // ── Fix card ──
-function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, editableField, onEditDraft, downloadHref }: {
+function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, editableField, onEditDraft, downloadHref, open, onToggleOpen }: {
   fix: FixRow; title: string; preview: PreviewBlock | null | undefined; cost: number; revertable: boolean; impact?: 1 | 2 | 3;
   events: FixEvent[] | undefined; busy: boolean; armed: boolean; canShip: boolean; picked: boolean;
   onTogglePick: () => void; onGenerate: () => void; onApprove: () => void; onArm: () => void; onCancelArm: () => void;
@@ -1326,6 +1334,8 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
   editableField?: string;
   onEditDraft: (field: string, value: string) => void;
   downloadHref?: string;
+  open: boolean;
+  onToggleOpen: () => void;
 }) {
   const [editing, setEditing] = React.useState(false);
   const [editText, setEditText] = React.useState('');
@@ -1347,10 +1357,35 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
   const url = fix.targetUrl || '';
   const host = url.replace(/^https?:\/\//, '');
 
+  // Collapsed: one scannable line — severity, what & where, status — that
+  // opens the full card on click. Keeps a 50-fix queue navigable.
+  if (!open) {
+    return (
+      <article
+        className="nb-sm"
+        onClick={onToggleOpen}
+        role="button"
+        aria-expanded={false}
+        title="Open this fix"
+        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', cursor: 'pointer', boxShadow: `3px 3px 0 ${sev.color}`, background: 'var(--surface)' }}
+      >
+        <input type="checkbox" checked={picked} onClick={(e) => e.stopPropagation()} onChange={onTogglePick} aria-label="Select fix for bulk action" style={{ accentColor: 'var(--primary)', width: 15, height: 15, flexShrink: 0 }} />
+        <span title={`${sev.label} severity`} style={{ width: 10, height: 10, borderRadius: '50%', background: sev.color, flexShrink: 0 }} />
+        <span className="disp" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap' }}>{title}</span>
+        <span style={{ flex: 1, fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 60 }}>
+          {fix.summary}{host ? ` · ${host}` : ''}
+        </span>
+        {busy && <span style={{ width: 13, height: 13, border: '2.5px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', flexShrink: 0, animation: 'xspin .7s linear infinite' }} />}
+        <span className="chip" style={{ background: sm.bg, color: sm.color, borderColor: sm.color, flexShrink: 0 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: sm.color }} />{sm.label}</span>
+        <span className="disp" aria-hidden style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-3)', flexShrink: 0 }}>▾</span>
+      </article>
+    );
+  }
+
   return (
     <article className="nb" style={{ padding: 0, overflow: 'hidden', boxShadow: `5px 5px 0 ${sev.color}` }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: sev.bg, borderBottom: '2.5px solid var(--ink)' }}>
-        <input type="checkbox" checked={picked} onChange={onTogglePick} aria-label="Select fix for bulk action" style={{ accentColor: 'var(--primary)', width: 15, height: 15, flexShrink: 0 }} />
+      <div onClick={onToggleOpen} role="button" aria-expanded title="Collapse this fix" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: sev.bg, borderBottom: '2.5px solid var(--ink)', cursor: 'pointer' }}>
+        <input type="checkbox" checked={picked} onClick={(e) => e.stopPropagation()} onChange={onTogglePick} aria-label="Select fix for bulk action" style={{ accentColor: 'var(--primary)', width: 15, height: 15, flexShrink: 0 }} />
         <span className="disp" style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.04em', color: sev.color, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{sev.glyph} {sev.label} SEVERITY</span>
         <span style={{ flex: 1 }} />
         {impact && (() => {
@@ -1358,6 +1393,7 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
           return <span className="chip" title="Estimated SEO/GEO impact" style={{ color: m.c, borderColor: m.c }}>{'▲'.repeat(impact)} {m.l}</span>;
         })()}
         <span className="chip" style={{ background: sm.bg, color: sm.color, borderColor: sm.color }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: sm.color }} />{sm.label}</span>
+        <span className="disp" aria-hidden style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-2)' }}>▴</span>
       </div>
 
       <div style={{ padding: 18, display: 'grid', gap: 14 }}>
