@@ -60,14 +60,16 @@ export function PageSetup() {
 
         {tab === 'comps' && (
           <Card title="Competitors" right={<button className="btn-d">+ Add</button>} padding={false}>
-            <table className="tbl">
-              <thead><tr><th>BRAND</th><th>DOMAIN</th><th>CATEGORY</th><th>TRACKING</th><th>ALIASES</th><th></th></tr></thead>
-              <tbody>
-                {['Linear','Asana','Monday.com','Notion','Jira','ClickUp','Trello'].map(n => (
-                  <tr key={n}><td><b>{n}</b></td><td className="mono dim">{n.toLowerCase().replace('.com','')}.com</td><td>PM software</td><td><Badge tone="pos">ACTIVE</Badge></td><td className="num dim">3</td><td className="right"><button className="btn-d" style={{padding:'4px 8px',fontSize:11}}>Edit</button></td></tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="tbl-wrap">
+              <table className="tbl">
+                <thead><tr><th>BRAND</th><th>DOMAIN</th><th>CATEGORY</th><th>TRACKING</th><th>ALIASES</th><th></th></tr></thead>
+                <tbody>
+                  {['Linear','Asana','Monday.com','Notion','Jira','ClickUp','Trello'].map(n => (
+                    <tr key={n}><td><b>{n}</b></td><td className="mono dim">{n.toLowerCase().replace('.com','')}.com</td><td>PM software</td><td><Badge tone="pos">ACTIVE</Badge></td><td className="num dim">3</td><td className="right"><button className="btn-d" style={{padding:'4px 8px',fontSize:11}}>Edit</button></td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Card>
         )}
 
@@ -85,20 +87,22 @@ export function PageSetup() {
 
         {tab === 'pages' && (
           <Card title="Key pages Livesov should reward when cited" padding={false}>
-            <table className="tbl">
-              <thead><tr><th>URL</th><th>PURPOSE</th><th>CITED · 7D</th><th></th></tr></thead>
-              <tbody>
-                {[
-                  ['acme.com/customers','Logos & case studies', 214],
-                  ['acme.com/pricing','Pricing detail', 182],
-                  ['acme.com/blog/agile','Thought leadership', 54],
-                  ['acme.com/integrations/github','GitHub integration page', 18],
-                  ['acme.com/ai-assist','AI features page', 26],
-                ].map(([u,p,n]) => (
-                  <tr key={String(u)}><td><Cit url={String(u)}/></td><td>{p}</td><td className="num"><b>{n}</b></td><td className="right"><button className="btn-d" style={{padding:'4px 8px',fontSize:11}}>Remove</button></td></tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="tbl-wrap">
+              <table className="tbl">
+                <thead><tr><th>URL</th><th>PURPOSE</th><th>CITED · 7D</th><th></th></tr></thead>
+                <tbody>
+                  {[
+                    ['acme.com/customers','Logos & case studies', 214],
+                    ['acme.com/pricing','Pricing detail', 182],
+                    ['acme.com/blog/agile','Thought leadership', 54],
+                    ['acme.com/integrations/github','GitHub integration page', 18],
+                    ['acme.com/ai-assist','AI features page', 26],
+                  ].map(([u,p,n]) => (
+                    <tr key={String(u)}><td><Cit url={String(u)}/></td><td>{p}</td><td className="num"><b>{n}</b></td><td className="right"><button className="btn-d" style={{padding:'4px 8px',fontSize:11}}>Remove</button></td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Card>
         )}
 
@@ -157,43 +161,45 @@ export function PagePrompts() {
         </Filter>
 
         <Card padding={false}>
-          <table className="tbl">
-            <thead><tr>
-              <th><input type="checkbox"/></th>
-              <th>PROMPT</th>
-              <th>INTENT</th>
-              <th>TAGS</th>
-              <th>SCHEDULE</th>
-              <th>SOV</th>
-              <th>STATUS</th>
-              <th className="right"></th>
-            </tr></thead>
-            <tbody>
-              {[
-                ['best project management tool for engineering teams','compare','agile, eng', 'hourly', 38, 'priority'],
-                ['acme vs linear','compare','head-to-head', 'hourly', 61, 'priority'],
-                ['acme vs notion','compare','head-to-head', 'hourly', 44, 'priority'],
-                ['pm tools with native AI features','feature','ai', 'hourly', 24, 'tracking'],
-                ['cheapest project management for startups','price','startup', 'daily', 12, 'losing'],
-                ['acme pricing for 50 seats','price','enterprise', 'daily', 18, 'tracking'],
-                ['is acme worth the price','recommend','perception', 'daily', 44, 'tracking'],
-                ['pm tool with github integration','feature','dev', 'hourly', 32, 'tracking'],
-                ['free alternative to monday.com','recommend','free', 'daily', 8, 'losing'],
-                ['best pm for product teams','recommend','product', 'hourly', 32, 'tracking'],
-              ].map(([q,intent,tags,sched,sov,status],i) => (
-                <tr key={i}>
-                  <td><input type="checkbox"/></td>
-                  <td><span style={{display:'inline-flex',alignItems:'center',gap:6}}>{(status === 'priority') && <span style={{color:'var(--accent)'}}>★</span>}<b>{q}</b></span></td>
-                  <td><Badge tone={intent === 'compare' ? 'info' : intent === 'price' ? 'warn' : intent === 'feature' ? 'acc' : 'neu'}>{String(intent).toUpperCase()}</Badge></td>
-                  <td className="mono dim" style={{fontSize:11}}>{tags}</td>
-                  <td className="mono">{sched}</td>
-                  <td className="num"><b>{sov}%</b></td>
-                  <td><Badge tone={status === 'priority' ? 'acc' : status === 'losing' ? 'neg' : 'neu'}>{String(status).toUpperCase()}</Badge></td>
-                  <td className="right"><span style={{display:'inline-flex',gap:4}}><button className="btn-d" style={{padding:'3px 7px',fontSize:11}}>Edit</button><button className="btn-d" style={{padding:'3px 7px',fontSize:11}}>Pause</button></span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr>
+                <th><input type="checkbox"/></th>
+                <th>PROMPT</th>
+                <th>INTENT</th>
+                <th>TAGS</th>
+                <th>SCHEDULE</th>
+                <th>SOV</th>
+                <th>STATUS</th>
+                <th className="right"></th>
+              </tr></thead>
+              <tbody>
+                {[
+                  ['best project management tool for engineering teams','compare','agile, eng', 'hourly', 38, 'priority'],
+                  ['acme vs linear','compare','head-to-head', 'hourly', 61, 'priority'],
+                  ['acme vs notion','compare','head-to-head', 'hourly', 44, 'priority'],
+                  ['pm tools with native AI features','feature','ai', 'hourly', 24, 'tracking'],
+                  ['cheapest project management for startups','price','startup', 'daily', 12, 'losing'],
+                  ['acme pricing for 50 seats','price','enterprise', 'daily', 18, 'tracking'],
+                  ['is acme worth the price','recommend','perception', 'daily', 44, 'tracking'],
+                  ['pm tool with github integration','feature','dev', 'hourly', 32, 'tracking'],
+                  ['free alternative to monday.com','recommend','free', 'daily', 8, 'losing'],
+                  ['best pm for product teams','recommend','product', 'hourly', 32, 'tracking'],
+                ].map(([q,intent,tags,sched,sov,status],i) => (
+                  <tr key={i}>
+                    <td><input type="checkbox"/></td>
+                    <td><span style={{display:'inline-flex',alignItems:'center',gap:6}}>{(status === 'priority') && <span style={{color:'var(--accent)'}}>★</span>}<b>{q}</b></span></td>
+                    <td><Badge tone={intent === 'compare' ? 'info' : intent === 'price' ? 'warn' : intent === 'feature' ? 'acc' : 'neu'}>{String(intent).toUpperCase()}</Badge></td>
+                    <td className="mono dim" style={{fontSize:11}}>{tags}</td>
+                    <td className="mono">{sched}</td>
+                    <td className="num"><b>{sov}%</b></td>
+                    <td><Badge tone={status === 'priority' ? 'acc' : status === 'losing' ? 'neg' : 'neu'}>{String(status).toUpperCase()}</Badge></td>
+                    <td className="right"><span style={{display:'inline-flex',gap:4}}><button className="btn-d" style={{padding:'3px 7px',fontSize:11}}>Edit</button><button className="btn-d" style={{padding:'3px 7px',fontSize:11}}>Pause</button></span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Card>
       </div>
     </>
@@ -243,13 +249,15 @@ export function PageAccount() {
         </div>
 
         <Card title="API keys" right={<button className="btn-d">+ New key</button>} padding={false}>
-          <table className="tbl">
-            <thead><tr><th>NAME</th><th>KEY</th><th>CREATED</th><th>LAST USED</th><th>SCOPES</th><th></th></tr></thead>
-            <tbody>
-              <tr><td><b>Production</b></td><td className="mono">lvs_prod_••••••••••••3F8a</td><td className="num">Mar 12, 2026</td><td className="num">12 min ago</td><td><Badge tone="acc">READ</Badge> <Badge tone="info">WRITE</Badge></td><td className="right"><button className="btn-d btn-danger" style={{padding:'4px 8px',fontSize:11}}>Revoke</button></td></tr>
-              <tr><td><b>Staging</b></td><td className="mono">lvs_stage_••••••••••••a01b</td><td className="num">Apr 02, 2026</td><td className="num">4h ago</td><td><Badge tone="acc">READ</Badge></td><td className="right"><button className="btn-d btn-danger" style={{padding:'4px 8px',fontSize:11}}>Revoke</button></td></tr>
-            </tbody>
-          </table>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr><th>NAME</th><th>KEY</th><th>CREATED</th><th>LAST USED</th><th>SCOPES</th><th></th></tr></thead>
+              <tbody>
+                <tr><td><b>Production</b></td><td className="mono">lvs_prod_••••••••••••3F8a</td><td className="num">Mar 12, 2026</td><td className="num">12 min ago</td><td><Badge tone="acc">READ</Badge> <Badge tone="info">WRITE</Badge></td><td className="right"><button className="btn-d btn-danger" style={{padding:'4px 8px',fontSize:11}}>Revoke</button></td></tr>
+                <tr><td><b>Staging</b></td><td className="mono">lvs_stage_••••••••••••a01b</td><td className="num">Apr 02, 2026</td><td className="num">4h ago</td><td><Badge tone="acc">READ</Badge></td><td className="right"><button className="btn-d btn-danger" style={{padding:'4px 8px',fontSize:11}}>Revoke</button></td></tr>
+              </tbody>
+            </table>
+          </div>
         </Card>
 
         <div className="g2">
@@ -427,22 +435,24 @@ export function PageBilling() {
         <Card title="Invoice history" info="audit"
           lede="Every charge so far. Download any invoice as a PDF for your records."
           padding={false}>
-          <table className="tbl">
-            <thead><tr><th>INVOICE</th><th>DATE</th><th>PERIOD</th><th>PLAN</th><th className="right">AMOUNT</th><th>STATUS</th><th className="right"></th></tr></thead>
-            <tbody>
-              {invoices.map(([id,date,period,plan,amt],i) => (
-                <tr key={i}>
-                  <td className="mono"><b>{id}</b></td>
-                  <td className="num">{date}</td>
-                  <td className="mono dim">{period}</td>
-                  <td>{plan}</td>
-                  <td className="right num"><b>{amt}</b></td>
-                  <td><Badge tone="pos">PAID</Badge></td>
-                  <td className="right"><button className="btn-d" style={{padding:'4px 9px',fontSize:11}}>⇣ PDF</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr><th>INVOICE</th><th>DATE</th><th>PERIOD</th><th>PLAN</th><th className="right">AMOUNT</th><th>STATUS</th><th className="right"></th></tr></thead>
+              <tbody>
+                {invoices.map(([id,date,period,plan,amt],i) => (
+                  <tr key={i}>
+                    <td className="mono"><b>{id}</b></td>
+                    <td className="num">{date}</td>
+                    <td className="mono dim">{period}</td>
+                    <td>{plan}</td>
+                    <td className="right num"><b>{amt}</b></td>
+                    <td><Badge tone="pos">PAID</Badge></td>
+                    <td className="right"><button className="btn-d" style={{padding:'4px 9px',fontSize:11}}>⇣ PDF</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Card>
 
         {/* Payment method */}
@@ -494,23 +504,25 @@ export function PageAlerts() {
 
         <div className="g2">
           <Card title="Alert rules" right={<button className="btn-d" style={{fontSize:11}}>+ Add</button>} padding={false} style={{ gridColumn: 'span 2' }}>
-            <table className="tbl">
-              <thead><tr><th>WHEN</th><th>CHANNELS</th><th>FIRED · 7D</th><th>STATUS</th><th className="right"></th></tr></thead>
-              <tbody>
-                {rules.map((r,i) => (
-                  <tr key={i}>
-                    <td><b>{r.t}</b></td>
-                    <td className="mono dim">{r.ch}</td>
-                    <td className="num"><b>{r.hist}</b></td>
-                    <td><Badge tone={r.s ? 'pos' : 'neu'}>{r.s ? 'ON' : 'OFF'}</Badge></td>
-                    <td className="right">
-                      <button className="btn-d" style={{padding:'3px 7px',fontSize:11,marginRight:4}}>Edit</button>
-                      <button className="btn-d" style={{padding:'3px 7px',fontSize:11}}>{r.s ? 'Pause' : 'Resume'}</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="tbl-wrap">
+              <table className="tbl">
+                <thead><tr><th>WHEN</th><th>CHANNELS</th><th>FIRED · 7D</th><th>STATUS</th><th className="right"></th></tr></thead>
+                <tbody>
+                  {rules.map((r,i) => (
+                    <tr key={i}>
+                      <td><b>{r.t}</b></td>
+                      <td className="mono dim">{r.ch}</td>
+                      <td className="num"><b>{r.hist}</b></td>
+                      <td><Badge tone={r.s ? 'pos' : 'neu'}>{r.s ? 'ON' : 'OFF'}</Badge></td>
+                      <td className="right">
+                        <button className="btn-d" style={{padding:'3px 7px',fontSize:11,marginRight:4}}>Edit</button>
+                        <button className="btn-d" style={{padding:'3px 7px',fontSize:11}}>{r.s ? 'Pause' : 'Resume'}</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Card>
 
           <Card title="Recent activity" padding={false}>

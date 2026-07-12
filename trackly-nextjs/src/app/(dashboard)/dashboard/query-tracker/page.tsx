@@ -228,53 +228,55 @@ export default function QueryTrackerPage() {
           </Card>
         ) : (
           <Card padding={false} foot={<><span>Showing {filtered.length} of {keywords.length}</span><span>Auto-refreshing · live</span></>}>
-            <table className="tbl">
-              <thead><tr>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('keyword')}>QUERY{sortIcon('keyword')}</th>
-                <th>STATUS</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('mentionRate')}>VISIBILITY{sortIcon('mentionRate')} <Info term="sov" /></th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('change')}>Δ{sortIcon('change')}</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('totalRuns')}>MENTIONS{sortIcon('totalRuns')}</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('platformCount')}>ENGINES{sortIcon('platformCount')}</th>
-                <th>TREND</th>
-                <th className="right" style={{ cursor: 'pointer' }} onClick={() => handleSort('lastUpdated')}>UPDATED{sortIcon('lastUpdated')}</th>
-              </tr></thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', padding: 32, color: 'var(--mute)', fontSize: 12.5 }}>
-                      No keywords match your filter.
-                    </td>
-                  </tr>
-                ) : filtered.map((kw, idx) => {
-                  const status = statusOf(kw);
-                  const statusTone = status === 'priority' ? 'acc' : status === 'losing' ? 'neg' : status === 'none' ? 'neu' : 'neu';
-                  const statusLabel = status === 'none' ? 'NO DATA' : status.toUpperCase();
-                  const isExpanded = expanded === idx;
-                  return (
-                    <tr
-                      key={idx}
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => setExpanded(isExpanded ? null : idx)}
-                      aria-expanded={isExpanded}
-                    >
-                      <td><b title={kw.keyword}>{kw.keyword}</b></td>
-                      <td><Badge tone={statusTone}>{statusLabel}</Badge></td>
-                      <td className="num"><b>{kw.mentionRate}%</b></td>
-                      <td>{kw.change != null ? <Delta v={kw.change} suffix="%" /> : <span className="dim">-</span>}</td>
-                      <td className="num">{kw.totalRuns}</td>
-                      <td className="num">{kw.platformCount}/{planPlatforms.length}</td>
-                      <td>
-                        {kw.sparkline && kw.sparkline.length > 1
-                          ? <Spark data={kw.sparkline} width={120} height={24} color={(kw.change ?? 0) >= 0 ? 'var(--primary)' : 'var(--danger)'} />
-                          : <span className="dim">-</span>}
+            <div className="tbl-wrap">
+              <table className="tbl">
+                <thead><tr>
+                  <th style={{ cursor: 'pointer' }} onClick={() => handleSort('keyword')}>QUERY{sortIcon('keyword')}</th>
+                  <th>STATUS</th>
+                  <th style={{ cursor: 'pointer' }} onClick={() => handleSort('mentionRate')}>VISIBILITY{sortIcon('mentionRate')} <Info term="sov" /></th>
+                  <th style={{ cursor: 'pointer' }} onClick={() => handleSort('change')}>Δ{sortIcon('change')}</th>
+                  <th style={{ cursor: 'pointer' }} onClick={() => handleSort('totalRuns')}>MENTIONS{sortIcon('totalRuns')}</th>
+                  <th style={{ cursor: 'pointer' }} onClick={() => handleSort('platformCount')}>ENGINES{sortIcon('platformCount')}</th>
+                  <th>TREND</th>
+                  <th className="right" style={{ cursor: 'pointer' }} onClick={() => handleSort('lastUpdated')}>UPDATED{sortIcon('lastUpdated')}</th>
+                </tr></thead>
+                <tbody>
+                  {filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: 'center', padding: 32, color: 'var(--mute)', fontSize: 12.5 }}>
+                        No keywords match your filter.
                       </td>
-                      <td className="right num dim">{formatDate(kw.lastUpdated)}</td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  ) : filtered.map((kw, idx) => {
+                    const status = statusOf(kw);
+                    const statusTone = status === 'priority' ? 'acc' : status === 'losing' ? 'neg' : status === 'none' ? 'neu' : 'neu';
+                    const statusLabel = status === 'none' ? 'NO DATA' : status.toUpperCase();
+                    const isExpanded = expanded === idx;
+                    return (
+                      <tr
+                        key={idx}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => setExpanded(isExpanded ? null : idx)}
+                        aria-expanded={isExpanded}
+                      >
+                        <td><b title={kw.keyword}>{kw.keyword}</b></td>
+                        <td><Badge tone={statusTone}>{statusLabel}</Badge></td>
+                        <td className="num"><b>{kw.mentionRate}%</b></td>
+                        <td>{kw.change != null ? <Delta v={kw.change} suffix="%" /> : <span className="dim">-</span>}</td>
+                        <td className="num">{kw.totalRuns}</td>
+                        <td className="num">{kw.platformCount}/{planPlatforms.length}</td>
+                        <td>
+                          {kw.sparkline && kw.sparkline.length > 1
+                            ? <Spark data={kw.sparkline} width={120} height={24} color={(kw.change ?? 0) >= 0 ? 'var(--primary)' : 'var(--danger)'} />
+                            : <span className="dim">-</span>}
+                        </td>
+                        <td className="right num dim">{formatDate(kw.lastUpdated)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </Card>
         )}
       </div>

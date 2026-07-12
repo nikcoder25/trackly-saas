@@ -386,32 +386,34 @@ export default function CompetitorsPage() {
             lede="Every brand you track, ranked by Share of Voice. Green = gaining, red = slipping."
             padding={false}
           >
-            <table className="tbl">
-              <thead><tr>
-                <th>RANK</th><th>BRAND</th><th>SOV</th><th>MENTIONS</th><th>SOV TREND</th>
-              </tr></thead>
-              <tbody>
-                {leaderboard.map((c, i) => (
-                  <tr key={c.name}>
-                    <td className="num"><b>{(i + 1).toString().padStart(2, '0')}</b></td>
-                    <td>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ width: 10, height: 10, background: c.color, borderRadius: 2, display: 'inline-block' }} />
-                        <b style={{ color: c.me ? 'var(--primary)' : 'var(--text)' }}>{c.name}</b>
-                        {c.me && <Badge tone="acc">YOU</Badge>}
-                      </span>
-                    </td>
-                    <td className="num"><b>{c.sov}%</b></td>
-                    <td className="num">{c.mentions.toLocaleString()}{!c.me && '×'}</td>
-                    <td>
-                      {c.trend && c.trend.length >= 2
-                        ? <Spark data={c.trend} width={120} height={24} color={c.me ? 'var(--primary)' : c.color} />
-                        : <span className="mono dim" style={{ fontSize: 11 }}>-</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="tbl-wrap">
+              <table className="tbl">
+                <thead><tr>
+                  <th>RANK</th><th>BRAND</th><th>SOV</th><th>MENTIONS</th><th>SOV TREND</th>
+                </tr></thead>
+                <tbody>
+                  {leaderboard.map((c, i) => (
+                    <tr key={c.name}>
+                      <td className="num"><b>{(i + 1).toString().padStart(2, '0')}</b></td>
+                      <td>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ width: 10, height: 10, background: c.color, borderRadius: 2, display: 'inline-block' }} />
+                          <b style={{ color: c.me ? 'var(--primary)' : 'var(--text)' }}>{c.name}</b>
+                          {c.me && <Badge tone="acc">YOU</Badge>}
+                        </span>
+                      </td>
+                      <td className="num"><b>{c.sov}%</b></td>
+                      <td className="num">{c.mentions.toLocaleString()}{!c.me && '×'}</td>
+                      <td>
+                        {c.trend && c.trend.length >= 2
+                          ? <Spark data={c.trend} width={120} height={24} color={c.me ? 'var(--primary)' : c.color} />
+                          : <span className="mono dim" style={{ fontSize: 11 }}>-</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Card>
         )}
 

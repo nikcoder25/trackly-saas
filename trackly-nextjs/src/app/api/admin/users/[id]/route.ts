@@ -1,4 +1,4 @@
-import { pool, auditLog } from '@/lib/db';
+import { pool, auditLog, safeConnect } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
@@ -103,8 +103,40 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   try {
     // Get user info before deletion for audit log
     const userInfo = await pool.query('SELECT email, name, plan FROM users WHERE id = $1', [id]);
-    const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
-    if (!result.rows.length) return Response.json({ error: 'User not found' }, { status: 404 });
+    if (!userInfo.rows.length) return Response.json({ error: 'User not found' }, { status: 404 });
+
+    // Cascading delete in a transaction so we don't orphan the user's
+    // brands and every brand-/user-scoped row (the old handler deleted
+    // only the users row, leaving brands, runs, audits, citations, etc.
+    // dangling). Mirrors auth/account self-service deletion. geo_audits,
+    // nap_audits and report_* rows cascade off brands(id) via FK.
+    const client = await safeConnect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM accuracy_issues WHERE brand_id IN (SELECT id FROM brands WHERE user_id = $1)', [id]);
+      await client.query('DELETE FROM citations WHERE brand_id IN (SELECT id FROM brands WHERE user_id = $1)', [id]);
+      await client.query('DELETE FROM recommendations WHERE brand_id IN (SELECT id FROM brands WHERE user_id = $1)', [id]);
+      await client.query('DELETE FROM brand_facts WHERE brand_id IN (SELECT id FROM brands WHERE user_id = $1)', [id]);
+      await client.query('DELETE FROM prompt_runs WHERE brand_id IN (SELECT id FROM brands WHERE user_id = $1)', [id]);
+      await client.query('DELETE FROM active_runs WHERE user_id = $1', [id]);
+      await client.query('DELETE FROM alert_rules WHERE user_id = $1', [id]);
+      await client.query('DELETE FROM team_members WHERE owner_id = $1 OR member_id = $1', [id]);
+      await client.query('DELETE FROM brands WHERE user_id = $1', [id]);
+      await client.query('DELETE FROM notifications WHERE user_id = $1', [id]);
+      await client.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [id]);
+      // user_sessions and billing_events cascade via FK on users(id).
+      const result = await client.query('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
+      if (!result.rows.length) {
+        await client.query('ROLLBACK');
+        return Response.json({ error: 'User not found' }, { status: 404 });
+      }
+      await client.query('COMMIT');
+    } catch (txErr) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw txErr;
+    } finally {
+      client.release();
+    }
 
     auditLog(admin.id, 'admin_delete_user', 'user', id, {
       deletedEmail: userInfo.rows[0]?.email,

@@ -488,6 +488,7 @@
 .lvx .btn-danger:hover { background: var(--danger-50); border-color: var(--danger-200); }
 
 /* Tables */
+.lvx .tbl-wrap { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
 .lvx .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
 .lvx .tbl th { text-align: left; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; color: var(--text-3); padding: 11px var(--pad); border-bottom: 1px solid var(--line); background: var(--surface-2); font-weight: 600; text-transform: uppercase; white-space: nowrap; }
 .lvx .tbl th .lv-info { color: var(--mute); margin-left: 4px; }
@@ -501,9 +502,9 @@
 .lvx .tbl input[type="checkbox"] { accent-color: var(--primary); }
 
 /* Grids */
-.lvx .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.lvx .g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-.lvx .g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.lvx .g2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.lvx .g3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.lvx .g4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 .lvx .span-2 { grid-column: span 2; }
 .lvx .span-3 { grid-column: span 3; }
 
@@ -519,6 +520,35 @@
 .lvx .lchart-leg { display: flex; gap: 14px; font-size: 10.5px; color: var(--mute); margin-top: 6px; flex-wrap: wrap; }
 .lvx .lchart-leg i { display: inline-block; width: 8px; height: 8px; vertical-align: middle; margin-right: 6px; border-radius: 1px; }
 .lvx .lchart-leg b { color: var(--text); font-weight: 500; margin-left: 4px; }
+/* Hover tooltip for LineChart. Positioned by inline left% + translateX so it
+   tracks the crosshair and flips to stay inside the plot near the right edge. */
+.lvx .lchart-tip { position: absolute; top: 10px; z-index: 4; pointer-events: none;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  border: 1px solid var(--line-2); border-radius: 10px;
+  box-shadow: 0 8px 26px rgba(15,23,42,.14); padding: 8px 10px; min-width: 104px;
+  font-size: 10.5px; color: var(--text-2); }
+.lvx .lchart-tip-x { color: var(--text-3); font-size: 9.5px; text-transform: uppercase;
+  letter-spacing: .06em; margin-bottom: 6px; padding-bottom: 5px;
+  border-bottom: 1px solid var(--line); }
+.lvx .lchart-tip-row { display: flex; align-items: center; gap: 7px; line-height: 1.8; white-space: nowrap; }
+.lvx .lchart-tip-row i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.lvx .lchart-tip-row span { color: var(--text-3); }
+.lvx .lchart-tip-row b { color: var(--text); font-weight: 600; margin-left: auto; padding-left: 12px; }
+
+/* Entrance polish: the hero line strokes itself in, the fills/glow and the
+   end pill fade up behind it. Purely decorative — disabled for users who
+   prefer reduced motion. */
+@keyframes lchart-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes lchart-fade { from { opacity: 0; } to { opacity: 1; } }
+.lvx .lchart-line-anim { stroke-dasharray: 1; stroke-dashoffset: 1;
+  animation: lchart-draw 1.15s cubic-bezier(.4,.05,.2,1) forwards; }
+.lvx .lchart-area { opacity: 0; animation: lchart-fade .9s ease .3s forwards; }
+.lvx .lchart-end  { opacity: 0; animation: lchart-fade .5s ease 1s forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .lvx .lchart-line-anim { stroke-dasharray: none; stroke-dashoffset: 0; animation: none; }
+  .lvx .lchart-area, .lvx .lchart-end { opacity: 1; animation: none; }
+}
 .lvx .donut { position: relative; }
 .lvx .donut-c { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .lvx .donut-v { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; }
@@ -1085,7 +1115,7 @@ a.cit, .lvx a.cit { text-decoration: none; }
 @media (max-width: 1200px) { .lvx .pd-hero { grid-template-columns: 1fr; } .lvx .pd-hero-mini { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 1180px) {
   .lvx .app { grid-template-columns: 220px 1fr; }
-  .lvx .g3, .lvx .g4 { grid-template-columns: 1fr 1fr; }
+  .lvx .g3, .lvx .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lvx .kpi-rail { grid-template-columns: repeat(3, 1fr) !important; }
   .lvx .kpi { border-bottom: 1px solid var(--line); }
   .lvx .kpi:nth-child(3n) { border-right: 0; }
@@ -1096,7 +1126,7 @@ a.cit, .lvx a.cit { text-decoration: none; }
   .lvx .sidebar { display: none; }
   .lvx .canvas { grid-column: 1; grid-row: 2/4; }
   .lvx .topbar { grid-column: 1; }
-  .lvx .g2, .lvx .g3, .lvx .g4 { grid-template-columns: 1fr; }
+  .lvx .g2, .lvx .g3, .lvx .g4 { grid-template-columns: minmax(0, 1fr); }
   .lvx .kpi-rail { grid-template-columns: 1fr 1fr !important; }
   .lvx .kpi { border-right: 1px solid var(--line) !important; border-bottom: 1px solid var(--line); }
   .lvx .kpi:nth-child(2n) { border-right: 0 !important; }

@@ -319,18 +319,20 @@ export default function ProofPage() {
                     lede="Brands mentioned alongside you in this answer."
                     padding={false}
                   >
-                    <table className="tbl">
-                      <thead><tr><th>BRAND</th><th>ROLE</th></tr></thead>
-                      <tbody>
-                        <tr>
-                          <td><b style={{ color: 'var(--accent)' }}>{brand?.name || 'Your brand'}</b> <Badge tone="acc">YOU</Badge></td>
-                          <td><Badge tone={proofTone}>{proof.mentioned ? `MENTIONED${proofPos ? ' · #' + proofPos : ''}` : 'NOT MENTIONED'}</Badge></td>
-                        </tr>
-                        {proof.competitorMentions.map((c, i) => (
-                          <tr key={i}><td><b>{c}</b></td><td><span className="mono dim" style={{ fontSize: 11 }}>competitor</span></td></tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <div className="tbl-wrap">
+                      <table className="tbl">
+                        <thead><tr><th>BRAND</th><th>ROLE</th></tr></thead>
+                        <tbody>
+                          <tr>
+                            <td><b style={{ color: 'var(--accent)' }}>{brand?.name || 'Your brand'}</b> <Badge tone="acc">YOU</Badge></td>
+                            <td><Badge tone={proofTone}>{proof.mentioned ? `MENTIONED${proofPos ? ' · #' + proofPos : ''}` : 'NOT MENTIONED'}</Badge></td>
+                          </tr>
+                          {proof.competitorMentions.map((c, i) => (
+                            <tr key={i}><td><b>{c}</b></td><td><span className="mono dim" style={{ fontSize: 11 }}>competitor</span></td></tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </Card>
                 ) : (
                   Object.keys(platStats).length > 0 && (
@@ -421,25 +423,27 @@ export default function ProofPage() {
                     padding={false}
                     style={{ gridColumn: 'span 2' }}
                   >
-                    <table className="tbl">
-                      <thead><tr><th>ENGINE</th><th>QUERY</th><th>VERDICT</th><th>POSITION</th><th>SENTIMENT</th></tr></thead>
-                      <tbody>
-                        {filtered.map((r, i) => {
-                          const tone = r.error ? 'warn' : r.mentioned ? 'pos' : 'neg';
-                          const verdict = r.error ? 'ERROR' : r.mentioned ? 'FOUND' : 'NOT FOUND';
-                          const rp = r.mentioned && (r.listPosition || r.position) ? `${r.listPosition || r.position}` : '-';
-                          return (
-                            <tr key={i}>
-                              <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><PlatformTile p={platformFor(r.platform)} size={20} /> <b>{r.platform}</b></span></td>
-                              <td><span style={{ color: 'var(--text)' }}>&ldquo;{r.query}&rdquo;</span></td>
-                              <td><Badge tone={tone}>{verdict}</Badge></td>
-                              <td className="num">{rp}</td>
-                              <td><span className="mono dim" style={{ fontSize: 11 }}>{r.error ? '-' : (r.sentiment || 'neutral')}</span></td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                    <div className="tbl-wrap">
+                      <table className="tbl">
+                        <thead><tr><th>ENGINE</th><th>QUERY</th><th>VERDICT</th><th>POSITION</th><th>SENTIMENT</th></tr></thead>
+                        <tbody>
+                          {filtered.map((r, i) => {
+                            const tone = r.error ? 'warn' : r.mentioned ? 'pos' : 'neg';
+                            const verdict = r.error ? 'ERROR' : r.mentioned ? 'FOUND' : 'NOT FOUND';
+                            const rp = r.mentioned && (r.listPosition || r.position) ? `${r.listPosition || r.position}` : '-';
+                            return (
+                              <tr key={i}>
+                                <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><PlatformTile p={platformFor(r.platform)} size={20} /> <b>{r.platform}</b></span></td>
+                                <td><span style={{ color: 'var(--text)' }}>&ldquo;{r.query}&rdquo;</span></td>
+                                <td><Badge tone={tone}>{verdict}</Badge></td>
+                                <td className="num">{rp}</td>
+                                <td><span className="mono dim" style={{ fontSize: 11 }}>{r.error ? '-' : (r.sentiment || 'neutral')}</span></td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </Card>
                 )}
 
