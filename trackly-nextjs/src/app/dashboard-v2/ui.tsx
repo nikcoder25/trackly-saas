@@ -234,6 +234,9 @@ export function LineChart({ series, height = 260, yTicks = 6, xLabels, valSuffix
   const yToPx = (v: number) => padT + innerH - ((v - yMin) / (yMax - yMin || 1)) * innerH;
   const xToPx = (i: number) => padL + i * stepX;
   const hasData = all.length > 0;
+  // Unique per-instance id so gradient / filter defs never collide when two
+  // charts share a page (e.g. the SOV Trends page renders two).
+  const uid = React.useId().replace(/:/g, '');
 
   // Map a pointer position to the nearest sample index (accounting for the
   // SVG's responsive scaling relative to its viewBox width).
@@ -257,18 +260,26 @@ export function LineChart({ series, height = 260, yTicks = 6, xLabels, valSuffix
         onPointerMove={onMove} onPointerLeave={() => setHover(null)} style={{ touchAction: 'none' }}>
         <defs>
           {series.map((s, i) => (
-            <linearGradient key={i} id={`lg-${i}-${s.id}`} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor={s.color} stopOpacity={s.fill ? 0.32 : 0} />
+            // Multi-stop area fill: fuller near the line, quickly fading to the
+            // baseline so the band reads as depth, not a heavy block of colour.
+            <linearGradient key={i} id={`area-${uid}-${i}`} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor={s.color} stopOpacity={s.fill ? 0.30 : 0} />
+              <stop offset="55%" stopColor={s.color} stopOpacity={s.fill ? 0.08 : 0} />
               <stop offset="100%" stopColor={s.color} stopOpacity="0" />
             </linearGradient>
           ))}
+          {/* Soft blur used for the coloured glow beneath the hero line. */}
+          <filter id={`soft-${uid}`} x="-20%" y="-60%" width="140%" height="240%">
+            <feGaussianBlur stdDeviation="4" />
+          </filter>
         </defs>
         {Array.from({ length: yTicks + 1 }).map((_, i) => {
           const v = yMin + (yMax - yMin) * (i / yTicks);
           const y = yToPx(v);
           return (
             <g key={i}>
-              <line x1={padL} x2={w - padR} y1={y} y2={y} stroke="var(--line)" strokeWidth="1" />
+              {/* Baseline (0%) reads a touch stronger than the inner gridlines. */}
+              <line x1={padL} x2={w - padR} y1={y} y2={y} stroke={i === 0 ? 'var(--line-2)' : 'var(--line)'} strokeWidth="1" />
               {/* Label the value that physically sits on this gridline (v), so
                   higher = up. Previously printed (yMax - v), which inverted the
                   axis and made a rising trend look like a decline. */}
@@ -283,17 +294,31 @@ export function LineChart({ series, height = 260, yTicks = 6, xLabels, valSuffix
           const pts = s.data.map((v, i) => [xToPx(i), yToPx(v)]);
           const dLine = smooth ? smoothLinePath(pts) : pts.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
           const dArea = pts.length ? dLine + ` L ${xToPx(n - 1).toFixed(1)} ${yToPx(yMin).toFixed(1)} L ${padL} ${yToPx(yMin).toFixed(1)} Z` : '';
+          // The "hero" is the emphasised solid line — it gets the glow, the
+          // draw-in animation and the end-of-line value pill.
+          const isHero = !!s.bold && !s.dashed;
+          const last = pts.length ? pts[pts.length - 1] : null;
           return (
             <g key={si}>
-              {s.fill && pts.length > 0 && <path d={dArea} fill={`url(#lg-${si}-${s.id})`} />}
-              <path d={dLine} stroke={s.color} strokeWidth={s.bold ? 2.6 : 1.6} fill="none" strokeLinejoin="round" strokeLinecap="round" strokeDasharray={s.dashed ? '5 5' : undefined} />
+              {s.fill && pts.length > 0 && <path className="lchart-area" d={dArea} fill={`url(#area-${uid}-${si})`} />}
+              {isHero && pts.length > 1 && <path className="lchart-area" d={dLine} stroke={s.color} strokeWidth="6" fill="none" opacity="0.16" strokeLinecap="round" strokeLinejoin="round" filter={`url(#soft-${uid})`} />}
+              <path className={isHero ? 'lchart-line-anim' : undefined} pathLength={isHero ? 1 : undefined} d={dLine} stroke={s.color} strokeWidth={s.bold ? 2.6 : 1.6} fill="none" strokeLinejoin="round" strokeLinecap="round" strokeDasharray={s.dashed ? '5 5' : undefined} />
               {s.dots && pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="2" fill={s.color} />)}
-              {/* Emphasised end ("today") marker on the primary series. */}
-              {s.bold && pts.length > 0 && (() => {
-                const last = pts[pts.length - 1];
-                return <g>
+              {/* Emphasised end ("today") marker + current-value pill on the
+                  primary series. The pill sits to the LEFT of the marker so it
+                  never clips the right edge. */}
+              {s.bold && last && (() => {
+                const pillTxt = s.cur != null ? `${s.suffix || ''}${s.cur}${valSuffix}` : null;
+                const pw = pillTxt ? pillTxt.length * 7.2 + 16 : 0;
+                const pRight = last[0] - 11, pLeft = pRight - pw;
+                const py = Math.max(padT + 11, Math.min(padT + innerH - 11, last[1]));
+                return <g className="lchart-end">
                   <circle cx={last[0]} cy={last[1]} r="7" fill={s.color} fillOpacity="0.16" />
-                  <circle cx={last[0]} cy={last[1]} r="3.5" fill={s.color} stroke="var(--surface)" strokeWidth="2" />
+                  <circle cx={last[0]} cy={last[1]} r="3.6" fill={s.color} stroke="var(--surface)" strokeWidth="2" />
+                  {pillTxt && pLeft > padL && <>
+                    <rect x={pLeft} y={py - 11} width={pw} height={22} rx="7" fill={s.color} />
+                    <text x={(pLeft + pRight) / 2} y={py + 4} textAnchor="middle" fontSize="11" fontWeight="700" fontFamily="var(--mono)" fill="var(--primary-ink)">{pillTxt}</text>
+                  </>}
                 </g>;
               })()}
             </g>
