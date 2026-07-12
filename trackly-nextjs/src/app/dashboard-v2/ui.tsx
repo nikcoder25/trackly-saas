@@ -181,17 +181,50 @@ export function Spark({ data, width = 100, height = 28, color, strokeWidth = 1.5
 }
 
 export interface LineSeries { id: string; label: string; color: string; data: number[]; bold?: boolean; fill?: boolean; dashed?: boolean; dots?: boolean; cur?: number; suffix?: string; }
-export function LineChart({ series, height = 260, yTicks = 6, xLabels, valSuffix = '%' }: {
-  series: LineSeries[]; height?: number; yTicks?: number; xLabels?: string[]; valSuffix?: string;
+
+// Monotone-cubic ("d3.curveMonotoneX") path through the points. Reads as a
+// trend line rather than a zig-zag, and — unlike a plain Catmull-Rom spline —
+// never overshoots past the real data points, so the curve can't imply a value
+// that wasn't measured. Falls back to a straight polyline for < 3 points.
+function smoothLinePath(pts: number[][]): string {
+  const nn = pts.length;
+  if (nn === 0) return '';
+  if (nn < 3) return pts.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  const xs = pts.map(p => p[0]); const ys = pts.map(p => p[1]);
+  const dx: number[] = []; const slope: number[] = [];
+  for (let i = 0; i < nn - 1; i++) { dx[i] = xs[i + 1] - xs[i]; slope[i] = (ys[i + 1] - ys[i]) / (dx[i] || 1); }
+  const m: number[] = [slope[0]];
+  for (let i = 1; i < nn - 1; i++) {
+    if (slope[i - 1] * slope[i] <= 0) { m[i] = 0; }
+    else {
+      const w1 = 2 * dx[i] + dx[i - 1]; const w2 = dx[i] + 2 * dx[i - 1];
+      m[i] = (w1 + w2) / (w1 / slope[i - 1] + w2 / slope[i]);
+    }
+  }
+  m[nn - 1] = slope[nn - 2];
+  let d = `M ${xs[0].toFixed(1)} ${ys[0].toFixed(1)}`;
+  for (let i = 0; i < nn - 1; i++) {
+    const c1x = xs[i] + dx[i] / 3; const c1y = ys[i] + m[i] * dx[i] / 3;
+    const c2x = xs[i + 1] - dx[i] / 3; const c2y = ys[i + 1] - m[i + 1] * dx[i] / 3;
+    d += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${xs[i + 1].toFixed(1)} ${ys[i + 1].toFixed(1)}`;
+  }
+  return d;
+}
+
+export function LineChart({ series, height = 260, yTicks = 6, xLabels, valSuffix = '%', smooth = true }: {
+  series: LineSeries[]; height?: number; yTicks?: number; xLabels?: string[]; valSuffix?: string; smooth?: boolean;
 }) {
   const ref = React.useRef<HTMLDivElement>(null);
+  const svgRef = React.useRef<SVGSVGElement>(null);
   const [w, setW] = React.useState(720);
+  // Hovered sample index for the crosshair + tooltip. null = not hovering.
+  const [hover, setHover] = React.useState<number | null>(null);
   React.useEffect(() => {
     const el = ref.current; if (!el) return;
     const ro = new ResizeObserver(([e]) => setW(Math.max(280, e.contentRect.width)));
     ro.observe(el); return () => ro.disconnect();
   }, []);
-  const padL = 36, padR = 12, padT = 14, padB = 24;
+  const padL = 38, padR = 14, padT = 16, padB = 24;
   const innerW = w - padL - padR, innerH = height - padT - padB;
   const all = series.flatMap(s => s.data);
   const yMin = 0;
@@ -200,14 +233,32 @@ export function LineChart({ series, height = 260, yTicks = 6, xLabels, valSuffix
   const stepX = innerW / Math.max(1, n - 1);
   const yToPx = (v: number) => padT + innerH - ((v - yMin) / (yMax - yMin || 1)) * innerH;
   const xToPx = (i: number) => padL + i * stepX;
+  const hasData = all.length > 0;
+
+  // Map a pointer position to the nearest sample index (accounting for the
+  // SVG's responsive scaling relative to its viewBox width).
+  const onMove = (e: React.PointerEvent) => {
+    const svg = svgRef.current; if (!svg || n < 2) return;
+    const rect = svg.getBoundingClientRect();
+    const xPix = (e.clientX - rect.left) * (w / (rect.width || w));
+    const idx = Math.max(0, Math.min(n - 1, Math.round((xPix - padL) / (stepX || 1))));
+    setHover(idx);
+  };
+
+  const hx = hover != null ? xToPx(hover) : 0;
+  // Keep the tooltip inside the chart: flip it to the left of the crosshair
+  // once the cursor passes the mid-point.
+  const tipLeftPct = hover != null ? (hx / w) * 100 : 0;
+  const tipFlip = hover != null && hx > w * 0.62;
 
   return (
-    <div ref={ref} className="lchart">
-      <svg width={w} height={height} viewBox={`0 0 ${w} ${height}`}>
+    <div ref={ref} className="lchart" style={{ position: 'relative' }}>
+      <svg ref={svgRef} width={w} height={height} viewBox={`0 0 ${w} ${height}`}
+        onPointerMove={onMove} onPointerLeave={() => setHover(null)} style={{ touchAction: 'none' }}>
         <defs>
           {series.map((s, i) => (
             <linearGradient key={i} id={`lg-${i}-${s.id}`} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor={s.color} stopOpacity={s.fill ? 0.35 : 0} />
+              <stop offset="0%" stopColor={s.color} stopOpacity={s.fill ? 0.32 : 0} />
               <stop offset="100%" stopColor={s.color} stopOpacity="0" />
             </linearGradient>
           ))}
@@ -218,7 +269,10 @@ export function LineChart({ series, height = 260, yTicks = 6, xLabels, valSuffix
           return (
             <g key={i}>
               <line x1={padL} x2={w - padR} y1={y} y2={y} stroke="var(--line)" strokeWidth="1" />
-              <text x={padL - 6} y={y + 3} fontSize="9.5" fontFamily="var(--mono)" fill="var(--mute)" textAnchor="end">{Math.round(yMax - (yMax - yMin) * (i / yTicks))}{valSuffix}</text>
+              {/* Label the value that physically sits on this gridline (v), so
+                  higher = up. Previously printed (yMax - v), which inverted the
+                  axis and made a rising trend look like a decline. */}
+              <text x={padL - 8} y={y + 3} fontSize="9.5" fontFamily="var(--mono)" fill="var(--mute)" textAnchor="end">{Math.round(v)}{valSuffix}</text>
             </g>
           );
         })}
@@ -227,17 +281,46 @@ export function LineChart({ series, height = 260, yTicks = 6, xLabels, valSuffix
         ))}
         {series.map((s, si) => {
           const pts = s.data.map((v, i) => [xToPx(i), yToPx(v)]);
-          const dLine = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
-          const dArea = dLine + ` L ${xToPx(n - 1)} ${yToPx(yMin)} L ${padL} ${yToPx(yMin)} Z`;
+          const dLine = smooth ? smoothLinePath(pts) : pts.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+          const dArea = pts.length ? dLine + ` L ${xToPx(n - 1).toFixed(1)} ${yToPx(yMin).toFixed(1)} L ${padL} ${yToPx(yMin).toFixed(1)} Z` : '';
           return (
             <g key={si}>
-              {s.fill && <path d={dArea} fill={`url(#lg-${si}-${s.id})`} />}
-              <path d={dLine} stroke={s.color} strokeWidth={s.bold ? 2.4 : 1.6} fill="none" strokeLinejoin="round" strokeDasharray={s.dashed ? '4 4' : undefined} />
+              {s.fill && pts.length > 0 && <path d={dArea} fill={`url(#lg-${si}-${s.id})`} />}
+              <path d={dLine} stroke={s.color} strokeWidth={s.bold ? 2.6 : 1.6} fill="none" strokeLinejoin="round" strokeLinecap="round" strokeDasharray={s.dashed ? '5 5' : undefined} />
               {s.dots && pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="2" fill={s.color} />)}
+              {/* Emphasised end ("today") marker on the primary series. */}
+              {s.bold && pts.length > 0 && (() => {
+                const last = pts[pts.length - 1];
+                return <g>
+                  <circle cx={last[0]} cy={last[1]} r="7" fill={s.color} fillOpacity="0.16" />
+                  <circle cx={last[0]} cy={last[1]} r="3.5" fill={s.color} stroke="var(--surface)" strokeWidth="2" />
+                </g>;
+              })()}
             </g>
           );
         })}
+        {/* Crosshair + focus dots for the hovered sample. */}
+        {hover != null && hasData && (
+          <g pointerEvents="none">
+            <line x1={hx} x2={hx} y1={padT} y2={padT + innerH} stroke="var(--line-2)" strokeWidth="1" strokeDasharray="3 3" />
+            {series.map((s, si) => (
+              hover < s.data.length
+                ? <circle key={si} cx={hx} cy={yToPx(s.data[hover])} r="3.5" fill="var(--surface)" stroke={s.color} strokeWidth="2" />
+                : null
+            ))}
+          </g>
+        )}
       </svg>
+      {hover != null && hasData && (
+        <div className="lchart-tip mono" style={{ left: `${tipLeftPct}%`, transform: `translateX(${tipFlip ? 'calc(-100% - 12px)' : '12px'})` }}>
+          {xLabels && xLabels[hover] ? <div className="lchart-tip-x">{xLabels[hover]}</div> : null}
+          {series.map(s => (
+            hover < s.data.length
+              ? <div key={s.id} className="lchart-tip-row"><i style={{ background: s.color }} /><span>{s.label}</span><b>{s.data[hover]}{valSuffix}</b></div>
+              : null
+          ))}
+        </div>
+      )}
       <div className="lchart-leg mono">
         {series.map(s => (
           <span key={s.id}><i style={{ background: s.color }} /> {s.label} <b>{s.suffix || ''}{s.cur != null ? s.cur : ''}{valSuffix}</b></span>
