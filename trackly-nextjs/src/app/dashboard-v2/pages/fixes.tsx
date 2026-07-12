@@ -890,7 +890,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               <div style={{ flex: 1, minWidth: 180 }}><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Site URL</div><input className="xin" value={siteUrl} onChange={(e) => setSiteUrl(e.target.value)} placeholder="https://acme.com" /></div>
               <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Platform</div>
                 <select className="xin" style={{ width: 'auto' }} value={cmsType} onChange={(e) => setCmsType(e.target.value)}>
-                  {['wordpress', 'shopify', 'ghost', 'webflow'].filter((c) => supportedCms.includes(c) || c === 'wordpress').map((c) => <option key={c} value={c}>{c}</option>)}
+                  {['wordpress', 'shopify', 'ghost', 'webflow'].filter((c) => supportedCms.includes(c) || c === 'wordpress').map((c) => <option key={c} value={c}>{c === 'wordpress' ? c : `${c} (beta)`}</option>)}
                 </select>
               </div>
               <button className="gbtn" onClick={runDetect} disabled={!siteUrl || detecting} style={{ padding: '9px 13px' }}>{detecting ? 'Detecting…' : 'Detect'}</button>
@@ -935,7 +935,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                     <div key={f.k}><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>{f.label}</div><input className="xin" type={f.pw ? 'password' : 'text'} value={cc[f.k] || ''} placeholder={f.ph} onChange={(e) => ccSet(f.k, e.target.value)} /></div>
                   ))}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Verified against your store, then encrypted at rest. (beta)</span>
+                    <span style={{ fontSize: 12, color: 'var(--warning, #b45309)', fontWeight: 600 }}>BETA — verified against your store, then encrypted at rest. Ship your first fix to a low-traffic page and re-check before turning on autopilot.</span>
                     <div style={{ display: 'flex', gap: 10 }}>
                       <button className="gbtn" onClick={() => setShowForm(false)}>Cancel</button>
                       <button className="xbtn" onClick={() => onConnectCmsGeneric(cmsType, siteUrl, cc)} disabled={!ready}>CONNECT {cmsType.toUpperCase()}</button>
@@ -1420,6 +1420,28 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
             })()}
           </div>
         )}
+
+        {(() => {
+          const g = fix.generated as { serpQuery?: unknown; serpCompetitors?: { title?: string; description?: string; url?: string }[] } | null;
+          const comps = Array.isArray(g?.serpCompetitors) ? g!.serpCompetitors!.filter((c) => c && c.title) : [];
+          if (!comps.length) return null;
+          return (
+            <details className="nb-sm" style={{ padding: '8px 13px', boxShadow: 'none', background: 'var(--surface-2)' }}>
+              <summary className="disp" style={{ cursor: 'pointer', fontSize: 12, fontWeight: 700, letterSpacing: '0.03em', color: 'var(--text-2)' }}>
+                THE SERP THIS DRAFT WAS WRITTEN TO BEAT{typeof g?.serpQuery === 'string' && g.serpQuery ? ` · “${g.serpQuery}”` : ''}
+              </summary>
+              <ol style={{ margin: '8px 0 2px', paddingLeft: 20, display: 'grid', gap: 7 }}>
+                {comps.map((c, i) => (
+                  <li key={i} style={{ fontSize: 12.5, lineHeight: 1.45 }}>
+                    <span style={{ fontWeight: 700, color: 'var(--text)' }}>{c.title}</span>
+                    {c.url && <span style={{ color: 'var(--text-3)', fontSize: 11 }}> — {String(c.url).replace(/^https?:\/\/(www\.)?/, '').split('/')[0]}</span>}
+                    {c.description && <div style={{ color: 'var(--text-2)', fontWeight: 500 }}>{String(c.description).slice(0, 180)}</div>}
+                  </li>
+                ))}
+              </ol>
+            </details>
+          );
+        })()}
 
         {/* preview / states */}
         {isDetected && !busy && (

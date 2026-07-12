@@ -6,16 +6,18 @@
  * descriptions to the prompt — so the rewrite is written to WIN the click
  * against the real SERP, not in a vacuum.
  *
- * Sourcing: a web-grounded model call (Perplexity, the same grounded engine
- * the product's tracking uses). That's an approximation of Google's top
- * results, not a Google API — good enough for competitive phrasing
- * intelligence, and cached 7 days per (brand, query) to keep generation
- * fast and cheap. Everything here is best-effort: any failure returns []
- * and generation proceeds without competitor context.
+ * Sourcing, in order of fidelity:
+ *   1. SerpApi (real Google results) when SERPAPI_KEY is set — exact SERP.
+ *   2. A web-grounded model call (Perplexity, the same grounded engine the
+ *      product's tracking uses) — a close approximation, no extra vendor.
+ * Either way results are cached 7 days per (brand, query) to keep
+ * generation fast and cheap. Everything here is best-effort: any failure
+ * returns [] and generation proceeds without competitor context.
  */
 
 import { pool } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { safeFetch } from '@/lib/safe-fetch';
 import { generateJson } from './generate';
 import { getValidAccessToken, searchAnalytics, trailingDateRange } from './gsc';
 import { normUrl } from './page-metrics';
@@ -98,9 +100,31 @@ export function deriveQuery(title: string | null, h1: string | null, brandName?:
 }
 
 /**
+ * Real Google results via SerpApi, used when the operator sets SERPAPI_KEY.
+ * Returns null (not []) when the key is absent so the caller can fall back
+ * to the web-grounded model path; throws on request failure so the shared
+ * catch treats it like any other fetch error.
+ */
+async function fetchSerpApi(query: string): Promise<SerpResult[] | null> {
+  const key = process.env.SERPAPI_KEY;
+  if (!key) return null;
+  const u = new URL('https://serpapi.com/search.json');
+  u.searchParams.set('engine', 'google');
+  u.searchParams.set('q', query);
+  u.searchParams.set('num', String(MAX_RESULTS + 4)); // headroom for own-domain filtering
+  u.searchParams.set('api_key', key);
+  const res = await safeFetch(u.toString(), { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`serpapi ${res.status}`);
+  const body = (await res.json()) as { organic_results?: { title?: string; snippet?: string; link?: string }[] };
+  return (body.organic_results || [])
+    .filter((r) => r.title && r.link)
+    .map((r) => ({ title: String(r.title), description: String(r.snippet || ''), url: String(r.link) }));
+}
+
+/**
  * Top-ranking competitor results for a query, excluding the brand's own
- * domain. Cache-first; on miss, one web-grounded model call. Best-effort:
- * returns [] on any failure.
+ * domain. Cache-first; on miss, one SerpApi call (when SERPAPI_KEY is set)
+ * or one web-grounded model call. Best-effort: returns [] on any failure.
  */
 export async function getTopSerpResults(ctx: FixContext, query: string): Promise<SerpResult[]> {
   const q = query.trim().toLowerCase().slice(0, 150);
@@ -115,19 +139,23 @@ export async function getTopSerpResults(ctx: FixContext, query: string): Promise
     );
     if (cached.rows[0]) return (cached.rows[0].results as SerpResult[]) ?? [];
 
-    const { data } = await generateJson<{ results: SerpResult[] }>({
-      ctx,
-      platform: 'Perplexity',
-      system: SERP_FETCH_SYSTEM,
-      user: `Search query: "${q}"\n\nReport the current top ${MAX_RESULTS} ranking pages.`,
-      maxTokens: 1200,
-    });
+    let fetched = await fetchSerpApi(q);
+    if (!fetched) {
+      const { data } = await generateJson<{ results: SerpResult[] }>({
+        ctx,
+        platform: 'Perplexity',
+        system: SERP_FETCH_SYSTEM,
+        user: `Search query: "${q}"\n\nReport the current top ${MAX_RESULTS} ranking pages.`,
+        maxTokens: 1200,
+      });
+      fetched = data.results || [];
+    }
 
     const ownHost = (() => {
       try { return new URL(ctx.brand.website?.startsWith('http') ? ctx.brand.website : `https://${ctx.brand.website}`).hostname.replace(/^www\./, ''); }
       catch { return ''; }
     })();
-    const results = (data.results || [])
+    const results = fetched
       .filter((r) => r && typeof r.title === 'string' && typeof r.url === 'string')
       .filter((r) => {
         try { return !ownHost || !new URL(r.url).hostname.replace(/^www\./, '').endsWith(ownHost); }

@@ -31,6 +31,9 @@ vi.mock('@/lib/fix-engine/gsc', () => ({
   trailingDateRange: () => ({ startDate: '2026-06-01', endDate: '2026-06-28' }),
 }));
 
+const serpApiFetch = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/safe-fetch', () => ({ safeFetch: serpApiFetch }));
+
 import { deriveQuery, getCompetitorContext, getPrimaryQueryForPage, getTopSerpResults } from '@/lib/fix-engine/serp';
 
 const ctx = {
@@ -49,6 +52,8 @@ beforeEach(() => {
     return { rows: [] }; // CREATE TABLE etc.
   });
   gen.generateJson.mockReset();
+  serpApiFetch.mockReset();
+  delete process.env.SERPAPI_KEY;
   gsc.token = null;
   gsc.rows = [];
 });
@@ -108,6 +113,21 @@ describe('getTopSerpResults', () => {
   it('returns [] on any failure (best-effort)', async () => {
     gen.generateJson.mockRejectedValue(new Error('provider down'));
     expect(await getTopSerpResults(ctx, 'ai visibility tools')).toEqual([]);
+  });
+
+  it('uses SerpApi (real Google results) when SERPAPI_KEY is set, skipping the model', async () => {
+    process.env.SERPAPI_KEY = 'k';
+    serpApiFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ organic_results: [
+        { title: 'Real result', snippet: 'From Google.', link: 'https://real.com/page' },
+        { title: 'Own site', snippet: 'filtered', link: 'https://acme.test/page' },
+      ] }),
+    });
+    const results = await getTopSerpResults(ctx, 'ai visibility tools');
+    expect(results).toEqual([{ title: 'Real result', description: 'From Google.', url: 'https://real.com/page' }]);
+    expect(gen.generateJson).not.toHaveBeenCalled();
+    expect(String(serpApiFetch.mock.calls[0][0])).toContain('serpapi.com');
   });
 });
 

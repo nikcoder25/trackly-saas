@@ -11,6 +11,7 @@
 import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { acquireCronLock } from '@/lib/cron-lock';
+import { pool } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { findDueScans, processScheduledScan } from '@/lib/fix-engine/automation';
 
@@ -37,6 +38,13 @@ export async function GET(request: Request): Promise<Response> {
       if (r.scanned) processed++;
       generated += r.generated; shipped += r.shipped;
     }
+    // Housekeeping: drop SERP + keyword caches past any useful TTL. Both
+    // tables are re-populated lazily on the next generation that needs them.
+    try {
+      await pool.query(`DELETE FROM fix_serp_cache WHERE fetched_at < NOW() - INTERVAL '30 days'`);
+      await pool.query(`DELETE FROM fix_keyword_metrics WHERE fetched_at < NOW() - INTERVAL '60 days'`);
+    } catch { /* tables may not exist until first use */ }
+
     logger.info('cron.fix_engine_scheduler.done', { due: due.length, processed, generated, shipped, durationMs: Date.now() - startedAt });
     return NextResponse.json({ ok: true, processed, generated, shipped, durationMs: Date.now() - startedAt, timestamp: new Date().toISOString() });
   } catch (e) {

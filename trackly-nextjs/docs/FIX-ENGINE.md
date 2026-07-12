@@ -215,17 +215,20 @@ against the real SERP, which is what moves CTR and, over time, rankings.
 - **Primary query**: the page's top GSC query by impressions (28d) when
   GSC is connected; otherwise derived from the page's own title/H1 with
   the brand suffix stripped (`deriveQuery`).
-- **SERP source**: one web-grounded model call (Perplexity — the same
-  grounded engine tracking uses), asked to report the real ranking pages
-  with their real metadata. The brand's own domain is filtered out, and
-  results are capped at 8. This approximates Google's live SERP without
-  a scraping dependency.
+- **SERP source**: SerpApi (exact Google results) when the operator sets
+  `SERPAPI_KEY`; otherwise one web-grounded model call (Perplexity — the
+  same grounded engine tracking uses) asked to report the real ranking
+  pages with their real metadata. The brand's own domain is filtered out,
+  and results are capped at 8.
 - **Cache**: `fix_serp_cache (brand_id, query)`, 7-day TTL — one fetch
-  covers every fix generated for that query within the week.
+  covers every fix generated for that query within the week. The
+  scheduler cron prunes rows older than 30 days (and keyword-metrics
+  cache rows older than 60).
 - **Best-effort**: any failure (no query, no GSC, provider error) returns
   no competitors and generation proceeds exactly as before. Drafts record
-  `serpQuery` and `serpCompared` (how many competitor results were
-  considered) in their generated payload for observability.
+  `serpQuery`, `serpCompared`, and `serpCompetitors` (top 5, shown on the
+  fix card under "The SERP this draft was written to beat") in their
+  generated payload.
 
 ---
 

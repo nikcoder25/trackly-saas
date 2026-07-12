@@ -93,7 +93,7 @@ export const titleRewriteModule: FixModule = {
       }),
       maxTokens: 400,
     });
-    return { generated: { title: data.title.trim(), rationale: data.rationale, serpQuery: query, serpCompared: competitors.length }, creditsUsed: 1 };
+    return { generated: { title: data.title.trim(), rationale: data.rationale, serpQuery: query, serpCompared: competitors.length, serpCompetitors: competitors.slice(0, 5) }, creditsUsed: 1 };
   },
 
   preview(issue: DetectedIssue, draft: GeneratedDraft): PreviewBlock {

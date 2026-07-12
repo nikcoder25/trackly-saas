@@ -111,7 +111,7 @@ export const ctrRescueModule: FixModule = {
       user: ctrUserPrompt({ brand: ctx.brand, url: d.url, title, meta, queries: d.queries, competitors }),
       maxTokens: 500,
     });
-    return { generated: { ...data, before: { title, description: meta }, serpQuery: topQuery, serpCompared: competitors.length }, creditsUsed: 1 };
+    return { generated: { ...data, before: { title, description: meta }, serpQuery: topQuery, serpCompared: competitors.length, serpCompetitors: competitors.slice(0, 5) }, creditsUsed: 1 };
   },
 
   preview(_issue: DetectedIssue, draft: GeneratedDraft): PreviewBlock {
