@@ -1,0 +1,18 @@
+<!--
+  GROWTH ATLAS SEO BRAIN — drop-in for the Fix Engine.
+
+  HOW TO USE:
+    1. Copy this file to `growth-atlas-seo-brain.md` (same folder).
+    2. Replace everything below with your Growth Atlas SEO brain / playbook.
+    3. Commit it. Every Fix Engine module's generation (titles, meta, schema,
+       FAQs, pages, passage rewrites, citations) will follow it verbatim.
+
+  Resolution order: FIX_ENGINE_SEO_BRAIN env  >  this file  >  built-in default
+  (src/lib/fix-engine/seo-brain.ts). Plain text/markdown; no length limit, but
+  keep it focused — it is prepended to every generation prompt.
+-->
+
+# Growth Atlas SEO Brain
+
+(Paste your SEO/GEO methodology here — principles, do/don'ts, brand voice,
+linking rules, citation standards, structured-data conventions, etc.)
