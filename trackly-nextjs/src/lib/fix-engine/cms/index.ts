@@ -11,12 +11,14 @@ import { wordpressAdapter } from './wordpress';
 import { shopifyAdapter } from './shopify';
 import { ghostAdapter } from './ghost';
 import { webflowAdapter } from './webflow';
+import { customAdapter } from './custom';
 
 const ADAPTERS: Record<string, CmsAdapter> = {
   wordpress: wordpressAdapter,
   shopify: shopifyAdapter,
   ghost: ghostAdapter,
   webflow: webflowAdapter,
+  custom: customAdapter,
 };
 
 export function getCmsAdapter(type: string | null | undefined): CmsAdapter | null {

@@ -39,6 +39,71 @@ async function api(path: string, init?: RequestInit) {
 }
 
 // ── design system (scoped under .mx) ──
+// Copy-paste endpoint templates for the "custom-coded site" connection.
+// Full contract in docs/CUSTOM-SITE-CONNECT.md.
+const CUSTOM_ENDPOINT_NODE = `// livesov-fix endpoint (Node/Express) — mount at https://yoursite.com/livesov-fix
+// npm i express  ·  set LIVESOV_SECRET to the same secret you pasted in Livesov
+const crypto = require('crypto');
+const express = require('express');
+const router = express.Router();
+const SECRET = process.env.LIVESOV_SECRET;
+
+router.post('/livesov-fix', express.raw({ type: '*/*' }), (req, res) => {
+  const sig = (req.get('x-livesov-signature') || '').replace('sha256=', '');
+  const want = crypto.createHmac('sha256', SECRET).update(req.body).digest('hex');
+  const authed = req.get('authorization') === 'Bearer ' + SECRET
+    && sig.length === want.length && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(want));
+  if (!authed) return res.status(401).json({ ok: false });
+  const p = JSON.parse(req.body);
+  if (Math.abs(Date.now() - p.ts) > 300000) return res.status(401).json({ ok: false });
+
+  switch (p.op) {
+    case 'ping':
+      return res.json({ ok: true });
+    case 'update_title':
+      // TODO: save p.value as the <title> of the page at p.url in YOUR database, e.g.
+      // await db.pages.update({ where: { url: p.url }, data: { title: p.value } });
+      return res.json({ ok: true });
+    case 'update_meta_description':
+      // TODO: save p.value as the meta description of the page at p.url
+      return res.json({ ok: true });
+    // Optional, add as you go: update_body (p.value, p.mode), inject_schema (p.value),
+    // update_canonical (p.value), create_page (p.page), set_indexable, replace_in_body (p.find, p.replace)
+    default:
+      return res.json({ ok: false, unsupported: true }); // Livesov hands these fixes to you instead of failing
+  }
+});
+module.exports = router;
+`;
+
+const CUSTOM_ENDPOINT_PHP = `<?php
+// livesov-fix.php — upload to your site, endpoint URL = https://yoursite.com/livesov-fix.php
+$SECRET = 'PASTE_THE_SAME_SECRET_HERE';
+
+$raw = file_get_contents('php://input');
+$sig = str_replace('sha256=', '', $_SERVER['HTTP_X_LIVESOV_SIGNATURE'] ?? '');
+$authed = ($_SERVER['HTTP_AUTHORIZATION'] ?? '') === "Bearer $SECRET"
+  && hash_equals(hash_hmac('sha256', $raw, $SECRET), $sig);
+header('Content-Type: application/json');
+if (!$authed) { http_response_code(401); exit(json_encode(['ok' => false])); }
+$p = json_decode($raw, true);
+if (abs(round(microtime(true) * 1000) - ($p['ts'] ?? 0)) > 300000) { http_response_code(401); exit(json_encode(['ok' => false])); }
+
+switch ($p['op']) {
+  case 'ping':
+    exit(json_encode(['ok' => true]));
+  case 'update_title':
+    // TODO: save $p['value'] as the <title> of the page at $p['url'] in YOUR database
+    exit(json_encode(['ok' => true]));
+  case 'update_meta_description':
+    // TODO: save $p['value'] as the meta description of the page at $p['url']
+    exit(json_encode(['ok' => true]));
+  // Optional, add as you go: update_body, inject_schema, update_canonical, create_page, set_indexable, replace_in_body
+  default:
+    exit(json_encode(['ok' => false, 'unsupported' => true])); // Livesov hands these fixes to you instead of failing
+}
+`;
+
 const MX_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap');
 @keyframes xspin { to { transform: rotate(360deg); } }
@@ -898,14 +963,14 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               <div style={{ flex: 1, minWidth: 180 }}><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Site URL</div><input className="xin" value={siteUrl} onChange={(e) => setSiteUrl(e.target.value)} placeholder="https://acme.com" /></div>
               <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Platform</div>
                 <select className="xin" style={{ width: 'auto' }} value={cmsType} onChange={(e) => setCmsType(e.target.value)}>
-                  {['wordpress', 'shopify', 'ghost', 'webflow'].filter((c) => supportedCms.includes(c) || c === 'wordpress').map((c) => <option key={c} value={c}>{c === 'wordpress' ? c : `${c} (beta)`}</option>)}
+                  {['wordpress', 'shopify', 'ghost', 'webflow', 'custom'].filter((c) => supportedCms.includes(c) || c === 'wordpress').map((c) => <option key={c} value={c}>{c === 'wordpress' ? c : c === 'custom' ? 'custom-coded site (any stack)' : `${c} (beta)`}</option>)}
                 </select>
               </div>
               <button className="gbtn" onClick={runDetect} disabled={!siteUrl || detecting} style={{ padding: '9px 13px' }}>{detecting ? 'Detecting…' : 'Detect'}</button>
             </div>
             {detected && (
               <span style={{ fontSize: 12, fontWeight: 600, color: detected.hasAdapter ? 'var(--success)' : 'var(--warn)' }}>
-                {detected.cms === 'unknown' ? 'Couldn’t identify the platform — pick it manually or use the plugin-free edge path.' : `Detected ${detected.cms}${detected.hasAdapter ? '' : ' (no direct adapter — use the Connector or edge path)'}.`}
+                {detected.cms === 'unknown' ? 'Couldn’t identify the platform — custom-coded? Pick “custom-coded site” above: your developer adds one ~40-line endpoint and every fix ships automatically.' : `Detected ${detected.cms}${detected.hasAdapter ? '' : ' (no direct adapter — use the Connector or edge path)'}.`}
               </span>
             )}
 
@@ -928,22 +993,43 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               </div>
             </>)}
 
-            {/* Shopify / Ghost / Webflow: token creds */}
+            {/* Shopify / Ghost / Webflow / custom: token creds */}
             {cmsType !== 'wordpress' && (() => {
               const fields: Record<string, Array<{ k: string; label: string; ph?: string; pw?: boolean }>> = {
                 shopify: [{ k: 'shop', label: 'Store domain', ph: 'acme.myshopify.com' }, { k: 'accessToken', label: 'Admin API access token', ph: 'shpat_…', pw: true }],
                 ghost: [{ k: 'adminApiUrl', label: 'Ghost URL', ph: 'https://blog.acme.com' }, { k: 'adminApiKey', label: 'Admin API key', ph: 'id:secret', pw: true }],
                 webflow: [{ k: 'apiToken', label: 'API token', ph: '…', pw: true }, { k: 'siteId', label: 'Site ID', ph: '…' }],
+                custom: [{ k: 'endpoint', label: 'Your fix endpoint URL', ph: 'https://yoursite.com/livesov-fix' }, { k: 'secret', label: 'Shared secret (16+ chars)', ph: 'paste or generate →', pw: true }],
               };
               const fs = fields[cmsType] || [];
               const ready = fs.every((f) => (cc[f.k] || '').trim().length > 0);
               return (
                 <div style={{ display: 'grid', gap: 12 }}>
+                  {cmsType === 'custom' && (
+                    <div className="nb-sm" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', display: 'grid', gap: 8 }}>
+                      <div className="disp" style={{ fontSize: 13, fontWeight: 700, color: 'var(--info)' }}>HOW IT WORKS — ~40 LINES OF CODE, ONCE</div>
+                      <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.6, color: 'var(--text)', fontWeight: 500, display: 'grid', gap: 4 }}>
+                        <li>Your developer adds one small HTTPS endpoint to your site (copy a ready-made template below).</li>
+                        <li>Generate a secret here, put the same secret in the endpoint, and paste the endpoint URL above.</li>
+                        <li>Every approved fix arrives as one signed POST — <code>{'{ op: "update_title", url, value }'}</code> — and the endpoint saves it wherever your site stores content. Ops you don&apos;t implement reply <code>{'{ unsupported: true }'}</code> and we hand those fixes to you instead of failing.</li>
+                      </ol>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button className="gbtn" style={{ padding: '7px 12px', fontSize: 12 }} onClick={() => copy(CUSTOM_ENDPOINT_NODE, 'Node/Express template')}>⧉ Copy Node/Express template</button>
+                        <button className="gbtn" style={{ padding: '7px 12px', fontSize: 12 }} onClick={() => copy(CUSTOM_ENDPOINT_PHP, 'PHP template')}>⧉ Copy PHP template</button>
+                        <button className="gbtn" style={{ padding: '7px 12px', fontSize: 12 }} onClick={() => { const b = new Uint8Array(24); crypto.getRandomValues(b); ccSet('secret', Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')); }}>⚄ Generate secret</button>
+                      </div>
+                      <span style={{ fontSize: 11.5, color: 'var(--text-2)', fontWeight: 500 }}>Ops: ping · update_title · update_meta_description · update_body · inject_schema · update_canonical · create_page · set_indexable · replace_in_body. Start with just titles + metas — that alone unlocks the highest-impact fixes.</span>
+                    </div>
+                  )}
                   {fs.map((f) => (
                     <div key={f.k}><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>{f.label}</div><input className="xin" type={f.pw ? 'password' : 'text'} value={cc[f.k] || ''} placeholder={f.ph} onChange={(e) => ccSet(f.k, e.target.value)} /></div>
                   ))}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 12, color: 'var(--warning, #b45309)', fontWeight: 600 }}>BETA — verified against your store, then encrypted at rest. Ship your first fix to a low-traffic page and re-check before turning on autopilot.</span>
+                    <span style={{ fontSize: 12, color: 'var(--warning, #b45309)', fontWeight: 600 }}>
+                      {cmsType === 'custom'
+                        ? 'Connect verifies with a signed ping to your endpoint; the secret is encrypted at rest. Ship your first fix to a low-traffic page and re-check.'
+                        : 'BETA — verified against your store, then encrypted at rest. Ship your first fix to a low-traffic page and re-check before turning on autopilot.'}
+                    </span>
                     <div style={{ display: 'flex', gap: 10 }}>
                       <button className="gbtn" onClick={() => setShowForm(false)}>Cancel</button>
                       <button className="xbtn" onClick={() => onConnectCmsGeneric(cmsType, siteUrl, cc)} disabled={!ready}>CONNECT {cmsType.toUpperCase()}</button>

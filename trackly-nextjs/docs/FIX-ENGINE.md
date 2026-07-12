@@ -141,7 +141,10 @@ blocked).
 - **Channel A — REST API (no plugin).** Ships by writing through the
   customer's CMS REST API via a `CmsAdapter`. WordPress is the reference
   (Application-Password auth). Webflow/Shopify/etc. register behind the
-  same interface.
+  same interface. **Custom-coded sites** connect via the `custom` adapter:
+  the site exposes one small signed-POST endpoint and implements only the
+  ops it wants (everything else degrades to hand-off) — full contract +
+  copy-paste templates in `docs/CUSTOM-SITE-CONNECT.md`.
 - **Channel B — Connector plugin.** Head/file/technical changes
   (`llms.txt`, robots.txt, `<head>` schema) that a REST API can't make.
   Ships by queuing a **Connector instruction** the plugin pulls and
