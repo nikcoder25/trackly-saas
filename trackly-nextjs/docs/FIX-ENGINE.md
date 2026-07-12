@@ -141,7 +141,10 @@ blocked).
 - **Channel A — REST API (no plugin).** Ships by writing through the
   customer's CMS REST API via a `CmsAdapter`. WordPress is the reference
   (Application-Password auth). Webflow/Shopify/etc. register behind the
-  same interface.
+  same interface. **Custom-coded sites** connect via the `custom` adapter:
+  the site exposes one small signed-POST endpoint and implements only the
+  ops it wants (everything else degrades to hand-off) — full contract +
+  copy-paste templates in `docs/CUSTOM-SITE-CONNECT.md`.
 - **Channel B — Connector plugin.** Head/file/technical changes
   (`llms.txt`, robots.txt, `<head>` schema) that a REST API can't make.
   Ships by queuing a **Connector instruction** the plugin pulls and
@@ -215,11 +218,12 @@ against the real SERP, which is what moves CTR and, over time, rankings.
 - **Primary query**: the page's top GSC query by impressions (28d) when
   GSC is connected; otherwise derived from the page's own title/H1 with
   the brand suffix stripped (`deriveQuery`).
-- **SERP source**: SerpApi (exact Google results) when the operator sets
-  `SERPAPI_KEY`; otherwise one web-grounded model call (Perplexity — the
-  same grounded engine tracking uses) asked to report the real ranking
-  pages with their real metadata. The brand's own domain is filtered out,
-  and results are capped at 8.
+- **SERP source** (first configured wins): Serper.dev via `SERPER_API_KEY`
+  (real Google results, ~$1 per 1k searches, pay-as-you-go — the
+  recommended provider), then SerpApi via `SERPAPI_KEY`, then one
+  web-grounded model call (Perplexity — the same grounded engine tracking
+  uses) asked to report the real ranking pages with their real metadata.
+  The brand's own domain is filtered out, and results are capped at 8.
 - **Cache**: `fix_serp_cache (brand_id, query)`, 7-day TTL — one fetch
   covers every fix generated for that query within the week. The
   scheduler cron prunes rows older than 30 days (and keyword-metrics

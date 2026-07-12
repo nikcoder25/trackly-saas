@@ -39,6 +39,90 @@ async function api(path: string, init?: RequestInit) {
 }
 
 // ── design system (scoped under .mx) ──
+// Copy-paste endpoint templates for the "custom-coded site" connection.
+// Full contract in docs/CUSTOM-SITE-CONNECT.md.
+const CUSTOM_ENDPOINT_NODE = `// livesov-fix endpoint (Node/Express) — mount at https://yoursite.com/livesov-fix
+// npm i express  ·  set LIVESOV_SECRET to the same secret you pasted in Livesov
+const crypto = require('crypto');
+const express = require('express');
+const router = express.Router();
+const SECRET = process.env.LIVESOV_SECRET;
+
+router.post('/livesov-fix', express.raw({ type: '*/*' }), (req, res) => {
+  const sig = (req.get('x-livesov-signature') || '').replace('sha256=', '');
+  const want = crypto.createHmac('sha256', SECRET).update(req.body).digest('hex');
+  const authed = req.get('authorization') === 'Bearer ' + SECRET
+    && sig.length === want.length && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(want));
+  if (!authed) return res.status(401).json({ ok: false });
+  const p = JSON.parse(req.body);
+  if (Math.abs(Date.now() - p.ts) > 300000) return res.status(401).json({ ok: false });
+
+  switch (p.op) {
+    case 'ping':
+      return res.json({ ok: true });
+    case 'update_title':
+      // TODO: save p.value as the <title> of the page at p.url in YOUR database, e.g.
+      // await db.pages.update({ where: { url: p.url }, data: { title: p.value } });
+      return res.json({ ok: true });
+    case 'update_meta_description':
+      // TODO: save p.value as the meta description of the page at p.url
+      return res.json({ ok: true });
+    // Optional, add as you go: update_body (p.value, p.mode), inject_schema (p.value),
+    // update_canonical (p.value), create_page (p.page), set_indexable, replace_in_body (p.find, p.replace)
+    default:
+      return res.json({ ok: false, unsupported: true }); // Livesov hands these fixes to you instead of failing
+  }
+});
+module.exports = router;
+`;
+
+const CUSTOM_ENDPOINT_PHP = `<?php
+// livesov-fix.php — upload to your site, endpoint URL = https://yoursite.com/livesov-fix.php
+$SECRET = 'PASTE_THE_SAME_SECRET_HERE';
+
+$raw = file_get_contents('php://input');
+$sig = str_replace('sha256=', '', $_SERVER['HTTP_X_LIVESOV_SIGNATURE'] ?? '');
+$authed = ($_SERVER['HTTP_AUTHORIZATION'] ?? '') === "Bearer $SECRET"
+  && hash_equals(hash_hmac('sha256', $raw, $SECRET), $sig);
+header('Content-Type: application/json');
+if (!$authed) { http_response_code(401); exit(json_encode(['ok' => false])); }
+$p = json_decode($raw, true);
+if (abs(round(microtime(true) * 1000) - ($p['ts'] ?? 0)) > 300000) { http_response_code(401); exit(json_encode(['ok' => false])); }
+
+switch ($p['op']) {
+  case 'ping':
+    exit(json_encode(['ok' => true]));
+  case 'update_title':
+    // TODO: save $p['value'] as the <title> of the page at $p['url'] in YOUR database
+    exit(json_encode(['ok' => true]));
+  case 'update_meta_description':
+    // TODO: save $p['value'] as the meta description of the page at $p['url']
+    exit(json_encode(['ok' => true]));
+  // Optional, add as you go: update_body, inject_schema, update_canonical, create_page, set_indexable, replace_in_body
+  default:
+    exit(json_encode(['ok' => false, 'unsupported' => true])); // Livesov hands these fixes to you instead of failing
+}
+`;
+
+// Google Apps Script template for the Spreadsheet hand-off.
+// Sheet → Extensions → Apps Script → paste → Deploy as Web app (Execute as Me, access: Anyone).
+const SHEET_APPS_SCRIPT = `function doPost(e) {
+  var SECRET = 'PASTE_THE_SAME_SECRET_HERE'; // must match the secret in Livesov
+  var out = function (o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); };
+  try {
+    var p = JSON.parse(e.postData.contents);
+    if (p.secret !== SECRET) return out({ ok: false, error: 'bad secret' });
+    if (p.ping) return out({ ok: true });
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    if (sheet.getLastRow() === 0) sheet.appendRow(['Date', 'Fix', 'Details', 'Link']);
+    sheet.appendRow([new Date(), p.title || '', p.description || '', p.link || '']);
+    return out({ ok: true });
+  } catch (err) {
+    return out({ ok: false, error: String(err) });
+  }
+}
+`;
+
 const MX_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap');
 @keyframes xspin { to { transform: rotate(360deg); } }
@@ -237,11 +321,12 @@ export function PageFixes() {
   const cmsConn = connections.find((c) => c.provider === 'cms' && c.status === 'active');
   const connectorConn = connections.find((c) => c.provider === 'connector' && c.status === 'active');
   const linearConn = connections.find((c) => c.provider === 'linear' && c.status === 'active');
+  const sheetConn = connections.find((c) => c.provider === 'sheet' && c.status === 'active');
   const jiraConn = connections.find((c) => c.provider === 'jira' && c.status === 'active');
   const kweConn = connections.find((c) => c.provider === 'kwe' && c.status === 'active');
   const canShip = !!cmsConn || !!connectorConn;
   const hasConnector = !!connectorConn;
-  const hasTracker = !!linearConn || !!jiraConn;
+  const hasTracker = !!linearConn || !!jiraConn || !!sheetConn;
 
   // ── actions (real API) ──
   const pollBatch = React.useCallback(async (id: string, batchId: string) => {
@@ -440,9 +525,9 @@ export function PageFixes() {
   };
   const pairConnector = async () => { if (!brandId) return; try { const d = await api(`/api/brands/${brandId}/connections/connector/pair`, { method: 'POST' }); setPairing({ token: d.token, hmacSecret: d.hmacSecret, pullUrl: d.pullUrl }); await load(brandId); flash('Connector paired'); } catch (e) { setError((e as Error).message); } };
   const revokeConnector = async () => { if (!brandId) return; try { await api(`/api/brands/${brandId}/connections/connector/revoke`, { method: 'POST' }); setPairing(null); await load(brandId); flash('Connector token revoked'); } catch (e) { setError((e as Error).message); } };
-  const connectTracker = async (provider: 'linear' | 'jira', creds: Record<string, string>) => {
+  const connectTracker = async (provider: 'linear' | 'jira' | 'sheet', creds: Record<string, string>) => {
     if (!brandId) return; setError(null);
-    try { await api(`/api/brands/${brandId}/connections`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider, creds }) }); flash(`${provider === 'linear' ? 'Linear' : 'Jira'} connected`); await load(brandId); }
+    try { await api(`/api/brands/${brandId}/connections`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider, creds }) }); flash(`${provider === 'linear' ? 'Linear' : provider === 'jira' ? 'Jira' : 'Spreadsheet'} connected`); await load(brandId); }
     catch (e) { setError((e as Error).message); }
   };
   const connectKwe = async (apiKey: string) => {
@@ -453,7 +538,9 @@ export function PageFixes() {
   const createTargeted = async (form: { url: string; passage: string; instruction: string }) => {
     if (!brandId) return; setError(null);
     try { const d = await api(`/api/brands/${brandId}/fixes/targeted`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) }); if (d.fix?.id) { try { await act(d.fix.id, 'generate'); } catch { /* surfaced */ } } await load(brandId); flash('Passage fix created'); }
-    catch (e) { setError((e as Error).message); }
+    // The passage card sits far below the error banner — toast the failure
+    // too so the click never appears to do nothing.
+    catch (e) { setError((e as Error).message); flash(`\u2715 ${(e as Error).message}`); }
   };
 
   // ── derived ──
@@ -640,7 +727,7 @@ export function PageFixes() {
       gsc={!!gscConn} gscSite={gscConn?.siteUrl ?? null}
       connector={!!connectorConn} connectorLastSeen={connectorConn?.lastSeenAt ?? null} pairing={pairing}
       supportedCms={supportedCms} defaultSite={(brand as any)?.website || ''} disabled={!enabled}
-      linear={!!linearConn} jira={!!jiraConn} kwe={!!kweConn} onConnectTracker={connectTracker} onConnectKwe={connectKwe}
+      linear={!!linearConn} jira={!!jiraConn} sheet={!!sheetConn} kwe={!!kweConn} onConnectTracker={connectTracker} onConnectKwe={connectKwe}
       onConnectCms={connectCms} onConnectWp={connectWp} onConnectCmsGeneric={connectCmsGeneric} onDetectCms={detectCms}
       onConnectGsc={connectGsc} onPairConnector={pairConnector} onRevokeConnector={revokeConnector} onCopy={(label) => flash(`${label} copied`)}
     />
@@ -834,12 +921,12 @@ export function PageFixes() {
 }
 
 // ── Connections ──
-function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, linear, jira, kwe, onConnectTracker, onConnectKwe, onConnectCms, onConnectWp, onConnectCmsGeneric, onDetectCms, onConnectGsc, onPairConnector, onRevokeConnector, onCopy }: {
+function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, linear, jira, sheet, kwe, onConnectTracker, onConnectKwe, onConnectCms, onConnectWp, onConnectCmsGeneric, onDetectCms, onConnectGsc, onPairConnector, onRevokeConnector, onCopy }: {
   cms: boolean; cmsMeta: string; gsc: boolean; gscSite: string | null; connector: boolean; connectorLastSeen: string | null;
   pairing: { token: string; hmacSecret: string; pullUrl: string } | null;
   supportedCms: string[]; defaultSite: string; disabled: boolean;
-  linear: boolean; jira: boolean; kwe: boolean;
-  onConnectTracker: (provider: 'linear' | 'jira', creds: Record<string, string>) => void;
+  linear: boolean; jira: boolean; sheet: boolean; kwe: boolean;
+  onConnectTracker: (provider: 'linear' | 'jira' | 'sheet', creds: Record<string, string>) => void;
   onConnectKwe: (apiKey: string) => void;
   onConnectCms: (f: { cmsType: string; siteUrl: string; username: string; appPassword: string }) => void;
   onConnectWp: (site: string) => void;
@@ -858,7 +945,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
   const [detected, setDetected] = React.useState<{ cms: string; confidence: string; hasAdapter: boolean } | null>(null);
   const [detecting, setDetecting] = React.useState(false);
   const runDetect = async () => { if (!siteUrl) return; setDetecting(true); const d = await onDetectCms(siteUrl); setDetected(d); if (d?.hasAdapter && d.cms !== 'unknown') setCmsType(d.cms); setDetecting(false); };
-  const [tracker, setTracker] = React.useState<'' | 'linear' | 'jira'>('');
+  const [tracker, setTracker] = React.useState<'' | 'linear' | 'jira' | 'sheet'>('');
   const [tk, setTk] = React.useState<Record<string, string>>({});
   const [kweOpen, setKweOpen] = React.useState(false);
   const [kweKey, setKweKey] = React.useState('');
@@ -898,14 +985,14 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               <div style={{ flex: 1, minWidth: 180 }}><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Site URL</div><input className="xin" value={siteUrl} onChange={(e) => setSiteUrl(e.target.value)} placeholder="https://acme.com" /></div>
               <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Platform</div>
                 <select className="xin" style={{ width: 'auto' }} value={cmsType} onChange={(e) => setCmsType(e.target.value)}>
-                  {['wordpress', 'shopify', 'ghost', 'webflow'].filter((c) => supportedCms.includes(c) || c === 'wordpress').map((c) => <option key={c} value={c}>{c === 'wordpress' ? c : `${c} (beta)`}</option>)}
+                  {['wordpress', 'shopify', 'ghost', 'webflow', 'custom'].filter((c) => supportedCms.includes(c) || c === 'wordpress').map((c) => <option key={c} value={c}>{c === 'wordpress' ? c : c === 'custom' ? 'custom-coded site (any stack)' : `${c} (beta)`}</option>)}
                 </select>
               </div>
               <button className="gbtn" onClick={runDetect} disabled={!siteUrl || detecting} style={{ padding: '9px 13px' }}>{detecting ? 'Detecting…' : 'Detect'}</button>
             </div>
             {detected && (
               <span style={{ fontSize: 12, fontWeight: 600, color: detected.hasAdapter ? 'var(--success)' : 'var(--warn)' }}>
-                {detected.cms === 'unknown' ? 'Couldn’t identify the platform — pick it manually or use the plugin-free edge path.' : `Detected ${detected.cms}${detected.hasAdapter ? '' : ' (no direct adapter — use the Connector or edge path)'}.`}
+                {detected.cms === 'unknown' ? 'Couldn’t identify the platform — custom-coded? Pick “custom-coded site” above: your developer adds one ~40-line endpoint and every fix ships automatically.' : `Detected ${detected.cms}${detected.hasAdapter ? '' : ' (no direct adapter — use the Connector or edge path)'}.`}
               </span>
             )}
 
@@ -928,22 +1015,43 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               </div>
             </>)}
 
-            {/* Shopify / Ghost / Webflow: token creds */}
+            {/* Shopify / Ghost / Webflow / custom: token creds */}
             {cmsType !== 'wordpress' && (() => {
               const fields: Record<string, Array<{ k: string; label: string; ph?: string; pw?: boolean }>> = {
                 shopify: [{ k: 'shop', label: 'Store domain', ph: 'acme.myshopify.com' }, { k: 'accessToken', label: 'Admin API access token', ph: 'shpat_…', pw: true }],
                 ghost: [{ k: 'adminApiUrl', label: 'Ghost URL', ph: 'https://blog.acme.com' }, { k: 'adminApiKey', label: 'Admin API key', ph: 'id:secret', pw: true }],
                 webflow: [{ k: 'apiToken', label: 'API token', ph: '…', pw: true }, { k: 'siteId', label: 'Site ID', ph: '…' }],
+                custom: [{ k: 'endpoint', label: 'Your fix endpoint URL', ph: 'https://yoursite.com/livesov-fix' }, { k: 'secret', label: 'Shared secret (16+ chars)', ph: 'paste or generate →', pw: true }],
               };
               const fs = fields[cmsType] || [];
               const ready = fs.every((f) => (cc[f.k] || '').trim().length > 0);
               return (
                 <div style={{ display: 'grid', gap: 12 }}>
+                  {cmsType === 'custom' && (
+                    <div className="nb-sm" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', display: 'grid', gap: 8 }}>
+                      <div className="disp" style={{ fontSize: 13, fontWeight: 700, color: 'var(--info)' }}>HOW IT WORKS — ~40 LINES OF CODE, ONCE</div>
+                      <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.6, color: 'var(--text)', fontWeight: 500, display: 'grid', gap: 4 }}>
+                        <li>Your developer adds one small HTTPS endpoint to your site (copy a ready-made template below).</li>
+                        <li>Generate a secret here, put the same secret in the endpoint, and paste the endpoint URL above.</li>
+                        <li>Every approved fix arrives as one signed POST — <code>{'{ op: "update_title", url, value }'}</code> — and the endpoint saves it wherever your site stores content. Ops you don&apos;t implement reply <code>{'{ unsupported: true }'}</code> and we hand those fixes to you instead of failing.</li>
+                      </ol>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button className="gbtn" style={{ padding: '7px 12px', fontSize: 12 }} onClick={() => copy(CUSTOM_ENDPOINT_NODE, 'Node/Express template')}>⧉ Copy Node/Express template</button>
+                        <button className="gbtn" style={{ padding: '7px 12px', fontSize: 12 }} onClick={() => copy(CUSTOM_ENDPOINT_PHP, 'PHP template')}>⧉ Copy PHP template</button>
+                        <button className="gbtn" style={{ padding: '7px 12px', fontSize: 12 }} onClick={() => { const b = new Uint8Array(24); crypto.getRandomValues(b); ccSet('secret', Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')); }}>⚄ Generate secret</button>
+                      </div>
+                      <span style={{ fontSize: 11.5, color: 'var(--text-2)', fontWeight: 500 }}>Ops: ping · update_title · update_meta_description · update_body · inject_schema · update_canonical · create_page · set_indexable · replace_in_body. Start with just titles + metas — that alone unlocks the highest-impact fixes.</span>
+                    </div>
+                  )}
                   {fs.map((f) => (
                     <div key={f.k}><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>{f.label}</div><input className="xin" type={f.pw ? 'password' : 'text'} value={cc[f.k] || ''} placeholder={f.ph} onChange={(e) => ccSet(f.k, e.target.value)} /></div>
                   ))}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 12, color: 'var(--warning, #b45309)', fontWeight: 600 }}>BETA — verified against your store, then encrypted at rest. Ship your first fix to a low-traffic page and re-check before turning on autopilot.</span>
+                    <span style={{ fontSize: 12, color: 'var(--warning, #b45309)', fontWeight: 600 }}>
+                      {cmsType === 'custom'
+                        ? 'Connect verifies with a signed ping to your endpoint; the secret is encrypted at rest. Ship your first fix to a low-traffic page and re-check.'
+                        : 'BETA — verified against your store, then encrypted at rest. Ship your first fix to a low-traffic page and re-check before turning on autopilot.'}
+                    </span>
                     <div style={{ display: 'flex', gap: 10 }}>
                       <button className="gbtn" onClick={() => setShowForm(false)}>Cancel</button>
                       <button className="xbtn" onClick={() => onConnectCmsGeneric(cmsType, siteUrl, cc)} disabled={!ready}>CONNECT {cmsType.toUpperCase()}</button>
@@ -1069,6 +1177,36 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="gbtn" onClick={() => setTracker('')}>Cancel</button>
                 <button className="xbtn" onClick={() => onConnectTracker('jira', tk)} disabled={!tk.email || !tk.apiToken || !tk.domain || !tk.projectKey}>CONNECT JIRA</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <Row badge="▤" title="Spreadsheet" meta={sheet ? 'Connected · handed-off fixes append rows to your sheet' : 'No Jira/Linear? Hand fixes off as rows in a Google Sheet'}>
+          {sheet ? okChip('CONNECTED') : offChip}
+          <button className={sheet ? 'tbtn' : 'xbtn'} onClick={() => setTracker((t) => (t === 'sheet' ? '' : 'sheet'))} disabled={disabled}>{sheet ? 'Reconnect' : 'CONNECT'}</button>
+        </Row>
+        {tracker === 'sheet' && (
+          <div className="nb-sm" style={{ padding: 18, margin: '6px 0 14px', background: 'var(--surface-2)', display: 'grid', gap: 14 }}>
+            <div className="nb-sm" style={{ padding: '11px 14px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', display: 'grid', gap: 7 }}>
+              <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--info)' }}>2-MINUTE SETUP, NO API KEY NEEDED</div>
+              <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.6, color: 'var(--text)', fontWeight: 500, display: 'grid', gap: 3 }}>
+                <li>Open (or create) your Google Sheet → Extensions → <b>Apps Script</b>.</li>
+                <li>Paste the script (copy below), set the secret inside it, then <b>Deploy → New deployment → Web app</b> — Execute as <b>Me</b>, access <b>Anyone</b>.</li>
+                <li>Paste the deployment&apos;s <code>/exec</code> URL and the same secret here.</li>
+              </ol>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button className="gbtn" style={{ padding: '7px 12px', fontSize: 12 }} onClick={() => copy(SHEET_APPS_SCRIPT, 'Apps Script template')}>⧉ Copy Apps Script</button>
+                <button className="gbtn" style={{ padding: '7px 12px', fontSize: 12 }} onClick={() => { const b = new Uint8Array(16); crypto.getRandomValues(b); tkSet('secret', Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')); }}>⚄ Generate secret</button>
+              </div>
+            </div>
+            <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Web app URL</div><input className="xin" placeholder="https://script.google.com/macros/s/…/exec" value={tk.url || ''} onChange={(e) => tkSet('url', e.target.value)} /></div>
+            <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Secret (same as in the script)</div><input className="xin" type="password" value={tk.secret || ''} placeholder="8+ characters" onChange={(e) => tkSet('secret', e.target.value)} /></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Verified with a test ping, then encrypted. Each handed-off fix appends one row: date · fix · details · link. Zapier/Make webhooks work too.</span>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="gbtn" onClick={() => setTracker('')}>Cancel</button>
+                <button className="xbtn" onClick={() => onConnectTracker('sheet', tk)} disabled={!(tk.url || '').startsWith('https://') || (tk.secret || '').length < 8}>CONNECT SHEET</button>
               </div>
             </div>
           </div>
@@ -1269,7 +1407,17 @@ function PassageSection({ disabled, onSubmit }: { disabled: boolean; onSubmit: (
         <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Page URL</div><input className="xin" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="acme.com/features" /></div>
         <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Passage</div><textarea className="xin" rows={3} value={passage} onChange={(e) => setPassage(e.target.value)} placeholder="Paste the exact paragraph or lines…" /></div>
         <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Instruction</div><input className="xin" value={instruction} onChange={(e) => setInstruction(e.target.value)} placeholder={'e.g. answer "is Acme good for engineering teams?" with a citable claim'} /></div>
-        <button className="xbtn" onClick={() => { onSubmit({ url, passage, instruction }); setPassage(''); setInstruction(''); }} disabled={disabled || !url || passage.trim().length < 12} style={{ background: 'var(--info)', justifyContent: 'center' }}>✦ CREATE FIX</button>
+        {(() => {
+          // Say WHY the button is disabled instead of leaving it silently grey.
+          const missing = disabled ? 'Fix Engine is not enabled on your plan'
+            : !url.trim() ? 'Add the page URL to continue'
+            : passage.trim().length < 12 ? `Paste the passage from the page (${Math.max(0, 12 - passage.trim().length)} more characters needed)`
+            : null;
+          return (<>
+            <button className="xbtn" onClick={() => { onSubmit({ url, passage, instruction }); setPassage(''); setInstruction(''); }} disabled={!!missing} style={{ background: 'var(--info)', justifyContent: 'center' }}>✦ CREATE FIX</button>
+            {missing && <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-2)', textAlign: 'center' }}>{missing}</span>}
+          </>);
+        })()}
       </div>
     </section>
   );

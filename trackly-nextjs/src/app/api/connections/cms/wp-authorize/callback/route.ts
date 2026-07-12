@@ -32,7 +32,7 @@ export async function GET(request: Request): Promise<Response> {
   const password = url.searchParams.get('password');
 
   if (!state || !siteUrl || !userLogin || !password) {
-    return Response.redirect(dash(`/dashboard-v2?wp=invalid#fixes`), 302);
+    return Response.redirect(dash(`/dashboard/fixes?wp=invalid`), 302);
   }
 
   const auth = await requireVerifiedAuth(request, pool);
@@ -41,7 +41,7 @@ export async function GET(request: Request): Promise<Response> {
 
   const payload = verifyState(state);
   if (!payload || payload.userId !== user.id) {
-    return Response.redirect(dash(`/dashboard-v2?wp=invalid#fixes`), 302);
+    return Response.redirect(dash(`/dashboard/fixes?wp=invalid`), 302);
   }
   const brandId = payload.brandId;
 
@@ -52,7 +52,7 @@ export async function GET(request: Request): Promise<Response> {
     const check = await adapter.verify(creds, siteUrl);
     if (!check.ok) {
       logger.warn('fix_engine.wp_authorize.verify_failed', { brandId, detail: check.detail });
-      return Response.redirect(dash(`/dashboard-v2?wp=verifyfailed#fixes`), 302);
+      return Response.redirect(dash(`/dashboard/fixes?wp=verifyfailed`), 302);
     }
     await upsertConnection({
       userId: user.id,
@@ -63,9 +63,9 @@ export async function GET(request: Request): Promise<Response> {
       creds,
       meta: { connectedVia: 'application-password' },
     });
-    return Response.redirect(dash(`/dashboard-v2?wp=connected#fixes`), 302);
+    return Response.redirect(dash(`/dashboard/fixes?wp=connected`), 302);
   } catch (e) {
     logger.error('fix_engine.wp_authorize.callback_failed', { brandId, err: (e as Error).message });
-    return Response.redirect(dash(`/dashboard-v2?wp=error#fixes`), 302);
+    return Response.redirect(dash(`/dashboard/fixes?wp=error`), 302);
   }
 }

@@ -6,9 +6,10 @@
  * descriptions to the prompt — so the rewrite is written to WIN the click
  * against the real SERP, not in a vacuum.
  *
- * Sourcing, in order of fidelity:
- *   1. SerpApi (real Google results) when SERPAPI_KEY is set — exact SERP.
- *   2. A web-grounded model call (Perplexity, the same grounded engine the
+ * Sourcing order:
+ *   1. Serper.dev (real Google results, ~$1/1k searches) — SERPER_API_KEY.
+ *   2. SerpApi (real Google results) — SERPAPI_KEY.
+ *   3. A web-grounded model call (Perplexity, the same grounded engine the
  *      product's tracking uses) — a close approximation, no extra vendor.
  * Either way results are cached 7 days per (brand, query) to keep
  * generation fast and cheap. Everything here is best-effort: any failure
@@ -100,6 +101,27 @@ export function deriveQuery(title: string | null, h1: string | null, brandName?:
 }
 
 /**
+ * Real Google results via Serper.dev (the budget option: ~$1 per 1,000
+ * searches, pay-as-you-go credits). Used when SERPER_API_KEY is set —
+ * checked before SerpApi since operators who set it chose it on cost.
+ * Returns null when the key is absent; throws on request failure.
+ */
+async function fetchSerper(query: string): Promise<SerpResult[] | null> {
+  const key = process.env.SERPER_API_KEY;
+  if (!key) return null;
+  const res = await safeFetch('https://google.serper.dev/search', {
+    method: 'POST',
+    headers: { 'X-API-KEY': key, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ q: query, num: MAX_RESULTS + 4 }), // headroom for own-domain filtering
+  });
+  if (!res.ok) throw new Error(`serper ${res.status}`);
+  const body = (await res.json()) as { organic?: { title?: string; snippet?: string; link?: string }[] };
+  return (body.organic || [])
+    .filter((r) => r.title && r.link)
+    .map((r) => ({ title: String(r.title), description: String(r.snippet || ''), url: String(r.link) }));
+}
+
+/**
  * Real Google results via SerpApi, used when the operator sets SERPAPI_KEY.
  * Returns null (not []) when the key is absent so the caller can fall back
  * to the web-grounded model path; throws on request failure so the shared
@@ -139,7 +161,7 @@ export async function getTopSerpResults(ctx: FixContext, query: string): Promise
     );
     if (cached.rows[0]) return (cached.rows[0].results as SerpResult[]) ?? [];
 
-    let fetched = await fetchSerpApi(q);
+    let fetched = (await fetchSerper(q)) ?? (await fetchSerpApi(q));
     if (!fetched) {
       const { data } = await generateJson<{ results: SerpResult[] }>({
         ctx,

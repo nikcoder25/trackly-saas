@@ -26,11 +26,11 @@ function dash(path: string): string {
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const err = url.searchParams.get('error');
-  if (err) return Response.redirect(dash(`/dashboard-v2?gsc=denied#fixes`), 302);
+  if (err) return Response.redirect(dash(`/dashboard/fixes?gsc=denied`), 302);
 
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
-  if (!code || !state) return Response.redirect(dash(`/dashboard-v2?gsc=invalid#fixes`), 302);
+  if (!code || !state) return Response.redirect(dash(`/dashboard/fixes?gsc=invalid`), 302);
 
   const auth = await requireVerifiedAuth(request, pool);
   if (auth instanceof Response) return Response.redirect(dash(`/login`), 302);
@@ -38,7 +38,7 @@ export async function GET(request: Request): Promise<Response> {
 
   const payload = verifyState(state);
   if (!payload || payload.userId !== user.id) {
-    return Response.redirect(dash(`/dashboard-v2?gsc=invalid#fixes`), 302);
+    return Response.redirect(dash(`/dashboard/fixes?gsc=invalid`), 302);
   }
   const brandId = payload.brandId;
 
@@ -77,9 +77,9 @@ export async function GET(request: Request): Promise<Response> {
       meta: { siteUrl, allSites },
     });
 
-    return Response.redirect(dash(`/dashboard-v2?gsc=connected#fixes`), 302);
+    return Response.redirect(dash(`/dashboard/fixes?gsc=connected`), 302);
   } catch (e) {
     logger.error('fix_engine.gsc.callback_failed', { brandId, err: (e as Error).message });
-    return Response.redirect(dash(`/dashboard-v2?gsc=error#fixes`), 302);
+    return Response.redirect(dash(`/dashboard/fixes?gsc=error`), 302);
   }
 }

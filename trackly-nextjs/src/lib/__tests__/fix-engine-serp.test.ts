@@ -54,6 +54,7 @@ beforeEach(() => {
   gen.generateJson.mockReset();
   serpApiFetch.mockReset();
   delete process.env.SERPAPI_KEY;
+  delete process.env.SERPER_API_KEY;
   gsc.token = null;
   gsc.rows = [];
 });
@@ -113,6 +114,23 @@ describe('getTopSerpResults', () => {
   it('returns [] on any failure (best-effort)', async () => {
     gen.generateJson.mockRejectedValue(new Error('provider down'));
     expect(await getTopSerpResults(ctx, 'ai visibility tools')).toEqual([]);
+  });
+
+  it('prefers Serper.dev when SERPER_API_KEY is set, skipping the model', async () => {
+    process.env.SERPER_API_KEY = 'sk';
+    serpApiFetch.mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ organic: [
+        { title: 'Serper result', snippet: 'Real Google.', link: 'https://rival.com/page' },
+        { title: 'Own page', snippet: 'filtered', link: 'https://www.acme.test/x' },
+      ] }),
+    });
+    const results = await getTopSerpResults(ctx, 'ai visibility tools');
+    expect(results).toEqual([{ title: 'Serper result', description: 'Real Google.', url: 'https://rival.com/page' }]);
+    expect(gen.generateJson).not.toHaveBeenCalled();
+    const [url, init] = serpApiFetch.mock.calls[0] as [string, { headers: Record<string, string> }];
+    expect(url).toContain('google.serper.dev');
+    expect(init.headers['X-API-KEY']).toBe('sk');
   });
 
   it('uses SerpApi (real Google results) when SERPAPI_KEY is set, skipping the model', async () => {
