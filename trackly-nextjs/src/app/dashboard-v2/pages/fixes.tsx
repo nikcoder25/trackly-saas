@@ -331,6 +331,16 @@ export function PageFixes() {
   // scannable; the user expands each section as needed.
   const [modulesOpen, setModulesOpen] = React.useState(false);
   const [fixesOpen, setFixesOpen] = React.useState(false);
+  // The FIXES section lives far below the attention banner, and it starts
+  // collapsed. Jumping to a filter (e.g. the banner's "View") has to expand
+  // the section AND scroll it into view, or nothing appears to happen.
+  const fixesRef = React.useRef<HTMLDivElement | null>(null);
+  const jumpToFilter = React.useCallback((key: string) => {
+    setFilter(key);
+    setFixesOpen(true);
+    // Wait a frame so the section is expanded before we scroll to it.
+    requestAnimationFrame(() => fixesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, []);
   // Cards start collapsed (one line each) so long queues stay scannable;
   // clicking a row opens the full card. Expand/collapse-all lives in the
   // queue toolbar.
@@ -847,7 +857,7 @@ export function PageFixes() {
             (attention.regressed || 0) > 0 ? `${attention.regressed} fix${attention.regressed === 1 ? '' : 'es'} regressed (overwritten on your site — re-ship)` : null,
           ].filter(Boolean).join(' · ')}
         </span>
-        {attention.failed > 0 && <button className="tbtn" onClick={() => setFilter('attention')}>View</button>}
+        {attention.failed > 0 && <button className="tbtn" onClick={() => jumpToFilter('attention')}>View</button>}
       </div>
     )}
 
@@ -985,7 +995,7 @@ export function PageFixes() {
     </div>
 
     {/* FIXES */}
-    <section>
+    <section ref={fixesRef} style={{ scrollMarginTop: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginBottom: 12 }}>
         <button onClick={() => setFixesOpen((o) => !o)} aria-expanded={fixesOpen} title={fixesOpen ? 'Hide the fixes' : 'Show the fixes'} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'none', border: 'none', cursor: 'pointer', padding: 0, margin: 0, color: 'var(--text)' }}>
           <span className="disp" aria-hidden style={{ fontSize: 22, fontWeight: 700, display: 'inline-block', transition: 'transform .15s', transform: fixesOpen ? 'none' : 'rotate(-90deg)' }}>▾</span>
@@ -994,7 +1004,7 @@ export function PageFixes() {
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', alignItems: 'center' }}>
           {filterDefs.map((d) => {
             const on = filter === d.key;
-            return <button key={d.key} className="chip" onClick={() => setFilter(d.key)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: on ? 'var(--text)' : 'var(--surface)', color: on ? 'var(--bg)' : 'var(--text-2)', boxShadow: on ? '3px 3px 0 var(--primary)' : 'none' }}>{d.label} · {d.count}</button>;
+            return <button key={d.key} className="chip" onClick={() => { setFilter(d.key); setFixesOpen(true); }} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: on ? 'var(--text)' : 'var(--surface)', color: on ? 'var(--bg)' : 'var(--text-2)', boxShadow: on ? '3px 3px 0 var(--primary)' : 'none' }}>{d.label} · {d.count}</button>;
           })}
         </div>
       </div>
@@ -1051,7 +1061,34 @@ export function PageFixes() {
         ))}</div>
       )}
 
-      {!loading && shown.length === 0 && (
+      {/* Empty-list state. When a specific filter is active the generic
+          "run a scan" copy is misleading (e.g. the attention banner says
+          "2 failed" but this tab is empty because the rows aren't loaded, or
+          quick-wins filtered them out) — so we tailor the message per filter
+          and offer Refresh instead of Run scan. */}
+      {!loading && shown.length === 0 && filter !== 'all' && (
+        <div className="nb" style={{ padding: 48, textAlign: 'center', background: 'var(--surface)' }}>
+          <div className="disp" style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>
+            {filter === 'attention' ? 'NOTHING NEEDS ATTENTION HERE' : filter === 'dismissed' ? 'NOTHING IGNORED' : `NOTHING IN ${(filterDefs.find((d) => d.key === filter)?.label || filter).toUpperCase()}`}
+          </div>
+          <p style={{ margin: '12px auto 22px', fontSize: 13.5, color: 'var(--text-2)', maxWidth: '46ch', lineHeight: 1.6, fontWeight: 500 }}>
+            {filter === 'attention'
+              ? (attention && attention.failed > 0
+                  ? 'The failed fixes aren’t loaded in this view yet. Hit Refresh — or turn off Quick Wins if it’s on, since it hides medium/low fixes.'
+                  : 'No failed or reverted fixes right now. Anything that breaks while shipping will show up here.')
+              : quickWins
+                ? 'Quick Wins is on — it only shows zero-credit and high/critical fixes. Turn it off to see everything in this tab.'
+                : 'Nothing here yet. Switch to ALL to see every fix, or run a fresh scan.'}
+          </p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button className="gbtn" onClick={() => load(brandId)} disabled={loading}>↻ Refresh</button>
+            {quickWins && <button className="chip" onClick={() => setQuickWins(false)} style={{ cursor: 'pointer', fontSize: 12, padding: '8px 14px' }}>⚡ Turn off Quick Wins</button>}
+            <button className="chip" onClick={() => setFilter('all')} style={{ cursor: 'pointer', fontSize: 12, padding: '8px 14px' }}>Show ALL</button>
+          </div>
+        </div>
+      )}
+
+      {!loading && shown.length === 0 && filter === 'all' && (
         <div className="nb" style={{ padding: 56, textAlign: 'center', background: 'var(--primary-50)' }}>
           <div className="disp" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>NOTHING TO FIX… YET</div>
           <p style={{ margin: '12px auto 22px', fontSize: 14, color: 'var(--text-2)', maxWidth: '44ch', lineHeight: 1.6, fontWeight: 500 }}>Run a scan to check {brandName} against {selected.size} modules, ranked by severity.</p>
