@@ -70,11 +70,19 @@ export const internalLinkingModule: FixModule = {
   },
 
   async generate(issue: DetectedIssue, ctx: FixContext): Promise<GeneratedDraft> {
-    const d = issue.detected as { url: string; title: string | null; pageText: string; candidates: { url: string; title: string | null }[] };
+    const d = issue.detected as { url: string; title: string | null; pageText: string; candidates: { url: string; title: string | null }[]; instruction?: string };
+    let user = internalLinkingUserPrompt({ brand: ctx.brand, url: d.url, title: d.title, pageText: d.pageText || '', candidates: d.candidates });
+    // A user-initiated request can steer the anchor text / which pages to
+    // prioritise (e.g. "link to /pricing using the anchor 'AI visibility
+    // pricing'"). Scan-detected issues carry no instruction — behaviour is
+    // unchanged for them.
+    if (typeof d.instruction === 'string' && d.instruction.trim()) {
+      user += `\n\nUser preference (honor this when choosing targets and anchor text): ${d.instruction.trim()}`;
+    }
     const { data } = await generateJson<{ links: LinkSuggestion[]; rationale: string }>({
       ctx,
       system: INTERNAL_LINKING_SYSTEM,
-      user: internalLinkingUserPrompt({ brand: ctx.brand, url: d.url, title: d.title, pageText: d.pageText || '', candidates: d.candidates }),
+      user,
       maxTokens: 800,
     });
     // Guard: never link the page to itself; only keep candidate URLs.

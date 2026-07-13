@@ -100,21 +100,27 @@ export const keywordOpportunitiesModule: FixModule = {
   },
 
   async generate(issue: DetectedIssue, ctx: FixContext): Promise<GeneratedDraft> {
-    const d = issue.detected as { query: string; page: string; position: number; volume: number; competition: number };
+    const d = issue.detected as { query: string; page: string; position: number; volume: number; competition: number; instruction?: string };
     let title: string | null = null;
     let pageText = '';
     try {
       const page = await crawlPage(d.page, ctx.signal);
       title = page.title; pageText = page.text;
     } catch { /* plan can still be generated from brand context */ }
+    let user = keywordPlanUserPrompt({
+      brand: ctx.brand, url: d.page, keyword: d.query,
+      volume: d.volume, competition: d.competition, position: d.position,
+      title, pageText,
+    });
+    // A user-initiated keyword request can add intent/angle (e.g. "focus on
+    // comparison-shoppers"). Scan-detected opportunities carry none.
+    if (typeof d.instruction === 'string' && d.instruction.trim()) {
+      user += `\n\nUser preference (honor this): ${d.instruction.trim()}`;
+    }
     const { data } = await generateJson<{ suggestedTitle: string; plan: string[]; heading: string; html: string; rationale: string }>({
       ctx,
       system: KEYWORD_PLAN_SYSTEM,
-      user: keywordPlanUserPrompt({
-        brand: ctx.brand, url: d.page, keyword: d.query,
-        volume: d.volume, competition: d.competition, position: d.position,
-        title, pageText,
-      }),
+      user,
       maxTokens: 1400,
     });
     return {
