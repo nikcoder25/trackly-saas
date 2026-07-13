@@ -452,3 +452,34 @@ export async function revertFix(fixId: string, brandId: string, userId: string |
     throw e;
   }
 }
+
+/**
+ * Mark a fix as dismissed ("ignore" — the AI got this one wrong or the user
+ * doesn't want it). It's hidden from the default lists but kept (not deleted)
+ * so it can be restored, and so a re-scan won't silently resurface it as a
+ * brand-new detection. A fix that's already live must be reverted, not
+ * dismissed — dismissing wouldn't undo the on-site change.
+ */
+export async function dismissFix(fixId: string, brandId: string, userId: string | null): Promise<FixRow> {
+  const fix = await getFix(fixId, brandId);
+  if (!fix) throw new Error('Fix not found');
+  if (['shipping', 'staged', 'shipped', 'verified'].includes(fix.status)) {
+    throw new Error('This fix is already applied to your site — use Undo/revert instead of ignoring.');
+  }
+  if (fix.status === 'dismissed') return fix;
+  await updateFix(fix.id, { status: 'dismissed', error: null });
+  await logFixEvent(fix.id, brandId, userId, 'dismissed', {});
+  return (await getFix(fixId, brandId))!;
+}
+
+/** Restore a previously dismissed fix back into the normal workflow. */
+export async function restoreFix(fixId: string, brandId: string, userId: string | null): Promise<FixRow> {
+  const fix = await getFix(fixId, brandId);
+  if (!fix) throw new Error('Fix not found');
+  if (fix.status !== 'dismissed') return fix;
+  // Back to 'detected' so the user can generate/approve it again. A
+  // generated draft (if any) is preserved on the row.
+  await updateFix(fix.id, { status: 'detected', error: null });
+  await logFixEvent(fix.id, brandId, userId, 'restored', {});
+  return (await getFix(fixId, brandId))!;
+}
