@@ -416,6 +416,25 @@ export async function updateFix(
 }
 
 /**
+ * Bulk-restore dismissed ("ignored") fixes back to 'detected' in one query.
+ * Restricted to the brand and to rows currently in 'dismissed' status, so it
+ * can never touch in-flight or live fixes. Pass `ids` to restore a specific
+ * selection; omit it to restore every dismissed fix for the brand. Returns
+ * the ids actually restored (for audit logging).
+ */
+export async function restoreDismissedFixes(brandId: string, ids?: string[]): Promise<string[]> {
+  await ensureFixEngineSchema();
+  const scoped = Array.isArray(ids) && ids.length > 0;
+  const res = await pool.query(
+    `UPDATE fixes SET status = 'detected', error = NULL, updated_at = NOW()
+      WHERE brand_id = $1 AND status = 'dismissed'${scoped ? ' AND id = ANY($2::uuid[])' : ''}
+      RETURNING id`,
+    scoped ? [brandId, ids] : [brandId],
+  );
+  return res.rows.map((r: DbRow) => String(r.id));
+}
+
+/**
  * Atomically claim a fix for a stage transition. Returns true only if the
  * row was in `from` status - prevents a double-ship / double-generate race
  * between after() and the cron safety net.

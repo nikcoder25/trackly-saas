@@ -331,6 +331,16 @@ export function PageFixes() {
   // scannable; the user expands each section as needed.
   const [modulesOpen, setModulesOpen] = React.useState(false);
   const [fixesOpen, setFixesOpen] = React.useState(false);
+  // The FIXES section lives far below the attention banner, and it starts
+  // collapsed. Jumping to a filter (e.g. the banner's "View") has to expand
+  // the section AND scroll it into view, or nothing appears to happen.
+  const fixesRef = React.useRef<HTMLDivElement | null>(null);
+  const jumpToFilter = React.useCallback((key: string) => {
+    setFilter(key);
+    setFixesOpen(true);
+    // Wait a frame so the section is expanded before we scroll to it.
+    requestAnimationFrame(() => fixesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, []);
   // Cards start collapsed (one line each) so long queues stay scannable;
   // clicking a row opens the full card. Expand/collapse-all lives in the
   // queue toolbar.
@@ -470,6 +480,21 @@ export function PageFixes() {
     } catch (e) { setError((e as Error).message); } finally { setScanning(false); setScanProgress(null); }
   };
 
+  // Run one module across the whole site (used by the "do this site-wide"
+  // shortcut in the Ask-for-a-fix box). Same dispatch as a normal scan, but
+  // scoped to a single module so it's fast and focused.
+  const runModuleScan = async (moduleKey: string) => {
+    if (!brandId) return;
+    setFixesOpen(true);
+    setScanning(true); setScanProgress({ received: 0, status: 'queued' }); setToast('Scanning your whole site…');
+    try {
+      const d = await api(`/api/brands/${brandId}/fixes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ modules: [moduleKey] }) });
+      await pollBatch(brandId, d.batchId);
+      await load(brandId);
+      requestAnimationFrame(() => fixesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    } catch (e) { setError((e as Error).message); } finally { setScanning(false); setScanProgress(null); }
+  };
+
   const act = async (fixId: string, action: 'generate' | 'approve' | 'ship' | 'stage' | 'publish' | 'recheck' | 'revert' | 'ticket' | 'request-review') => {
     if (!brandId) return;
     setBusy((b) => ({ ...b, [fixId]: true }));
@@ -506,6 +531,27 @@ export function PageFixes() {
       flash(restore ? 'Fix restored' : 'Ignored — moved to the Ignored tab');
     } catch (e) { setError((e as Error).message); }
     finally { setBusy((b) => ({ ...b, [fixId]: false })); }
+  };
+
+  // Restore ignored fixes in one click — a scoped selection (`ids`) or, when
+  // omitted, every dismissed fix on the brand. One server round-trip, so
+  // restoring hundreds is instant. Used by "Restore all" on the Ignored tab.
+  const restoreAll = async (ids?: string[]) => {
+    if (!brandId) return;
+    setBulkBusy(true);
+    flash(ids && ids.length ? `Restoring ${ids.length}…` : 'Restoring all ignored fixes…');
+    try {
+      const d = await api(`/api/brands/${brandId}/fixes/restore-all`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ids && ids.length ? { ids } : {}),
+      });
+      await load(brandId);
+      setPicked(new Set());
+      // Jump to ALL so the restored fixes are visible (the Ignored tab they
+      // came from is now empty and disappears).
+      if (!ids || !ids.length) setFilter('all');
+      flash(`Restored ${d.restored} fix${d.restored === 1 ? '' : 'es'} — back in the workflow`);
+    } catch (e) { setError((e as Error).message); }
+    finally { setBulkBusy(false); }
   };
 
   const loadPreview = async (fixId: string) => {
@@ -679,7 +725,7 @@ export function PageFixes() {
   // inline — otherwise the rewrite only appears far down in THE FIXES queue
   // and the click looks like it did nothing.
   const createTargeted = async (
-    form: { url: string; passage: string; instruction: string },
+    form: { type: 'passage' | 'links' | 'keyword'; url: string; passage?: string; keyword?: string; instruction?: string },
   ): Promise<PassageResult> => {
     if (!brandId) return { ok: false, error: 'Pick a brand first' };
     setError(null);
@@ -701,7 +747,7 @@ export function PageFixes() {
       const created = fix;
       setFixes((rows) => (rows.some((r) => r.id === created.id) ? rows.map((r) => (r.id === created.id ? { ...r, ...created } : r)) : [created, ...rows]));
       await load(brandId);
-      flash('Rewrite ready — added to The Fixes below');
+      flash('Ready — added to The Fixes below');
       return { ok: true, fix: created, preview };
     } catch (e) {
       const msg = (e as Error).message;
@@ -847,7 +893,7 @@ export function PageFixes() {
             (attention.regressed || 0) > 0 ? `${attention.regressed} fix${attention.regressed === 1 ? '' : 'es'} regressed (overwritten on your site — re-ship)` : null,
           ].filter(Boolean).join(' · ')}
         </span>
-        {attention.failed > 0 && <button className="tbtn" onClick={() => setFilter('attention')}>View</button>}
+        {attention.failed > 0 && <button className="tbtn" onClick={() => jumpToFilter('attention')}>View</button>}
       </div>
     )}
 
@@ -981,11 +1027,11 @@ export function PageFixes() {
         )}
       </section>
 
-      <PassageSection disabled={!enabled} onSubmit={createTargeted} />
+      <TargetedSection disabled={!enabled} onSubmit={createTargeted} onWholeSite={runModuleScan} scanning={scanning} />
     </div>
 
     {/* FIXES */}
-    <section>
+    <section ref={fixesRef} style={{ scrollMarginTop: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginBottom: 12 }}>
         <button onClick={() => setFixesOpen((o) => !o)} aria-expanded={fixesOpen} title={fixesOpen ? 'Hide the fixes' : 'Show the fixes'} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'none', border: 'none', cursor: 'pointer', padding: 0, margin: 0, color: 'var(--text)' }}>
           <span className="disp" aria-hidden style={{ fontSize: 22, fontWeight: 700, display: 'inline-block', transition: 'transform .15s', transform: fixesOpen ? 'none' : 'rotate(-90deg)' }}>▾</span>
@@ -994,7 +1040,7 @@ export function PageFixes() {
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', alignItems: 'center' }}>
           {filterDefs.map((d) => {
             const on = filter === d.key;
-            return <button key={d.key} className="chip" onClick={() => setFilter(d.key)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: on ? 'var(--text)' : 'var(--surface)', color: on ? 'var(--bg)' : 'var(--text-2)', boxShadow: on ? '3px 3px 0 var(--primary)' : 'none' }}>{d.label} · {d.count}</button>;
+            return <button key={d.key} className="chip" onClick={() => { setFilter(d.key); setFixesOpen(true); }} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: on ? 'var(--text)' : 'var(--surface)', color: on ? 'var(--bg)' : 'var(--text-2)', boxShadow: on ? '3px 3px 0 var(--primary)' : 'none' }}>{d.label} · {d.count}</button>;
           })}
         </div>
       </div>
@@ -1002,12 +1048,37 @@ export function PageFixes() {
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 9, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
         <button className="chip" onClick={() => { setOpenCards(new Set(shown.map((f) => f.id))); setExpandedGroups(new Set(shown.map((f) => f.moduleKey))); }} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>▾ EXPAND ALL</button>
         <button className="chip" onClick={() => { setOpenCards(new Set()); setExpandedGroups(new Set()); }} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>▴ COLLAPSE ALL</button>
+        {shown.length > 0 && (() => {
+          const allPicked = shown.every((f) => picked.has(f.id));
+          return <button className="chip" onClick={() => setPicked(allPicked ? new Set() : new Set(shown.map((f) => f.id)))} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: allPicked ? 'var(--primary-50)' : 'var(--surface)', color: allPicked ? 'var(--primary)' : 'var(--text-2)', borderColor: allPicked ? 'var(--primary)' : 'var(--ink)' }}>{allPicked ? '☑ SELECT NONE' : `☐ SELECT ALL · ${shown.length}`}</button>;
+        })()}
         <button className="chip" onClick={() => setQuickWins((q) => !q)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: quickWins ? 'var(--success-50)' : 'var(--surface)', color: quickWins ? 'var(--success)' : 'var(--text-2)', borderColor: quickWins ? 'var(--success)' : 'var(--ink)' }}>⚡ QUICK WINS</button>
         <button className="chip" onClick={() => setGroupByPage((g) => !g)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: groupByPage ? 'var(--text)' : 'var(--surface)', color: groupByPage ? 'var(--bg)' : 'var(--text-2)' }}>▦ BY PAGE</button>
         <button className="chip" onClick={exportCsv} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>⤓ EXPORT CSV</button>
         <button className="chip" onClick={pdfReport} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>📄 PDF REPORT</button>
         <button className="chip" onClick={notify} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>🔔 NOTIFY</button>
       </div>
+
+      {/* Ignored tab — one-click "Restore all" (and "Restore selected" when a
+          subset is picked). Restoring hundreds of ignored fixes is a single
+          server round-trip. */}
+      {filter === 'dismissed' && shown.length > 0 && (
+        <div className="nb-sm" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 18px', marginBottom: 16, background: 'var(--primary-50)', borderColor: 'var(--primary)', boxShadow: '4px 4px 0 var(--primary)', flexWrap: 'wrap' }}>
+          <span className="disp" style={{ fontSize: 20 }}>↩</span>
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <div className="disp" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{shown.length} ignored fix{shown.length === 1 ? '' : 'es'}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Changed your mind? Bring them all back into the workflow — or tick a few and restore just those. Drafts are kept.</div>
+          </div>
+          {picked.size > 0 && (
+            <button className="gbtn" onClick={() => restoreAll(shown.filter((f) => picked.has(f.id)).map((f) => f.id))} disabled={bulkBusy} style={{ padding: '9px 15px', fontSize: 12.5 }}>
+              ↩ Restore selected ({shown.filter((f) => picked.has(f.id)).length})
+            </button>
+          )}
+          <button className="xbtn" onClick={() => restoreAll()} disabled={bulkBusy} style={{ background: 'var(--primary)' }}>
+            {bulkBusy ? 'RESTORING…' : `↩ RESTORE ALL ${shown.length}`}
+          </button>
+        </div>
+      )}
 
       {(safeFixes.length > 0 || automation) && (
         <div className="nb-sm" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 18px', marginBottom: 16, background: 'var(--success-50)', borderColor: 'var(--success)', boxShadow: '4px 4px 0 var(--success)', flexWrap: 'wrap' }}>
@@ -1051,7 +1122,34 @@ export function PageFixes() {
         ))}</div>
       )}
 
-      {!loading && shown.length === 0 && (
+      {/* Empty-list state. When a specific filter is active the generic
+          "run a scan" copy is misleading (e.g. the attention banner says
+          "2 failed" but this tab is empty because the rows aren't loaded, or
+          quick-wins filtered them out) — so we tailor the message per filter
+          and offer Refresh instead of Run scan. */}
+      {!loading && shown.length === 0 && filter !== 'all' && (
+        <div className="nb" style={{ padding: 48, textAlign: 'center', background: 'var(--surface)' }}>
+          <div className="disp" style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>
+            {filter === 'attention' ? 'NOTHING NEEDS ATTENTION HERE' : filter === 'dismissed' ? 'NOTHING IGNORED' : `NOTHING IN ${(filterDefs.find((d) => d.key === filter)?.label || filter).toUpperCase()}`}
+          </div>
+          <p style={{ margin: '12px auto 22px', fontSize: 13.5, color: 'var(--text-2)', maxWidth: '46ch', lineHeight: 1.6, fontWeight: 500 }}>
+            {filter === 'attention'
+              ? (attention && attention.failed > 0
+                  ? 'The failed fixes aren’t loaded in this view yet. Hit Refresh — or turn off Quick Wins if it’s on, since it hides medium/low fixes.'
+                  : 'No failed or reverted fixes right now. Anything that breaks while shipping will show up here.')
+              : quickWins
+                ? 'Quick Wins is on — it only shows zero-credit and high/critical fixes. Turn it off to see everything in this tab.'
+                : 'Nothing here yet. Switch to ALL to see every fix, or run a fresh scan.'}
+          </p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button className="gbtn" onClick={() => load(brandId)} disabled={loading}>↻ Refresh</button>
+            {quickWins && <button className="chip" onClick={() => setQuickWins(false)} style={{ cursor: 'pointer', fontSize: 12, padding: '8px 14px' }}>⚡ Turn off Quick Wins</button>}
+            <button className="chip" onClick={() => setFilter('all')} style={{ cursor: 'pointer', fontSize: 12, padding: '8px 14px' }}>Show ALL</button>
+          </div>
+        </div>
+      )}
+
+      {!loading && shown.length === 0 && filter === 'all' && (
         <div className="nb" style={{ padding: 56, textAlign: 'center', background: 'var(--primary-50)' }}>
           <div className="disp" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>NOTHING TO FIX… YET</div>
           <p style={{ margin: '12px auto 22px', fontSize: 14, color: 'var(--text-2)', maxWidth: '44ch', lineHeight: 1.6, fontWeight: 500 }}>Run a scan to check {brandName} against {selected.size} modules, ranked by severity.</p>
@@ -1680,84 +1778,161 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
 // Plain-language, self-contained tool: paste a paragraph, say what you want
 // it to do, and get the AI rewrite back *inline* (before → after) so the
 // result is visible right here — not only buried down in THE FIXES queue.
-function PassageSection({ disabled, onSubmit }: { disabled: boolean; onSubmit: (f: { url: string; passage: string; instruction: string }) => Promise<PassageResult> }) {
+// The three on-demand request types the box supports. Each maps to a module
+// server-side (see /api/brands/[id]/fixes/targeted).
+type TargetedMode = 'passage' | 'links' | 'keyword';
+const TARGETED_MODES: { key: TargetedMode; label: string; blurb: string; cta: string; working: string; wholeSiteModule?: string; wholeSiteLabel?: string }[] = [
+  {
+    key: 'passage', label: '✍ Rewrite a passage',
+    blurb: 'Got a paragraph that isn’t getting picked up by AI answers or search? Paste it and tell us the goal — we rewrite it to be clear and citable.',
+    cta: '✦ Rewrite this passage', working: 'Rewriting your passage…',
+  },
+  {
+    key: 'links', label: '🔗 Internal links & anchor text',
+    blurb: 'Add contextual internal links to a page (and steer the anchor text). Great for interlinking, boosting a target page, or fixing weak anchors. We pick relevant pages from your site and draft the links.',
+    cta: '✦ Draft internal links', working: 'Finding the best links…',
+    wholeSiteModule: 'internal-linking', wholeSiteLabel: 'link the whole site',
+  },
+  {
+    key: 'keyword', label: '🎯 Target a keyword',
+    blurb: 'Point a page at a specific keyword. We write a targeting plan plus a ready-to-publish section built to rank for it — as many keywords/pages as you want.',
+    cta: '✦ Build the keyword plan', working: 'Building your keyword plan…',
+    wholeSiteModule: 'keyword-opportunities', wholeSiteLabel: 'find keyword opportunities site-wide',
+  },
+];
+
+function TargetedSection({ disabled, onSubmit, onWholeSite, scanning }: {
+  disabled: boolean;
+  onSubmit: (f: { type: TargetedMode; url: string; passage?: string; keyword?: string; instruction?: string }) => Promise<PassageResult>;
+  onWholeSite: (moduleKey: string) => void;
+  scanning: boolean;
+}) {
+  // Collapsed by default so the page opens clean (matches the other sections).
   const [open, setOpen] = React.useState(false);
+  const [mode, setMode] = React.useState<TargetedMode>('passage');
   const [url, setUrl] = React.useState('');
   const [passage, setPassage] = React.useState('');
+  const [keyword, setKeyword] = React.useState('');
   const [instruction, setInstruction] = React.useState('');
-  // idle → working → done | error, plus the produced before/after.
+  // idle → working → done | error, plus the produced result.
   const [phase, setPhase] = React.useState<'idle' | 'working' | 'done' | 'error'>('idle');
   const [result, setResult] = React.useState<{ before: string; after: string; rationale?: string } | null>(null);
   const [errMsg, setErrMsg] = React.useState<string | null>(null);
+  const md = TARGETED_MODES.find((m) => m.key === mode)!;
 
   // Say WHY the button is disabled instead of leaving it silently grey.
   const need = Math.max(0, 12 - passage.trim().length);
   const missing = disabled ? 'Fix Engine is not enabled on your plan'
     : !url.trim() ? 'Add the page URL above to continue'
-    : passage.trim().length < 12 ? `Paste a bit more of the paragraph — ${need} more character${need === 1 ? '' : 's'} needed`
+    : mode === 'passage' && passage.trim().length < 12 ? `Paste a bit more of the paragraph — ${need} more character${need === 1 ? '' : 's'} needed`
+    : mode === 'keyword' && keyword.trim().length < 2 ? 'Enter the keyword you want to target'
     : null;
+
+  // Switching mode clears the produced result but keeps the URL (people work
+  // on the same page across task types).
+  const switchMode = (m: TargetedMode) => { setMode(m); setPhase('idle'); setResult(null); setErrMsg(null); };
 
   const run = async () => {
     if (missing) return;
     setPhase('working'); setErrMsg(null); setResult(null);
-    const r = await onSubmit({ url, passage, instruction });
+    const r = await onSubmit({ type: mode, url, passage, keyword, instruction });
     if (r.ok) {
       const gen = (r.fix?.generated || {}) as { rewritten?: string; original?: string; rationale?: string };
-      const before = r.preview?.before ?? gen.original ?? passage;
-      const after = r.preview?.after ?? gen.rewritten ?? '';
-      if (!after.trim()) { setPhase('error'); setErrMsg('The rewrite came back empty — try again, or make the goal more specific.'); return; }
-      setResult({ before, after, rationale: gen.rationale });
+      if (mode === 'passage') {
+        const before = r.preview?.before ?? gen.original ?? passage;
+        const after = r.preview?.after ?? gen.rewritten ?? '';
+        if (!after.trim()) { setPhase('error'); setErrMsg('The rewrite came back empty — try again, or make the goal more specific.'); return; }
+        setResult({ before, after, rationale: gen.rationale });
+      } else {
+        // links / keyword: the module's preview.after holds the drafted links
+        // or the keyword plan + section (no meaningful "before").
+        const after = r.preview?.after ?? '';
+        if (!after.trim()) { setPhase('error'); setErrMsg('Nothing came back — try again, or add a hint in the “what should it do” box.'); return; }
+        setResult({ before: '', after, rationale: gen.rationale });
+      }
       setPhase('done');
     } else {
       setPhase('error'); setErrMsg(r.error);
     }
   };
 
-  // Clear the paragraph/goal so the next rewrite starts fresh (keep the URL —
-  // people often rewrite several passages on the same page).
-  const startAnother = () => { setPhase('idle'); setResult(null); setErrMsg(null); setPassage(''); setInstruction(''); };
+  // Reset the inputs (keep the URL) so the next request starts fresh.
+  const startAnother = () => { setPhase('idle'); setResult(null); setErrMsg(null); setPassage(''); setKeyword(''); setInstruction(''); };
 
   const spinner = <span aria-hidden style={{ display: 'inline-block', width: 14, height: 14, border: '2.5px solid rgba(255,255,255,.5)', borderTopColor: '#fff', borderRadius: '50%', animation: 'xspin .7s linear infinite' }} />;
   const working = phase === 'working';
 
   return (
     <section className="nb" style={{ padding: 0, overflow: 'hidden', background: 'var(--info-50)' }}>
-      <SectionHeader title="OPTIMIZE A PASSAGE" open={open} onToggle={() => setOpen((o) => !o)} bg="var(--info)" />
+      <SectionHeader title="ASK FOR A FIX — ANY PAGE, ANYTIME" open={open} onToggle={() => setOpen((o) => !o)} bg="var(--info)" />
       {open && (
       <div style={{ padding: '18px 20px', display: 'grid', gap: 15 }}>
-        <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.55 }}>
-          Got a paragraph that isn&apos;t getting picked up by AI answers or search? Paste it below and tell us the goal in plain words.
-          We rewrite it to be clear and citable, show you the new version right here, then add it to <strong>The Fixes</strong> so you can ship it to your page in one click.
-        </p>
+        {/* Task-type selector */}
+        <div role="tablist" aria-label="What do you want to do?" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {TARGETED_MODES.map((m) => {
+            const on = m.key === mode;
+            return (
+              <button key={m.key} role="tab" aria-selected={on} onClick={() => switchMode(m.key)} disabled={working}
+                className="nb-sm" style={{ padding: '8px 13px', fontSize: 12.5, fontWeight: 700, cursor: working ? 'default' : 'pointer', background: on ? 'var(--info)' : 'var(--surface)', color: on ? '#fff' : 'var(--text-2)', boxShadow: on ? '3px 3px 0 var(--ink)' : 'none' }}>
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
 
+        <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.55 }}>{md.blurb}</p>
+
+        {/* Fields adapt to the selected task */}
         <div>
-          <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>1 · Which page is the paragraph on?</div>
+          <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>
+            {mode === 'passage' ? '1 · Which page is the paragraph on?' : mode === 'keyword' ? '1 · Which page should target it?' : '1 · Which page should get the links?'}
+          </div>
           <input className="xin" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://yoursite.com/pricing" disabled={working} />
         </div>
+
+        {mode === 'passage' && (
+          <div>
+            <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>2 · Paste the exact paragraph to improve</div>
+            <textarea className="xin" rows={3} value={passage} onChange={(e) => setPassage(e.target.value)} placeholder="Copy the exact paragraph or lines straight from the page…" disabled={working} />
+          </div>
+        )}
+        {mode === 'keyword' && (
+          <div>
+            <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>2 · Which keyword?</div>
+            <input className="xin" value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="e.g. ai visibility tracking for agencies" disabled={working} />
+          </div>
+        )}
+
         <div>
-          <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>2 · Paste the exact paragraph to improve</div>
-          <textarea className="xin" rows={3} value={passage} onChange={(e) => setPassage(e.target.value)} placeholder="Copy the exact paragraph or lines straight from the page…" disabled={working} />
-        </div>
-        <div>
-          <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>3 · What should it do? <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600, color: 'var(--text-3)' }}>(optional)</span></div>
-          <input className="xin" value={instruction} onChange={(e) => setInstruction(e.target.value)} placeholder={'e.g. clearly answer "is Acme good for engineering teams?"'} disabled={working} />
+          <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>
+            {mode === 'passage' ? '3' : '2'} · What should it do? <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600, color: 'var(--text-3)' }}>(optional)</span>
+          </div>
+          <input className="xin" value={instruction} onChange={(e) => setInstruction(e.target.value)}
+            placeholder={mode === 'passage' ? 'e.g. clearly answer "is Acme good for engineering teams?"'
+              : mode === 'links' ? 'e.g. link to /pricing using the anchor “AI visibility pricing”'
+              : 'e.g. focus on comparison-shoppers, mention our free tier'} disabled={working} />
         </div>
 
-        <button
-          className="xbtn"
-          onClick={run}
-          disabled={!!missing || working}
-          style={{ background: 'var(--info)', justifyContent: 'center' }}
-        >
-          {working ? <>{spinner} Rewriting your passage…</> : phase === 'done' ? '✦ Rewrite this again' : '✦ Rewrite this passage'}
+        <button className="xbtn" onClick={run} disabled={!!missing || working} style={{ background: 'var(--info)', justifyContent: 'center' }}>
+          {working ? <>{spinner} {md.working}</> : phase === 'done' ? '✦ Do another' : md.cta}
         </button>
         {!working && missing && <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-2)', textAlign: 'center' }}>{missing}</span>}
-        {!working && !missing && phase === 'idle' && <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--text-3)', textAlign: 'center' }}>You&apos;ll see the rewritten version here before anything ships.</span>}
+        {!working && !missing && phase === 'idle' && <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--text-3)', textAlign: 'center' }}>You’ll see the result here before anything ships — and you can do this as many times as you like.</span>}
+
+        {/* Whole-site shortcut for the modules that support a site-wide sweep */}
+        {md.wholeSiteModule && (
+          <div style={{ textAlign: 'center', fontSize: 11.5, fontWeight: 500, color: 'var(--text-3)' }}>
+            Want it across every page?{' '}
+            <button className="tbtn" onClick={() => onWholeSite(md.wholeSiteModule!)} disabled={disabled || working || scanning} style={{ fontSize: 11.5, fontWeight: 700 }}>
+              {scanning ? 'Scanning…' : `↻ ${md.wholeSiteLabel}`}
+            </button>
+          </div>
+        )}
 
         {/* Error — shown right in the card so the click never looks dead. */}
         {phase === 'error' && errMsg && (
           <div className="nb-sm" style={{ padding: '12px 14px', background: 'var(--danger-50)', borderColor: 'var(--danger)', boxShadow: '3px 3px 0 var(--danger)' }}>
-            <div className="disp" style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger)', marginBottom: 3 }}>✕ Couldn&apos;t create the rewrite</div>
+            <div className="disp" style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger)', marginBottom: 3 }}>✕ Couldn’t create that fix</div>
             <div style={{ fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.5 }}>{errMsg}</div>
           </div>
         )}
@@ -1765,24 +1940,32 @@ function PassageSection({ disabled, onSubmit }: { disabled: boolean; onSubmit: (
         {/* Inline result — the whole point: SEE what the fix produced. */}
         {phase === 'done' && result && (
           <div className="nb-sm" style={{ padding: 0, overflow: 'hidden', boxShadow: '4px 4px 0 var(--success)', borderColor: 'var(--success)' }}>
-            <div className="disp" style={{ padding: '10px 14px', background: 'var(--success)', color: '#fff', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>✓ Here&apos;s your rewrite</div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}>
-              <span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− NOW</span>
-              <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: 'var(--text-2)', textDecoration: 'line-through', textDecorationColor: 'var(--danger-200)', lineHeight: 1.5 }}>{result.before || '(empty)'}</span>
+            <div className="disp" style={{ padding: '10px 14px', background: 'var(--success)', color: '#fff', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+              ✓ {mode === 'passage' ? 'Here’s your rewrite' : mode === 'links' ? 'Here are the links we’ll add' : 'Here’s your keyword plan'}
             </div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--success-50)' }}>
-              <span className="disp" style={{ color: 'var(--success)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ NEW</span>
-              <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>{result.after}</span>
-            </div>
+            {mode === 'passage' ? (<>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}>
+                <span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− NOW</span>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: 'var(--text-2)', textDecoration: 'line-through', textDecorationColor: 'var(--danger-200)', lineHeight: 1.5 }}>{result.before || '(empty)'}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--success-50)' }}>
+                <span className="disp" style={{ color: 'var(--success)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ NEW</span>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>{result.after}</span>
+              </div>
+            </>) : (
+              <div style={{ padding: '12px 14px', background: 'var(--success-50)' }}>
+                <pre style={{ margin: 0, fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: 'var(--text)', lineHeight: 1.55, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{result.after}</pre>
+              </div>
+            )}
             {result.rationale && (
               <div style={{ padding: '10px 14px', borderTop: '2px dashed var(--line)', background: 'var(--surface)' }}>
-                <div className="xlbl" style={{ color: 'var(--text-3)', marginBottom: 4 }}>Why this is better</div>
+                <div className="xlbl" style={{ color: 'var(--text-3)', marginBottom: 4 }}>Why this helps</div>
                 <div style={{ fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.5 }}>{result.rationale}</div>
               </div>
             )}
             <div style={{ padding: '11px 14px', borderTop: '2px solid var(--ink)', background: 'var(--surface)', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 160 }}>Saved to <strong>The Fixes</strong> below — review it there, then approve &amp; ship to your page.</span>
-              <button className="gbtn" onClick={startAnother} style={{ padding: '7px 13px', fontSize: 12 }}>Rewrite another</button>
+              <button className="gbtn" onClick={startAnother} style={{ padding: '7px 13px', fontSize: 12 }}>Do another</button>
             </div>
           </div>
         )}
