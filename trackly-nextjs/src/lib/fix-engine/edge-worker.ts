@@ -1,0 +1,69 @@
+/**
+ * Fix Engine - edge Worker script template (single source of truth).
+ *
+ * Both surfaces use this builder so the script is always identical:
+ *   - the dashboard's copy-paste snippet (Connections → Pair), and
+ *   - the one-click Cloudflare API deploy (connections/cloudflare/deploy).
+ *
+ * Pure string builder — no imports — so it is safe to use from client
+ * components and server routes alike.
+ */
+
+/** Response header the Worker stamps on every response; the edge adapter
+ *  and connect flow probe for it to confirm the Worker is routed. */
+export const EDGE_MARKER_HEADER = 'x-livesov-edge';
+
+/**
+ * Build the Cloudflare Worker script (module syntax) for a brand.
+ * `token` is the brand's raw Connector token; `edgeBase` is the absolute
+ * /api/edge/serve URL of this Livesov deployment.
+ */
+export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
+  return `// Cloudflare Worker — Livesov edge publishing. Nothing installed on your site.\n`
+    + `// Works for ANY stack (WordPress, custom-coded, ...): serves /llms.txt, appends\n`
+    + `// AI rules to /robots.txt, and applies your shipped SEO fixes (title, meta\n`
+    + `// description, canonical, JSON-LD schema, OG/Twitter cards, noindex removal)\n`
+    + `// to every page as it is served.\n`
+    + `const T = ${JSON.stringify(token)};\n`
+    + `const BASE = ${JSON.stringify(edgeBase)};\n`
+    + `const H = { headers: { Authorization: 'Bearer ' + T } };\n`
+    + `const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');\n`
+    + `export default {\n`
+    + `  async fetch(req) {\n`
+    + `    const p = new URL(req.url).pathname;\n`
+    + `    if (p === '/llms.txt') return fetch(BASE + '?file=llms.txt', H);\n`
+    + `    if (p === '/robots.txt') {\n`
+    + `      const [base, add] = await Promise.all([\n`
+    + `        fetch(req).then(r => r.text()).catch(() => ''),\n`
+    + `        fetch(BASE + '?file=robots.txt', H).then(r => r.ok ? r.text() : '').catch(() => ''),\n`
+    + `      ]);\n`
+    + `      return new Response((base + '\\n' + add).trim() + '\\n', { headers: { 'content-type': 'text/plain' } });\n`
+    + `    }\n`
+    + `    const res = await fetch(req);\n`
+    + `    const out = new Response(res.body, res);\n`
+    + `    out.headers.set('${EDGE_MARKER_HEADER}', 'v1'); // lets Livesov verify the Worker is live\n`
+    + `    if (req.method !== 'GET' || !(res.headers.get('content-type') || '').includes('text/html')) return out;\n`
+    + `    let o = null;\n`
+    + `    try { // per-path SEO overrides from your shipped fixes (5-min edge cache)\n`
+    + `      const r = await fetch(BASE + '?file=seo.json', { ...H, cf: { cacheTtl: 300, cacheEverything: true } });\n`
+    + `      if (r.ok) { const d = await r.json(); const k = p.length > 1 ? p.replace(/\\/+$/, '') : p; o = (d.overrides || {})[k] || (d.overrides || {})[k + '/'] || null; }\n`
+    + `    } catch {}\n`
+    + `    if (!o) return out;\n`
+    + `    if (o.indexable) out.headers.delete('x-robots-tag'); // noindex removal (header side)\n`
+    + `    let sawT = false, sawD = false, sawC = false;\n`
+    + `    let rw = new HTMLRewriter();\n`
+    + `    if (o.title) rw = rw.on('title', { element(e) { sawT = true; e.setInnerContent(o.title); } });\n`
+    + `    if (o.description) rw = rw.on('meta[name="description"]', { element(e) { sawD = true; e.setAttribute('content', o.description); } });\n`
+    + `    if (o.canonical) rw = rw.on('link[rel="canonical"]', { element(e) { sawC = true; e.setAttribute('href', o.canonical); } });\n`
+    + `    if (o.indexable) rw = rw.on('meta[name="robots"]', { element(e) { e.setAttribute('content', 'index, follow'); } });\n`
+    + `    rw = rw.on('head', { element(e) { e.onEndTag((end) => { // inject tags the page lacks\n`
+    + `      if (o.title && !sawT) end.before('<title>' + esc(o.title) + '</title>', { html: true });\n`
+    + `      if (o.description && !sawD) end.before('<meta name="description" content="' + esc(o.description) + '">', { html: true });\n`
+    + `      if (o.canonical && !sawC) end.before('<link rel="canonical" href="' + esc(o.canonical) + '">', { html: true });\n`
+    + `      if (o.jsonLd) end.before('<script type="application/ld+json">' + o.jsonLd + '</scr' + 'ipt>', { html: true });\n`
+    + `      if (o.head) end.before(o.head, { html: true }); // OG/Twitter card block\n`
+    + `    }); } });\n`
+    + `    return rw.transform(out);\n`
+    + `  }\n`
+    + `};\n`;
+}

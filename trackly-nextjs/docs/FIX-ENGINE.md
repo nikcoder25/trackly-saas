@@ -511,6 +511,19 @@ rewrite happens at the CDN layer it's completely stack-agnostic: WordPress,
 custom-coded, static, anything. Body/content edits can't be done at the edge
 and degrade to the hand-off path (CMS, endpoint, or ticket).
 
+**One-click deploy (`POST …/connections/cloudflare/deploy`):** the manual
+paste-a-Worker flow only has to happen zero or one times per *account*, not
+per site. With a Cloudflare API token (scopes: Workers Scripts:Edit, Workers
+Routes:Edit, Zone:Read — entered once, stored encrypted, reused across all
+the user's brands via `getLatestUserConnection`), the route does the whole
+chain itself: verify token → find the site's zone (walking sub-domains up to
+the registered zone) → mint the Connector pairing → build the Worker
+(`buildEdgeWorkerScript`, the same single-source template the dashboard
+snippet uses) → upload it account-level and route `zone/*` + `*.zone/*`
+(idempotent; re-deploys update in place) → probe for the marker → auto-create
+the brand's `edge` CMS connection when live. Adding website #2, #3, … is one
+click: Connections → platform `edge` → **Deploy automatically**.
+
 So the only thing that *requires* the Connector plugin is the connector-staged
 *draft preview* of edits to already-published pages. Everything else can be
 applied with **no plugin**:

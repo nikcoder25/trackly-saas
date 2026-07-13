@@ -20,11 +20,11 @@
  */
 
 import { safeFetch } from '@/lib/safe-fetch';
+import { EDGE_MARKER_HEADER } from '../edge-worker';
 import type { CmsAdapter, CmsCreds, CmsWriteResult } from './types';
 import { CmsUnsupportedError } from './types';
 
-/** Response header the generated Worker stamps on every response. */
-export const EDGE_MARKER_HEADER = 'x-livesov-edge';
+export { EDGE_MARKER_HEADER };
 
 async function edgeMarkerOn(url: string): Promise<{ routed: boolean; status?: number; error?: string }> {
   try {
