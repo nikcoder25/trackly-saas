@@ -405,7 +405,11 @@ fetches the live `/llms.txt`) flips it to `verified`. A failed ack
 >   All ops are idempotent overwrites, so re-delivery is safe.
 > - *Auto-verify* — on a successful ack the engine auto-runs `recheck`
 >   (non-blocking via `after()`), so Channel-B fixes flip to `verified`
->   with no manual step.
+>   with no manual step. Channel-A ships get the same treatment inside
+>   `shipFix()`: after the CMS/endpoint reports ok, a deferred `recheck`
+>   crawls the live page — so a write that didn't actually persist (e.g.
+>   a custom endpoint that acks without storing) shows up immediately as
+>   shipped-but-unverified instead of masquerading as done.
 > - *Server-side watchdog* — the `fix-engine-worker` cron runs
 >   `runConnectorWatchdog()` each tick (`connector-watchdog.ts`). It finds
 >   Channel-B fixes still undelivered after a grace period (default 2h) and

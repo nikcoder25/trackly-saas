@@ -72,7 +72,12 @@ contract above — it's ~40 lines anywhere.
 3. Click **Generate secret**, put the same secret in your endpoint's env,
    paste the endpoint URL, **Connect** — Livesov sends a signed `ping`
    and stores the credentials encrypted only if it succeeds.
-4. Ship your first fix to a low-traffic page and hit **Re-check**.
+4. Ship your first fix to a low-traffic page. The engine auto-runs a
+   re-check right after your endpoint acks: it crawls the live page and
+   only marks the fix **verified** when the change is really there — an
+   endpoint that replies `ok` without persisting stays at "shipped",
+   never falsely "verified". **Re-check** stays available for manual
+   re-runs (e.g. after a CDN cache clears).
 
 ## 4. Alternatives if you can't add an endpoint
 
