@@ -5,9 +5,10 @@
  * (generated in the dashboard, pasted once into the domain's CDN) rewrites
  * each HTML response in transit: it pulls the brand's per-path overrides
  * from /api/edge/serve?file=seo.json and applies the shipped title, meta
- * description, and canonical values via HTMLRewriter. Because the change
- * happens at the CDN layer, it works identically for WordPress, custom-coded
- * sites, or anything else behind the domain.
+ * description, canonical, JSON-LD schema, OG/Twitter head block, and
+ * noindex-removal values via HTMLRewriter. Because the change happens at
+ * the CDN layer, it works identically for WordPress, custom-coded sites,
+ * or anything else behind the domain.
  *
  * Shipping therefore doesn't push anything: a fix's shipped/verified row IS
  * the override (getEdgeSeoOverrides), and reverting removes it. What this
@@ -86,12 +87,21 @@ export const edgeAdapter: CmsAdapter = {
     return edgeWrite(target.url, 'canonical', canonical);
   },
 
-  // The edge can only rewrite head-level SEO tags; content edits still need
+  // JSON-LD is injected before </head> by the Worker (override field jsonLd).
+  async injectSchema(_creds, target, jsonLd) {
+    return edgeWrite(target.url, 'jsonLd', jsonLd);
+  },
+
+  // The Worker rewrites meta robots to index,follow and strips the
+  // X-Robots-Tag response header (override flag indexable).
+  async setIndexable(_creds, target) {
+    return edgeWrite(target.url, 'indexable', 'true');
+  },
+
+  // The edge can only touch head-level SEO; body/content edits still need
   // a CMS/endpoint. These degrade to the engine's hand-off path (ticket /
   // manual) instead of failing silently.
   async updateBody() { throw new CmsUnsupportedError('update_body', 'edge'); },
-  async injectSchema() { throw new CmsUnsupportedError('inject_schema', 'edge'); },
   async createPage() { throw new CmsUnsupportedError('create_page', 'edge'); },
-  async setIndexable() { throw new CmsUnsupportedError('set_indexable', 'edge'); },
   async replaceInBody() { throw new CmsUnsupportedError('replace_in_body', 'edge'); },
 };

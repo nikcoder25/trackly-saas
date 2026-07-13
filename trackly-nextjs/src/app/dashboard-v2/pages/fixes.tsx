@@ -1491,7 +1491,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                   {cmsType === 'edge' && (
                     <div className="nb-sm" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', display: 'grid', gap: 9 }}>
                       <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--info)' }}>☁ NOTHING INSTALLED ON YOUR SITE — WORKS ON ANY STACK</div>
-                      <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text)', fontWeight: 500 }}>Your shipped title / meta description / canonical fixes are applied by a tiny Cloudflare Worker as pages are served — WordPress, custom-coded, anything. Three steps:</span>
+                      <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text)', fontWeight: 500 }}>Your shipped head-level fixes — title, meta description, canonical, JSON-LD schema, OG/Twitter cards, noindex removal — are applied by a tiny Cloudflare Worker as pages are served — WordPress, custom-coded, anything. Three steps:</span>
                       <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.75, color: 'var(--text)', fontWeight: 500, display: 'grid', gap: 2 }}>
                         <li><b>Pair</b> the Connector below (just to mint the token — you won&apos;t install the plugin).</li>
                         <li><b>Copy the Worker</b> shown after pairing → paste it into a Cloudflare Worker and route it to your domain.</li>
@@ -1580,7 +1580,8 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               const worker = `// Cloudflare Worker — Livesov edge publishing. Nothing installed on your site.\n`
                 + `// Works for ANY stack (WordPress, custom-coded, ...): serves /llms.txt, appends\n`
                 + `// AI rules to /robots.txt, and applies your shipped SEO fixes (title, meta\n`
-                + `// description, canonical) to every page as it is served.\n`
+                + `// description, canonical, JSON-LD schema, OG/Twitter cards, noindex removal)\n`
+                + `// to every page as it is served.\n`
                 + `const T = ${JSON.stringify(pairing.token)};\n`
                 + `const BASE = ${JSON.stringify(edgeBase)};\n`
                 + `const H = { headers: { Authorization: 'Bearer ' + T } };\n`
@@ -1606,15 +1607,19 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                 + `      if (r.ok) { const d = await r.json(); const k = p.length > 1 ? p.replace(/\\/+$/, '') : p; o = (d.overrides || {})[k] || (d.overrides || {})[k + '/'] || null; }\n`
                 + `    } catch {}\n`
                 + `    if (!o) return out;\n`
+                + `    if (o.indexable) out.headers.delete('x-robots-tag'); // noindex removal (header side)\n`
                 + `    let sawT = false, sawD = false, sawC = false;\n`
                 + `    let rw = new HTMLRewriter();\n`
                 + `    if (o.title) rw = rw.on('title', { element(e) { sawT = true; e.setInnerContent(o.title); } });\n`
                 + `    if (o.description) rw = rw.on('meta[name="description"]', { element(e) { sawD = true; e.setAttribute('content', o.description); } });\n`
                 + `    if (o.canonical) rw = rw.on('link[rel="canonical"]', { element(e) { sawC = true; e.setAttribute('href', o.canonical); } });\n`
+                + `    if (o.indexable) rw = rw.on('meta[name="robots"]', { element(e) { e.setAttribute('content', 'index, follow'); } });\n`
                 + `    rw = rw.on('head', { element(e) { e.onEndTag((end) => { // inject tags the page lacks\n`
                 + `      if (o.title && !sawT) end.before('<title>' + esc(o.title) + '</title>', { html: true });\n`
                 + `      if (o.description && !sawD) end.before('<meta name="description" content="' + esc(o.description) + '">', { html: true });\n`
                 + `      if (o.canonical && !sawC) end.before('<link rel="canonical" href="' + esc(o.canonical) + '">', { html: true });\n`
+                + `      if (o.jsonLd) end.before('<script type="application/ld+json">' + o.jsonLd + '</scr' + 'ipt>', { html: true });\n`
+                + `      if (o.head) end.before(o.head, { html: true }); // OG/Twitter card block\n`
                 + `    }); } });\n`
                 + `    return rw.transform(out);\n`
                 + `  }\n`
@@ -1622,7 +1627,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               return (
                 <details style={{ borderTop: '2px dashed var(--warn)', paddingTop: 10 }}>
                   <summary className="disp" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', cursor: 'pointer' }}>No plugin, any stack? Publish at the edge (Cloudflare) →</summary>
-                  <p style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500, margin: '8px 0' }}>Paste this into a Cloudflare Worker and route it to your domain — nothing is installed on the website itself, so it works for WordPress <em>and</em> custom-coded sites alike. It serves your latest <code>/llms.txt</code>, appends AI-crawler rules to <code>/robots.txt</code>, and applies your shipped title / meta description / canonical fixes to every page. Then connect the CMS as platform <code>edge</code> (Connections) so Ship uses this path.</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500, margin: '8px 0' }}>Paste this into a Cloudflare Worker and route it to your domain — nothing is installed on the website itself, so it works for WordPress <em>and</em> custom-coded sites alike. It serves your latest <code>/llms.txt</code>, appends AI-crawler rules to <code>/robots.txt</code>, and applies your shipped fixes to every page: title, meta description, canonical, JSON-LD schema, OG/Twitter cards, and noindex removal. Then connect the CMS as platform <code>edge</code> (Connections) so Ship uses this path.</p>
                   <pre className="mono nb-sm" style={{ margin: 0, fontSize: 10.5, lineHeight: 1.5, padding: 12, background: 'var(--surface-3)', boxShadow: 'none', overflow: 'auto', maxHeight: 200, color: 'var(--text)', whiteSpace: 'pre' }}>{worker}</pre>
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
                     <button className="gbtn" onClick={() => copy(worker, 'Cloudflare Worker')} style={{ padding: '7px 12px' }}>Copy Worker</button>

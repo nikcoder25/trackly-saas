@@ -86,8 +86,9 @@ contract above — it's ~40 lines anywhere.
 - **Edge publishing (Cloudflare Worker) — recommended when the domain is on
   Cloudflare.** Zero code on the site: paste the Worker from the dashboard
   (Connections → Pair → Worker snippet) into your Cloudflare zone, then
-  connect the CMS as platform `edge`. Shipped title / meta description /
-  canonical fixes are applied to every page as it is served, plus automatic
+  connect the CMS as platform `edge`. Shipped head-level fixes — title,
+  meta description, canonical, JSON-LD schema, OG/Twitter cards, noindex
+  removal — are applied to every page as it is served, plus automatic
   `llms.txt` / `robots.txt`. Works on any stack; body/content edits still
   hand off to your team.
 - **Linear/Jira/webhook hand-off** — every approved fix becomes a ticket

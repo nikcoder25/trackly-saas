@@ -489,11 +489,14 @@ paste **Cloudflare Worker** (token embedded) that:
 - serves `/llms.txt` and appends the AI directives to the origin's
   `/robots.txt`;
 - **applies shipped on-page SEO fixes to every HTML response** via
-  HTMLRewriter: `seo.json` is the brand's per-path override map (title /
-  meta description / canonical, built by `getEdgeSeoOverrides()` from
-  shipped `title-rewrite` / `meta-rewrite` / `ctr-rescue` / `canonical-fix`
-  rows), and the Worker rewrites — or injects, when the page lacks the tag —
-  those values as pages are served. Reverting a fix removes its override.
+  HTMLRewriter: `seo.json` is the brand's per-path override map, built by
+  `getEdgeSeoOverrides()` from shipped rows of `title-rewrite`,
+  `meta-rewrite`, `ctr-rescue`, `canonical-fix`, `schema-markup` (JSON-LD
+  injected before `</head>`, `</`-escaped against script breakout),
+  `og-cards` (head block), and `noindex-removal` (meta robots rewritten to
+  index,follow + the `X-Robots-Tag` response header stripped). The Worker
+  rewrites — or injects, when the page lacks the tag — those values as
+  pages are served. Reverting a fix removes its override.
 
 The Worker stamps `x-livesov-edge: v1` on every response. The **`edge` CMS
 adapter** uses that marker for truthfulness: connecting as platform `edge`

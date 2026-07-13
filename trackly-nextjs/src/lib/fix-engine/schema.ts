@@ -531,14 +531,31 @@ export async function getConnectorFix(fixId: string, brandId: string): Promise<F
 // ── Edge SEO overrides (plugin-free publishing via CDN Worker) ────
 
 /** Per-page SEO values the edge Worker applies while serving the page. */
-export interface EdgeSeoOverride { title?: string; description?: string; canonical?: string }
+export interface EdgeSeoOverride {
+  title?: string;
+  description?: string;
+  canonical?: string;
+  /** JSON-LD string injected as a <script type="application/ld+json"> block. */
+  jsonLd?: string;
+  /** Trusted head HTML block (OG/Twitter cards) injected before </head>. */
+  head?: string;
+  /** Force indexable: rewrite meta robots to index,follow + strip X-Robots-Tag. */
+  indexable?: boolean;
+}
 
 /** module → which override field(s) its `generated` payload carries. */
-const EDGE_SEO_MODULES: Record<string, Array<{ genField: string; overrideField: keyof EdgeSeoOverride }>> = {
+const EDGE_SEO_MODULES: Record<string, Array<{ genField: string; overrideField: 'title' | 'description' | 'canonical' | 'jsonLd' | 'head' }>> = {
   'title-rewrite': [{ genField: 'title', overrideField: 'title' }],
   'meta-rewrite': [{ genField: 'description', overrideField: 'description' }],
   'ctr-rescue': [{ genField: 'title', overrideField: 'title' }, { genField: 'description', overrideField: 'description' }],
   'canonical-fix': [{ genField: 'canonical', overrideField: 'canonical' }],
+  'schema-markup': [{ genField: 'schema', overrideField: 'jsonLd' }],
+  'og-cards': [{ genField: 'head', overrideField: 'head' }],
+};
+
+/** Deterministic modules whose override is a flag, not generated content. */
+const EDGE_FLAG_MODULES: Record<string, keyof Pick<EdgeSeoOverride, 'indexable'>> = {
+  'noindex-removal': 'indexable',
 };
 
 /** Normalise a page URL to the pathname key the Worker matches on
@@ -560,14 +577,25 @@ export function buildEdgeSeoOverrides(
 ): Record<string, EdgeSeoOverride> {
   const out: Record<string, EdgeSeoOverride> = {};
   for (const row of rows) {
-    const fields = EDGE_SEO_MODULES[row.moduleKey];
-    if (!fields || !row.targetUrl || !row.generated) continue;
+    if (!row.targetUrl) continue;
     const key = edgeSeoPathKey(row.targetUrl);
     if (!key) continue;
+    const flag = EDGE_FLAG_MODULES[row.moduleKey];
+    if (flag) {
+      (out[key] ??= {})[flag] = true;
+      continue;
+    }
+    const fields = EDGE_SEO_MODULES[row.moduleKey];
+    if (!fields || !row.generated) continue;
     for (const { genField, overrideField } of fields) {
       const v = row.generated[genField];
       if (typeof v === 'string' && v.trim()) {
-        (out[key] ??= {})[overrideField] = v.trim();
+        // jsonLd is emitted inside a <script> block — escape any '</' so
+        // a string value containing '</script>' can't break out of it
+        // ('<\/' is a valid, equivalent JSON escape).
+        (out[key] ??= {})[overrideField] = overrideField === 'jsonLd'
+          ? v.trim().replace(/<\//g, '<\\/')
+          : v.trim();
       }
     }
   }
@@ -588,7 +616,7 @@ export async function getEdgeSeoOverrides(brandId: string): Promise<Record<strin
         AND status IN ('shipped','verified')
         AND target_url IS NOT NULL AND generated IS NOT NULL
       ORDER BY updated_at ASC`,
-    [brandId, Object.keys(EDGE_SEO_MODULES)],
+    [brandId, [...Object.keys(EDGE_SEO_MODULES), ...Object.keys(EDGE_FLAG_MODULES)]],
   );
   return buildEdgeSeoOverrides(res.rows.map((r: DbRow) => ({
     moduleKey: String(r.module_key),

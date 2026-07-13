@@ -50,12 +50,14 @@ describe('edge adapter', () => {
     expect(r.detail).toMatch(/x-livesov-edge/);
   });
 
-  it('title/meta/canonical writes report ok when the Worker fronts the page', async () => {
+  it('head-level writes report ok when the Worker fronts the page', async () => {
     fetchMock.mockResolvedValue(res({ [EDGE_MARKER_HEADER]: 'v1' }));
     for (const call of [
       edgeAdapter.updateTitle({}, target, 'New Title'),
       edgeAdapter.updateMetaDescription({}, target, 'New description'),
       edgeAdapter.updateCanonical({}, target, 'https://acme.test/pricing'),
+      edgeAdapter.injectSchema({}, target, '{"@type":"Organization"}'),
+      edgeAdapter.setIndexable({}, target),
     ]) {
       const r = await call;
       expect(r.ok).toBe(true);
@@ -80,9 +82,7 @@ describe('edge adapter', () => {
 
   it('throws CmsUnsupportedError for body/content ops (degrades to hand-off)', async () => {
     await expect(edgeAdapter.updateBody({}, target, '<p>x</p>', 'replace')).rejects.toBeInstanceOf(CmsUnsupportedError);
-    await expect(edgeAdapter.injectSchema({}, target, '{}')).rejects.toBeInstanceOf(CmsUnsupportedError);
     await expect(edgeAdapter.createPage({}, { title: 't', slug: 's', html: 'h' })).rejects.toBeInstanceOf(CmsUnsupportedError);
-    await expect(edgeAdapter.setIndexable({}, target)).rejects.toBeInstanceOf(CmsUnsupportedError);
     await expect(edgeAdapter.replaceInBody({}, target, 'a', 'b')).rejects.toBeInstanceOf(CmsUnsupportedError);
   });
 });
@@ -121,5 +121,21 @@ describe('edge SEO override builder', () => {
       { moduleKey: 'meta-rewrite', targetUrl: 'https://a.com/y', generated: null },
     ]);
     expect(out).toEqual({});
+  });
+
+  it('carries JSON-LD schema with </script>-breakout escaping', () => {
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'schema-markup', targetUrl: 'https://a.com/s', generated: { schema: '{"@type":"FAQPage","x":"</script><img>"}' } },
+    ]);
+    expect(out['/s'].jsonLd).toBe('{"@type":"FAQPage","x":"<\\/script><img>"}');
+  });
+
+  it('carries the OG/Twitter head block and the indexable flag', () => {
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'og-cards', targetUrl: 'https://a.com/', generated: { head: '<meta property="og:title" content="T">' } },
+      { moduleKey: 'noindex-removal', targetUrl: 'https://a.com/hidden', generated: { action: 'set-indexable' } },
+    ]);
+    expect(out['/'].head).toContain('og:title');
+    expect(out['/hidden']).toEqual({ indexable: true });
   });
 });
