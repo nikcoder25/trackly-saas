@@ -327,9 +327,10 @@ export function PageFixes() {
   const requestConnect = React.useCallback((platform: string) => setConnectRequest((r) => ({ platform, nonce: (r?.nonce ?? 0) + 1 })), []);
   const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(new Set());
   // Section-level collapse for the two inline cards (the component sections
-  // manage their own). All default open; toggling keeps the page scannable.
-  const [modulesOpen, setModulesOpen] = React.useState(true);
-  const [fixesOpen, setFixesOpen] = React.useState(true);
+  // manage their own). All default collapsed so the page opens clean and
+  // scannable; the user expands each section as needed.
+  const [modulesOpen, setModulesOpen] = React.useState(false);
+  const [fixesOpen, setFixesOpen] = React.useState(false);
   // Cards start collapsed (one line each) so long queues stay scannable;
   // clicking a row opens the full card. Expand/collapse-all lives in the
   // queue toolbar.
@@ -1149,7 +1150,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
   onConnectGsc: () => void; onCreateSheet: () => void; onPairConnector: () => void; onRevokeConnector: () => void; onCopy: (label: string) => void;
   openRequest?: { platform: string; nonce: number } | null;
 }) {
-  const [collapsed, setCollapsed] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(true);
   const [showForm, setShowForm] = React.useState(false);
   const [reveal, setReveal] = React.useState(false);
   // Reveal toggle for the custom-connect "Shared secret" field so it can be
@@ -1514,7 +1515,7 @@ function SeoBrainSection({ brain, disabled, onSave, onReset }: {
   brain: { content: string; isCustom: boolean; base: string; presets: { key: string; title: string; description: string; content: string }[]; maxChars?: number } | null;
   disabled: boolean; onSave: (content: string) => void; onReset: () => void;
 }) {
-  const [expanded, setExpanded] = React.useState(true);
+  const [expanded, setExpanded] = React.useState(false);
   const [open, setOpen] = React.useState(false);
   const [text, setText] = React.useState('');
   const [preset, setPreset] = React.useState('');
@@ -1564,7 +1565,7 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
   automation: any; activity: { id: string; event: string; detail: any; createdAt: string }[];
   canShip: boolean; disabled: boolean; onSave: (patch: any) => void;
 }) {
-  const [expanded, setExpanded] = React.useState(true);
+  const [expanded, setExpanded] = React.useState(false);
   const [showRules, setShowRules] = React.useState(false);
   const [rules, setRules] = React.useState<{ titleSuffix: string; titleMaxLen: string; metaMaxLen: string; bannedPhrases: string }>({ titleSuffix: '', titleMaxLen: '', metaMaxLen: '', bannedPhrases: '' });
   React.useEffect(() => {
@@ -1680,7 +1681,7 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
 // it to do, and get the AI rewrite back *inline* (before → after) so the
 // result is visible right here — not only buried down in THE FIXES queue.
 function PassageSection({ disabled, onSubmit }: { disabled: boolean; onSubmit: (f: { url: string; passage: string; instruction: string }) => Promise<PassageResult> }) {
-  const [open, setOpen] = React.useState(true);
+  const [open, setOpen] = React.useState(false);
   const [url, setUrl] = React.useState('');
   const [passage, setPassage] = React.useState('');
   const [instruction, setInstruction] = React.useState('');
