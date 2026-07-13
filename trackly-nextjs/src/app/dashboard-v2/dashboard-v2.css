@@ -155,6 +155,12 @@
 @keyframes lvx-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
 @keyframes lvx-spin { to { transform: rotate(360deg); } }
 
+/* Inline spinner + indeterminate progress bar (long-running scans/runs). */
+.lvx .spin { display: inline-block; width: 13px; height: 13px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: lvx-spin .7s linear infinite; vertical-align: -2px; flex-shrink: 0; }
+.lvx .scanbar { position: relative; height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; width: 100%; }
+.lvx .scanbar > i { position: absolute; top: 0; bottom: 0; width: 35%; border-radius: 999px; background: var(--primary); animation: lvx-scan 1.15s ease-in-out infinite; }
+@keyframes lvx-scan { 0% { left: -35%; } 100% { left: 100%; } }
+
 /* Shell */
 .lvx .app {
   display: grid;
