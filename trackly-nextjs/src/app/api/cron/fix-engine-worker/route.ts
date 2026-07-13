@@ -19,7 +19,7 @@ import { logger } from '@/lib/logger';
 import { findStuckQueuedBatches } from '@/lib/fix-engine/schema';
 import { runScan } from '@/lib/fix-engine/engine';
 import { runConnectorWatchdog } from '@/lib/fix-engine/connector-watchdog';
-import { runOutcomePass, runRegressionWatch } from '@/lib/fix-engine/outcomes';
+import { runOutcomePass, runRegressionWatch, runShipVerifyPass } from '@/lib/fix-engine/outcomes';
 
 const MAX_PER_TICK = 5;
 const STUCK_AFTER_SECONDS = 60;
@@ -55,6 +55,12 @@ export async function GET(request: Request): Promise<Response> {
     try { watchdog = await runConnectorWatchdog(); }
     catch (e) { logger.warn('cron.fix_engine_worker.watchdog_failed', { err: (e as Error).message }); }
 
+    // Retry verification for recently shipped fixes a CDN cache may still
+    // be hiding, so they flip to 'verified' without a manual Re-check.
+    let shipVerify = { checked: 0, verified: 0 };
+    try { shipVerify = await runShipVerifyPass(); }
+    catch (e) { logger.warn('cron.fix_engine_worker.ship_verify_failed', { err: (e as Error).message }); }
+
     // Measure 28-day outcomes for shipped fixes with a GSC baseline.
     let outcomes = { measured: 0, improved: 0, declined: 0 };
     try { outcomes = await runOutcomePass(); }
@@ -65,9 +71,9 @@ export async function GET(request: Request): Promise<Response> {
     try { regressions = await runRegressionWatch(); }
     catch (e) { logger.warn('cron.fix_engine_worker.regression_failed', { err: (e as Error).message }); }
 
-    logger.info('cron.fix_engine_worker.done', { stuckFound: stuck.length, claimed, succeeded, failed, watchdog, outcomes, regressions, durationMs: Date.now() - startedAt });
+    logger.info('cron.fix_engine_worker.done', { stuckFound: stuck.length, claimed, succeeded, failed, watchdog, shipVerify, outcomes, regressions, durationMs: Date.now() - startedAt });
     return NextResponse.json({
-      ok: true, stuckFound: stuck.length, claimed, succeeded, failed, watchdog, outcomes, regressions,
+      ok: true, stuckFound: stuck.length, claimed, succeeded, failed, watchdog, shipVerify, outcomes, regressions,
       errors: errors.slice(0, 5), durationMs: Date.now() - startedAt,
       timestamp: new Date().toISOString(),
     });

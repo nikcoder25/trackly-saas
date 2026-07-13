@@ -76,8 +76,10 @@ contract above — it's ~40 lines anywhere.
    re-check right after your endpoint acks: it crawls the live page and
    only marks the fix **verified** when the change is really there — an
    endpoint that replies `ok` without persisting stays at "shipped",
-   never falsely "verified". **Re-check** stays available for manual
-   re-runs (e.g. after a CDN cache clears).
+   never falsely "verified". If a CDN is still serving the old HTML, the
+   cron ship-verify pass keeps re-checking (every ~30 min for 2 days), so
+   the fix flips to verified by itself once the cache expires. **Re-check**
+   stays available for manual re-runs at any time.
 
 ## 4. Alternatives if you can't add an endpoint
 

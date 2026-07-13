@@ -410,6 +410,13 @@ fetches the live `/llms.txt`) flips it to `verified`. A failed ack
 >   crawls the live page — so a write that didn't actually persist (e.g.
 >   a custom endpoint that acks without storing) shows up immediately as
 >   shipped-but-unverified instead of masquerading as done.
+> - *Ship-verify retry* — when the instant recheck loses to a CDN still
+>   serving cached HTML, the fix isn't stranded: the worker cron's
+>   `runShipVerifyPass()` re-crawls shipped-but-unverified fixes on a
+>   spaced schedule (≥30 min apart, for 2 days after the ship, bounded
+>   per tick via `findUnverifiedShippedFixes`), so the fix flips to
+>   `verified` on its own once the cache expires. Undelivered Channel-B
+>   fixes are excluded — the connector watchdog owns those.
 > - *Server-side watchdog* — the `fix-engine-worker` cron runs
 >   `runConnectorWatchdog()` each tick (`connector-watchdog.ts`). It finds
 >   Channel-B fixes still undelivered after a grace period (default 2h) and

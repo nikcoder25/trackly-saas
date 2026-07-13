@@ -623,6 +623,37 @@ export async function findStaleVerifiedFixes(olderThanDays: number, limit = 10):
   return res.rows.map(mapFixRow);
 }
 
+/**
+ * Shipped-but-not-yet-verified fixes whose live change may just be hiding
+ * behind a CDN/page cache — candidates for the ship-verify retry pass.
+ * Bounded three ways: only fixes shipped within `shippedWithinDays` (via
+ * the 'shipped' event), untouched for `minAgeMinutes` (recheckFix bumps
+ * updated_at, so this spaces retries), and `limit` per tick. Channel-B
+ * fixes still waiting on the Connector are excluded — nothing is live to
+ * verify yet, and the watchdog owns that case.
+ */
+export async function findUnverifiedShippedFixes(
+  minAgeMinutes: number,
+  shippedWithinDays: number,
+  limit = 10,
+): Promise<FixRow[]> {
+  await ensureFixEngineSchema();
+  const res = await pool.query(
+    `SELECT * FROM fixes
+      WHERE status = 'shipped' AND target_url IS NOT NULL AND generated IS NOT NULL
+        AND (channel = 'A' OR connector_delivered_at IS NOT NULL)
+        AND updated_at < NOW() - ($1 || ' minutes')::interval
+        AND EXISTS (
+          SELECT 1 FROM fix_events e
+           WHERE e.fix_id = fixes.id AND e.event = 'shipped'
+             AND e.created_at > NOW() - ($2 || ' days')::interval
+        )
+      ORDER BY updated_at ASC LIMIT $3`,
+    [String(minAgeMinutes), String(shippedWithinDays), limit],
+  );
+  return res.rows.map(mapFixRow);
+}
+
 /** Recent activity for a brand (automation feed), newest first. */
 export async function listBrandEvents(brandId: string, limit = 20): Promise<FixEventRow[]> {
   await ensureFixEngineSchema();

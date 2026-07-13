@@ -14,13 +14,20 @@
  *                         `regression.detected` event and surface in the
  *                         needs-attention banner.
  *
- * Both are best-effort and bounded per tick.
+ *   runShipVerifyPass()  — recently shipped fixes the instant auto-recheck
+ *                         couldn't confirm (usually a CDN/page cache still
+ *                         serving the old HTML) get re-verified on a spaced
+ *                         retry until the ship window closes, so they flip
+ *                         to 'verified' on their own once the cache clears.
+ *
+ * All are best-effort and bounded per tick.
  */
 
 import { logger } from '@/lib/logger';
 import {
   findFixesDueOutcome,
   findStaleVerifiedFixes,
+  findUnverifiedShippedFixes,
   updateFix,
   logFixEvent,
 } from './schema';
@@ -32,6 +39,12 @@ import { fetchUrlMetricsLive, PAGE_METRICS_WINDOW_DAYS } from './page-metrics';
 
 export const OUTCOME_WINDOW_DAYS = PAGE_METRICS_WINDOW_DAYS; // measure after a full comparable window
 export const REGRESSION_AFTER_DAYS = 7;
+
+// Ship-verify retry: space retries ≥30 min apart (recheckFix bumps
+// updated_at) and keep trying for 2 days after the ship — long enough for
+// any sane CDN TTL, bounded so an abandoned mismatch doesn't crawl forever.
+export const SHIP_VERIFY_RETRY_MINUTES = 30;
+export const SHIP_VERIFY_WINDOW_DAYS = 2;
 
 // Measured auto-revert guards (deliberately stricter than measurement):
 // only act on a large relative drop backed by real traffic in BOTH windows,
@@ -115,6 +128,31 @@ async function shouldAutoRevert(
   if (bi < REVERT_MIN_IMPRESSIONS || ai < REVERT_MIN_IMPRESSIONS) return false;
   const auto = await getAutomation(brandId);
   return !!auto.measuredRevert;
+}
+
+export interface ShipVerifySummary { checked: number; verified: number }
+
+/**
+ * Retry verification for recently shipped fixes that aren't 'verified' yet.
+ * The instant post-ship recheck can lose to a CDN still serving cached HTML;
+ * this pass re-crawls on a spaced schedule so the fix flips to 'verified'
+ * by itself once the cache expires — no manual Re-check needed. Fixes still
+ * unverified when the window closes stay at 'shipped' (truthful) and remain
+ * one manual Re-check away.
+ */
+export async function runShipVerifyPass(limit = 10): Promise<ShipVerifySummary> {
+  const pending = await findUnverifiedShippedFixes(SHIP_VERIFY_RETRY_MINUTES, SHIP_VERIFY_WINDOW_DAYS, limit);
+  let checked = 0, verified = 0;
+  for (const fix of pending) {
+    try {
+      const after = await recheckFix(fix.id, fix.brandId, null);
+      checked++;
+      if (after.status === 'verified') verified++;
+    } catch (e) {
+      logger.warn('fix_engine.ship_verify_fix_failed', { fixId: fix.id, err: (e as Error).message });
+    }
+  }
+  return { checked, verified };
 }
 
 export interface RegressionSummary { checked: number; regressed: number }
