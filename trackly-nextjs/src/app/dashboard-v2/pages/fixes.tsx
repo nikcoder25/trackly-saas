@@ -20,6 +20,7 @@ interface FixRow {
   id: string; moduleKey: string; channel: 'A' | 'B'; targetUrl: string | null;
   status: string; severity: string; summary: string;
   generated: any; scoreAfter: number | null; error: string | null; createdAt: string;
+  detected?: any; beforeSnapshot?: any;
   aiBefore?: { sov?: number; at?: string } | null; aiAfter?: { sov?: number; at?: string } | null;
   note?: string | null; assignee?: string | null;
   shipMode?: 'live' | 'draft'; previewUrl?: string | null;
@@ -29,6 +30,11 @@ interface FixRow {
   gscAfter?: { ctr?: number; impressions?: number; unavailable?: boolean } | null;
 }
 interface PreviewBlock { kind: string; label: string; before?: string; after?: string; language?: string }
+// Result of creating a targeted passage rewrite, returned to the
+// Optimize-a-Passage card so it can show the before/after inline.
+type PassageResult =
+  | { ok: true; fix: FixRow; preview: PreviewBlock | null }
+  | { ok: false; error: string };
 interface Connection { id: string; provider: string; cmsType: string | null; siteUrl: string | null; status: string; lastSeenAt?: string | null }
 
 async function api(path: string, init?: RequestInit) {
@@ -214,6 +220,30 @@ const EDITABLE_FIELD: Record<string, string> = {
   'title-rewrite': 'title', 'meta-rewrite': 'description', 'ctr-rescue': 'title',
   'passage-rewrite': 'rewritten', 'content-freshness': 'update', 'llms-txt': 'content',
 };
+
+// The current ("before") value of a detected issue, read from the snapshot
+// the module captured at detect time. Lets the card show what's live NOW —
+// before you generate the rewrite — so the change is clear from the start.
+// Returns { label, value, missing } for the text-style modules where a
+// before/after makes sense; null when there's no meaningful current value.
+function currentValue(fix: FixRow): { label: string; value: string; missing: boolean } | null {
+  const b = (fix.beforeSnapshot || {}) as Record<string, any>;
+  const d = (fix.detected || {}) as Record<string, any>;
+  const mk = (label: string, raw: unknown, emptyAs = ''): { label: string; value: string; missing: boolean } => {
+    const value = typeof raw === 'string' ? raw.trim() : raw != null ? String(raw) : '';
+    return { label, value: value || emptyAs, missing: !value };
+  };
+  switch (fix.moduleKey) {
+    case 'title-rewrite': return mk('Current title', b.title ?? d.currentTitle, '(no title — currently missing)');
+    case 'meta-rewrite': return mk('Current meta description', b.description, '(no meta description — currently missing)');
+    case 'ctr-rescue': return mk('Current title', b.title);
+    case 'passage-rewrite': return mk('Current passage', b.passage ?? d.passage);
+    case 'canonical-fix': return mk('Current canonical', b.googleCanonical, '(none set)');
+    case 'noindex-removal': return mk('Current robots directive', b.metaRobots, 'noindex');
+    case 'content-freshness': return mk('Currently', typeof b.lastModified === 'string' && b.lastModified ? `Last updated ${String(b.lastModified).slice(0, 10)}` : d.daysOld != null ? `Last updated ~${d.daysOld} days ago` : '');
+    default: return null;
+  }
+}
 
 export function PageFixes() {
   const { brand, loading: brandLoading } = useBrandData({ fullData: true });
@@ -540,12 +570,40 @@ export function PageFixes() {
     try { await api(`/api/brands/${brandId}/connections`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'kwe', creds: { apiKey } }) }); flash('Keywords Everywhere connected'); await load(brandId); }
     catch (e) { setError((e as Error).message); }
   };
-  const createTargeted = async (form: { url: string; passage: string; instruction: string }) => {
-    if (!brandId) return; setError(null);
-    try { const d = await api(`/api/brands/${brandId}/fixes/targeted`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) }); if (d.fix?.id) { try { await act(d.fix.id, 'generate'); } catch { /* surfaced */ } } await load(brandId); flash('Passage fix created'); }
-    // The passage card sits far below the error banner — toast the failure
-    // too so the click never appears to do nothing.
-    catch (e) { setError((e as Error).message); flash(`\u2715 ${(e as Error).message}`); }
+  // Create + generate a targeted passage rewrite and return the produced
+  // draft so the Optimize-a-Passage card can show the before/after result
+  // inline — otherwise the rewrite only appears far down in THE FIXES queue
+  // and the click looks like it did nothing.
+  const createTargeted = async (
+    form: { url: string; passage: string; instruction: string },
+  ): Promise<PassageResult> => {
+    if (!brandId) return { ok: false, error: 'Pick a brand first' };
+    setError(null);
+    try {
+      const d = await api(`/api/brands/${brandId}/fixes/targeted`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+      let fix = d.fix as FixRow | undefined;
+      if (!fix?.id) throw new Error('Could not create the fix');
+      // Generate the rewrite so we have something to show immediately.
+      const g = await api(`/api/brands/${brandId}/fixes/${fix.id}/generate`, { method: 'POST' });
+      if (g.fix) fix = { ...fix, ...g.fix } as FixRow;
+      // Pull the before/after preview for the inline result panel.
+      let preview: PreviewBlock | null = null;
+      try {
+        const p = await api(`/api/brands/${brandId}/fixes/${fix.id}`);
+        preview = p.preview || null;
+        setPreviews((prev) => ({ ...prev, [fix!.id]: preview }));
+      } catch { /* preview is best-effort */ }
+      // Reflect it in the main queue too, then refresh from the server.
+      const created = fix;
+      setFixes((rows) => (rows.some((r) => r.id === created.id) ? rows.map((r) => (r.id === created.id ? { ...r, ...created } : r)) : [created, ...rows]));
+      await load(brandId);
+      flash('Rewrite ready — added to The Fixes below');
+      return { ok: true, fix: created, preview };
+    } catch (e) {
+      const msg = (e as Error).message;
+      setError(msg);
+      return { ok: false, error: msg };
+    }
   };
 
   // ── derived ──
@@ -1467,29 +1525,113 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
 }
 
 // ── Passage rewrite ──
-function PassageSection({ disabled, onSubmit }: { disabled: boolean; onSubmit: (f: { url: string; passage: string; instruction: string }) => void }) {
+// Plain-language, self-contained tool: paste a paragraph, say what you want
+// it to do, and get the AI rewrite back *inline* (before → after) so the
+// result is visible right here — not only buried down in THE FIXES queue.
+function PassageSection({ disabled, onSubmit }: { disabled: boolean; onSubmit: (f: { url: string; passage: string; instruction: string }) => Promise<PassageResult> }) {
   const [url, setUrl] = React.useState('');
   const [passage, setPassage] = React.useState('');
   const [instruction, setInstruction] = React.useState('');
+  // idle → working → done | error, plus the produced before/after.
+  const [phase, setPhase] = React.useState<'idle' | 'working' | 'done' | 'error'>('idle');
+  const [result, setResult] = React.useState<{ before: string; after: string; rationale?: string } | null>(null);
+  const [errMsg, setErrMsg] = React.useState<string | null>(null);
+
+  // Say WHY the button is disabled instead of leaving it silently grey.
+  const need = Math.max(0, 12 - passage.trim().length);
+  const missing = disabled ? 'Fix Engine is not enabled on your plan'
+    : !url.trim() ? 'Add the page URL above to continue'
+    : passage.trim().length < 12 ? `Paste a bit more of the paragraph — ${need} more character${need === 1 ? '' : 's'} needed`
+    : null;
+
+  const run = async () => {
+    if (missing) return;
+    setPhase('working'); setErrMsg(null); setResult(null);
+    const r = await onSubmit({ url, passage, instruction });
+    if (r.ok) {
+      const gen = (r.fix?.generated || {}) as { rewritten?: string; original?: string; rationale?: string };
+      const before = r.preview?.before ?? gen.original ?? passage;
+      const after = r.preview?.after ?? gen.rewritten ?? '';
+      if (!after.trim()) { setPhase('error'); setErrMsg('The rewrite came back empty — try again, or make the goal more specific.'); return; }
+      setResult({ before, after, rationale: gen.rationale });
+      setPhase('done');
+    } else {
+      setPhase('error'); setErrMsg(r.error);
+    }
+  };
+
+  // Clear the paragraph/goal so the next rewrite starts fresh (keep the URL —
+  // people often rewrite several passages on the same page).
+  const startAnother = () => { setPhase('idle'); setResult(null); setErrMsg(null); setPassage(''); setInstruction(''); };
+
+  const spinner = <span aria-hidden style={{ display: 'inline-block', width: 14, height: 14, border: '2.5px solid rgba(255,255,255,.5)', borderTopColor: '#fff', borderRadius: '50%', animation: 'xspin .7s linear infinite' }} />;
+  const working = phase === 'working';
+
   return (
     <section className="nb" style={{ padding: 0, overflow: 'hidden', background: 'var(--info-50)' }}>
       <div className="disp" style={{ padding: '14px 20px', background: 'var(--info)', color: '#fff', fontSize: 17, fontWeight: 700 }}>OPTIMIZE A PASSAGE</div>
       <div style={{ padding: '18px 20px', display: 'grid', gap: 15 }}>
-        <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.5 }}>Paste a passage + the goal — we draft an answer-ready rewrite as a fix you can ship in place.</p>
-        <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Page URL</div><input className="xin" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="acme.com/features" /></div>
-        <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Passage</div><textarea className="xin" rows={3} value={passage} onChange={(e) => setPassage(e.target.value)} placeholder="Paste the exact paragraph or lines…" /></div>
-        <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Instruction</div><input className="xin" value={instruction} onChange={(e) => setInstruction(e.target.value)} placeholder={'e.g. answer "is Acme good for engineering teams?" with a citable claim'} /></div>
-        {(() => {
-          // Say WHY the button is disabled instead of leaving it silently grey.
-          const missing = disabled ? 'Fix Engine is not enabled on your plan'
-            : !url.trim() ? 'Add the page URL to continue'
-            : passage.trim().length < 12 ? `Paste the passage from the page (${Math.max(0, 12 - passage.trim().length)} more characters needed)`
-            : null;
-          return (<>
-            <button className="xbtn" onClick={() => { onSubmit({ url, passage, instruction }); setPassage(''); setInstruction(''); }} disabled={!!missing} style={{ background: 'var(--info)', justifyContent: 'center' }}>✦ CREATE FIX</button>
-            {missing && <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-2)', textAlign: 'center' }}>{missing}</span>}
-          </>);
-        })()}
+        <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.55 }}>
+          Got a paragraph that isn&apos;t getting picked up by AI answers or search? Paste it below and tell us the goal in plain words.
+          We rewrite it to be clear and citable, show you the new version right here, then add it to <strong>The Fixes</strong> so you can ship it to your page in one click.
+        </p>
+
+        <div>
+          <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>1 · Which page is the paragraph on?</div>
+          <input className="xin" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://yoursite.com/pricing" disabled={working} />
+        </div>
+        <div>
+          <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>2 · Paste the exact paragraph to improve</div>
+          <textarea className="xin" rows={3} value={passage} onChange={(e) => setPassage(e.target.value)} placeholder="Copy the exact paragraph or lines straight from the page…" disabled={working} />
+        </div>
+        <div>
+          <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>3 · What should it do? <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600, color: 'var(--text-3)' }}>(optional)</span></div>
+          <input className="xin" value={instruction} onChange={(e) => setInstruction(e.target.value)} placeholder={'e.g. clearly answer "is Acme good for engineering teams?"'} disabled={working} />
+        </div>
+
+        <button
+          className="xbtn"
+          onClick={run}
+          disabled={!!missing || working}
+          style={{ background: 'var(--info)', justifyContent: 'center' }}
+        >
+          {working ? <>{spinner} Rewriting your passage…</> : phase === 'done' ? '✦ Rewrite this again' : '✦ Rewrite this passage'}
+        </button>
+        {!working && missing && <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-2)', textAlign: 'center' }}>{missing}</span>}
+        {!working && !missing && phase === 'idle' && <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--text-3)', textAlign: 'center' }}>You&apos;ll see the rewritten version here before anything ships.</span>}
+
+        {/* Error — shown right in the card so the click never looks dead. */}
+        {phase === 'error' && errMsg && (
+          <div className="nb-sm" style={{ padding: '12px 14px', background: 'var(--danger-50)', borderColor: 'var(--danger)', boxShadow: '3px 3px 0 var(--danger)' }}>
+            <div className="disp" style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger)', marginBottom: 3 }}>✕ Couldn&apos;t create the rewrite</div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.5 }}>{errMsg}</div>
+          </div>
+        )}
+
+        {/* Inline result — the whole point: SEE what the fix produced. */}
+        {phase === 'done' && result && (
+          <div className="nb-sm" style={{ padding: 0, overflow: 'hidden', boxShadow: '4px 4px 0 var(--success)', borderColor: 'var(--success)' }}>
+            <div className="disp" style={{ padding: '10px 14px', background: 'var(--success)', color: '#fff', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>✓ Here&apos;s your rewrite</div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}>
+              <span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− NOW</span>
+              <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: 'var(--text-2)', textDecoration: 'line-through', textDecorationColor: 'var(--danger-200)', lineHeight: 1.5 }}>{result.before || '(empty)'}</span>
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--success-50)' }}>
+              <span className="disp" style={{ color: 'var(--success)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ NEW</span>
+              <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>{result.after}</span>
+            </div>
+            {result.rationale && (
+              <div style={{ padding: '10px 14px', borderTop: '2px dashed var(--line)', background: 'var(--surface)' }}>
+                <div className="xlbl" style={{ color: 'var(--text-3)', marginBottom: 4 }}>Why this is better</div>
+                <div style={{ fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.5 }}>{result.rationale}</div>
+              </div>
+            )}
+            <div style={{ padding: '11px 14px', borderTop: '2px solid var(--ink)', background: 'var(--surface)', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 160 }}>Saved to <strong>The Fixes</strong> below — review it there, then approve &amp; ship to your page.</span>
+              <button className="gbtn" onClick={startAnother} style={{ padding: '7px 13px', fontSize: 12 }}>Rewrite another</button>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -1700,9 +1842,27 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
         })()}
 
         {/* preview / states */}
-        {isDetected && !busy && (
-          <div className="nb-sm stripes" style={{ padding: 16, fontFamily: "'Space Grotesk'", fontWeight: 600, fontSize: 13, color: 'var(--text-2)', background: 'var(--surface-2)', boxShadow: 'none' }}>Generate to preview the proposed fix →</div>
-        )}
+        {isDetected && !busy && (() => {
+          // Show the current ("before") value at the detected stage so the
+          // change is clear before you even generate. The "after" is filled
+          // in once you generate the fix.
+          const now = currentValue(fix);
+          if (!now) return (
+            <div className="nb-sm stripes" style={{ padding: 16, fontFamily: "'Space Grotesk'", fontWeight: 600, fontSize: 13, color: 'var(--text-2)', background: 'var(--surface-2)', boxShadow: 'none' }}>Generate to preview the proposed fix →</div>
+          );
+          return (
+            <div className="nb-sm" style={{ overflow: 'hidden', boxShadow: 'none' }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}>
+                <span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− NOW</span>
+                <span className="mono" style={{ fontSize: 12, color: 'var(--text-2)', fontStyle: now.missing ? 'italic' : 'normal', lineHeight: 1.5 }}>{now.value}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '11px 14px', background: 'var(--surface-2)' }}>
+                <span className="disp" style={{ color: 'var(--text-3)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ FIX</span>
+                <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, fontFamily: "'Space Grotesk'" }}>Generate the fix to see the proposed rewrite →</span>
+              </div>
+            </div>
+          );
+        })()}
         {busy && (
           <div className="nb-sm" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 11, fontFamily: "'Space Grotesk'", fontWeight: 600, fontSize: 13, color: 'var(--text)', boxShadow: 'none', background: 'var(--primary-50)' }}><span style={{ width: 15, height: 15, border: '2.5px solid var(--primary-200)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'xspin .7s linear infinite', display: 'inline-block' }} />WORKING…</div>
         )}
