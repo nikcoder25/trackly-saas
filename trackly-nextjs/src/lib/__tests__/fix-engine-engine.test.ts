@@ -22,6 +22,9 @@ const store = vi.hoisted(() => {
     moduleBehavior: {
       generateThrows: false,
       shipOk: true,
+      // '' = ship resolves normally; 'unsupported' throws CmsUnsupportedError
+      // (static-site case); 'generic' throws a plain Error.
+      shipThrows: '' as '' | 'unsupported' | 'generic',
       recheckVerified: true,
       revertOk: true,
     },
@@ -62,9 +65,18 @@ vi.mock('@/lib/fix-engine/registry', () => {
       return { generated: { value: 'NEW' }, creditsUsed: 1 };
     }),
     preview: vi.fn(() => ({ kind: 'text-diff', label: 'x', after: 'NEW' })),
-    ship: vi.fn(async () => (store.moduleBehavior.shipOk
-      ? { ok: true, detail: { wrote: true }, after: { value: 'NEW' } }
-      : { ok: false, detail: {}, error: 'cms failed' })),
+    ship: vi.fn(async () => {
+      if (store.moduleBehavior.shipThrows === 'unsupported') {
+        // Real class (dynamic import: vi.mock factories can't close over
+        // top-level imports) so engine's instanceof check matches.
+        const { CmsUnsupportedError } = await import('@/lib/fix-engine/cms/types');
+        throw new CmsUnsupportedError('update_body', 'custom');
+      }
+      if (store.moduleBehavior.shipThrows === 'generic') throw new Error('boom-ship');
+      return store.moduleBehavior.shipOk
+        ? { ok: true, detail: { wrote: true }, after: { value: 'NEW' } }
+        : { ok: false, detail: {}, error: 'cms failed' };
+    }),
     recheck: vi.fn(async () => ({ verified: store.moduleBehavior.recheckVerified, scoreAfter: 100 })),
     revert: vi.fn(async () => (store.moduleBehavior.revertOk
       ? { ok: true, detail: { restored: true }, after: { value: 'OLD' } }
@@ -133,7 +145,7 @@ beforeEach(() => {
   store.reserveOk = true;
   store.refundCalls = [];
   store.afterCalls = [];
-  store.moduleBehavior = { generateThrows: false, shipOk: true, recheckVerified: true, revertOk: true };
+  store.moduleBehavior = { generateThrows: false, shipOk: true, shipThrows: '', recheckVerified: true, revertOk: true };
   vi.clearAllMocks();
 });
 afterEach(() => vi.clearAllMocks());
@@ -226,6 +238,53 @@ describe('approve + ship + recheck', () => {
   it('refuses to ship a non-approved fix', async () => {
     const id = seedFix({ status: 'generated', generated: { value: 'NEW' } });
     await expect(shipFix(id, 'brand1', 'owner1')).rejects.toThrow();
+  });
+});
+
+describe('verify-by-fetch on unsupported CMS ops (static/custom sites)', () => {
+  it('unsupported op + content already live → verified with verify_by_fetch delivery', async () => {
+    store.moduleBehavior.shipThrows = 'unsupported';
+    store.moduleBehavior.recheckVerified = true;
+    const id = seedFix({ status: 'approved', generated: { value: 'NEW' } });
+    const fix = await shipFix(id, 'brand1', 'owner1'); // resolves, no throw
+    expect(fix.status).toBe('verified');
+    expect((fix.shipResult as Record<string, unknown>).delivery).toBe('verify_by_fetch');
+    expect((fix.shipResult as Record<string, unknown>).unsupportedOp).toContain('update_body');
+    expect(fix.error).toBeNull();
+  });
+
+  it('unsupported op + content not live → failed with manual-publish instructions', async () => {
+    store.moduleBehavior.shipThrows = 'unsupported';
+    store.moduleBehavior.recheckVerified = false;
+    const id = seedFix({ status: 'approved', generated: { value: 'NEW' } });
+    const fix = await shipFix(id, 'brand1', 'owner1'); // resolves, no throw
+    expect(fix.status).toBe('failed');
+    expect(fix.error).toContain("does not support operation 'update_body'");
+    expect(fix.error).toMatch(/manually.*Re-check/i);
+  });
+
+  it('a generic ship throw still hard-fails and rethrows (regression pin)', async () => {
+    store.moduleBehavior.shipThrows = 'generic';
+    const id = seedFix({ status: 'approved', generated: { value: 'NEW' } });
+    await expect(shipFix(id, 'brand1', 'owner1')).rejects.toThrow('boom-ship');
+    expect(store.fixes.get(id)!.status).toBe('failed');
+  });
+});
+
+describe('recheck from failed (manual resolution path)', () => {
+  it('failed + content now live → verified, stale error cleared', async () => {
+    const id = seedFix({ status: 'failed', generated: { value: 'NEW' }, error: 'CMS write failed' });
+    const fix = await recheckFix(id, 'brand1', 'owner1');
+    expect(fix.status).toBe('verified');
+    expect(fix.error).toBeNull();
+  });
+
+  it('failed + content not live → stays failed (never promoted to shipped)', async () => {
+    store.moduleBehavior.recheckVerified = false;
+    const id = seedFix({ status: 'failed', generated: { value: 'NEW' }, error: 'CMS write failed' });
+    const fix = await recheckFix(id, 'brand1', 'owner1');
+    expect(fix.status).toBe('failed');
+    expect(fix.error).toBe('CMS write failed'); // untouched — still actionable
   });
 });
 

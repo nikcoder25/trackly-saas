@@ -36,6 +36,7 @@ import {
   logFixEvent,
 } from './schema';
 import { getConnection } from './connections';
+import { CmsUnsupportedError } from './cms/types';
 import { getBrandAiVisibility } from './ai-visibility';
 import { applyBrandRules } from './rules';
 import type { DetectedIssue, FixBrand, FixContext, FixRow } from './types';
@@ -315,6 +316,34 @@ export async function shipFix(fixId: string, brandId: string, userId: string | n
     }
     return (await getFix(fixId, brandId))!;
   } catch (e) {
+    // A CMS/endpoint that can't perform this op (CmsUnsupportedError — e.g. a
+    // static site whose endpoint doesn't implement update_body) is not proof
+    // the change is absent: the content is often already live, published by
+    // hand. Verify by fetching the live page (the module's own recheck)
+    // before declaring failure, so such fixes resolve instead of sticking in
+    // ATTENTION forever. Every other error keeps the existing behavior.
+    if (e instanceof CmsUnsupportedError) {
+      try {
+        const issue = issueFromRow(fix);
+        const verdict = await mod.recheck(issue, { generated: fix.generated }, ctx);
+        if (verdict.verified) {
+          await updateFix(fix.id, {
+            status: 'verified',
+            shipResult: { delivery: 'verify_by_fetch', unsupportedOp: e.message },
+            scoreAfter: verdict.scoreAfter ?? null,
+            error: null,
+          });
+          await logFixEvent(fix.id, brandId, userId, 'ship.verified_by_fetch', { op: e.message, note: verdict.note });
+          return (await getFix(fixId, brandId))!;
+        }
+      } catch (re) {
+        logger.warn('fix_engine.verify_by_fetch_failed', { fixId: fix.id, err: (re as Error).message });
+      }
+      const manual = `${e.message}. Publish the change manually on the page, then hit Re-check — it will verify the live page and resolve this fix.`;
+      await updateFix(fix.id, { status: 'failed', error: manual });
+      await logFixEvent(fix.id, brandId, userId, 'ship.failed', { error: manual, unsupportedOp: true });
+      return (await getFix(fixId, brandId))!;
+    }
     await updateFix(fix.id, { status: 'failed', error: (e as Error).message });
     await logFixEvent(fix.id, brandId, userId, 'ship.failed', { error: (e as Error).message });
     throw e;
@@ -408,7 +437,10 @@ export async function recheckFix(fixId: string, brandId: string, userId: string 
   const mod = getModule(fix.moduleKey);
   if (!mod) throw new Error(`Unknown module: ${fix.moduleKey}`);
   if (!fix.generated) throw new Error('Fix has no generated content to recheck');
-  if (!['shipped', 'verified'].includes(fix.status)) {
+  // 'failed' is allowed so a fix whose automatic write wasn't possible
+  // (e.g. a static site) can be resolved by publishing the content manually
+  // and re-checking — the live page is the source of truth.
+  if (!['shipped', 'verified', 'failed'].includes(fix.status)) {
     throw new Error(`Cannot recheck a fix in status '${fix.status}'`);
   }
 
@@ -418,10 +450,15 @@ export async function recheckFix(fixId: string, brandId: string, userId: string 
   const issue = issueFromRow(fix);
   const verdict = await mod.recheck(issue, { generated: fix.generated }, ctx);
   const aiAfter = await getBrandAiVisibility(brandId);
+  // Conservative mapping: verified is earned by the live page; an
+  // unverified 'failed' fix STAYS failed (never promoted to shipped).
+  const nextStatus = verdict.verified ? 'verified' : (fix.status === 'failed' ? 'failed' : 'shipped');
   await updateFix(fix.id, {
-    status: verdict.verified ? 'verified' : 'shipped',
+    status: nextStatus,
     scoreAfter: verdict.scoreAfter ?? null,
     aiAfter: aiAfter ? { ...aiAfter } : null,
+    // A fix that just verified is resolved — clear the stale failure text.
+    ...(verdict.verified ? { error: null } : {}),
   });
   await logFixEvent(fix.id, brandId, userId, 'rechecked', { verified: verdict.verified, score: verdict.scoreAfter, note: verdict.note });
   return (await getFix(fixId, brandId))!;
