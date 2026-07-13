@@ -524,6 +524,16 @@ snippet uses) → upload it account-level and route `zone/*` + `*.zone/*`
 the brand's `edge` CMS connection when live. Adding website #2, #3, … is one
 click: Connections → platform `edge` → **Deploy automatically**.
 
+**Zero-click auto-connect (`runEdgeAutoConnect`, cron):** websites added
+after the token is stored need no clicks at all. Each fix-engine-worker tick
+finds brands whose owner has an active Cloudflare token but no CMS
+connection yet (`findEdgeAutoConnectCandidates`) and runs the same
+provisioning chain (`provisionEdgeForBrand`, shared with the one-click
+route) automatically. Exactly one attempt per brand — success or failure
+logs an `edge.autodeploy` brand event that gates the candidate query — so a
+domain that isn't on the user's Cloudflare account is probed once, not every
+tick; the one-click deploy remains available and reports the exact error.
+
 So the only thing that *requires* the Connector plugin is the connector-staged
 *draft preview* of edits to already-published pages. Everything else can be
 applied with **no plugin**:

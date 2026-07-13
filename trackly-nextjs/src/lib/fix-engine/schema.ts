@@ -751,6 +751,43 @@ export async function findUnverifiedShippedFixes(
   return res.rows.map(mapFixRow);
 }
 
+/**
+ * Brands eligible for zero-click edge auto-connect: they have a website,
+ * their owner has an active Cloudflare token stored, they have no active
+ * CMS connection yet, and auto-connect hasn't been attempted before
+ * (one 'edge.autodeploy' event per brand — success or failure — so a
+ * domain that isn't on Cloudflare doesn't get re-probed every cron tick).
+ */
+export async function findEdgeAutoConnectCandidates(
+  limit = 3,
+): Promise<Array<{ brandId: string; userId: string; website: string }>> {
+  await ensureFixEngineSchema();
+  const res = await pool.query(
+    `SELECT b.id AS brand_id, b.user_id, b.data->>'website' AS website
+       FROM brands b
+      WHERE COALESCE(b.data->>'website', '') <> ''
+        AND EXISTS (
+          SELECT 1 FROM fix_connections cf
+           WHERE cf.user_id = b.user_id AND cf.provider = 'cloudflare' AND cf.status = 'active'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM fix_connections c2
+           WHERE c2.brand_id = b.id AND c2.provider = 'cms' AND c2.status = 'active'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM fix_events e
+           WHERE e.brand_id = b.id AND e.event = 'edge.autodeploy'
+        )
+      LIMIT $1`,
+    [limit],
+  );
+  return res.rows.map((r: DbRow) => ({
+    brandId: String(r.brand_id),
+    userId: String(r.user_id),
+    website: String(r.website),
+  }));
+}
+
 /** Recent activity for a brand (automation feed), newest first. */
 export async function listBrandEvents(brandId: string, limit = 20): Promise<FixEventRow[]> {
   await ensureFixEngineSchema();

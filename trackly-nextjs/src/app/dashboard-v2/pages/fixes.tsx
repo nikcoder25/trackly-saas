@@ -1504,7 +1504,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                     <div className="nb-sm" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--success-50)', borderColor: 'var(--success)', display: 'grid', gap: 9 }}>
                       <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--success)' }}>⚡ ONE-CLICK DEPLOY — NOTHING INSTALLED ON YOUR SITE, ANY STACK</div>
                       <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text)', fontWeight: 500 }}>
-                        Paste a Cloudflare API token <b>once</b> and Livesov does everything itself: uploads the Worker, routes it to this domain, verifies it&apos;s live, and activates the connection. Every website you add after this is a <b>single click</b> — the saved token is reused automatically.
+                        Paste a Cloudflare API token <b>once</b> and Livesov does everything itself: uploads the Worker, routes it to this domain, verifies it&apos;s live, and activates the connection. Every website you add after this connects <b>automatically within minutes</b> — no clicks, no setup, nothing to visit; the saved token is reused behind the scenes.
                       </span>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                         <input className="xin" style={{ flex: 1, minWidth: 220 }} type="password" placeholder="Cloudflare API token (blank = reuse saved token)" value={cc.cfToken || ''} onChange={(e) => ccSet('cfToken', e.target.value)} />
