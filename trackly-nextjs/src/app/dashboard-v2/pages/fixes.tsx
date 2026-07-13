@@ -1026,6 +1026,9 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
   const [collapsed, setCollapsed] = React.useState(false);
   const [showForm, setShowForm] = React.useState(false);
   const [reveal, setReveal] = React.useState(false);
+  // Reveal toggle for the custom-connect "Shared secret" field so it can be
+  // read and copied into the developer's endpoint (it renders masked).
+  const [secretShown, setSecretShown] = React.useState(false);
   const [cmsType, setCmsType] = React.useState('wordpress');
   const [siteUrl, setSiteUrl] = React.useState(defaultSite);
   const [username, setUsername] = React.useState('');
@@ -1166,10 +1169,15 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                     <div key={f.k}>
                       <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>{f.label}</div>
                       {f.k === 'secret' ? (
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <input className="xin" style={{ flex: 1, minWidth: 0 }} type={f.pw ? 'password' : 'text'} value={cc[f.k] || ''} placeholder={f.ph} onChange={(e) => ccSet(f.k, e.target.value)} />
-                          <button className="gbtn" type="button" onClick={genSecret} title="Generate a secure 48-character secret" style={{ padding: '9px 13px', whiteSpace: 'nowrap', flexShrink: 0 }}>⚄ Generate</button>
-                        </div>
+                        <>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <input className="xin" style={{ flex: 1, minWidth: 0 }} type={f.pw && !secretShown ? 'password' : 'text'} value={cc[f.k] || ''} placeholder={f.ph} onChange={(e) => ccSet(f.k, e.target.value)} />
+                            <button className="gbtn" type="button" onClick={() => setSecretShown((s) => !s)} title={secretShown ? 'Hide secret' : 'Reveal secret'} aria-label={secretShown ? 'Hide secret' : 'Reveal secret'} style={{ padding: '9px 13px', whiteSpace: 'nowrap', flexShrink: 0 }}>{secretShown ? '🙈 Hide' : '👁 Reveal'}</button>
+                            <button className="gbtn" type="button" onClick={() => copy(cc[f.k] || '', 'Shared secret')} disabled={!(cc[f.k] || '').trim()} title="Copy secret to clipboard" aria-label="Copy secret to clipboard" style={{ padding: '9px 13px', whiteSpace: 'nowrap', flexShrink: 0 }}>⧉ Copy</button>
+                            <button className="gbtn" type="button" onClick={genSecret} title="Generate a secure 48-character secret" style={{ padding: '9px 13px', whiteSpace: 'nowrap', flexShrink: 0 }}>⚄ Generate</button>
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 5, fontWeight: 500 }}>Paste the <b>same</b> secret into your endpoint&rsquo;s <code>LIVESOV_SECRET</code>. Reveal or Copy to grab the exact value.</div>
+                        </>
                       ) : (
                         <input className="xin" type={f.pw ? 'password' : 'text'} value={cc[f.k] || ''} placeholder={f.ph} onChange={(e) => ccSet(f.k, e.target.value)} />
                       )}
