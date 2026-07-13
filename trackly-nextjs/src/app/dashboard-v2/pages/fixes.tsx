@@ -232,6 +232,11 @@ export function PageFixes() {
   const [wizDetected, setWizDetected] = React.useState<{ cms: string; confidence: string; hasAdapter: boolean } | null>(null);
   const [wizBusy, setWizBusy] = React.useState(false);
   const [wizDismissed, setWizDismissed] = React.useState(false);
+  // Lets the wizard (or the "connect this way" hints) open the Connections
+  // CMS form with a specific platform preselected. Bumping `nonce` re-fires
+  // even if the same platform is requested twice.
+  const [connectRequest, setConnectRequest] = React.useState<{ platform: string; nonce: number } | null>(null);
+  const requestConnect = React.useCallback((platform: string) => setConnectRequest((r) => ({ platform, nonce: (r?.nonce ?? 0) + 1 })), []);
   const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(new Set());
   // Cards start collapsed (one line each) so long queues stay scannable;
   // clicking a row opens the full card. Expand/collapse-all lives in the
@@ -692,16 +697,40 @@ export function PageFixes() {
             <div style={{ flex: 1, minWidth: 200 }}><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Your site</div><input className="xin" value={wizSite || (brand as any)?.website || ''} onChange={(e) => setWizSite(e.target.value)} placeholder="https://acme.com" /></div>
             <button className="gbtn" onClick={async () => { const s = wizSite || (brand as any)?.website || ''; setWizSite(s); setWizBusy(true); setWizDetected(await detectCms(s)); setWizBusy(false); }} disabled={wizBusy} style={{ padding: '9px 14px' }}>{wizBusy ? 'Detecting…' : 'Detect platform'}</button>
           </div>
-          {wizDetected && (
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: wizDetected.hasAdapter ? 'var(--success)' : 'var(--warn)', paddingLeft: 46 }}>
-              {wizDetected.cms === 'unknown' ? 'Couldn’t identify the platform — connect WordPress below, or use Connections for another CMS / the plugin-free edge path.' : `Detected ${wizDetected.cms}.`}
-            </span>
-          )}
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span className="disp nb-sm" style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, background: 'var(--surface-2)', flexShrink: 0 }}>2</span>
-            <button className="xbtn" onClick={() => connectWp(wizSite || (brand as any)?.website || '')} disabled={!(wizSite || (brand as any)?.website)} style={{ background: 'var(--primary)' }}>CONNECT WORDPRESS — ONE CLICK →</button>
-            <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>No plugin. Not WordPress? Use <b>Connections</b> below (Shopify / Ghost / Webflow / edge).</span>
-          </div>
+          {(() => {
+            // What did detection find, and where should we steer them?
+            //   wordpress          → one-click WP (no plugin)
+            //   shopify/ghost/webflow → open Connections with that platform
+            //   anything else / unknown → custom-coded endpoint path
+            const d = wizDetected;
+            const isWp = d?.cms === 'wordpress';
+            const adapterPlatform = d && d.hasAdapter && d.cms !== 'wordpress' && d.cms !== 'unknown' ? d.cms : null;
+            const isCustom = !!d && !isWp && !adapterPlatform;
+            const site = wizSite || (brand as any)?.website || '';
+            return (<>
+              {d && (
+                <span className="nb-sm" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)', padding: '9px 13px', boxShadow: 'none', background: isWp ? 'var(--success-50)' : 'var(--warn-50)', borderColor: isWp ? 'var(--success)' : 'var(--warn)', marginLeft: 46, display: 'block' }}>
+                  {isWp ? '✓ Detected WordPress — use the one-click connect below.'
+                    : adapterPlatform ? `✓ Detected ${adapterPlatform}. Click “Connect ${adapterPlatform}” below to enter your API token.`
+                    : `This looks like a custom-coded site (no CMS we recognize). No problem — connect it with a small endpoint your developer drops in once. Click “Connect custom-coded site” below.`}
+                </span>
+              )}
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span className="disp nb-sm" style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, background: 'var(--surface-2)', flexShrink: 0 }}>2</span>
+                {isCustom ? (
+                  <button className="xbtn" onClick={() => { setWizSite(site); requestConnect('custom'); }} style={{ background: 'var(--warn)' }}>CONNECT CUSTOM-CODED SITE →</button>
+                ) : adapterPlatform ? (
+                  <button className="xbtn" onClick={() => { setWizSite(site); requestConnect(adapterPlatform); }} style={{ background: 'var(--primary)' }}>CONNECT {adapterPlatform.toUpperCase()} →</button>
+                ) : (
+                  <button className="xbtn" onClick={() => connectWp(site)} disabled={!site} style={{ background: 'var(--primary)' }}>CONNECT WORDPRESS — ONE CLICK →</button>
+                )}
+                <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>
+                  {isCustom ? 'Any stack (React, Next.js, PHP, Django…). Ticket hand-off & scan work with zero setup too.'
+                    : 'No plugin. Not WordPress? Hit Detect platform, or use Connections below.'}
+                </span>
+              </div>
+            </>);
+          })()}
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <span className="disp nb-sm" style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, background: 'var(--surface-2)', flexShrink: 0 }}>3</span>
             <button className="xbtn" onClick={runScan} disabled={scanning || selected.size === 0} style={{ background: 'var(--text)' }}>{scanning ? 'SCANNING…' : '▶ RUN YOUR FIRST SCAN'}</button>
@@ -730,6 +759,7 @@ export function PageFixes() {
       linear={!!linearConn} jira={!!jiraConn} sheet={!!sheetConn} kwe={!!kweConn} onConnectTracker={connectTracker} onConnectKwe={connectKwe}
       onConnectCms={connectCms} onConnectWp={connectWp} onConnectCmsGeneric={connectCmsGeneric} onDetectCms={detectCms}
       onConnectGsc={connectGsc} onPairConnector={pairConnector} onRevokeConnector={revokeConnector} onCopy={(label) => flash(`${label} copied`)}
+      openRequest={connectRequest}
     />
 
     {/* SEO BRAIN */}
@@ -921,7 +951,7 @@ export function PageFixes() {
 }
 
 // ── Connections ──
-function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, linear, jira, sheet, kwe, onConnectTracker, onConnectKwe, onConnectCms, onConnectWp, onConnectCmsGeneric, onDetectCms, onConnectGsc, onPairConnector, onRevokeConnector, onCopy }: {
+function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, linear, jira, sheet, kwe, onConnectTracker, onConnectKwe, onConnectCms, onConnectWp, onConnectCmsGeneric, onDetectCms, onConnectGsc, onPairConnector, onRevokeConnector, onCopy, openRequest }: {
   cms: boolean; cmsMeta: string; gsc: boolean; gscSite: string | null; connector: boolean; connectorLastSeen: string | null;
   pairing: { token: string; hmacSecret: string; pullUrl: string } | null;
   supportedCms: string[]; defaultSite: string; disabled: boolean;
@@ -933,7 +963,9 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
   onConnectCmsGeneric: (cmsType: string, siteUrl: string, creds: Record<string, string>) => void;
   onDetectCms: (site: string) => Promise<{ cms: string; confidence: string; hasAdapter: boolean } | null>;
   onConnectGsc: () => void; onPairConnector: () => void; onRevokeConnector: () => void; onCopy: (label: string) => void;
+  openRequest?: { platform: string; nonce: number } | null;
 }) {
+  const [collapsed, setCollapsed] = React.useState(false);
   const [showForm, setShowForm] = React.useState(false);
   const [reveal, setReveal] = React.useState(false);
   const [cmsType, setCmsType] = React.useState('wordpress');
@@ -944,13 +976,23 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
   const ccSet = (k: string, v: string) => setCc((p) => ({ ...p, [k]: v }));
   const [detected, setDetected] = React.useState<{ cms: string; confidence: string; hasAdapter: boolean } | null>(null);
   const [detecting, setDetecting] = React.useState(false);
-  const runDetect = async () => { if (!siteUrl) return; setDetecting(true); const d = await onDetectCms(siteUrl); setDetected(d); if (d?.hasAdapter && d.cms !== 'unknown') setCmsType(d.cms); setDetecting(false); };
+  const runDetect = async () => { if (!siteUrl) return; setDetecting(true); const d = await onDetectCms(siteUrl); setDetected(d); if (d?.hasAdapter && d.cms !== 'unknown') setCmsType(d.cms); else if (d && (d.cms === 'unknown' || !d.hasAdapter)) setCmsType('custom'); setDetecting(false); };
   const [tracker, setTracker] = React.useState<'' | 'linear' | 'jira' | 'sheet'>('');
   const [tk, setTk] = React.useState<Record<string, string>>({});
   const [kweOpen, setKweOpen] = React.useState(false);
   const [kweKey, setKweKey] = React.useState('');
   const tkSet = (k: string, v: string) => setTk((p) => ({ ...p, [k]: v }));
   React.useEffect(() => { if (defaultSite && !siteUrl) setSiteUrl(defaultSite); }, [defaultSite, siteUrl]);
+  // A "connect this way" request from the wizard: expand the panel, open the
+  // CMS form with the requested platform preselected, and scroll it into view.
+  React.useEffect(() => {
+    if (!openRequest) return;
+    setCollapsed(false);
+    setCmsType(openRequest.platform);
+    setShowForm(true);
+    const t = setTimeout(() => document.getElementById('fix-connections')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+    return () => clearTimeout(t);
+  }, [openRequest]);
   const connectedCount = (cms ? 1 : 0) + (gsc ? 1 : 0) + (connector ? 1 : 0);
   const copy = (text: string, label: string) => { try { navigator.clipboard?.writeText(text); } catch { /* ignore */ } onCopy(label); };
 
@@ -968,11 +1010,20 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
   const offChip = <span className="chip" style={{ color: 'var(--text-3)' }}>○ NOT CONNECTED</span>;
 
   return (
-    <section className="nb" style={{ padding: 0, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 22px', background: 'var(--text)', color: 'var(--bg)' }}>
-        <div className="disp" style={{ fontSize: 18, fontWeight: 700 }}>CONNECTIONS</div>
-        <span className="chip" style={{ background: 'var(--bg)', color: 'var(--text)' }}>{connectedCount} OF 3</span>
-      </div>
+    <section id="fix-connections" className="nb" style={{ padding: 0, overflow: 'hidden' }}>
+      <button
+        onClick={() => setCollapsed((c) => !c)}
+        aria-expanded={!collapsed}
+        title={collapsed ? 'Show connections' : 'Hide connections'}
+        style={{ width: '100%', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '16px 22px', background: 'var(--text)', color: 'var(--bg)', fontFamily: 'inherit' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span className="disp" aria-hidden style={{ fontSize: 15, fontWeight: 700, transition: 'transform .15s', transform: collapsed ? 'rotate(-90deg)' : 'none' }}>▾</span>
+          <span className="disp" style={{ fontSize: 18, fontWeight: 700 }}>CONNECTIONS</span>
+        </div>
+        <span className="chip" style={{ background: 'var(--bg)', color: 'var(--text)' }}>{connectedCount} OF 3{collapsed ? ' · SHOW' : ''}</span>
+      </button>
+      {!collapsed && (
       <div style={{ padding: '8px 22px 18px' }}>
         <Row badge="CMS" title="WordPress" meta={cmsMeta}>
           {cms ? okChip('CONNECTED') : offChip}
@@ -991,8 +1042,10 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               <button className="gbtn" onClick={runDetect} disabled={!siteUrl || detecting} style={{ padding: '9px 13px' }}>{detecting ? 'Detecting…' : 'Detect'}</button>
             </div>
             {detected && (
-              <span style={{ fontSize: 12, fontWeight: 600, color: detected.hasAdapter ? 'var(--success)' : 'var(--warn)' }}>
-                {detected.cms === 'unknown' ? 'Couldn’t identify the platform — custom-coded? Pick “custom-coded site” above: your developer adds one ~40-line endpoint and every fix ships automatically.' : `Detected ${detected.cms}${detected.hasAdapter ? '' : ' (no direct adapter — use the Connector or edge path)'}.`}
+              <span style={{ fontSize: 12, fontWeight: 600, color: detected.hasAdapter && detected.cms !== 'unknown' ? 'var(--success)' : 'var(--warn)' }}>
+                {detected.cms === 'unknown' || !detected.hasAdapter
+                  ? '↓ Looks like a custom-coded site — we selected “custom-coded site (any stack)” for you below. Your developer adds one ~40-line endpoint (template provided) and every fix ships automatically.'
+                  : `✓ Detected ${detected.cms} — selected below.`}
               </span>
             )}
 
@@ -1230,6 +1283,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
           </div>
         )}
       </div>
+      )}
     </section>
   );
 }
