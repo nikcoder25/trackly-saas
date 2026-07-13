@@ -76,17 +76,19 @@ export const geoPageRewriteModule: FixModule = {
   },
 
   async generate(issue: DetectedIssue, ctx: FixContext): Promise<GeneratedDraft> {
-    const d = issue.detected as { url: string; title: string | null; headings: string[]; pageText: string };
+    const d = issue.detected as { url: string; title: string | null; headings: string[]; pageText: string; instruction?: string };
+    let user = geoRewriteUserPrompt({
+      brand: ctx.brand,
+      url: d.url,
+      title: d.title,
+      headings: d.headings || [],
+      pageText: d.pageText || '',
+    });
+    if (typeof d.instruction === 'string' && d.instruction.trim()) user += `\n\nUser preference (honor this): ${d.instruction.trim()}`;
     const { data } = await generateJson<GeoDraft>({
       ctx,
       system: GEO_REWRITE_SYSTEM,
-      user: geoRewriteUserPrompt({
-        brand: ctx.brand,
-        url: d.url,
-        title: d.title,
-        headings: d.headings || [],
-        pageText: d.pageText || '',
-      }),
+      user,
       maxTokens: 2200,
     });
     const html = renderHtml(data);

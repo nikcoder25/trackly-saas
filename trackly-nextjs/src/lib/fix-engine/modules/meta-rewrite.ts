@@ -59,7 +59,7 @@ export const metaRewriteModule: FixModule = {
   },
 
   async generate(issue: DetectedIssue, ctx: FixContext): Promise<GeneratedDraft> {
-    const d = issue.detected as { url: string; currentMeta: string | null; title: string | null; pageSummary: string };
+    const d = issue.detected as { url: string; currentMeta: string | null; title: string | null; pageSummary: string; instruction?: string };
     // Competitive context: the descriptions currently ranking for this page's
     // primary query, so the rewrite wins the click on the real SERP. Best-effort.
     let query: string | null = null;
@@ -68,18 +68,20 @@ export const metaRewriteModule: FixModule = {
       const { getCompetitorContext } = await import('../serp');
       ({ query, competitors } = await getCompetitorContext(ctx, d.url, d.title, null));
     } catch { /* generate without competitor context */ }
+    let user = metaUserPrompt({
+      brand: ctx.brand,
+      url: d.url,
+      currentMeta: d.currentMeta,
+      title: d.title,
+      pageSummary: d.pageSummary || '',
+      query,
+      competitors,
+    });
+    if (typeof d.instruction === 'string' && d.instruction.trim()) user += `\n\nUser preference (honor this): ${d.instruction.trim()}`;
     const { data } = await generateJson<{ description: string; rationale: string }>({
       ctx,
       system: META_SYSTEM,
-      user: metaUserPrompt({
-        brand: ctx.brand,
-        url: d.url,
-        currentMeta: d.currentMeta,
-        title: d.title,
-        pageSummary: d.pageSummary || '',
-        query,
-        competitors,
-      }),
+      user,
       maxTokens: 400,
     });
     return { generated: { description: data.description.trim(), rationale: data.rationale, serpQuery: query, serpCompared: competitors.length, serpCompetitors: competitors.slice(0, 5) }, creditsUsed: 1 };
