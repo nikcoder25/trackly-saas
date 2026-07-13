@@ -83,10 +83,15 @@ contract above — it's ~40 lines anywhere.
 
 ## 4. Alternatives if you can't add an endpoint
 
+- **Edge publishing (Cloudflare Worker) — recommended when the domain is on
+  Cloudflare.** Zero code on the site: paste the Worker from the dashboard
+  (Connections → Pair → Worker snippet) into your Cloudflare zone, then
+  connect the CMS as platform `edge`. Shipped title / meta description /
+  canonical fixes are applied to every page as it is served, plus automatic
+  `llms.txt` / `robots.txt`. Works on any stack; body/content edits still
+  hand off to your team.
 - **Linear/Jira/webhook hand-off** — every approved fix becomes a ticket
   with exact copy-paste content; re-check still verifies the dev applied it.
-- **Edge delivery (Cloudflare Worker)** — automatic shipping for root-file
-  fixes (`llms.txt`, `robots.txt`) on any stack, no site changes.
 - **Connector protocol** — the pull-based protocol our WordPress plugin
   speaks (see `docs/FIX-ENGINE.md`); implement it server-side for staging
   + publish flows.

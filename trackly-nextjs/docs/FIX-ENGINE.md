@@ -480,13 +480,33 @@ which fetches the live file and verifies it. The dashboard shows a **Download
 file** button on these fixes.
 
 **Edge delivery (Cloudflare / any reverse proxy) — automatic, no plugin:**
-For sites behind a CDN, the root files can also stay in sync automatically
-without our plugin. `GET /api/edge/serve?token=<connector-token>&file=llms.txt|robots.txt`
+For sites behind a CDN, fixes can ship automatically without our plugin —
+and without ANY code on the site. `GET /api/edge/serve?token=<connector-token>&file=llms.txt|robots.txt|seo.json`
 returns the brand's latest ready content (gated by the Connector token, the
 same one the plugin uses; rate-limited). The dashboard generates a ready-to-
-paste **Cloudflare Worker** (token embedded) that serves `/llms.txt` and
-appends the AI directives to the origin's `/robots.txt`. Once routed, future
-fixes go live with zero further action — and it's CMS-agnostic.
+paste **Cloudflare Worker** (token embedded) that:
+
+- serves `/llms.txt` and appends the AI directives to the origin's
+  `/robots.txt`;
+- **applies shipped on-page SEO fixes to every HTML response** via
+  HTMLRewriter: `seo.json` is the brand's per-path override map (title /
+  meta description / canonical, built by `getEdgeSeoOverrides()` from
+  shipped `title-rewrite` / `meta-rewrite` / `ctr-rescue` / `canonical-fix`
+  rows), and the Worker rewrites — or injects, when the page lacks the tag —
+  those values as pages are served. Reverting a fix removes its override.
+
+The Worker stamps `x-livesov-edge: v1` on every response. The **`edge` CMS
+adapter** uses that marker for truthfulness: connecting as platform `edge`
+verifies the marker is live on the domain, and each ship re-probes the target
+page before the engine may mark the fix shipped — so shipping into a domain
+the Worker doesn't serve fails with an actionable message instead of a false
+"shipped". The post-ship auto-recheck (plus the cron ship-verify retry, which
+outlasts the 5-minute override cache) then confirms the rendered HTML.
+
+Once routed, future fixes go live with zero further action — and because the
+rewrite happens at the CDN layer it's completely stack-agnostic: WordPress,
+custom-coded, static, anything. Body/content edits can't be done at the edge
+and degrade to the hand-off path (CMS, endpoint, or ticket).
 
 So the only thing that *requires* the Connector plugin is the connector-staged
 *draft preview* of edits to already-published pages. Everything else can be

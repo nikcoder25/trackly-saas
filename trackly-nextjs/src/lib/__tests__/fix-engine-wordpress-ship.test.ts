@@ -28,7 +28,7 @@ function mockResolveToPage(id = 7) {
   fetchMock.mockResolvedValueOnce(res(200, [{ id }])); // GET pages?slug=...
 }
 
-beforeEach(() => fetchMock.mockReset());
+beforeEach(() => { fetchMock.mockReset(); }); // braces: don't return the mock as a teardown fn
 
 describe('WordPress meta description write', () => {
   it('reports ok when the SEO plugin field actually persists', async () => {

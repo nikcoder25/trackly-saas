@@ -528,6 +528,75 @@ export async function getConnectorFix(fixId: string, brandId: string): Promise<F
   return getFix(fixId, brandId);
 }
 
+// ── Edge SEO overrides (plugin-free publishing via CDN Worker) ────
+
+/** Per-page SEO values the edge Worker applies while serving the page. */
+export interface EdgeSeoOverride { title?: string; description?: string; canonical?: string }
+
+/** module → which override field(s) its `generated` payload carries. */
+const EDGE_SEO_MODULES: Record<string, Array<{ genField: string; overrideField: keyof EdgeSeoOverride }>> = {
+  'title-rewrite': [{ genField: 'title', overrideField: 'title' }],
+  'meta-rewrite': [{ genField: 'description', overrideField: 'description' }],
+  'ctr-rescue': [{ genField: 'title', overrideField: 'title' }, { genField: 'description', overrideField: 'description' }],
+  'canonical-fix': [{ genField: 'canonical', overrideField: 'canonical' }],
+};
+
+/** Normalise a page URL to the pathname key the Worker matches on
+ *  (no trailing slash, except the root itself). Null for unparseable URLs. */
+export function edgeSeoPathKey(targetUrl: string): string | null {
+  try {
+    const p = new URL(targetUrl).pathname;
+    return p.length > 1 ? p.replace(/\/+$/, '') || '/' : '/';
+  } catch { return null; }
+}
+
+/**
+ * Pure builder: fold shipped-fix rows (oldest→newest) into the per-path
+ * override map. Newer values win per field, so re-shipping a fix updates
+ * the override, and a reverted fix simply falls out of the input set.
+ */
+export function buildEdgeSeoOverrides(
+  rows: Array<{ moduleKey: string; targetUrl: string | null; generated: Record<string, unknown> | null }>,
+): Record<string, EdgeSeoOverride> {
+  const out: Record<string, EdgeSeoOverride> = {};
+  for (const row of rows) {
+    const fields = EDGE_SEO_MODULES[row.moduleKey];
+    if (!fields || !row.targetUrl || !row.generated) continue;
+    const key = edgeSeoPathKey(row.targetUrl);
+    if (!key) continue;
+    for (const { genField, overrideField } of fields) {
+      const v = row.generated[genField];
+      if (typeof v === 'string' && v.trim()) {
+        (out[key] ??= {})[overrideField] = v.trim();
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * The brand's live edge SEO overrides: every shipped/verified title, meta
+ * description, and canonical fix, keyed by page path. Served to the CDN
+ * Worker via /api/edge/serve?file=seo.json — reverting a fix removes it
+ * from this set (status filter), so the origin value shows again.
+ */
+export async function getEdgeSeoOverrides(brandId: string): Promise<Record<string, EdgeSeoOverride>> {
+  await ensureFixEngineSchema();
+  const res = await pool.query(
+    `SELECT module_key, target_url, generated FROM fixes
+      WHERE brand_id = $1 AND module_key = ANY($2)
+        AND status IN ('shipped','verified')
+        AND target_url IS NOT NULL AND generated IS NOT NULL
+      ORDER BY updated_at ASC`,
+    [brandId, Object.keys(EDGE_SEO_MODULES)],
+  );
+  return buildEdgeSeoOverrides(res.rows.map((r: DbRow) => ({
+    moduleKey: String(r.module_key),
+    targetUrl: (r.target_url as string | null) ?? null,
+    generated: (r.generated as Record<string, unknown> | null) ?? null,
+  })));
+}
+
 export interface StuckInstruction { id: string; brandId: string; createdAt: string }
 
 /**
