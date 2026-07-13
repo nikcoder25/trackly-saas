@@ -405,7 +405,18 @@ fetches the live `/llms.txt`) flips it to `verified`. A failed ack
 >   All ops are idempotent overwrites, so re-delivery is safe.
 > - *Auto-verify* — on a successful ack the engine auto-runs `recheck`
 >   (non-blocking via `after()`), so Channel-B fixes flip to `verified`
->   with no manual step.
+>   with no manual step. Channel-A ships get the same treatment inside
+>   `shipFix()`: after the CMS/endpoint reports ok, a deferred `recheck`
+>   crawls the live page — so a write that didn't actually persist (e.g.
+>   a custom endpoint that acks without storing) shows up immediately as
+>   shipped-but-unverified instead of masquerading as done.
+> - *Ship-verify retry* — when the instant recheck loses to a CDN still
+>   serving cached HTML, the fix isn't stranded: the worker cron's
+>   `runShipVerifyPass()` re-crawls shipped-but-unverified fixes on a
+>   spaced schedule (≥30 min apart, for 2 days after the ship, bounded
+>   per tick via `findUnverifiedShippedFixes`), so the fix flips to
+>   `verified` on its own once the cache expires. Undelivered Channel-B
+>   fixes are excluded — the connector watchdog owns those.
 > - *Server-side watchdog* — the `fix-engine-worker` cron runs
 >   `runConnectorWatchdog()` each tick (`connector-watchdog.ts`). It finds
 >   Channel-B fixes still undelivered after a grace period (default 2h) and
@@ -426,9 +437,20 @@ fetches the live `/llms.txt`) flips it to `verified`. A failed ack
 
 Most fixes need **no plugin at all** — the Channel-A WordPress adapter writes
 through the standard WordPress REST API authenticated with an **Application
-Password** (WP core since 5.6). That covers every on-page change: title, meta
-description, canonical, indexable, body rewrites, FAQ/JSON-LD (appended to the
-body), citable passages, in-place passage edits, and new pages.
+Password** (WP core since 5.6). That covers body rewrites, FAQ/JSON-LD
+(appended to the body), citable passages, in-place passage edits, and new
+pages.
+
+**SEO plugin fields (title, meta description, canonical, indexable)** live in
+Yoast / Rank Math post-meta. WordPress core **silently ignores** any meta key a
+plugin hasn't registered with `show_in_rest` and still returns HTTP 200, so a
+bare REST write can look like it succeeded while the field never actually
+persisted. The adapter therefore **reads the object WordPress echoes back and
+confirms the value stuck** before reporting the write ok; if the SEO plugin
+doesn't expose the field to REST, the write reports a truthful failure (reason
+`seo_field_not_writable_via_rest`) that directs the user to the Connector —
+which writes the meta server-side with `update_post_meta` — instead of falsely
+marking the fix "shipped".
 
 Connecting is one click, no copy-paste, via WP core's own authorize screen:
 
@@ -458,13 +480,59 @@ which fetches the live file and verifies it. The dashboard shows a **Download
 file** button on these fixes.
 
 **Edge delivery (Cloudflare / any reverse proxy) — automatic, no plugin:**
-For sites behind a CDN, the root files can also stay in sync automatically
-without our plugin. `GET /api/edge/serve?token=<connector-token>&file=llms.txt|robots.txt`
+For sites behind a CDN, fixes can ship automatically without our plugin —
+and without ANY code on the site. `GET /api/edge/serve?token=<connector-token>&file=llms.txt|robots.txt|seo.json`
 returns the brand's latest ready content (gated by the Connector token, the
 same one the plugin uses; rate-limited). The dashboard generates a ready-to-
-paste **Cloudflare Worker** (token embedded) that serves `/llms.txt` and
-appends the AI directives to the origin's `/robots.txt`. Once routed, future
-fixes go live with zero further action — and it's CMS-agnostic.
+paste **Cloudflare Worker** (token embedded) that:
+
+- serves `/llms.txt` and appends the AI directives to the origin's
+  `/robots.txt`;
+- **applies shipped on-page SEO fixes to every HTML response** via
+  HTMLRewriter: `seo.json` is the brand's per-path override map, built by
+  `getEdgeSeoOverrides()` from shipped rows of `title-rewrite`,
+  `meta-rewrite`, `ctr-rescue`, `canonical-fix`, `schema-markup` (JSON-LD
+  injected before `</head>`, `</`-escaped against script breakout),
+  `og-cards` (head block), and `noindex-removal` (meta robots rewritten to
+  index,follow + the `X-Robots-Tag` response header stripped). The Worker
+  rewrites — or injects, when the page lacks the tag — those values as
+  pages are served. Reverting a fix removes its override.
+
+The Worker stamps `x-livesov-edge: v1` on every response. The **`edge` CMS
+adapter** uses that marker for truthfulness: connecting as platform `edge`
+verifies the marker is live on the domain, and each ship re-probes the target
+page before the engine may mark the fix shipped — so shipping into a domain
+the Worker doesn't serve fails with an actionable message instead of a false
+"shipped". The post-ship auto-recheck (plus the cron ship-verify retry, which
+outlasts the 5-minute override cache) then confirms the rendered HTML.
+
+Once routed, future fixes go live with zero further action — and because the
+rewrite happens at the CDN layer it's completely stack-agnostic: WordPress,
+custom-coded, static, anything. Body/content edits can't be done at the edge
+and degrade to the hand-off path (CMS, endpoint, or ticket).
+
+**One-click deploy (`POST …/connections/cloudflare/deploy`):** the manual
+paste-a-Worker flow only has to happen zero or one times per *account*, not
+per site. With a Cloudflare API token (scopes: Workers Scripts:Edit, Workers
+Routes:Edit, Zone:Read — entered once, stored encrypted, reused across all
+the user's brands via `getLatestUserConnection`), the route does the whole
+chain itself: verify token → find the site's zone (walking sub-domains up to
+the registered zone) → mint the Connector pairing → build the Worker
+(`buildEdgeWorkerScript`, the same single-source template the dashboard
+snippet uses) → upload it account-level and route `zone/*` + `*.zone/*`
+(idempotent; re-deploys update in place) → probe for the marker → auto-create
+the brand's `edge` CMS connection when live. Adding website #2, #3, … is one
+click: Connections → platform `edge` → **Deploy automatically**.
+
+**Zero-click auto-connect (`runEdgeAutoConnect`, cron):** websites added
+after the token is stored need no clicks at all. Each fix-engine-worker tick
+finds brands whose owner has an active Cloudflare token but no CMS
+connection yet (`findEdgeAutoConnectCandidates`) and runs the same
+provisioning chain (`provisionEdgeForBrand`, shared with the one-click
+route) automatically. Exactly one attempt per brand — success or failure
+logs an `edge.autodeploy` brand event that gates the candidate query — so a
+domain that isn't on the user's Cloudflare account is probed once, not every
+tick; the one-click deploy remains available and reports the exact error.
 
 So the only thing that *requires* the Connector plugin is the connector-staged
 *draft preview* of edits to already-published pages. Everything else can be

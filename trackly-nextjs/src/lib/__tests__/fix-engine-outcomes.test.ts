@@ -9,6 +9,7 @@ vi.mock('@/lib/logger', () => ({ logger: { debug: vi.fn(), info: vi.fn(), warn: 
 const state = vi.hoisted(() => ({
   due: [] as any[],
   stale: [] as any[],
+  unverifiedShipped: [] as any[],
   liveMetrics: { clicks: 60, impressions: 1200, ctr: 0.05, position: 8 } as any,
   recheckResult: 'verified' as string,
   measuredRevert: false,
@@ -21,6 +22,7 @@ const state = vi.hoisted(() => ({
 vi.mock('@/lib/fix-engine/schema', () => ({
   findFixesDueOutcome: vi.fn(async () => state.due),
   findStaleVerifiedFixes: vi.fn(async () => state.stale),
+  findUnverifiedShippedFixes: vi.fn(async () => state.unverifiedShipped),
   updateFix: vi.fn(async (id: string, patch: any) => { state.updates.push({ id, patch }); }),
   logFixEvent: vi.fn(async (fixId: string | null, _b: string, _u: unknown, event: string, detail: any) => { state.events.push({ fixId, event, detail }); }),
 }));
@@ -41,11 +43,13 @@ vi.mock('@/lib/fix-engine/page-metrics', () => ({
   fetchUrlMetricsLive: vi.fn(async () => (state.liveMetrics ? { url: 'u', ...state.liveMetrics, fetchedAt: 'now' } : null)),
 }));
 
-import { runOutcomePass, runRegressionWatch } from '@/lib/fix-engine/outcomes';
+import { runOutcomePass, runRegressionWatch, runShipVerifyPass } from '@/lib/fix-engine/outcomes';
+import { recheckFix } from '@/lib/fix-engine/engine';
 
 beforeEach(() => {
   state.due = [{ id: 'f1', brandId: 'b1', moduleKey: 'title-rewrite', targetUrl: 'https://a.com/p', gscBefore: { ctr: 0.04, impressions: 1000, at: '2026-06-01' } }];
   state.stale = [{ id: 'v1', brandId: 'b1', moduleKey: 'title-rewrite', targetUrl: 'https://a.com/p', status: 'verified' }];
+  state.unverifiedShipped = [{ id: 's1', brandId: 'b1', moduleKey: 'title-rewrite', targetUrl: 'https://a.com/p', status: 'shipped' }];
   state.liveMetrics = { clicks: 60, impressions: 1200, ctr: 0.05, position: 8 };
   state.recheckResult = 'verified';
   state.measuredRevert = false; state.revertable = true; state.revertCalls = [];
@@ -104,6 +108,27 @@ describe('measured auto-revert', () => {
     state.liveMetrics = { clicks: 5, impressions: 150, ctr: 0.025, position: 9 };
     expect((await runOutcomePass()).reverted).toBe(0);
     expect(state.revertCalls).toEqual([]);
+  });
+});
+
+describe('runShipVerifyPass', () => {
+  it('re-verifies shipped fixes and counts the ones that flip to verified', async () => {
+    const r = await runShipVerifyPass();
+    expect(r).toEqual({ checked: 1, verified: 1 });
+    expect(recheckFix).toHaveBeenCalledWith('s1', 'b1', null);
+  });
+
+  it('counts a still-cached page as checked but not verified', async () => {
+    state.recheckResult = 'shipped'; // live page still shows the old value
+    const r = await runShipVerifyPass();
+    expect(r).toEqual({ checked: 1, verified: 0 });
+  });
+
+  it('does nothing when no shipped fixes are pending verification', async () => {
+    state.unverifiedShipped = [];
+    const r = await runShipVerifyPass();
+    expect(r).toEqual({ checked: 0, verified: 0 });
+    expect(recheckFix).not.toHaveBeenCalled();
   });
 });
 

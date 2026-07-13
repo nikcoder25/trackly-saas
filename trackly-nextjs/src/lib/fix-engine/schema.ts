@@ -528,6 +528,103 @@ export async function getConnectorFix(fixId: string, brandId: string): Promise<F
   return getFix(fixId, brandId);
 }
 
+// ── Edge SEO overrides (plugin-free publishing via CDN Worker) ────
+
+/** Per-page SEO values the edge Worker applies while serving the page. */
+export interface EdgeSeoOverride {
+  title?: string;
+  description?: string;
+  canonical?: string;
+  /** JSON-LD string injected as a <script type="application/ld+json"> block. */
+  jsonLd?: string;
+  /** Trusted head HTML block (OG/Twitter cards) injected before </head>. */
+  head?: string;
+  /** Force indexable: rewrite meta robots to index,follow + strip X-Robots-Tag. */
+  indexable?: boolean;
+}
+
+/** module → which override field(s) its `generated` payload carries. */
+const EDGE_SEO_MODULES: Record<string, Array<{ genField: string; overrideField: 'title' | 'description' | 'canonical' | 'jsonLd' | 'head' }>> = {
+  'title-rewrite': [{ genField: 'title', overrideField: 'title' }],
+  'meta-rewrite': [{ genField: 'description', overrideField: 'description' }],
+  'ctr-rescue': [{ genField: 'title', overrideField: 'title' }, { genField: 'description', overrideField: 'description' }],
+  'canonical-fix': [{ genField: 'canonical', overrideField: 'canonical' }],
+  'schema-markup': [{ genField: 'schema', overrideField: 'jsonLd' }],
+  'og-cards': [{ genField: 'head', overrideField: 'head' }],
+};
+
+/** Deterministic modules whose override is a flag, not generated content. */
+const EDGE_FLAG_MODULES: Record<string, keyof Pick<EdgeSeoOverride, 'indexable'>> = {
+  'noindex-removal': 'indexable',
+};
+
+/** Normalise a page URL to the pathname key the Worker matches on
+ *  (no trailing slash, except the root itself). Null for unparseable URLs. */
+export function edgeSeoPathKey(targetUrl: string): string | null {
+  try {
+    const p = new URL(targetUrl).pathname;
+    return p.length > 1 ? p.replace(/\/+$/, '') || '/' : '/';
+  } catch { return null; }
+}
+
+/**
+ * Pure builder: fold shipped-fix rows (oldest→newest) into the per-path
+ * override map. Newer values win per field, so re-shipping a fix updates
+ * the override, and a reverted fix simply falls out of the input set.
+ */
+export function buildEdgeSeoOverrides(
+  rows: Array<{ moduleKey: string; targetUrl: string | null; generated: Record<string, unknown> | null }>,
+): Record<string, EdgeSeoOverride> {
+  const out: Record<string, EdgeSeoOverride> = {};
+  for (const row of rows) {
+    if (!row.targetUrl) continue;
+    const key = edgeSeoPathKey(row.targetUrl);
+    if (!key) continue;
+    const flag = EDGE_FLAG_MODULES[row.moduleKey];
+    if (flag) {
+      (out[key] ??= {})[flag] = true;
+      continue;
+    }
+    const fields = EDGE_SEO_MODULES[row.moduleKey];
+    if (!fields || !row.generated) continue;
+    for (const { genField, overrideField } of fields) {
+      const v = row.generated[genField];
+      if (typeof v === 'string' && v.trim()) {
+        // jsonLd is emitted inside a <script> block — escape any '</' so
+        // a string value containing '</script>' can't break out of it
+        // ('<\/' is a valid, equivalent JSON escape).
+        (out[key] ??= {})[overrideField] = overrideField === 'jsonLd'
+          ? v.trim().replace(/<\//g, '<\\/')
+          : v.trim();
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * The brand's live edge SEO overrides: every shipped/verified title, meta
+ * description, and canonical fix, keyed by page path. Served to the CDN
+ * Worker via /api/edge/serve?file=seo.json — reverting a fix removes it
+ * from this set (status filter), so the origin value shows again.
+ */
+export async function getEdgeSeoOverrides(brandId: string): Promise<Record<string, EdgeSeoOverride>> {
+  await ensureFixEngineSchema();
+  const res = await pool.query(
+    `SELECT module_key, target_url, generated FROM fixes
+      WHERE brand_id = $1 AND module_key = ANY($2)
+        AND status IN ('shipped','verified')
+        AND target_url IS NOT NULL AND generated IS NOT NULL
+      ORDER BY updated_at ASC`,
+    [brandId, [...Object.keys(EDGE_SEO_MODULES), ...Object.keys(EDGE_FLAG_MODULES)]],
+  );
+  return buildEdgeSeoOverrides(res.rows.map((r: DbRow) => ({
+    moduleKey: String(r.module_key),
+    targetUrl: (r.target_url as string | null) ?? null,
+    generated: (r.generated as Record<string, unknown> | null) ?? null,
+  })));
+}
+
 export interface StuckInstruction { id: string; brandId: string; createdAt: string }
 
 /**
@@ -621,6 +718,74 @@ export async function findStaleVerifiedFixes(olderThanDays: number, limit = 10):
     [String(olderThanDays), limit],
   );
   return res.rows.map(mapFixRow);
+}
+
+/**
+ * Shipped-but-not-yet-verified fixes whose live change may just be hiding
+ * behind a CDN/page cache — candidates for the ship-verify retry pass.
+ * Bounded three ways: only fixes shipped within `shippedWithinDays` (via
+ * the 'shipped' event), untouched for `minAgeMinutes` (recheckFix bumps
+ * updated_at, so this spaces retries), and `limit` per tick. Channel-B
+ * fixes still waiting on the Connector are excluded — nothing is live to
+ * verify yet, and the watchdog owns that case.
+ */
+export async function findUnverifiedShippedFixes(
+  minAgeMinutes: number,
+  shippedWithinDays: number,
+  limit = 10,
+): Promise<FixRow[]> {
+  await ensureFixEngineSchema();
+  const res = await pool.query(
+    `SELECT * FROM fixes
+      WHERE status = 'shipped' AND target_url IS NOT NULL AND generated IS NOT NULL
+        AND (channel = 'A' OR connector_delivered_at IS NOT NULL)
+        AND updated_at < NOW() - ($1 || ' minutes')::interval
+        AND EXISTS (
+          SELECT 1 FROM fix_events e
+           WHERE e.fix_id = fixes.id AND e.event = 'shipped'
+             AND e.created_at > NOW() - ($2 || ' days')::interval
+        )
+      ORDER BY updated_at ASC LIMIT $3`,
+    [String(minAgeMinutes), String(shippedWithinDays), limit],
+  );
+  return res.rows.map(mapFixRow);
+}
+
+/**
+ * Brands eligible for zero-click edge auto-connect: they have a website,
+ * their owner has an active Cloudflare token stored, they have no active
+ * CMS connection yet, and auto-connect hasn't been attempted before
+ * (one 'edge.autodeploy' event per brand — success or failure — so a
+ * domain that isn't on Cloudflare doesn't get re-probed every cron tick).
+ */
+export async function findEdgeAutoConnectCandidates(
+  limit = 3,
+): Promise<Array<{ brandId: string; userId: string; website: string }>> {
+  await ensureFixEngineSchema();
+  const res = await pool.query(
+    `SELECT b.id AS brand_id, b.user_id, b.data->>'website' AS website
+       FROM brands b
+      WHERE COALESCE(b.data->>'website', '') <> ''
+        AND EXISTS (
+          SELECT 1 FROM fix_connections cf
+           WHERE cf.user_id = b.user_id AND cf.provider = 'cloudflare' AND cf.status = 'active'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM fix_connections c2
+           WHERE c2.brand_id = b.id AND c2.provider = 'cms' AND c2.status = 'active'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM fix_events e
+           WHERE e.brand_id = b.id AND e.event = 'edge.autodeploy'
+        )
+      LIMIT $1`,
+    [limit],
+  );
+  return res.rows.map((r: DbRow) => ({
+    brandId: String(r.brand_id),
+    userId: String(r.user_id),
+    website: String(r.website),
+  }));
 }
 
 /** Recent activity for a brand (automation feed), newest first. */

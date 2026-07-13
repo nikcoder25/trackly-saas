@@ -15,6 +15,7 @@ vi.mock('@/lib/rate-limit', () => ({
 const state = vi.hoisted(() => ({
   brandId: 'b1' as string | null,
   content: { 'llms-txt:content': 'User-agent: *\nAllow: /', 'robots-ai-access:directives': 'User-agent: GPTBot\nAllow: /' } as Record<string, string | null>,
+  seoOverrides: { '/pricing': { title: 'New Title', description: 'New description' } } as Record<string, unknown>,
 }));
 
 vi.mock('@/lib/fix-engine/connections', () => ({
@@ -22,6 +23,7 @@ vi.mock('@/lib/fix-engine/connections', () => ({
 }));
 vi.mock('@/lib/fix-engine/schema', () => ({
   getLatestRootFileContent: vi.fn(async (_b: string, moduleKey: string, field: string) => state.content[`${moduleKey}:${field}`] ?? null),
+  getEdgeSeoOverrides: vi.fn(async () => state.seoOverrides),
 }));
 
 import { GET } from '@/app/api/edge/serve/route';
@@ -63,5 +65,28 @@ describe('edge serve', () => {
   it('404s when there is no ready content yet', async () => {
     state.content = {};
     expect((await GET(req('token=tok&file=llms.txt'))).status).toBe(404);
+  });
+
+  it('serves seo.json overrides for the Worker with a short edge cache', async () => {
+    const res = await GET(req('token=tok&file=seo.json'));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toContain('max-age=300');
+    const body = await res.json();
+    expect(body.v).toBe(1);
+    expect(body.count).toBe(1);
+    expect(body.overrides['/pricing']).toEqual({ title: 'New Title', description: 'New description' });
+  });
+
+  it('serves an empty seo.json map as a valid 200 (Worker passes pages through)', async () => {
+    state.seoOverrides = {};
+    const res = await GET(req('token=tok&file=seo.json'));
+    expect(res.status).toBe(200);
+    expect((await res.json()).count).toBe(0);
+  });
+
+  it('still requires a valid token for seo.json', async () => {
+    state.brandId = null;
+    expect((await GET(req('token=bad&file=seo.json'))).status).toBe(401);
+    expect((await GET(req('file=seo.json'))).status).toBe(404); // no token
   });
 });

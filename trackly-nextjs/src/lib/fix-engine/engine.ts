@@ -298,6 +298,17 @@ export async function shipFix(fixId: string, brandId: string, userId: string | n
         error: null,
       });
       await logFixEvent(fix.id, brandId, userId, 'shipped', { channel: mod.channel, detail: result.detail });
+      // Auto-verify (Channel A): the CMS/endpoint said ok — confirm the
+      // change is actually live by re-crawling the page, so a write that
+      // didn't really persist (e.g. a custom endpoint that replies ok
+      // without storing) can't sit at "shipped" unnoticed. Channel B is
+      // auto-rechecked when the Connector acks (see the ack route).
+      if (mod.channel === 'A') {
+        after(async () => {
+          try { await recheckFix(fix.id, brandId, userId); }
+          catch (e) { logger.warn('fix_engine.ship_autorecheck_failed', { fixId: fix.id, err: (e as Error).message }); }
+        });
+      }
     } else {
       await updateFix(fix.id, { status: 'failed', shipResult: result.detail, error: result.error ?? 'Ship failed' });
       await logFixEvent(fix.id, brandId, userId, 'ship.failed', { error: result.error, detail: result.detail });

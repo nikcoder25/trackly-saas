@@ -127,7 +127,7 @@ export const externalCitationsModule: FixModule = {
     const cms = await resolveCmsForBrand(ctx);
     if ('error' in cms) return cms.error;
     const result = await cms.adapter.updateBody(cms.creds, { url: issue.targetUrl! }, String(draft.generated.html), 'append');
-    return { ok: result.ok, detail: result.detail ?? {}, after: { citations: cites }, error: result.ok ? undefined : 'CMS write failed' };
+    return { ok: result.ok, detail: result.detail ?? {}, after: { citations: cites }, error: result.ok ? undefined : (result.error ?? 'CMS write failed') };
   },
 
   async recheck(issue: DetectedIssue, draft: GeneratedDraft, ctx: FixContext): Promise<RecheckVerdict> {

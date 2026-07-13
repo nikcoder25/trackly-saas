@@ -15,7 +15,7 @@ import { pool } from '@/lib/db';
 import { encryptValue, decryptValue } from '@/lib/helpers';
 import { ensureFixEngineSchema } from './schema';
 
-export type ConnectionProvider = 'cms' | 'gsc' | 'connector' | 'linear' | 'jira' | 'kwe' | 'sheet';
+export type ConnectionProvider = 'cms' | 'gsc' | 'connector' | 'linear' | 'jira' | 'kwe' | 'sheet' | 'cloudflare';
 
 export interface ConnectionPublic {
   id: string;
@@ -111,6 +111,32 @@ export async function getConnection(
     if (dec) {
       try { creds = JSON.parse(dec); } catch { creds = null; }
     }
+  }
+  return { ...toPublic(row), creds };
+}
+
+/**
+ * The user's most recent active connection of a provider across ALL their
+ * brands. Lets an account-level credential (e.g. the Cloudflare API token)
+ * be entered once and reused for every website the user adds later.
+ */
+export async function getLatestUserConnection(
+  userId: string,
+  provider: ConnectionProvider,
+): Promise<DecryptedConnection | null> {
+  await ensureFixEngineSchema();
+  const res = await pool.query(
+    `SELECT * FROM fix_connections
+      WHERE user_id = $1 AND provider = $2 AND status = 'active'
+      ORDER BY updated_at DESC LIMIT 1`,
+    [userId, provider],
+  );
+  const row = res.rows[0];
+  if (!row) return null;
+  let creds: Record<string, unknown> | null = null;
+  if (row.encrypted_creds) {
+    const dec = decryptValue(String(row.encrypted_creds));
+    if (dec) { try { creds = JSON.parse(dec); } catch { creds = null; } }
   }
   return { ...toPublic(row), creds };
 }

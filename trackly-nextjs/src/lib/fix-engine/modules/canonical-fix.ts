@@ -75,7 +75,7 @@ export const canonicalFixModule: FixModule = {
     const cms = await resolveCmsForBrand(ctx);
     if ('error' in cms) return cms.error;
     const result = await cms.adapter.updateCanonical(cms.creds, { url: issue.targetUrl! }, String(draft.generated.canonical));
-    return { ok: result.ok, detail: result.detail ?? {}, after: { canonical: draft.generated.canonical }, error: result.ok ? undefined : 'CMS write failed' };
+    return { ok: result.ok, detail: result.detail ?? {}, after: { canonical: draft.generated.canonical }, error: result.ok ? undefined : (result.error ?? 'CMS write failed') };
   },
 
   contentPatch(issue: DetectedIssue, draft: GeneratedDraft): ContentPatch | null {

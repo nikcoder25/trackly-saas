@@ -111,7 +111,7 @@ export const contentFreshnessModule: FixModule = {
       ok: result.ok,
       detail: result.detail ?? {},
       after: { update: draft.generated.update },
-      error: result.ok ? undefined : 'CMS write failed',
+      error: result.ok ? undefined : (result.error ?? 'CMS write failed'),
     };
   },
 

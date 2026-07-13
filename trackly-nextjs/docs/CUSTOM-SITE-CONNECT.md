@@ -72,14 +72,30 @@ contract above — it's ~40 lines anywhere.
 3. Click **Generate secret**, put the same secret in your endpoint's env,
    paste the endpoint URL, **Connect** — Livesov sends a signed `ping`
    and stores the credentials encrypted only if it succeeds.
-4. Ship your first fix to a low-traffic page and hit **Re-check**.
+4. Ship your first fix to a low-traffic page. The engine auto-runs a
+   re-check right after your endpoint acks: it crawls the live page and
+   only marks the fix **verified** when the change is really there — an
+   endpoint that replies `ok` without persisting stays at "shipped",
+   never falsely "verified". If a CDN is still serving the old HTML, the
+   cron ship-verify pass keeps re-checking (every ~30 min for 2 days), so
+   the fix flips to verified by itself once the cache expires. **Re-check**
+   stays available for manual re-runs at any time.
 
 ## 4. Alternatives if you can't add an endpoint
 
+- **Edge publishing (Cloudflare Worker) — recommended when the domain is on
+  Cloudflare.** Zero code on the site. Fastest path: Connections → platform
+  `edge` → paste a Cloudflare API token once → **Deploy automatically** —
+  Livesov uploads the Worker, routes it to the zone, verifies it's live, and
+  activates the connection; every website you add later is a single click
+  (the saved token is reused). Manual path: paste the Worker from the
+  dashboard (Connections → Pair → Worker snippet) into your Cloudflare zone,
+  then Connect. Shipped head-level fixes — title, meta description,
+  canonical, JSON-LD schema, OG/Twitter cards, noindex removal — are applied
+  to every page as it is served, plus automatic `llms.txt` / `robots.txt`.
+  Works on any stack; body/content edits still hand off to your team.
 - **Linear/Jira/webhook hand-off** — every approved fix becomes a ticket
   with exact copy-paste content; re-check still verifies the dev applied it.
-- **Edge delivery (Cloudflare Worker)** — automatic shipping for root-file
-  fixes (`llms.txt`, `robots.txt`) on any stack, no site changes.
 - **Connector protocol** — the pull-based protocol our WordPress plugin
   speaks (see `docs/FIX-ENGINE.md`); implement it server-side for staging
   + publish flows.

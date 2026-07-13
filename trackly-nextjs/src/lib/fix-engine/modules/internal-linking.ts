@@ -110,7 +110,7 @@ export const internalLinkingModule: FixModule = {
       ok: result.ok,
       detail: result.detail ?? {},
       after: { links },
-      error: result.ok ? undefined : 'CMS write failed',
+      error: result.ok ? undefined : (result.error ?? 'CMS write failed'),
     };
   },
 

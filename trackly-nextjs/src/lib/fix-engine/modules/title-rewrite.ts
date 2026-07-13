@@ -116,7 +116,7 @@ export const titleRewriteModule: FixModule = {
       ok: result.ok,
       detail: result.detail ?? {},
       after: { title: draft.generated.title },
-      error: result.ok ? undefined : 'CMS write failed',
+      error: result.ok ? undefined : (result.error ?? 'CMS write failed'),
     };
   },
 
@@ -147,6 +147,6 @@ export const titleRewriteModule: FixModule = {
     const cms = await resolveCmsForBrand(ctx);
     if ('error' in cms) return cms.error;
     const result = await cms.adapter.updateTitle(cms.creds, { url: issue.targetUrl! }, prev);
-    return { ok: result.ok, detail: result.detail ?? {}, after: { title: prev }, error: result.ok ? undefined : 'CMS write failed' };
+    return { ok: result.ok, detail: result.detail ?? {}, after: { title: prev }, error: result.ok ? undefined : (result.error ?? 'CMS write failed') };
   },
 };

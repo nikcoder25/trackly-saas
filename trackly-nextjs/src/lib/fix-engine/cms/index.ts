@@ -12,6 +12,7 @@ import { shopifyAdapter } from './shopify';
 import { ghostAdapter } from './ghost';
 import { webflowAdapter } from './webflow';
 import { customAdapter } from './custom';
+import { edgeAdapter } from './edge';
 
 const ADAPTERS: Record<string, CmsAdapter> = {
   wordpress: wordpressAdapter,
@@ -19,6 +20,9 @@ const ADAPTERS: Record<string, CmsAdapter> = {
   ghost: ghostAdapter,
   webflow: webflowAdapter,
   custom: customAdapter,
+  // Plugin-free: a CDN Worker rewrites title/meta/canonical at the edge —
+  // works for any stack (WordPress, custom-coded, anything).
+  edge: edgeAdapter,
 };
 
 export function getCmsAdapter(type: string | null | undefined): CmsAdapter | null {

@@ -62,7 +62,7 @@ export const noindexRemovalModule: FixModule = {
     const cms = await resolveCmsForBrand(ctx);
     if ('error' in cms) return cms.error;
     const result = await cms.adapter.setIndexable(cms.creds, { url: issue.targetUrl! });
-    return { ok: result.ok, detail: result.detail ?? {}, after: { indexable: true }, error: result.ok ? undefined : 'CMS write failed' };
+    return { ok: result.ok, detail: result.detail ?? {}, after: { indexable: true }, error: result.ok ? undefined : (result.error ?? 'CMS write failed') };
   },
 
   async recheck(issue: DetectedIssue, _draft: GeneratedDraft, ctx: FixContext): Promise<RecheckVerdict> {

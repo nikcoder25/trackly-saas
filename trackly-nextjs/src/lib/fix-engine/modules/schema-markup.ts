@@ -92,7 +92,7 @@ export const schemaMarkupModule: FixModule = {
       ok: result.ok,
       detail: result.detail ?? {},
       after: { schemaType: draft.generated.schemaType },
-      error: result.ok ? undefined : 'CMS write failed',
+      error: result.ok ? undefined : (result.error ?? 'CMS write failed'),
     };
   },
 

@@ -8,6 +8,7 @@
 
 import * as React from 'react';
 import { useBrandData } from '@/hooks/useBrandData';
+import { buildEdgeWorkerScript } from '@/lib/fix-engine/edge-worker';
 
 // ── types mirrored from the API ──
 interface CatalogItem {
@@ -775,6 +776,16 @@ export function PageFixes() {
     catch { return null; }
   };
   const pairConnector = async () => { if (!brandId) return; try { const d = await api(`/api/brands/${brandId}/connections/connector/pair`, { method: 'POST' }); setPairing({ token: d.token, hmacSecret: d.hmacSecret, pullUrl: d.pullUrl }); await load(brandId); flash('Connector paired'); } catch (e) { setError((e as Error).message); } };
+  // One-click Cloudflare deploy: uploads + routes the edge Worker via the CF
+  // API (token entered once per account, reused for every site after).
+  const deployCloudflare = async (apiToken: string) => {
+    if (!brandId) return; setError(null);
+    try {
+      const d = await api(`/api/brands/${brandId}/connections/cloudflare/deploy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(apiToken ? { apiToken } : {}) });
+      flash(d.connected ? `Edge live on ${d.zone} — Ship publishes to this site now` : `Worker deployed to ${d.zone} — finish with Connect once DNS is proxied`);
+      await load(brandId);
+    } catch (e) { setError((e as Error).message); }
+  };
   const revokeConnector = async () => { if (!brandId) return; try { await api(`/api/brands/${brandId}/connections/connector/revoke`, { method: 'POST' }); setPairing(null); await load(brandId); flash('Connector token revoked'); } catch (e) { setError((e as Error).message); } };
   const connectTracker = async (provider: 'linear' | 'jira' | 'sheet', creds: Record<string, string>) => {
     if (!brandId) return; setError(null);
@@ -1043,7 +1054,7 @@ export function PageFixes() {
       supportedCms={supportedCms} defaultSite={(brand as any)?.website || ''} disabled={!enabled}
       linear={!!linearConn} jira={!!jiraConn} sheet={!!sheetConn} kwe={!!kweConn} onConnectTracker={connectTracker} onConnectKwe={connectKwe}
       sheetUrl={(sheetConn?.meta as { spreadsheetUrl?: string } | undefined)?.spreadsheetUrl ?? null}
-      onConnectCms={connectCms} onConnectWp={connectWp} onConnectCmsGeneric={connectCmsGeneric} onDetectCms={detectCms}
+      onConnectCms={connectCms} onConnectWp={connectWp} onConnectCmsGeneric={connectCmsGeneric} onDetectCms={detectCms} onDeployCloudflare={deployCloudflare}
       onConnectGsc={connectGsc} onCreateSheet={createSheetAuto} onPairConnector={pairConnector} onRevokeConnector={revokeConnector} onCopy={(label) => flash(`${label} copied`)}
       openRequest={connectRequest}
     />
@@ -1331,7 +1342,7 @@ export function PageFixes() {
 }
 
 // ── Connections ──
-function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, linear, jira, sheet, kwe, sheetUrl, onConnectTracker, onConnectKwe, onConnectCms, onConnectWp, onConnectCmsGeneric, onDetectCms, onConnectGsc, onCreateSheet, onPairConnector, onRevokeConnector, onCopy, openRequest }: {
+function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, linear, jira, sheet, kwe, sheetUrl, onConnectTracker, onConnectKwe, onConnectCms, onConnectWp, onConnectCmsGeneric, onDetectCms, onDeployCloudflare, onConnectGsc, onCreateSheet, onPairConnector, onRevokeConnector, onCopy, openRequest }: {
   cms: boolean; cmsMeta: string; gsc: boolean; gscSite: string | null; connector: boolean; connectorLastSeen: string | null;
   pairing: { token: string; hmacSecret: string; pullUrl: string } | null;
   supportedCms: string[]; defaultSite: string; disabled: boolean;
@@ -1342,6 +1353,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
   onConnectWp: (site: string) => void;
   onConnectCmsGeneric: (cmsType: string, siteUrl: string, creds: Record<string, string>) => void;
   onDetectCms: (site: string) => Promise<{ cms: string; confidence: string; hasAdapter: boolean } | null>;
+  onDeployCloudflare: (apiToken: string) => Promise<void> | void;
   onConnectGsc: () => void; onCreateSheet: () => void; onPairConnector: () => void; onRevokeConnector: () => void; onCopy: (label: string) => void;
   openRequest?: { platform: string; nonce: number } | null;
 }) {
@@ -1419,7 +1431,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               <div style={{ flex: 1, minWidth: 180 }}><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Site URL</div><input className="xin" value={siteUrl} onChange={(e) => setSiteUrl(e.target.value)} placeholder="https://acme.com" /></div>
               <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Platform</div>
                 <select className="xin" style={{ width: 'auto' }} value={cmsType} onChange={(e) => setCmsType(e.target.value)}>
-                  {['wordpress', 'shopify', 'ghost', 'webflow', 'custom'].filter((c) => supportedCms.includes(c) || c === 'wordpress').map((c) => <option key={c} value={c}>{c === 'wordpress' ? c : c === 'custom' ? 'custom-coded site (any stack)' : `${c} (beta)`}</option>)}
+                  {['wordpress', 'shopify', 'ghost', 'webflow', 'custom', 'edge'].filter((c) => supportedCms.includes(c) || c === 'wordpress').map((c) => <option key={c} value={c}>{c === 'wordpress' ? c : c === 'custom' ? 'custom-coded site (any stack)' : c === 'edge' ? 'edge — Cloudflare Worker (no plugin, any stack)' : `${c} (beta)`}</option>)}
                 </select>
               </div>
               <button className="gbtn" onClick={runDetect} disabled={!siteUrl || detecting} style={{ padding: '9px 13px' }}>{detecting ? 'Detecting…' : 'Detect'}</button>
@@ -1458,9 +1470,10 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                 ghost: [{ k: 'adminApiUrl', label: 'Ghost URL', ph: 'https://blog.acme.com' }, { k: 'adminApiKey', label: 'Admin API key', ph: 'id:secret', pw: true }],
                 webflow: [{ k: 'apiToken', label: 'API token', ph: '…', pw: true }, { k: 'siteId', label: 'Site ID', ph: '…' }],
                 custom: [{ k: 'endpoint', label: 'Your fix endpoint URL', ph: 'https://yoursite.com/livesov-fix' }, { k: 'secret', label: 'Shared secret (16+ chars)', ph: 'paste, or click Generate →', pw: true }],
+                edge: [], // no credentials — the Worker (paired token) is the integration
               };
               const fs = fields[cmsType] || [];
-              const ready = fs.every((f) => (cc[f.k] || '').trim().length > 0);
+              const ready = fs.every((f) => (cc[f.k] || '').trim().length > 0) && (cmsType !== 'edge' || !!siteUrl.trim());
               const genSecret = () => { const b = new Uint8Array(24); crypto.getRandomValues(b); ccSet('secret', Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')); };
               return (
                 <div style={{ display: 'grid', gap: 12 }}>
@@ -1487,6 +1500,29 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                       <span style={{ fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>Tip: start with just <b>update_title</b> + <b>update_meta_description</b> — that alone unlocks the highest-impact fixes. Any fix your endpoint can’t handle yet is handed off to you, never failed.</span>
                     </div>
                   </>)}
+                  {cmsType === 'edge' && (<>
+                    <div className="nb-sm" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--success-50)', borderColor: 'var(--success)', display: 'grid', gap: 9 }}>
+                      <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--success)' }}>⚡ ONE-CLICK DEPLOY — NOTHING INSTALLED ON YOUR SITE, ANY STACK</div>
+                      <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text)', fontWeight: 500 }}>
+                        Paste a Cloudflare API token <b>once</b> and Livesov does everything itself: uploads the Worker, routes it to this domain, verifies it&apos;s live, and activates the connection. Every website you add after this connects <b>automatically within minutes</b> — no clicks, no setup, nothing to visit; the saved token is reused behind the scenes.
+                      </span>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <input className="xin" style={{ flex: 1, minWidth: 220 }} type="password" placeholder="Cloudflare API token (blank = reuse saved token)" value={cc.cfToken || ''} onChange={(e) => ccSet('cfToken', e.target.value)} />
+                        <button className="xbtn" onClick={() => onDeployCloudflare(cc.cfToken || '')} disabled={disabled || !siteUrl.trim()} style={{ whiteSpace: 'nowrap' }}>DEPLOY AUTOMATICALLY</button>
+                      </div>
+                      <span style={{ fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>Token scopes: Account → Workers Scripts: Edit · Zone → Workers Routes: Edit · Zone → Zone: Read. Stored encrypted; create it at Cloudflare → My Profile → API Tokens.</span>
+                    </div>
+                    <div className="nb-sm" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', display: 'grid', gap: 9 }}>
+                      <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--info)' }}>☁ OR SET IT UP MANUALLY (NO API TOKEN)</div>
+                      <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text)', fontWeight: 500 }}>Your shipped head-level fixes — title, meta description, canonical, JSON-LD schema, OG/Twitter cards, noindex removal — are applied by a tiny Cloudflare Worker as pages are served — WordPress, custom-coded, anything. Three steps:</span>
+                      <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.75, color: 'var(--text)', fontWeight: 500, display: 'grid', gap: 2 }}>
+                        <li><b>Pair</b> the Connector below (just to mint the token — you won&apos;t install the plugin).</li>
+                        <li><b>Copy the Worker</b> shown after pairing → paste it into a Cloudflare Worker and route it to your domain.</li>
+                        <li>Come back and hit <b>Connect</b> — we verify the Worker is live on your site before saving.</li>
+                      </ol>
+                      <span style={{ fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>Requires the domain to be on Cloudflare (free tier is fine). Body/content edits still need a CMS or endpoint — those fixes hand off to your team instead of failing.</span>
+                    </div>
+                  </>)}
                   {fs.map((f) => (
                     <div key={f.k}>
                       <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>{f.label}</div>
@@ -1509,7 +1545,9 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                     <span style={{ fontSize: 12, color: 'var(--warning, #b45309)', fontWeight: 600 }}>
                       {cmsType === 'custom'
                         ? 'Connect verifies with a signed ping to your endpoint; the secret is encrypted at rest. Ship your first fix to a low-traffic page and re-check.'
-                        : 'BETA — verified against your store, then encrypted at rest. Ship your first fix to a low-traffic page and re-check before turning on autopilot.'}
+                        : cmsType === 'edge'
+                          ? 'Connect checks your site for the Worker’s x-livesov-edge header — route the Worker first, then connect. Every ship re-checks the live page.'
+                          : 'BETA — verified against your store, then encrypted at rest. Ship your first fix to a low-traffic page and re-check before turning on autopilot.'}
                     </span>
                     <div style={{ display: 'flex', gap: 10 }}>
                       <button className="gbtn" onClick={() => setShowForm(false)}>Cancel</button>
@@ -1562,29 +1600,11 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
             ))}
             {(() => {
               const edgeBase = pairing.pullUrl.replace(/\/api\/connector\/instructions\/?$/, '/api/edge/serve');
-              const worker = `// Cloudflare Worker — serves /llms.txt and appends AI rules to /robots.txt.\n`
-                + `// No WordPress plugin required. Route it to your zone, then it stays in sync.\n`
-                + `const T = ${JSON.stringify(pairing.token)};\n`
-                + `const BASE = ${JSON.stringify(edgeBase)};\n`
-                + `const H = { headers: { Authorization: 'Bearer ' + T } };\n`
-                + `export default {\n`
-                + `  async fetch(req) {\n`
-                + `    const p = new URL(req.url).pathname;\n`
-                + `    if (p === '/llms.txt') return fetch(BASE + '?file=llms.txt', H);\n`
-                + `    if (p === '/robots.txt') {\n`
-                + `      const [base, add] = await Promise.all([\n`
-                + `        fetch(req).then(r => r.text()).catch(() => ''),\n`
-                + `        fetch(BASE + '?file=robots.txt', H).then(r => r.ok ? r.text() : '').catch(() => ''),\n`
-                + `      ]);\n`
-                + `      return new Response((base + '\\n' + add).trim() + '\\n', { headers: { 'content-type': 'text/plain' } });\n`
-                + `    }\n`
-                + `    return fetch(req);\n`
-                + `  }\n`
-                + `};\n`;
+              const worker = buildEdgeWorkerScript(pairing.token, edgeBase);
               return (
                 <details style={{ borderTop: '2px dashed var(--warn)', paddingTop: 10 }}>
-                  <summary className="disp" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', cursor: 'pointer' }}>No WordPress plugin? Serve at the edge (Cloudflare) →</summary>
-                  <p style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500, margin: '8px 0' }}>Paste this into a Cloudflare Worker on your zone. It serves your latest <code>/llms.txt</code> and appends AI-crawler rules to <code>/robots.txt</code> — and stays in sync automatically as you ship new fixes.</p>
+                  <summary className="disp" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', cursor: 'pointer' }}>No plugin, any stack? Publish at the edge (Cloudflare) →</summary>
+                  <p style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500, margin: '8px 0' }}>Paste this into a Cloudflare Worker and route it to your domain — nothing is installed on the website itself, so it works for WordPress <em>and</em> custom-coded sites alike. It serves your latest <code>/llms.txt</code>, appends AI-crawler rules to <code>/robots.txt</code>, and applies your shipped fixes to every page: title, meta description, canonical, JSON-LD schema, OG/Twitter cards, and noindex removal. Then connect the CMS as platform <code>edge</code> (Connections) so Ship uses this path.</p>
                   <pre className="mono nb-sm" style={{ margin: 0, fontSize: 10.5, lineHeight: 1.5, padding: 12, background: 'var(--surface-3)', boxShadow: 'none', overflow: 'auto', maxHeight: 200, color: 'var(--text)', whiteSpace: 'pre' }}>{worker}</pre>
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
                     <button className="gbtn" onClick={() => copy(worker, 'Cloudflare Worker')} style={{ padding: '7px 12px' }}>Copy Worker</button>

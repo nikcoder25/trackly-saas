@@ -123,7 +123,7 @@ export const faqSchemaModule: FixModule = {
       ok: result.ok,
       detail: result.detail ?? {},
       after: { faqs: draft.generated.faqs },
-      error: result.ok ? undefined : 'CMS write failed',
+      error: result.ok ? undefined : (result.error ?? 'CMS write failed'),
     };
   },
 

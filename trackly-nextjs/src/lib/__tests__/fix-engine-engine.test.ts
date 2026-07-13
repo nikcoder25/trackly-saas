@@ -16,6 +16,9 @@ const store = vi.hoisted(() => {
     fixes: new Map<string, Record<string, unknown>>(),
     reserveOk: true,
     refundCalls: [] as Array<{ amount: number }>,
+    // Deferred after() callbacks, captured (not run) so tests can assert
+    // scheduling and execute them explicitly.
+    afterCalls: [] as Array<() => unknown>,
     moduleBehavior: {
       generateThrows: false,
       shipOk: true,
@@ -25,7 +28,7 @@ const store = vi.hoisted(() => {
   };
 });
 
-vi.mock('next/server', () => ({ after: (fn: () => unknown) => { void fn; } }));
+vi.mock('next/server', () => ({ after: (fn: () => unknown) => { store.afterCalls.push(fn); } }));
 vi.mock('@/lib/logger', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
@@ -129,6 +132,7 @@ beforeEach(() => {
   store.fixes.clear();
   store.reserveOk = true;
   store.refundCalls = [];
+  store.afterCalls = [];
   store.moduleBehavior = { generateThrows: false, shipOk: true, recheckVerified: true, revertOk: true };
   vi.clearAllMocks();
 });
@@ -172,6 +176,31 @@ describe('approve + ship + recheck', () => {
     const rechecked = await recheckFix(id, 'brand1', 'owner1');
     expect(rechecked.status).toBe('verified');
     expect(rechecked.scoreAfter).toBe(100);
+  });
+
+  it('auto-verifies a Channel-A ship: schedules a recheck that confirms the change is live', async () => {
+    const id = seedFix({ status: 'approved', generated: { value: 'NEW' } });
+    await shipFix(id, 'brand1', 'owner1');
+    expect(store.afterCalls).toHaveLength(1);
+    // Run the deferred verification: the fake module's recheck reports
+    // verified, so the fix is promoted without any user action.
+    await store.afterCalls[0]();
+    expect(store.fixes.get(id)!.status).toBe('verified');
+  });
+
+  it('auto-recheck leaves the fix at shipped when the live page does not match', async () => {
+    store.moduleBehavior.recheckVerified = false;
+    const id = seedFix({ status: 'approved', generated: { value: 'NEW' } });
+    await shipFix(id, 'brand1', 'owner1');
+    await store.afterCalls[0]();
+    expect(store.fixes.get(id)!.status).toBe('shipped'); // not falsely verified
+  });
+
+  it('does not schedule an auto-recheck when the ship fails', async () => {
+    store.moduleBehavior.shipOk = false;
+    const id = seedFix({ status: 'approved', generated: { value: 'NEW' } });
+    await shipFix(id, 'brand1', 'owner1');
+    expect(store.afterCalls).toHaveLength(0);
   });
 
   it('marks failed when ship reports not-ok', async () => {
