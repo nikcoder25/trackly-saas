@@ -49,7 +49,10 @@ export type FixStatus =
   | 'shipped'
   | 'verified'
   | 'failed'
-  | 'reverted';
+  | 'reverted'
+  // User marked the AI's suggestion as wrong/unwanted. Hidden from the
+  // default lists; restorable from the "Dismissed" filter.
+  | 'dismissed';
 
 export type FixSeverity = 'critical' | 'high' | 'medium' | 'low';
 

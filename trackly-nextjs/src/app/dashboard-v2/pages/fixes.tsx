@@ -191,6 +191,7 @@ function statusMeta(s: string): { label: string; color: string; bg: string } {
     verified: { label: 'VERIFIED', color: 'var(--success)', bg: 'var(--success-50)' },
     failed: { label: 'ATTENTION', color: 'var(--danger)', bg: 'var(--danger-50)' },
     reverted: { label: 'REVERTED', color: 'var(--warn)', bg: 'var(--warn-50)' },
+    dismissed: { label: 'IGNORED', color: 'var(--text-3)', bg: 'var(--surface-2)' },
   };
   return m[s] || m.detected;
 }
@@ -210,6 +211,7 @@ function bucketOf(s: string): string {
   if (s === 'approved' || s === 'shipping' || s === 'staged') return 'approved';
   if (s === 'shipped' || s === 'verified') return 'shipped';
   if (s === 'failed' || s === 'reverted') return 'attention';
+  if (s === 'dismissed') return 'dismissed';
   return 'detected';
 }
 const TRIG_DOT: Record<string, string> = { crawl: 'var(--info)', gsc: 'var(--success)', manual: 'var(--warn)' };
@@ -490,6 +492,21 @@ export function PageFixes() {
     await act(fixId, 'ship');
   };
 
+  // Ignore ("this AI suggestion is wrong / I don't want it") and restore. The
+  // fix is kept, not deleted, so it can be brought back from the Ignored tab.
+  const dismissFix = async (fixId: string, restore = false) => {
+    if (!brandId) return;
+    setBusy((b) => ({ ...b, [fixId]: true }));
+    try {
+      const d = await api(`/api/brands/${brandId}/fixes/${fixId}/dismiss`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ restore }),
+      });
+      if (d.fix) setFixes((rows) => rows.map((r) => (r.id === fixId ? { ...r, ...d.fix } : r)));
+      flash(restore ? 'Fix restored' : 'Ignored — moved to the Ignored tab');
+    } catch (e) { setError((e as Error).message); }
+    finally { setBusy((b) => ({ ...b, [fixId]: false })); }
+  };
+
   const loadPreview = async (fixId: string) => {
     if (!brandId) return;
     try {
@@ -500,10 +517,12 @@ export function PageFixes() {
   };
 
   // Bulk: run an action over the picked fixes that are eligible for it.
-  const eligibleFor = (f: FixRow, action: 'generate' | 'approve' | 'ship'): boolean => {
+  const eligibleFor = (f: FixRow, action: 'generate' | 'approve' | 'ship' | 'dismiss'): boolean => {
     if (action === 'generate') return f.status === 'detected' || f.status === 'failed';
     if (action === 'approve') return f.status === 'generated' || f.status === 'preview_ready';
     if (action === 'ship') return f.status === 'approved';
+    // Ignorable = anything not yet applied to the site (and not already ignored).
+    if (action === 'dismiss') return !['shipped', 'verified', 'staged', 'shipping', 'dismissed'].includes(f.status);
     return false;
   };
   const runBulk = async (action: 'generate' | 'approve' | 'ship') => {
@@ -518,14 +537,16 @@ export function PageFixes() {
   const togglePick = (id: string) => setPicked((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   // One-click bulk over a module group ("47 pages missing meta → Ship all").
-  const runGroupBulk = async (list: FixRow[], action: 'generate' | 'approve' | 'ship') => {
+  const runGroupBulk = async (list: FixRow[], action: 'generate' | 'approve' | 'ship' | 'dismiss') => {
     if (!brandId) return;
     if (action === 'ship' && !canShip) { flash('Connect a CMS or the Connector first'); return; }
     const ids = list.filter((f) => eligibleFor(f, action)).map((f) => f.id);
-    if (ids.length === 0) { flash(`No fixes in this group are ready to ${action}`); return; }
-    setBulkBusy(true); flash(`${action[0].toUpperCase()}${action.slice(1)}ing ${ids.length} in group…`);
-    for (const id of ids) { await act(id, action); }
+    if (ids.length === 0) { flash(action === 'dismiss' ? 'Nothing in this group to ignore' : `No fixes in this group are ready to ${action}`); return; }
+    setBulkBusy(true);
+    flash(action === 'dismiss' ? `Ignoring ${ids.length} in group…` : `${action[0].toUpperCase()}${action.slice(1)}ing ${ids.length} in group…`);
+    for (const id of ids) { if (action === 'dismiss') await dismissFix(id); else await act(id, action); }
     setBulkBusy(false);
+    if (action === 'dismiss') flash(`Ignored ${ids.length} — see the Ignored tab`);
   };
 
   // "Safe" = deterministic, no-LLM fixes (cost 0) that aren't live yet — the
@@ -697,7 +718,8 @@ export function PageFixes() {
   const scanCost = React.useMemo(() => catalog.filter((c) => selected.has(c.key)).reduce((s, c) => s + (c.cost || 0), 0), [catalog, selected]);
 
   const shown = React.useMemo(() => {
-    let list = filter === 'all' ? fixes : fixes.filter((f) => bucketOf(f.status) === filter);
+    // 'all' hides ignored fixes; they only appear under the Ignored tab.
+    let list = filter === 'all' ? fixes.filter((f) => f.status !== 'dismissed') : fixes.filter((f) => bucketOf(f.status) === filter);
     if (quickWins) list = list.filter((f) => (moduleMeta(f.moduleKey)?.cost ?? 1) === 0 || f.severity === 'critical' || f.severity === 'high');
     // Rank by severity, then by estimated value: module impact weighted by
     // the target page's real 28-day GSC impressions (log-scaled so a huge
@@ -756,12 +778,13 @@ export function PageFixes() {
     { n: '6', label: 're-check', color: 'var(--info)', bg: 'var(--info-50)' },
   ];
   const filterDefs = [
-    { key: 'all', label: 'ALL', count: fixes.length },
+    { key: 'all', label: 'ALL', count: fixes.length - (counts.dismissed || 0) },
     { key: 'detected', label: 'DETECTED', count: counts.detected || 0 },
     { key: 'review', label: 'REVIEW', count: counts.review || 0 },
     { key: 'approved', label: 'APPROVED', count: counts.approved || 0 },
     { key: 'shipped', label: 'LIVE', count: counts.shipped || 0 },
     { key: 'attention', label: 'ATTENTION', count: counts.attention || 0 },
+    ...((counts.dismissed || 0) > 0 ? [{ key: 'dismissed', label: 'IGNORED', count: counts.dismissed || 0 }] : []),
   ];
 
   return wrap(<>
@@ -1055,6 +1078,7 @@ export function PageFixes() {
             hasConnector={hasConnector} hasTracker={hasTracker}
             onStage={() => act(f.id, 'stage')} onPublish={() => act(f.id, 'publish')} onTicket={() => act(f.id, 'ticket')}
             onRequestReview={() => act(f.id, 'request-review')}
+            onDismiss={() => dismissFix(f.id)} onRestore={() => dismissFix(f.id, true)}
             editableField={EDITABLE_FIELD[f.moduleKey]}
             onEditDraft={(field, value) => editDraft(f.id, field, value)}
             downloadHref={f.channel === 'B' ? `/api/brands/${brandId}/fixes/${f.id}/file` : undefined}
@@ -1770,7 +1794,7 @@ function PassageSection({ disabled, onSubmit }: { disabled: boolean; onSubmit: (
 // ── Grouped module card (bulk over N same-module fixes) ──
 function GroupCard({ moduleKey, title, fixes, expanded, busy, canShip, onToggle, onBulk, renderCard }: {
   moduleKey: string; title: string; fixes: FixRow[]; expanded: boolean; busy: boolean; canShip: boolean;
-  onToggle: () => void; onBulk: (action: 'generate' | 'approve' | 'ship') => void;
+  onToggle: () => void; onBulk: (action: 'generate' | 'approve' | 'ship' | 'dismiss') => void;
   renderCard: (f: FixRow) => React.ReactNode;
 }) {
   const count = (s: (f: FixRow) => boolean) => fixes.filter(s).length;
@@ -1778,6 +1802,7 @@ function GroupCard({ moduleKey, title, fixes, expanded, busy, canShip, onToggle,
   const review = count((f) => f.status === 'generated' || f.status === 'preview_ready');
   const approved = count((f) => f.status === 'approved');
   const live = count((f) => f.status === 'shipped' || f.status === 'verified');
+  const ignorable = count((f) => !['shipped', 'verified', 'staged', 'shipping', 'dismissed'].includes(f.status));
   const hosts = [...new Set(fixes.map((f) => (f.targetUrl || '').replace(/^https?:\/\/[^/]+/, '') || '/'))].slice(0, 3);
   return (
     <article className="nb" style={{ padding: 0, overflow: 'hidden', boxShadow: '5px 5px 0 var(--primary)' }} data-group={moduleKey}>
@@ -1793,6 +1818,7 @@ function GroupCard({ moduleKey, title, fixes, expanded, busy, canShip, onToggle,
         {detected > 0 && <button className="gbtn" disabled={busy} onClick={() => onBulk('generate')} style={{ padding: '7px 13px', fontSize: 12 }}>✦ Generate all ({detected})</button>}
         {review > 0 && <button className="xbtn" disabled={busy} onClick={() => onBulk('approve')} style={{ padding: '7px 13px', fontSize: 12, background: 'var(--success)' }}>✓ Approve all ({review})</button>}
         {approved > 0 && <button className="xbtn" disabled={busy || !canShip} onClick={() => onBulk('ship')} style={{ padding: '7px 13px', fontSize: 12, background: 'var(--success)' }}>⬢ Ship all ({approved})</button>}
+        {ignorable > 0 && <button className="tbtn" disabled={busy} onClick={() => onBulk('dismiss')} title="Ignore every not-yet-applied fix in this module (the AI may be wrong). Restore from the Ignored tab." style={{ fontSize: 12, color: 'var(--text-3)' }}>✕ Ignore all ({ignorable})</button>}
         <span style={{ flex: 1 }} />
         <button className="tbtn" onClick={onToggle}>{expanded ? 'Collapse' : `Review individually (${fixes.length})`}</button>
       </div>
@@ -1815,14 +1841,14 @@ function SerpCard({ label, host, title, desc, color }: { label: string; host: st
 }
 
 // ── Fix card ──
-function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, editableField, onEditDraft, downloadHref, open, onToggleOpen }: {
+function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, onDismiss, onRestore, editableField, onEditDraft, downloadHref, open, onToggleOpen }: {
   fix: FixRow; title: string; preview: PreviewBlock | null | undefined; cost: number; revertable: boolean; impact?: 1 | 2 | 3;
   events: FixEvent[] | undefined; busy: boolean; armed: boolean; canShip: boolean; picked: boolean;
   onTogglePick: () => void; onGenerate: () => void; onApprove: () => void; onArm: () => void; onCancelArm: () => void;
   onShipConfirm: () => void; onRecheck: () => void; onRetry: () => void; onRevert: () => void; onLoadHistory: () => void;
   onSaveMeta: (patch: { note?: string; assignee?: string }) => void;
   hasConnector: boolean; hasTracker: boolean; onStage: () => void; onPublish: () => void; onTicket: () => void;
-  onRequestReview: () => void;
+  onRequestReview: () => void; onDismiss: () => void; onRestore: () => void;
   editableField?: string;
   onEditDraft: (field: string, value: string) => void;
   downloadHref?: string;
@@ -1843,6 +1869,9 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
   const isStaged = s === 'staged';
   const isLive = s === 'shipped' || s === 'verified';
   const isAttention = s === 'failed' || s === 'reverted';
+  const isDismissed = s === 'dismissed';
+  // Ignore is offered while a fix hasn't been applied to the site yet.
+  const canIgnore = !isDismissed && !isLive && !isStaged && s !== 'shipping';
   // Staging is offered only for fixes whose module can express a draft patch
   // (page-content edits) and only once the Connector is paired.
   const stageable = STAGEABLE_MODULES.has(fix.moduleKey);
@@ -1869,6 +1898,15 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
         </span>
         {busy && <span style={{ width: 13, height: 13, border: '2.5px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', flexShrink: 0, animation: 'xspin .7s linear infinite' }} />}
         <span className="chip" style={{ background: sm.bg, color: sm.color, borderColor: sm.color, flexShrink: 0 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: sm.color }} />{sm.label}</span>
+        {canIgnore && (
+          <button className="tbtn" title="Ignore — hide this suggestion (the AI may be wrong). Restore it later from the Ignored tab."
+            onClick={(e) => { e.stopPropagation(); onDismiss(); }} disabled={busy}
+            style={{ flexShrink: 0, fontSize: 11, color: 'var(--text-3)' }}>✕ Ignore</button>
+        )}
+        {isDismissed && (
+          <button className="tbtn" title="Restore this fix" onClick={(e) => { e.stopPropagation(); onRestore(); }} disabled={busy}
+            style={{ flexShrink: 0, fontSize: 11 }}>↩ Restore</button>
+        )}
         <span className="disp" aria-hidden style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-3)', flexShrink: 0 }}>▾</span>
       </article>
     );
@@ -2086,6 +2124,8 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
             <a className="gbtn" href={downloadHref} style={{ padding: '7px 13px' }} title="Download this file and drop it at your site root — no plugin needed">⬇ Download file</a>
           )}
           <span style={{ flex: 1 }} />
+          {canIgnore && <button className="tbtn" onClick={onDismiss} disabled={busy} title="Ignore — hide this suggestion (the AI may be wrong). Restore it later from the Ignored tab." style={{ color: 'var(--text-3)' }}>✕ Ignore</button>}
+          {isDismissed && <button className="xbtn" onClick={onRestore} disabled={busy} style={{ background: 'var(--primary)' }}>↩ RESTORE</button>}
           <button className="tbtn" onClick={onTicket} disabled={busy} title={hasTracker ? 'Create a Linear/Jira issue for this fix' : 'Connect Linear or Jira (or a webhook) to hand this off'}>⊕ {hasTracker ? 'Ticket' : 'Hand off'}</button>
           <button className="tbtn" onClick={() => { if (!showHistory && !events) onLoadHistory(); setShowHistory((h) => !h); }}>{showHistory ? 'Hide history' : 'History'}</button>
         </div>

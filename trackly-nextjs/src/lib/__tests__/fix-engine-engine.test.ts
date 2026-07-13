@@ -100,7 +100,7 @@ vi.mock('@/lib/fix-engine/schema', () => ({
   findStuckQueuedBatches: vi.fn(async () => []),
 }));
 
-import { generateFix, approveFix, shipFix, recheckFix, revertFix } from '@/lib/fix-engine/engine';
+import { generateFix, approveFix, shipFix, recheckFix, revertFix, dismissFix, restoreFix } from '@/lib/fix-engine/engine';
 import { refundCredits } from '@/lib/credits';
 
 function seedFix(over: Partial<FixRow> = {}): string {
@@ -207,5 +207,43 @@ describe('revert', () => {
   it('refuses to revert a fix that has not shipped', async () => {
     const id = seedFix({ status: 'generated', generated: { value: 'NEW' } });
     await expect(revertFix(id, 'brand1', 'owner1')).rejects.toThrow();
+  });
+});
+
+describe('dismiss / restore', () => {
+  it('dismisses a detected fix (kept, not deleted)', async () => {
+    const id = seedFix({ status: 'detected' });
+    const fix = await dismissFix(id, 'brand1', 'owner1');
+    expect(fix.status).toBe('dismissed');
+    expect(store.fixes.get(id)).toBeTruthy(); // still there, just hidden
+  });
+  it('dismisses a generated (in-review) fix and preserves its draft', async () => {
+    const id = seedFix({ status: 'generated', generated: { value: 'NEW' } });
+    const fix = await dismissFix(id, 'brand1', 'owner1');
+    expect(fix.status).toBe('dismissed');
+    expect(fix.generated).toEqual({ value: 'NEW' });
+  });
+  it('refuses to dismiss a fix already applied to the site', async () => {
+    for (const status of ['shipped', 'verified', 'staged', 'shipping'] as const) {
+      const id = seedFix({ status });
+      await expect(dismissFix(id, 'brand1', 'owner1')).rejects.toThrow(/already applied|Undo|revert/i);
+      store.fixes.clear();
+    }
+  });
+  it('dismiss is idempotent', async () => {
+    const id = seedFix({ status: 'dismissed' });
+    const fix = await dismissFix(id, 'brand1', 'owner1');
+    expect(fix.status).toBe('dismissed');
+  });
+  it('restores a dismissed fix back to detected', async () => {
+    const id = seedFix({ status: 'dismissed', generated: { value: 'KEEP' } });
+    const fix = await restoreFix(id, 'brand1', 'owner1');
+    expect(fix.status).toBe('detected');
+    expect(fix.generated).toEqual({ value: 'KEEP' }); // draft preserved
+  });
+  it('restore is a no-op on a non-dismissed fix', async () => {
+    const id = seedFix({ status: 'approved' });
+    const fix = await restoreFix(id, 'brand1', 'owner1');
+    expect(fix.status).toBe('approved');
   });
 });
