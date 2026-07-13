@@ -533,6 +533,27 @@ export function PageFixes() {
     finally { setBusy((b) => ({ ...b, [fixId]: false })); }
   };
 
+  // Restore ignored fixes in one click — a scoped selection (`ids`) or, when
+  // omitted, every dismissed fix on the brand. One server round-trip, so
+  // restoring hundreds is instant. Used by "Restore all" on the Ignored tab.
+  const restoreAll = async (ids?: string[]) => {
+    if (!brandId) return;
+    setBulkBusy(true);
+    flash(ids && ids.length ? `Restoring ${ids.length}…` : 'Restoring all ignored fixes…');
+    try {
+      const d = await api(`/api/brands/${brandId}/fixes/restore-all`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ids && ids.length ? { ids } : {}),
+      });
+      await load(brandId);
+      setPicked(new Set());
+      // Jump to ALL so the restored fixes are visible (the Ignored tab they
+      // came from is now empty and disappears).
+      if (!ids || !ids.length) setFilter('all');
+      flash(`Restored ${d.restored} fix${d.restored === 1 ? '' : 'es'} — back in the workflow`);
+    } catch (e) { setError((e as Error).message); }
+    finally { setBulkBusy(false); }
+  };
+
   const loadPreview = async (fixId: string) => {
     if (!brandId) return;
     try {
@@ -1027,12 +1048,37 @@ export function PageFixes() {
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 9, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
         <button className="chip" onClick={() => { setOpenCards(new Set(shown.map((f) => f.id))); setExpandedGroups(new Set(shown.map((f) => f.moduleKey))); }} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>▾ EXPAND ALL</button>
         <button className="chip" onClick={() => { setOpenCards(new Set()); setExpandedGroups(new Set()); }} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>▴ COLLAPSE ALL</button>
+        {shown.length > 0 && (() => {
+          const allPicked = shown.every((f) => picked.has(f.id));
+          return <button className="chip" onClick={() => setPicked(allPicked ? new Set() : new Set(shown.map((f) => f.id)))} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: allPicked ? 'var(--primary-50)' : 'var(--surface)', color: allPicked ? 'var(--primary)' : 'var(--text-2)', borderColor: allPicked ? 'var(--primary)' : 'var(--ink)' }}>{allPicked ? '☑ SELECT NONE' : `☐ SELECT ALL · ${shown.length}`}</button>;
+        })()}
         <button className="chip" onClick={() => setQuickWins((q) => !q)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: quickWins ? 'var(--success-50)' : 'var(--surface)', color: quickWins ? 'var(--success)' : 'var(--text-2)', borderColor: quickWins ? 'var(--success)' : 'var(--ink)' }}>⚡ QUICK WINS</button>
         <button className="chip" onClick={() => setGroupByPage((g) => !g)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: groupByPage ? 'var(--text)' : 'var(--surface)', color: groupByPage ? 'var(--bg)' : 'var(--text-2)' }}>▦ BY PAGE</button>
         <button className="chip" onClick={exportCsv} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>⤓ EXPORT CSV</button>
         <button className="chip" onClick={pdfReport} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>📄 PDF REPORT</button>
         <button className="chip" onClick={notify} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>🔔 NOTIFY</button>
       </div>
+
+      {/* Ignored tab — one-click "Restore all" (and "Restore selected" when a
+          subset is picked). Restoring hundreds of ignored fixes is a single
+          server round-trip. */}
+      {filter === 'dismissed' && shown.length > 0 && (
+        <div className="nb-sm" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 18px', marginBottom: 16, background: 'var(--primary-50)', borderColor: 'var(--primary)', boxShadow: '4px 4px 0 var(--primary)', flexWrap: 'wrap' }}>
+          <span className="disp" style={{ fontSize: 20 }}>↩</span>
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <div className="disp" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{shown.length} ignored fix{shown.length === 1 ? '' : 'es'}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Changed your mind? Bring them all back into the workflow — or tick a few and restore just those. Drafts are kept.</div>
+          </div>
+          {picked.size > 0 && (
+            <button className="gbtn" onClick={() => restoreAll(shown.filter((f) => picked.has(f.id)).map((f) => f.id))} disabled={bulkBusy} style={{ padding: '9px 15px', fontSize: 12.5 }}>
+              ↩ Restore selected ({shown.filter((f) => picked.has(f.id)).length})
+            </button>
+          )}
+          <button className="xbtn" onClick={() => restoreAll()} disabled={bulkBusy} style={{ background: 'var(--primary)' }}>
+            {bulkBusy ? 'RESTORING…' : `↩ RESTORE ALL ${shown.length}`}
+          </button>
+        </div>
+      )}
 
       {(safeFixes.length > 0 || automation) && (
         <div className="nb-sm" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 18px', marginBottom: 16, background: 'var(--success-50)', borderColor: 'var(--success)', boxShadow: '4px 4px 0 var(--success)', flexWrap: 'wrap' }}>

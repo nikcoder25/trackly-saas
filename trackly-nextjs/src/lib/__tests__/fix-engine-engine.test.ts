@@ -90,6 +90,15 @@ vi.mock('@/lib/fix-engine/schema', () => ({
     if (r && r.status === from) { r.status = to; return true; }
     return false;
   }),
+  restoreDismissedFixes: vi.fn(async (_brandId: string, ids?: string[]) => {
+    const restored: string[] = [];
+    for (const [id, r] of store.fixes) {
+      if (r.status !== 'dismissed') continue;
+      if (ids && ids.length && !ids.includes(id)) continue;
+      r.status = 'detected'; r.error = null; restored.push(id);
+    }
+    return restored;
+  }),
   logFixEvent: vi.fn(async () => {}),
   // unused-by-these-tests batch helpers, present so the import resolves
   getBatch: vi.fn(async () => null),
@@ -100,7 +109,7 @@ vi.mock('@/lib/fix-engine/schema', () => ({
   findStuckQueuedBatches: vi.fn(async () => []),
 }));
 
-import { generateFix, approveFix, shipFix, recheckFix, revertFix, dismissFix, restoreFix } from '@/lib/fix-engine/engine';
+import { generateFix, approveFix, shipFix, recheckFix, revertFix, dismissFix, restoreFix, restoreAllDismissed } from '@/lib/fix-engine/engine';
 import { refundCredits } from '@/lib/credits';
 
 function seedFix(over: Partial<FixRow> = {}): string {
@@ -245,5 +254,25 @@ describe('dismiss / restore', () => {
     const id = seedFix({ status: 'approved' });
     const fix = await restoreFix(id, 'brand1', 'owner1');
     expect(fix.status).toBe('approved');
+  });
+
+  it('restoreAllDismissed brings every dismissed fix back and returns the count', async () => {
+    store.fixes.set('a', { id: 'a', brandId: 'brand1', status: 'dismissed' });
+    store.fixes.set('b', { id: 'b', brandId: 'brand1', status: 'dismissed' });
+    store.fixes.set('c', { id: 'c', brandId: 'brand1', status: 'detected' }); // untouched
+    const n = await restoreAllDismissed('brand1', 'owner1');
+    expect(n).toBe(2);
+    expect(store.fixes.get('a')!.status).toBe('detected');
+    expect(store.fixes.get('b')!.status).toBe('detected');
+    expect(store.fixes.get('c')!.status).toBe('detected');
+  });
+
+  it('restoreAllDismissed can restore just a selection', async () => {
+    store.fixes.set('a', { id: 'a', brandId: 'brand1', status: 'dismissed' });
+    store.fixes.set('b', { id: 'b', brandId: 'brand1', status: 'dismissed' });
+    const n = await restoreAllDismissed('brand1', 'owner1', ['a']);
+    expect(n).toBe(1);
+    expect(store.fixes.get('a')!.status).toBe('detected');
+    expect(store.fixes.get('b')!.status).toBe('dismissed');
   });
 });

@@ -30,6 +30,7 @@ import {
   upsertDetectedFix,
   getFix,
   updateFix,
+  restoreDismissedFixes,
   claimFixTransition,
   resetConnectorDelivery,
   logFixEvent,
@@ -482,4 +483,20 @@ export async function restoreFix(fixId: string, brandId: string, userId: string 
   await updateFix(fix.id, { status: 'detected', error: null });
   await logFixEvent(fix.id, brandId, userId, 'restored', {});
   return (await getFix(fixId, brandId))!;
+}
+
+/**
+ * Restore many dismissed fixes at once ("Restore all" in the Ignored tab).
+ * Does a single scoped UPDATE (dismissed → detected) so restoring 100s of
+ * ignored fixes is one round-trip, not one request per fix. Pass `ids` to
+ * restore a selection; omit for every dismissed fix on the brand. Returns the
+ * count restored. Drafts on each row are preserved.
+ */
+export async function restoreAllDismissed(brandId: string, userId: string | null, ids?: string[]): Promise<number> {
+  const restored = await restoreDismissedFixes(brandId, ids);
+  if (restored.length > 0) {
+    // One brand-level audit entry instead of N — keeps the bulk op fast.
+    await logFixEvent(null, brandId, userId, 'restored_bulk', { count: restored.length, ids: restored });
+  }
+  return restored.length;
 }
