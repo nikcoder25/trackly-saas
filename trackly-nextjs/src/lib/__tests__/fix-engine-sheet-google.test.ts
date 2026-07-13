@@ -37,20 +37,42 @@ describe('sheet-google helper', () => {
     expect(url.searchParams.get('redirect_uri')).toBe('https://app.livesov.com/api/connections/sheet/callback');
   });
 
-  it('createSpreadsheet creates the sheet then writes a header row', async () => {
-    const { createSpreadsheet } = await import('@/lib/fix-engine/sheet-google');
+  it('createSpreadsheet creates a formatted, team-usable sheet', async () => {
+    const { createSpreadsheet, SHEET_COLUMNS, STATUS_OPTIONS } = await import('@/lib/fix-engine/sheet-google');
     fetchMock
-      .mockResolvedValueOnce(ok({ spreadsheetId: 'SS1', spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/SS1/edit' })) // create
-      .mockResolvedValueOnce(ok({})); // header PUT
+      .mockResolvedValueOnce(ok({ spreadsheetId: 'SS1', spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/SS1/edit', sheets: [{ properties: { sheetId: 7 } }] })) // create
+      .mockResolvedValueOnce(ok({})); // batchUpdate formatting
     const r = await createSpreadsheet('acc-tok', 'Livesov Fixes — Acme');
     expect(r).toEqual({ spreadsheetId: 'SS1', spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/SS1/edit' });
+
+    // Create call: title + a frozen header row seeded with the columns.
     const [createUrl, createInit] = fetchMock.mock.calls[0] as [string, { method: string; headers: Record<string, string>; body: string }];
     expect(createUrl).toBe('https://sheets.googleapis.com/v4/spreadsheets');
-    expect(createInit.method).toBe('POST');
     expect(createInit.headers.Authorization).toBe('Bearer acc-tok');
-    expect(JSON.parse(createInit.body).properties.title).toBe('Livesov Fixes — Acme');
-    const [headerUrl] = fetchMock.mock.calls[1] as [string];
-    expect(headerUrl).toContain('/SS1/values/Fixes!A1:D1');
+    const createBody = JSON.parse(createInit.body);
+    expect(createBody.properties.title).toBe('Livesov Fixes — Acme');
+    expect(createBody.sheets[0].properties.gridProperties.frozenRowCount).toBe(1);
+    const headerCells = createBody.sheets[0].data[0].rowData[0].values.map((v: { userEnteredValue: { stringValue: string } }) => v.userEnteredValue.stringValue);
+    expect(headerCells).toEqual([...SHEET_COLUMNS]);
+
+    // Formatting call: header format + a Status dropdown + a filter.
+    const [buUrl, buInit] = fetchMock.mock.calls[1] as [string, { body: string }];
+    expect(buUrl).toBe('https://sheets.googleapis.com/v4/spreadsheets/SS1:batchUpdate');
+    const reqs = JSON.parse(buInit.body).requests as Record<string, unknown>[];
+    const validation = reqs.find((q) => 'setDataValidation' in q) as { setDataValidation: { rule: { condition: { values: { userEnteredValue: string }[] } } } };
+    expect(validation).toBeTruthy();
+    expect(validation.setDataValidation.rule.condition.values.map((v) => v.userEnteredValue)).toEqual([...STATUS_OPTIONS]);
+    expect(reqs.some((q) => 'setBasicFilter' in q)).toBe(true);
+    expect(reqs.some((q) => 'repeatCell' in q)).toBe(true);
+  });
+
+  it('createSpreadsheet still succeeds if the cosmetic batchUpdate fails', async () => {
+    const { createSpreadsheet } = await import('@/lib/fix-engine/sheet-google');
+    fetchMock
+      .mockResolvedValueOnce(ok({ spreadsheetId: 'SS2', spreadsheetUrl: 'u', sheets: [{ properties: { sheetId: 0 } }] }))
+      .mockResolvedValueOnce(fail(500)); // formatting fails - must not throw
+    const r = await createSpreadsheet('acc', 'T');
+    expect(r.spreadsheetId).toBe('SS2');
   });
 
   it('createSpreadsheet throws when the API rejects', async () => {
@@ -88,7 +110,8 @@ describe('sheet tracker - google mode', () => {
     expect(appUrl).toContain('/SS9/values/Fixes!A1:append');
     expect(appInit.headers.Authorization).toBe('Bearer fresh-at');
     const row = JSON.parse(appInit.body).values[0];
-    expect(row.slice(1)).toEqual(['Add meta description', 'Homepage is missing one', 'https://app/fix/9']);
+    // Date | Fix | Details | Status | Owner | Link
+    expect(row.slice(1)).toEqual(['Add meta description', 'Homepage is missing one', 'To do', '', 'https://app/fix/9']);
   });
 
   it('createIssue reports failure detail when append fails', async () => {

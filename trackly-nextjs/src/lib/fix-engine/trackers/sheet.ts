@@ -78,10 +78,15 @@ export const sheetTracker: Tracker = {
     if (isGoogle(rawCreds)) {
       try {
         const t = await refreshAccessToken(rawCreds.refreshToken);
+        // Columns: Date | Fix | Details | Status | Owner | Link.
+        // Status defaults to "To do" (a dropdown teammates change); Owner is
+        // left blank for a teammate to claim. Keep in step with SHEET_COLUMNS.
         await appendSheetRow(t.access_token, rawCreds.spreadsheetId, [
-          new Date().toISOString(),
+          new Date().toISOString().slice(0, 10),
           issue.title,
           issue.description,
+          'To do',
+          '',
           issue.url ?? '',
         ]);
         return { ok: true };

@@ -93,10 +93,18 @@ export interface CreatedSheet {
   spreadsheetUrl: string;
 }
 
+// Columns of the "Fixes" worksheet. Kept next to appendSheetRow so the two
+// never drift. Status is a team-editable dropdown (see STATUS_OPTIONS).
+export const SHEET_COLUMNS = ['Date', 'Fix', 'Details', 'Status', 'Owner', 'Link'] as const;
+export const STATUS_OPTIONS = ['To do', 'In progress', 'Done', "Won't fix"] as const;
+const HEADER_BG = { red: 0.15, green: 0.16, blue: 0.29 }; // deep indigo
+const MAX_ROWS = 1000;
+
 /**
- * Create a new spreadsheet titled `title` with a header row, and return its
- * id + web URL. Uses the Sheets API create then a values.update for the
- * header so the first handed-off fix lands under labelled columns.
+ * Create a new spreadsheet titled `title` and make it a presentable,
+ * team-usable worksheet: a formatted + frozen header row, sensible column
+ * widths, wrapped Details, a filter, and a Status dropdown teammates can set
+ * to pick up and mark fixes themselves. Returns its id + web URL.
  */
 export async function createSpreadsheet(accessToken: string, title: string): Promise<CreatedSheet> {
   const res = await fetch(SHEETS_BASE, {
@@ -104,22 +112,90 @@ export async function createSpreadsheet(accessToken: string, title: string): Pro
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       properties: { title },
-      sheets: [{ properties: { title: 'Fixes' } }],
+      sheets: [{
+        properties: {
+          title: 'Fixes',
+          gridProperties: { frozenRowCount: 1, columnCount: SHEET_COLUMNS.length },
+        },
+        data: [{
+          startRow: 0,
+          startColumn: 0,
+          rowData: [{
+            values: SHEET_COLUMNS.map((h) => ({ userEnteredValue: { stringValue: h } })),
+          }],
+        }],
+      }],
     }),
   });
   if (!res.ok) throw new Error(`Sheet create failed: HTTP ${res.status} ${await res.text()}`);
-  const data = (await res.json()) as { spreadsheetId?: string; spreadsheetUrl?: string };
+  const data = (await res.json()) as {
+    spreadsheetId?: string;
+    spreadsheetUrl?: string;
+    sheets?: Array<{ properties?: { sheetId?: number } }>;
+  };
   if (!data.spreadsheetId) throw new Error('Sheet create returned no spreadsheetId');
+  const sheetId = data.sheets?.[0]?.properties?.sheetId ?? 0;
 
-  // Header row.
-  await fetch(
-    `${SHEETS_BASE}/${data.spreadsheetId}/values/Fixes!A1:D1?valueInputOption=RAW`,
-    {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [['Date', 'Fix', 'Details', 'Link']] }),
-    },
-  ).catch(() => { /* header is best-effort; append still works without it */ });
+  // Formatting is best-effort: the sheet is fully usable even if this fails,
+  // so we never block the connection on cosmetic requests.
+  const statusCol = SHEET_COLUMNS.indexOf('Status' as (typeof SHEET_COLUMNS)[number]);
+  const colWidth = (i: number) => (SHEET_COLUMNS[i] === 'Details' ? 380 : SHEET_COLUMNS[i] === 'Fix' ? 260 : SHEET_COLUMNS[i] === 'Link' ? 240 : 110);
+  await fetch(`${SHEETS_BASE}/${data.spreadsheetId}:batchUpdate`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      requests: [
+        // Bold, light-on-dark, centered, wrapped header.
+        {
+          repeatCell: {
+            range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: HEADER_BG,
+                horizontalAlignment: 'CENTER',
+                wrapStrategy: 'WRAP',
+                textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } },
+              },
+            },
+            fields: 'userEnteredFormat(backgroundColor,horizontalAlignment,wrapStrategy,textFormat)',
+          },
+        },
+        // Wrap the Details column so long text stays readable.
+        {
+          repeatCell: {
+            range: { sheetId, startRowIndex: 1, startColumnIndex: 2, endColumnIndex: 3 },
+            cell: { userEnteredFormat: { wrapStrategy: 'WRAP', verticalAlignment: 'TOP' } },
+            fields: 'userEnteredFormat(wrapStrategy,verticalAlignment)',
+          },
+        },
+        // Column widths.
+        ...SHEET_COLUMNS.map((_, i) => ({
+          updateDimensionProperties: {
+            range: { sheetId, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 },
+            properties: { pixelSize: colWidth(i) },
+            fields: 'pixelSize',
+          },
+        })),
+        // Status dropdown teammates use to claim / close a fix.
+        {
+          setDataValidation: {
+            range: { sheetId, startRowIndex: 1, endRowIndex: MAX_ROWS, startColumnIndex: statusCol, endColumnIndex: statusCol + 1 },
+            rule: {
+              condition: { type: 'ONE_OF_LIST', values: STATUS_OPTIONS.map((v) => ({ userEnteredValue: v })) },
+              strict: false,
+              showCustomUi: true,
+            },
+          },
+        },
+        // Filter so the team can sort/filter by status, date, etc.
+        {
+          setBasicFilter: {
+            filter: { range: { sheetId, startRowIndex: 0, startColumnIndex: 0, endColumnIndex: SHEET_COLUMNS.length } },
+          },
+        },
+      ],
+    }),
+  }).catch(() => { /* cosmetic only */ });
 
   return {
     spreadsheetId: data.spreadsheetId,
