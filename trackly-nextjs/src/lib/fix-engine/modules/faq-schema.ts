@@ -78,17 +78,19 @@ export const faqSchemaModule: FixModule = {
   },
 
   async generate(issue: DetectedIssue, ctx: FixContext): Promise<GeneratedDraft> {
-    const d = issue.detected as { url: string; title: string | null; pageText: string; queries: string[] };
+    const d = issue.detected as { url: string; title: string | null; pageText: string; queries: string[]; instruction?: string };
+    let user = faqUserPrompt({
+      brand: ctx.brand,
+      url: d.url,
+      title: d.title,
+      pageText: d.pageText || '',
+      knownQueries: d.queries,
+    });
+    if (typeof d.instruction === 'string' && d.instruction.trim()) user += `\n\nUser preference (honor this): ${d.instruction.trim()}`;
     const { data } = await generateJson<{ faqs: Faq[]; rationale: string }>({
       ctx,
       system: FAQ_SYSTEM,
-      user: faqUserPrompt({
-        brand: ctx.brand,
-        url: d.url,
-        title: d.title,
-        pageText: d.pageText || '',
-        knownQueries: d.queries,
-      }),
+      user,
       maxTokens: 1200,
     });
     const faqs = (data.faqs || []).filter((f) => f.question && f.answer);

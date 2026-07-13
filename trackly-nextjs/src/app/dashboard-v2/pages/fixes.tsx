@@ -32,8 +32,11 @@ interface FixRow {
 interface PreviewBlock { kind: string; label: string; before?: string; after?: string; language?: string }
 // Result of creating a targeted passage rewrite, returned to the
 // Optimize-a-Passage card so it can show the before/after inline.
-type PassageResult =
-  | { ok: true; fix: FixRow; preview: PreviewBlock | null }
+// The free-text assistant either creates + drafts a fix, answers with a
+// clarifying question, or reports an error.
+type AssistantResult =
+  | { ok: true; fix: FixRow; preview: PreviewBlock | null; taskSummary?: string; moduleKey?: string }
+  | { ok: true; clarify: string }
   | { ok: false; error: string };
 interface Connection { id: string; provider: string; cmsType: string | null; siteUrl: string | null; status: string; lastSeenAt?: string | null; meta?: Record<string, unknown> }
 
@@ -721,37 +724,40 @@ export function PageFixes() {
     catch (e) { setError((e as Error).message); }
   };
   // Create + generate a targeted passage rewrite and return the produced
-  // draft so the Optimize-a-Passage card can show the before/after result
-  // inline — otherwise the rewrite only appears far down in THE FIXES queue
-  // and the click looks like it did nothing.
-  const createTargeted = async (
-    form: { type: 'passage' | 'links' | 'keyword'; url: string; passage?: string; keyword?: string; instruction?: string },
-  ): Promise<PassageResult> => {
+  // Generate a just-created targeted fix and pull its before/after preview so
+  // the box can show the result inline (otherwise the draft only appears far
+  // down in THE FIXES queue and the click looks like it did nothing).
+  const finishTargetedFix = async (fix0: FixRow): Promise<{ fix: FixRow; preview: PreviewBlock | null }> => {
+    const bid = brandId!; // callers guard brandId before invoking
+    let fix = fix0;
+    const g = await api(`/api/brands/${bid}/fixes/${fix.id}/generate`, { method: 'POST' });
+    if (g.fix) fix = { ...fix, ...g.fix } as FixRow;
+    let preview: PreviewBlock | null = null;
+    try {
+      const p = await api(`/api/brands/${bid}/fixes/${fix.id}`);
+      preview = p.preview || null;
+      setPreviews((prev) => ({ ...prev, [fix.id]: preview }));
+    } catch { /* preview is best-effort */ }
+    const created = fix;
+    setFixes((rows) => (rows.some((r) => r.id === created.id) ? rows.map((r) => (r.id === created.id ? { ...r, ...created } : r)) : [created, ...rows]));
+    await load(bid);
+    flash('Ready — added to The Fixes below');
+    return { fix: created, preview };
+  };
+
+  // Free-text agent: describe anything, we classify → create → draft it. May
+  // instead come back with a clarifying question when info is missing.
+  const askAssistant = async (reqText: string, url: string): Promise<AssistantResult> => {
     if (!brandId) return { ok: false, error: 'Pick a brand first' };
     setError(null);
     try {
-      const d = await api(`/api/brands/${brandId}/fixes/targeted`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
-      let fix = d.fix as FixRow | undefined;
-      if (!fix?.id) throw new Error('Could not create the fix');
-      // Generate the rewrite so we have something to show immediately.
-      const g = await api(`/api/brands/${brandId}/fixes/${fix.id}/generate`, { method: 'POST' });
-      if (g.fix) fix = { ...fix, ...g.fix } as FixRow;
-      // Pull the before/after preview for the inline result panel.
-      let preview: PreviewBlock | null = null;
-      try {
-        const p = await api(`/api/brands/${brandId}/fixes/${fix.id}`);
-        preview = p.preview || null;
-        setPreviews((prev) => ({ ...prev, [fix!.id]: preview }));
-      } catch { /* preview is best-effort */ }
-      // Reflect it in the main queue too, then refresh from the server.
-      const created = fix;
-      setFixes((rows) => (rows.some((r) => r.id === created.id) ? rows.map((r) => (r.id === created.id ? { ...r, ...created } : r)) : [created, ...rows]));
-      await load(brandId);
-      flash('Ready — added to The Fixes below');
-      return { ok: true, fix: created, preview };
+      const d = await api(`/api/brands/${brandId}/fixes/assistant`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ request: reqText, url }) });
+      if (d.clarify) return { ok: true, clarify: d.clarify as string };
+      if (!d.fix?.id) return { ok: true, clarify: 'I couldn’t turn that into a task — try adding the page URL or a bit more detail.' };
+      const { fix, preview } = await finishTargetedFix(d.fix as FixRow);
+      return { ok: true, fix, preview, taskSummary: d.taskSummary as string | undefined, moduleKey: d.moduleKey as string | undefined };
     } catch (e) {
       const msg = (e as Error).message;
-      setError(msg);
       return { ok: false, error: msg };
     }
   };
@@ -1027,7 +1033,7 @@ export function PageFixes() {
         )}
       </section>
 
-      <TargetedSection disabled={!enabled} onSubmit={createTargeted} onWholeSite={runModuleScan} scanning={scanning} />
+      <AssistantSection disabled={!enabled} onAsk={askAssistant} onWholeSite={runModuleScan} scanning={scanning} />
     </div>
 
     {/* FIXES */}
@@ -1774,179 +1780,126 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
   );
 }
 
-// ── Passage rewrite ──
-// Plain-language, self-contained tool: paste a paragraph, say what you want
-// it to do, and get the AI rewrite back *inline* (before → after) so the
-// result is visible right here — not only buried down in THE FIXES queue.
-// The three on-demand request types the box supports. Each maps to a module
-// server-side (see /api/brands/[id]/fixes/targeted).
-type TargetedMode = 'passage' | 'links' | 'keyword';
-const TARGETED_MODES: { key: TargetedMode; label: string; blurb: string; cta: string; working: string; wholeSiteModule?: string; wholeSiteLabel?: string }[] = [
-  {
-    key: 'passage', label: '✍ Rewrite a passage',
-    blurb: 'Got a paragraph that isn’t getting picked up by AI answers or search? Paste it and tell us the goal — we rewrite it to be clear and citable.',
-    cta: '✦ Rewrite this passage', working: 'Rewriting your passage…',
-  },
-  {
-    key: 'links', label: '🔗 Internal links & anchor text',
-    blurb: 'Add contextual internal links to a page (and steer the anchor text). Great for interlinking, boosting a target page, or fixing weak anchors. We pick relevant pages from your site and draft the links.',
-    cta: '✦ Draft internal links', working: 'Finding the best links…',
-    wholeSiteModule: 'internal-linking', wholeSiteLabel: 'link the whole site',
-  },
-  {
-    key: 'keyword', label: '🎯 Target a keyword',
-    blurb: 'Point a page at a specific keyword. We write a targeting plan plus a ready-to-publish section built to rank for it — as many keywords/pages as you want.',
-    cta: '✦ Build the keyword plan', working: 'Building your keyword plan…',
-    wholeSiteModule: 'keyword-opportunities', wholeSiteLabel: 'find keyword opportunities site-wide',
-  },
+// ── Ask for a fix (free-text agent) ──
+// One box: the user describes anything they want to improve on their site in
+// plain language; the server classifies it into a fix capability, extracts the
+// inputs, and creates + drafts the task — or asks one clarifying question.
+// Modules that also run in a scan can then be swept across the whole site.
+const ASSISTANT_EXAMPLES = [
+  'Rewrite the title on /pricing to be punchier',
+  'Add internal links from my blog posts to /pricing with the anchor “AI visibility”',
+  'Make /features rank for “ai visibility tracking for agencies”',
+  'Write a meta description for my homepage',
+  'Add an FAQ section to /pricing',
+  'Optimise /product for AI answers',
 ];
 
-function TargetedSection({ disabled, onSubmit, onWholeSite, scanning }: {
+function AssistantSection({ disabled, onAsk, onWholeSite, scanning }: {
   disabled: boolean;
-  onSubmit: (f: { type: TargetedMode; url: string; passage?: string; keyword?: string; instruction?: string }) => Promise<PassageResult>;
+  onAsk: (request: string, url: string) => Promise<AssistantResult>;
   onWholeSite: (moduleKey: string) => void;
   scanning: boolean;
 }) {
   // Collapsed by default so the page opens clean (matches the other sections).
   const [open, setOpen] = React.useState(false);
-  const [mode, setMode] = React.useState<TargetedMode>('passage');
+  const [request, setRequest] = React.useState('');
   const [url, setUrl] = React.useState('');
-  const [passage, setPassage] = React.useState('');
-  const [keyword, setKeyword] = React.useState('');
-  const [instruction, setInstruction] = React.useState('');
-  // idle → working → done | error, plus the produced result.
-  const [phase, setPhase] = React.useState<'idle' | 'working' | 'done' | 'error'>('idle');
-  const [result, setResult] = React.useState<{ before: string; after: string; rationale?: string } | null>(null);
+  const [phase, setPhase] = React.useState<'idle' | 'working' | 'done' | 'clarify' | 'error'>('idle');
+  const [result, setResult] = React.useState<{ taskSummary?: string; moduleKey?: string; before?: string; after: string; rationale?: string } | null>(null);
+  const [clarify, setClarify] = React.useState<string | null>(null);
   const [errMsg, setErrMsg] = React.useState<string | null>(null);
-  const md = TARGETED_MODES.find((m) => m.key === mode)!;
 
-  // Say WHY the button is disabled instead of leaving it silently grey.
-  const need = Math.max(0, 12 - passage.trim().length);
   const missing = disabled ? 'Fix Engine is not enabled on your plan'
-    : !url.trim() ? 'Add the page URL above to continue'
-    : mode === 'passage' && passage.trim().length < 12 ? `Paste a bit more of the paragraph — ${need} more character${need === 1 ? '' : 's'} needed`
-    : mode === 'keyword' && keyword.trim().length < 2 ? 'Enter the keyword you want to target'
+    : request.trim().length < 3 ? 'Describe what you’d like to fix or improve'
     : null;
-
-  // Switching mode clears the produced result but keeps the URL (people work
-  // on the same page across task types).
-  const switchMode = (m: TargetedMode) => { setMode(m); setPhase('idle'); setResult(null); setErrMsg(null); };
+  const working = phase === 'working';
 
   const run = async () => {
     if (missing) return;
-    setPhase('working'); setErrMsg(null); setResult(null);
-    const r = await onSubmit({ type: mode, url, passage, keyword, instruction });
-    if (r.ok) {
-      const gen = (r.fix?.generated || {}) as { rewritten?: string; original?: string; rationale?: string };
-      if (mode === 'passage') {
-        const before = r.preview?.before ?? gen.original ?? passage;
-        const after = r.preview?.after ?? gen.rewritten ?? '';
-        if (!after.trim()) { setPhase('error'); setErrMsg('The rewrite came back empty — try again, or make the goal more specific.'); return; }
-        setResult({ before, after, rationale: gen.rationale });
-      } else {
-        // links / keyword: the module's preview.after holds the drafted links
-        // or the keyword plan + section (no meaningful "before").
-        const after = r.preview?.after ?? '';
-        if (!after.trim()) { setPhase('error'); setErrMsg('Nothing came back — try again, or add a hint in the “what should it do” box.'); return; }
-        setResult({ before: '', after, rationale: gen.rationale });
-      }
-      setPhase('done');
-    } else {
-      setPhase('error'); setErrMsg(r.error);
-    }
+    setPhase('working'); setErrMsg(null); setResult(null); setClarify(null);
+    const r = await onAsk(request, url);
+    if (!r.ok) { setPhase('error'); setErrMsg(r.error); return; }
+    if ('clarify' in r) { setPhase('clarify'); setClarify(r.clarify); return; }
+    const gen = (r.fix?.generated || {}) as { rationale?: string };
+    const after = r.preview?.after ?? '';
+    if (!after.trim()) { setPhase('error'); setErrMsg('It came back empty — try rephrasing, or add the page URL and a bit more detail.'); return; }
+    setResult({ taskSummary: r.taskSummary, moduleKey: r.moduleKey, before: r.preview?.before, after, rationale: gen.rationale });
+    setPhase('done');
   };
 
-  // Reset the inputs (keep the URL) so the next request starts fresh.
-  const startAnother = () => { setPhase('idle'); setResult(null); setErrMsg(null); setPassage(''); setKeyword(''); setInstruction(''); };
+  const startAnother = () => { setPhase('idle'); setResult(null); setClarify(null); setErrMsg(null); setRequest(''); };
 
   const spinner = <span aria-hidden style={{ display: 'inline-block', width: 14, height: 14, border: '2.5px solid rgba(255,255,255,.5)', borderTopColor: '#fff', borderRadius: '50%', animation: 'xspin .7s linear infinite' }} />;
-  const working = phase === 'working';
+  // Every module except passage-rewrite also runs in a scan → can go site-wide.
+  const canSweep = !!result?.moduleKey && result.moduleKey !== 'passage-rewrite';
 
   return (
     <section className="nb" style={{ padding: 0, overflow: 'hidden', background: 'var(--info-50)' }}>
-      <SectionHeader title="ASK FOR A FIX — ANY PAGE, ANYTIME" open={open} onToggle={() => setOpen((o) => !o)} bg="var(--info)" />
+      <SectionHeader title="ASK FOR A FIX — DESCRIBE IT, WE BUILD IT" open={open} onToggle={() => setOpen((o) => !o)} bg="var(--info)" />
       {open && (
-      <div style={{ padding: '18px 20px', display: 'grid', gap: 15 }}>
-        {/* Task-type selector */}
-        <div role="tablist" aria-label="What do you want to do?" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {TARGETED_MODES.map((m) => {
-            const on = m.key === mode;
-            return (
-              <button key={m.key} role="tab" aria-selected={on} onClick={() => switchMode(m.key)} disabled={working}
-                className="nb-sm" style={{ padding: '8px 13px', fontSize: 12.5, fontWeight: 700, cursor: working ? 'default' : 'pointer', background: on ? 'var(--info)' : 'var(--surface)', color: on ? '#fff' : 'var(--text-2)', boxShadow: on ? '3px 3px 0 var(--ink)' : 'none' }}>
-                {m.label}
-              </button>
-            );
-          })}
+      <div style={{ padding: '18px 20px', display: 'grid', gap: 14 }}>
+        <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.55 }}>
+          Tell us what you want to fix or improve — in your own words. We figure out what needs to change, create the task, draft it, and add it to <strong>The Fixes</strong> ready to ship to your site. Titles, meta descriptions, paragraphs, internal links &amp; anchors, keyword targeting, FAQ schema, or optimising a whole page for AI answers.
+        </p>
+
+        <div>
+          <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>What do you want to do?</div>
+          <textarea className="xin" rows={3} value={request} onChange={(e) => setRequest(e.target.value)}
+            onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') run(); }}
+            placeholder="e.g. My pricing page title is too long and boring — make it punchy and mention AI visibility." disabled={working} />
         </div>
 
-        <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.55 }}>{md.blurb}</p>
-
-        {/* Fields adapt to the selected task */}
-        <div>
-          <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>
-            {mode === 'passage' ? '1 · Which page is the paragraph on?' : mode === 'keyword' ? '1 · Which page should target it?' : '1 · Which page should get the links?'}
+        {/* Example chips to seed the box */}
+        {phase === 'idle' && !request && (
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+            {ASSISTANT_EXAMPLES.map((ex) => (
+              <button key={ex} className="chip" onClick={() => setRequest(ex)} disabled={working}
+                style={{ cursor: 'pointer', fontSize: 11, padding: '5px 10px', color: 'var(--text-2)' }}>{ex}</button>
+            ))}
           </div>
+        )}
+
+        <div>
+          <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Which page? <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600, color: 'var(--text-3)' }}>(optional — or just include it above)</span></div>
           <input className="xin" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://yoursite.com/pricing" disabled={working} />
         </div>
 
-        {mode === 'passage' && (
-          <div>
-            <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>2 · Paste the exact paragraph to improve</div>
-            <textarea className="xin" rows={3} value={passage} onChange={(e) => setPassage(e.target.value)} placeholder="Copy the exact paragraph or lines straight from the page…" disabled={working} />
-          </div>
-        )}
-        {mode === 'keyword' && (
-          <div>
-            <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>2 · Which keyword?</div>
-            <input className="xin" value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="e.g. ai visibility tracking for agencies" disabled={working} />
-          </div>
-        )}
-
-        <div>
-          <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>
-            {mode === 'passage' ? '3' : '2'} · What should it do? <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600, color: 'var(--text-3)' }}>(optional)</span>
-          </div>
-          <input className="xin" value={instruction} onChange={(e) => setInstruction(e.target.value)}
-            placeholder={mode === 'passage' ? 'e.g. clearly answer "is Acme good for engineering teams?"'
-              : mode === 'links' ? 'e.g. link to /pricing using the anchor “AI visibility pricing”'
-              : 'e.g. focus on comparison-shoppers, mention our free tier'} disabled={working} />
-        </div>
-
         <button className="xbtn" onClick={run} disabled={!!missing || working} style={{ background: 'var(--info)', justifyContent: 'center' }}>
-          {working ? <>{spinner} {md.working}</> : phase === 'done' ? '✦ Do another' : md.cta}
+          {working ? <>{spinner} Understanding your request…</> : phase === 'done' ? '✦ Ask for another' : '✦ Do it'}
         </button>
         {!working && missing && <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-2)', textAlign: 'center' }}>{missing}</span>}
-        {!working && !missing && phase === 'idle' && <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--text-3)', textAlign: 'center' }}>You’ll see the result here before anything ships — and you can do this as many times as you like.</span>}
+        {!working && !missing && phase === 'idle' && <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--text-3)', textAlign: 'center' }}>You’ll see the result here before anything ships — ask for as many as you like.</span>}
 
-        {/* Whole-site shortcut for the modules that support a site-wide sweep */}
-        {md.wholeSiteModule && (
-          <div style={{ textAlign: 'center', fontSize: 11.5, fontWeight: 500, color: 'var(--text-3)' }}>
-            Want it across every page?{' '}
-            <button className="tbtn" onClick={() => onWholeSite(md.wholeSiteModule!)} disabled={disabled || working || scanning} style={{ fontSize: 11.5, fontWeight: 700 }}>
-              {scanning ? 'Scanning…' : `↻ ${md.wholeSiteLabel}`}
-            </button>
+        {/* Clarifying question — the agent needs a bit more to proceed. */}
+        {phase === 'clarify' && clarify && (
+          <div className="nb-sm" style={{ padding: '12px 14px', background: 'var(--warn-50)', borderColor: 'var(--warn)', boxShadow: '3px 3px 0 var(--warn)', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <span style={{ fontSize: 15, flexShrink: 0 }}>💬</span>
+            <div>
+              <div className="disp" style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>Quick question</div>
+              <div style={{ fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.5 }}>{clarify}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-3)', fontWeight: 500, marginTop: 6 }}>Add the detail above and hit <strong>Do it</strong> again.</div>
+            </div>
           </div>
         )}
 
         {/* Error — shown right in the card so the click never looks dead. */}
         {phase === 'error' && errMsg && (
           <div className="nb-sm" style={{ padding: '12px 14px', background: 'var(--danger-50)', borderColor: 'var(--danger)', boxShadow: '3px 3px 0 var(--danger)' }}>
-            <div className="disp" style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger)', marginBottom: 3 }}>✕ Couldn’t create that fix</div>
+            <div className="disp" style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger)', marginBottom: 3 }}>✕ Couldn’t do that</div>
             <div style={{ fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.5 }}>{errMsg}</div>
           </div>
         )}
 
-        {/* Inline result — the whole point: SEE what the fix produced. */}
+        {/* Inline result — SEE what the agent produced. */}
         {phase === 'done' && result && (
           <div className="nb-sm" style={{ padding: 0, overflow: 'hidden', boxShadow: '4px 4px 0 var(--success)', borderColor: 'var(--success)' }}>
             <div className="disp" style={{ padding: '10px 14px', background: 'var(--success)', color: '#fff', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-              ✓ {mode === 'passage' ? 'Here’s your rewrite' : mode === 'links' ? 'Here are the links we’ll add' : 'Here’s your keyword plan'}
+              ✓ {result.taskSummary || 'Done — here’s the draft'}
             </div>
-            {mode === 'passage' ? (<>
+            {result.before ? (<>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}>
                 <span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− NOW</span>
-                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: 'var(--text-2)', textDecoration: 'line-through', textDecorationColor: 'var(--danger-200)', lineHeight: 1.5 }}>{result.before || '(empty)'}</span>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: 'var(--text-2)', textDecoration: 'line-through', textDecorationColor: 'var(--danger-200)', lineHeight: 1.5 }}>{result.before}</span>
               </div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--success-50)' }}>
                 <span className="disp" style={{ color: 'var(--success)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ NEW</span>
@@ -1963,9 +1916,14 @@ function TargetedSection({ disabled, onSubmit, onWholeSite, scanning }: {
                 <div style={{ fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.5 }}>{result.rationale}</div>
               </div>
             )}
-            <div style={{ padding: '11px 14px', borderTop: '2px solid var(--ink)', background: 'var(--surface)', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 160 }}>Saved to <strong>The Fixes</strong> below — review it there, then approve &amp; ship to your page.</span>
-              <button className="gbtn" onClick={startAnother} style={{ padding: '7px 13px', fontSize: 12 }}>Do another</button>
+            <div style={{ padding: '11px 14px', borderTop: '2px solid var(--ink)', background: 'var(--surface)', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 150 }}>Saved to <strong>The Fixes</strong> below — review, then approve &amp; ship.</span>
+              {canSweep && (
+                <button className="gbtn" onClick={() => onWholeSite(result.moduleKey!)} disabled={scanning} style={{ padding: '7px 12px', fontSize: 12 }}>
+                  {scanning ? 'Scanning…' : '↻ Do this on every page'}
+                </button>
+              )}
+              <button className="gbtn" onClick={startAnother} style={{ padding: '7px 13px', fontSize: 12 }}>Ask for another</button>
             </div>
           </div>
         )}

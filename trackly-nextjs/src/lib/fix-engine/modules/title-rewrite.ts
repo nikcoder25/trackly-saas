@@ -70,7 +70,7 @@ export const titleRewriteModule: FixModule = {
   },
 
   async generate(issue: DetectedIssue, ctx: FixContext): Promise<GeneratedDraft> {
-    const d = issue.detected as { url: string; currentTitle: string | null; h1: string | null; pageSummary: string };
+    const d = issue.detected as { url: string; currentTitle: string | null; h1: string | null; pageSummary: string; instruction?: string };
     // Competitive context: what currently ranks for this page's primary
     // query, so the new title is written to beat the live SERP. Best-effort.
     let query: string | null = null;
@@ -79,18 +79,21 @@ export const titleRewriteModule: FixModule = {
       const { getCompetitorContext } = await import('../serp');
       ({ query, competitors } = await getCompetitorContext(ctx, d.url, d.currentTitle, d.h1));
     } catch { /* generate without competitor context */ }
+    let user = titleUserPrompt({
+      brand: ctx.brand,
+      url: d.url,
+      currentTitle: d.currentTitle,
+      h1: d.h1,
+      pageSummary: d.pageSummary || '',
+      query,
+      competitors,
+    });
+    // A user-initiated request can add direction (e.g. "make it punchier").
+    if (typeof d.instruction === 'string' && d.instruction.trim()) user += `\n\nUser preference (honor this): ${d.instruction.trim()}`;
     const { data } = await generateJson<{ title: string; rationale: string }>({
       ctx,
       system: TITLE_SYSTEM,
-      user: titleUserPrompt({
-        brand: ctx.brand,
-        url: d.url,
-        currentTitle: d.currentTitle,
-        h1: d.h1,
-        pageSummary: d.pageSummary || '',
-        query,
-        competitors,
-      }),
+      user,
       maxTokens: 400,
     });
     return { generated: { title: data.title.trim(), rationale: data.rationale, serpQuery: query, serpCompared: competitors.length, serpCompetitors: competitors.slice(0, 5) }, creditsUsed: 1 };
