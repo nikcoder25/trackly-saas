@@ -245,6 +245,41 @@ function currentValue(fix: FixRow): { label: string; value: string; missing: boo
   }
 }
 
+// Rotating chevron used in every collapsible section header (points down
+// when open, rotates to point right when collapsed — a drop-down / drop-up
+// affordance). Matches the existing Connections header.
+function Chevron({ open, dark }: { open: boolean; dark?: boolean }) {
+  return (
+    <span className="disp" aria-hidden style={{ fontSize: 15, fontWeight: 700, display: 'inline-block', transition: 'transform .15s', transform: open ? 'none' : 'rotate(-90deg)', color: dark ? 'var(--bg)' : 'inherit' }}>▾</span>
+  );
+}
+
+// Collapsible section header: the title (+ chevron) is a button that
+// toggles the body; optional `right` holds controls that must stay
+// independently clickable (so they're kept outside the toggle button to
+// avoid nesting interactive elements). `dark` styles it for the dark
+// header bar used across the page.
+function SectionHeader({ title, open, onToggle, right, dark, bg }: {
+  title: string; open: boolean; onToggle: () => void;
+  right?: React.ReactNode; dark?: boolean; bg?: string;
+}) {
+  const fg = dark ? 'var(--bg)' : '#fff';
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: bg || 'var(--text)', color: fg, flexWrap: 'wrap', gap: 10 }}>
+      <button
+        onClick={onToggle}
+        aria-expanded={open}
+        title={open ? `Hide ${title}` : `Show ${title}`}
+        style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'none', border: 'none', cursor: 'pointer', padding: 0, margin: 0, color: 'inherit', font: 'inherit' }}
+      >
+        <Chevron open={open} dark={dark} />
+        <span className="disp" style={{ fontSize: 17, fontWeight: 700, color: fg }}>{title}</span>
+      </button>
+      {right && <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>{right}</div>}
+    </div>
+  );
+}
+
 export function PageFixes() {
   const { brand, loading: brandLoading } = useBrandData({ fullData: true });
   const brandId = (brand as any)?.id as string | undefined;
@@ -268,6 +303,10 @@ export function PageFixes() {
   const [connectRequest, setConnectRequest] = React.useState<{ platform: string; nonce: number } | null>(null);
   const requestConnect = React.useCallback((platform: string) => setConnectRequest((r) => ({ platform, nonce: (r?.nonce ?? 0) + 1 })), []);
   const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(new Set());
+  // Section-level collapse for the two inline cards (the component sections
+  // manage their own). All default open; toggling keeps the page scannable.
+  const [modulesOpen, setModulesOpen] = React.useState(true);
+  const [fixesOpen, setFixesOpen] = React.useState(true);
   // Cards start collapsed (one line each) so long queues stay scannable;
   // clicking a row opens the full card. Expand/collapse-all lives in the
   // queue toolbar.
@@ -848,13 +887,14 @@ export function PageFixes() {
     {/* MODULES + PASSAGE */}
     <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 18, alignItems: 'start' }}>
       <section className="nb" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: 'var(--text)', color: 'var(--bg)', flexWrap: 'wrap', gap: 10 }}>
-          <div className="disp" style={{ fontSize: 17, fontWeight: 700 }}>SCAN MODULES</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <SectionHeader
+          title="SCAN MODULES" dark open={modulesOpen} onToggle={() => setModulesOpen((o) => !o)}
+          right={<>
             <span className="chip" style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--bg)' }}>{selected.size} SELECTED</span>
             <button className="tbtn" onClick={toggleSelectAll} style={{ color: 'var(--bg)', textDecorationColor: 'var(--bg)' }}>{allSelected ? 'Clear all' : 'Select all'}</button>
-          </div>
-        </div>
+          </>}
+        />
+        {modulesOpen && (
         <div style={{ padding: '6px 20px 16px' }}>
           {moduleGroups.map((grp) => (
             <div key={grp.name}>
@@ -880,6 +920,7 @@ export function PageFixes() {
             <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0}>▶ RUN ON SELECTION</button>
           </div>
         </div>
+        )}
       </section>
 
       <PassageSection disabled={!enabled} onSubmit={createTargeted} />
@@ -888,7 +929,10 @@ export function PageFixes() {
     {/* FIXES */}
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginBottom: 12 }}>
-        <h2 className="disp" style={{ margin: 0, fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>THE FIXES</h2>
+        <button onClick={() => setFixesOpen((o) => !o)} aria-expanded={fixesOpen} title={fixesOpen ? 'Hide the fixes' : 'Show the fixes'} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'none', border: 'none', cursor: 'pointer', padding: 0, margin: 0, color: 'var(--text)' }}>
+          <span className="disp" aria-hidden style={{ fontSize: 22, fontWeight: 700, display: 'inline-block', transition: 'transform .15s', transform: fixesOpen ? 'none' : 'rotate(-90deg)' }}>▾</span>
+          <h2 className="disp" style={{ margin: 0, fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>THE FIXES</h2>
+        </button>
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', alignItems: 'center' }}>
           {filterDefs.map((d) => {
             const on = filter === d.key;
@@ -896,6 +940,7 @@ export function PageFixes() {
           })}
         </div>
       </div>
+      {fixesOpen && (<>
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 9, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
         <button className="chip" onClick={() => { setOpenCards(new Set(shown.map((f) => f.id))); setExpandedGroups(new Set(shown.map((f) => f.moduleKey))); }} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>▾ EXPAND ALL</button>
         <button className="chip" onClick={() => { setOpenCards(new Set()); setExpandedGroups(new Set()); }} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>▴ COLLAPSE ALL</button>
@@ -1019,6 +1064,7 @@ export function PageFixes() {
       })()}
       {/* keep lint happy about unused maps */}
       <span style={{ display: 'none' }}>{sevCount.low}{statusCount.detected}</span>
+      </>)}
     </section>
 
     {toast && (
@@ -1407,6 +1453,7 @@ function SeoBrainSection({ brain, disabled, onSave, onReset }: {
   brain: { content: string; isCustom: boolean; base: string; presets: { key: string; title: string; description: string; content: string }[]; maxChars?: number } | null;
   disabled: boolean; onSave: (content: string) => void; onReset: () => void;
 }) {
+  const [expanded, setExpanded] = React.useState(true);
   const [open, setOpen] = React.useState(false);
   const [text, setText] = React.useState('');
   const [preset, setPreset] = React.useState('');
@@ -1414,13 +1461,14 @@ function SeoBrainSection({ brain, disabled, onSave, onReset }: {
   const presets = brain?.presets ?? [];
   return (
     <section className="nb" style={{ padding: 0, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: 'var(--text)', color: 'var(--bg)', flexWrap: 'wrap', gap: 10 }}>
-        <div className="disp" style={{ fontSize: 17, fontWeight: 700 }}>SEO BRAIN</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <SectionHeader
+        title="SEO BRAIN" dark open={expanded} onToggle={() => setExpanded((e) => !e)}
+        right={<>
           <span className="chip" style={{ background: brain?.isCustom ? 'var(--success-50)' : 'var(--bg)', color: brain?.isCustom ? 'var(--success)' : 'var(--text)', borderColor: brain?.isCustom ? 'var(--success)' : 'var(--bg)' }}>{brain?.isCustom ? 'CUSTOM' : 'DEFAULT'}</span>
-          <button className="tbtn" onClick={() => setOpen((o) => !o)} disabled={disabled} style={{ color: 'var(--bg)', textDecorationColor: 'var(--bg)' }}>{open ? 'Close' : 'Edit'}</button>
-        </div>
-      </div>
+          {expanded && <button className="tbtn" onClick={() => setOpen((o) => !o)} disabled={disabled} style={{ color: 'var(--bg)', textDecorationColor: 'var(--bg)' }}>{open ? 'Close' : 'Edit'}</button>}
+        </>}
+      />
+      {expanded && (
       <div style={{ padding: '14px 20px 18px' }}>
         {!open ? (
           <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--text-2)', fontWeight: 500 }}>
@@ -1445,6 +1493,7 @@ function SeoBrainSection({ brain, disabled, onSave, onReset }: {
           </div>
         )}
       </div>
+      )}
     </section>
   );
 }
@@ -1454,6 +1503,7 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
   automation: any; activity: { id: string; event: string; detail: any; createdAt: string }[];
   canShip: boolean; disabled: boolean; onSave: (patch: any) => void;
 }) {
+  const [expanded, setExpanded] = React.useState(true);
   const [showRules, setShowRules] = React.useState(false);
   const [rules, setRules] = React.useState<{ titleSuffix: string; titleMaxLen: string; metaMaxLen: string; bannedPhrases: string }>({ titleSuffix: '', titleMaxLen: '', metaMaxLen: '', bannedPhrases: '' });
   React.useEffect(() => {
@@ -1484,10 +1534,11 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
   const nextRun = a.scanEnabled && a.nextScanAt ? new Date(a.nextScanAt).toLocaleString() : null;
   return (
     <section className="nb" style={{ padding: 0, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: 'var(--text)', color: 'var(--bg)', flexWrap: 'wrap', gap: 10 }}>
-        <div className="disp" style={{ fontSize: 17, fontWeight: 700 }}>AUTOMATION</div>
-        {a.scanEnabled && <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)' }}>SCHEDULED</span>}
-      </div>
+      <SectionHeader
+        title="AUTOMATION" dark open={expanded} onToggle={() => setExpanded((e) => !e)}
+        right={a.scanEnabled ? <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)' }}>SCHEDULED</span> : undefined}
+      />
+      {expanded && (
       <div style={{ padding: '16px 20px', display: 'grid', gap: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <strong className="disp" style={{ fontSize: 14, minWidth: 150 }}>Scheduled scans</strong>
@@ -1558,6 +1609,7 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
           </div>
         )}
       </div>
+      )}
     </section>
   );
 }
@@ -1567,6 +1619,7 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
 // it to do, and get the AI rewrite back *inline* (before → after) so the
 // result is visible right here — not only buried down in THE FIXES queue.
 function PassageSection({ disabled, onSubmit }: { disabled: boolean; onSubmit: (f: { url: string; passage: string; instruction: string }) => Promise<PassageResult> }) {
+  const [open, setOpen] = React.useState(true);
   const [url, setUrl] = React.useState('');
   const [passage, setPassage] = React.useState('');
   const [instruction, setInstruction] = React.useState('');
@@ -1607,7 +1660,8 @@ function PassageSection({ disabled, onSubmit }: { disabled: boolean; onSubmit: (
 
   return (
     <section className="nb" style={{ padding: 0, overflow: 'hidden', background: 'var(--info-50)' }}>
-      <div className="disp" style={{ padding: '14px 20px', background: 'var(--info)', color: '#fff', fontSize: 17, fontWeight: 700 }}>OPTIMIZE A PASSAGE</div>
+      <SectionHeader title="OPTIMIZE A PASSAGE" open={open} onToggle={() => setOpen((o) => !o)} bg="var(--info)" />
+      {open && (
       <div style={{ padding: '18px 20px', display: 'grid', gap: 15 }}>
         <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.55 }}>
           Got a paragraph that isn&apos;t getting picked up by AI answers or search? Paste it below and tell us the goal in plain words.
@@ -1671,6 +1725,7 @@ function PassageSection({ disabled, onSubmit }: { disabled: boolean; onSubmit: (
           </div>
         )}
       </div>
+      )}
     </section>
   );
 }
