@@ -1074,30 +1074,48 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                 shopify: [{ k: 'shop', label: 'Store domain', ph: 'acme.myshopify.com' }, { k: 'accessToken', label: 'Admin API access token', ph: 'shpat_…', pw: true }],
                 ghost: [{ k: 'adminApiUrl', label: 'Ghost URL', ph: 'https://blog.acme.com' }, { k: 'adminApiKey', label: 'Admin API key', ph: 'id:secret', pw: true }],
                 webflow: [{ k: 'apiToken', label: 'API token', ph: '…', pw: true }, { k: 'siteId', label: 'Site ID', ph: '…' }],
-                custom: [{ k: 'endpoint', label: 'Your fix endpoint URL', ph: 'https://yoursite.com/livesov-fix' }, { k: 'secret', label: 'Shared secret (16+ chars)', ph: 'paste or generate →', pw: true }],
+                custom: [{ k: 'endpoint', label: 'Your fix endpoint URL', ph: 'https://yoursite.com/livesov-fix' }, { k: 'secret', label: 'Shared secret (16+ chars)', ph: 'paste, or click Generate →', pw: true }],
               };
               const fs = fields[cmsType] || [];
               const ready = fs.every((f) => (cc[f.k] || '').trim().length > 0);
+              const genSecret = () => { const b = new Uint8Array(24); crypto.getRandomValues(b); ccSet('secret', Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')); };
               return (
                 <div style={{ display: 'grid', gap: 12 }}>
-                  {cmsType === 'custom' && (
-                    <div className="nb-sm" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', display: 'grid', gap: 8 }}>
-                      <div className="disp" style={{ fontSize: 13, fontWeight: 700, color: 'var(--info)' }}>HOW IT WORKS — ~40 LINES OF CODE, ONCE</div>
-                      <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.6, color: 'var(--text)', fontWeight: 500, display: 'grid', gap: 4 }}>
-                        <li>Your developer adds one small HTTPS endpoint to your site (copy a ready-made template below).</li>
-                        <li>Generate a secret here, put the same secret in the endpoint, and paste the endpoint URL above.</li>
-                        <li>Every approved fix arrives as one signed POST — <code>{'{ op: "update_title", url, value }'}</code> — and the endpoint saves it wherever your site stores content. Ops you don&apos;t implement reply <code>{'{ unsupported: true }'}</code> and we hand those fixes to you instead of failing.</li>
+                  {cmsType === 'custom' && (<>
+                    {/* Which path is fastest — two clear choices, ranked by effort. */}
+                    <div className="nb-sm" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--success-50)', borderColor: 'var(--success)', display: 'grid', gap: 5 }}>
+                      <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--success)' }}>⚡ FASTEST — NO CODE, START NOW</div>
+                      <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text)', fontWeight: 500 }}>
+                        You can skip this form entirely. <b>Run a scan</b> to see every fix, then hand them to your team as a to-do list via <b>Spreadsheet</b>, <b>Linear</b> or <b>Jira</b> (rows below). Nothing to install.
+                      </span>
+                    </div>
+                    <div className="nb-sm" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', display: 'grid', gap: 9 }}>
+                      <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--info)' }}>🔧 FULL AUTOPILOT — ONE-TIME ~10-MIN DEV SETUP</div>
+                      <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text)', fontWeight: 500 }}>Want fixes applied to your live site automatically? Your developer adds one small endpoint, <b>once</b> — then every approved fix ships itself. Three steps:</span>
+                      <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.75, color: 'var(--text)', fontWeight: 500, display: 'grid', gap: 2 }}>
+                        <li><b>Copy</b> a template below → send it to your developer to add to the site.</li>
+                        <li><b>Generate</b> a secret (button on the “Shared secret” field) → put the same one in the endpoint.</li>
+                        <li><b>Paste</b> the endpoint URL + secret below → Connect. Done.</li>
                       </ol>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         <button className="gbtn" style={{ padding: '7px 12px', fontSize: 12 }} onClick={() => copy(CUSTOM_ENDPOINT_NODE, 'Node/Express template')}>⧉ Copy Node/Express template</button>
                         <button className="gbtn" style={{ padding: '7px 12px', fontSize: 12 }} onClick={() => copy(CUSTOM_ENDPOINT_PHP, 'PHP template')}>⧉ Copy PHP template</button>
-                        <button className="gbtn" style={{ padding: '7px 12px', fontSize: 12 }} onClick={() => { const b = new Uint8Array(24); crypto.getRandomValues(b); ccSet('secret', Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')); }}>⚄ Generate secret</button>
                       </div>
-                      <span style={{ fontSize: 11.5, color: 'var(--text-2)', fontWeight: 500 }}>Ops: ping · update_title · update_meta_description · update_body · inject_schema · update_canonical · create_page · set_indexable · replace_in_body. Start with just titles + metas — that alone unlocks the highest-impact fixes.</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>Tip: start with just <b>update_title</b> + <b>update_meta_description</b> — that alone unlocks the highest-impact fixes. Any fix your endpoint can’t handle yet is handed off to you, never failed.</span>
                     </div>
-                  )}
+                  </>)}
                   {fs.map((f) => (
-                    <div key={f.k}><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>{f.label}</div><input className="xin" type={f.pw ? 'password' : 'text'} value={cc[f.k] || ''} placeholder={f.ph} onChange={(e) => ccSet(f.k, e.target.value)} /></div>
+                    <div key={f.k}>
+                      <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>{f.label}</div>
+                      {f.k === 'secret' ? (
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <input className="xin" style={{ flex: 1, minWidth: 0 }} type={f.pw ? 'password' : 'text'} value={cc[f.k] || ''} placeholder={f.ph} onChange={(e) => ccSet(f.k, e.target.value)} />
+                          <button className="gbtn" type="button" onClick={genSecret} title="Generate a secure 48-character secret" style={{ padding: '9px 13px', whiteSpace: 'nowrap', flexShrink: 0 }}>⚄ Generate</button>
+                        </div>
+                      ) : (
+                        <input className="xin" type={f.pw ? 'password' : 'text'} value={cc[f.k] || ''} placeholder={f.ph} onChange={(e) => ccSet(f.k, e.target.value)} />
+                      )}
+                    </div>
                   ))}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 12, color: 'var(--warning, #b45309)', fontWeight: 600 }}>
