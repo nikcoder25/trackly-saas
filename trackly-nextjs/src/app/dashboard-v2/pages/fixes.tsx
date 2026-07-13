@@ -44,6 +44,27 @@ async function api(path: string, init?: RequestInit) {
   return data;
 }
 
+/**
+ * Persistent "scan in progress" banner: a spinner, a live running count, and
+ * an indeterminate progress bar so the user can tell the bots are still
+ * working (a scan can take a minute or two). Renders nothing when idle.
+ */
+function ScanBanner({ progress }: { progress: { received: number; status: string } | null }) {
+  if (!progress) return null;
+  const label = progress.status === 'queued' || progress.status === 'running' && progress.received === 0
+    ? 'Starting scan — checking your site…'
+    : `Scanning your site — ${progress.received} ${progress.received === 1 ? 'check' : 'checks'} found so far…`;
+  return (
+    <div className="nb-sm" role="status" aria-live="polite" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--primary-50)', borderColor: 'var(--primary)', display: 'grid', gap: 9 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, fontWeight: 700, color: 'var(--primary)' }}>
+        <span className="spin" />{label}
+      </div>
+      <div className="scanbar"><i /></div>
+      <span style={{ fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>This can take a minute or two — you can keep working; the results appear below the moment it finishes.</span>
+    </div>
+  );
+}
+
 // ── design system (scoped under .mx) ──
 // Copy-paste endpoint templates for the "custom-coded site" connection.
 // Full contract in docs/CUSTOM-SITE-CONNECT.md.
@@ -319,6 +340,9 @@ export function PageFixes() {
   const [armed, setArmed] = React.useState<Record<string, boolean>>({});
   const [previews, setPreviews] = React.useState<Record<string, PreviewBlock | null>>({});
   const [scanning, setScanning] = React.useState(false);
+  // Live scan progress so the UI can show a persistent "in progress" state
+  // (spinner + running count) instead of only a transient toast.
+  const [scanProgress, setScanProgress] = React.useState<{ received: number; status: string } | null>(null);
   const [picked, setPicked] = React.useState<Set<string>>(new Set());
   const [events, setEvents] = React.useState<Record<string, FixEvent[]>>({});
   const [quickWins, setQuickWins] = React.useState(false);
@@ -423,6 +447,7 @@ export function PageFixes() {
       try {
         const d = await api(`/api/brands/${id}/fixes/batches/${batchId}`);
         const b = d.batch;
+        setScanProgress({ received: b.received ?? 0, status: b.status });
         setToast(`Scanning… ${b.received} found (${b.status})`);
         if (b.status === 'done' || b.status === 'failed') {
           setToast(b.status === 'failed' ? `Scan failed: ${b.error || 'unknown'}` : `Scan complete — ${b.received} found`);
@@ -434,12 +459,12 @@ export function PageFixes() {
 
   const runScan = async () => {
     if (!brandId) return;
-    setScanning(true); setToast('Scan started…');
+    setScanning(true); setScanProgress({ received: 0, status: 'queued' }); setToast('Scan started…');
     try {
       const d = await api(`/api/brands/${brandId}/fixes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ modules: Array.from(selected) }) });
       await pollBatch(brandId, d.batchId);
       await load(brandId);
-    } catch (e) { setError((e as Error).message); } finally { setScanning(false); }
+    } catch (e) { setError((e as Error).message); } finally { setScanning(false); setScanProgress(null); }
   };
 
   const act = async (fixId: string, action: 'generate' | 'approve' | 'ship' | 'stage' | 'publish' | 'recheck' | 'revert' | 'ticket' | 'request-review') => {
@@ -755,8 +780,11 @@ export function PageFixes() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-end' }}>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="gbtn" onClick={() => load(brandId)} disabled={loading}>↻ Refresh</button>
-            <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0}>{scanning ? 'SCANNING…' : '▶ RUN SCAN'}</button>
+            <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0}>
+              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />SCANNING…</> : '▶ RUN SCAN'}
+            </button>
           </div>
+          {scanning && <div style={{ width: 320, maxWidth: '100%' }}><ScanBanner progress={scanProgress} /></div>}
           <div className="nb-sm disp" style={{ background: 'var(--text)', color: 'var(--bg)', padding: '14px 18px', textAlign: 'right', transform: 'rotate(1.5deg)' }}>
             <div style={{ fontSize: 32, fontWeight: 700, lineHeight: 1 }}>{catalog.length || 19}</div>
             <div className="xlbl" style={{ marginTop: 4, color: 'var(--bg)', opacity: 0.7 }}>fix modules</div>
@@ -848,9 +876,12 @@ export function PageFixes() {
           })()}
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <span className="disp nb-sm" style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, background: 'var(--surface-2)', flexShrink: 0 }}>3</span>
-            <button className="xbtn" onClick={runScan} disabled={scanning || selected.size === 0} style={{ background: 'var(--text)' }}>{scanning ? 'SCANNING…' : '▶ RUN YOUR FIRST SCAN'}</button>
+            <button className="xbtn" onClick={runScan} disabled={scanning || selected.size === 0} style={{ background: 'var(--text)' }}>
+              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />SCANNING…</> : '▶ RUN YOUR FIRST SCAN'}
+            </button>
             <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Scans {selected.size} checks against your site — you can do this before connecting.</span>
           </div>
+          {scanning && <div style={{ marginTop: 12 }}><ScanBanner progress={scanProgress} /></div>}
         </div>
       </section>
     )}
@@ -917,8 +948,11 @@ export function PageFixes() {
           {catalog.length === 0 && !loading && <p style={{ fontSize: 13, color: 'var(--text-2)' }}>No modules available.</p>}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, flexWrap: 'wrap', gap: 10 }}>
             <span className="xlbl" style={{ color: 'var(--text-2)' }}>{selected.size}/{catalog.length || 19} selected · est {scanCost} credits</span>
-            <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0}>▶ RUN ON SELECTION</button>
+            <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0}>
+              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />SCANNING…</> : '▶ RUN ON SELECTION'}
+            </button>
           </div>
+          {scanning && <div style={{ marginTop: 12 }}><ScanBanner progress={scanProgress} /></div>}
         </div>
         )}
       </section>
@@ -997,7 +1031,10 @@ export function PageFixes() {
         <div className="nb" style={{ padding: 56, textAlign: 'center', background: 'var(--primary-50)' }}>
           <div className="disp" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>NOTHING TO FIX… YET</div>
           <p style={{ margin: '12px auto 22px', fontSize: 14, color: 'var(--text-2)', maxWidth: '44ch', lineHeight: 1.6, fontWeight: 500 }}>Run a scan to check {brandName} against {selected.size} modules, ranked by severity.</p>
-          <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0} style={{ margin: '0 auto' }}>▶ RUN SCAN</button>
+          <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0} style={{ margin: '0 auto' }}>
+            {scanning ? <><span className="spin" style={{ marginRight: 7 }} />SCANNING…</> : '▶ RUN SCAN'}
+          </button>
+          {scanning && <div style={{ maxWidth: 420, margin: '16px auto 0', textAlign: 'left' }}><ScanBanner progress={scanProgress} /></div>}
         </div>
       )}
 
