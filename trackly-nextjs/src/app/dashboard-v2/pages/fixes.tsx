@@ -35,7 +35,7 @@ interface PreviewBlock { kind: string; label: string; before?: string; after?: s
 type PassageResult =
   | { ok: true; fix: FixRow; preview: PreviewBlock | null }
   | { ok: false; error: string };
-interface Connection { id: string; provider: string; cmsType: string | null; siteUrl: string | null; status: string; lastSeenAt?: string | null }
+interface Connection { id: string; provider: string; cmsType: string | null; siteUrl: string | null; status: string; lastSeenAt?: string | null; meta?: Record<string, unknown> }
 
 async function api(path: string, init?: RequestInit) {
   const res = await fetch(path, { credentials: 'include', cache: 'no-store', ...init });
@@ -333,6 +333,20 @@ export function PageFixes() {
     const u = new URL(window.location.href); u.searchParams.delete('gsc'); window.history.replaceState({}, '', u.toString());
   }, []);
 
+  // Surface the one-click Google Sheet OAuth round-trip result (?sheet=...).
+  React.useEffect(() => {
+    const s = new URLSearchParams(window.location.search).get('sheet');
+    if (!s) return;
+    const msg: Record<string, string> = {
+      connected: 'Google Sheet created & connected', denied: 'Google connection denied',
+      invalid: 'Connection link expired — retry', error: 'Could not create the sheet — retry',
+    };
+    if (msg[s]) setToast(msg[s]);
+    if (s === 'connected' && brandId) load(brandId);
+    const u = new URL(window.location.href); u.searchParams.delete('sheet'); window.history.replaceState({}, '', u.toString());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brandId]);
+
   // Surface the no-plugin WordPress connect result (?wp=connected|rejected|…).
   React.useEffect(() => {
     const w = new URLSearchParams(window.location.search).get('wp');
@@ -536,6 +550,10 @@ export function PageFixes() {
     catch (e) { setError((e as Error).message); }
   };
   const connectGsc = async () => { if (!brandId) return; try { const d = await api(`/api/brands/${brandId}/connections/gsc/start`); window.location.href = d.url; } catch (e) { setError((e as Error).message); } };
+  // One-click Google Sheet: link Google (if needed) → we auto-create the sheet
+  // in the OAuth callback. Falls back to a clear error if the server has no
+  // Google credentials, so the manual Apps Script flow stays usable.
+  const createSheetAuto = async () => { if (!brandId) { flash('Select a brand first'); return; } try { const d = await api(`/api/brands/${brandId}/connections/sheet/start`); window.location.href = d.url; } catch (e) { setError((e as Error).message); } };
   const connectCms = async (form: { cmsType: string; siteUrl: string; username: string; appPassword: string }) => {
     if (!brandId) return; setError(null);
     try { await api(`/api/brands/${brandId}/connections`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'cms', cmsType: form.cmsType, siteUrl: form.siteUrl, creds: { username: form.username, appPassword: form.appPassword } }) }); flash('CMS connected'); await load(brandId); }
@@ -815,8 +833,9 @@ export function PageFixes() {
       connector={!!connectorConn} connectorLastSeen={connectorConn?.lastSeenAt ?? null} pairing={pairing}
       supportedCms={supportedCms} defaultSite={(brand as any)?.website || ''} disabled={!enabled}
       linear={!!linearConn} jira={!!jiraConn} sheet={!!sheetConn} kwe={!!kweConn} onConnectTracker={connectTracker} onConnectKwe={connectKwe}
+      sheetUrl={(sheetConn?.meta as { spreadsheetUrl?: string } | undefined)?.spreadsheetUrl ?? null}
       onConnectCms={connectCms} onConnectWp={connectWp} onConnectCmsGeneric={connectCmsGeneric} onDetectCms={detectCms}
-      onConnectGsc={connectGsc} onPairConnector={pairConnector} onRevokeConnector={revokeConnector} onCopy={(label) => flash(`${label} copied`)}
+      onConnectGsc={connectGsc} onCreateSheet={createSheetAuto} onPairConnector={pairConnector} onRevokeConnector={revokeConnector} onCopy={(label) => flash(`${label} copied`)}
       openRequest={connectRequest}
     />
 
@@ -1009,18 +1028,18 @@ export function PageFixes() {
 }
 
 // ── Connections ──
-function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, linear, jira, sheet, kwe, onConnectTracker, onConnectKwe, onConnectCms, onConnectWp, onConnectCmsGeneric, onDetectCms, onConnectGsc, onPairConnector, onRevokeConnector, onCopy, openRequest }: {
+function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, linear, jira, sheet, kwe, sheetUrl, onConnectTracker, onConnectKwe, onConnectCms, onConnectWp, onConnectCmsGeneric, onDetectCms, onConnectGsc, onCreateSheet, onPairConnector, onRevokeConnector, onCopy, openRequest }: {
   cms: boolean; cmsMeta: string; gsc: boolean; gscSite: string | null; connector: boolean; connectorLastSeen: string | null;
   pairing: { token: string; hmacSecret: string; pullUrl: string } | null;
   supportedCms: string[]; defaultSite: string; disabled: boolean;
-  linear: boolean; jira: boolean; sheet: boolean; kwe: boolean;
+  linear: boolean; jira: boolean; sheet: boolean; kwe: boolean; sheetUrl: string | null;
   onConnectTracker: (provider: 'linear' | 'jira' | 'sheet', creds: Record<string, string>) => void;
   onConnectKwe: (apiKey: string) => void;
   onConnectCms: (f: { cmsType: string; siteUrl: string; username: string; appPassword: string }) => void;
   onConnectWp: (site: string) => void;
   onConnectCmsGeneric: (cmsType: string, siteUrl: string, creds: Record<string, string>) => void;
   onDetectCms: (site: string) => Promise<{ cms: string; confidence: string; hasAdapter: boolean } | null>;
-  onConnectGsc: () => void; onPairConnector: () => void; onRevokeConnector: () => void; onCopy: (label: string) => void;
+  onConnectGsc: () => void; onCreateSheet: () => void; onPairConnector: () => void; onRevokeConnector: () => void; onCopy: (label: string) => void;
   openRequest?: { platform: string; nonce: number } | null;
 }) {
   const [collapsed, setCollapsed] = React.useState(false);
@@ -1321,10 +1340,21 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
 
         <Row badge="▤" title="Spreadsheet" meta={sheet ? 'Connected · handed-off fixes append rows to your sheet' : 'No Jira/Linear? Hand fixes off as rows in a Google Sheet'}>
           {sheet ? okChip('CONNECTED') : offChip}
+          {sheet && sheetUrl && <a className="tbtn" href={sheetUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>Open sheet ↗</a>}
           <button className={sheet ? 'tbtn' : 'xbtn'} onClick={() => setTracker((t) => (t === 'sheet' ? '' : 'sheet'))} disabled={disabled}>{sheet ? 'Reconnect' : 'CONNECT'}</button>
         </Row>
         {tracker === 'sheet' && (
           <div className="nb-sm" style={{ padding: 18, margin: '6px 0 14px', background: 'var(--surface-2)', display: 'grid', gap: 14 }}>
+            {/* Fastest path: one click — we create the sheet on the user's Drive. */}
+            <div className="nb-sm" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--success-50)', borderColor: 'var(--success)', display: 'grid', gap: 8 }}>
+              <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--success)' }}>⚡ FASTEST — ONE CLICK, WE CREATE THE SHEET</div>
+              <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text)', fontWeight: 500 }}>Connect your Google account and Livesov creates a new spreadsheet for you automatically — handed-off fixes append as rows, no script to paste. We only get access to the one sheet we create.</span>
+              <div>
+                <button className="xbtn" onClick={onCreateSheet} disabled={disabled} style={{ background: 'var(--success)' }}>⚡ Create &amp; connect Google Sheet →</button>
+              </div>
+              <span style={{ fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>If Google isn&rsquo;t linked yet, you&rsquo;ll be asked to sign in and approve first.</span>
+            </div>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-2)', letterSpacing: '0.04em', textAlign: 'center' }}>— OR SET UP MANUALLY (NO GOOGLE LOGIN) —</div>
             <div className="nb-sm" style={{ padding: '11px 14px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', display: 'grid', gap: 7 }}>
               <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--info)' }}>2-MINUTE SETUP, NO API KEY NEEDED</div>
               <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.6, color: 'var(--text)', fontWeight: 500, display: 'grid', gap: 3 }}>

@@ -17,9 +17,20 @@
  */
 
 import { safeFetch } from '@/lib/safe-fetch';
+import { refreshAccessToken, appendSheetRow, getSpreadsheetMeta } from '../sheet-google';
 import type { Tracker, TrackerCreds, TrackerCreateResult, TrackerIssue, TrackerVerifyResult } from './types';
 
 interface SheetCreds { url: string; secret: string }
+
+// Google auto-create mode: creds carry a refresh token + the id of the sheet
+// Livesov created for the brand; rows are appended via the Sheets API instead
+// of a user-hosted Apps Script webhook.
+type GoogleSheetCreds = TrackerCreds & { mode: 'google'; refreshToken: string; spreadsheetId: string };
+
+function isGoogle(raw: TrackerCreds): raw is GoogleSheetCreds {
+  const c = raw as Partial<GoogleSheetCreds>;
+  return c.mode === 'google' && !!c.refreshToken && !!c.spreadsheetId;
+}
 
 function readCreds(raw: TrackerCreds): SheetCreds {
   const c = raw as Partial<SheetCreds>;
@@ -43,6 +54,15 @@ export const sheetTracker: Tracker = {
   type: 'sheet',
 
   async verify(rawCreds): Promise<TrackerVerifyResult> {
+    if (isGoogle(rawCreds)) {
+      try {
+        const t = await refreshAccessToken(rawCreds.refreshToken);
+        const ok = await getSpreadsheetMeta(t.access_token, rawCreds.spreadsheetId);
+        return ok ? { ok: true } : { ok: false, detail: 'Could not reach the created Google Sheet' };
+      } catch (e) {
+        return { ok: false, detail: (e as Error).message };
+      }
+    }
     const { url, secret } = readCreds(rawCreds);
     if (!/^https:\/\//i.test(url)) return { ok: false, detail: 'Spreadsheet webhook URL must be https' };
     if (secret.length < 8) return { ok: false, detail: 'Secret must be at least 8 characters' };
@@ -55,6 +75,20 @@ export const sheetTracker: Tracker = {
   },
 
   async createIssue(rawCreds, issue: TrackerIssue): Promise<TrackerCreateResult> {
+    if (isGoogle(rawCreds)) {
+      try {
+        const t = await refreshAccessToken(rawCreds.refreshToken);
+        await appendSheetRow(t.access_token, rawCreds.spreadsheetId, [
+          new Date().toISOString(),
+          issue.title,
+          issue.description,
+          issue.url ?? '',
+        ]);
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, detail: (e as Error).message };
+      }
+    }
     const creds = readCreds(rawCreds);
     try {
       const r = await post(creds, { title: issue.title, description: issue.description, link: issue.url ?? '' });
