@@ -20,6 +20,7 @@ interface FixRow {
   id: string; moduleKey: string; channel: 'A' | 'B'; targetUrl: string | null;
   status: string; severity: string; summary: string;
   generated: any; scoreAfter: number | null; error: string | null; createdAt: string;
+  detected?: any; beforeSnapshot?: any;
   aiBefore?: { sov?: number; at?: string } | null; aiAfter?: { sov?: number; at?: string } | null;
   note?: string | null; assignee?: string | null;
   shipMode?: 'live' | 'draft'; previewUrl?: string | null;
@@ -219,6 +220,30 @@ const EDITABLE_FIELD: Record<string, string> = {
   'title-rewrite': 'title', 'meta-rewrite': 'description', 'ctr-rescue': 'title',
   'passage-rewrite': 'rewritten', 'content-freshness': 'update', 'llms-txt': 'content',
 };
+
+// The current ("before") value of a detected issue, read from the snapshot
+// the module captured at detect time. Lets the card show what's live NOW —
+// before you generate the rewrite — so the change is clear from the start.
+// Returns { label, value, missing } for the text-style modules where a
+// before/after makes sense; null when there's no meaningful current value.
+function currentValue(fix: FixRow): { label: string; value: string; missing: boolean } | null {
+  const b = (fix.beforeSnapshot || {}) as Record<string, any>;
+  const d = (fix.detected || {}) as Record<string, any>;
+  const mk = (label: string, raw: unknown, emptyAs = ''): { label: string; value: string; missing: boolean } => {
+    const value = typeof raw === 'string' ? raw.trim() : raw != null ? String(raw) : '';
+    return { label, value: value || emptyAs, missing: !value };
+  };
+  switch (fix.moduleKey) {
+    case 'title-rewrite': return mk('Current title', b.title ?? d.currentTitle, '(no title — currently missing)');
+    case 'meta-rewrite': return mk('Current meta description', b.description, '(no meta description — currently missing)');
+    case 'ctr-rescue': return mk('Current title', b.title);
+    case 'passage-rewrite': return mk('Current passage', b.passage ?? d.passage);
+    case 'canonical-fix': return mk('Current canonical', b.googleCanonical, '(none set)');
+    case 'noindex-removal': return mk('Current robots directive', b.metaRobots, 'noindex');
+    case 'content-freshness': return mk('Currently', typeof b.lastModified === 'string' && b.lastModified ? `Last updated ${String(b.lastModified).slice(0, 10)}` : d.daysOld != null ? `Last updated ~${d.daysOld} days ago` : '');
+    default: return null;
+  }
+}
 
 export function PageFixes() {
   const { brand, loading: brandLoading } = useBrandData({ fullData: true });
@@ -1817,9 +1842,27 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
         })()}
 
         {/* preview / states */}
-        {isDetected && !busy && (
-          <div className="nb-sm stripes" style={{ padding: 16, fontFamily: "'Space Grotesk'", fontWeight: 600, fontSize: 13, color: 'var(--text-2)', background: 'var(--surface-2)', boxShadow: 'none' }}>Generate to preview the proposed fix →</div>
-        )}
+        {isDetected && !busy && (() => {
+          // Show the current ("before") value at the detected stage so the
+          // change is clear before you even generate. The "after" is filled
+          // in once you generate the fix.
+          const now = currentValue(fix);
+          if (!now) return (
+            <div className="nb-sm stripes" style={{ padding: 16, fontFamily: "'Space Grotesk'", fontWeight: 600, fontSize: 13, color: 'var(--text-2)', background: 'var(--surface-2)', boxShadow: 'none' }}>Generate to preview the proposed fix →</div>
+          );
+          return (
+            <div className="nb-sm" style={{ overflow: 'hidden', boxShadow: 'none' }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}>
+                <span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− NOW</span>
+                <span className="mono" style={{ fontSize: 12, color: 'var(--text-2)', fontStyle: now.missing ? 'italic' : 'normal', lineHeight: 1.5 }}>{now.value}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '11px 14px', background: 'var(--surface-2)' }}>
+                <span className="disp" style={{ color: 'var(--text-3)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ FIX</span>
+                <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, fontFamily: "'Space Grotesk'" }}>Generate the fix to see the proposed rewrite →</span>
+              </div>
+            </div>
+          );
+        })()}
         {busy && (
           <div className="nb-sm" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 11, fontFamily: "'Space Grotesk'", fontWeight: 600, fontSize: 13, color: 'var(--text)', boxShadow: 'none', background: 'var(--primary-50)' }}><span style={{ width: 15, height: 15, border: '2.5px solid var(--primary-200)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'xspin .7s linear infinite', display: 'inline-block' }} />WORKING…</div>
         )}
