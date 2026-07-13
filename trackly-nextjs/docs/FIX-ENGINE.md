@@ -426,9 +426,20 @@ fetches the live `/llms.txt`) flips it to `verified`. A failed ack
 
 Most fixes need **no plugin at all** — the Channel-A WordPress adapter writes
 through the standard WordPress REST API authenticated with an **Application
-Password** (WP core since 5.6). That covers every on-page change: title, meta
-description, canonical, indexable, body rewrites, FAQ/JSON-LD (appended to the
-body), citable passages, in-place passage edits, and new pages.
+Password** (WP core since 5.6). That covers body rewrites, FAQ/JSON-LD
+(appended to the body), citable passages, in-place passage edits, and new
+pages.
+
+**SEO plugin fields (title, meta description, canonical, indexable)** live in
+Yoast / Rank Math post-meta. WordPress core **silently ignores** any meta key a
+plugin hasn't registered with `show_in_rest` and still returns HTTP 200, so a
+bare REST write can look like it succeeded while the field never actually
+persisted. The adapter therefore **reads the object WordPress echoes back and
+confirms the value stuck** before reporting the write ok; if the SEO plugin
+doesn't expose the field to REST, the write reports a truthful failure (reason
+`seo_field_not_writable_via_rest`) that directs the user to the Connector —
+which writes the meta server-side with `update_post_meta` — instead of falsely
+marking the fix "shipped".
 
 Connecting is one click, no copy-paste, via WP core's own authorize screen:
 

@@ -115,7 +115,7 @@ export const comparisonPagesModule: FixModule = {
       ok: result.ok,
       detail: result.detail ?? {},
       after: { url: result.url, slug: g.slug },
-      error: result.ok ? undefined : 'CMS page creation failed',
+      error: result.ok ? undefined : (result.error ?? 'CMS page creation failed'),
     };
   },
 

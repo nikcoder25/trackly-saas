@@ -112,7 +112,7 @@ export const geoPageRewriteModule: FixModule = {
       ok: result.ok,
       detail: result.detail ?? {},
       after: { html: draft.generated.html },
-      error: result.ok ? undefined : 'CMS write failed',
+      error: result.ok ? undefined : (result.error ?? 'CMS write failed'),
     };
   },
 

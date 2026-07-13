@@ -36,6 +36,13 @@ export interface CmsWriteResult {
   /** Public URL of the updated resource, when known. */
   url?: string;
   detail?: Record<string, unknown>;
+  /**
+   * Human-readable reason a write did not take effect (ok === false).
+   * Modules surface this to the user instead of a generic "CMS write
+   * failed" so an actionable message (e.g. "connect the Connector") reaches
+   * the dashboard.
+   */
+  error?: string;
 }
 
 /**

@@ -158,7 +158,7 @@ export const keywordOpportunitiesModule: FixModule = {
       ok: result.ok,
       detail: result.detail ?? {},
       after: { heading: draft.generated.heading },
-      error: result.ok ? undefined : 'CMS write failed',
+      error: result.ok ? undefined : (result.error ?? 'CMS write failed'),
     };
   },
 

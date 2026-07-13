@@ -104,7 +104,7 @@ export const metaRewriteModule: FixModule = {
       ok: result.ok,
       detail: result.detail ?? {},
       after: { description: draft.generated.description },
-      error: result.ok ? undefined : 'CMS write failed',
+      error: result.ok ? undefined : (result.error ?? 'CMS write failed'),
     };
   },
 
@@ -135,6 +135,6 @@ export const metaRewriteModule: FixModule = {
     const cms = await resolveCmsForBrand(ctx);
     if ('error' in cms) return cms.error;
     const result = await cms.adapter.updateMetaDescription(cms.creds, { url: issue.targetUrl! }, prev);
-    return { ok: result.ok, detail: result.detail ?? {}, after: { description: prev }, error: result.ok ? undefined : 'CMS write failed' };
+    return { ok: result.ok, detail: result.detail ?? {}, after: { description: prev }, error: result.ok ? undefined : (result.error ?? 'CMS write failed') };
   },
 };
