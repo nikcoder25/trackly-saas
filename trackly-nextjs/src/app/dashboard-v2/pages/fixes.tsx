@@ -361,6 +361,10 @@ export function PageFixes() {
   const [quickWins, setQuickWins] = React.useState(false);
   const [groupByPage, setGroupByPage] = React.useState(false);
   const [bulkBusy, setBulkBusy] = React.useState(false);
+  // "Publish all live" — arm/confirm (a live, hard-to-reverse push gets a
+  // second click) + running progress counter.
+  const [publishArmed, setPublishArmed] = React.useState(false);
+  const [publishProgress, setPublishProgress] = React.useState<{ done: number; total: number } | null>(null);
   const [connections, setConnections] = React.useState<Connection[]>([]);
   const [supportedCms, setSupportedCms] = React.useState<string[]>([]);
   const [toast, setToast] = React.useState<string | null>(null);
@@ -631,6 +635,65 @@ export function PageFixes() {
   const toggleAutofix = async () => {
     const next = !automation?.autopilotShipDeterministic;
     await saveAutomation({ autopilotShipDeterministic: next, ...(next && !automation?.scanEnabled ? { scanEnabled: true } : {}) });
+  };
+
+  // ── Publish everything live in one click ─────────────────────────
+  // The single button the user wants: take the whole backlog of pending
+  // fixes live. "Pending" = anything not already live, in-flight, or ignored.
+  // Each fix is walked from wherever it sits (detected → generate → approve →
+  // ship; a staged draft → publish) so one click covers the full pipeline.
+  // Nothing is destructive — every shipped fix stays individually undoable.
+  const PUBLISHABLE = ['detected', 'failed', 'generated', 'preview_ready', 'approved', 'staged'];
+  const publishable = React.useMemo(
+    () => fixes.filter((f) => PUBLISHABLE.includes(f.status)),
+    [fixes],
+  );
+  // Credits are only spent (re)generating drafts that don't exist yet; fixes
+  // that already have a draft/approval ship for free.
+  const publishCost = React.useMemo(
+    () => publishable.reduce(
+      (sum, f) => sum + (['detected', 'failed'].includes(f.status) ? (catalog.find((c) => c.key === f.moduleKey)?.cost ?? 0) : 0),
+      0,
+    ),
+    [publishable, catalog],
+  );
+  const publishAllLive = async () => {
+    if (!brandId) return;
+    if (!canShip) { flash('Connect a CMS or the Connector first'); return; }
+    const targets = publishable;
+    if (targets.length === 0) { flash('Everything is already live — nothing to publish'); return; }
+    setPublishArmed(false);
+    setBulkBusy(true);
+    setPublishProgress({ done: 0, total: targets.length });
+    const post = (id: string, action: string) => api(`/api/brands/${brandId}/fixes/${id}/${action}`, { method: 'POST' });
+    let ok = 0, fail = 0;
+    // Sequential = predictable ordering, one clear failure point, and no
+    // thundering herd against the CMS / Connector. Advance each fix only
+    // through the steps it still needs so an already-approved fix doesn't
+    // hit a spurious "cannot generate" error.
+    for (let i = 0; i < targets.length; i++) {
+      const f = targets[i];
+      try {
+        let status: string = f.status;
+        if (status === 'staged') {
+          await post(f.id, 'publish'); // promote the staged draft to live
+          ok++;
+        } else {
+          if (status === 'detected' || status === 'failed') { await post(f.id, 'generate'); status = 'generated'; }
+          if (status === 'generated' || status === 'preview_ready') { await post(f.id, 'approve'); status = 'approved'; }
+          if (status === 'approved') {
+            const d = await post(f.id, 'ship');
+            d.ok === false ? fail++ : ok++;
+          }
+        }
+      } catch { fail++; }
+      setPublishProgress({ done: i + 1, total: targets.length });
+      flash(`Publishing live — ${i + 1}/${targets.length}…`);
+    }
+    setBulkBusy(false);
+    setPublishProgress(null);
+    await load(brandId);
+    flash(`Published ${ok} fix${ok === 1 ? '' : 'es'} live${fail ? ` · ${fail} need attention` : ''}`);
   };
 
   const exportCsv = () => {
@@ -1077,6 +1140,34 @@ export function PageFixes() {
           <button className="xbtn" onClick={() => restoreAll()} disabled={bulkBusy} style={{ background: 'var(--primary)' }}>
             {bulkBusy ? 'RESTORING…' : `↩ RESTORE ALL ${shown.length}`}
           </button>
+        </div>
+      )}
+
+      {/* Publish everything live — the one-click control. Generates any
+          missing drafts, approves them, and ships every pending fix to the
+          live site in a single action. A live push is hard to reverse, so the
+          button arms a confirm on first click; every fix stays undoable after. */}
+      {publishable.length > 0 && (
+        <div className="nb-sm" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', marginBottom: 16, background: 'var(--primary-50)', borderColor: 'var(--primary)', boxShadow: '4px 4px 0 var(--primary)', flexWrap: 'wrap' }}>
+          <span className="disp" style={{ fontSize: 22 }}>🚀</span>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div className="disp" style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Publish everything live</div>
+            <div style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>
+              {publishArmed
+                ? `Generates any missing drafts, approves them, and ships all ${publishable.length} pending fix${publishable.length === 1 ? '' : 'es'} straight to your live site${publishCost > 0 ? ` (~${publishCost} credit${publishCost === 1 ? '' : 's'})` : ''}. Every fix stays individually undoable.`
+                : `One click takes all ${publishable.length} pending fix${publishable.length === 1 ? '' : 'es'} live — generate, approve, and ship in one go. Review any of them individually first if you like; every fix is undoable afterwards.`}
+            </div>
+          </div>
+          {publishProgress ? (
+            <span className="chip" style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)', fontSize: 12 }}>{publishProgress.done}/{publishProgress.total} live…</span>
+          ) : publishArmed ? (
+            <>
+              <button className="tbtn" onClick={() => setPublishArmed(false)} disabled={bulkBusy} style={{ fontSize: 12, color: 'var(--text-3)' }}>Cancel</button>
+              <button className="xbtn" onClick={publishAllLive} disabled={bulkBusy || !canShip} style={{ background: 'var(--primary)' }}>{`✓ CONFIRM — PUBLISH ${publishable.length} LIVE`}</button>
+            </>
+          ) : (
+            <button className="xbtn" onClick={() => (canShip ? setPublishArmed(true) : flash('Connect a CMS or the Connector first'))} disabled={bulkBusy || !canShip} style={{ background: 'var(--primary)' }}>{bulkBusy ? 'PUBLISHING…' : `🚀 PUBLISH ALL ${publishable.length} LIVE`}</button>
+          )}
         </div>
       )}
 
