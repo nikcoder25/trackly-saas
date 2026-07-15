@@ -15,6 +15,7 @@
 
 import crypto from 'crypto';
 import { pool } from '@/lib/db';
+import { edgePathKey } from './edge-worker';
 import type {
   FixBatchRow,
   FixChannel,
@@ -620,12 +621,31 @@ export interface BuildEdgeSeoOptions {
 }
 
 /** Normalise a page URL to the pathname key the Worker matches on
- *  (no trailing slash, except the root itself). Null for unparseable URLs. */
+ *  (no trailing slash, except the root itself). Null for unparseable URLs.
+ *  Delegates to {@link edgePathKey} so the builder and the Worker normalise
+ *  paths identically — /p and /p/ always resolve to the same override. */
 export function edgeSeoPathKey(targetUrl: string): string | null {
   try {
-    const p = new URL(targetUrl).pathname;
-    return p.length > 1 ? p.replace(/\/+$/, '') || '/' : '/';
+    return edgePathKey(new URL(targetUrl).pathname);
   } catch { return null; }
+}
+
+/**
+ * Re-key an override map to canonical paths (trailing slashes stripped). The
+ * builder already emits canonical keys; applying this at the serve boundary
+ * guarantees the Worker receives exactly one entry per page no matter how a
+ * fix's target URL was stored, so /p and /p/ never split into two entries. On
+ * a collision the later entry's fields win (shallow merge).
+ */
+export function normalizeEdgeOverrideKeys(
+  overrides: Record<string, EdgeSeoOverride>,
+): Record<string, EdgeSeoOverride> {
+  const out: Record<string, EdgeSeoOverride> = {};
+  for (const [key, value] of Object.entries(overrides)) {
+    const k = edgePathKey(key);
+    out[k] = out[k] ? { ...out[k], ...value } : value;
+  }
+  return out;
 }
 
 /**

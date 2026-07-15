@@ -21,10 +21,15 @@ const state = vi.hoisted(() => ({
 vi.mock('@/lib/fix-engine/connections', () => ({
   getConnectorByToken: vi.fn(async (t: string) => (t && state.brandId ? { brandId: state.brandId, userId: 'u1', hmacSecret: null } : null)),
 }));
-vi.mock('@/lib/fix-engine/schema', () => ({
-  getLatestRootFileContent: vi.fn(async (_b: string, moduleKey: string, field: string) => state.content[`${moduleKey}:${field}`] ?? null),
-  getEdgeSeoOverrides: vi.fn(async () => state.seoOverrides),
-}));
+vi.mock('@/lib/fix-engine/schema', async (importActual) => {
+  const actual = await importActual<typeof import('@/lib/fix-engine/schema')>();
+  return {
+    getLatestRootFileContent: vi.fn(async (_b: string, moduleKey: string, field: string) => state.content[`${moduleKey}:${field}`] ?? null),
+    getEdgeSeoOverrides: vi.fn(async () => state.seoOverrides),
+    // Use the real normaliser so the route's trailing-slash handling is exercised.
+    normalizeEdgeOverrideKeys: actual.normalizeEdgeOverrideKeys,
+  };
+});
 
 import { GET } from '@/app/api/edge/serve/route';
 
@@ -82,6 +87,14 @@ describe('edge serve', () => {
     const res = await GET(req('token=tok&file=seo.json'));
     expect(res.status).toBe(200);
     expect((await res.json()).count).toBe(0);
+  });
+
+  it('normalises trailing-slash keys so /p and /p/ resolve to one override', async () => {
+    state.seoOverrides = { '/peptides/cagrilintide/': { title: 'Cagrilintide' } };
+    const res = await GET(req('token=tok&file=seo.json'));
+    const body = await res.json();
+    expect(body.overrides['/peptides/cagrilintide']).toEqual({ title: 'Cagrilintide' });
+    expect(body.overrides['/peptides/cagrilintide/']).toBeUndefined();
   });
 
   it('still requires a valid token for seo.json', async () => {

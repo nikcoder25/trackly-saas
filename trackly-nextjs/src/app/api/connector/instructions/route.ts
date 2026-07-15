@@ -10,7 +10,7 @@
 import { NextResponse } from 'next/server';
 import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { getConnectorByToken, touchConnectorSeen } from '@/lib/fix-engine/connections';
-import { listPendingConnectorInstructions, getEdgeSeoOverrides } from '@/lib/fix-engine/schema';
+import { listPendingConnectorInstructions, getEdgeSeoOverrides, normalizeEdgeOverrideKeys } from '@/lib/fix-engine/schema';
 import type { EdgeLink } from '@/lib/fix-engine/schema';
 import { toWireInstruction } from '@/lib/fix-engine/connector';
 import { logger } from '@/lib/logger';
@@ -39,10 +39,11 @@ export async function GET(request: Request): Promise<Response> {
     // overrides carry the shipped Internal-linking targets (validated hrefs)
     // so a plugin-fronted site can inject the same contextual links the edge
     // Worker does — previously this payload carried no links at all.
-    const [rows, overrides] = await Promise.all([
+    const [rows, rawOverrides] = await Promise.all([
       listPendingConnectorInstructions(conn.brandId),
       getEdgeSeoOverrides(conn.brandId).catch(() => ({})),
     ]);
+    const overrides = normalizeEdgeOverrideKeys(rawOverrides);
     const issuedAt = new Date().toISOString();
     const instructions = rows
       .map((r) => toWireInstruction(r, conn.hmacSecret, issuedAt))

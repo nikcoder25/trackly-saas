@@ -17,7 +17,7 @@ vi.mock('@/lib/db', () => ({ pool: { query: vi.fn(async () => ({ rows: [] })) } 
 import { edgeAdapter, EDGE_MARKER_HEADER } from '@/lib/fix-engine/cms/edge';
 import { getCmsAdapter } from '@/lib/fix-engine/cms';
 import { CmsUnsupportedError } from '@/lib/fix-engine/cms/types';
-import { buildEdgeSeoOverrides, edgeSeoPathKey } from '@/lib/fix-engine/schema';
+import { buildEdgeSeoOverrides, edgeSeoPathKey, normalizeEdgeOverrideKeys } from '@/lib/fix-engine/schema';
 
 function res(headers: Record<string, string>) {
   return {
@@ -222,5 +222,38 @@ describe('edge internal-link overrides', () => {
       },
     ]);
     expect(out['/p']).toBeUndefined();
+  });
+
+  it('folds a trailing-slash target into the same key as its slashless form', () => {
+    // A fix stored for /guide/ and one for /guide must resolve to one entry.
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'internal-linking', targetUrl: 'https://a.com/guide/', generated: { links: [{ anchor: 'A', url: 'https://a.com/a' }] } },
+      { moduleKey: 'title-rewrite', targetUrl: 'https://a.com/guide', generated: { title: 'T' } },
+    ]);
+    expect(Object.keys(out)).toEqual(['/guide']);
+    expect(out['/guide'].title).toBe('T');
+    expect(out['/guide'].links).toEqual([{ anchor: 'A', href: 'https://a.com/a' }]);
+  });
+});
+
+describe('normalizeEdgeOverrideKeys (serve-boundary trailing-slash matching)', () => {
+  it('re-keys to canonical paths so /p and /p/ resolve to one entry', () => {
+    const out = normalizeEdgeOverrideKeys({
+      '/peptides/cagrilintide/': { title: 'Cagrilintide' },
+      '/pricing': { description: 'D' },
+      '/': { indexable: true },
+    });
+    expect(out['/peptides/cagrilintide']).toEqual({ title: 'Cagrilintide' });
+    expect(out['/peptides/cagrilintide/']).toBeUndefined();
+    expect(out['/pricing']).toEqual({ description: 'D' });
+    expect(out['/']).toEqual({ indexable: true });
+  });
+
+  it('merges two keys that collapse to the same path (later fields win)', () => {
+    const out = normalizeEdgeOverrideKeys({
+      '/p': { title: 'Old', description: 'Keep' },
+      '/p/': { title: 'New' },
+    });
+    expect(out['/p']).toEqual({ title: 'New', description: 'Keep' });
   });
 });

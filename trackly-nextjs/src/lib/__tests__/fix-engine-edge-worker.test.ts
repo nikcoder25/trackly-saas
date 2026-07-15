@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildEdgeWorkerScript, relatedLinksNav, MAX_EDGE_LINKS, EDGE_MARKER_HEADER } from '@/lib/fix-engine/edge-worker';
+import { buildEdgeWorkerScript, relatedLinksNav, makeNavAppender, edgePathKey, MAX_EDGE_LINKS, EDGE_MARKER_HEADER } from '@/lib/fix-engine/edge-worker';
 
 // Same escaper the Worker defines inline (& < > ").
 const esc = (s: string) => String(s)
@@ -63,12 +63,14 @@ describe('buildEdgeWorkerScript body injection', () => {
     expect(script).toMatch(/data-livesov=\\?["']internal-links\\?["']/);
   });
 
-  it('appends the nav before the end of the first article/main/articleBody via onEndTag', () => {
+  it('appends the nav via onEndTag on article/main/articleBody, then body as a fallback', () => {
     expect(script).toContain('Array.isArray(o.links)');
     expect(script).toContain('onEndTag');
-    expect(script).toContain("rw.on('article', appendNav).on('main', appendNav).on('[itemprop=\"articleBody\"]', appendNav)");
-    // First-container guard so exactly one nav is injected.
-    expect(script).toContain('let injected = false');
+    expect(script).toContain('const makeNavAppender =');
+    expect(script).toContain('const appendNav = makeNavAppender(navHtml)');
+    // body is registered LAST so its end tag (which closes after any semantic
+    // container) only fires the shared appender when none matched.
+    expect(script).toContain("rw.on('article', appendNav).on('main', appendNav).on('[itemprop=\"articleBody\"]', appendNav).on('body', appendNav)");
   });
 
   it('supports an optional inline mode that wraps anchors in the body text', () => {
@@ -79,5 +81,56 @@ describe('buildEdgeWorkerScript body injection', () => {
 
   it('caps the injected link list at MAX_EDGE_LINKS', () => {
     expect(script).toContain(`o.links.slice(0, ${MAX_EDGE_LINKS})`);
+  });
+});
+
+/**
+ * Faithful, HTMLRewriter-free exercise of the nav appender. A single appender
+ * is registered on every selector (shared closure); each matched container
+ * registers an onEndTag callback, and callbacks fire in the order the end tags
+ * CLOSE. body always closes last. `run` returns where the nav was injected.
+ */
+function run(appender: { element(e: { onEndTag(cb: (end: { before(html: string, opts: { html: boolean }): void }) => void): void }): void }, closeOrder: string[]) {
+  const cbs = new Map<string, (end: { before(html: string, opts: { html: boolean }): void }) => void>();
+  for (const name of closeOrder) {
+    let stored: ((end: { before(html: string, opts: { html: boolean }): void }) => void) | null = null;
+    appender.element({ onEndTag: (cb) => { stored = cb; } });
+    cbs.set(name, stored!);
+  }
+  const inserts: Array<{ at: string; html: string }> = [];
+  for (const name of closeOrder) {
+    cbs.get(name)!({ before: (html) => inserts.push({ at: name, html }) });
+  }
+  return inserts;
+}
+
+describe('makeNavAppender (single-injection + body fallback)', () => {
+  const NAV = '<nav class="livesov-related"></nav>';
+
+  it('injects into <body> when no semantic container exists', () => {
+    const inserts = run(makeNavAppender(NAV), ['body']);
+    expect(inserts).toEqual([{ at: 'body', html: NAV }]);
+  });
+
+  it('injects exactly once, into the semantic container, when one exists (body is skipped)', () => {
+    // <main><article>…</article></main><body> → article closes first, body last.
+    const inserts = run(makeNavAppender(NAV), ['article', 'main', 'body']);
+    expect(inserts).toEqual([{ at: 'article', html: NAV }]);
+  });
+
+  it('never double-injects across multiple matching containers', () => {
+    const inserts = run(makeNavAppender(NAV), ['main', 'body']);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0].at).toBe('main');
+  });
+});
+
+describe('edgePathKey (trailing-slash normalization)', () => {
+  it('strips trailing slashes so /p and /p/ share one key; root stays /', () => {
+    expect(edgePathKey('/peptides/cagrilintide/')).toBe('/peptides/cagrilintide');
+    expect(edgePathKey('/peptides/cagrilintide')).toBe('/peptides/cagrilintide');
+    expect(edgePathKey('/')).toBe('/');
+    expect(edgePathKey('//')).toBe('/');
+    expect(edgePathKey('')).toBe('/');
   });
 });

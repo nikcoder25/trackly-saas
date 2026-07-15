@@ -20,6 +20,19 @@ export const EDGE_MARKER_HEADER = 'x-livesov-edge';
 export const MAX_EDGE_LINKS = 8;
 
 /**
+ * Canonical per-path override key: strip trailing slashes (the root stays
+ * '/'). The single source of truth for path normalization — the override
+ * builder keys the map with it and the Worker looks up with it, so a page
+ * served at /peptides/cagrilintide/ resolves to a fix stored for
+ * /peptides/cagrilintide (and vice-versa). Pure and self-contained so it can
+ * be serialized into the Worker.
+ */
+export function edgePathKey(pathname: string): string {
+  const p = String(pathname || '/').replace(/\/+$/, '');
+  return p === '' ? '/' : p;
+}
+
+/**
  * Build the "Related" internal-links nav block from a per-path override's
  * `links`. Pure, dependency-free, and self-contained: it is BOTH unit-tested
  * directly and serialized (via `.toString()`) into the Worker script below,
@@ -41,6 +54,33 @@ export function relatedLinksNav(
   return items ? '<nav class="livesov-related" data-livesov="internal-links"><ul>' + items + '</ul></nav>' : '';
 }
 
+/** Minimal shapes of the HTMLRewriter element/end-tag the appender touches. */
+interface EdgeEndTag { before(content: string, opts: { html: boolean }): void }
+interface EdgeElement { onEndTag(cb: (end: EdgeEndTag) => void): void }
+
+/**
+ * Build the HTMLRewriter element handler that appends `navHtml` before the END
+ * tag of whatever container it is registered on. A single call's closure is
+ * shared across every selector it is attached to, and it injects at most once —
+ * so registering it on `article`, `main`, `[itemprop="articleBody"]`, and
+ * finally `body` makes `body` a true fallback: its end tag closes after any
+ * semantic container, so if one existed it already injected and body is
+ * skipped; if none did, body catches it. Pure and self-contained (no closure
+ * over module scope) so it is serialized verbatim into the Worker.
+ */
+export function makeNavAppender(navHtml: string): { element(e: EdgeElement): void } {
+  let injected = false;
+  return {
+    element(e) {
+      e.onEndTag((end) => {
+        if (injected) return;
+        injected = true;
+        end.before(navHtml, { html: true });
+      });
+    },
+  };
+}
+
 /**
  * Build the Cloudflare Worker script (module syntax) for a brand.
  * `token` is the brand's raw Connector token; `edgeBase` is the absolute
@@ -57,6 +97,8 @@ export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
     + `const H = { headers: { Authorization: 'Bearer ' + T } };\n`
     + `const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');\n`
     + `const relatedLinksNav = ${relatedLinksNav.toString()};\n`
+    + `const edgePathKey = ${edgePathKey.toString()};\n`
+    + `const makeNavAppender = ${makeNavAppender.toString()};\n`
     + `export default {\n`
     + `  async fetch(req) {\n`
     + `    const p = new URL(req.url).pathname;\n`
@@ -75,7 +117,7 @@ export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
     + `    let o = null;\n`
     + `    try { // per-path SEO overrides from your shipped fixes (5-min edge cache)\n`
     + `      const r = await fetch(BASE + '?file=seo.json', { ...H, cf: { cacheTtl: 300, cacheEverything: true } });\n`
-    + `      if (r.ok) { const d = await r.json(); const k = p.length > 1 ? p.replace(/\\/+$/, '') : p; o = (d.overrides || {})[k] || (d.overrides || {})[k + '/'] || null; }\n`
+    + `      if (r.ok) { const d = await r.json(); const ov = d.overrides || {}; const k = edgePathKey(p); o = ov[k] || ov[k + '/'] || null; }\n`
     + `    } catch {}\n`
     + `    if (!o) return out;\n`
     + `    if (o.indexable) out.headers.delete('x-robots-tag'); // noindex removal (header side)\n`
@@ -110,12 +152,13 @@ export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
     + `          }\n`
     + `        } };\n`
     + `        rw = rw.on('article', wrap).on('main', wrap).on('[itemprop="articleBody"]', wrap);\n`
-    + `      } else { // default: append a Related-links nav before the end of the first article/main/articleBody\n`
-    + `        const navHtml = relatedLinksNav(L, esc);\n`
+    + `      } else { // default: append a Related-links nav before the end of the first article/main/articleBody,\n`
+    + `        const navHtml = relatedLinksNav(L, esc); // or <body> as a fallback for pages with no semantic container\n`
     + `        if (navHtml) {\n`
-    + `          let injected = false;\n`
-    + `          const appendNav = { element(e) { e.onEndTag((end) => { if (!injected) { injected = true; end.before(navHtml, { html: true }); } }); } };\n`
-    + `          rw = rw.on('article', appendNav).on('main', appendNav).on('[itemprop="articleBody"]', appendNav);\n`
+    + `          // Shared appender: injects once at the first container to close.\n`
+    + `          // body closes last, so it only fires when no semantic container did.\n`
+    + `          const appendNav = makeNavAppender(navHtml);\n`
+    + `          rw = rw.on('article', appendNav).on('main', appendNav).on('[itemprop="articleBody"]', appendNav).on('body', appendNav);\n`
     + `        }\n`
     + `      }\n`
     + `    }\n`
