@@ -23,8 +23,17 @@ export async function POST(
     const { id, fixId } = await params;
     const access = await getBrandWithAccess(id, user.id);
     if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
+    if (access.role === 'viewer') return Response.json({ error: 'Viewers cannot generate fixes.' }, { status: 403 });
 
-    const fix = await generateFix(fixId, id);
+    // Optional reviewer guidance for a steered regenerate. A missing/invalid
+    // body just means a plain (re)generate — never an error.
+    let instruction: string | undefined;
+    try {
+      const body = (await request.json()) as { instruction?: unknown };
+      if (typeof body?.instruction === 'string') instruction = body.instruction;
+    } catch { /* no JSON body — plain regenerate */ }
+
+    const fix = await generateFix(fixId, id, instruction);
     return Response.json({ fix }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) {
     const err = e as Error & { paymentRequired?: boolean };

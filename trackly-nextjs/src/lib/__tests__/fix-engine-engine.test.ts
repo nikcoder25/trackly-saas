@@ -175,6 +175,40 @@ describe('generateFix', () => {
   });
 });
 
+describe('steered regenerate', () => {
+  it('can regenerate from a prior draft (generated → generated)', async () => {
+    const id = seedFix({ status: 'generated', generated: { value: 'OLD' } });
+    const fix = await generateFix(id, 'brand1');
+    expect(fix.status).toBe('generated');
+    expect((fix.generated as Record<string, unknown>).value).toBe('NEW');
+  });
+
+  it('persists reviewer guidance onto the detected issue and passes it to the module', async () => {
+    const { getModule } = await import('@/lib/fix-engine/registry');
+    const gen = getModule('fake')!.generate as ReturnType<typeof vi.fn>;
+    const id = seedFix({ status: 'generated', generated: { value: 'OLD' } });
+    await generateFix(id, 'brand1', 'keep it under 55 chars');
+    // Stored on the fix so a later blind regenerate keeps honoring it.
+    expect((store.fixes.get(id)!.detected as Record<string, unknown>).instruction).toBe('keep it under 55 chars');
+    // And handed to the module via the issue it generates from.
+    const issue = gen.mock.calls.at(-1)![0] as { detected: Record<string, unknown> };
+    expect(issue.detected.instruction).toBe('keep it under 55 chars');
+    expect(issue.detected.foo).toBe(1); // existing detected fields preserved
+  });
+
+  it('an empty instruction clears prior guidance (fresh take)', async () => {
+    const id = seedFix({ status: 'generated', generated: { value: 'OLD' }, detected: { foo: 1, instruction: 'be punchy' } });
+    await generateFix(id, 'brand1', '   ');
+    expect((store.fixes.get(id)!.detected as Record<string, unknown>).instruction).toBeUndefined();
+  });
+
+  it('omitting the instruction leaves prior guidance in place', async () => {
+    const id = seedFix({ status: 'generated', generated: { value: 'OLD' }, detected: { foo: 1, instruction: 'be punchy' } });
+    await generateFix(id, 'brand1');
+    expect((store.fixes.get(id)!.detected as Record<string, unknown>).instruction).toBe('be punchy');
+  });
+});
+
 describe('approve + ship + recheck', () => {
   it('runs the full lifecycle to verified', async () => {
     const id = seedFix({ status: 'generated', generated: { value: 'NEW' } });

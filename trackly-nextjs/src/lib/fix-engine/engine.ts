@@ -182,7 +182,7 @@ function issueFromRow(fix: FixRow): DetectedIssue {
 
 // ── generate ─────────────────────────────────────────────────────
 
-export async function generateFix(fixId: string, brandId: string): Promise<FixRow> {
+export async function generateFix(fixId: string, brandId: string, instruction?: string): Promise<FixRow> {
   const fix = await getFix(fixId, brandId);
   if (!fix) throw new Error('Fix not found');
   const mod = getModule(fix.moduleKey);
@@ -213,7 +213,19 @@ export async function generateFix(fixId: string, brandId: string): Promise<FixRo
   }
 
   try {
-    const issue = issueFromRow(fix);
+    // Steerable regeneration: when the reviewer supplies guidance ("keep it
+    // under 55 chars", "lead with the keyword"), persist it onto the detected
+    // issue so the module's generate() can honor it (the text modules read
+    // `detected.instruction`). An empty string clears any prior guidance so a
+    // plain regenerate starts fresh; `undefined` leaves the last one in place.
+    let detected = fix.detected;
+    if (instruction !== undefined) {
+      detected = { ...fix.detected };
+      const trimmed = instruction.trim().slice(0, 2000);
+      if (trimmed) detected.instruction = trimmed; else delete detected.instruction;
+      await updateFix(fix.id, { detected });
+    }
+    const issue = issueFromRow({ ...fix, detected });
     const draft = await mod.generate(issue, ctx);
     // Brand guardrails: deterministic post-generation policies (title suffix,
     // length caps, banned phrases). Dynamic import avoids the automation ⇄
@@ -231,7 +243,7 @@ export async function generateFix(fixId: string, brandId: string): Promise<FixRo
       logger.warn('fix_engine.rules_apply_failed', { fixId: fix.id, err: (e as Error).message });
     }
     await updateFix(fix.id, { status: 'generated', generated, error: null });
-    await logFixEvent(fix.id, brandId, ctx.brand.userId, 'generated', { module: mod.key, cost });
+    await logFixEvent(fix.id, brandId, ctx.brand.userId, 'generated', { module: mod.key, cost, steered: !!detected.instruction });
     return (await getFix(fixId, brandId))!;
   } catch (e) {
     await refundCredits(ctx.brand.userId, cost, 'manual');
