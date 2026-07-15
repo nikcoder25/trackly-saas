@@ -862,8 +862,12 @@ export function PageFixes() {
   const scanCost = React.useMemo(() => catalog.filter((c) => selected.has(c.key)).reduce((s, c) => s + (c.cost || 0), 0), [catalog, selected]);
 
   const shown = React.useMemo(() => {
-    // 'all' hides ignored fixes; they only appear under the Ignored tab.
-    let list = filter === 'all' ? fixes.filter((f) => f.status !== 'dismissed') : fixes.filter((f) => bucketOf(f.status) === filter);
+    // 'all' is the to-do view: it hides ignored fixes (Ignored tab) AND already
+    // published ones (shipped/verified → the Archive tab), so the main list
+    // shows only what still needs you — detect, review, approve, attention.
+    let list = filter === 'all'
+      ? fixes.filter((f) => f.status !== 'dismissed' && bucketOf(f.status) !== 'shipped')
+      : fixes.filter((f) => bucketOf(f.status) === filter);
     if (quickWins) list = list.filter((f) => (moduleMeta(f.moduleKey)?.cost ?? 1) === 0 || f.severity === 'critical' || f.severity === 'high');
     // Rank by severity, then by estimated value: module impact weighted by
     // the target page's real 28-day GSC impressions (log-scaled so a huge
@@ -922,12 +926,14 @@ export function PageFixes() {
     { n: '6', label: 're-check', color: 'var(--info)', bg: 'var(--info-50)' },
   ];
   const filterDefs = [
-    { key: 'all', label: 'ALL', count: fixes.length - (counts.dismissed || 0) },
+    // ALL is the to-do count: total minus what's been archived (published) or ignored.
+    { key: 'all', label: 'ALL', count: fixes.length - (counts.dismissed || 0) - (counts.shipped || 0) },
     { key: 'detected', label: 'DETECTED', count: counts.detected || 0 },
     { key: 'review', label: 'REVIEW', count: counts.review || 0 },
     { key: 'approved', label: 'APPROVED', count: counts.approved || 0 },
-    { key: 'shipped', label: 'LIVE', count: counts.shipped || 0 },
     { key: 'attention', label: 'ATTENTION', count: counts.attention || 0 },
+    // Published fixes live here, out of the main to-do — still re-checkable/undoable.
+    { key: 'shipped', label: 'ARCHIVE', count: counts.shipped || 0 },
     ...((counts.dismissed || 0) > 0 ? [{ key: 'dismissed', label: 'IGNORED', count: counts.dismissed || 0 }] : []),
   ];
 
@@ -1275,14 +1281,30 @@ export function PageFixes() {
       )}
 
       {!loading && shown.length === 0 && filter === 'all' && (
-        <div className="nb" style={{ padding: 56, textAlign: 'center', background: 'var(--primary-50)' }}>
-          <div className="disp" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>NOTHING TO FIX… YET</div>
-          <p style={{ margin: '12px auto 22px', fontSize: 14, color: 'var(--text-2)', maxWidth: '44ch', lineHeight: 1.6, fontWeight: 500 }}>Run a scan to check {brandName} against {selected.size} modules, ranked by severity.</p>
-          <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0} style={{ margin: '0 auto' }}>
-            {scanning ? <><span className="spin" style={{ marginRight: 7 }} />SCANNING…</> : '▶ RUN SCAN'}
-          </button>
-          {scanning && <div style={{ maxWidth: 420, margin: '16px auto 0', textAlign: 'left' }}><ScanBanner progress={scanProgress} /></div>}
-        </div>
+        (counts.shipped || 0) > 0 ? (
+          // To-do list is clear but published fixes are parked in the Archive —
+          // celebrate the clean queue and point to where the done work lives.
+          <div className="nb" style={{ padding: 56, textAlign: 'center', background: 'var(--success-50)' }}>
+            <div className="disp" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>ALL CAUGHT UP ✓</div>
+            <p style={{ margin: '12px auto 22px', fontSize: 14, color: 'var(--text-2)', maxWidth: '46ch', lineHeight: 1.6, fontWeight: 500 }}>
+              Nothing needs you right now. {counts.shipped} published fix{counts.shipped === 1 ? '' : 'es'} {counts.shipped === 1 ? 'is' : 'are'} in the Archive — re-check or undo any of them there. Run a fresh scan to look for more.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button className="xbtn" onClick={() => setFilter('shipped')}>🗄 View Archive ({counts.shipped})</button>
+              <button className="gbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0}>{scanning ? 'SCANNING…' : '▶ Run scan'}</button>
+            </div>
+            {scanning && <div style={{ maxWidth: 420, margin: '16px auto 0', textAlign: 'left' }}><ScanBanner progress={scanProgress} /></div>}
+          </div>
+        ) : (
+          <div className="nb" style={{ padding: 56, textAlign: 'center', background: 'var(--primary-50)' }}>
+            <div className="disp" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>NOTHING TO FIX… YET</div>
+            <p style={{ margin: '12px auto 22px', fontSize: 14, color: 'var(--text-2)', maxWidth: '44ch', lineHeight: 1.6, fontWeight: 500 }}>Run a scan to check {brandName} against {selected.size} modules, ranked by severity.</p>
+            <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0} style={{ margin: '0 auto' }}>
+              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />SCANNING…</> : '▶ RUN SCAN'}
+            </button>
+            {scanning && <div style={{ maxWidth: 420, margin: '16px auto 0', textAlign: 'left' }}><ScanBanner progress={scanProgress} /></div>}
+          </div>
+        )
       )}
 
       {shown.length > 0 && (() => {
