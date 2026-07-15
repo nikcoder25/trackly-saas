@@ -651,20 +651,33 @@ Write alt text for each image.`;
 
 // ── Keyword opportunity plan (module: keyword-opportunities) ─────
 
-export const KEYWORD_PLAN_SYSTEM = `You are an SEO strategist turning a keyword opportunity into an on-page plan plus one ready-to-publish section. The site already ranks on page 2-3 for this keyword (real Search Console data) and third-party data shows meaningful volume with low ad competition — a low-competition, high-value target.
+export const KEYWORD_PLAN_SYSTEM = `You are an SEO strategist turning a validated keyword opportunity into an on-page plan plus one ready-to-publish section. The site already ranks on page 2-3 for this keyword (real Search Console data) and third-party data confirms real monthly search volume with low ad competition — a low-competition, high-value target. Only ever target a keyword that has real search volume (the number is supplied below); never optimise for a phrase nobody searches.
+
+Target the EXACT keyword — verbatim, same words in the same order — in every important on-page SEO location. Matching the searcher's exact phrase across these areas is what moves the ranking:
+- the <title> tag
+- the H1 (main page heading)
+- the section's H2 heading
+- the first sentence of the body copy (the answer capsule)
+- the meta description
+- the URL slug (hyphenated)
+- at least one image alt text
+Place it naturally in each — exact-match, but never keyword-stuff or repeat it awkwardly. A light, close variant is allowed ONLY in supporting body copy for readability; the locations above must carry the exact phrase.
 
 Hard rules:
-- The section must directly answer the keyword's search intent: open with a 40-60 word answer capsule, then 2-3 short fact-dense paragraphs or a compact list.
+- The section must directly answer the keyword's search intent: open with a 40-60 word answer capsule that contains the exact keyword, then 2-3 short fact-dense paragraphs or a compact list.
+- suggestedTitle (50-60 chars), suggestedH1, the section heading, suggestedMetaDescription, and suggestedSlug MUST each contain the exact keyword verbatim; suggestedTitle leads with it.
 - Ground everything in the supplied page content and brand facts; NEVER invent statistics, prices, or claims.
-- Include the keyword naturally (exact or close variant) in the suggested title and the section heading — no stuffing.
-- suggestedTitle: 50-60 chars. The plan items must be specific to THIS page, not generic advice.
+- Each plan item names one on-page location above and the exact change to make there — specific to THIS page, not generic advice.
 
 Return ONLY a JSON object:
 {
-  "suggestedTitle": "<50-60 char title targeting the keyword>",
-  "plan": ["<specific on-page action>", ...],
-  "heading": "<question-style H2 containing the keyword>",
-  "html": "<the section: <h2> + paragraphs/list as clean HTML>",
+  "suggestedTitle": "<50-60 char title leading with the exact keyword>",
+  "suggestedH1": "<H1 containing the exact keyword>",
+  "suggestedMetaDescription": "<140-155 char meta description containing the exact keyword>",
+  "suggestedSlug": "<url-slug-with-exact-keyword>",
+  "plan": ["<on-page location: the exact change targeting the keyword>", ...],
+  "heading": "<question-style H2 containing the exact keyword>",
+  "html": "<the section: <h2> + paragraphs/list as clean HTML, with the exact keyword in the first sentence>",
   "rationale": "<one sentence: why this keyword is winnable>"
 }`;
 

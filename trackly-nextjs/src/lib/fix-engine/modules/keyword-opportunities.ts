@@ -117,7 +117,7 @@ export const keywordOpportunitiesModule: FixModule = {
     if (typeof d.instruction === 'string' && d.instruction.trim()) {
       user += `\n\nUser preference (honor this): ${d.instruction.trim()}`;
     }
-    const { data } = await generateJson<{ suggestedTitle: string; plan: string[]; heading: string; html: string; rationale: string }>({
+    const { data } = await generateJson<{ suggestedTitle: string; suggestedH1?: string; suggestedMetaDescription?: string; suggestedSlug?: string; plan: string[]; heading: string; html: string; rationale: string }>({
       ctx,
       system: KEYWORD_PLAN_SYSTEM,
       user,
@@ -125,7 +125,11 @@ export const keywordOpportunitiesModule: FixModule = {
     });
     return {
       generated: {
-        suggestedTitle: data.suggestedTitle, plan: data.plan,
+        suggestedTitle: data.suggestedTitle,
+        suggestedH1: data.suggestedH1 ?? null,
+        suggestedMetaDescription: data.suggestedMetaDescription ?? null,
+        suggestedSlug: data.suggestedSlug ?? null,
+        plan: data.plan,
         heading: data.heading, html: data.html, rationale: data.rationale,
       },
       creditsUsed: 2,
@@ -134,18 +138,32 @@ export const keywordOpportunitiesModule: FixModule = {
 
   preview(issue: DetectedIssue, draft: GeneratedDraft): PreviewBlock {
     const d = issue.detected as { query: string; volume: number; competition: number; position: number };
-    const plan = (draft.generated.plan as string[] | undefined) ?? [];
+    const g = draft.generated as {
+      suggestedTitle?: string; suggestedH1?: string | null; suggestedMetaDescription?: string | null;
+      suggestedSlug?: string | null; plan?: string[]; html?: string;
+    };
+    const plan = g.plan ?? [];
+    // The exact keyword the plan targets across every on-page location, so the
+    // reviewer can see at a glance that title/H1/meta/slug/heading all carry it.
+    const onPage = [
+      g.suggestedTitle && `Title:  ${g.suggestedTitle}`,
+      g.suggestedH1 && `H1:     ${g.suggestedH1}`,
+      g.suggestedMetaDescription && `Meta:   ${g.suggestedMetaDescription}`,
+      g.suggestedSlug && `Slug:   /${String(g.suggestedSlug).replace(/^\/+/, '')}`,
+    ].filter(Boolean) as string[];
     return {
       kind: 'key-values',
       label: `Target "${d.query}" (${d.volume.toLocaleString()}/mo · comp ${d.competition.toFixed(2)} · now #${Math.round(d.position)})`,
       after: [
-        `Suggested title: ${draft.generated.suggestedTitle}`,
+        `Exact keyword to target across on-page SEO: "${d.query}"`,
+        '',
+        ...onPage,
         '',
         'Plan:',
         ...plan.map((p) => `• ${p}`),
         '',
         'New section to publish:',
-        String(draft.generated.html ?? ''),
+        String(g.html ?? ''),
       ].join('\n'),
     };
   },
