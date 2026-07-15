@@ -110,6 +110,7 @@ export const faqSchemaModule: FixModule = {
     return {
       kind: 'key-values',
       label: `FAQ (${faqs.length} questions) + FAQPage schema`,
+      addNote: 'No FAQ section or FAQPage schema on this page today — this adds them.',
       after: faqs.map((f) => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n'),
     };
   },

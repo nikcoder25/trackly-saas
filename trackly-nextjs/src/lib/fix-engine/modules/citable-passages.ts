@@ -74,6 +74,7 @@ export const citablePassagesModule: FixModule = {
     return {
       kind: 'key-values',
       label: 'Citable passages',
+      addNote: 'No citable passage blocks or TL;DR on this page today — this adds them.',
       after: `TL;DR: ${g.tldr ?? ''}\n\n${(g.passages || []).map((p) => `• ${p}`).join('\n\n')}`,
     };
   },

@@ -99,7 +99,7 @@ export const comparisonPagesModule: FixModule = {
 
   preview(_issue: DetectedIssue, draft: GeneratedDraft): PreviewBlock {
     const g = draft.generated as { title?: string; html?: string };
-    return { kind: 'code-block', label: `New page: ${g.title ?? ''}`, language: 'html', after: String(g.html ?? '') };
+    return { kind: 'code-block', label: `New page: ${g.title ?? ''}`, language: 'html', addNote: 'This comparison page doesn’t exist on your site yet — this creates it.', after: String(g.html ?? '') };
   },
 
   async ship(issue: DetectedIssue, draft: GeneratedDraft, ctx: FixContext): Promise<ShipResult> {

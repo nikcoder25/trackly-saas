@@ -84,7 +84,7 @@ export const indexingRepairModule: FixModule = {
   },
 
   preview(_issue: DetectedIssue, draft: GeneratedDraft): PreviewBlock {
-    return { kind: 'code-block', label: 'Content expansion (appended to page)', language: 'html', after: String(draft.generated.html ?? '') };
+    return { kind: 'code-block', label: 'Content expansion (appended to page)', language: 'html', addNote: 'The page is too thin to index — this depth is appended to earn indexing.', after: String(draft.generated.html ?? '') };
   },
 
   async ship(issue: DetectedIssue, draft: GeneratedDraft, ctx: FixContext): Promise<ShipResult> {

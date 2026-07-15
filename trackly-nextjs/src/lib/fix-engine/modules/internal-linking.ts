@@ -96,6 +96,7 @@ export const internalLinkingModule: FixModule = {
     return {
       kind: 'key-values',
       label: `Internal links (${links.length})`,
+      addNote: 'No contextual internal links to these pages today — these add them.',
       after: links.map((l) => `→ ${l.anchor}\n  ${l.url}${l.reason ? `  (${l.reason})` : ''}`).join('\n\n'),
     };
   },

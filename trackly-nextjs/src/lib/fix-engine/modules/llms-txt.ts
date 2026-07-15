@@ -93,6 +93,7 @@ export const llmsTxtModule: FixModule = {
       kind: 'code-block',
       label: 'llms.txt (served at /llms.txt)',
       language: 'markdown',
+      addNote: 'No /llms.txt published on your site today — this creates it.',
       after: String(draft.generated.content ?? ''),
     };
   },

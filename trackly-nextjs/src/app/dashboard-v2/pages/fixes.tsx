@@ -30,7 +30,7 @@ interface FixRow {
   gscBefore?: { ctr?: number; impressions?: number } | null;
   gscAfter?: { ctr?: number; impressions?: number; unavailable?: boolean } | null;
 }
-interface PreviewBlock { kind: string; label: string; before?: string; after?: string; language?: string }
+interface PreviewBlock { kind: string; label: string; before?: string; after?: string; addNote?: string; language?: string }
 // Result of creating a targeted passage rewrite, returned to the
 // Optimize-a-Passage card so it can show the before/after inline.
 // The free-text assistant either creates + drafts a fix, answers with a
@@ -2133,6 +2133,32 @@ function SerpCard({ label, host, title, desc, color }: { label: string; host: st
   );
 }
 
+// A universal NOW → FIX block so every generated fix — not just title/meta —
+// shows a before and an after. `before` is the current on-page state; when a
+// fix adds brand-new content (schema, FAQ, citations…) there's nothing there
+// today, so we show an explicit "adds it" note instead of a blank.
+function BeforeAfter({ before, after, label, addNote }: { before?: string; after?: string; label?: string; addNote?: string }) {
+  const now = (before ?? '').trim();
+  const cell = (bg: string) => ({ display: 'flex' as const, gap: 10, alignItems: 'flex-start' as const, padding: '11px 14px', background: bg });
+  const tag = (color: string) => ({ fontWeight: 700, fontSize: 11, flexShrink: 0, color });
+  const pre = { margin: 0, fontSize: 12, lineHeight: 1.5, whiteSpace: 'pre-wrap' as const, flex: 1 };
+  return (
+    <div className="nb-sm" style={{ overflow: 'hidden', boxShadow: 'none' }}>
+      {label && <div className="xlbl" style={{ color: 'var(--primary)', padding: '10px 14px 4px' }}>{label}</div>}
+      <div style={{ ...cell('var(--danger-50)'), borderBottom: '2px solid var(--ink)' }}>
+        <span className="disp" style={tag('var(--danger)')}>− NOW</span>
+        {now
+          ? <pre className="mono" style={{ ...pre, color: 'var(--text-2)' }}>{now}</pre>
+          : <span style={{ ...pre, fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic', fontFamily: "'Space Grotesk'" }}>{addNote || 'Nothing on the page today — this fix adds it.'}</span>}
+      </div>
+      <div style={cell('var(--success-50)')}>
+        <span className="disp" style={tag('var(--success)')}>+ FIX</span>
+        <pre className="mono" style={{ ...pre, color: 'var(--text)' }}>{after}</pre>
+      </div>
+    </div>
+  );
+}
+
 // ── Fix card ──
 function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRegenerate, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, onDismiss, onRestore, editableField, onEditDraft, downloadHref, open, onToggleOpen }: {
   fix: FixRow; title: string; preview: PreviewBlock | null | undefined; cost: number; revertable: boolean; impact?: 1 | 2 | 3;
@@ -2356,14 +2382,8 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
             </div>
           );
         })()}
-        {!busy && preview && preview.kind === 'code-block' && (
-          <pre className="mono nb-sm" style={{ margin: 0, fontSize: 11.5, lineHeight: 1.6, padding: 14, background: 'var(--surface-3)', boxShadow: 'none', overflow: 'auto', maxHeight: 220, color: 'var(--text)', whiteSpace: 'pre-wrap' }}>{preview.after}</pre>
-        )}
-        {!busy && preview && preview.kind === 'key-values' && (
-          <div className="nb-sm" style={{ padding: '12px 14px', boxShadow: 'none' }}>
-            <div className="xlbl" style={{ color: 'var(--primary)', marginBottom: 6 }}>{preview.label}</div>
-            <pre className="mono" style={{ margin: 0, fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: 'var(--text)' }}>{preview.after}</pre>
-          </div>
+        {!busy && preview && (preview.kind === 'code-block' || preview.kind === 'key-values') && (
+          <BeforeAfter label={preview.label} before={preview.before} after={preview.after} addNote={preview.addNote} />
         )}
         {isAttention && fix.error && (
           <div className="nb-sm" style={{ padding: '14px 16px', background: 'var(--danger-50)', borderColor: 'var(--danger)', boxShadow: 'none', display: 'flex', gap: 11, alignItems: 'flex-start' }}><span className="disp" style={{ color: 'var(--danger)', fontSize: 16, fontWeight: 700 }}>✕</span><span style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--text)', fontWeight: 500 }}><b className="disp" style={{ color: 'var(--danger)' }}>FAILED.</b> {fix.error}</span></div>

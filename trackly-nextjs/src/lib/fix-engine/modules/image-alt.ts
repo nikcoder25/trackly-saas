@@ -81,6 +81,7 @@ export const imageAltModule: FixModule = {
     return {
       kind: 'key-values',
       label: `Alt text for ${alts.length} image${alts.length === 1 ? '' : 's'}`,
+      before: alts.map((a) => `${a.src.split('/').pop()}\n  → (no alt text)`).join('\n'),
       after: alts.map((a) => `${a.src.split('/').pop()}\n  → "${a.alt}"`).join('\n'),
     };
   },

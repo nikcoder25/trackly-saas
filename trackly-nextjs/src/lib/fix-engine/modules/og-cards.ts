@@ -87,7 +87,7 @@ export const ogCardsModule: FixModule = {
   },
 
   preview(_issue: DetectedIssue, draft: GeneratedDraft): PreviewBlock {
-    return { kind: 'code-block', label: 'Head block (Open Graph + Twitter)', language: 'html', after: String(draft.generated.head ?? '') };
+    return { kind: 'code-block', label: 'Head block (Open Graph + Twitter)', language: 'html', addNote: 'No Open Graph / Twitter card tags on the homepage today — this adds them.', after: String(draft.generated.head ?? '') };
   },
 
   async ship(issue: DetectedIssue, draft: GeneratedDraft, ctx: FixContext): Promise<ShipResult> {

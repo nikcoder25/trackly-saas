@@ -129,6 +129,7 @@ export const keywordOpportunitiesModule: FixModule = {
         suggestedH1: data.suggestedH1 ?? null,
         suggestedMetaDescription: data.suggestedMetaDescription ?? null,
         suggestedSlug: data.suggestedSlug ?? null,
+        currentTitle: title ?? null,
         plan: data.plan,
         heading: data.heading, html: data.html, rationale: data.rationale,
       },
@@ -140,7 +141,7 @@ export const keywordOpportunitiesModule: FixModule = {
     const d = issue.detected as { query: string; volume: number; competition: number; position: number };
     const g = draft.generated as {
       suggestedTitle?: string; suggestedH1?: string | null; suggestedMetaDescription?: string | null;
-      suggestedSlug?: string | null; plan?: string[]; html?: string;
+      suggestedSlug?: string | null; currentTitle?: string | null; plan?: string[]; html?: string;
     };
     const plan = g.plan ?? [];
     // The exact keyword the plan targets across every on-page location, so the
@@ -154,6 +155,11 @@ export const keywordOpportunitiesModule: FixModule = {
     return {
       kind: 'key-values',
       label: `Target "${d.query}" (${d.volume.toLocaleString()}/mo · comp ${d.competition.toFixed(2)} · now #${Math.round(d.position)})`,
+      before: [
+        `Current title: ${g.currentTitle || '(none)'}`,
+        '',
+        `No section on this page targets "${d.query}" yet.`,
+      ].join('\n'),
       after: [
         `Exact keyword to target across on-page SEO: "${d.query}"`,
         '',

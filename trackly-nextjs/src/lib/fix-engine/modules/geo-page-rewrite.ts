@@ -100,6 +100,7 @@ export const geoPageRewriteModule: FixModule = {
       kind: 'code-block',
       label: 'GEO-optimised content (appended to page body)',
       language: 'html',
+      addNote: 'This GEO-optimised answer section is appended to the page — not present today.',
       after: String(draft.generated.html ?? ''),
     };
   },

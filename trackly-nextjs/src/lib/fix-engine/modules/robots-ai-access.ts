@@ -79,8 +79,16 @@ export const robotsAiAccessModule: FixModule = {
     return { generated: { directives: buildDirectives() }, creditsUsed: 0 };
   },
 
-  preview(_issue: DetectedIssue, draft: GeneratedDraft): PreviewBlock {
-    return { kind: 'code-block', label: 'robots.txt additions', language: 'text', after: String(draft.generated.directives ?? '') };
+  preview(issue: DetectedIssue, draft: GeneratedDraft): PreviewBlock {
+    const current = ((issue.before as { robots?: string })?.robots ?? '').trim();
+    return {
+      kind: 'code-block',
+      label: 'robots.txt additions',
+      language: 'text',
+      before: current || undefined,
+      addNote: current ? undefined : 'No robots.txt on your site today — these rules create it.',
+      after: String(draft.generated.directives ?? ''),
+    };
   },
 
   async ship(issue: DetectedIssue, draft: GeneratedDraft, ctx: FixContext): Promise<ShipResult> {

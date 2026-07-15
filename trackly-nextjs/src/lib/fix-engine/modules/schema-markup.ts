@@ -80,6 +80,7 @@ export const schemaMarkupModule: FixModule = {
       kind: 'code-block',
       label: `${draft.generated.schemaType} JSON-LD`,
       language: 'json',
+      addNote: `No ${draft.generated.schemaType} structured data on this page today — this adds it.`,
       after: JSON.stringify(draft.generated.jsonLd, null, 2),
     };
   },
