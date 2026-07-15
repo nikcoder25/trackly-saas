@@ -2141,7 +2141,7 @@ function BeforeAfter({ before, after, label, addNote }: { before?: string; after
   const now = (before ?? '').trim();
   const cell = (bg: string) => ({ display: 'flex' as const, gap: 10, alignItems: 'flex-start' as const, padding: '11px 14px', background: bg });
   const tag = (color: string) => ({ fontWeight: 700, fontSize: 11, flexShrink: 0, color });
-  const pre = { margin: 0, fontSize: 12, lineHeight: 1.5, whiteSpace: 'pre-wrap' as const, flex: 1 };
+  const pre = { margin: 0, fontSize: 12, lineHeight: 1.5, whiteSpace: 'pre-wrap' as const, flex: 1, minWidth: 0, overflowWrap: 'anywhere' as const, wordBreak: 'break-word' as const };
   return (
     <div className="nb-sm" style={{ overflow: 'hidden', boxShadow: 'none' }}>
       {label && <div className="xlbl" style={{ color: 'var(--primary)', padding: '10px 14px 4px' }}>{label}</div>}
@@ -2251,7 +2251,7 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
         <span className="disp" aria-hidden style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-2)' }}>▴</span>
       </div>
 
-      <div style={{ padding: 18, display: 'grid', gap: 14 }}>
+      <div style={{ padding: 18, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 14 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 160 }}>
             <h3 className="disp" style={{ margin: 0, fontSize: 20, fontWeight: 700, letterSpacing: '-0.015em', color: 'var(--text)' }}>{title}</h3>
@@ -2462,7 +2462,7 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
           <div className="nb-sm" style={{ padding: 14, background: 'var(--surface-2)', display: 'grid', gap: 10 }}>
             <div className="xlbl" style={{ color: 'var(--primary)' }}>Edit the {isLive ? 'live' : 'draft'} ({editableField}) — your brand rules still apply{isLive ? '; re-ships on approve' : ' on save'}</div>
             <textarea className="xin" rows={editText.length > 160 ? 5 : 2} value={editText} onChange={(e) => setEditText(e.target.value)} style={{ boxShadow: 'none', fontSize: 13, lineHeight: 1.5 }} />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 10 }}>
               <button className="gbtn" onClick={() => setEditing(false)} style={{ padding: '7px 13px' }}>Cancel</button>
               <button className="xbtn" disabled={busy || !editText.trim()} onClick={() => { onEditDraft(editableField, editText.trim()); setEditing(false); }} style={{ padding: '7px 13px' }}>SAVE DRAFT</button>
             </div>
@@ -2473,7 +2473,7 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
           <div className="nb-sm" style={{ padding: 14, background: 'var(--surface-2)', display: 'grid', gap: 10 }}>
             <div className="xlbl" style={{ color: 'var(--primary)' }}>Tell the AI what to change {cost > 0 ? `— costs ${cost} credit${cost === 1 ? '' : 's'}` : ''}{isLive ? ' · re-ships on approve' : ''}</div>
             <textarea className="xin" rows={2} value={regenText} onChange={(e) => setRegenText(e.target.value)} placeholder="e.g. keep it under 55 chars · lead with the keyword · drop the question format. Leave blank for a fresh take." style={{ boxShadow: 'none', fontSize: 13, lineHeight: 1.5 }} />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 10 }}>
               <button className="gbtn" onClick={() => setRegenning(false)} style={{ padding: '7px 13px' }}>Cancel</button>
               <button className="xbtn" disabled={busy} onClick={() => { onRegenerate(regenText.trim()); setRegenning(false); }} style={{ padding: '7px 13px' }}>{regenText.trim() ? '↻ REGENERATE WITH GUIDANCE' : '↻ REGENERATE'}</button>
             </div>
