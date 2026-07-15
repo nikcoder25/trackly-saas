@@ -115,6 +115,9 @@ vi.mock('@/lib/fix-engine/schema', () => ({
     return restored;
   }),
   logFixEvent: vi.fn(async () => {}),
+  // The 'fake' module isn't edge-serveable, so ship always takes the CMS-write
+  // path (never the edge fast-path) — these tests pin that path.
+  isEdgeServeableModule: vi.fn(() => false),
   // unused-by-these-tests batch helpers, present so the import resolves
   getBatch: vi.fn(async () => null),
   claimBatchForRunning: vi.fn(async () => true),

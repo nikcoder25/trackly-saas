@@ -349,6 +349,72 @@ describe('edge citable-passages overrides', () => {
   });
 });
 
+describe('edge faq-schema overrides', () => {
+  it('emits a faq block (Q/A pairs) from a shipped faq-schema fix', () => {
+    const out = buildEdgeSeoOverrides([
+      {
+        moduleKey: 'faq-schema',
+        targetUrl: 'https://acme.com/guide/',
+        generated: {
+          faqs: [
+            { question: 'Is it safe?', answer: 'Yes, when dosed correctly.' },
+            { question: 'How is it stored?', answer: 'Refrigerated.' },
+          ],
+          rationale: 'ignored',
+          html: '<section>ignored</section>',
+          schema: '{"@type":"FAQPage"}',
+        },
+      },
+    ]);
+    expect(out['/guide'].faq).toEqual({
+      faqs: [
+        { question: 'Is it safe?', answer: 'Yes, when dosed correctly.' },
+        { question: 'How is it stored?', answer: 'Refrigerated.' },
+      ],
+    });
+  });
+
+  it('trims, drops blank pairs, dedupes by question, and caps at 8', () => {
+    const faqs = Array.from({ length: 11 }, (_, i) => ({ question: `Q${i}`, answer: `A${i}` }));
+    faqs.push({ question: 'Q0', answer: 'dup' }); // duplicate question
+    faqs.push({ question: '  ', answer: 'blank q' }); // blank question
+    faqs.push({ question: 'no answer', answer: '   ' }); // blank answer
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'faq-schema', targetUrl: 'https://a.com/hub', generated: { faqs } },
+    ]);
+    expect(out['/hub'].faq!.faqs).toHaveLength(8);
+    expect(out['/hub'].faq!.faqs.filter((f) => f.question === 'Q0')).toHaveLength(1);
+  });
+
+  it('drops a faq fix with no usable pairs', () => {
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'faq-schema', targetUrl: 'https://a.com/p', generated: { faqs: [{ question: '  ', answer: '' }] } },
+    ]);
+    expect(out['/p']).toBeUndefined();
+  });
+
+  it('newest faq-schema fix replaces the earlier block', () => {
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'faq-schema', targetUrl: 'https://a.com/p', generated: { faqs: [{ question: 'Old?', answer: 'old' }] } },
+      { moduleKey: 'faq-schema', targetUrl: 'https://a.com/p', generated: { faqs: [{ question: 'New?', answer: 'new' }] } },
+    ]);
+    expect(out['/p'].faq).toEqual({ faqs: [{ question: 'New?', answer: 'new' }] });
+  });
+
+  it('lets all four body blocks (links, citations, citable, faq) coexist on one path', () => {
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'internal-linking', targetUrl: 'https://a.com/p', generated: { links: [{ anchor: 'Guide', url: 'https://a.com/guide' }] } },
+      { moduleKey: 'external-citations', targetUrl: 'https://a.com/p', generated: { citations: [{ anchor: 'FDA', url: 'https://fda.gov/x' }] } },
+      { moduleKey: 'citable-passages', targetUrl: 'https://a.com/p', generated: { tldr: 'Summary', passages: ['A fact.'] } },
+      { moduleKey: 'faq-schema', targetUrl: 'https://a.com/p', generated: { faqs: [{ question: 'Q?', answer: 'A.' }] } },
+    ]);
+    expect(out['/p'].links).toEqual([{ anchor: 'Guide', href: 'https://a.com/guide' }]);
+    expect(out['/p'].citations).toEqual([{ anchor: 'FDA', href: 'https://fda.gov/x' }]);
+    expect(out['/p'].citable).toEqual({ tldr: 'Summary', passages: ['A fact.'] });
+    expect(out['/p'].faq).toEqual({ faqs: [{ question: 'Q?', answer: 'A.' }] });
+  });
+});
+
 describe('normalizeEdgeOverrideKeys (serve-boundary trailing-slash matching)', () => {
   it('re-keys to canonical paths so /p and /p/ resolve to one entry', () => {
     const out = normalizeEdgeOverrideKeys({

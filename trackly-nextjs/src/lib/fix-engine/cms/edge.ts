@@ -35,6 +35,17 @@ async function edgeMarkerOn(url: string): Promise<{ routed: boolean; status?: nu
   }
 }
 
+/**
+ * Whether the Livesov edge Worker actually fronts a URL (the `x-livesov-edge`
+ * marker is present on the response). The ship handler uses this to confirm a
+ * page is Worker-served before publishing an edge-serveable fix there — so we
+ * never mark a fix shipped-to-edge on a domain the Worker isn't routed on. A
+ * fetch/SSRF failure resolves to `{ routed: false }` (never throws).
+ */
+export async function probeEdgeMarker(url: string): Promise<{ routed: boolean; status?: number; error?: string }> {
+  return edgeMarkerOn(url);
+}
+
 function notRouted(url: string, probe: { status?: number; error?: string }): CmsWriteResult {
   return {
     ok: false,

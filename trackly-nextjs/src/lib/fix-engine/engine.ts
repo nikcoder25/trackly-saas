@@ -34,12 +34,14 @@ import {
   claimFixTransition,
   resetConnectorDelivery,
   logFixEvent,
+  isEdgeServeableModule,
 } from './schema';
 import { getConnection } from './connections';
 import { CmsUnsupportedError } from './cms/types';
+import { probeEdgeMarker } from './cms/edge';
 import { getBrandAiVisibility } from './ai-visibility';
 import { applyBrandRules } from './rules';
-import type { DetectedIssue, FixBrand, FixContext, FixRow } from './types';
+import type { DetectedIssue, FixBrand, FixContext, FixModule, FixRow } from './types';
 
 // Generation cost lives in the registry (single source of truth) and is
 // imported as generateCost().
@@ -287,6 +289,49 @@ export async function approveFix(fixId: string, brandId: string, userId: string 
 
 // ── ship ─────────────────────────────────────────────────────────
 
+/**
+ * Mark a fix shipped and record the post-ship baselines, shared by both the
+ * edge-publish fast-path and the CMS-write success path so they stay identical:
+ * snapshot the brand's AI visibility (SOV) + the page's 28-day GSC metrics for
+ * the before/after, persist the shipped row, and (Channel A) queue an auto-
+ * recheck that confirms the change is actually live by re-crawling the page —
+ * so a write that didn't really persist can't sit at "shipped" unnoticed.
+ * Channel B is auto-rechecked when the Connector acks (see the ack route).
+ */
+async function finalizeShippedFix(
+  fix: FixRow,
+  brandId: string,
+  userId: string | null,
+  mod: FixModule,
+  shipResult: Record<string, unknown> | null | undefined,
+  afterSnapshot: Record<string, unknown> | null,
+): Promise<void> {
+  const aiBefore = await getBrandAiVisibility(brandId);
+  let gscBefore: Record<string, unknown> | null = null;
+  if (fix.targetUrl) {
+    try {
+      const { getPageMetrics, normUrl } = await import('./page-metrics');
+      const m = (await getPageMetrics(brandId, [fix.targetUrl])).get(normUrl(fix.targetUrl));
+      if (m) gscBefore = { clicks: m.clicks, impressions: m.impressions, ctr: m.ctr, position: m.position, at: new Date().toISOString() };
+    } catch { /* enrichment only */ }
+  }
+  await updateFix(fix.id, {
+    status: 'shipped',
+    shipResult: shipResult ?? null,
+    afterSnapshot,
+    aiBefore: aiBefore ? { ...aiBefore } : null,
+    gscBefore,
+    error: null,
+  });
+  await logFixEvent(fix.id, brandId, userId, 'shipped', { channel: mod.channel, detail: shipResult });
+  if (mod.channel === 'A') {
+    after(async () => {
+      try { await recheckFix(fix.id, brandId, userId); }
+      catch (e) { logger.warn('fix_engine.ship_autorecheck_failed', { fixId: fix.id, err: (e as Error).message }); }
+    });
+  }
+}
+
 export async function shipFix(fixId: string, brandId: string, userId: string | null): Promise<FixRow> {
   const fix = await getFix(fixId, brandId);
   if (!fix) throw new Error('Fix not found');
@@ -304,43 +349,36 @@ export async function shipFix(fixId: string, brandId: string, userId: string | n
   const ctx = await buildContext(brandId);
   if (!ctx) { await updateFix(fix.id, { status: 'failed', error: 'Brand not found' }); throw new Error('Brand not found'); }
 
+  // Edge-fronted publishing (custom / edge CMS). An edge-serveable Channel-A
+  // fix on a domain the Livesov Worker fronts is delivered by the Worker
+  // rewriting the page in transit — the shipped row IS the override
+  // (getEdgeSeoOverrides). There is no origin write to make, and the site's CMS
+  // usually can't make one (a static/custom endpoint 422s on update_body /
+  // inject_schema), so publish to the edge and skip the CMS write. Gated on
+  // (a) the brand's CMS being an edge-fronted stack — 'edge' or 'custom'; real
+  // CMS APIs (wordpress/shopify/ghost/webflow) keep their origin write, so
+  // there's no regression — and (b) the Worker actually being live on the page
+  // (marker probe), so we never claim a change is live where it isn't. If the
+  // Worker isn't live, fall through to the normal CMS write (today's behavior).
+  if (mod.channel === 'A' && isEdgeServeableModule(fix.moduleKey) && fix.targetUrl) {
+    const cmsConn = await getConnection(brandId, 'cms');
+    const edgeFronted = cmsConn?.status === 'active'
+      && (cmsConn.cmsType === 'edge' || cmsConn.cmsType === 'custom');
+    if (edgeFronted) {
+      const probe = await probeEdgeMarker(fix.targetUrl);
+      if (probe.routed) {
+        await finalizeShippedFix(fix, brandId, userId, mod, { delivery: 'edge', module: fix.moduleKey, url: fix.targetUrl }, null);
+        return (await getFix(fixId, brandId))!;
+      }
+      logger.info('fix_engine.edge_publish_skipped_worker_absent', { fixId: fix.id, url: fix.targetUrl, status: probe.status, err: probe.error });
+    }
+  }
+
   try {
     const issue = issueFromRow(fix);
     const result = await mod.ship(issue, { generated: fix.generated }, ctx);
     if (result.ok) {
-      // Snapshot the brand's current AI visibility (SOV) so we can show
-      // the before/after once the brand's tracking runs again.
-      const aiBefore = await getBrandAiVisibility(brandId);
-      // And the target page's 28-day GSC baseline for the outcome pass
-      // (cached metrics; null when GSC isn't connected or URL unseen).
-      let gscBefore: Record<string, unknown> | null = null;
-      if (fix.targetUrl) {
-        try {
-          const { getPageMetrics, normUrl } = await import('./page-metrics');
-          const m = (await getPageMetrics(brandId, [fix.targetUrl])).get(normUrl(fix.targetUrl));
-          if (m) gscBefore = { clicks: m.clicks, impressions: m.impressions, ctr: m.ctr, position: m.position, at: new Date().toISOString() };
-        } catch { /* enrichment only */ }
-      }
-      await updateFix(fix.id, {
-        status: 'shipped',
-        shipResult: result.detail,
-        afterSnapshot: result.after ?? null,
-        aiBefore: aiBefore ? { ...aiBefore } : null,
-        gscBefore,
-        error: null,
-      });
-      await logFixEvent(fix.id, brandId, userId, 'shipped', { channel: mod.channel, detail: result.detail });
-      // Auto-verify (Channel A): the CMS/endpoint said ok — confirm the
-      // change is actually live by re-crawling the page, so a write that
-      // didn't really persist (e.g. a custom endpoint that replies ok
-      // without storing) can't sit at "shipped" unnoticed. Channel B is
-      // auto-rechecked when the Connector acks (see the ack route).
-      if (mod.channel === 'A') {
-        after(async () => {
-          try { await recheckFix(fix.id, brandId, userId); }
-          catch (e) { logger.warn('fix_engine.ship_autorecheck_failed', { fixId: fix.id, err: (e as Error).message }); }
-        });
-      }
+      await finalizeShippedFix(fix, brandId, userId, mod, result.detail, result.after ?? null);
     } else {
       await updateFix(fix.id, { status: 'failed', shipResult: result.detail, error: result.error ?? 'Ship failed' });
       await logFixEvent(fix.id, brandId, userId, 'ship.failed', { error: result.error, detail: result.detail });

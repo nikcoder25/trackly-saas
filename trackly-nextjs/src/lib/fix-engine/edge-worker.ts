@@ -113,6 +113,45 @@ export function citableSection(
     : '';
 }
 
+/** Hard cap on FAQ Q/A pairs injected into a single page. Keep in sync with the
+ *  literal `8` inside {@link faqSection} (serialized into the Worker, so it
+ *  can't reference this constant at runtime). */
+export const MAX_EDGE_FAQS = 8;
+
+/**
+ * Build the FAQ block from a per-path override's `faq` ({ faqs: [{question,
+ * answer}] }). Same single-source-of-truth contract as {@link citableSection}
+ * (unit-tested here, serialized verbatim into the Worker). A self-contained
+ * <section>: a visible Q/A list PLUS a FAQPage JSON-LD <script> (so re-crawls
+ * detect the schema). Kept a SEPARATE block (class `livesov-faq`) so it coexists
+ * with the internal-links, citations, and citable blocks. Visible text is
+ * html-escaped; the schema is JSON-encoded with '</' escaped so an answer can't
+ * break out of the script. Blank pairs drop; empty content returns ''.
+ */
+export function faqSection(
+  faq: { faqs?: Array<{ question?: string; answer?: string }> },
+  esc: (s: string) => string,
+): string {
+  const faqs = (faq && Array.isArray(faq.faqs) ? faq.faqs : [])
+    .slice(0, 8)
+    .map((f) => ({
+      q: f && typeof f.question === 'string' ? f.question.trim() : '',
+      a: f && typeof f.answer === 'string' ? f.answer.trim() : '',
+    }))
+    .filter((f) => f.q && f.a);
+  if (!faqs.length) return '';
+  const items = faqs
+    .map((f) => '<div class="faq-item"><h3>' + esc(f.q) + '</h3><p>' + esc(f.a) + '</p></div>')
+    .join('');
+  const schema = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+  }).replace(/<\//g, '<\\/');
+  return '<section class="livesov-faq" data-livesov="faq"><h2>Frequently asked questions</h2>' + items
+    + '<script type="application/ld+json">' + schema + '</scr' + 'ipt></section>';
+}
+
 /** Minimal shapes of the HTMLRewriter element/end-tag the appender touches. */
 interface EdgeEndTag { before(content: string, opts: { html: boolean }): void }
 interface EdgeElement { onEndTag(cb: (end: EdgeEndTag) => void): void }
@@ -150,8 +189,8 @@ export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
     + `// Works for ANY stack (WordPress, custom-coded, ...): serves /llms.txt, appends\n`
     + `// AI rules to /robots.txt, and applies your shipped SEO fixes (title, meta\n`
     + `// description, canonical, JSON-LD schema, OG/Twitter cards, noindex removal,\n`
-    + `// contextual internal links, authoritative source citations, and citable\n`
-    + `// "Key facts" answer blocks) to every page as it is served.\n`
+    + `// contextual internal links, authoritative source citations, citable\n`
+    + `// "Key facts" answer blocks, and FAQ blocks) to every page as it is served.\n`
     + `const T = ${JSON.stringify(token)};\n`
     + `const BASE = ${JSON.stringify(edgeBase)};\n`
     + `const H = { headers: { Authorization: 'Bearer ' + T } };\n`
@@ -159,6 +198,7 @@ export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
     + `const relatedLinksNav = ${relatedLinksNav.toString()};\n`
     + `const citationsNav = ${citationsNav.toString()};\n`
     + `const citableSection = ${citableSection.toString()};\n`
+    + `const faqSection = ${faqSection.toString()};\n`
     + `const edgePathKey = ${edgePathKey.toString()};\n`
     + `const makeNavAppender = ${makeNavAppender.toString()};\n`
     + `export default {\n`
@@ -236,6 +276,13 @@ export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
     + `      if (citableHtml) { // own appender/guard, so it coexists with the links + citations navs\n`
     + `        const appendCitable = makeNavAppender(citableHtml);\n`
     + `        rw = rw.on('article', appendCitable).on('main', appendCitable).on('[itemprop="articleBody"]', appendCitable).on('body', appendCitable);\n`
+    + `      }\n`
+    + `    }\n`
+    + `    if (o.faq && Array.isArray(o.faq.faqs) && o.faq.faqs.length) { // shipped FAQ-schema fixes\n`
+    + `      const faqHtml = faqSection(o.faq, esc);\n`
+    + `      if (faqHtml) { // own appender/guard, so it coexists with the other blocks\n`
+    + `        const appendFaq = makeNavAppender(faqHtml);\n`
+    + `        rw = rw.on('article', appendFaq).on('main', appendFaq).on('[itemprop="articleBody"]', appendFaq).on('body', appendFaq);\n`
     + `      }\n`
     + `    }\n`
     + `    return rw.transform(out);\n`
