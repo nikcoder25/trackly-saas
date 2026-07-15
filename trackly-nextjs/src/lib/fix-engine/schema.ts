@@ -554,6 +554,10 @@ export interface EdgeSeoOverride {
    *  fixes) the Worker injects as a separate "Sources" block. Every href is a
    *  verified https, external (non-own-domain, non-competitor) URL. */
   citations?: EdgeCitation[];
+  /** Citable "Key facts" answer block (from a shipped citable-passages fix) the
+   *  Worker appends as its own section: a TL;DR line + fact-dense passages an
+   *  LLM can quote. Frozen at generation, so serving is a pure read. */
+  citable?: EdgeCitable;
 }
 
 /** One contextual internal link the edge Worker injects into the page body. */
@@ -571,6 +575,14 @@ export interface EdgeCitation {
   source?: string;
   /** The on-page claim this citation backs (carried for context; not rendered). */
   claim?: string;
+}
+
+/** One citable "Key facts" answer block the edge Worker appends to the body. */
+export interface EdgeCitable {
+  /** One-line summary rendered as the block's TL;DR lead. */
+  tldr: string;
+  /** Standalone, fact-dense passages rendered as list items. */
+  passages: string[];
 }
 
 /** module → which override field(s) its `generated` payload carries. */
@@ -673,6 +685,38 @@ function buildEdgeCitations(
   return out;
 }
 
+/** Module whose `generated.{tldr,passages}` become a body citable block. */
+const EDGE_CITABLE_MODULE = 'citable-passages';
+/** Hard cap on citable passages per path (mirrors the literal in edge-worker's
+ *  citableSection / MAX_EDGE_CITABLE_PASSAGES). */
+const MAX_EDGE_CITABLE_PASSAGES = 6;
+
+/**
+ * Fold a citable-passages fix's `generated.{tldr, passages}` into a single
+ * citable "Key facts" block. The module froze the TL;DR + fact-dense passages
+ * at generation time, so this is a pure, deterministic read — no serve-time
+ * re-fetch (same contract as internal links / citations). Blank entries drop,
+ * passages dedupe and cap at MAX_EDGE_CITABLE_PASSAGES; returns null when
+ * neither a TL;DR nor any passage survives, so the caller injects nothing.
+ * Values kept raw; the Worker escapes them at inject time.
+ */
+function buildEdgeCitable(generated: Record<string, unknown> | null): EdgeCitable | null {
+  const tldr = typeof generated?.tldr === 'string' ? generated.tldr.trim() : '';
+  const raw = Array.isArray(generated?.passages) ? (generated!.passages as unknown[]) : [];
+  const passages: string[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    const p = item.trim();
+    if (!p || seen.has(p)) continue;
+    seen.add(p);
+    passages.push(p);
+    if (passages.length >= MAX_EDGE_CITABLE_PASSAGES) break;
+  }
+  if (!tldr && !passages.length) return null;
+  return { tldr, passages };
+}
+
 /** Options for {@link buildEdgeSeoOverrides}. */
 export interface BuildEdgeSeoOptions {
   /** Hosts (www-stripped, lowercased) a citation must NOT point at: the brand's
@@ -733,6 +777,12 @@ export function buildEdgeSeoOverrides(
       if (citations.length) (out[key] ??= {}).citations = citations;
       continue;
     }
+    if (row.moduleKey === EDGE_CITABLE_MODULE) {
+      const citable = buildEdgeCitable(row.generated);
+      // Newest fix wins: a later shipped citable fix for the path replaces it.
+      if (citable) (out[key] ??= {}).citable = citable;
+      continue;
+    }
     const flag = EDGE_FLAG_MODULES[row.moduleKey];
     if (flag) {
       (out[key] ??= {})[flag] = true;
@@ -769,7 +819,7 @@ export async function getEdgeSeoOverrides(brandId: string): Promise<Record<strin
         AND status IN ('shipped','verified')
         AND target_url IS NOT NULL AND generated IS NOT NULL
       ORDER BY updated_at ASC`,
-    [brandId, [...Object.keys(EDGE_SEO_MODULES), ...Object.keys(EDGE_FLAG_MODULES), EDGE_LINK_MODULE, EDGE_CITATION_MODULE]],
+    [brandId, [...Object.keys(EDGE_SEO_MODULES), ...Object.keys(EDGE_FLAG_MODULES), EDGE_LINK_MODULE, EDGE_CITATION_MODULE, EDGE_CITABLE_MODULE]],
   );
   const rows = res.rows.map((r: DbRow) => ({
     moduleKey: String(r.module_key),

@@ -290,6 +290,65 @@ describe('edge external-citation overrides', () => {
   });
 });
 
+describe('edge citable-passages overrides', () => {
+  it('emits a citable block (tldr + passages) from a shipped citable-passages fix', () => {
+    const out = buildEdgeSeoOverrides([
+      {
+        moduleKey: 'citable-passages',
+        targetUrl: 'https://acme.com/guide/',
+        generated: {
+          tldr: 'Cagrilintide is a long-acting amylin analogue.',
+          passages: ['Half-life is about 7 days.', 'Dosed once weekly.'],
+          rationale: 'ignored', // module carries this but the override drops it
+          html: '<section>ignored</section>',
+        },
+      },
+    ]);
+    expect(out['/guide'].citable).toEqual({
+      tldr: 'Cagrilintide is a long-acting amylin analogue.',
+      passages: ['Half-life is about 7 days.', 'Dosed once weekly.'],
+    });
+  });
+
+  it('trims blanks, dedupes passages, and caps at 6', () => {
+    const passages = Array.from({ length: 9 }, (_, i) => `Fact ${i}`);
+    passages.push('Fact 0'); // duplicate
+    passages.push('   ');    // blank
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'citable-passages', targetUrl: 'https://a.com/hub', generated: { tldr: '  Summary  ', passages } },
+    ]);
+    expect(out['/hub'].citable!.tldr).toBe('Summary');
+    expect(out['/hub'].citable!.passages).toHaveLength(6);
+    expect(out['/hub'].citable!.passages.filter((p) => p === 'Fact 0')).toHaveLength(1);
+  });
+
+  it('drops a citable fix with neither a TL;DR nor any passage', () => {
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'citable-passages', targetUrl: 'https://a.com/p', generated: { tldr: '   ', passages: ['', '  '] } },
+    ]);
+    expect(out['/p']).toBeUndefined();
+  });
+
+  it('newest citable-passages fix replaces the earlier block', () => {
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'citable-passages', targetUrl: 'https://a.com/p', generated: { tldr: 'Old', passages: ['old'] } },
+      { moduleKey: 'citable-passages', targetUrl: 'https://a.com/p', generated: { tldr: 'New', passages: ['new'] } },
+    ]);
+    expect(out['/p'].citable).toEqual({ tldr: 'New', passages: ['new'] });
+  });
+
+  it('lets links, citations, and the citable block all coexist on one path', () => {
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'internal-linking', targetUrl: 'https://a.com/p', generated: { links: [{ anchor: 'Guide', url: 'https://a.com/guide' }] } },
+      { moduleKey: 'external-citations', targetUrl: 'https://a.com/p', generated: { citations: [{ anchor: 'FDA', url: 'https://fda.gov/x' }] } },
+      { moduleKey: 'citable-passages', targetUrl: 'https://a.com/p', generated: { tldr: 'Summary', passages: ['A fact.'] } },
+    ]);
+    expect(out['/p'].links).toEqual([{ anchor: 'Guide', href: 'https://a.com/guide' }]);
+    expect(out['/p'].citations).toEqual([{ anchor: 'FDA', href: 'https://fda.gov/x' }]);
+    expect(out['/p'].citable).toEqual({ tldr: 'Summary', passages: ['A fact.'] });
+  });
+});
+
 describe('normalizeEdgeOverrideKeys (serve-boundary trailing-slash matching)', () => {
   it('re-keys to canonical paths so /p and /p/ resolve to one entry', () => {
     const out = normalizeEdgeOverrideKeys({

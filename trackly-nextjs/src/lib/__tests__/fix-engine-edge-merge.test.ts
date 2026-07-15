@@ -74,4 +74,25 @@ describe('getEdgeSeoOverrides — links + citations coexist per path', () => {
     expect(out['/hub'].links).toEqual([{ anchor: 'A', href: 'https://acme.test/a' }]);
     expect(safeFetch).not.toHaveBeenCalled(); // no serve-time sitemap fetch
   });
+
+  it('carries ALL THREE body blocks (links + citations + citable) plus head fields for one page, order-independent', async () => {
+    const { safeFetch } = await import('@/lib/safe-fetch');
+    // citable row FIRST, links/citations after, head field last — the merge
+    // must be order-independent and none may clobber another.
+    state.rows = [
+      { module_key: 'citable-passages', target_url: 'https://acme.test/about', generated: { tldr: 'Acme makes peptides.', passages: ['Founded 2019.', 'Ships worldwide.'] } },
+      { module_key: 'internal-linking', target_url: 'https://acme.test/about', generated: { links: [{ anchor: 'Cagrilintide', url: 'https://acme.test/peptides/cagrilintide' }] } },
+      { module_key: 'external-citations', target_url: 'https://acme.test/about', generated: { citations: [{ anchor: 'FDA', url: 'https://fda.gov/x', source: 'FDA' }] } },
+      { module_key: 'title-rewrite', target_url: 'https://acme.test/about', generated: { title: 'About Acme' } },
+    ];
+    const out = await getEdgeSeoOverrides('brand-1');
+    expect(out['/about']).toEqual({
+      title: 'About Acme',
+      links: [{ anchor: 'Cagrilintide', href: 'https://acme.test/peptides/cagrilintide' }],
+      citations: [{ anchor: 'FDA', href: 'https://fda.gov/x', source: 'FDA' }],
+      citable: { tldr: 'Acme makes peptides.', passages: ['Founded 2019.', 'Ships worldwide.'] },
+    });
+    // Still a pure read — building the override never re-fetches at serve time.
+    expect(safeFetch).not.toHaveBeenCalled();
+  });
 });
