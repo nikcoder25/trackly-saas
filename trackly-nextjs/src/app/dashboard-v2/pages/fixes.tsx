@@ -179,7 +179,12 @@ const MX_CSS = `
 .mx .xin:focus { border-color: var(--primary); }
 .mx textarea.xin { resize: vertical; line-height: 1.6; }
 .mx .stripes { background-image: repeating-linear-gradient(45deg, var(--ink) 0 2px, transparent 2px 9px); }
-`;
+/* Safety net: long generated content (HTML drafts, URLs, tokens) must wrap
+   instead of forcing the card wider than its column and burying the right
+   edge — including action buttons. Elements that intentionally scroll (the
+   worker script block) opt out with an inline white-space + overflow. */
+.mx pre { min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }
+.mx .nb, .mx .nb-sm { max-width: 100%; }
 
 // ── status / severity / grouping helpers ──
 function statusMeta(s: string): { label: string; color: string; bg: string } {
@@ -2050,11 +2055,11 @@ function AssistantSection({ disabled, onAsk, onWholeSite, scanning }: {
             {result.before ? (<>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}>
                 <span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− NOW</span>
-                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: 'var(--text-2)', textDecoration: 'line-through', textDecorationColor: 'var(--danger-200)', lineHeight: 1.5 }}>{result.before}</span>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: 'var(--text-2)', textDecoration: 'line-through', textDecorationColor: 'var(--danger-200)', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{result.before}</span>
               </div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--success-50)' }}>
                 <span className="disp" style={{ color: 'var(--success)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ NEW</span>
-                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>{result.after}</span>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: 'var(--text)', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{result.after}</span>
               </div>
             </>) : (
               <div style={{ padding: '12px 14px', background: 'var(--success-50)' }}>
@@ -2347,7 +2352,7 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
             <div className="nb-sm" style={{ overflow: 'hidden', boxShadow: 'none' }}>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}>
                 <span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− NOW</span>
-                <span className="mono" style={{ fontSize: 12, color: 'var(--text-2)', fontStyle: now.missing ? 'italic' : 'normal', lineHeight: 1.5 }}>{now.value}</span>
+                <span className="mono" style={{ fontSize: 12, color: 'var(--text-2)', fontStyle: now.missing ? 'italic' : 'normal', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{now.value}</span>
               </div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '11px 14px', background: 'var(--surface-2)' }}>
                 <span className="disp" style={{ color: 'var(--text-3)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ FIX</span>
@@ -2361,8 +2366,8 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
         )}
         {!busy && preview && preview.kind === 'text-diff' && (
           <div className="nb-sm" style={{ overflow: 'hidden', boxShadow: 'none' }}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}><span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− NOW</span><span className="mono" style={{ fontSize: 12, color: 'var(--text-2)', textDecoration: 'line-through', textDecorationColor: 'var(--danger-200)', lineHeight: 1.5 }}>{preview.before || '(empty)'}</span></div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--success-50)' }}><span className="disp" style={{ color: 'var(--success)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ FIX</span><span className="mono" style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>{preview.after}</span></div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}><span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− NOW</span><span className="mono" style={{ fontSize: 12, color: 'var(--text-2)', textDecoration: 'line-through', textDecorationColor: 'var(--danger-200)', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{preview.before || '(empty)'}</span></div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--success-50)' }}><span className="disp" style={{ color: 'var(--success)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ FIX</span><span className="mono" style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{preview.after}</span></div>
           </div>
         )}
         {!busy && preview && preview.kind === 'text-diff' && (fix.moduleKey === 'title-rewrite' || fix.moduleKey === 'meta-rewrite') && (() => {
