@@ -914,7 +914,7 @@ export function PageFixes() {
     { value: String(counts.detected || 0), label: 'Detected', bg: 'var(--primary-50)', fg: 'var(--primary)' },
     { value: String(counts.review || 0), label: 'In review', bg: 'var(--primary-50)', fg: 'var(--primary)' },
     { value: String(counts.approved || 0), label: 'Approved', bg: 'var(--info-50)', fg: 'var(--info)' },
-    { value: String(counts.shipped || 0), label: 'Live', bg: 'var(--success-50)', fg: 'var(--success)' },
+    { value: String(counts.shipped || 0), label: 'Archived', bg: 'var(--success-50)', fg: 'var(--success)' },
     { value: String(counts.attention || 0), label: 'Attention', bg: 'var(--danger-50)', fg: 'var(--danger)' },
   ];
   const pipeline = [
