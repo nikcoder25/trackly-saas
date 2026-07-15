@@ -724,6 +724,23 @@ export function PageFixes() {
     } catch (e) { setError((e as Error).message); } finally { setBusy((b) => ({ ...b, [fixId]: false })); }
   };
 
+  // Regenerate a draft, optionally steered by reviewer guidance ("keep it under
+  // 55 chars", "lead with the keyword"). An empty instruction clears any prior
+  // guidance and just tries again; the AI won't get it right every time.
+  const regenerate = async (fixId: string, instruction?: string) => {
+    if (!brandId) return;
+    setBusy((b) => ({ ...b, [fixId]: true }));
+    try {
+      const d = await api(`/api/brands/${brandId}/fixes/${fixId}/generate`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(instruction !== undefined ? { instruction } : {}),
+      });
+      if (d.fix) setFixes((rows) => rows.map((r) => (r.id === fixId ? { ...r, ...d.fix } : r)));
+      await loadPreview(fixId);
+      flash(instruction && instruction.trim() ? 'Regenerated with your guidance' : 'Regenerated a fresh draft');
+    } catch (e) { setError((e as Error).message); } finally { setBusy((b) => ({ ...b, [fixId]: false })); }
+  };
+
   const saveMeta = async (fixId: string, patch: { note?: string; assignee?: string }) => {
     if (!brandId) return;
     try {
@@ -1280,6 +1297,7 @@ export function PageFixes() {
             onGenerate={() => act(f.id, 'generate')} onApprove={() => act(f.id, 'approve')}
             onArm={() => setArmed((a) => ({ ...a, [f.id]: true }))} onCancelArm={() => setArmed((a) => ({ ...a, [f.id]: false }))}
             onShipConfirm={() => shipConfirm(f.id)} onRecheck={() => act(f.id, 'recheck')} onRetry={() => act(f.id, 'generate')}
+            onRegenerate={(instruction) => regenerate(f.id, instruction)}
             onRevert={() => act(f.id, 'revert')} onLoadHistory={() => loadPreview(f.id)}
             onSaveMeta={(patch) => saveMeta(f.id, patch)}
             hasConnector={hasConnector} hasTracker={hasTracker}
@@ -2094,11 +2112,11 @@ function SerpCard({ label, host, title, desc, color }: { label: string; host: st
 }
 
 // ── Fix card ──
-function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, onDismiss, onRestore, editableField, onEditDraft, downloadHref, open, onToggleOpen }: {
+function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRegenerate, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, onDismiss, onRestore, editableField, onEditDraft, downloadHref, open, onToggleOpen }: {
   fix: FixRow; title: string; preview: PreviewBlock | null | undefined; cost: number; revertable: boolean; impact?: 1 | 2 | 3;
   events: FixEvent[] | undefined; busy: boolean; armed: boolean; canShip: boolean; picked: boolean;
   onTogglePick: () => void; onGenerate: () => void; onApprove: () => void; onArm: () => void; onCancelArm: () => void;
-  onShipConfirm: () => void; onRecheck: () => void; onRetry: () => void; onRevert: () => void; onLoadHistory: () => void;
+  onShipConfirm: () => void; onRecheck: () => void; onRetry: () => void; onRegenerate: (instruction?: string) => void; onRevert: () => void; onLoadHistory: () => void;
   onSaveMeta: (patch: { note?: string; assignee?: string }) => void;
   hasConnector: boolean; hasTracker: boolean; onStage: () => void; onPublish: () => void; onTicket: () => void;
   onRequestReview: () => void; onDismiss: () => void; onRestore: () => void;
@@ -2110,6 +2128,8 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
 }) {
   const [editing, setEditing] = React.useState(false);
   const [editText, setEditText] = React.useState('');
+  const [regenning, setRegenning] = React.useState(false);
+  const [regenText, setRegenText] = React.useState('');
   const [showHistory, setShowHistory] = React.useState(false);
   const [note, setNote] = React.useState(fix.note || '');
   const [assignee, setAssignee] = React.useState(fix.assignee || '');
@@ -2329,9 +2349,9 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
           {isReview && (<>
             <button className="xbtn" onClick={onApprove} disabled={busy} style={{ background: 'var(--success)' }}>✓ APPROVE</button>
             {editableField && typeof (fix.generated as Record<string, unknown> | null)?.[editableField] === 'string' && (
-              <button className="gbtn" disabled={busy} onClick={() => { setEditText(String((fix.generated as Record<string, unknown>)[editableField])); setEditing((e) => !e); }}>✎ Edit</button>
+              <button className="gbtn" disabled={busy} title="Edit the AI's draft yourself before approving" onClick={() => { setEditText(String((fix.generated as Record<string, unknown>)[editableField])); setRegenning(false); setEditing((e) => !e); }}>✎ Edit</button>
             )}
-            <button className="gbtn" onClick={onGenerate} disabled={busy}>↻ Regenerate</button>
+            <button className="gbtn" disabled={busy} title="Not quite right? Have the AI try again — with your guidance, or a fresh take" onClick={() => { setRegenText(String((fix.detected as Record<string, unknown> | null)?.instruction ?? '')); setEditing(false); setRegenning((r) => !r); }}>↻ Regenerate</button>
             <button className="gbtn" onClick={onRequestReview} disabled={busy} title="Ping a teammate (assignee) to review this draft via Linear/Jira/Slack">✋ Request approval</button>
             {url && <a className="tbtn" href={url} target="_blank" rel="noreferrer">View source</a>}
           </>)}
@@ -2390,6 +2410,17 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button className="gbtn" onClick={() => setEditing(false)} style={{ padding: '7px 13px' }}>Cancel</button>
               <button className="xbtn" disabled={busy || !editText.trim()} onClick={() => { onEditDraft(editableField, editText.trim()); setEditing(false); }} style={{ padding: '7px 13px' }}>SAVE DRAFT</button>
+            </div>
+          </div>
+        )}
+
+        {regenning && isReview && (
+          <div className="nb-sm" style={{ padding: 14, background: 'var(--surface-2)', display: 'grid', gap: 10 }}>
+            <div className="xlbl" style={{ color: 'var(--primary)' }}>Tell the AI what to change {cost > 0 ? `— costs ${cost} credit${cost === 1 ? '' : 's'}` : ''}</div>
+            <textarea className="xin" rows={2} value={regenText} onChange={(e) => setRegenText(e.target.value)} placeholder="e.g. keep it under 55 chars · lead with the keyword · drop the question format. Leave blank for a fresh take." style={{ boxShadow: 'none', fontSize: 13, lineHeight: 1.5 }} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button className="gbtn" onClick={() => setRegenning(false)} style={{ padding: '7px 13px' }}>Cancel</button>
+              <button className="xbtn" disabled={busy} onClick={() => { onRegenerate(regenText.trim()); setRegenning(false); }} style={{ padding: '7px 13px' }}>{regenText.trim() ? '↻ REGENERATE WITH GUIDANCE' : '↻ REGENERATE'}</button>
             </div>
           </div>
         )}

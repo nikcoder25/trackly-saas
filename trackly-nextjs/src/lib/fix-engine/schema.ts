@@ -378,6 +378,7 @@ export async function updateFix(
   fixId: string,
   patch: {
     status?: FixStatus;
+    detected?: Record<string, unknown>;
     generated?: Record<string, unknown> | null;
     afterSnapshot?: Record<string, unknown> | null;
     shipResult?: Record<string, unknown> | null;
@@ -398,6 +399,7 @@ export async function updateFix(
   const values: unknown[] = [fixId];
   let i = 2;
   if (patch.status !== undefined) { sets.push(`status = $${i++}`); values.push(patch.status); }
+  if (patch.detected !== undefined) { sets.push(`detected = $${i++}`); values.push(JSON.stringify(patch.detected)); }
   if (patch.generated !== undefined) { sets.push(`generated = $${i++}`); values.push(patch.generated ? JSON.stringify(patch.generated) : null); }
   if (patch.afterSnapshot !== undefined) { sets.push(`after_snapshot = $${i++}`); values.push(patch.afterSnapshot ? JSON.stringify(patch.afterSnapshot) : null); }
   if (patch.shipResult !== undefined) { sets.push(`ship_result = $${i++}`); values.push(patch.shipResult ? JSON.stringify(patch.shipResult) : null); }
