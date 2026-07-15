@@ -10,7 +10,8 @@
 import { NextResponse } from 'next/server';
 import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { getConnectorByToken, touchConnectorSeen } from '@/lib/fix-engine/connections';
-import { listPendingConnectorInstructions } from '@/lib/fix-engine/schema';
+import { listPendingConnectorInstructions, getEdgeSeoOverrides } from '@/lib/fix-engine/schema';
+import type { EdgeLink } from '@/lib/fix-engine/schema';
 import { toWireInstruction } from '@/lib/fix-engine/connector';
 import { logger } from '@/lib/logger';
 
@@ -34,13 +35,25 @@ export async function GET(request: Request): Promise<Response> {
   await touchConnectorSeen(conn.brandId);
 
   try {
-    const rows = await listPendingConnectorInstructions(conn.brandId);
+    // Pending signed instructions + the brand's per-path SEO overrides. The
+    // overrides carry the shipped Internal-linking targets (validated hrefs)
+    // so a plugin-fronted site can inject the same contextual links the edge
+    // Worker does — previously this payload carried no links at all.
+    const [rows, overrides] = await Promise.all([
+      listPendingConnectorInstructions(conn.brandId),
+      getEdgeSeoOverrides(conn.brandId).catch(() => ({})),
+    ]);
     const issuedAt = new Date().toISOString();
     const instructions = rows
       .map((r) => toWireInstruction(r, conn.hmacSecret, issuedAt))
       .filter((x): x is NonNullable<typeof x> => x !== null);
+    // path → links[], only for paths that actually have internal links.
+    const links: Record<string, EdgeLink[]> = {};
+    for (const [path, o] of Object.entries(overrides)) {
+      if (o.links && o.links.length) links[path] = o.links;
+    }
     return NextResponse.json(
-      { instructions, count: instructions.length },
+      { instructions, count: instructions.length, links },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (e) {

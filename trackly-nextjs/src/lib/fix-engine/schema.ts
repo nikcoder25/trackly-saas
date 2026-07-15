@@ -543,6 +543,19 @@ export interface EdgeSeoOverride {
   head?: string;
   /** Force indexable: rewrite meta robots to index,follow + strip X-Robots-Tag. */
   indexable?: boolean;
+  /** Contextual internal links (from shipped internal-linking fixes) the Worker
+   *  injects into the page body. Href is a real, sitemap-validated site URL. */
+  links?: EdgeLink[];
+  /** How the Worker injects `links`: 'nav' (default, a Related-links block) or
+   *  'inline' (wrap the first plaintext occurrence of each anchor in the body). */
+  linkMode?: 'nav' | 'inline';
+}
+
+/** One contextual internal link the edge Worker injects into the page body. */
+export interface EdgeLink {
+  anchor: string;
+  href: string;
+  rel?: string;
 }
 
 /** module → which override field(s) its `generated` payload carries. */
@@ -560,6 +573,52 @@ const EDGE_FLAG_MODULES: Record<string, keyof Pick<EdgeSeoOverride, 'indexable'>
   'noindex-removal': 'indexable',
 };
 
+/** Module whose `generated.links` become body internal-link overrides. */
+const EDGE_LINK_MODULE = 'internal-linking';
+/** Hard cap on internal links per path (mirrors MAX_EDGE_LINKS in edge-worker). */
+const MAX_EDGE_LINKS = 8;
+
+/**
+ * Fold an internal-linking fix's `generated.links` ({ anchor, url|href, rel? })
+ * into the override link list. When `knownPaths` is supplied, a link is dropped
+ * unless its href resolves to a path the site actually serves — this is what
+ * stops us shipping a link to /peptides/semaglutide when the live URL is
+ * /semaglutide-calculator/. Anchors/hrefs are kept raw here; the Worker escapes
+ * them at inject time. Deduped by href and capped at MAX_EDGE_LINKS.
+ */
+function buildEdgeLinks(
+  generated: Record<string, unknown> | null,
+  knownPaths?: Set<string>,
+): EdgeLink[] {
+  const raw = Array.isArray(generated?.links) ? (generated!.links as unknown[]) : [];
+  const out: EdgeLink[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const l = item as Record<string, unknown>;
+    const anchor = typeof l.anchor === 'string' ? l.anchor.trim() : '';
+    // internal-linking stores the target as `url`; accept `href` too.
+    const href = (typeof l.url === 'string' ? l.url : typeof l.href === 'string' ? l.href : '').trim();
+    if (!anchor || !href || seen.has(href)) continue;
+    if (knownPaths) {
+      const key = edgeSeoPathKey(href);
+      if (!key || !knownPaths.has(key)) continue; // would 404 — drop it
+    }
+    seen.add(href);
+    const rel = typeof l.rel === 'string' && l.rel.trim() ? l.rel.trim() : undefined;
+    out.push(rel ? { anchor, href, rel } : { anchor, href });
+    if (out.length >= MAX_EDGE_LINKS) break;
+  }
+  return out;
+}
+
+/** Options for {@link buildEdgeSeoOverrides}. */
+export interface BuildEdgeSeoOptions {
+  /** Normalised path keys the site actually serves (sitemap/homepage). When
+   *  present, internal-link hrefs outside this set are dropped as 404s. */
+  knownPaths?: Set<string>;
+}
+
 /** Normalise a page URL to the pathname key the Worker matches on
  *  (no trailing slash, except the root itself). Null for unparseable URLs. */
 export function edgeSeoPathKey(targetUrl: string): string | null {
@@ -576,12 +635,20 @@ export function edgeSeoPathKey(targetUrl: string): string | null {
  */
 export function buildEdgeSeoOverrides(
   rows: Array<{ moduleKey: string; targetUrl: string | null; generated: Record<string, unknown> | null }>,
+  opts?: BuildEdgeSeoOptions,
 ): Record<string, EdgeSeoOverride> {
   const out: Record<string, EdgeSeoOverride> = {};
   for (const row of rows) {
     if (!row.targetUrl) continue;
     const key = edgeSeoPathKey(row.targetUrl);
     if (!key) continue;
+    if (row.moduleKey === EDGE_LINK_MODULE) {
+      const links = buildEdgeLinks(row.generated, opts?.knownPaths);
+      // Newest fix wins: a later shipped fix for the path replaces the set.
+      // An empty result (all targets 404'd) drops the field entirely.
+      if (links.length) (out[key] ??= {}).links = links;
+      continue;
+    }
     const flag = EDGE_FLAG_MODULES[row.moduleKey];
     if (flag) {
       (out[key] ??= {})[flag] = true;
@@ -618,13 +685,47 @@ export async function getEdgeSeoOverrides(brandId: string): Promise<Record<strin
         AND status IN ('shipped','verified')
         AND target_url IS NOT NULL AND generated IS NOT NULL
       ORDER BY updated_at ASC`,
-    [brandId, [...Object.keys(EDGE_SEO_MODULES), ...Object.keys(EDGE_FLAG_MODULES)]],
+    [brandId, [...Object.keys(EDGE_SEO_MODULES), ...Object.keys(EDGE_FLAG_MODULES), EDGE_LINK_MODULE]],
   );
-  return buildEdgeSeoOverrides(res.rows.map((r: DbRow) => ({
+  const rows = res.rows.map((r: DbRow) => ({
     moduleKey: String(r.module_key),
     targetUrl: (r.target_url as string | null) ?? null,
     generated: (r.generated as Record<string, unknown> | null) ?? null,
-  })));
+  }));
+  // Only pay for URL validation when there are internal-link fixes to validate:
+  // resolve the brand's real routes so links that would 404 are dropped.
+  const knownPaths = rows.some((r) => r.moduleKey === EDGE_LINK_MODULE)
+    ? await resolveKnownSitePaths(brandId)
+    : undefined;
+  return buildEdgeSeoOverrides(rows, { knownPaths });
+}
+
+/**
+ * The set of path keys the brand's site actually serves, from its sitemap
+ * (plus the homepage), for validating internal-link targets. Returns
+ * `undefined` when we can't enumerate real routes (no website, or the sitemap
+ * yielded only the homepage) — the caller then ships links unfiltered rather
+ * than over-dropping against an unknown route set.
+ */
+async function resolveKnownSitePaths(brandId: string): Promise<Set<string> | undefined> {
+  try {
+    const res = await pool.query(`SELECT data->>'website' AS website FROM brands WHERE id = $1`, [brandId]);
+    const website = res.rows[0]?.website ? String(res.rows[0].website) : '';
+    if (!website) return undefined;
+    // Lazy import keeps the crawler (and its fetch stack) out of schema's
+    // load graph for the many callers that never touch edge overrides.
+    const { resolveCrawlTargets } = await import('./crawl');
+    const targets = await resolveCrawlTargets(website, 500);
+    const paths = new Set<string>();
+    for (const u of targets) {
+      const key = edgeSeoPathKey(u);
+      if (key) paths.add(key);
+    }
+    // <= 1 means "homepage only" — no real sitemap was found, so don't filter.
+    return paths.size > 1 ? paths : undefined;
+  } catch {
+    return undefined; // never block override delivery on a validation hiccup
+  }
 }
 
 export interface StuckInstruction { id: string; brandId: string; createdAt: string }
