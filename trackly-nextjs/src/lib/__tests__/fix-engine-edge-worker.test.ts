@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildEdgeWorkerScript, relatedLinksNav, citationsNav, makeNavAppender, edgePathKey, MAX_EDGE_LINKS, MAX_EDGE_CITATIONS, EDGE_MARKER_HEADER } from '@/lib/fix-engine/edge-worker';
+import { buildEdgeWorkerScript, relatedLinksNav, citationsNav, citableSection, makeNavAppender, edgePathKey, MAX_EDGE_LINKS, MAX_EDGE_CITATIONS, MAX_EDGE_CITABLE_PASSAGES, EDGE_MARKER_HEADER } from '@/lib/fix-engine/edge-worker';
 
 // Same escaper the Worker defines inline (& < > ").
 const esc = (s: string) => String(s)
@@ -93,6 +93,17 @@ describe('buildEdgeWorkerScript body injection', () => {
     expect(script).toMatch(/class=\\?["']livesov-citations\\?["']/);
     expect(script).toMatch(/data-livesov=\\?["']citations\\?["']/);
   });
+
+  it('injects a separate citable block via its own appender with the body fallback', () => {
+    expect(script).toContain('o.citable');
+    expect(script).toContain('const citableSection =');
+    expect(script).toContain('const citableHtml = citableSection(o.citable, esc)');
+    expect(script).toContain('const appendCitable = makeNavAppender(citableHtml)');
+    expect(script).toContain("rw.on('article', appendCitable).on('main', appendCitable).on('[itemprop=\"articleBody\"]', appendCitable).on('body', appendCitable)");
+    // Citable marker survives serialization (quote-insensitive).
+    expect(script).toMatch(/class=\\?["']livesov-citable\\?["']/);
+    expect(script).toMatch(/data-livesov=\\?["']citable\\?["']/);
+  });
 });
 
 describe('citationsNav', () => {
@@ -117,6 +128,51 @@ describe('citationsNav', () => {
     const many = Array.from({ length: MAX_EDGE_CITATIONS + 3 }, (_, i) => ({ anchor: `S${i}`, href: `https://s${i}.org/x` }));
     expect((citationsNav(many, esc).match(/<li>/g) || []).length).toBe(MAX_EDGE_CITATIONS);
     expect(citationsNav([], esc)).toBe('');
+  });
+});
+
+describe('citableSection', () => {
+  it('renders a Key facts section with a TL;DR lead and a <ul> of passages', () => {
+    const html = citableSection(
+      { tldr: 'Cagrilintide is a long-acting amylin analogue.', passages: ['Half-life ~7 days.', 'Given weekly.'] },
+      esc,
+    );
+    expect(html).toBe(
+      '<section class="livesov-citable" data-livesov="citable"><h2>Key facts</h2>'
+      + '<p><strong>TL;DR:</strong> Cagrilintide is a long-acting amylin analogue.</p>'
+      + '<ul><li>Half-life ~7 days.</li><li>Given weekly.</li></ul></section>',
+    );
+  });
+
+  it('html-escapes the TL;DR and every passage (no markup breakout)', () => {
+    const html = citableSection(
+      { tldr: 'A & B <x>', passages: ['1 < 2 & "q"', '<script>alert(1)</script>'] },
+      esc,
+    );
+    expect(html).toContain('<strong>TL;DR:</strong> A &amp; B &lt;x&gt;</p>');
+    expect(html).toContain('<li>1 &lt; 2 &amp; &quot;q&quot;</li>');
+    expect(html).toContain('<li>&lt;script&gt;alert(1)&lt;/script&gt;</li>');
+    expect(html).not.toContain('<x>');
+    expect(html).not.toContain('<script>');
+  });
+
+  it('caps passages at MAX_EDGE_CITABLE_PASSAGES', () => {
+    const passages = Array.from({ length: MAX_EDGE_CITABLE_PASSAGES + 4 }, (_, i) => `Fact ${i}`);
+    const html = citableSection({ tldr: 'T', passages }, esc);
+    expect((html.match(/<li>/g) || []).length).toBe(MAX_EDGE_CITABLE_PASSAGES);
+  });
+
+  it('renders TL;DR-only and passages-only variants, empty when neither present', () => {
+    expect(citableSection({ tldr: 'Just a summary.' }, esc)).toBe(
+      '<section class="livesov-citable" data-livesov="citable"><h2>Key facts</h2>'
+      + '<p><strong>TL;DR:</strong> Just a summary.</p></section>',
+    );
+    expect(citableSection({ passages: ['Only a bullet.'] }, esc)).toBe(
+      '<section class="livesov-citable" data-livesov="citable"><h2>Key facts</h2>'
+      + '<ul><li>Only a bullet.</li></ul></section>',
+    );
+    expect(citableSection({ tldr: '   ', passages: ['', '   '] }, esc)).toBe('');
+    expect(citableSection({}, esc)).toBe('');
   });
 });
 
@@ -184,6 +240,29 @@ describe('makeNavAppender (single-injection + body fallback)', () => {
     expect(inserts).toEqual([
       { at: 'main', html: links },
       { at: 'main', html: cites },
+    ]);
+  });
+
+  it('three independent appenders (links + citations + citable) each inject once, body fallback', () => {
+    // The Worker registers a separate appender per block. On a page with no
+    // semantic container all three fall through to <body> and each injects
+    // exactly once, in registration order, with no collision.
+    const links = '<nav class="livesov-related"></nav>';
+    const cites = '<nav class="livesov-citations"></nav>';
+    const citable = '<section class="livesov-citable"></section>';
+    const appenders = [makeNavAppender(links), makeNavAppender(cites), makeNavAppender(citable)];
+    const cbs: Array<(end: { before(html: string, opts: { html: boolean }): void }) => void> = [];
+    for (const ap of appenders) {
+      let stored: ((end: { before(html: string, opts: { html: boolean }): void }) => void) | null = null;
+      ap.element({ onEndTag: (cb) => { stored = cb; } });
+      cbs.push(stored!);
+    }
+    const inserts: Array<{ at: string; html: string }> = [];
+    for (const cb of cbs) cb({ before: (html) => inserts.push({ at: 'body', html }) });
+    expect(inserts).toEqual([
+      { at: 'body', html: links },
+      { at: 'body', html: cites },
+      { at: 'body', html: citable },
     ]);
   });
 });

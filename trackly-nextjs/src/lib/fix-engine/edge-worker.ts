@@ -79,6 +79,40 @@ export function citationsNav(
   return items ? '<nav class="livesov-citations" data-livesov="citations"><ul>' + items + '</ul></nav>' : '';
 }
 
+/** Hard cap on citable passages injected into a single page. Keep in sync with
+ *  the literal `6` inside {@link citableSection} (serialized into the Worker, so
+ *  it can't reference this constant at runtime). */
+export const MAX_EDGE_CITABLE_PASSAGES = 6;
+
+/**
+ * Build the "Key facts" citable block from a per-path override's `citable`
+ * ({ tldr, passages }). Same single-source-of-truth contract as
+ * {@link relatedLinksNav} / {@link citationsNav} (unit-tested here, serialized
+ * verbatim into the Worker). A self-contained <section>: a TL;DR lead line plus
+ * a <ul> of fact-dense passages an LLM can quote. Kept a SEPARATE block
+ * (class `livesov-citable`) so it coexists with the internal-links and
+ * citations navs. Every value is html-escaped; empty content returns '' so the
+ * caller injects nothing.
+ */
+export function citableSection(
+  citable: { tldr?: string; passages?: string[] },
+  esc: (s: string) => string,
+): string {
+  const tldr = citable && typeof citable.tldr === 'string' ? citable.tldr.trim() : '';
+  const passages = citable && Array.isArray(citable.passages) ? citable.passages : [];
+  const items = passages
+    .slice(0, 6)
+    .map((p) => (typeof p === 'string' ? p.trim() : ''))
+    .filter(Boolean)
+    .map((p) => '<li>' + esc(p) + '</li>')
+    .join('');
+  const lead = tldr ? '<p><strong>TL;DR:</strong> ' + esc(tldr) + '</p>' : '';
+  const list = items ? '<ul>' + items + '</ul>' : '';
+  return (lead || list)
+    ? '<section class="livesov-citable" data-livesov="citable"><h2>Key facts</h2>' + lead + list + '</section>'
+    : '';
+}
+
 /** Minimal shapes of the HTMLRewriter element/end-tag the appender touches. */
 interface EdgeEndTag { before(content: string, opts: { html: boolean }): void }
 interface EdgeElement { onEndTag(cb: (end: EdgeEndTag) => void): void }
@@ -116,14 +150,15 @@ export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
     + `// Works for ANY stack (WordPress, custom-coded, ...): serves /llms.txt, appends\n`
     + `// AI rules to /robots.txt, and applies your shipped SEO fixes (title, meta\n`
     + `// description, canonical, JSON-LD schema, OG/Twitter cards, noindex removal,\n`
-    + `// contextual internal links, and authoritative source citations) to every\n`
-    + `// page as it is served.\n`
+    + `// contextual internal links, authoritative source citations, and citable\n`
+    + `// "Key facts" answer blocks) to every page as it is served.\n`
     + `const T = ${JSON.stringify(token)};\n`
     + `const BASE = ${JSON.stringify(edgeBase)};\n`
     + `const H = { headers: { Authorization: 'Bearer ' + T } };\n`
     + `const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');\n`
     + `const relatedLinksNav = ${relatedLinksNav.toString()};\n`
     + `const citationsNav = ${citationsNav.toString()};\n`
+    + `const citableSection = ${citableSection.toString()};\n`
     + `const edgePathKey = ${edgePathKey.toString()};\n`
     + `const makeNavAppender = ${makeNavAppender.toString()};\n`
     + `export default {\n`
@@ -194,6 +229,13 @@ export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
     + `      if (citeHtml) { // own appender/guard, so it coexists with the internal-links nav\n`
     + `        const appendCite = makeNavAppender(citeHtml);\n`
     + `        rw = rw.on('article', appendCite).on('main', appendCite).on('[itemprop="articleBody"]', appendCite).on('body', appendCite);\n`
+    + `      }\n`
+    + `    }\n`
+    + `    if (o.citable && (o.citable.tldr || (Array.isArray(o.citable.passages) && o.citable.passages.length))) { // shipped Citable-passages fixes\n`
+    + `      const citableHtml = citableSection(o.citable, esc);\n`
+    + `      if (citableHtml) { // own appender/guard, so it coexists with the links + citations navs\n`
+    + `        const appendCitable = makeNavAppender(citableHtml);\n`
+    + `        rw = rw.on('article', appendCitable).on('main', appendCitable).on('[itemprop="articleBody"]', appendCitable).on('body', appendCitable);\n`
     + `      }\n`
     + `    }\n`
     + `    return rw.transform(out);\n`
