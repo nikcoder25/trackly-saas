@@ -18,7 +18,7 @@
 import { NextResponse } from 'next/server';
 import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { getConnectorByToken } from '@/lib/fix-engine/connections';
-import { getLatestRootFileContent, getEdgeSeoOverrides } from '@/lib/fix-engine/schema';
+import { getLatestRootFileContent, getEdgeSeoOverrides, normalizeEdgeOverrideKeys } from '@/lib/fix-engine/schema';
 import { logger } from '@/lib/logger';
 
 // file → (module, field where the text lives in `generated`)
@@ -51,7 +51,9 @@ export async function GET(request: Request): Promise<Response> {
     // Per-path SEO overrides for the Worker's HTML rewriting. Always 200
     // (an empty map is valid — the Worker just passes pages through).
     if (file === 'seo.json') {
-      const overrides = await getEdgeSeoOverrides(conn.brandId);
+      // Canonical (trailing-slash-normalised) keys so the Worker resolves
+      // /p and /p/ to the same override entry.
+      const overrides = normalizeEdgeOverrideKeys(await getEdgeSeoOverrides(conn.brandId));
       return NextResponse.json(
         { v: 1, overrides, count: Object.keys(overrides).length },
         { headers: { 'Cache-Control': 'public, max-age=300' } },
