@@ -66,7 +66,16 @@ vi.mock('@/lib/fix-engine/generate', () => ({
         { src: '/img/IMG_1234.jpg', alt: 'Acme Analytics reporting view' },
       ], rationale: 'r' } };
     }
-    return { data: { suggestedTitle: 'Best AI Visibility Tools for Agencies | Acme', plan: ['Add the keyword to the H1'], heading: 'What are the best AI visibility tools?', html: '<h2>What are the best AI visibility tools?</h2><p>...</p>', rationale: 'winnable' } };
+    return { data: {
+      suggestedTitle: 'Best AI Visibility Tools for Agencies | Acme',
+      suggestedH1: 'Best AI Visibility Tools for Agencies',
+      suggestedMetaDescription: 'Compare the best AI visibility tools for agencies and pick the right one for tracking brand mentions across AI answer engines.',
+      suggestedSlug: 'best-ai-visibility-tools',
+      plan: ['Title: lead with the exact keyword', 'H1: use the exact keyword', 'Meta description: include the exact keyword', 'URL slug: best-ai-visibility-tools'],
+      heading: 'What are the best AI visibility tools?',
+      html: '<h2>What are the best AI visibility tools?</h2><p>...</p>',
+      rationale: 'winnable',
+    } };
   }),
 }));
 vi.mock('@/lib/fix-engine/modules/_shared', () => ({
@@ -180,5 +189,20 @@ describe('keyword-opportunities module', () => {
     expect(String(draft.generated.suggestedTitle)).toContain('AI Visibility');
     expect(String(draft.generated.html)).toContain('<h2>');
     expect(keywordOpportunitiesModule.contentPatch!(issue, draft)?.bodyAppend).toContain('<h2>');
+  });
+
+  it('captures the on-page keyword targets (title/H1/meta/slug) for review', async () => {
+    const issue = (await keywordOpportunitiesModule.detect(ctx))[0];
+    fetchMock.mockResolvedValue(htmlRes('<title>Tools</title><p>content</p>'));
+    const draft = await keywordOpportunitiesModule.generate(issue, ctx);
+    // The module surfaces the exact keyword's placement across on-page areas so
+    // a reviewer can confirm title/H1/meta/slug all target the same phrase.
+    expect(String(draft.generated.suggestedH1)).toContain('AI Visibility');
+    expect(String(draft.generated.suggestedMetaDescription).toLowerCase()).toContain('ai visibility tools');
+    expect(String(draft.generated.suggestedSlug)).toBe('best-ai-visibility-tools');
+    const preview = keywordOpportunitiesModule.preview(issue, draft);
+    expect(preview.after).toContain('Exact keyword to target across on-page SEO: "best ai visibility tools"');
+    expect(preview.after).toContain('H1:');
+    expect(preview.after).toContain('Slug:   /best-ai-visibility-tools');
   });
 });

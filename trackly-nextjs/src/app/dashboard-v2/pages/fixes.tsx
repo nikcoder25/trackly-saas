@@ -862,8 +862,12 @@ export function PageFixes() {
   const scanCost = React.useMemo(() => catalog.filter((c) => selected.has(c.key)).reduce((s, c) => s + (c.cost || 0), 0), [catalog, selected]);
 
   const shown = React.useMemo(() => {
-    // 'all' hides ignored fixes; they only appear under the Ignored tab.
-    let list = filter === 'all' ? fixes.filter((f) => f.status !== 'dismissed') : fixes.filter((f) => bucketOf(f.status) === filter);
+    // 'all' is the to-do view: it hides ignored fixes (Ignored tab) AND already
+    // published ones (shipped/verified → the Archive tab), so the main list
+    // shows only what still needs you — detect, review, approve, attention.
+    let list = filter === 'all'
+      ? fixes.filter((f) => f.status !== 'dismissed' && bucketOf(f.status) !== 'shipped')
+      : fixes.filter((f) => bucketOf(f.status) === filter);
     if (quickWins) list = list.filter((f) => (moduleMeta(f.moduleKey)?.cost ?? 1) === 0 || f.severity === 'critical' || f.severity === 'high');
     // Rank by severity, then by estimated value: module impact weighted by
     // the target page's real 28-day GSC impressions (log-scaled so a huge
@@ -910,7 +914,7 @@ export function PageFixes() {
     { value: String(counts.detected || 0), label: 'Detected', bg: 'var(--primary-50)', fg: 'var(--primary)' },
     { value: String(counts.review || 0), label: 'In review', bg: 'var(--primary-50)', fg: 'var(--primary)' },
     { value: String(counts.approved || 0), label: 'Approved', bg: 'var(--info-50)', fg: 'var(--info)' },
-    { value: String(counts.shipped || 0), label: 'Live', bg: 'var(--success-50)', fg: 'var(--success)' },
+    { value: String(counts.shipped || 0), label: 'Archived', bg: 'var(--success-50)', fg: 'var(--success)' },
     { value: String(counts.attention || 0), label: 'Attention', bg: 'var(--danger-50)', fg: 'var(--danger)' },
   ];
   const pipeline = [
@@ -922,12 +926,14 @@ export function PageFixes() {
     { n: '6', label: 're-check', color: 'var(--info)', bg: 'var(--info-50)' },
   ];
   const filterDefs = [
-    { key: 'all', label: 'ALL', count: fixes.length - (counts.dismissed || 0) },
+    // ALL is the to-do count: total minus what's been archived (published) or ignored.
+    { key: 'all', label: 'ALL', count: fixes.length - (counts.dismissed || 0) - (counts.shipped || 0) },
     { key: 'detected', label: 'DETECTED', count: counts.detected || 0 },
     { key: 'review', label: 'REVIEW', count: counts.review || 0 },
     { key: 'approved', label: 'APPROVED', count: counts.approved || 0 },
-    { key: 'shipped', label: 'LIVE', count: counts.shipped || 0 },
     { key: 'attention', label: 'ATTENTION', count: counts.attention || 0 },
+    // Published fixes live here, out of the main to-do — still re-checkable/undoable.
+    { key: 'shipped', label: 'ARCHIVE', count: counts.shipped || 0 },
     ...((counts.dismissed || 0) > 0 ? [{ key: 'dismissed', label: 'IGNORED', count: counts.dismissed || 0 }] : []),
   ];
 
@@ -1275,14 +1281,30 @@ export function PageFixes() {
       )}
 
       {!loading && shown.length === 0 && filter === 'all' && (
-        <div className="nb" style={{ padding: 56, textAlign: 'center', background: 'var(--primary-50)' }}>
-          <div className="disp" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>NOTHING TO FIX… YET</div>
-          <p style={{ margin: '12px auto 22px', fontSize: 14, color: 'var(--text-2)', maxWidth: '44ch', lineHeight: 1.6, fontWeight: 500 }}>Run a scan to check {brandName} against {selected.size} modules, ranked by severity.</p>
-          <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0} style={{ margin: '0 auto' }}>
-            {scanning ? <><span className="spin" style={{ marginRight: 7 }} />SCANNING…</> : '▶ RUN SCAN'}
-          </button>
-          {scanning && <div style={{ maxWidth: 420, margin: '16px auto 0', textAlign: 'left' }}><ScanBanner progress={scanProgress} /></div>}
-        </div>
+        (counts.shipped || 0) > 0 ? (
+          // To-do list is clear but published fixes are parked in the Archive —
+          // celebrate the clean queue and point to where the done work lives.
+          <div className="nb" style={{ padding: 56, textAlign: 'center', background: 'var(--success-50)' }}>
+            <div className="disp" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>ALL CAUGHT UP ✓</div>
+            <p style={{ margin: '12px auto 22px', fontSize: 14, color: 'var(--text-2)', maxWidth: '46ch', lineHeight: 1.6, fontWeight: 500 }}>
+              Nothing needs you right now. {counts.shipped} published fix{counts.shipped === 1 ? '' : 'es'} {counts.shipped === 1 ? 'is' : 'are'} in the Archive — re-check or undo any of them there. Run a fresh scan to look for more.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button className="xbtn" onClick={() => setFilter('shipped')}>🗄 View Archive ({counts.shipped})</button>
+              <button className="gbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0}>{scanning ? 'SCANNING…' : '▶ Run scan'}</button>
+            </div>
+            {scanning && <div style={{ maxWidth: 420, margin: '16px auto 0', textAlign: 'left' }}><ScanBanner progress={scanProgress} /></div>}
+          </div>
+        ) : (
+          <div className="nb" style={{ padding: 56, textAlign: 'center', background: 'var(--primary-50)' }}>
+            <div className="disp" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>NOTHING TO FIX… YET</div>
+            <p style={{ margin: '12px auto 22px', fontSize: 14, color: 'var(--text-2)', maxWidth: '44ch', lineHeight: 1.6, fontWeight: 500 }}>Run a scan to check {brandName} against {selected.size} modules, ranked by severity.</p>
+            <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0} style={{ margin: '0 auto' }}>
+              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />SCANNING…</> : '▶ RUN SCAN'}
+            </button>
+            {scanning && <div style={{ maxWidth: 420, margin: '16px auto 0', textAlign: 'left' }}><ScanBanner progress={scanProgress} /></div>}
+          </div>
+        )
       )}
 
       {shown.length > 0 && (() => {
@@ -2143,6 +2165,10 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
   const isLive = s === 'shipped' || s === 'verified';
   const isAttention = s === 'failed' || s === 'reverted';
   const isDismissed = s === 'dismissed';
+  // A shipped fix can still be revised when the module overwrites on ship
+  // (title/meta — `revertable`): editing/regenerating re-opens it for review,
+  // and the live page keeps its shipped copy until the new draft is re-shipped.
+  const canRevise = isReview || (isLive && revertable);
   // Ignore is offered while a fix hasn't been applied to the site yet.
   const canIgnore = !isDismissed && !isLive && !isStaged && s !== 'shipping';
   // Staging is offered only for fixes whose module can express a draft patch
@@ -2354,6 +2380,7 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
             <button className="gbtn" disabled={busy} title="Not quite right? Have the AI try again — with your guidance, or a fresh take" onClick={() => { setRegenText(String((fix.detected as Record<string, unknown> | null)?.instruction ?? '')); setEditing(false); setRegenning((r) => !r); }}>↻ Regenerate</button>
             <button className="gbtn" onClick={onRequestReview} disabled={busy} title="Ping a teammate (assignee) to review this draft via Linear/Jira/Slack">✋ Request approval</button>
             {url && <a className="tbtn" href={url} target="_blank" rel="noreferrer">View source</a>}
+            {fix.shipResult && <span className="xlbl" style={{ width: '100%', color: 'var(--text-2)' }}>↩ Revising a live fix — your page keeps the shipped version until you approve &amp; re-ship.</span>}
           </>)}
           {isApproved && !armed && (<>
             <button className="xbtn" onClick={onArm} disabled={busy} style={{ background: 'var(--success)' }}>⬢ SHIP TO SITE</button>
@@ -2387,6 +2414,14 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
           {isLive && (<>
             <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)', fontSize: 11, padding: '6px 12px' }}>✓ {s === 'verified' ? 'VERIFIED' : 'SHIPPED'}</span>
             <button className="gbtn" onClick={onRecheck} disabled={busy} style={{ padding: '7px 13px' }}>↻ Re-check</button>
+            {/* Revise a live title/meta fix: re-opens it for review; the page
+                keeps its shipped copy until the new draft is re-shipped. */}
+            {canRevise && editableField && typeof (fix.generated as Record<string, unknown> | null)?.[editableField] === 'string' && (
+              <button className="gbtn" disabled={busy} title="Edit the live text — re-ships on approve" onClick={() => { setEditText(String((fix.generated as Record<string, unknown>)[editableField])); setRegenning(false); setEditing((e) => !e); }} style={{ padding: '7px 13px' }}>✎ Edit</button>
+            )}
+            {canRevise && (
+              <button className="gbtn" disabled={busy} title="Not right? Have the AI rewrite it — with your guidance, or a fresh take. Re-ships on approve." onClick={() => { setRegenText(String((fix.detected as Record<string, unknown> | null)?.instruction ?? '')); setEditing(false); setRegenning((r) => !r); }} style={{ padding: '7px 13px' }}>↻ Regenerate</button>
+            )}
             {revertable && <button className="gbtn" onClick={onRevert} disabled={busy} style={{ padding: '7px 13px' }}>⤺ Undo</button>}
             {url && <a className="tbtn" href={url} target="_blank" rel="noreferrer">View on site</a>}
           </>)}
@@ -2403,9 +2438,9 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
           <button className="tbtn" onClick={() => { if (!showHistory && !events) onLoadHistory(); setShowHistory((h) => !h); }}>{showHistory ? 'Hide history' : 'History'}</button>
         </div>
 
-        {editing && isReview && editableField && (
+        {editing && canRevise && editableField && (
           <div className="nb-sm" style={{ padding: 14, background: 'var(--surface-2)', display: 'grid', gap: 10 }}>
-            <div className="xlbl" style={{ color: 'var(--primary)' }}>Edit the draft ({editableField}) — your brand rules still apply on save</div>
+            <div className="xlbl" style={{ color: 'var(--primary)' }}>Edit the {isLive ? 'live' : 'draft'} ({editableField}) — your brand rules still apply{isLive ? '; re-ships on approve' : ' on save'}</div>
             <textarea className="xin" rows={editText.length > 160 ? 5 : 2} value={editText} onChange={(e) => setEditText(e.target.value)} style={{ boxShadow: 'none', fontSize: 13, lineHeight: 1.5 }} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button className="gbtn" onClick={() => setEditing(false)} style={{ padding: '7px 13px' }}>Cancel</button>
@@ -2414,9 +2449,9 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
           </div>
         )}
 
-        {regenning && isReview && (
+        {regenning && canRevise && (
           <div className="nb-sm" style={{ padding: 14, background: 'var(--surface-2)', display: 'grid', gap: 10 }}>
-            <div className="xlbl" style={{ color: 'var(--primary)' }}>Tell the AI what to change {cost > 0 ? `— costs ${cost} credit${cost === 1 ? '' : 's'}` : ''}</div>
+            <div className="xlbl" style={{ color: 'var(--primary)' }}>Tell the AI what to change {cost > 0 ? `— costs ${cost} credit${cost === 1 ? '' : 's'}` : ''}{isLive ? ' · re-ships on approve' : ''}</div>
             <textarea className="xin" rows={2} value={regenText} onChange={(e) => setRegenText(e.target.value)} placeholder="e.g. keep it under 55 chars · lead with the keyword · drop the question format. Leave blank for a fresh take." style={{ boxShadow: 'none', fontSize: 13, lineHeight: 1.5 }} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button className="gbtn" onClick={() => setRegenning(false)} style={{ padding: '7px 13px' }}>Cancel</button>
