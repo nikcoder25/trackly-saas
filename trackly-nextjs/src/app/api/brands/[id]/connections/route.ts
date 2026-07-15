@@ -71,14 +71,16 @@ export async function POST(
     let body: ConnBody;
     try { body = (await request.json()) as ConnBody; } catch { return Response.json({ error: 'Invalid JSON body' }, { status: 400 }); }
 
-    // Self-Serve Connect: `{ method: 'snippet' }` creates (or returns) the
-    // brand's site_connection and hands back the one-line snippet to paste.
-    // This is a separate concept from the provider-based fix_connections below.
+    // Self-Serve Connect: `{ method: 'snippet' | 'wordpress' }` creates (or
+    // returns) the brand's site_connection and hands back the one-line snippet
+    // to paste. WordPress uses the SAME snippet (no plugin) — `method` only
+    // records which flow the user picked. Separate from the provider-based
+    // fix_connections below.
     if (typeof body.method === 'string') {
-      if (body.method !== 'snippet') {
-        return Response.json({ error: 'Unsupported connect method. Milestone 1 supports "snippet".' }, { status: 400 });
+      if (body.method !== 'snippet' && body.method !== 'wordpress') {
+        return Response.json({ error: 'Unsupported connect method. Supported: "snippet", "wordpress".' }, { status: 400 });
       }
-      const conn = await createOrGetSiteConnection(id, 'snippet');
+      const conn = await createOrGetSiteConnection(id, body.method);
       return Response.json(
         { connection: conn, snippet: snippetTag(conn.publicKey) },
         { status: 200, headers: { 'Cache-Control': 'no-store' } },

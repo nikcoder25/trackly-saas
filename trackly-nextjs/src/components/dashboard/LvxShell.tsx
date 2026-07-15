@@ -37,6 +37,7 @@ const NAV: { label: string; items: NavItem[] }[] = [
     { id: 'recommendations', href: '/dashboard/recommendations', label: 'Recommendations' },
   ] },
   { label: 'Tools', items: [
+    { id: 'connect', href: '/dashboard/connect', label: 'Connect Site', badge: 'NEW' },
     { id: 'fixes', href: '/dashboard/fixes', label: 'Fix Engine', badge: 'NEW' },
     { id: 'reports', href: '/dashboard/reports', label: 'Reports' },
     { id: 'geo-audit', href: '/dashboard/geo-audit', label: 'GEO Audit' },
@@ -59,6 +60,7 @@ const ALL_ITEMS = NAV.flatMap(g => g.items.map(it => ({ ...it, group: g.label })
 // they line up with the Overview. Add a route here once its page is themed.
 const THEMED_ROUTES = new Set<string>([
   '/dashboard',
+  '/dashboard/connect',
   '/dashboard/fixes',
   '/dashboard/mentions',
   '/dashboard/competitors',
@@ -84,6 +86,7 @@ function NavIcon({ id }: { id: string }) {
   const s: any = { width: 14, height: 14, viewBox: '0 0 14 14', fill: 'none', stroke: 'currentColor', strokeWidth: 1.4, strokeLinecap: 'round', strokeLinejoin: 'round' };
   switch (id) {
     case 'overview': return <svg {...s}><rect x="2" y="2" width="4" height="4" /><rect x="8" y="2" width="4" height="4" /><rect x="2" y="8" width="4" height="4" /><rect x="8" y="8" width="4" height="4" /></svg>;
+    case 'connect': return <svg {...s}><path d="M5.5 8.5l3-3" /><path d="M7 4l1-1a2.1 2.1 0 013 3l-1 1" /><path d="M7 10l-1 1a2.1 2.1 0 01-3-3l1-1" /></svg>;
     case 'mentions': return <svg {...s}><path d="M2 4h10v6h-5l-3 2v-2H2z" /></svg>;
     case 'proof': return <svg {...s}><path d="M2 3h7l3 3v7H2z" /><path d="M9 3v3h3" /><path d="M5 8l2 2 3-3" /></svg>;
     case 'platforms': return <svg {...s}><circle cx="7" cy="7" r="5" /><path d="M2 7h10M7 2c1.5 2 1.5 8 0 10M7 2c-1.5 2-1.5 8 0 10" /></svg>;
