@@ -18,6 +18,8 @@ import { listConnections, upsertConnection } from '@/lib/fix-engine/connections'
 import { getCmsAdapter, listSupportedCms } from '@/lib/fix-engine/cms';
 import { getTracker } from '@/lib/fix-engine/trackers';
 import { verifyKeywordsEverywhere } from '@/lib/fix-engine/keywords';
+import { createOrGetSiteConnection } from '@/lib/connect/schema';
+import { snippetTag } from '@/lib/connect/snippet';
 
 export async function GET(
   request: Request,
@@ -42,6 +44,8 @@ export async function GET(
 }
 
 interface ConnBody {
+  /** Self-Serve Connect (site_connection) selector — distinct from `provider`. */
+  method?: unknown;
   provider?: unknown;
   cmsType?: unknown;
   siteUrl?: unknown;
@@ -66,6 +70,20 @@ export async function POST(
 
     let body: ConnBody;
     try { body = (await request.json()) as ConnBody; } catch { return Response.json({ error: 'Invalid JSON body' }, { status: 400 }); }
+
+    // Self-Serve Connect: `{ method: 'snippet' }` creates (or returns) the
+    // brand's site_connection and hands back the one-line snippet to paste.
+    // This is a separate concept from the provider-based fix_connections below.
+    if (typeof body.method === 'string') {
+      if (body.method !== 'snippet') {
+        return Response.json({ error: 'Unsupported connect method. Milestone 1 supports "snippet".' }, { status: 400 });
+      }
+      const conn = await createOrGetSiteConnection(id, 'snippet');
+      return Response.json(
+        { connection: conn, snippet: snippetTag(conn.publicKey) },
+        { status: 200, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
 
     const provider = typeof body.provider === 'string' ? body.provider : '';
     if (!['cms', 'gsc', 'connector', 'linear', 'jira', 'kwe', 'sheet'].includes(provider)) {

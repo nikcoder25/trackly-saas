@@ -29,6 +29,7 @@ export const NAV = [
   { label: 'Tools', items: [
     { id: 'geo-audit',  label: 'GEO Audit',       icon: '◉' },
     { id: 'regional',   label: 'Regional Audits', icon: '◐' },
+    { id: 'connect',    label: 'Connect Site',    icon: '⚯', badge: 'NEW' },
     { id: 'fixes',      label: 'Fix Engine',      icon: '✦', badge: 'NEW' },
     { id: 'onboarding', label: 'Onboarding',      icon: '◇' },
   ] },

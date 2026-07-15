@@ -26,6 +26,12 @@ const CSRF_EXEMPT_PREFIXES = [
   '/api/webhooks/',
   '/api/payments/webhooks/',
   '/api/cron',
+  // Self-Serve Connect public endpoints (serve + heartbeat) are called
+  // cross-origin from the customer's own site by the /c.js snippet. They're
+  // anonymous, cookieless, and keyed only by a public site id, so the classic
+  // cookie-riding CSRF threat doesn't apply — and the same-origin check would
+  // otherwise block the legitimate cross-origin heartbeat POST.
+  '/api/connect/',
 ];
 
 // Bootstrap / anonymous endpoints: no CSRF token yet (user isn't logged in),
