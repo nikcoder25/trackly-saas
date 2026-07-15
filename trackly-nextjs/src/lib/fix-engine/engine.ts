@@ -187,17 +187,31 @@ export async function generateFix(fixId: string, brandId: string, instruction?: 
   if (!fix) throw new Error('Fix not found');
   const mod = getModule(fix.moduleKey);
   if (!mod) throw new Error(`Unknown module: ${fix.moduleKey}`);
-  // Allow (re)generate from detected, a prior draft, or a failed attempt.
-  if (!['detected', 'generated', 'failed'].includes(fix.status)) {
-    throw new Error(`Cannot generate a fix in status '${fix.status}'`);
+  // Allow (re)generate from detected, a prior draft, a failed attempt, or an
+  // already-live fix the user wants to revise. Revising a live fix is only
+  // safe when the module OVERWRITES on ship (has a revert() — title/meta):
+  // re-shipping replaces the live value cleanly. Append-style modules would
+  // duplicate content, so they must be Undone first, not revised in place.
+  const priorStatus = fix.status;
+  const wasLive = priorStatus === 'shipped' || priorStatus === 'verified';
+  if (!['detected', 'generated', 'failed', 'shipped', 'verified'].includes(priorStatus)) {
+    throw new Error(`Cannot generate a fix in status '${priorStatus}'`);
   }
-  if (!(await claimFixTransition(fix.id, fix.status, 'generating'))) {
+  if (wasLive && typeof mod.revert !== 'function') {
+    throw new Error('This fix type can’t be revised in place after shipping — Undo it first, then regenerate.');
+  }
+  // Where to return the fix if this attempt can't complete: a live fix must
+  // stay exactly as it shipped (never fall back to detected/failed), otherwise
+  // roll to the requested status (detected = retry later, failed = actionable).
+  const rollback = (status: 'detected' | 'failed', error: string | null) =>
+    updateFix(fix.id, { status: wasLive ? priorStatus : status, error: wasLive ? null : error });
+  if (!(await claimFixTransition(fix.id, priorStatus, 'generating'))) {
     return (await getFix(fixId, brandId))!; // lost the race
   }
 
   const ctx = await buildContext(brandId);
   if (!ctx) {
-    await updateFix(fix.id, { status: 'failed', error: 'Brand not found' });
+    await rollback('failed', 'Brand not found');
     throw new Error('Brand not found');
   }
 
@@ -205,8 +219,9 @@ export async function generateFix(fixId: string, brandId: string, instruction?: 
   const cost = generateCost(mod.key);
   const reservation = await reserveCredits(ctx.brand.userId, plan, cost, 'manual');
   if (!reservation.ok) {
-    // Roll the status back so the user can retry once they have credits.
-    await updateFix(fix.id, { status: 'detected', error: reservation.message });
+    // Roll the status back so the user can retry once they have credits (a
+    // live fix returns to its shipped state, nothing lost).
+    await rollback('detected', reservation.message);
     throw Object.assign(new Error(reservation.message), {
       code: reservation.code, paymentRequired: true,
     });
@@ -242,12 +257,16 @@ export async function generateFix(fixId: string, brandId: string, instruction?: 
     } catch (e) {
       logger.warn('fix_engine.rules_apply_failed', { fixId: fix.id, err: (e as Error).message });
     }
+    // A revised live fix returns to review; the site keeps the shipped copy
+    // until this new draft is approved and re-shipped.
     await updateFix(fix.id, { status: 'generated', generated, error: null });
-    await logFixEvent(fix.id, brandId, ctx.brand.userId, 'generated', { module: mod.key, cost, steered: !!detected.instruction });
+    await logFixEvent(fix.id, brandId, ctx.brand.userId, 'generated', { module: mod.key, cost, steered: !!detected.instruction, revisedFrom: wasLive ? priorStatus : undefined });
     return (await getFix(fixId, brandId))!;
   } catch (e) {
     await refundCredits(ctx.brand.userId, cost, 'manual');
-    await updateFix(fix.id, { status: 'failed', error: (e as Error).message });
+    // Generation failed: a live fix stays live (its shipped value is fine);
+    // a not-yet-live one goes to 'failed' so it's actionable.
+    await rollback('failed', (e as Error).message);
     await logFixEvent(fix.id, brandId, ctx.brand.userId, 'generate.failed', { error: (e as Error).message });
     throw e;
   }

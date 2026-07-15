@@ -84,13 +84,23 @@ export async function PATCH(
 
     let body: PatchBody;
     try { body = (await request.json()) as PatchBody; } catch { return Response.json({ error: 'Invalid JSON body' }, { status: 400 }); }
-    const patch: { note?: string | null; assignee?: string | null; generated?: Record<string, unknown> } = {};
+    const patch: { note?: string | null; assignee?: string | null; generated?: Record<string, unknown>; status?: 'generated' } = {};
     if (body.note !== undefined) patch.note = typeof body.note === 'string' ? body.note.slice(0, 2000) : null;
     if (body.assignee !== undefined) patch.assignee = typeof body.assignee === 'string' ? body.assignee.slice(0, 120) : null;
 
     if (body.generated !== undefined) {
-      if (!existing.generated || !['generated', 'preview_ready'].includes(existing.status)) {
-        return Response.json({ error: 'Only a draft awaiting review can be edited.' }, { status: 400 });
+      // Editable while a draft awaits review, or when revising an already-live
+      // fix. A live edit is only allowed for overwrite-style modules (title/
+      // meta — those with a revert()); re-shipping replaces the value cleanly,
+      // whereas append modules would duplicate content.
+      const wasLive = existing.status === 'shipped' || existing.status === 'verified';
+      const mod = getModule(existing.moduleKey);
+      const editable = ['generated', 'preview_ready', 'shipped', 'verified'].includes(existing.status);
+      if (!existing.generated || !editable) {
+        return Response.json({ error: 'Only a draft awaiting review, or a shipped title/meta fix, can be edited.' }, { status: 400 });
+      }
+      if (wasLive && typeof mod?.revert !== 'function') {
+        return Response.json({ error: 'This fix type can’t be edited in place after shipping — Undo it first.' }, { status: 400 });
       }
       if (!body.generated || typeof body.generated !== 'object' || Array.isArray(body.generated)) {
         return Response.json({ error: 'generated must be an object of draft fields' }, { status: 400 });
@@ -106,7 +116,10 @@ export async function PATCH(
       if (edited.length) {
         const auto = await getAutomation(id).catch(() => null);
         patch.generated = applyBrandRules(merged, auto?.rules).generated;
-        await logFixEvent(fixId, id, user.id, 'draft.edited', { fields: edited });
+        // Editing a live fix re-opens it for review; the site keeps the shipped
+        // copy until the edited draft is approved and re-shipped.
+        if (wasLive) patch.status = 'generated';
+        await logFixEvent(fixId, id, user.id, 'draft.edited', { fields: edited, reopenedFrom: wasLive ? existing.status : undefined });
       }
     }
 

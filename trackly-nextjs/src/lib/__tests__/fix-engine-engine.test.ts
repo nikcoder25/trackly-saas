@@ -209,6 +209,35 @@ describe('steered regenerate', () => {
   });
 });
 
+describe('revise a live fix (regenerate/edit after shipping)', () => {
+  it('regenerating a shipped fix re-opens it for review with a fresh draft', async () => {
+    const id = seedFix({ status: 'shipped', generated: { value: 'OLD' }, shipResult: { wrote: true } });
+    const fix = await generateFix(id, 'brand1', 'punchier');
+    // Back in review with the new draft…
+    expect(fix.status).toBe('generated');
+    expect((fix.generated as Record<string, unknown>).value).toBe('NEW');
+    // …but the prior ship record is untouched (the live page still shows it
+    // until the revised draft is approved and re-shipped).
+    expect((store.fixes.get(id)!.shipResult as Record<string, unknown>).wrote).toBe(true);
+  });
+
+  it('a failed regenerate of a live fix stays live (never flipped to failed) and refunds', async () => {
+    store.moduleBehavior.generateThrows = true;
+    const id = seedFix({ status: 'verified', generated: { value: 'OLD' } });
+    await expect(generateFix(id, 'brand1')).rejects.toThrow('boom');
+    expect(store.fixes.get(id)!.status).toBe('verified'); // still live, not 'failed'
+    expect(store.fixes.get(id)!.error).toBeNull();
+    expect(refundCredits).toHaveBeenCalledWith('owner1', 1, 'manual');
+  });
+
+  it('a payment failure while revising a live fix leaves it live', async () => {
+    store.reserveOk = false;
+    const id = seedFix({ status: 'shipped', generated: { value: 'OLD' } });
+    await expect(generateFix(id, 'brand1')).rejects.toMatchObject({ paymentRequired: true });
+    expect(store.fixes.get(id)!.status).toBe('shipped'); // not rolled back to 'detected'
+  });
+});
+
 describe('approve + ship + recheck', () => {
   it('runs the full lifecycle to verified', async () => {
     const id = seedFix({ status: 'generated', generated: { value: 'NEW' } });

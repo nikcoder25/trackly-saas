@@ -2143,6 +2143,10 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
   const isLive = s === 'shipped' || s === 'verified';
   const isAttention = s === 'failed' || s === 'reverted';
   const isDismissed = s === 'dismissed';
+  // A shipped fix can still be revised when the module overwrites on ship
+  // (title/meta — `revertable`): editing/regenerating re-opens it for review,
+  // and the live page keeps its shipped copy until the new draft is re-shipped.
+  const canRevise = isReview || (isLive && revertable);
   // Ignore is offered while a fix hasn't been applied to the site yet.
   const canIgnore = !isDismissed && !isLive && !isStaged && s !== 'shipping';
   // Staging is offered only for fixes whose module can express a draft patch
@@ -2354,6 +2358,7 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
             <button className="gbtn" disabled={busy} title="Not quite right? Have the AI try again — with your guidance, or a fresh take" onClick={() => { setRegenText(String((fix.detected as Record<string, unknown> | null)?.instruction ?? '')); setEditing(false); setRegenning((r) => !r); }}>↻ Regenerate</button>
             <button className="gbtn" onClick={onRequestReview} disabled={busy} title="Ping a teammate (assignee) to review this draft via Linear/Jira/Slack">✋ Request approval</button>
             {url && <a className="tbtn" href={url} target="_blank" rel="noreferrer">View source</a>}
+            {fix.shipResult && <span className="xlbl" style={{ width: '100%', color: 'var(--text-2)' }}>↩ Revising a live fix — your page keeps the shipped version until you approve &amp; re-ship.</span>}
           </>)}
           {isApproved && !armed && (<>
             <button className="xbtn" onClick={onArm} disabled={busy} style={{ background: 'var(--success)' }}>⬢ SHIP TO SITE</button>
@@ -2387,6 +2392,14 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
           {isLive && (<>
             <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)', fontSize: 11, padding: '6px 12px' }}>✓ {s === 'verified' ? 'VERIFIED' : 'SHIPPED'}</span>
             <button className="gbtn" onClick={onRecheck} disabled={busy} style={{ padding: '7px 13px' }}>↻ Re-check</button>
+            {/* Revise a live title/meta fix: re-opens it for review; the page
+                keeps its shipped copy until the new draft is re-shipped. */}
+            {canRevise && editableField && typeof (fix.generated as Record<string, unknown> | null)?.[editableField] === 'string' && (
+              <button className="gbtn" disabled={busy} title="Edit the live text — re-ships on approve" onClick={() => { setEditText(String((fix.generated as Record<string, unknown>)[editableField])); setRegenning(false); setEditing((e) => !e); }} style={{ padding: '7px 13px' }}>✎ Edit</button>
+            )}
+            {canRevise && (
+              <button className="gbtn" disabled={busy} title="Not right? Have the AI rewrite it — with your guidance, or a fresh take. Re-ships on approve." onClick={() => { setRegenText(String((fix.detected as Record<string, unknown> | null)?.instruction ?? '')); setEditing(false); setRegenning((r) => !r); }} style={{ padding: '7px 13px' }}>↻ Regenerate</button>
+            )}
             {revertable && <button className="gbtn" onClick={onRevert} disabled={busy} style={{ padding: '7px 13px' }}>⤺ Undo</button>}
             {url && <a className="tbtn" href={url} target="_blank" rel="noreferrer">View on site</a>}
           </>)}
@@ -2403,9 +2416,9 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
           <button className="tbtn" onClick={() => { if (!showHistory && !events) onLoadHistory(); setShowHistory((h) => !h); }}>{showHistory ? 'Hide history' : 'History'}</button>
         </div>
 
-        {editing && isReview && editableField && (
+        {editing && canRevise && editableField && (
           <div className="nb-sm" style={{ padding: 14, background: 'var(--surface-2)', display: 'grid', gap: 10 }}>
-            <div className="xlbl" style={{ color: 'var(--primary)' }}>Edit the draft ({editableField}) — your brand rules still apply on save</div>
+            <div className="xlbl" style={{ color: 'var(--primary)' }}>Edit the {isLive ? 'live' : 'draft'} ({editableField}) — your brand rules still apply{isLive ? '; re-ships on approve' : ' on save'}</div>
             <textarea className="xin" rows={editText.length > 160 ? 5 : 2} value={editText} onChange={(e) => setEditText(e.target.value)} style={{ boxShadow: 'none', fontSize: 13, lineHeight: 1.5 }} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button className="gbtn" onClick={() => setEditing(false)} style={{ padding: '7px 13px' }}>Cancel</button>
@@ -2414,9 +2427,9 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
           </div>
         )}
 
-        {regenning && isReview && (
+        {regenning && canRevise && (
           <div className="nb-sm" style={{ padding: 14, background: 'var(--surface-2)', display: 'grid', gap: 10 }}>
-            <div className="xlbl" style={{ color: 'var(--primary)' }}>Tell the AI what to change {cost > 0 ? `— costs ${cost} credit${cost === 1 ? '' : 's'}` : ''}</div>
+            <div className="xlbl" style={{ color: 'var(--primary)' }}>Tell the AI what to change {cost > 0 ? `— costs ${cost} credit${cost === 1 ? '' : 's'}` : ''}{isLive ? ' · re-ships on approve' : ''}</div>
             <textarea className="xin" rows={2} value={regenText} onChange={(e) => setRegenText(e.target.value)} placeholder="e.g. keep it under 55 chars · lead with the keyword · drop the question format. Leave blank for a fresh take." style={{ boxShadow: 'none', fontSize: 13, lineHeight: 1.5 }} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button className="gbtn" onClick={() => setRegenning(false)} style={{ padding: '7px 13px' }}>Cancel</button>
