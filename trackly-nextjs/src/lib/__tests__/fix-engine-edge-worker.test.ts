@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildEdgeWorkerScript, relatedLinksNav, citationsNav, citableSection, makeNavAppender, edgePathKey, MAX_EDGE_LINKS, MAX_EDGE_CITATIONS, MAX_EDGE_CITABLE_PASSAGES, EDGE_MARKER_HEADER } from '@/lib/fix-engine/edge-worker';
+import { buildEdgeWorkerScript, relatedLinksNav, citationsNav, citableSection, faqSection, makeNavAppender, edgePathKey, MAX_EDGE_LINKS, MAX_EDGE_CITATIONS, MAX_EDGE_CITABLE_PASSAGES, MAX_EDGE_FAQS, EDGE_MARKER_HEADER } from '@/lib/fix-engine/edge-worker';
 
 // Same escaper the Worker defines inline (& < > ").
 const esc = (s: string) => String(s)
@@ -104,6 +104,17 @@ describe('buildEdgeWorkerScript body injection', () => {
     expect(script).toMatch(/class=\\?["']livesov-citable\\?["']/);
     expect(script).toMatch(/data-livesov=\\?["']citable\\?["']/);
   });
+
+  it('injects a separate FAQ block via its own appender with the body fallback', () => {
+    expect(script).toContain('o.faq');
+    expect(script).toContain('const faqSection =');
+    expect(script).toContain('const faqHtml = faqSection(o.faq, esc)');
+    expect(script).toContain('const appendFaq = makeNavAppender(faqHtml)');
+    expect(script).toContain("rw.on('article', appendFaq).on('main', appendFaq).on('[itemprop=\"articleBody\"]', appendFaq).on('body', appendFaq)");
+    // FAQ marker survives serialization (quote-insensitive).
+    expect(script).toMatch(/class=\\?["']livesov-faq\\?["']/);
+    expect(script).toMatch(/data-livesov=\\?["']faq\\?["']/);
+  });
 });
 
 describe('citationsNav', () => {
@@ -173,6 +184,49 @@ describe('citableSection', () => {
     );
     expect(citableSection({ tldr: '   ', passages: ['', '   '] }, esc)).toBe('');
     expect(citableSection({}, esc)).toBe('');
+  });
+});
+
+describe('faqSection', () => {
+  it('renders a visible Q/A list plus a FAQPage JSON-LD script', () => {
+    const html = faqSection({ faqs: [{ question: 'Is it safe?', answer: 'Yes, when dosed correctly.' }] }, esc);
+    expect(html).toContain('<section class="livesov-faq" data-livesov="faq"><h2>Frequently asked questions</h2>');
+    expect(html).toContain('<div class="faq-item"><h3>Is it safe?</h3><p>Yes, when dosed correctly.</p></div>');
+    expect(html).toContain('<script type="application/ld+json">');
+    // The JSON-LD carries the FAQPage schema built from the same pairs.
+    const json = html.slice(html.indexOf('{'), html.lastIndexOf('}') + 1);
+    const parsed = JSON.parse(json);
+    expect(parsed['@type']).toBe('FAQPage');
+    expect(parsed.mainEntity[0]).toEqual({ '@type': 'Question', name: 'Is it safe?', acceptedAnswer: { '@type': 'Answer', text: 'Yes, when dosed correctly.' } });
+  });
+
+  it('html-escapes the visible question and answer (no markup breakout)', () => {
+    const html = faqSection({ faqs: [{ question: 'A & <b>?', answer: '1 < 2 & "q"' }] }, esc);
+    // The VISIBLE block (before the JSON-LD script) is html-escaped. The JSON-LD
+    // carries the raw text JSON-encoded — that's the schema.org contract, and
+    // the only breakout risk there ("</script>") is escaped (tested below).
+    const visible = html.slice(0, html.indexOf('<script'));
+    expect(visible).toContain('<h3>A &amp; &lt;b&gt;?</h3>');
+    expect(visible).toContain('<p>1 &lt; 2 &amp; &quot;q&quot;</p>');
+    expect(visible).not.toContain('<b>?');
+  });
+
+  it('escapes </ inside the JSON-LD so an answer cannot break out of the script', () => {
+    const html = faqSection({ faqs: [{ question: 'Q', answer: 'text </script><img> more' }] }, esc);
+    // The JSON-LD payload (between its braces) must carry the escaped form, so
+    // an answer containing "</script>" can't terminate the script early.
+    const jsonLd = html.slice(html.indexOf('{'), html.lastIndexOf('}') + 1);
+    expect(jsonLd).not.toContain('</script>');
+    expect(jsonLd).toContain('<\\/script>');
+    expect(JSON.parse(jsonLd).mainEntity[0].acceptedAnswer.text).toBe('text </script><img> more');
+  });
+
+  it('caps at MAX_EDGE_FAQS, drops blank pairs, empty for none', () => {
+    const many = Array.from({ length: MAX_EDGE_FAQS + 3 }, (_, i) => ({ question: `Q${i}`, answer: `A${i}` }));
+    const html = faqSection({ faqs: many }, esc);
+    expect((html.match(/faq-item/g) || []).length).toBe(MAX_EDGE_FAQS);
+    expect(faqSection({ faqs: [{ question: '  ', answer: 'x' }, { question: 'y', answer: '  ' }] }, esc)).toBe('');
+    expect(faqSection({}, esc)).toBe('');
   });
 });
 

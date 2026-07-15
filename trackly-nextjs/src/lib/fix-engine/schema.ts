@@ -558,6 +558,10 @@ export interface EdgeSeoOverride {
    *  Worker appends as its own section: a TL;DR line + fact-dense passages an
    *  LLM can quote. Frozen at generation, so serving is a pure read. */
   citable?: EdgeCitable;
+  /** FAQ block (from a shipped faq-schema fix) the Worker appends as its own
+   *  section: a visible Q/A list plus a FAQPage JSON-LD <script>. Frozen at
+   *  generation, so serving is a pure read. */
+  faq?: EdgeFaq;
 }
 
 /** One contextual internal link the edge Worker injects into the page body. */
@@ -583,6 +587,17 @@ export interface EdgeCitable {
   tldr: string;
   /** Standalone, fact-dense passages rendered as list items. */
   passages: string[];
+}
+
+/** One FAQ Q/A pair the edge Worker renders (visible list + FAQPage schema). */
+export interface EdgeFaqItem {
+  question: string;
+  answer: string;
+}
+
+/** FAQ block the edge Worker appends to the body (visible Q/A + FAQPage JSON-LD). */
+export interface EdgeFaq {
+  faqs: EdgeFaqItem[];
 }
 
 /** module → which override field(s) its `generated` payload carries. */
@@ -717,6 +732,61 @@ function buildEdgeCitable(generated: Record<string, unknown> | null): EdgeCitabl
   return { tldr, passages };
 }
 
+/** Module whose `generated.faqs` become a body FAQ block. */
+const EDGE_FAQ_MODULE = 'faq-schema';
+/** Hard cap on FAQ Q/A pairs per path (mirrors the literal in edge-worker's
+ *  faqSection / MAX_EDGE_FAQS). */
+const MAX_EDGE_FAQS = 8;
+
+/**
+ * Fold a faq-schema fix's `generated.faqs` ({ question, answer }) into a single
+ * FAQ block. The module froze the Q/A pairs at generation, so this is a pure,
+ * deterministic read (same contract as citable / links / citations). Blank
+ * entries drop, pairs dedupe by question and cap at MAX_EDGE_FAQS; returns null
+ * when nothing survives, so the caller injects nothing. Values kept raw; the
+ * Worker escapes the visible text and JSON-encodes the schema at inject time.
+ */
+function buildEdgeFaq(generated: Record<string, unknown> | null): EdgeFaq | null {
+  const raw = Array.isArray(generated?.faqs) ? (generated!.faqs as unknown[]) : [];
+  const faqs: EdgeFaqItem[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const f = item as Record<string, unknown>;
+    const question = typeof f.question === 'string' ? f.question.trim() : '';
+    const answer = typeof f.answer === 'string' ? f.answer.trim() : '';
+    if (!question || !answer || seen.has(question)) continue;
+    seen.add(question);
+    faqs.push({ question, answer });
+    if (faqs.length >= MAX_EDGE_FAQS) break;
+  }
+  return faqs.length ? { faqs } : null;
+}
+
+/**
+ * Module keys whose shipped fixes {@link buildEdgeSeoOverrides} can serve as a
+ * per-path override — the single source of truth shared by the override query
+ * (getEdgeSeoOverrides) and the ship handler's edge-publish fast-path, so the
+ * two never drift. Covers head fixes (title/meta/canonical/schema/og-cards),
+ * the indexable flag, and the body blocks (links, citations, citable, faq).
+ */
+const EDGE_SERVEABLE_MODULE_KEYS: ReadonlySet<string> = new Set<string>([
+  ...Object.keys(EDGE_SEO_MODULES),
+  ...Object.keys(EDGE_FLAG_MODULES),
+  EDGE_LINK_MODULE,
+  EDGE_CITATION_MODULE,
+  EDGE_CITABLE_MODULE,
+  EDGE_FAQ_MODULE,
+]);
+
+/** Whether a shipped fix of this module is delivered by the edge Worker (i.e.
+ *  {@link buildEdgeSeoOverrides} emits a per-path override for it). The ship
+ *  handler uses this to route edge-serveable Channel-A fixes to the edge on a
+ *  Worker-fronted site instead of attempting an origin CMS write. */
+export function isEdgeServeableModule(moduleKey: string): boolean {
+  return EDGE_SERVEABLE_MODULE_KEYS.has(moduleKey);
+}
+
 /** Options for {@link buildEdgeSeoOverrides}. */
 export interface BuildEdgeSeoOptions {
   /** Hosts (www-stripped, lowercased) a citation must NOT point at: the brand's
@@ -783,6 +853,12 @@ export function buildEdgeSeoOverrides(
       if (citable) (out[key] ??= {}).citable = citable;
       continue;
     }
+    if (row.moduleKey === EDGE_FAQ_MODULE) {
+      const faq = buildEdgeFaq(row.generated);
+      // Newest fix wins: a later shipped faq fix for the path replaces it.
+      if (faq) (out[key] ??= {}).faq = faq;
+      continue;
+    }
     const flag = EDGE_FLAG_MODULES[row.moduleKey];
     if (flag) {
       (out[key] ??= {})[flag] = true;
@@ -819,7 +895,7 @@ export async function getEdgeSeoOverrides(brandId: string): Promise<Record<strin
         AND status IN ('shipped','verified')
         AND target_url IS NOT NULL AND generated IS NOT NULL
       ORDER BY updated_at ASC`,
-    [brandId, [...Object.keys(EDGE_SEO_MODULES), ...Object.keys(EDGE_FLAG_MODULES), EDGE_LINK_MODULE, EDGE_CITATION_MODULE, EDGE_CITABLE_MODULE]],
+    [brandId, [...EDGE_SERVEABLE_MODULE_KEYS]],
   );
   const rows = res.rows.map((r: DbRow) => ({
     moduleKey: String(r.module_key),
