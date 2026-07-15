@@ -54,6 +54,31 @@ export function relatedLinksNav(
   return items ? '<nav class="livesov-related" data-livesov="internal-links"><ul>' + items + '</ul></nav>' : '';
 }
 
+/** Hard cap on external citation links injected into a single page. Keep in
+ *  sync with the literal `5` inside {@link citationsNav} (serialized into the
+ *  Worker, so it can't reference this constant at runtime). */
+export const MAX_EDGE_CITATIONS = 5;
+
+/**
+ * Build the "Sources" citations nav from a per-path override's `citations`.
+ * Same single-source-of-truth contract as {@link relatedLinksNav} (unit-tested
+ * here, serialized verbatim into the Worker). These are authoritative outbound
+ * links, so `rel="noopener"` (NOT nofollow) with `target="_blank"`; the source
+ * label, when present, is appended as escaped text. Kept a SEPARATE block
+ * (class `livesov-citations`) so it coexists with the internal-links nav.
+ */
+export function citationsNav(
+  citations: Array<{ anchor: string; href: string; source?: string }>,
+  esc: (s: string) => string,
+): string {
+  const items = citations
+    .slice(0, 5)
+    .filter((c) => c && c.anchor && c.href)
+    .map((c) => '<li><a href="' + esc(c.href) + '" rel="noopener" target="_blank">' + esc(c.anchor) + '</a>' + (c.source ? ' — ' + esc(c.source) : '') + '</li>')
+    .join('');
+  return items ? '<nav class="livesov-citations" data-livesov="citations"><ul>' + items + '</ul></nav>' : '';
+}
+
 /** Minimal shapes of the HTMLRewriter element/end-tag the appender touches. */
 interface EdgeEndTag { before(content: string, opts: { html: boolean }): void }
 interface EdgeElement { onEndTag(cb: (end: EdgeEndTag) => void): void }
@@ -91,12 +116,14 @@ export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
     + `// Works for ANY stack (WordPress, custom-coded, ...): serves /llms.txt, appends\n`
     + `// AI rules to /robots.txt, and applies your shipped SEO fixes (title, meta\n`
     + `// description, canonical, JSON-LD schema, OG/Twitter cards, noindex removal,\n`
-    + `// and contextual internal links) to every page as it is served.\n`
+    + `// contextual internal links, and authoritative source citations) to every\n`
+    + `// page as it is served.\n`
     + `const T = ${JSON.stringify(token)};\n`
     + `const BASE = ${JSON.stringify(edgeBase)};\n`
     + `const H = { headers: { Authorization: 'Bearer ' + T } };\n`
     + `const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');\n`
     + `const relatedLinksNav = ${relatedLinksNav.toString()};\n`
+    + `const citationsNav = ${citationsNav.toString()};\n`
     + `const edgePathKey = ${edgePathKey.toString()};\n`
     + `const makeNavAppender = ${makeNavAppender.toString()};\n`
     + `export default {\n`
@@ -160,6 +187,13 @@ export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
     + `          const appendNav = makeNavAppender(navHtml);\n`
     + `          rw = rw.on('article', appendNav).on('main', appendNav).on('[itemprop="articleBody"]', appendNav).on('body', appendNav);\n`
     + `        }\n`
+    + `      }\n`
+    + `    }\n`
+    + `    if (Array.isArray(o.citations) && o.citations.length) { // shipped External-citations fixes\n`
+    + `      const citeHtml = citationsNav(o.citations.slice(0, ${MAX_EDGE_CITATIONS}), esc);\n`
+    + `      if (citeHtml) { // own appender/guard, so it coexists with the internal-links nav\n`
+    + `        const appendCite = makeNavAppender(citeHtml);\n`
+    + `        rw = rw.on('article', appendCite).on('main', appendCite).on('[itemprop="articleBody"]', appendCite).on('body', appendCite);\n`
     + `      }\n`
     + `    }\n`
     + `    return rw.transform(out);\n`

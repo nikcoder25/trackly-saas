@@ -550,6 +550,10 @@ export interface EdgeSeoOverride {
   /** How the Worker injects `links`: 'nav' (default, a Related-links block) or
    *  'inline' (wrap the first plaintext occurrence of each anchor in the body). */
   linkMode?: 'nav' | 'inline';
+  /** Authoritative outbound source citations (from shipped external-citations
+   *  fixes) the Worker injects as a separate "Sources" block. Every href is a
+   *  verified https, external (non-own-domain, non-competitor) URL. */
+  citations?: EdgeCitation[];
 }
 
 /** One contextual internal link the edge Worker injects into the page body. */
@@ -557,6 +561,16 @@ export interface EdgeLink {
   anchor: string;
   href: string;
   rel?: string;
+}
+
+/** One authoritative outbound citation the edge Worker injects into the body. */
+export interface EdgeCitation {
+  anchor: string;
+  href: string;
+  /** Short attribution label shown after the link (e.g. "FDA", "PubChem"). */
+  source?: string;
+  /** The on-page claim this citation backs (carried for context; not rendered). */
+  claim?: string;
 }
 
 /** module → which override field(s) its `generated` payload carries. */
@@ -613,11 +627,66 @@ function buildEdgeLinks(
   return out;
 }
 
+/** Module whose `generated.citations` become body citation overrides. */
+const EDGE_CITATION_MODULE = 'external-citations';
+/** Hard cap on citations per path (mirrors MAX_EDGE_CITATIONS in edge-worker). */
+const MAX_EDGE_CITATIONS = 5;
+
+/** The canonical, www-stripped host of an https URL, or null for anything that
+ *  isn't a parseable absolute https URL (relative/http/mailto all rejected). */
+function httpsCitationHost(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'https:') return null;
+    return u.host.replace(/^www\./, '').toLowerCase();
+  } catch { return null; }
+}
+
+/**
+ * Fold an external-citations fix's `generated.citations`
+ * ({ claim, anchor, url, source }) into the override citation list. Every URL
+ * must be a verified https, EXTERNAL absolute link — non-https, relative, own
+ * domain, and known competitor domains are dropped (`denyHosts`), so the edge
+ * only ever injects authoritative outbound sources. Deduped by href, capped at
+ * MAX_EDGE_CITATIONS. Values kept raw; the Worker escapes at inject time.
+ */
+function buildEdgeCitations(
+  generated: Record<string, unknown> | null,
+  denyHosts?: Set<string>,
+): EdgeCitation[] {
+  const raw = Array.isArray(generated?.citations) ? (generated!.citations as unknown[]) : [];
+  const out: EdgeCitation[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const c = item as Record<string, unknown>;
+    const anchor = typeof c.anchor === 'string' ? c.anchor.trim() : '';
+    // external-citations stores the target as `url`; accept `href` too.
+    const href = (typeof c.url === 'string' ? c.url : typeof c.href === 'string' ? c.href : '').trim();
+    if (!anchor || !href || seen.has(href)) continue;
+    const host = httpsCitationHost(href);
+    if (!host) continue; // not a https absolute URL — drop
+    if (denyHosts && denyHosts.has(host)) continue; // own domain / competitor — drop
+    seen.add(href);
+    const source = typeof c.source === 'string' && c.source.trim() ? c.source.trim() : undefined;
+    const claim = typeof c.claim === 'string' && c.claim.trim() ? c.claim.trim() : undefined;
+    const entry: EdgeCitation = { anchor, href };
+    if (source) entry.source = source;
+    if (claim) entry.claim = claim;
+    out.push(entry);
+    if (out.length >= MAX_EDGE_CITATIONS) break;
+  }
+  return out;
+}
+
 /** Options for {@link buildEdgeSeoOverrides}. */
 export interface BuildEdgeSeoOptions {
   /** Normalised path keys the site actually serves (sitemap/homepage). When
    *  present, internal-link hrefs outside this set are dropped as 404s. */
   knownPaths?: Set<string>;
+  /** Hosts (www-stripped, lowercased) a citation must NOT point at: the brand's
+   *  own domain and its competitors. When present, matching citations drop. */
+  citationDenyHosts?: Set<string>;
 }
 
 /** Normalise a page URL to the pathname key the Worker matches on
@@ -669,6 +738,11 @@ export function buildEdgeSeoOverrides(
       if (links.length) (out[key] ??= {}).links = links;
       continue;
     }
+    if (row.moduleKey === EDGE_CITATION_MODULE) {
+      const citations = buildEdgeCitations(row.generated, opts?.citationDenyHosts);
+      if (citations.length) (out[key] ??= {}).citations = citations;
+      continue;
+    }
     const flag = EDGE_FLAG_MODULES[row.moduleKey];
     if (flag) {
       (out[key] ??= {})[flag] = true;
@@ -705,19 +779,64 @@ export async function getEdgeSeoOverrides(brandId: string): Promise<Record<strin
         AND status IN ('shipped','verified')
         AND target_url IS NOT NULL AND generated IS NOT NULL
       ORDER BY updated_at ASC`,
-    [brandId, [...Object.keys(EDGE_SEO_MODULES), ...Object.keys(EDGE_FLAG_MODULES), EDGE_LINK_MODULE]],
+    [brandId, [...Object.keys(EDGE_SEO_MODULES), ...Object.keys(EDGE_FLAG_MODULES), EDGE_LINK_MODULE, EDGE_CITATION_MODULE]],
   );
   const rows = res.rows.map((r: DbRow) => ({
     moduleKey: String(r.module_key),
     targetUrl: (r.target_url as string | null) ?? null,
     generated: (r.generated as Record<string, unknown> | null) ?? null,
   }));
-  // Only pay for URL validation when there are internal-link fixes to validate:
-  // resolve the brand's real routes so links that would 404 are dropped.
-  const knownPaths = rows.some((r) => r.moduleKey === EDGE_LINK_MODULE)
-    ? await resolveKnownSitePaths(brandId)
-    : undefined;
-  return buildEdgeSeoOverrides(rows, { knownPaths });
+  // Only pay for validation when there are fixes that need it:
+  //  - internal links: resolve the brand's real routes so 404 targets drop;
+  //  - citations: resolve the brand's own + competitor hosts so non-external
+  //    (or self-referential) links drop.
+  const [knownPaths, citationDenyHosts] = await Promise.all([
+    rows.some((r) => r.moduleKey === EDGE_LINK_MODULE) ? resolveKnownSitePaths(brandId) : undefined,
+    rows.some((r) => r.moduleKey === EDGE_CITATION_MODULE) ? resolveCitationDenyHosts(brandId) : undefined,
+  ]);
+  return buildEdgeSeoOverrides(rows, { knownPaths, citationDenyHosts });
+}
+
+/**
+ * Hosts a shipped citation must never point at: the brand's own domain and its
+ * competitors (www-stripped, lowercased). Best-effort — competitor entries are
+ * free-text (names or domains), so only those that parse to a host contribute.
+ * Returns `undefined` when the brand has no resolvable website, so the builder
+ * still enforces https/absolute but skips the own-domain check.
+ */
+async function resolveCitationDenyHosts(brandId: string): Promise<Set<string> | undefined> {
+  try {
+    const res = await pool.query(
+      `SELECT data->>'website' AS website, data->'competitors' AS competitors FROM brands WHERE id = $1`,
+      [brandId],
+    );
+    const row = res.rows[0];
+    if (!row) return undefined;
+    const hosts = new Set<string>();
+    const own = hostFromLooseUrl(row.website);
+    if (own) hosts.add(own);
+    const competitors = row.competitors;
+    if (Array.isArray(competitors)) {
+      for (const c of competitors) {
+        const h = hostFromLooseUrl(c);
+        if (h) hosts.add(h);
+      }
+    }
+    return hosts.size ? hosts : undefined;
+  } catch {
+    return undefined; // never block override delivery on a validation hiccup
+  }
+}
+
+/** Best-effort host from a URL OR a bare domain string ("acme.com",
+ *  "https://acme.com/x"). Returns null for plain names ("Acme Corp"). */
+function hostFromLooseUrl(v: unknown): string | null {
+  if (typeof v !== 'string' || !v.trim()) return null;
+  const s = v.trim();
+  try {
+    const host = new URL(s.startsWith('http') ? s : `https://${s}`).host.replace(/^www\./, '').toLowerCase();
+    return host.includes('.') ? host : null; // reject non-domains ("acme")
+  } catch { return null; }
 }
 
 /**

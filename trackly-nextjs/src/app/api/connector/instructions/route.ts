@@ -11,7 +11,7 @@ import { NextResponse } from 'next/server';
 import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { getConnectorByToken, touchConnectorSeen } from '@/lib/fix-engine/connections';
 import { listPendingConnectorInstructions, getEdgeSeoOverrides, normalizeEdgeOverrideKeys } from '@/lib/fix-engine/schema';
-import type { EdgeLink } from '@/lib/fix-engine/schema';
+import type { EdgeLink, EdgeCitation } from '@/lib/fix-engine/schema';
 import { toWireInstruction } from '@/lib/fix-engine/connector';
 import { logger } from '@/lib/logger';
 
@@ -36,9 +36,9 @@ export async function GET(request: Request): Promise<Response> {
 
   try {
     // Pending signed instructions + the brand's per-path SEO overrides. The
-    // overrides carry the shipped Internal-linking targets (validated hrefs)
-    // so a plugin-fronted site can inject the same contextual links the edge
-    // Worker does — previously this payload carried no links at all.
+    // overrides carry the shipped Internal-linking targets and external-citation
+    // sources (validated hrefs) so a plugin-fronted site can inject the same
+    // contextual links and citations the edge Worker does.
     const [rows, rawOverrides] = await Promise.all([
       listPendingConnectorInstructions(conn.brandId),
       getEdgeSeoOverrides(conn.brandId).catch(() => ({})),
@@ -48,13 +48,15 @@ export async function GET(request: Request): Promise<Response> {
     const instructions = rows
       .map((r) => toWireInstruction(r, conn.hmacSecret, issuedAt))
       .filter((x): x is NonNullable<typeof x> => x !== null);
-    // path → links[], only for paths that actually have internal links.
+    // path → links[]/citations[], only for paths that actually have them.
     const links: Record<string, EdgeLink[]> = {};
+    const citations: Record<string, EdgeCitation[]> = {};
     for (const [path, o] of Object.entries(overrides)) {
       if (o.links && o.links.length) links[path] = o.links;
+      if (o.citations && o.citations.length) citations[path] = o.citations;
     }
     return NextResponse.json(
-      { instructions, count: instructions.length, links },
+      { instructions, count: instructions.length, links, citations },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (e) {
