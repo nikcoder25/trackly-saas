@@ -87,6 +87,18 @@ describe('createOrGetSiteConnection', () => {
     expect(b.publicKey).not.toBe(a.publicKey);
     expect(store.rows).toHaveLength(2);
   });
+
+  it('persists method:\'wordpress\' as its own row (WordPress uses the same snippet)', async () => {
+    const snip = await createOrGetSiteConnection('brand1', 'snippet');
+    const wp = await createOrGetSiteConnection('brand1', 'wordpress');
+    expect(wp.method).toBe('wordpress');
+    expect(wp.id).not.toBe(snip.id);
+    expect(wp.publicKey).not.toBe(snip.publicKey);
+    // Idempotent per (brand, method): the wordpress row comes back unchanged.
+    const wp2 = await createOrGetSiteConnection('brand1', 'wordpress');
+    expect(wp2.id).toBe(wp.id);
+    expect(store.rows).toHaveLength(2);
+  });
 });
 
 describe('lookups', () => {
