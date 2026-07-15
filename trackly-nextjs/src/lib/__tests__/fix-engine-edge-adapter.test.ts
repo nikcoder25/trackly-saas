@@ -139,3 +139,88 @@ describe('edge SEO override builder', () => {
     expect(out['/hidden']).toEqual({ indexable: true });
   });
 });
+
+describe('edge internal-link overrides', () => {
+  it('emits links from a shipped internal-linking fix (url → href), carrying rel', () => {
+    const out = buildEdgeSeoOverrides([
+      {
+        moduleKey: 'internal-linking',
+        targetUrl: 'https://a.com/guide',
+        generated: {
+          links: [
+            { anchor: 'Semaglutide calculator', url: 'https://a.com/semaglutide-calculator/' },
+            { anchor: 'Pricing', url: 'https://a.com/pricing', rel: 'nofollow' },
+          ],
+        },
+      },
+    ]);
+    expect(out['/guide'].links).toEqual([
+      { anchor: 'Semaglutide calculator', href: 'https://a.com/semaglutide-calculator/' },
+      { anchor: 'Pricing', href: 'https://a.com/pricing', rel: 'nofollow' },
+    ]);
+  });
+
+  it('drops links whose href would 404 against the site’s real routes', () => {
+    // The real bug: a fix links to /peptides/semaglutide but the live URL is
+    // /semaglutide-calculator/. Validated against the known route set, the
+    // dead target is dropped and only the real one survives.
+    const knownPaths = new Set(['/semaglutide-calculator', '/pricing', '/']);
+    const out = buildEdgeSeoOverrides(
+      [
+        {
+          moduleKey: 'internal-linking',
+          targetUrl: 'https://a.com/cagrilintide',
+          generated: {
+            links: [
+              { anchor: 'Semaglutide', url: 'https://a.com/peptides/semaglutide' }, // 404 → dropped
+              { anchor: 'Calculator', url: 'https://a.com/semaglutide-calculator/' }, // real → kept
+            ],
+          },
+        },
+      ],
+      { knownPaths },
+    );
+    expect(out['/cagrilintide'].links).toEqual([
+      { anchor: 'Calculator', href: 'https://a.com/semaglutide-calculator/' },
+    ]);
+  });
+
+  it('drops the links field entirely when every target 404s', () => {
+    const knownPaths = new Set(['/real', '/']);
+    const out = buildEdgeSeoOverrides(
+      [{ moduleKey: 'internal-linking', targetUrl: 'https://a.com/p', generated: { links: [{ anchor: 'X', url: 'https://a.com/dead' }] } }],
+      { knownPaths },
+    );
+    expect(out['/p']).toBeUndefined();
+  });
+
+  it('dedupes by href and caps at 8 links', () => {
+    const links = Array.from({ length: 12 }, (_, i) => ({ anchor: `A${i}`, url: `https://a.com/p${i}` }));
+    links.push({ anchor: 'dup', url: 'https://a.com/p0' }); // duplicate href
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'internal-linking', targetUrl: 'https://a.com/hub', generated: { links } },
+    ]);
+    expect(out['/hub'].links).toHaveLength(8);
+    // p0 kept once (first occurrence), the trailing duplicate ignored.
+    expect(out['/hub'].links!.filter((l) => l.href === 'https://a.com/p0')).toHaveLength(1);
+  });
+
+  it('newest internal-linking fix for a path replaces the earlier link set', () => {
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'internal-linking', targetUrl: 'https://a.com/p', generated: { links: [{ anchor: 'Old', url: 'https://a.com/old' }] } },
+      { moduleKey: 'internal-linking', targetUrl: 'https://a.com/p', generated: { links: [{ anchor: 'New', url: 'https://a.com/new' }] } },
+    ]);
+    expect(out['/p'].links).toEqual([{ anchor: 'New', href: 'https://a.com/new' }]);
+  });
+
+  it('ignores malformed link entries (missing anchor or href)', () => {
+    const out = buildEdgeSeoOverrides([
+      {
+        moduleKey: 'internal-linking',
+        targetUrl: 'https://a.com/p',
+        generated: { links: [{ anchor: '', url: 'https://a.com/x' }, { anchor: 'Y', url: '' }, 'nope', null] },
+      },
+    ]);
+    expect(out['/p']).toBeUndefined();
+  });
+});
