@@ -102,6 +102,7 @@ const EDGE_MODULES: Array<{ key: string; generated: Record<string, unknown>; ove
   { key: 'external-citations', generated: { citations: [{ anchor: 'FDA', url: 'https://fda.gov/x' }] }, overrideField: 'citations' },
   { key: 'citable-passages', generated: { tldr: 'Acme makes peptides.', passages: ['Founded 2019.'] }, overrideField: 'citable' },
   { key: 'faq-schema', generated: { faqs: [{ question: 'Is it safe?', answer: 'Yes.' }] }, overrideField: 'faq' },
+  { key: 'content-freshness', generated: { update: 'Reviewed and current as of this year.', html: '<div class="lvx-fresh"><strong>Updated July 2026:</strong> Reviewed and current as of this year.</div>' }, overrideField: 'freshness' },
 ];
 
 function seed(moduleKey: string, generated: Record<string, unknown>, over: Partial<FixRow> = {}): string {
@@ -129,9 +130,10 @@ beforeEach(() => {
 describe('edge-fronted ship (custom CMS + Worker live)', () => {
   it('every edge-serveable module is correctly classified', () => {
     for (const m of EDGE_MODULES) expect(isEdgeServeableModule(m.key)).toBe(true);
-    // A body-replacement module is NOT edge-serveable (append-only Worker).
-    expect(isEdgeServeableModule('content-freshness')).toBe(false);
+    // passage-rewrite is an in-place edit (not a self-contained append block),
+    // so it is NOT edge-serveable — the append-only Worker can't rewrite it.
     expect(isEdgeServeableModule('passage-rewrite')).toBe(false);
+    expect(isEdgeServeableModule('image-alt')).toBe(false);
   });
 
   it('ships each edge module WITHOUT a CMS write and it appears in the served override', async () => {
@@ -188,14 +190,14 @@ describe('fallbacks preserve the CMS-write path', () => {
     expect(fix.status).toBe('shipped');
   });
 
-  it('a body-replacement module on a custom site is not force-published to the edge', async () => {
-    // content-freshness (updateBody replace) isn't edge-serveable — the
-    // append-only Worker can't rewrite existing body — so it takes the normal
+  it('an in-place-edit module on a custom site is not force-published to the edge', async () => {
+    // passage-rewrite (replace_in_body) isn't edge-serveable — the append-only
+    // Worker can't rewrite an existing passage — so it takes the normal
     // CMS-write path even on an edge-fronted site.
     store.cmsType = 'custom';
-    const id = seed('content-freshness', { html: '<p>fresh</p>' });
+    const id = seed('passage-rewrite', { find: 'old', replace: 'new' });
     await shipFix(id, 'brand1', 'owner1');
-    expect(store.shipCalls).toEqual(['content-freshness']);
+    expect(store.shipCalls).toEqual(['passage-rewrite']);
     expect(probeEdgeMarker).not.toHaveBeenCalled();
   });
 });

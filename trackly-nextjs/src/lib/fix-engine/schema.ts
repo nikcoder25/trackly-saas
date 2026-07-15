@@ -562,6 +562,10 @@ export interface EdgeSeoOverride {
    *  section: a visible Q/A list plus a FAQPage JSON-LD <script>. Frozen at
    *  generation, so serving is a pure read. */
   faq?: EdgeFaq;
+  /** Freshness note (from a shipped content-freshness fix) the Worker appends as
+   *  its own dated block ("Updated <Month Year>: …"). Frozen at generation, so
+   *  serving is a pure read. */
+  freshness?: EdgeFreshness;
 }
 
 /** One contextual internal link the edge Worker injects into the page body. */
@@ -598,6 +602,14 @@ export interface EdgeFaqItem {
 /** FAQ block the edge Worker appends to the body (visible Q/A + FAQPage JSON-LD). */
 export interface EdgeFaq {
   faqs: EdgeFaqItem[];
+}
+
+/** Dated freshness note the edge Worker appends to the body. */
+export interface EdgeFreshness {
+  /** The freshness update text (grounded in the page's own facts). */
+  update: string;
+  /** The dated lead label, e.g. "Updated July 2026:" (frozen at generation). */
+  label: string;
 }
 
 /** module → which override field(s) its `generated` payload carries. */
@@ -763,6 +775,32 @@ function buildEdgeFaq(generated: Record<string, unknown> | null): EdgeFaq | null
   return faqs.length ? { faqs } : null;
 }
 
+/** Module whose `generated.update` becomes a body freshness block. */
+const EDGE_FRESHNESS_MODULE = 'content-freshness';
+/** Hard cap on freshness note length (mirrors the literal in edge-worker's
+ *  freshnessSection / MAX_EDGE_FRESHNESS_CHARS). */
+const MAX_EDGE_FRESHNESS_CHARS = 600;
+
+/**
+ * Fold a content-freshness fix's `generated.update` (+ the dated label the
+ * module froze into `generated.html`) into a single freshness block. The module
+ * froze the text at generation, so this is a pure, deterministic read (same
+ * contract as citable / faq / links / citations). The dated label ("Updated
+ * <Month Year>:") is recovered from the frozen html so the edge shows the same
+ * date the CMS write would; falls back to a plain "Updated:" if absent. Returns
+ * null when there's no update text. Values kept raw; the Worker escapes them at
+ * inject time.
+ */
+function buildEdgeFreshness(generated: Record<string, unknown> | null): EdgeFreshness | null {
+  const update = typeof generated?.update === 'string' ? generated.update.trim() : '';
+  if (!update) return null;
+  let label = 'Updated:';
+  const html = typeof generated?.html === 'string' ? generated.html : '';
+  const m = html.match(/<strong>([\s\S]*?)<\/strong>/i);
+  if (m && m[1].trim()) label = m[1].trim();
+  return { update: update.slice(0, MAX_EDGE_FRESHNESS_CHARS), label };
+}
+
 /**
  * Module keys whose shipped fixes {@link buildEdgeSeoOverrides} can serve as a
  * per-path override — the single source of truth shared by the override query
@@ -777,6 +815,7 @@ const EDGE_SERVEABLE_MODULE_KEYS: ReadonlySet<string> = new Set<string>([
   EDGE_CITATION_MODULE,
   EDGE_CITABLE_MODULE,
   EDGE_FAQ_MODULE,
+  EDGE_FRESHNESS_MODULE,
 ]);
 
 /** Whether a shipped fix of this module is delivered by the edge Worker (i.e.
@@ -857,6 +896,12 @@ export function buildEdgeSeoOverrides(
       const faq = buildEdgeFaq(row.generated);
       // Newest fix wins: a later shipped faq fix for the path replaces it.
       if (faq) (out[key] ??= {}).faq = faq;
+      continue;
+    }
+    if (row.moduleKey === EDGE_FRESHNESS_MODULE) {
+      const freshness = buildEdgeFreshness(row.generated);
+      // Newest fix wins: a later shipped freshness fix for the path replaces it.
+      if (freshness) (out[key] ??= {}).freshness = freshness;
       continue;
     }
     const flag = EDGE_FLAG_MODULES[row.moduleKey];

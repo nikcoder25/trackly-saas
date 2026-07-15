@@ -415,6 +415,68 @@ describe('edge faq-schema overrides', () => {
   });
 });
 
+describe('edge content-freshness overrides', () => {
+  it('emits a freshness block (update + dated label) from a shipped fix', () => {
+    const out = buildEdgeSeoOverrides([
+      {
+        moduleKey: 'content-freshness',
+        targetUrl: 'https://acme.com/guide/',
+        generated: {
+          update: 'Reviewed against the latest 2026 dosing guidance; figures unchanged.',
+          html: '<div class="lvx-fresh"><strong>Updated July 2026:</strong> Reviewed against the latest 2026 dosing guidance; figures unchanged.</div>',
+          rationale: 'ignored',
+        },
+      },
+    ]);
+    expect(out['/guide'].freshness).toEqual({
+      update: 'Reviewed against the latest 2026 dosing guidance; figures unchanged.',
+      label: 'Updated July 2026:',
+    });
+  });
+
+  it('falls back to a plain "Updated:" label when the html has no dated strong tag', () => {
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'content-freshness', targetUrl: 'https://a.com/p', generated: { update: 'Still current.' } },
+    ]);
+    expect(out['/p'].freshness).toEqual({ update: 'Still current.', label: 'Updated:' });
+  });
+
+  it('trims and caps the update text at 600 chars, drops empty', () => {
+    const long = 'y'.repeat(700);
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'content-freshness', targetUrl: 'https://a.com/hub', generated: { update: `  ${long}  ` } },
+    ]);
+    expect(out['/hub'].freshness!.update).toHaveLength(600);
+    const empty = buildEdgeSeoOverrides([
+      { moduleKey: 'content-freshness', targetUrl: 'https://a.com/e', generated: { update: '   ' } },
+    ]);
+    expect(empty['/e']).toBeUndefined();
+  });
+
+  it('newest content-freshness fix replaces the earlier block', () => {
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'content-freshness', targetUrl: 'https://a.com/p', generated: { update: 'Old note.' } },
+      { moduleKey: 'content-freshness', targetUrl: 'https://a.com/p', generated: { update: 'New note.' } },
+    ]);
+    expect(out['/p'].freshness).toEqual({ update: 'New note.', label: 'Updated:' });
+  });
+
+  it('lets all five body blocks (links, citations, citable, faq, freshness) coexist on one path', () => {
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'internal-linking', targetUrl: 'https://a.com/p', generated: { links: [{ anchor: 'Guide', url: 'https://a.com/guide' }] } },
+      { moduleKey: 'external-citations', targetUrl: 'https://a.com/p', generated: { citations: [{ anchor: 'FDA', url: 'https://fda.gov/x' }] } },
+      { moduleKey: 'citable-passages', targetUrl: 'https://a.com/p', generated: { tldr: 'Summary', passages: ['A fact.'] } },
+      { moduleKey: 'faq-schema', targetUrl: 'https://a.com/p', generated: { faqs: [{ question: 'Q?', answer: 'A.' }] } },
+      { moduleKey: 'content-freshness', targetUrl: 'https://a.com/p', generated: { update: 'Fresh.' } },
+    ]);
+    expect(out['/p'].links).toEqual([{ anchor: 'Guide', href: 'https://a.com/guide' }]);
+    expect(out['/p'].citations).toEqual([{ anchor: 'FDA', href: 'https://fda.gov/x' }]);
+    expect(out['/p'].citable).toEqual({ tldr: 'Summary', passages: ['A fact.'] });
+    expect(out['/p'].faq).toEqual({ faqs: [{ question: 'Q?', answer: 'A.' }] });
+    expect(out['/p'].freshness).toEqual({ update: 'Fresh.', label: 'Updated:' });
+  });
+});
+
 describe('normalizeEdgeOverrideKeys (serve-boundary trailing-slash matching)', () => {
   it('re-keys to canonical paths so /p and /p/ resolve to one entry', () => {
     const out = normalizeEdgeOverrideKeys({

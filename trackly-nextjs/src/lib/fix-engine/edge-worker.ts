@@ -152,6 +152,33 @@ export function faqSection(
     + '<script type="application/ld+json">' + schema + '</scr' + 'ipt></section>';
 }
 
+/** Hard cap on freshness-note length injected into a single page. Keep in sync
+ *  with the literal `600` inside {@link freshnessSection} (serialized into the
+ *  Worker, so it can't reference this constant at runtime). */
+export const MAX_EDGE_FRESHNESS_CHARS = 600;
+
+/**
+ * Build the dated freshness block from a per-path override's `freshness`
+ * ({ update, label }). Same single-source-of-truth contract as
+ * {@link citableSection} (unit-tested here, serialized verbatim into the
+ * Worker). A self-contained <div class="lvx-fresh" data-livesov="freshness">: a
+ * bold dated label ("Updated <Month Year>:") then the freshness text. Kept a
+ * SEPARATE block so it coexists with the other injected blocks. Both the label
+ * and the text are html-escaped; the text is capped. Empty text returns '' so
+ * the caller injects nothing.
+ */
+export function freshnessSection(
+  freshness: { update?: string; label?: string },
+  esc: (s: string) => string,
+): string {
+  const update = freshness && typeof freshness.update === 'string' ? freshness.update.trim() : '';
+  if (!update) return '';
+  const label = freshness && typeof freshness.label === 'string' && freshness.label.trim()
+    ? freshness.label.trim() : 'Updated:';
+  return '<div class="lvx-fresh" data-livesov="freshness"><strong>' + esc(label) + '</strong> '
+    + esc(update.slice(0, 600)) + '</div>';
+}
+
 /** Minimal shapes of the HTMLRewriter element/end-tag the appender touches. */
 interface EdgeEndTag { before(content: string, opts: { html: boolean }): void }
 interface EdgeElement { onEndTag(cb: (end: EdgeEndTag) => void): void }
@@ -190,7 +217,8 @@ export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
     + `// AI rules to /robots.txt, and applies your shipped SEO fixes (title, meta\n`
     + `// description, canonical, JSON-LD schema, OG/Twitter cards, noindex removal,\n`
     + `// contextual internal links, authoritative source citations, citable\n`
-    + `// "Key facts" answer blocks, and FAQ blocks) to every page as it is served.\n`
+    + `// "Key facts" answer blocks, FAQ blocks, and dated freshness notes) to\n`
+    + `// every page as it is served.\n`
     + `const T = ${JSON.stringify(token)};\n`
     + `const BASE = ${JSON.stringify(edgeBase)};\n`
     + `const H = { headers: { Authorization: 'Bearer ' + T } };\n`
@@ -199,6 +227,7 @@ export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
     + `const citationsNav = ${citationsNav.toString()};\n`
     + `const citableSection = ${citableSection.toString()};\n`
     + `const faqSection = ${faqSection.toString()};\n`
+    + `const freshnessSection = ${freshnessSection.toString()};\n`
     + `const edgePathKey = ${edgePathKey.toString()};\n`
     + `const makeNavAppender = ${makeNavAppender.toString()};\n`
     + `export default {\n`
@@ -283,6 +312,13 @@ export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
     + `      if (faqHtml) { // own appender/guard, so it coexists with the other blocks\n`
     + `        const appendFaq = makeNavAppender(faqHtml);\n`
     + `        rw = rw.on('article', appendFaq).on('main', appendFaq).on('[itemprop="articleBody"]', appendFaq).on('body', appendFaq);\n`
+    + `      }\n`
+    + `    }\n`
+    + `    if (o.freshness && o.freshness.update) { // shipped Content-freshness fixes\n`
+    + `      const freshHtml = freshnessSection(o.freshness, esc);\n`
+    + `      if (freshHtml) { // own appender/guard, so it coexists with the other blocks\n`
+    + `        const appendFresh = makeNavAppender(freshHtml);\n`
+    + `        rw = rw.on('article', appendFresh).on('main', appendFresh).on('[itemprop="articleBody"]', appendFresh).on('body', appendFresh);\n`
     + `      }\n`
     + `    }\n`
     + `    return rw.transform(out);\n`
