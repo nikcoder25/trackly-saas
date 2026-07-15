@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildEdgeWorkerScript, relatedLinksNav, makeNavAppender, edgePathKey, MAX_EDGE_LINKS, EDGE_MARKER_HEADER } from '@/lib/fix-engine/edge-worker';
+import { buildEdgeWorkerScript, relatedLinksNav, citationsNav, makeNavAppender, edgePathKey, MAX_EDGE_LINKS, MAX_EDGE_CITATIONS, EDGE_MARKER_HEADER } from '@/lib/fix-engine/edge-worker';
 
 // Same escaper the Worker defines inline (& < > ").
 const esc = (s: string) => String(s)
@@ -82,6 +82,42 @@ describe('buildEdgeWorkerScript body injection', () => {
   it('caps the injected link list at MAX_EDGE_LINKS', () => {
     expect(script).toContain(`o.links.slice(0, ${MAX_EDGE_LINKS})`);
   });
+
+  it('injects a separate citations block via its own appender with the body fallback', () => {
+    expect(script).toContain('Array.isArray(o.citations)');
+    expect(script).toContain('const citationsNav =');
+    expect(script).toContain('const appendCite = makeNavAppender(citeHtml)');
+    expect(script).toContain("rw.on('article', appendCite).on('main', appendCite).on('[itemprop=\"articleBody\"]', appendCite).on('body', appendCite)");
+    expect(script).toContain(`o.citations.slice(0, ${MAX_EDGE_CITATIONS})`);
+    // Citations marker survives serialization (quote-insensitive).
+    expect(script).toMatch(/class=\\?["']livesov-citations\\?["']/);
+    expect(script).toMatch(/data-livesov=\\?["']citations\\?["']/);
+  });
+});
+
+describe('citationsNav', () => {
+  it('renders a Sources nav with rel="noopener" (not nofollow) and the source label', () => {
+    const html = citationsNav([{ anchor: 'FDA label', href: 'https://fda.gov/x', source: 'FDA' }], esc);
+    expect(html).toBe(
+      '<nav class="livesov-citations" data-livesov="citations"><ul>'
+      + '<li><a href="https://fda.gov/x" rel="noopener" target="_blank">FDA label</a> — FDA</li></ul></nav>',
+    );
+    expect(html).not.toContain('nofollow');
+  });
+
+  it('html-escapes anchor, href, and source', () => {
+    const html = citationsNav([{ anchor: 'A <b>', href: 'https://x/?a=1&"b"', source: 'S&<' }], esc);
+    expect(html).toContain('href="https://x/?a=1&amp;&quot;b&quot;"');
+    expect(html).toContain('>A &lt;b&gt;</a> — S&amp;&lt;');
+    expect(html).not.toContain('<b>');
+  });
+
+  it('omits the source label when absent, caps at MAX_EDGE_CITATIONS, empty for none', () => {
+    expect(citationsNav([{ anchor: 'X', href: 'https://x/y' }], esc)).toContain('>X</a></li>');
+    const many = Array.from({ length: MAX_EDGE_CITATIONS + 3 }, (_, i) => ({ anchor: `S${i}`, href: `https://s${i}.org/x` }));
+    expect((citationsNav(many, esc).match(/<li>/g) || []).length).toBe(MAX_EDGE_CITATIONS);
+    expect(citationsNav([], esc)).toBe('');
+  });
 });
 
 /**
@@ -122,6 +158,33 @@ describe('makeNavAppender (single-injection + body fallback)', () => {
     const inserts = run(makeNavAppender(NAV), ['main', 'body']);
     expect(inserts).toHaveLength(1);
     expect(inserts[0].at).toBe('main');
+  });
+
+  it('two independent appenders (internal links + citations) each inject once, no collision', () => {
+    // The Worker registers a separate appender per block over the same
+    // selectors; each keeps its own guard, so both blocks land in the first
+    // container and neither double-injects.
+    const links = '<nav class="livesov-related"></nav>';
+    const cites = '<nav class="livesov-citations"></nav>';
+    const appenders = [makeNavAppender(links), makeNavAppender(cites)];
+    const perContainer = new Map<string, Array<(end: { before(html: string, opts: { html: boolean }): void }) => void>>();
+    for (const name of ['main', 'body']) {
+      const cbs: Array<(end: { before(html: string, opts: { html: boolean }): void }) => void> = [];
+      for (const ap of appenders) {
+        let stored: ((end: { before(html: string, opts: { html: boolean }): void }) => void) | null = null;
+        ap.element({ onEndTag: (cb) => { stored = cb; } });
+        cbs.push(stored!);
+      }
+      perContainer.set(name, cbs);
+    }
+    const inserts: Array<{ at: string; html: string }> = [];
+    for (const name of ['main', 'body']) {
+      for (const cb of perContainer.get(name)!) cb({ before: (html) => inserts.push({ at: name, html }) });
+    }
+    expect(inserts).toEqual([
+      { at: 'main', html: links },
+      { at: 'main', html: cites },
+    ]);
   });
 });
 

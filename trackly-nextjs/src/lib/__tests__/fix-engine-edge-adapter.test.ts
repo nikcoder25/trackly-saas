@@ -236,6 +236,77 @@ describe('edge internal-link overrides', () => {
   });
 });
 
+describe('edge external-citation overrides', () => {
+  it('emits citations from a shipped external-citations fix (url → href, carries source/claim)', () => {
+    const out = buildEdgeSeoOverrides([
+      {
+        moduleKey: 'external-citations',
+        targetUrl: 'https://acme.com/about',
+        generated: {
+          citations: [
+            { claim: 'Cagrilintide is a peptide', anchor: 'PubChem: Cagrilintide', url: 'https://pubchem.ncbi.nlm.nih.gov/compound/x', source: 'PubChem' },
+            { claim: 'Cleared by the FDA', anchor: 'FDA label', url: 'https://www.fda.gov/drug', source: 'FDA' },
+          ],
+        },
+      },
+    ]);
+    expect(out['/about'].citations).toEqual([
+      { anchor: 'PubChem: Cagrilintide', href: 'https://pubchem.ncbi.nlm.nih.gov/compound/x', source: 'PubChem', claim: 'Cagrilintide is a peptide' },
+      { anchor: 'FDA label', href: 'https://www.fda.gov/drug', source: 'FDA', claim: 'Cleared by the FDA' },
+    ]);
+  });
+
+  it('drops non-https, relative, own-domain, and competitor citations', () => {
+    const citationDenyHosts = new Set(['acme.com', 'rival.com']);
+    const out = buildEdgeSeoOverrides(
+      [
+        {
+          moduleKey: 'external-citations',
+          targetUrl: 'https://acme.com/p',
+          generated: {
+            citations: [
+              { anchor: 'insecure', url: 'http://pubchem.ncbi.nlm.nih.gov/x' }, // http → drop
+              { anchor: 'relative', url: '/local/page' }, // relative → drop
+              { anchor: 'self', url: 'https://www.acme.com/about' }, // own domain → drop
+              { anchor: 'rival', url: 'https://rival.com/x' }, // competitor → drop
+              { anchor: 'FDA', url: 'https://www.fda.gov/ok' }, // external https → keep
+            ],
+          },
+        },
+      ],
+      { citationDenyHosts },
+    );
+    expect(out['/p'].citations).toEqual([{ anchor: 'FDA', href: 'https://www.fda.gov/ok' }]);
+  });
+
+  it('dedupes by href and caps citations at 5', () => {
+    const citations = Array.from({ length: 8 }, (_, i) => ({ anchor: `S${i}`, url: `https://src${i}.org/x` }));
+    citations.push({ anchor: 'dup', url: 'https://src0.org/x' });
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'external-citations', targetUrl: 'https://a.com/hub', generated: { citations } },
+    ]);
+    expect(out['/hub'].citations).toHaveLength(5);
+    expect(out['/hub'].citations!.filter((c) => c.href === 'https://src0.org/x')).toHaveLength(1);
+  });
+
+  it('newest external-citations fix replaces the earlier citation set', () => {
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'external-citations', targetUrl: 'https://a.com/p', generated: { citations: [{ anchor: 'Old', url: 'https://old.org/x' }] } },
+      { moduleKey: 'external-citations', targetUrl: 'https://a.com/p', generated: { citations: [{ anchor: 'New', url: 'https://new.org/x' }] } },
+    ]);
+    expect(out['/p'].citations).toEqual([{ anchor: 'New', href: 'https://new.org/x' }]);
+  });
+
+  it('lets internal links and citations coexist on the same path', () => {
+    const out = buildEdgeSeoOverrides([
+      { moduleKey: 'internal-linking', targetUrl: 'https://a.com/p', generated: { links: [{ anchor: 'Guide', url: 'https://a.com/guide' }] } },
+      { moduleKey: 'external-citations', targetUrl: 'https://a.com/p', generated: { citations: [{ anchor: 'FDA', url: 'https://fda.gov/x' }] } },
+    ]);
+    expect(out['/p'].links).toEqual([{ anchor: 'Guide', href: 'https://a.com/guide' }]);
+    expect(out['/p'].citations).toEqual([{ anchor: 'FDA', href: 'https://fda.gov/x' }]);
+  });
+});
+
 describe('normalizeEdgeOverrideKeys (serve-boundary trailing-slash matching)', () => {
   it('re-keys to canonical paths so /p and /p/ resolve to one entry', () => {
     const out = normalizeEdgeOverrideKeys({
