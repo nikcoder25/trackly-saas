@@ -185,6 +185,7 @@ const MX_CSS = `
    worker script block) opt out with an inline white-space + overflow. */
 .mx pre { min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }
 .mx .nb, .mx .nb-sm { max-width: 100%; }
+`;
 
 // ── status / severity / grouping helpers ──
 function statusMeta(s: string): { label: string; color: string; bg: string } {
