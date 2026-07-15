@@ -115,10 +115,12 @@ export const ctrRescueModule: FixModule = {
   },
 
   preview(_issue: DetectedIssue, draft: GeneratedDraft): PreviewBlock {
-    const g = draft.generated as { title?: string; description?: string };
+    const g = draft.generated as { title?: string; description?: string; before?: { title?: string | null; description?: string | null } };
+    const b = g.before ?? {};
     return {
       kind: 'key-values',
       label: 'New title + meta description',
+      before: `Title: ${b.title ?? '(none)'}\n\nMeta: ${b.description ?? '(none)'}`,
       after: `Title: ${g.title ?? ''}\n\nMeta: ${g.description ?? ''}`,
     };
   },

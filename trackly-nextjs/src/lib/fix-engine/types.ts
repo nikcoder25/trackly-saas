@@ -103,6 +103,12 @@ export interface PreviewBlock {
   label: string;
   before?: string;
   after?: string;
+  /**
+   * For additive fixes (schema, FAQ, citations…) there's no current value to
+   * show as "before" — this one-line note explains what's being added, so the
+   * card still reads as a before/after ("nothing today → this").
+   */
+  addNote?: string;
   /** For code-block previews (schema JSON-LD, llms.txt, ...). */
   language?: string;
 }

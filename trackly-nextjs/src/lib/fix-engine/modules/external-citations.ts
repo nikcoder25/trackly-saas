@@ -118,7 +118,7 @@ export const externalCitationsModule: FixModule = {
     const dropped = Number(draft.generated.dropped || 0);
     const body = cites.map((c) => `• ${c.anchor} → ${c.url}\n  supports: ${c.claim}`).join('\n\n')
       + (dropped ? `\n\n(${dropped} suggested link(s) dropped as unverifiable)` : '');
-    return { kind: 'key-values', label: `Verified citations (${cites.length})`, after: body || 'No verifiable citations found.' };
+    return { kind: 'key-values', label: `Verified citations (${cites.length})`, addNote: 'This page cites no external authoritative sources today — these add them.', after: body || 'No verifiable citations found.' };
   },
 
   async ship(issue: DetectedIssue, draft: GeneratedDraft, ctx: FixContext): Promise<ShipResult> {

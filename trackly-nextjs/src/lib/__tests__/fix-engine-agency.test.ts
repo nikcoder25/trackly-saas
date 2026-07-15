@@ -151,6 +151,7 @@ vi.mock('@/lib/fix-engine/keywords', () => ({
 }));
 
 import { keywordOpportunitiesModule, MIN_VOLUME, MAX_COMPETITION } from '@/lib/fix-engine/modules/keyword-opportunities';
+import { faqSchemaModule } from '@/lib/fix-engine/modules/faq-schema';
 
 describe('keyword-opportunities module', () => {
   beforeEach(() => {
@@ -204,5 +205,29 @@ describe('keyword-opportunities module', () => {
     expect(preview.after).toContain('Exact keyword to target across on-page SEO: "best ai visibility tools"');
     expect(preview.after).toContain('H1:');
     expect(preview.after).toContain('Slug:   /best-ai-visibility-tools');
+    // Before/after: the preview shows the page's current title as the "before"
+    // so the reviewer can see the change, not just the proposed new content.
+    expect(preview.before).toContain('Current title: Tools');
+    expect(preview.before).toContain('No section on this page targets "best ai visibility tools" yet');
+  });
+});
+
+describe('every generated preview carries a before/after', () => {
+  // Additive fixes (schema, FAQ, citations, alt text…) have no current value,
+  // so they must supply an addNote explaining what's added; edit-style fixes
+  // must supply a real `before`. Either way the card can render NOW → FIX.
+  it('image-alt shows the current (missing) alt as the before', async () => {
+    const draft = { generated: { alts: [{ src: '/img/a.png', alt: 'A dashboard' }] } };
+    const preview = imageAltModule.preview({ key: 'k', detected: {} } as never, draft as never);
+    expect(preview.before).toContain('(no alt text)');
+    expect(preview.after).toContain('A dashboard');
+  });
+
+  it('faq-schema (additive) supplies an addNote instead of a before', () => {
+    const draft = { generated: { faqs: [{ question: 'Q?', answer: 'A.' }] } };
+    const preview = faqSchemaModule.preview({ key: 'k', detected: {} } as never, draft as never);
+    expect(preview.before).toBeUndefined();
+    expect(preview.addNote).toMatch(/no faq/i);
+    expect(preview.after).toContain('Q: Q?');
   });
 });

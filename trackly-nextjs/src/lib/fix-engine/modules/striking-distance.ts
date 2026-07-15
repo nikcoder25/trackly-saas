@@ -102,6 +102,7 @@ export const strikingDistanceModule: FixModule = {
       kind: 'code-block',
       label: 'New title + content section',
       language: 'html',
+      addNote: 'A sharper title plus a new section targeting your near-ranking queries — the section isn’t on the page today.',
       after: `<title>${g.title ?? ''}</title>\n\n${g.sectionHtml ?? ''}`,
     };
   },
