@@ -160,38 +160,21 @@ describe('edge internal-link overrides', () => {
     ]);
   });
 
-  it('drops links whose href would 404 against the site’s real routes', () => {
-    // The real bug: a fix links to /peptides/semaglutide but the live URL is
-    // /semaglutide-calculator/. Validated against the known route set, the
-    // dead target is dropped and only the real one survives.
-    const knownPaths = new Set(['/semaglutide-calculator', '/pricing', '/']);
-    const out = buildEdgeSeoOverrides(
-      [
-        {
-          moduleKey: 'internal-linking',
-          targetUrl: 'https://a.com/cagrilintide',
-          generated: {
-            links: [
-              { anchor: 'Semaglutide', url: 'https://a.com/peptides/semaglutide' }, // 404 → dropped
-              { anchor: 'Calculator', url: 'https://a.com/semaglutide-calculator/' }, // real → kept
-            ],
-          },
-        },
-      ],
-      { knownPaths },
-    );
+  it('emits the frozen links as-is — no serve-time 404 re-validation', () => {
+    // 404-dropping now happens once at generation (internal-linking's
+    // urlResolves) and is frozen on the fix, so the builder is a pure,
+    // deterministic read and never re-drops a valid link against a flaky or
+    // capped-out sitemap fetch.
+    const out = buildEdgeSeoOverrides([
+      {
+        moduleKey: 'internal-linking',
+        targetUrl: 'https://a.com/cagrilintide',
+        generated: { links: [{ anchor: 'Calculator', url: 'https://a.com/semaglutide-calculator/' }] },
+      },
+    ]);
     expect(out['/cagrilintide'].links).toEqual([
       { anchor: 'Calculator', href: 'https://a.com/semaglutide-calculator/' },
     ]);
-  });
-
-  it('drops the links field entirely when every target 404s', () => {
-    const knownPaths = new Set(['/real', '/']);
-    const out = buildEdgeSeoOverrides(
-      [{ moduleKey: 'internal-linking', targetUrl: 'https://a.com/p', generated: { links: [{ anchor: 'X', url: 'https://a.com/dead' }] } }],
-      { knownPaths },
-    );
-    expect(out['/p']).toBeUndefined();
   });
 
   it('dedupes by href and caps at 8 links', () => {

@@ -8,6 +8,7 @@
  * Recheck: re-crawl and confirm the links are present.
  */
 
+import { safeFetch } from '@/lib/safe-fetch';
 import { crawlPage, resolveCrawlTargets } from '../crawl';
 import { generateJson } from '../generate';
 import { INTERNAL_LINKING_SYSTEM, internalLinkingUserPrompt } from '../prompts';
@@ -23,6 +24,19 @@ interface LinkSuggestion { anchor: string; url: string; reason?: string }
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** Verify a link target actually resolves (<400) so a stale-sitemap URL that
+ *  404s (e.g. /peptides/semaglutide when the live URL is /semaglutide-
+ *  calculator/) never ships. Same guard external-citations uses. */
+async function urlResolves(url: string): Promise<boolean> {
+  if (!/^https?:\/\//i.test(url)) return false;
+  try {
+    const res = await safeFetch(url, { timeoutMs: 8000, maxBytes: 256 * 1024 });
+    return res.status > 0 && res.status < 400;
+  } catch {
+    return false;
+  }
 }
 function renderLinksHtml(links: LinkSuggestion[]): string {
   const items = links
@@ -87,8 +101,17 @@ export const internalLinkingModule: FixModule = {
     });
     // Guard: never link the page to itself; only keep candidate URLs.
     const candidateUrls = new Set(d.candidates.map((c) => c.url));
-    const links = (data.links || []).filter((l) => l.url && l.url !== d.url && candidateUrls.has(l.url));
-    return { generated: { links, rationale: data.rationale, html: renderLinksHtml(links) }, creditsUsed: 1 };
+    const proposed = (data.links || []).filter((l) => l.url && l.url !== d.url && candidateUrls.has(l.url));
+    // Verify each target actually resolves and FREEZE the surviving set here.
+    // Edge publishing then serves these links as a deterministic read — no
+    // per-request sitemap re-validation, which could non-deterministically
+    // drop valid links when a later sitemap fetch omits or caps out the target.
+    const links: LinkSuggestion[] = [];
+    for (const l of proposed) {
+      if (await urlResolves(l.url)) links.push(l);
+    }
+    const dropped = proposed.length - links.length;
+    return { generated: { links, dropped, rationale: data.rationale, html: renderLinksHtml(links) }, creditsUsed: 1 };
   },
 
   preview(_issue: DetectedIssue, draft: GeneratedDraft): PreviewBlock {

@@ -18,6 +18,18 @@ const state = vi.hoisted(() => ({
   pages: new Map<string, any>(),
   token: { accessToken: 'tok', siteUrl: 'https://acme.test/' } as any,
   inspections: new Map<string, any>(),
+  // URLs that resolve (<400) for internal-linking's generate-time link check.
+  resolvable: null as Set<string> | null, // null → everything resolves
+}));
+
+vi.mock('@/lib/safe-fetch', () => ({
+  safeFetch: vi.fn(async (url: string) => ({
+    status: !state.resolvable || state.resolvable.has(url) ? 200 : 404,
+    ok: !state.resolvable || state.resolvable.has(url),
+    text: async () => '',
+    headers: { get: () => null },
+  })),
+  SSRFError: class extends Error {},
 }));
 
 vi.mock('@/lib/fix-engine/crawl', async (orig) => {
@@ -69,6 +81,7 @@ beforeEach(() => {
   state.pages.clear();
   state.inspections.clear();
   state.token = { accessToken: 'tok', siteUrl: 'https://acme.test/' };
+  state.resolvable = null;
   vi.clearAllMocks();
 });
 
@@ -93,6 +106,17 @@ describe('internal-linking', () => {
     const draft = await internalLinkingModule.generate(issues[0], ctx);
     // self-link filtered, only candidate URLs kept
     expect((draft.generated.links as any[]).every((l) => l.url !== issues[0].targetUrl)).toBe(true);
+  });
+
+  it('drops (freezes out) link targets that do not resolve at generation time', async () => {
+    state.targets = ['https://acme.test/', 'https://acme.test/pricing', 'https://acme.test/about', 'https://acme.test/blog'];
+    for (const u of state.targets) state.pages.set(u, { title: u, text: 'content' });
+    // The generate mock proposes a link to /pricing; make that target 404.
+    state.resolvable = new Set(['https://acme.test/', 'https://acme.test/about', 'https://acme.test/blog']);
+    const issues = await internalLinkingModule.detect(ctx);
+    const draft = await internalLinkingModule.generate(issues[0], ctx);
+    expect(draft.generated.links).toEqual([]); // the only proposed link 404'd
+    expect(draft.generated.dropped).toBe(1);
   });
 });
 
