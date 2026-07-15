@@ -75,11 +75,12 @@ describe('getEdgeSeoOverrides — links + citations coexist per path', () => {
     expect(safeFetch).not.toHaveBeenCalled(); // no serve-time sitemap fetch
   });
 
-  it('carries ALL FOUR body blocks (links + citations + citable + faq) plus head fields for one page, order-independent', async () => {
+  it('carries ALL FIVE body blocks (links + citations + citable + faq + freshness) plus head fields for one page, order-independent', async () => {
     const { safeFetch } = await import('@/lib/safe-fetch');
-    // faq/citable rows FIRST, links/citations after, head field last — the merge
-    // must be order-independent and none may clobber another.
+    // freshness/faq/citable rows FIRST, links/citations after, head field last —
+    // the merge must be order-independent and none may clobber another.
     state.rows = [
+      { module_key: 'content-freshness', target_url: 'https://acme.test/about', generated: { update: 'Reviewed for 2026.', html: '<div class="lvx-fresh"><strong>Updated July 2026:</strong> Reviewed for 2026.</div>' } },
       { module_key: 'faq-schema', target_url: 'https://acme.test/about', generated: { faqs: [{ question: 'Is it safe?', answer: 'Yes.' }], schema: '{"@type":"FAQPage"}' } },
       { module_key: 'citable-passages', target_url: 'https://acme.test/about', generated: { tldr: 'Acme makes peptides.', passages: ['Founded 2019.', 'Ships worldwide.'] } },
       { module_key: 'internal-linking', target_url: 'https://acme.test/about', generated: { links: [{ anchor: 'Cagrilintide', url: 'https://acme.test/peptides/cagrilintide' }] } },
@@ -93,6 +94,7 @@ describe('getEdgeSeoOverrides — links + citations coexist per path', () => {
       citations: [{ anchor: 'FDA', href: 'https://fda.gov/x', source: 'FDA' }],
       citable: { tldr: 'Acme makes peptides.', passages: ['Founded 2019.', 'Ships worldwide.'] },
       faq: { faqs: [{ question: 'Is it safe?', answer: 'Yes.' }] },
+      freshness: { update: 'Reviewed for 2026.', label: 'Updated July 2026:' },
     });
     // Still a pure read — building the override never re-fetches at serve time.
     expect(safeFetch).not.toHaveBeenCalled();

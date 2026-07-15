@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildEdgeWorkerScript, relatedLinksNav, citationsNav, citableSection, faqSection, makeNavAppender, edgePathKey, MAX_EDGE_LINKS, MAX_EDGE_CITATIONS, MAX_EDGE_CITABLE_PASSAGES, MAX_EDGE_FAQS, EDGE_MARKER_HEADER } from '@/lib/fix-engine/edge-worker';
+import { buildEdgeWorkerScript, relatedLinksNav, citationsNav, citableSection, faqSection, freshnessSection, makeNavAppender, edgePathKey, MAX_EDGE_LINKS, MAX_EDGE_CITATIONS, MAX_EDGE_CITABLE_PASSAGES, MAX_EDGE_FAQS, MAX_EDGE_FRESHNESS_CHARS, EDGE_MARKER_HEADER } from '@/lib/fix-engine/edge-worker';
 
 // Same escaper the Worker defines inline (& < > ").
 const esc = (s: string) => String(s)
@@ -114,6 +114,17 @@ describe('buildEdgeWorkerScript body injection', () => {
     // FAQ marker survives serialization (quote-insensitive).
     expect(script).toMatch(/class=\\?["']livesov-faq\\?["']/);
     expect(script).toMatch(/data-livesov=\\?["']faq\\?["']/);
+  });
+
+  it('injects a separate freshness block via its own appender with the body fallback', () => {
+    expect(script).toContain('o.freshness');
+    expect(script).toContain('const freshnessSection =');
+    expect(script).toContain('const freshHtml = freshnessSection(o.freshness, esc)');
+    expect(script).toContain('const appendFresh = makeNavAppender(freshHtml)');
+    expect(script).toContain("rw.on('article', appendFresh).on('main', appendFresh).on('[itemprop=\"articleBody\"]', appendFresh).on('body', appendFresh)");
+    // Freshness marker survives serialization (quote-insensitive).
+    expect(script).toMatch(/class=\\?["']lvx-fresh\\?["']/);
+    expect(script).toMatch(/data-livesov=\\?["']freshness\\?["']/);
   });
 });
 
@@ -227,6 +238,39 @@ describe('faqSection', () => {
     expect((html.match(/faq-item/g) || []).length).toBe(MAX_EDGE_FAQS);
     expect(faqSection({ faqs: [{ question: '  ', answer: 'x' }, { question: 'y', answer: '  ' }] }, esc)).toBe('');
     expect(faqSection({}, esc)).toBe('');
+  });
+});
+
+describe('freshnessSection', () => {
+  it('renders a dated freshness div with the lvx-fresh + livesov markers', () => {
+    const html = freshnessSection({ update: 'Reviewed against the latest 2026 guidance.', label: 'Updated July 2026:' }, esc);
+    expect(html).toBe(
+      '<div class="lvx-fresh" data-livesov="freshness"><strong>Updated July 2026:</strong> '
+      + 'Reviewed against the latest 2026 guidance.</div>',
+    );
+  });
+
+  it('falls back to a plain "Updated:" label when none is carried', () => {
+    const html = freshnessSection({ update: 'Still current.' }, esc);
+    expect(html).toContain('<strong>Updated:</strong> Still current.');
+  });
+
+  it('html-escapes the label and the update text (no markup breakout)', () => {
+    const html = freshnessSection({ update: '1 < 2 & "q" <img>', label: 'Updated <b>:' }, esc);
+    expect(html).toContain('<strong>Updated &lt;b&gt;:</strong>');
+    expect(html).toContain('1 &lt; 2 &amp; &quot;q&quot; &lt;img&gt;');
+    expect(html).not.toContain('<img>');
+    expect(html).not.toContain('<b>:');
+  });
+
+  it('caps the update text at MAX_EDGE_FRESHNESS_CHARS, empty for none', () => {
+    // 'Z' as a sentinel — it appears nowhere in the label or the markup, so the
+    // match count is exactly the rendered run of update text.
+    const long = 'Z'.repeat(MAX_EDGE_FRESHNESS_CHARS + 200);
+    const html = freshnessSection({ update: long, label: 'Updated:' }, esc);
+    expect((html.match(/Z/g) || []).length).toBe(MAX_EDGE_FRESHNESS_CHARS);
+    expect(freshnessSection({ update: '   ' }, esc)).toBe('');
+    expect(freshnessSection({}, esc)).toBe('');
   });
 });
 
