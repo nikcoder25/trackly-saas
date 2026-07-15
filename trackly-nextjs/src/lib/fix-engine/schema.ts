@@ -595,16 +595,14 @@ const MAX_EDGE_LINKS = 8;
 
 /**
  * Fold an internal-linking fix's `generated.links` ({ anchor, url|href, rel? })
- * into the override link list. When `knownPaths` is supplied, a link is dropped
- * unless its href resolves to a path the site actually serves — this is what
- * stops us shipping a link to /peptides/semaglutide when the live URL is
- * /semaglutide-calculator/. Anchors/hrefs are kept raw here; the Worker escapes
- * them at inject time. Deduped by href and capped at MAX_EDGE_LINKS.
+ * into the override link list. The link targets were already resolve-validated
+ * and FROZEN when the fix was generated (internal-linking's `urlResolves`), so
+ * this is a pure, deterministic read — no per-request sitemap re-validation,
+ * which used to silently drop valid links when a later sitemap fetch omitted or
+ * capped out a target. Anchors/hrefs are kept raw here; the Worker escapes them
+ * at inject time. Deduped by href and capped at MAX_EDGE_LINKS.
  */
-function buildEdgeLinks(
-  generated: Record<string, unknown> | null,
-  knownPaths?: Set<string>,
-): EdgeLink[] {
+function buildEdgeLinks(generated: Record<string, unknown> | null): EdgeLink[] {
   const raw = Array.isArray(generated?.links) ? (generated!.links as unknown[]) : [];
   const out: EdgeLink[] = [];
   const seen = new Set<string>();
@@ -615,10 +613,6 @@ function buildEdgeLinks(
     // internal-linking stores the target as `url`; accept `href` too.
     const href = (typeof l.url === 'string' ? l.url : typeof l.href === 'string' ? l.href : '').trim();
     if (!anchor || !href || seen.has(href)) continue;
-    if (knownPaths) {
-      const key = edgeSeoPathKey(href);
-      if (!key || !knownPaths.has(key)) continue; // would 404 — drop it
-    }
     seen.add(href);
     const rel = typeof l.rel === 'string' && l.rel.trim() ? l.rel.trim() : undefined;
     out.push(rel ? { anchor, href, rel } : { anchor, href });
@@ -681,9 +675,6 @@ function buildEdgeCitations(
 
 /** Options for {@link buildEdgeSeoOverrides}. */
 export interface BuildEdgeSeoOptions {
-  /** Normalised path keys the site actually serves (sitemap/homepage). When
-   *  present, internal-link hrefs outside this set are dropped as 404s. */
-  knownPaths?: Set<string>;
   /** Hosts (www-stripped, lowercased) a citation must NOT point at: the brand's
    *  own domain and its competitors. When present, matching citations drop. */
   citationDenyHosts?: Set<string>;
@@ -732,9 +723,8 @@ export function buildEdgeSeoOverrides(
     const key = edgeSeoPathKey(row.targetUrl);
     if (!key) continue;
     if (row.moduleKey === EDGE_LINK_MODULE) {
-      const links = buildEdgeLinks(row.generated, opts?.knownPaths);
+      const links = buildEdgeLinks(row.generated);
       // Newest fix wins: a later shipped fix for the path replaces the set.
-      // An empty result (all targets 404'd) drops the field entirely.
       if (links.length) (out[key] ??= {}).links = links;
       continue;
     }
@@ -786,15 +776,16 @@ export async function getEdgeSeoOverrides(brandId: string): Promise<Record<strin
     targetUrl: (r.target_url as string | null) ?? null,
     generated: (r.generated as Record<string, unknown> | null) ?? null,
   }));
-  // Only pay for validation when there are fixes that need it:
-  //  - internal links: resolve the brand's real routes so 404 targets drop;
-  //  - citations: resolve the brand's own + competitor hosts so non-external
-  //    (or self-referential) links drop.
-  const [knownPaths, citationDenyHosts] = await Promise.all([
-    rows.some((r) => r.moduleKey === EDGE_LINK_MODULE) ? resolveKnownSitePaths(brandId) : undefined,
-    rows.some((r) => r.moduleKey === EDGE_CITATION_MODULE) ? resolveCitationDenyHosts(brandId) : undefined,
-  ]);
-  return buildEdgeSeoOverrides(rows, { knownPaths, citationDenyHosts });
+  // Citations are validated against the brand's own + competitor hosts so
+  // non-external (or self-referential) links drop. Internal links need NO
+  // serve-time validation: their targets were resolve-checked and frozen when
+  // the fix was generated, so building the override is a deterministic read
+  // (a per-request sitemap re-check used to non-deterministically drop valid
+  // links when a later fetch omitted or capped out a target).
+  const citationDenyHosts = rows.some((r) => r.moduleKey === EDGE_CITATION_MODULE)
+    ? await resolveCitationDenyHosts(brandId)
+    : undefined;
+  return buildEdgeSeoOverrides(rows, { citationDenyHosts });
 }
 
 /**
@@ -837,34 +828,6 @@ function hostFromLooseUrl(v: unknown): string | null {
     const host = new URL(s.startsWith('http') ? s : `https://${s}`).host.replace(/^www\./, '').toLowerCase();
     return host.includes('.') ? host : null; // reject non-domains ("acme")
   } catch { return null; }
-}
-
-/**
- * The set of path keys the brand's site actually serves, from its sitemap
- * (plus the homepage), for validating internal-link targets. Returns
- * `undefined` when we can't enumerate real routes (no website, or the sitemap
- * yielded only the homepage) — the caller then ships links unfiltered rather
- * than over-dropping against an unknown route set.
- */
-async function resolveKnownSitePaths(brandId: string): Promise<Set<string> | undefined> {
-  try {
-    const res = await pool.query(`SELECT data->>'website' AS website FROM brands WHERE id = $1`, [brandId]);
-    const website = res.rows[0]?.website ? String(res.rows[0].website) : '';
-    if (!website) return undefined;
-    // Lazy import keeps the crawler (and its fetch stack) out of schema's
-    // load graph for the many callers that never touch edge overrides.
-    const { resolveCrawlTargets } = await import('./crawl');
-    const targets = await resolveCrawlTargets(website, 500);
-    const paths = new Set<string>();
-    for (const u of targets) {
-      const key = edgeSeoPathKey(u);
-      if (key) paths.add(key);
-    }
-    // <= 1 means "homepage only" — no real sitemap was found, so don't filter.
-    return paths.size > 1 ? paths : undefined;
-  } catch {
-    return undefined; // never block override delivery on a validation hiccup
-  }
 }
 
 export interface StuckInstruction { id: string; brandId: string; createdAt: string }
