@@ -4,6 +4,7 @@
  * the no-op / existing-PR paths) driven by a routing mock `fetch`.
  */
 
+import { describe, expect, it } from 'vitest';
 import { buildSeoManifest, stableStringify, DEFAULT_MANIFEST_PATH } from '@/lib/fix-engine/git/manifest';
 import { getFile, putFile, toBase64, type FetchLike, type GitHubRepoRef } from '@/lib/fix-engine/git/github';
 import { syncSeoToRepo, isGitConnectorCreds } from '@/lib/fix-engine/git/sync';
