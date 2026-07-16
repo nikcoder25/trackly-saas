@@ -30,6 +30,25 @@ describe('worker template', () => {
     expect(s).toContain("meta[name=\"robots\"]"); // noindex removal
     expect(s).toContain('o.head');                // OG/Twitter block
   });
+
+  it('partitions the seo.json cache per brand and never puts the token in a URL', () => {
+    const a = buildEdgeWorkerScript('tok-a', 'https://livesov.com/api/edge/serve');
+    const b = buildEdgeWorkerScript('tok-b', 'https://livesov.com/api/edge/serve');
+    // Cloudflare's cache keys on the full URL and ignores Vary, so the
+    // seo.json fetch URL must differ per brand or one brand's overrides
+    // would be served onto another brand's pages from a shared colo cache.
+    const ckOf = (s: string) => s.match(/file=seo\.json&ck=([0-9a-f]+)'/)?.[1];
+    expect(ckOf(a)).toBeTruthy();
+    expect(ckOf(b)).toBeTruthy();
+    expect(ckOf(a)).not.toBe(ckOf(b));
+    // The raw token rides only the Authorization header, never a URL.
+    expect(a).not.toContain('token=');
+  });
+
+  it('ignores a failed origin robots.txt (no 404 HTML prepended to directives)', () => {
+    const s = buildEdgeWorkerScript('tok123', 'https://livesov.com/api/edge/serve');
+    expect(s).toContain('fetch(req).then(r => r.ok ? r.text() : \'\')');
+  });
 });
 
 describe('cloudflare client', () => {

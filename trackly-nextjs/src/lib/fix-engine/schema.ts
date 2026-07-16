@@ -115,7 +115,7 @@ export async function ensureFixEngineSchema(): Promise<void> {
       id              UUID PRIMARY KEY,
       user_id         TEXT NOT NULL,
       brand_id        TEXT NOT NULL,
-      provider        TEXT NOT NULL CHECK (provider IN ('cms','gsc','connector','linear','jira','kwe','sheet')),
+      provider        TEXT NOT NULL CHECK (provider IN ('cms','gsc','connector','linear','jira','kwe','sheet','cloudflare')),
       cms_type        TEXT,
       site_url        TEXT,
       encrypted_creds TEXT,
@@ -139,11 +139,12 @@ export async function ensureFixEngineSchema(): Promise<void> {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_fix_connections_token_hash ON fix_connections (token_hash)`);
   // Connector heartbeat: updated on every successful pull.
   await pool.query(`ALTER TABLE fix_connections ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`);
-  // Allow native issue-tracker providers (linear, jira) on existing DBs
-  // whose CHECK constraint predates them. Drop + re-add idempotently.
+  // Allow providers added after launch (linear, jira, cloudflare) on existing
+  // DBs whose CHECK constraint predates them. Drop + re-add idempotently.
+  // Must stay in sync with FixConnectionProvider (connections.ts).
   await pool.query(`ALTER TABLE fix_connections DROP CONSTRAINT IF EXISTS fix_connections_provider_check`);
   await pool.query(`ALTER TABLE fix_connections ADD CONSTRAINT fix_connections_provider_check
-    CHECK (provider IN ('cms','gsc','connector','linear','jira','kwe','sheet'))`);
+    CHECK (provider IN ('cms','gsc','connector','linear','jira','kwe','sheet','cloudflare'))`);
 
   // One-click connect handshake: short-lived, single-use authorization codes
   // exchanged by the Connector plugin for its token + HMAC secret (so the
@@ -503,6 +504,12 @@ export async function listPendingConnectorInstructions(
  * robots-ai-access), for edge delivery (Cloudflare Worker / reverse proxy).
  * Returns the most recently updated fix's content, or null if none is ready.
  * `field` is where the module stores its text in `generated`.
+ *
+ * Ready = human-approved at minimum. Edge delivery is a runtime injection,
+ * not a durable origin write, so it must never get ahead of the human gate:
+ * a merely `generated` draft (including autopilot output) is NOT served.
+ * `approved` is included because on a pure edge-fronted site these Channel-B
+ * modules have no Connector to ack a ship, so approval is the human gate.
  */
 export async function getLatestRootFileContent(
   brandId: string,
@@ -513,7 +520,7 @@ export async function getLatestRootFileContent(
   const res = await pool.query(
     `SELECT generated, after_snapshot FROM fixes
       WHERE brand_id = $1 AND module_key = $2
-        AND status IN ('generated','approved','shipped','verified')
+        AND status IN ('approved','shipped','verified')
       ORDER BY updated_at DESC LIMIT 1`,
     [brandId, moduleKey],
   );

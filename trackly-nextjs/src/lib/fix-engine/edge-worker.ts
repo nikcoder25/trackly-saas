@@ -234,7 +234,25 @@ export function makeNavAppender(navHtml: string): {
  * `token` is the brand's raw Connector token; `edgeBase` is the absolute
  * /api/edge/serve URL of this Livesov deployment.
  */
+/** 32-bit FNV-1a over a string (dependency-free; this module must stay
+ *  import-free so client components can use it). */
+function fnv1a(s: string, seed: number): number {
+  let h = seed >>> 0;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+
 export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
+  // Partition the seo.json cache per brand WITHOUT putting the token in the
+  // URL: Cloudflare's cache keys on the full URL and ignores `Vary`, so two
+  // brands' Workers fetching the same `BASE?file=seo.json` would share one
+  // cache entry — brand A's overrides served onto brand B's pages. `ck` is a
+  // short one-way digest of the per-brand token: unique per brand, useless
+  // to an attacker, safe in logs.
+  const ck = fnv1a(token, 0x811c9dc5).toString(16) + fnv1a(token, 0x0f1e2d3c).toString(16);
   return `// Cloudflare Worker — Livesov edge publishing. Nothing installed on your site.\n`
     + `// Works for ANY stack (WordPress, custom-coded, ...): serves /llms.txt, appends\n`
     + `// AI rules to /robots.txt, and applies your shipped SEO fixes (title, meta\n`
@@ -259,7 +277,7 @@ export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
     + `    if (p === '/llms.txt') return fetch(BASE + '?file=llms.txt', H);\n`
     + `    if (p === '/robots.txt') {\n`
     + `      const [base, add] = await Promise.all([\n`
-    + `        fetch(req).then(r => r.text()).catch(() => ''),\n`
+    + `        fetch(req).then(r => r.ok ? r.text() : '').catch(() => ''),\n`
     + `        fetch(BASE + '?file=robots.txt', H).then(r => r.ok ? r.text() : '').catch(() => ''),\n`
     + `      ]);\n`
     + `      return new Response((base + '\\n' + add).trim() + '\\n', { headers: { 'content-type': 'text/plain' } });\n`
@@ -270,7 +288,7 @@ export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
     + `    if (req.method !== 'GET' || !(res.headers.get('content-type') || '').includes('text/html')) return out;\n`
     + `    let o = null;\n`
     + `    try { // per-path SEO overrides from your shipped fixes (5-min edge cache)\n`
-    + `      const r = await fetch(BASE + '?file=seo.json', { ...H, cf: { cacheTtl: 300, cacheEverything: true } });\n`
+    + `      const r = await fetch(BASE + '?file=seo.json&ck=${ck}', { ...H, cf: { cacheTtl: 300, cacheEverything: true } });\n`
     + `      if (r.ok) { const d = await r.json(); const ov = d.overrides || {}; const k = edgePathKey(p); o = ov[k] || ov[k + '/'] || null; }\n`
     + `    } catch {}\n`
     + `    if (!o) return out;\n`

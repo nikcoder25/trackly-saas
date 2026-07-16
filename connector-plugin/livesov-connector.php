@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Livesov Connector
  * Description: Applies Livesov Fix Engine Channel-B instructions (llms.txt, robots.txt, head schema) and ship-as-draft page edits by securely pulling them from your Livesov account. No inbound access to your server is required — the plugin only makes outbound requests.
- * Version: 1.2.0
+ * Version: 1.2.1
  * Author: Livesov
  * License: GPL-2.0-or-later
  *
@@ -221,7 +221,12 @@ function lvx_conn_path_allowed($path) {
 }
 
 function lvx_conn_verify_sig($secret, $id, $op, $content, $sig) {
-    if ($secret === '') { return true; } // no secret configured → skip (token still gates access)
+    // No secret configured → refuse. The signature is what stops a tampering
+    // transport (or anyone holding just the bearer token) from injecting
+    // arbitrary head markup or root files; skipping it would silently accept
+    // unauthenticated instructions. Pairing always issues a secret — re-pair
+    // if this install predates it.
+    if ($secret === '' || (string) $sig === '') { return false; }
     $expected = hash_hmac('sha256', $id . '|' . $op . '|' . hash('sha256', $content), $secret);
     return hash_equals($expected, (string) $sig);
 }
@@ -253,6 +258,9 @@ function lvx_conn_poll() {
         if ($id === '') { continue; }
 
         $content = isset($payload['content']) ? (string) $payload['content'] : wp_json_encode($payload);
+        if ($s['secret'] === '') {
+            lvx_conn_ack($s, $id, false, 'signing secret missing — re-pair the connector and paste the secret'); $failed++; continue;
+        }
         if (!lvx_conn_verify_sig($s['secret'], $id, $op, $content, $sig)) {
             lvx_conn_ack($s, $id, false, 'signature mismatch'); $failed++; continue;
         }

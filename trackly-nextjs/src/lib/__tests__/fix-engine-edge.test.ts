@@ -42,6 +42,8 @@ describe('edge serve', () => {
     const res = await GET(req('token=tok&file=llms.txt'));
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toContain('text/plain');
+    expect(res.headers.get('Cache-Control')).toContain('private');
+    expect(res.headers.get('Vary')).toBe('Authorization');
     expect(await res.text()).toContain('Allow: /');
   });
 
@@ -72,10 +74,16 @@ describe('edge serve', () => {
     expect((await GET(req('token=tok&file=llms.txt'))).status).toBe(404);
   });
 
-  it('serves seo.json overrides for the Worker with a short edge cache', async () => {
+  it('serves seo.json overrides for the Worker with a short PRIVATE cache', async () => {
     const res = await GET(req('token=tok&file=seo.json'));
     expect(res.status).toBe(200);
+    // private + Vary: the URL is identical for every brand while the body is
+    // per-brand (keyed by the bearer token) — a shared cache keyed only on
+    // the URL would serve brand A's overrides onto brand B's pages.
     expect(res.headers.get('Cache-Control')).toContain('max-age=300');
+    expect(res.headers.get('Cache-Control')).toContain('private');
+    expect(res.headers.get('Cache-Control')).not.toContain('public');
+    expect(res.headers.get('Vary')).toBe('Authorization');
     const body = await res.json();
     expect(body.v).toBe(1);
     expect(body.count).toBe(1);

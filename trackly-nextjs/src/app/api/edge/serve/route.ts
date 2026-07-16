@@ -54,9 +54,12 @@ export async function GET(request: Request): Promise<Response> {
       // Canonical (trailing-slash-normalised) keys so the Worker resolves
       // /p and /p/ to the same override entry.
       const overrides = normalizeEdgeOverrideKeys(await getEdgeSeoOverrides(conn.brandId));
+      // `private` + Vary: the response is per-brand (keyed by the bearer
+      // token) but the URL is identical for every brand, so a shared cache
+      // keyed only on the URL would leak one brand's overrides to another.
       return NextResponse.json(
         { v: 1, overrides, count: Object.keys(overrides).length },
-        { headers: { 'Cache-Control': 'public, max-age=300' } },
+        { headers: { 'Cache-Control': 'private, max-age=300', 'Vary': 'Authorization' } },
       );
     }
 
@@ -66,9 +69,11 @@ export async function GET(request: Request): Promise<Response> {
       status: 200,
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
-        // Short edge cache so updates propagate quickly but we're not hit on
-        // every crawler request.
-        'Cache-Control': 'public, max-age=300',
+        // Short cache so updates propagate quickly but we're not hit on
+        // every crawler request. `private` + Vary because the content is
+        // per-brand while the URL is shared across brands (see seo.json).
+        'Cache-Control': 'private, max-age=300',
+        'Vary': 'Authorization',
       },
     });
   } catch (e) {
