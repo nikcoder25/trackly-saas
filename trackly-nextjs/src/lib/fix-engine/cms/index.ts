@@ -13,6 +13,7 @@ import { ghostAdapter } from './ghost';
 import { webflowAdapter } from './webflow';
 import { customAdapter } from './custom';
 import { edgeAdapter } from './edge';
+import { gitAdapter } from './git';
 
 const ADAPTERS: Record<string, CmsAdapter> = {
   wordpress: wordpressAdapter,
@@ -23,6 +24,9 @@ const ADAPTERS: Record<string, CmsAdapter> = {
   // Plugin-free: a CDN Worker rewrites title/meta/canonical at the edge —
   // works for any stack (WordPress, custom-coded, anything).
   edge: edgeAdapter,
+  // Durable/"owned": commits the SEO overrides into the customer's repo as a
+  // PR, so the changes live in their source and survive snippet/Worker removal.
+  git: gitAdapter,
 };
 
 export function getCmsAdapter(type: string | null | undefined): CmsAdapter | null {

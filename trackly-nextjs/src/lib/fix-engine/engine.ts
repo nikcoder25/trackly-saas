@@ -39,6 +39,7 @@ import {
 import { getConnection } from './connections';
 import { CmsUnsupportedError } from './cms/types';
 import { probeEdgeMarker } from './cms/edge';
+import { syncBrandSeoToRepo } from './git/sync';
 import { getBrandAiVisibility } from './ai-visibility';
 import { applyBrandRules } from './rules';
 import type { DetectedIssue, FixBrand, FixContext, FixModule, FixRow } from './types';
@@ -362,6 +363,19 @@ export async function shipFix(fixId: string, brandId: string, userId: string | n
   // Worker isn't live, fall through to the normal CMS write (today's behavior).
   if (mod.channel === 'A' && isEdgeServeableModule(fix.moduleKey) && fix.targetUrl) {
     const cmsConn = await getConnection(brandId, 'cms');
+
+    // Git-fronted publishing (durable/"owned"). Same contract as edge — the
+    // shipped row IS the override — but delivered by committing the per-path
+    // manifest into the customer's repo via a PR (so it lives in their source
+    // and survives snippet/Worker removal). Mark shipped, then sync the repo
+    // best-effort: a GitHub hiccup never fails the ship (the fix is already
+    // shipped; the manifest catches up on the next ship or a manual re-sync).
+    if (cmsConn?.status === 'active' && cmsConn.cmsType === 'git') {
+      await finalizeShippedFix(fix, brandId, userId, mod, { delivery: 'git', module: fix.moduleKey, url: fix.targetUrl }, null);
+      void syncBrandSeoToRepo(brandId).catch((e) => logger.warn('fix_engine.git_sync_dispatch_failed', { fixId: fix.id, err: (e as Error).message }));
+      return (await getFix(fixId, brandId))!;
+    }
+
     const edgeFronted = cmsConn?.status === 'active'
       && (cmsConn.cmsType === 'edge' || cmsConn.cmsType === 'custom');
     if (edgeFronted) {
