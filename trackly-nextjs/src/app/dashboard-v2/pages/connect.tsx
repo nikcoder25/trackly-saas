@@ -73,41 +73,6 @@ export function PageConnect() {
     } catch { /* clipboard blocked — the field is selectable */ }
   };
 
-  // Edge Pro — only offered when the server says it's available (real Cloudflare
-  // creds configured, or the EDGE_PRO_PREVIEW staff flag). Otherwise the card
-  // stays a plain "coming soon" stub and no edge action is reachable.
-  const [edge, setEdge] = React.useState<{ available: boolean; mode: 'mock' | 'live'; connection: any | null } | null>(null);
-  const [edgeBusy, setEdgeBusy] = React.useState('');
-  const [edgeErr, setEdgeErr] = React.useState('');
-
-  React.useEffect(() => {
-    if (!brandId) return;
-    let alive = true;
-    api(`/api/brands/${brandId}/connections/edge/availability`)
-      .then((d) => { if (alive) setEdge({ available: !!d.available, mode: d.mode === 'live' ? 'live' : 'mock', connection: d.connection || null }); })
-      .catch(() => { if (alive) setEdge({ available: false, mode: 'mock', connection: null }); });
-    return () => { alive = false; };
-  }, [brandId]);
-
-  const edgeConn = edge?.connection as any;
-  const edgeConnected = edgeConn?.status === 'connected';
-  const runEdge = async (action: 'provision' | 'verify' | 'disconnect') => {
-    if (!brandId) return;
-    setEdgeBusy(action); setEdgeErr('');
-    try {
-      const d = await api(`/api/brands/${brandId}/connections/edge/${action}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
-      });
-      setEdge((e) => (e ? { ...e, connection: d.connection ?? e.connection } : e));
-      if (d.error) setEdgeErr(d.error);
-      else if (action === 'verify' && !d.verified) setEdgeErr(d.reason || 'Not live yet — add the CNAME, let DNS propagate, then verify again.');
-    } catch (e: any) {
-      setEdgeErr(e?.message || 'Edge action failed');
-    } finally {
-      setEdgeBusy('');
-    }
-  };
-
   const chip = connected
     ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: 'var(--success-50)', color: 'var(--success)', border: '1px solid var(--success)' }}>● Connected ✓</span>
     : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: 'var(--warn-50, #fef3c7)', color: 'var(--warn, #b45309)', border: '1px solid var(--warn, #f59e0b)' }}>○ Waiting for first load…</span>;
@@ -131,6 +96,19 @@ export function PageConnect() {
     <>
       <PageHead title="Connect your website" sub="One paste, done — no DNS, no ownership challenge, no waiting. WordPress included." />
       <div className="page-body" style={{ display: 'grid', gap: 16, maxWidth: 720 }}>
+        <div
+          style={{
+            display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 10,
+            background: 'var(--success-50, #ecfdf5)', border: '1px solid var(--success, #10b981)',
+            color: 'var(--text-1, #065f46)', fontSize: 13, lineHeight: 1.6,
+          }}
+        >
+          <span aria-hidden style={{ fontSize: 15, lineHeight: 1.4 }}>✓</span>
+          <span>
+            <strong>No Cloudflare, no plugins, no DNS, no CNAME</strong> — nothing in your domain settings.
+            Just paste one line.
+          </span>
+        </div>
         <div style={{ display: 'flex', gap: 8 }} role="tablist" aria-label="Connect method">
           {tab('snippet', 'Any site (snippet)')}
           {tab('wordpress', 'WordPress')}
@@ -202,100 +180,6 @@ export function PageConnect() {
                 just before <code>&lt;/head&gt;</code>.
               </li>
             </ul>
-          </Card>
-        )}
-
-        {(!edge || !edge.available) ? (
-          <Card title="Edge Pro" lede="Maximum AI-crawler coverage — server-side at the CDN edge.">
-            <p className="quiet" style={{ margin: 0, fontSize: 13, lineHeight: 1.6 }}>
-              An optional edge mode publishes your fixes server-side (before any JavaScript runs), for the
-              broadest AI-crawler coverage. <strong>Coming soon</strong> — the one-line snippet above is the
-              easy default for now.
-            </p>
-            <div style={{ marginTop: 12 }}>
-              <button
-                disabled
-                style={{
-                  padding: '8px 16px', borderRadius: 8, border: '1px solid var(--line, #e5e7eb)',
-                  background: 'var(--surface-2, #f6f7f9)', color: 'var(--text-3, #9ca3af)', fontSize: 13, fontWeight: 600, cursor: 'not-allowed',
-                }}
-              >
-                Edge Pro — coming soon
-              </button>
-            </div>
-          </Card>
-        ) : (
-          <Card
-            title="Edge Pro"
-            right={
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: 'var(--surface-2, #f6f7f9)', color: 'var(--text-2, #4b5563)', border: '1px solid var(--line, #e5e7eb)' }}>
-                {edge.mode === 'live' ? 'LIVE' : 'PREVIEW (mock)'}
-              </span>
-            }
-            lede="Maximum AI-crawler coverage — your fixes injected server-side at the CDN edge, before any JS runs."
-          >
-            {edge.mode === 'mock' && (
-              <p style={{ margin: '0 0 12px', fontSize: 12.5, lineHeight: 1.6, color: 'var(--warn, #b45309)' }}>
-                Preview mode — this uses a mock Cloudflare provider and won&rsquo;t serve live traffic.
-                <strong> Requires Cloudflare setup</strong> (Cloudflare for SaaS + Workers for Platforms + an API token) to go live.
-              </p>
-            )}
-
-            {edgeErr && <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--danger, #e11d48)' }}>{edgeErr}</p>}
-
-            {edgeConnected ? (
-              <>
-                <p style={{ margin: '0 0 12px', fontSize: 13, lineHeight: 1.6 }}>
-                  <span style={{ color: 'var(--success)', fontWeight: 700 }}>● Edge connected ✓</span> — your pages are served through the edge Worker.
-                </p>
-                <button
-                  onClick={() => runEdge('disconnect')}
-                  disabled={!!edgeBusy}
-                  style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--line, #e5e7eb)', background: 'var(--surface, #fff)', color: 'var(--text-2, #4b5563)', fontSize: 13, fontWeight: 600, cursor: edgeBusy ? 'wait' : 'pointer' }}
-                >
-                  {edgeBusy === 'disconnect' ? 'Disconnecting…' : 'Disconnect edge'}
-                </button>
-              </>
-            ) : edgeConn?.cfScriptName ? (
-              <>
-                <p className="quiet" style={{ margin: '0 0 8px', fontSize: 13, lineHeight: 1.6 }}>
-                  Add this <strong>CNAME</strong> record at your DNS provider, then verify:
-                </p>
-                <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12.5, background: 'var(--surface-2, #f6f7f9)', border: '1px solid var(--line, #e5e7eb)', borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>
-                  CNAME → {edgeConn.edgeCnameTarget || '(target pending)'}
-                </div>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button
-                    onClick={() => runEdge('verify')}
-                    disabled={!!edgeBusy}
-                    style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--primary, #5B5BD6)', background: 'var(--primary, #5B5BD6)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: edgeBusy ? 'wait' : 'pointer' }}
-                  >
-                    {edgeBusy === 'verify' ? 'Verifying…' : 'Verify edge is live'}
-                  </button>
-                  <button
-                    onClick={() => runEdge('disconnect')}
-                    disabled={!!edgeBusy}
-                    style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--line, #e5e7eb)', background: 'var(--surface, #fff)', color: 'var(--text-2, #4b5563)', fontSize: 13, fontWeight: 600, cursor: edgeBusy ? 'wait' : 'pointer' }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="quiet" style={{ margin: '0 0 12px', fontSize: 13, lineHeight: 1.6 }}>
-                  Provision a per-site edge Worker, then point one CNAME at it. We&rsquo;ll dispatch the Worker and
-                  mint the hostname for you.
-                </p>
-                <button
-                  onClick={() => runEdge('provision')}
-                  disabled={!!edgeBusy}
-                  style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--primary, #5B5BD6)', background: 'var(--primary, #5B5BD6)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: edgeBusy ? 'wait' : 'pointer' }}
-                >
-                  {edgeBusy === 'provision' ? 'Provisioning…' : 'Provision Edge Pro'}
-                </button>
-              </>
-            )}
           </Card>
         )}
       </div>
