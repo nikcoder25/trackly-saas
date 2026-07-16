@@ -181,27 +181,50 @@ export function freshnessSection(
 
 /** Minimal shapes of the HTMLRewriter element/end-tag the appender touches. */
 interface EdgeEndTag { before(content: string, opts: { html: boolean }): void }
-interface EdgeElement { onEndTag(cb: (end: EdgeEndTag) => void): void }
+interface EdgeElement {
+  onEndTag(cb: (end: EdgeEndTag) => void): void;
+  before(content: string, opts: { html: boolean }): void;
+}
 
 /**
- * Build the HTMLRewriter element handler that appends `navHtml` before the END
- * tag of whatever container it is registered on. A single call's closure is
- * shared across every selector it is attached to, and it injects at most once —
- * so registering it on `article`, `main`, `[itemprop="articleBody"]`, and
- * finally `body` makes `body` a true fallback: its end tag closes after any
- * semantic container, so if one existed it already injected and body is
- * skipped; if none did, body catches it. Pure and self-contained (no closure
- * over module scope) so it is serialized verbatim into the Worker.
+ * Build the HTMLRewriter handlers that inject `navHtml` at the best available
+ * spot, exactly once. A single call's `injected` guard is shared across every
+ * selector it is attached to, so the FIRST matching position in document order
+ * wins. Placement priority (register in this order):
+ *
+ *   1. `.element` on `article` / `main` / `[itemprop="articleBody"]` — append
+ *      just before the container's END tag (inside the content).
+ *   2. `.beforeElement` on `footer` — insert just before the footer's START, so
+ *      the block sits in the content flow ABOVE the footer. This is what saves
+ *      pages that have a `<footer>` but no semantic content container (e.g. a
+ *      custom-coded site): without it, such a block falls through to `body` and
+ *      lands AFTER the footer, dangling at the very bottom of the page.
+ *   3. `.element` on `body` — append before `</body>` as the last-resort
+ *      fallback for pages with neither a semantic container nor a footer.
+ *
+ * Pure and self-contained (no closure over module scope) so it serializes
+ * verbatim into the Worker via Function.prototype.toString().
  */
-export function makeNavAppender(navHtml: string): { element(e: EdgeElement): void } {
+export function makeNavAppender(navHtml: string): {
+  element(e: EdgeElement): void;
+  beforeElement: { element(e: EdgeElement): void };
+} {
   let injected = false;
+  const inject = (fn: () => void): void => {
+    if (injected) return;
+    injected = true;
+    fn();
+  };
   return {
+    // Append before the END tag of a container (article / main / articleBody / body).
     element(e) {
-      e.onEndTag((end) => {
-        if (injected) return;
-        injected = true;
-        end.before(navHtml, { html: true });
-      });
+      e.onEndTag((end) => inject(() => end.before(navHtml, { html: true })));
+    },
+    // Insert before the START of an element (footer) — block flows above it.
+    beforeElement: {
+      element(e) {
+        inject(() => e.before(navHtml, { html: true }));
+      },
     },
   };
 }
@@ -289,7 +312,7 @@ export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
     + `          // Shared appender: injects once at the first container to close.\n`
     + `          // body closes last, so it only fires when no semantic container did.\n`
     + `          const appendNav = makeNavAppender(navHtml);\n`
-    + `          rw = rw.on('article', appendNav).on('main', appendNav).on('[itemprop="articleBody"]', appendNav).on('body', appendNav);\n`
+    + `          rw = rw.on('article', appendNav).on('main', appendNav).on('[itemprop="articleBody"]', appendNav).on('footer', appendNav.beforeElement).on('body', appendNav);\n`
     + `        }\n`
     + `      }\n`
     + `    }\n`
@@ -297,28 +320,28 @@ export function buildEdgeWorkerScript(token: string, edgeBase: string): string {
     + `      const citeHtml = citationsNav(o.citations.slice(0, ${MAX_EDGE_CITATIONS}), esc);\n`
     + `      if (citeHtml) { // own appender/guard, so it coexists with the internal-links nav\n`
     + `        const appendCite = makeNavAppender(citeHtml);\n`
-    + `        rw = rw.on('article', appendCite).on('main', appendCite).on('[itemprop="articleBody"]', appendCite).on('body', appendCite);\n`
+    + `        rw = rw.on('article', appendCite).on('main', appendCite).on('[itemprop="articleBody"]', appendCite).on('footer', appendCite.beforeElement).on('body', appendCite);\n`
     + `      }\n`
     + `    }\n`
     + `    if (o.citable && (o.citable.tldr || (Array.isArray(o.citable.passages) && o.citable.passages.length))) { // shipped Citable-passages fixes\n`
     + `      const citableHtml = citableSection(o.citable, esc);\n`
     + `      if (citableHtml) { // own appender/guard, so it coexists with the links + citations navs\n`
     + `        const appendCitable = makeNavAppender(citableHtml);\n`
-    + `        rw = rw.on('article', appendCitable).on('main', appendCitable).on('[itemprop="articleBody"]', appendCitable).on('body', appendCitable);\n`
+    + `        rw = rw.on('article', appendCitable).on('main', appendCitable).on('[itemprop="articleBody"]', appendCitable).on('footer', appendCitable.beforeElement).on('body', appendCitable);\n`
     + `      }\n`
     + `    }\n`
     + `    if (o.faq && Array.isArray(o.faq.faqs) && o.faq.faqs.length) { // shipped FAQ-schema fixes\n`
     + `      const faqHtml = faqSection(o.faq, esc);\n`
     + `      if (faqHtml) { // own appender/guard, so it coexists with the other blocks\n`
     + `        const appendFaq = makeNavAppender(faqHtml);\n`
-    + `        rw = rw.on('article', appendFaq).on('main', appendFaq).on('[itemprop="articleBody"]', appendFaq).on('body', appendFaq);\n`
+    + `        rw = rw.on('article', appendFaq).on('main', appendFaq).on('[itemprop="articleBody"]', appendFaq).on('footer', appendFaq.beforeElement).on('body', appendFaq);\n`
     + `      }\n`
     + `    }\n`
     + `    if (o.freshness && o.freshness.update) { // shipped Content-freshness fixes\n`
     + `      const freshHtml = freshnessSection(o.freshness, esc);\n`
     + `      if (freshHtml) { // own appender/guard, so it coexists with the other blocks\n`
     + `        const appendFresh = makeNavAppender(freshHtml);\n`
-    + `        rw = rw.on('article', appendFresh).on('main', appendFresh).on('[itemprop="articleBody"]', appendFresh).on('body', appendFresh);\n`
+    + `        rw = rw.on('article', appendFresh).on('main', appendFresh).on('[itemprop="articleBody"]', appendFresh).on('footer', appendFresh.beforeElement).on('body', appendFresh);\n`
     + `      }\n`
     + `    }\n`
     + `    return rw.transform(out);\n`
