@@ -83,6 +83,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id } = await params;
     const access = await getBrandWithAccess(id, user.id);
     if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
+    if (access.role === 'viewer') {
+      return Response.json({ error: 'Viewers cannot run scans.' }, { status: 403 });
+    }
 
     const ownerId = access.brand.userId || user.id;
     const plan = await getUserEffectivePlan(ownerId);

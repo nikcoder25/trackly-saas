@@ -26,13 +26,21 @@ const CSRF_EXEMPT_PREFIXES = [
   '/api/webhooks/',
   '/api/payments/webhooks/',
   '/api/cron',
-  // Self-Serve Connect public endpoints (serve + heartbeat) are called
-  // cross-origin from the customer's own site by the /c.js snippet. They're
-  // anonymous, cookieless, and keyed only by a public site id, so the classic
-  // cookie-riding CSRF threat doesn't apply — and the same-origin check would
-  // otherwise block the legitimate cross-origin heartbeat POST.
-  '/api/connect/',
+  // Connector one-click handshake: the WordPress plugin exchanges its
+  // single-use code server-to-server (no cookies, no Origin header), so the
+  // same-origin check would 403 every legitimate exchange.
+  '/api/connect/connector/exchange',
 ];
+
+// /api/connect/[key]/heartbeat — posted cross-origin from the customer's own
+// site by the /c.js snippet. Anonymous, cookieless, keyed only by a public
+// site id, so the classic cookie-riding CSRF threat doesn't apply — and the
+// same-origin check would otherwise block the legitimate beacon. NB: this is
+// deliberately NOT a blanket /api/connect/ exemption — connector/approve on
+// the same prefix is cookie-authenticated and must keep CSRF enforcement.
+function isConnectHeartbeat(pathname: string): boolean {
+  return /^\/api\/connect\/[^/]+\/heartbeat$/.test(pathname);
+}
 
 // Bootstrap / anonymous endpoints: no CSRF token yet (user isn't logged in),
 // but we still require Origin to match an allowed origin so an attacker site
@@ -360,6 +368,7 @@ export async function middleware(request: NextRequest) {
     if (UNSAFE_METHODS.has(request.method)) {
       const exempt =
         CSRF_EXEMPT_PREFIXES.some((p) => pathname === p || pathname.startsWith(p)) ||
+        isConnectHeartbeat(pathname) ||
         hasValidCronSecret(request);
       if (!exempt) {
         // Step 1: Origin must match. This alone blocks cross-site form POSTs

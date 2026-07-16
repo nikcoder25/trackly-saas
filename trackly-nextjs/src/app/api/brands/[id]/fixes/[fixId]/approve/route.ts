@@ -23,6 +23,9 @@ export async function POST(
     const { id, fixId } = await params;
     const access = await getBrandWithAccess(id, user.id);
     if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
+    if (access.role === 'viewer') {
+      return Response.json({ error: 'Viewers cannot approve fixes.' }, { status: 403 });
+    }
     const fix = await approveFix(fixId, id, user.id);
     return Response.json({ fix }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) {

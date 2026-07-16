@@ -7,9 +7,11 @@
  * sends permissive CORS. Always responds 204 — an unknown key is indistinguish-
  * able from a known one, so the endpoint can't be used to probe key validity.
  *
- * NB: this prefix (`/api/connect/`) is CSRF-exempt in middleware.ts — these are
- * anonymous, cookieless, cross-origin-by-design endpoints keyed by a public id,
- * so the classic cookie-riding CSRF threat doesn't apply.
+ * NB: this route is CSRF-exempt in middleware.ts (isConnectHeartbeat) — it is
+ * an anonymous, cookieless, cross-origin-by-design endpoint keyed by a public
+ * id, so the classic cookie-riding CSRF threat doesn't apply. The exemption is
+ * per-route, not the whole /api/connect/ prefix: cookie-authenticated routes
+ * on this prefix (connector/approve) keep full CSRF enforcement.
  */
 
 import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
