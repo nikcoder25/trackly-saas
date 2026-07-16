@@ -24,6 +24,30 @@ import { logger } from '@/lib/logger';
 import { getSeoBrain } from './seo-brain';
 import type { FixContext } from './types';
 
+/**
+ * Non-negotiable output rules appended to EVERY generation, after the SEO
+ * brain (default, preset, or a brand's custom brain). Because it is added
+ * unconditionally here — not inside the brain text — a custom brain can
+ * never drop it. Keep this list short and about formatting only.
+ */
+export const GLOBAL_OUTPUT_RULES = `HARD FORMATTING RULES (override anything above that conflicts):
+- NEVER use an em dash (—) or an en dash (–) anywhere in the output, including inside JSON string values. Use a normal hyphen "-", a comma, a colon, or split into two sentences instead. This applies to titles, meta descriptions, TL;DRs, passages, FAQ answers, freshness blurbs, anchor text, and every other field you produce.`;
+
+/**
+ * Belt-and-suspenders guarantee for the "no em dash" rule: even when a model
+ * ignores GLOBAL_OUTPUT_RULES, strip every long dash from generated output
+ * before it can reach a page. Em (—), en (–), horizontal bar (―), figure
+ * dash (‒) and the minus sign (−) all collapse to a plain hyphen. Dashes are
+ * not JSON-structural, so this is safe to run on raw JSON text pre-parse.
+ * A dash flanked by spaces becomes " - "; a tight dash becomes "-".
+ */
+export function stripLongDashes(text: string): string {
+  return text
+    .replace(/\s*[‒–—―−]\s*/g, (m) =>
+      /^\s|\s$/.test(m) ? ' - ' : '-',
+    );
+}
+
 // Display name → key name, mirroring PLATFORM_KEY_MAP elsewhere in the repo.
 const PLATFORM_KEY_MAP: Record<string, string> = {
   Claude: 'claude',
@@ -62,7 +86,7 @@ export async function generateContent(args: GenerateArgs): Promise<GenerateOutpu
   // Ground every generation in the brand's SEO brain (the user's saved
   // brain if set, else env/file/default), then the module's own system
   // prompt. The brain is the playbook; the module prompt is the task.
-  const system = `${await getSeoBrain(ctx.brand.id)}\n\n---\n\n${args.system}`;
+  const system = `${await getSeoBrain(ctx.brand.id)}\n\n---\n\n${args.system}\n\n---\n\n${GLOBAL_OUTPUT_RULES}`;
   const candidates = args.platform ? [args.platform] : [...GENERATION_PLATFORMS];
   const serverKeys = getServerKeys() as Record<string, string[]>;
   const errors: string[] = [];
@@ -99,7 +123,7 @@ export async function generateContent(args: GenerateArgs): Promise<GenerateOutpu
           silent: true,
         },
       );
-      const text = (result.text || '').trim();
+      const text = stripLongDashes((result.text || '').trim());
       if (text) return { text, platform, model };
       errors.push(`${platform}: empty response`);
     } catch (e) {

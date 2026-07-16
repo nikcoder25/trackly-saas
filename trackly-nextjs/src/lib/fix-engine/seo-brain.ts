@@ -53,7 +53,11 @@ ON-PAGE HYGIENE
 
 TONE
 - Helpful, precise, and honest. No keyword stuffing, no clickbait, no
-  unverifiable superlatives.`;
+  unverifiable superlatives.
+
+FORMATTING (hard rule)
+- Never use an em dash (—) or en dash (–) in any output. Use a plain hyphen
+  "-", a comma, a colon, or two shorter sentences instead.`;
 
 /**
  * Distilled from Matt Diggity / The Search Initiative's published SEO
@@ -101,7 +105,11 @@ TECHNICAL & STRUCTURED DATA
 MULTI-PLATFORM (AI ERA)
 - Build for Search, AI Overviews, Gemini, ChatGPT, and Perplexity together.
   Real authority, quality content, and brand signals travel across all of
-  them. Favour specificity that helps niche queries find you.`;
+  them. Favour specificity that helps niche queries find you.
+
+FORMATTING (hard rule)
+- Never use an em dash (—) or en dash (–) in any output. Use a plain hyphen
+  "-", a comma, a colon, or two shorter sentences instead.`;
 
 export interface SeoBrainPreset { key: string; title: string; description: string; content: string }
 
