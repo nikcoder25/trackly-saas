@@ -70,7 +70,33 @@ describe('buildEdgeWorkerScript body injection', () => {
     expect(script).toContain('const appendNav = makeNavAppender(navHtml)');
     // body is registered LAST so its end tag (which closes after any semantic
     // container) only fires the shared appender when none matched.
-    expect(script).toContain("rw.on('article', appendNav).on('main', appendNav).on('[itemprop=\"articleBody\"]', appendNav).on('body', appendNav)");
+    expect(script).toContain("rw.on('article', appendNav).on('main', appendNav).on('[itemprop=\"articleBody\"]', appendNav).on('footer', appendNav.beforeElement).on('body', appendNav)");
+  });
+
+  it('registers a footer fallback so blocks sit ABOVE the footer, not below it', () => {
+    // On a page with a <footer> but no semantic container (e.g. a custom-coded
+    // site), the block must inject before the footer's START, not before
+    // </body> (which is after the footer). makeNavAppender exposes beforeElement
+    // for that, sharing the same once-only guard as the end-tag appender.
+    expect(script).toContain('beforeElement');
+    expect(script).toContain("on('footer', appendNav.beforeElement)");
+  });
+
+  it('makeNavAppender.beforeElement injects once, before the element start', () => {
+    const ap = makeNavAppender('<b>X</b>');
+    let beforeCalls = 0; let endCalls = 0;
+    // Simulate the footer handler firing first (document order): it should inject.
+    ap.beforeElement.element({
+      before: () => { beforeCalls++; },
+      onEndTag: () => { /* not used on this path */ },
+    } as never);
+    // Then the body end-tag handler fires: the shared guard must suppress it.
+    ap.element({
+      before: () => { /* n/a */ },
+      onEndTag: (cb: (end: { before: () => void }) => void) => cb({ before: () => { endCalls++; } }),
+    } as never);
+    expect(beforeCalls).toBe(1);
+    expect(endCalls).toBe(0);
   });
 
   it('supports an optional inline mode that wraps anchors in the body text', () => {
@@ -87,7 +113,7 @@ describe('buildEdgeWorkerScript body injection', () => {
     expect(script).toContain('Array.isArray(o.citations)');
     expect(script).toContain('const citationsNav =');
     expect(script).toContain('const appendCite = makeNavAppender(citeHtml)');
-    expect(script).toContain("rw.on('article', appendCite).on('main', appendCite).on('[itemprop=\"articleBody\"]', appendCite).on('body', appendCite)");
+    expect(script).toContain("rw.on('article', appendCite).on('main', appendCite).on('[itemprop=\"articleBody\"]', appendCite).on('footer', appendCite.beforeElement).on('body', appendCite)");
     expect(script).toContain(`o.citations.slice(0, ${MAX_EDGE_CITATIONS})`);
     // Citations marker survives serialization (quote-insensitive).
     expect(script).toMatch(/class=\\?["']livesov-citations\\?["']/);
@@ -99,7 +125,7 @@ describe('buildEdgeWorkerScript body injection', () => {
     expect(script).toContain('const citableSection =');
     expect(script).toContain('const citableHtml = citableSection(o.citable, esc)');
     expect(script).toContain('const appendCitable = makeNavAppender(citableHtml)');
-    expect(script).toContain("rw.on('article', appendCitable).on('main', appendCitable).on('[itemprop=\"articleBody\"]', appendCitable).on('body', appendCitable)");
+    expect(script).toContain("rw.on('article', appendCitable).on('main', appendCitable).on('[itemprop=\"articleBody\"]', appendCitable).on('footer', appendCitable.beforeElement).on('body', appendCitable)");
     // Citable marker survives serialization (quote-insensitive).
     expect(script).toMatch(/class=\\?["']livesov-citable\\?["']/);
     expect(script).toMatch(/data-livesov=\\?["']citable\\?["']/);
@@ -110,7 +136,7 @@ describe('buildEdgeWorkerScript body injection', () => {
     expect(script).toContain('const faqSection =');
     expect(script).toContain('const faqHtml = faqSection(o.faq, esc)');
     expect(script).toContain('const appendFaq = makeNavAppender(faqHtml)');
-    expect(script).toContain("rw.on('article', appendFaq).on('main', appendFaq).on('[itemprop=\"articleBody\"]', appendFaq).on('body', appendFaq)");
+    expect(script).toContain("rw.on('article', appendFaq).on('main', appendFaq).on('[itemprop=\"articleBody\"]', appendFaq).on('footer', appendFaq.beforeElement).on('body', appendFaq)");
     // FAQ marker survives serialization (quote-insensitive).
     expect(script).toMatch(/class=\\?["']livesov-faq\\?["']/);
     expect(script).toMatch(/data-livesov=\\?["']faq\\?["']/);
@@ -121,7 +147,7 @@ describe('buildEdgeWorkerScript body injection', () => {
     expect(script).toContain('const freshnessSection =');
     expect(script).toContain('const freshHtml = freshnessSection(o.freshness, esc)');
     expect(script).toContain('const appendFresh = makeNavAppender(freshHtml)');
-    expect(script).toContain("rw.on('article', appendFresh).on('main', appendFresh).on('[itemprop=\"articleBody\"]', appendFresh).on('body', appendFresh)");
+    expect(script).toContain("rw.on('article', appendFresh).on('main', appendFresh).on('[itemprop=\"articleBody\"]', appendFresh).on('footer', appendFresh.beforeElement).on('body', appendFresh)");
     // Freshness marker survives serialization (quote-insensitive).
     expect(script).toMatch(/class=\\?["']lvx-fresh\\?["']/);
     expect(script).toMatch(/data-livesov=\\?["']freshness\\?["']/);
