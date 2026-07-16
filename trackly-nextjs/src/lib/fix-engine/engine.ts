@@ -540,10 +540,38 @@ export async function revertFix(fixId: string, brandId: string, userId: string |
   if (!fix) throw new Error('Fix not found');
   const mod = getModule(fix.moduleKey);
   if (!mod) throw new Error(`Unknown module: ${fix.moduleKey}`);
-  if (!mod.revert) throw new Error('This fix type cannot be auto-reverted — undo it manually on your site.');
   if (!['shipped', 'verified'].includes(fix.status)) {
     throw new Error(`Only a shipped fix can be reverted (status: ${fix.status})`);
   }
+
+  // Edge-fronted un-publish fast-path (symmetric with shipFix's edge publish).
+  // An edge-serveable Channel-A fix on a Worker-fronted domain was delivered by
+  // the Worker reading the shipped row (getEdgeSeoOverrides) — there was no
+  // origin write. So reverting it is simply dropping the row out of the shipped
+  // set: mark it 'reverted' and it falls out of getEdgeSeoOverrides, so the
+  // Worker stops injecting on the next request (subject to the ~5-min edge
+  // cache). No mod.revert needed, and the custom endpoint can't cleanly remove
+  // an appended block anyway. Gated exactly like the ship path: an edge/custom
+  // CMS connection that's active. Real CMS APIs keep the mod.revert path below.
+  if (mod.channel === 'A' && isEdgeServeableModule(fix.moduleKey) && fix.targetUrl) {
+    const cmsConn = await getConnection(brandId, 'cms');
+    const edgeFronted = cmsConn?.status === 'active'
+      && (cmsConn.cmsType === 'edge' || cmsConn.cmsType === 'custom');
+    if (edgeFronted) {
+      if (!(await claimFixTransition(fix.id, fix.status, 'shipping'))) {
+        return (await getFix(fixId, brandId))!;
+      }
+      await updateFix(fix.id, {
+        status: 'reverted',
+        shipResult: { delivery: 'edge', reverted: true, module: fix.moduleKey, url: fix.targetUrl },
+        error: null,
+      });
+      await logFixEvent(fix.id, brandId, userId, 'reverted', { detail: { delivery: 'edge', url: fix.targetUrl } });
+      return (await getFix(fixId, brandId))!;
+    }
+  }
+
+  if (!mod.revert) throw new Error('This fix type cannot be auto-reverted — undo it manually on your site.');
   if (!fix.generated) throw new Error('Fix has no record to revert');
   if (!(await claimFixTransition(fix.id, fix.status, 'shipping'))) {
     return (await getFix(fixId, brandId))!;
