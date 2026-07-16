@@ -800,7 +800,8 @@ export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; 
     { id: 'gpt-5.4-nano', label: 'GPT-5.4 Nano' },
   ],
   Claude: [
-    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', default: true },
+    { id: 'claude-fable-5', label: 'Fable 5', default: true },
+    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
     { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
   ],
   Gemini: [
@@ -826,6 +827,9 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
   // historical record_call rows. The new lineup is gpt-5.4-{mini,,nano}.
   'gpt-4o-mini-search-preview': { input: 0.15, output: 0.60 },
   'gpt-4o': { input: 2.50, output: 10.00 },
+  // NOTE: Fable 5 per-token pricing is a placeholder — confirm against the
+  // current Anthropic price list and update before relying on cost tracking.
+  'claude-fable-5': { input: 3.00, output: 15.00 },
   'claude-sonnet-4-20250514': { input: 3.00, output: 15.00 },
   'claude-haiku-4-5-20251001': { input: 0.80, output: 4.00 },
   'gemini-2.5-flash': { input: 0.10, output: 0.40 },
