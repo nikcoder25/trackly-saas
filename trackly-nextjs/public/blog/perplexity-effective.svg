@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="50%" stop-color="#0c2a33"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="up" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1a96a5"/>
+      <stop offset="100%" stop-color="#20b8cd"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#20b8cd" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#20b8cd" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <ellipse cx="600" cy="350" rx="400" ry="250" fill="url(#glow)"/>
+
+  <!-- Chart panel -->
+  <rect x="270" y="150" width="660" height="360" rx="16" fill="#0e1f26" stroke="#20b8cd" stroke-width="1" opacity="0.6"/>
+
+  <!-- Axes -->
+  <line x1="330" y1="200" x2="330" y2="450" stroke="#334155" stroke-width="1.5"/>
+  <line x1="330" y1="450" x2="870" y2="450" stroke="#334155" stroke-width="1.5"/>
+
+  <!-- Gridlines -->
+  <line x1="330" y1="390" x2="870" y2="390" stroke="#1f2937" stroke-width="1"/>
+  <line x1="330" y1="330" x2="870" y2="330" stroke="#1f2937" stroke-width="1"/>
+  <line x1="330" y1="270" x2="870" y2="270" stroke="#1f2937" stroke-width="1"/>
+
+  <!-- Growth bars: mention share climbing after optimisation -->
+  <rect x="370" y="400" width="46" height="50" rx="4" fill="#334155"/>
+  <rect x="446" y="372" width="46" height="78" rx="4" fill="#475569"/>
+  <rect x="522" y="330" width="46" height="120" rx="4" fill="url(#up)" opacity="0.7"/>
+  <rect x="598" y="286" width="46" height="164" rx="4" fill="url(#up)" opacity="0.85"/>
+  <rect x="674" y="248" width="46" height="202" rx="4" fill="url(#up)"/>
+  <rect x="750" y="214" width="46" height="236" rx="4" fill="url(#up)"/>
+
+  <!-- Trend line -->
+  <polyline points="393,405 469,378 545,336 621,292 697,254 773,220" fill="none" stroke="#67e8f9" stroke-width="3"/>
+  <circle cx="773" cy="220" r="6" fill="#67e8f9"/>
+
+  <!-- Labels -->
+  <text x="350" y="235" font-family="system-ui, sans-serif" font-size="12" fill="#94a3b8">SOV %</text>
+  <text x="360" y="478" font-family="system-ui, sans-serif" font-size="12" fill="#94a3b8">Wk1</text>
+  <text x="740" y="478" font-family="system-ui, sans-serif" font-size="12" fill="#67e8f9">Wk6</text>
+
+  <text x="600" y="80" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="42" font-weight="700" fill="white" letter-spacing="0.5">
+    Is Perplexity Tracking Effective?
+  </text>
+  <text x="600" y="590" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#94a3b8" letter-spacing="2">
+    WHAT THE DATA SAYS ABOUT AI VISIBILITY ROI
+  </text>
+</svg>

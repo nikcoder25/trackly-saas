@@ -324,9 +324,13 @@ export default function PerplexityBrandTrackingPage() {
             in Livesov.
           </p>
           <p>
+            New to this? Start with our step-by-step guide on{' '}
+            <a href="/blog/how-to-track-brand-mentions-in-perplexity">how to track brand mentions in Perplexity</a>,
+            then go deeper on{' '}
+            <a href="/blog/track-brand-mentions-citations-perplexity-ai">tracking mentions and citations</a>.
             For a complete framework, read our{' '}
             <a href="/geo-optimization">Generative Engine Optimization guide</a> and our pillar
-            article on <a href="/blog">share of voice in AI search</a>.
+            article on <a href="/blog/share-of-voice-ai-complete-guide">share of voice in AI search</a>.
           </p>
         </LongForm>
       </Section>

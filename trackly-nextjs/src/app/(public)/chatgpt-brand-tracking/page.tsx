@@ -352,7 +352,10 @@ export default function ChatGPTBrandTrackingPage() {
           <p>
             Start by running a free <a href="/geo-audit">GEO audit</a> on your highest-intent
             pages, then use Livesov to measure whether your changes improved ChatGPT mention rate,
-            rank, and sentiment over the next four weeks.
+            rank, and sentiment over the next four weeks. Most buyers also research on Perplexity,
+            so see our guide on{' '}
+            <a href="/blog/track-brand-mentions-chatgpt-and-perplexity">tracking brand mentions in ChatGPT and Perplexity</a>{' '}
+            together.
           </p>
         </LongForm>
       </Section>
