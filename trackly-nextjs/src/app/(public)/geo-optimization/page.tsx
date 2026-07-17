@@ -416,6 +416,13 @@ export default function GeoOptimizationPage() {
             </li>
           </ul>
           <p>
+            Want the deep dives? Read our{' '}
+            <a href="/blog/generative-engine-optimization-guide-saas">complete GEO guide for SaaS</a>,
+            the roundup of the{' '}
+            <a href="/blog/best-ai-brand-monitoring-tools">best AI brand monitoring tools</a>, and
+            our playbook on <a href="/blog/how-to-rank-on-chatgpt">how to rank on ChatGPT</a>.
+          </p>
+          <p>
             When you&apos;re ready to move from spot-checks to continuous measurement, that&apos;s
             where <strong>Livesov</strong> comes in. <a href="/pricing">Start a 7-day free
             trial</a> - no credit card.

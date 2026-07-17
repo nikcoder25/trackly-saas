@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/><stop offset="50%" stop-color="#141233"/><stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="42%" r="55%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.18"/><stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <ellipse cx="600" cy="330" rx="440" ry="250" fill="url(#glow)"/>
+
+  <!-- 5 engine columns with bars -->
+  <g font-family="system-ui, sans-serif" text-anchor="middle">
+    <!-- ChatGPT -->
+    <rect x="180" y="250" width="90" height="200" rx="8" fill="#1f2937"/>
+    <rect x="180" y="290" width="90" height="160" rx="8" fill="#10a37f" opacity="0.85"/>
+    <circle cx="225" cy="220" r="22" fill="#10a37f"/><text x="225" y="225" font-size="12" font-weight="700" fill="#04140f">GPT</text>
+    <text x="225" y="475" font-size="12" fill="#94a3b8">ChatGPT</text>
+
+    <!-- Claude -->
+    <rect x="300" y="250" width="90" height="200" rx="8" fill="#1f2937"/>
+    <rect x="300" y="320" width="90" height="130" rx="8" fill="#d97757" opacity="0.85"/>
+    <circle cx="345" cy="220" r="22" fill="#d97757"/><text x="345" y="225" font-size="13" font-weight="700" fill="#2a1206">C</text>
+    <text x="345" y="475" font-size="12" fill="#94a3b8">Claude</text>
+
+    <!-- Gemini -->
+    <rect x="420" y="250" width="90" height="200" rx="8" fill="#1f2937"/>
+    <rect x="420" y="340" width="90" height="110" rx="8" fill="#4285f4" opacity="0.85"/>
+    <circle cx="465" cy="220" r="22" fill="#4285f4"/><text x="465" y="225" font-size="13" font-weight="700" fill="#04102a">G</text>
+    <text x="465" y="475" font-size="12" fill="#94a3b8">Gemini</text>
+
+    <!-- Perplexity -->
+    <rect x="540" y="250" width="90" height="200" rx="8" fill="#1f2937"/>
+    <rect x="540" y="300" width="90" height="150" rx="8" fill="#20b8cd" opacity="0.85"/>
+    <circle cx="585" cy="220" r="22" fill="#20b8cd"/><text x="585" y="225" font-size="13" font-weight="700" fill="#04222a">P</text>
+    <text x="585" y="475" font-size="11" fill="#94a3b8">Perplexity</text>
+
+    <!-- Grok -->
+    <rect x="660" y="250" width="90" height="200" rx="8" fill="#1f2937"/>
+    <rect x="660" y="370" width="90" height="80" rx="8" fill="#94a3b8" opacity="0.85"/>
+    <circle cx="705" cy="220" r="22" fill="#e2e8f0"/><text x="705" y="225" font-size="13" font-weight="700" fill="#0f172a">X</text>
+    <text x="705" y="475" font-size="12" fill="#94a3b8">Grok</text>
+  </g>
+
+  <!-- Magnifier motif -->
+  <g transform="translate(880,340)" opacity="0.9">
+    <circle cx="0" cy="0" r="52" fill="none" stroke="#6366f1" stroke-width="6"/>
+    <line x1="38" y1="38" x2="74" y2="74" stroke="#6366f1" stroke-width="8" stroke-linecap="round"/>
+    <text x="0" y="6" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#a5b4fc">?</text>
+  </g>
+
+  <text x="600" y="90" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="36" font-weight="700" fill="white">We Asked 5 AI Engines: Best Tool?</text>
+  <text x="600" y="530" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#94a3b8" letter-spacing="2">AN AI VISIBILITY STUDY - WHO GETS RECOMMENDED</text>
+</svg>
