@@ -11,19 +11,22 @@ import {
   Callout,
   LongForm,
   PillarLinks,
+  JsonLd,
 } from '@/components/seo/SeoSections';
 
+const META_TITLE = 'Perplexity AI Brand Mention Monitoring Tool | Livesov';
+const META_DESCRIPTION =
+  'Livesov is the Perplexity AI brand mention monitoring tool that tracks every mention and citation of your brand across the Sonar models — with competitor share of voice and full source capture. Free trial, no card.';
+
 export const metadata: Metadata = {
-  title: 'Perplexity Brand Tracking | AI Citation Tracker',
-  description:
-    'Track how Perplexity cites and mentions your brand. An AI citation tracker that captures every source URL and your share of voice. Free trial.',
+  title: META_TITLE,
+  description: META_DESCRIPTION,
   keywords:
-    'perplexity brand tracking, perplexity ai monitoring, ai search visibility, perplexity citation tracking, perplexity sonar tracking, perplexity rank tracking, ai search seo',
+    'perplexity ai brand mention monitoring tool, perplexity brand mention monitoring, monitor brand mentions in perplexity, perplexity brand tracking, perplexity ai monitoring, perplexity mention tracker, ai search visibility, perplexity citation tracking, perplexity sonar tracking, ai search seo',
   alternates: { canonical: '/perplexity-brand-tracking' },
   openGraph: {
-    title: 'Perplexity Brand Tracking | AI Citation Tracker',
-    description:
-      'Track how Perplexity cites and mentions your brand. An AI citation tracker that captures every source URL and your share of voice. Free trial.',
+    title: META_TITLE,
+    description: META_DESCRIPTION,
     url: 'https://livesov.com/perplexity-brand-tracking',
     siteName: 'Livesov',
     type: 'website',
@@ -32,17 +35,44 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Perplexity Brand Tracking - Monitor AI Search Citations | Livesov',
+        alt: 'Perplexity AI Brand Mention Monitoring Tool - Track AI Mentions & Citations | Livesov',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Perplexity Brand Tracking | AI Citation Tracker',
-    description:
-      'Track how Perplexity cites and mentions your brand. An AI citation tracker that captures every source URL and your share of voice. Free trial.',
+    title: META_TITLE,
+    description: META_DESCRIPTION,
     images: ['https://livesov.com/og-image.png'],
   },
+};
+
+/* SoftwareApplication JSON-LD - signals to search + AI engines that this page
+   is a brand-mention monitoring tool, not just an article. */
+const softwareApplicationSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Livesov - Perplexity AI Brand Mention Monitoring Tool',
+  applicationCategory: 'BusinessApplication',
+  applicationSubCategory: 'SEO & AI Search Monitoring',
+  operatingSystem: 'Web',
+  url: 'https://livesov.com/perplexity-brand-tracking',
+  description:
+    'A Perplexity AI brand mention monitoring tool that tracks how Perplexity mentions and cites your brand across the Sonar models, captures every source URL, and benchmarks your share of voice against competitors.',
+  featureList: [
+    'Full citation capture for every Perplexity answer',
+    'Brand mention rate by query intent',
+    'Citation rank tracking across Sonar, Sonar Pro, and Sonar Reasoning',
+    'Competitor citation and mention share benchmarking',
+    'Sentiment analysis of brand answer snippets',
+    'Scheduled monitoring with CSV and PDF evidence export',
+  ],
+  offers: [
+    { '@type': 'Offer', name: 'Free trial', price: '0', priceCurrency: 'USD', url: 'https://livesov.com/signup' },
+    { '@type': 'Offer', name: 'Starter', price: '9', priceCurrency: 'USD', url: 'https://livesov.com/signup' },
+    { '@type': 'Offer', name: 'Pro', price: '29', priceCurrency: 'USD', url: 'https://livesov.com/signup' },
+    { '@type': 'Offer', name: 'Agency', price: '89', priceCurrency: 'USD', url: 'https://livesov.com/signup' },
+  ],
 };
 
 const features = [
@@ -137,6 +167,16 @@ const useCases = [
 
 const faqs = [
   {
+    question: 'What is a Perplexity AI brand mention monitoring tool?',
+    answer:
+      'A Perplexity AI brand mention monitoring tool automatically runs the questions your buyers ask Perplexity, then records whether the AI mentions your brand in its answer and whether it cites your pages in the source list. Livesov does this on a schedule, logs the full ordered citation list for every run, and reports mention share, citation share, and sentiment over time so you can see - and improve - how Perplexity represents your brand.',
+  },
+  {
+    question: 'What is the best tool to monitor brand mentions in Perplexity AI?',
+    answer:
+      'The best Perplexity monitoring tool is the one that captures the complete evidence, not just a mention count. Livesov logs every citation URL and its rank, tracks all Sonar models (Sonar, Sonar Pro, Sonar Reasoning, and Sonar Deep Research), benchmarks up to 20 competitor domains, scores sentiment on the actual answer text, and exports the raw evidence to CSV and PDF - all on a schedule, with full history. That combination of continuous monitoring plus source-level evidence is what separates it from one-off citation checkers.',
+  },
+  {
     question: 'What makes Perplexity tracking different from ChatGPT tracking?',
     answer:
       'Perplexity is citation-first - every answer comes with explicit source URLs. That makes it the easiest AI platform to optimise for and the most diagnostic: you can see exactly which pages drive AI visibility. ChatGPT only shows citations in the search-enabled variant, and even then less reliably.',
@@ -187,19 +227,20 @@ const comparisonRows = [
 export default function PerplexityBrandTrackingPage() {
   return (
     <SeoLayout>
-      <Breadcrumbs items={[{ name: 'Perplexity Brand Tracking', url: '/perplexity-brand-tracking' }]} />
+      <Breadcrumbs items={[{ name: 'Perplexity Brand Mention Monitoring', url: '/perplexity-brand-tracking' }]} />
+      <JsonLd data={softwareApplicationSchema} />
 
       <SeoHero
         title={
           <>
-            Track Your Brand in{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#20b8cd] to-[#1a96a5]">
-              Perplexity
-            </span>
+              Perplexity AI
+            </span>{' '}
+            Brand Mention Monitoring Tool
           </>
         }
-        subtitle="Monitor how Perplexity AI mentions and cites your brand across Sonar, Sonar Pro, and Sonar Reasoning models. Capture every citation URL, track competitor share, and benchmark your AI search visibility."
-        ctaText="Start tracking Perplexity - free"
+        subtitle="Livesov is the Perplexity AI brand mention monitoring tool built to track how Perplexity mentions and cites your brand across Sonar, Sonar Pro, and Sonar Reasoning. Capture every citation URL, monitor competitor share of voice, and benchmark your AI search visibility in one dashboard."
+        ctaText="Start monitoring Perplexity - free"
       />
 
       <Section pad="0 24px 56px" width={1000}>
@@ -270,6 +311,16 @@ export default function PerplexityBrandTrackingPage() {
 
       <Section pad="80px 24px">
         <LongForm>
+          <h2>What a Perplexity AI brand mention monitoring tool actually does</h2>
+          <p>
+            A <strong>Perplexity AI brand mention monitoring tool</strong> answers a question
+            traditional rank trackers can&apos;t: when a buyer asks Perplexity about your category,
+            does the answer name your brand, and does it cite your pages? Livesov runs your real
+            buyer questions through Perplexity on a schedule, records every brand mention and every
+            citation, and turns them into share-of-voice trends you can act on. Instead of guessing
+            whether Perplexity talks about you, you monitor it &mdash; continuously, with evidence.
+          </p>
+
           <h2>How Perplexity picks its sources</h2>
           <p>
             Perplexity&apos;s Sonar models do something subtly different from a normal LLM. For
@@ -338,7 +389,7 @@ export default function PerplexityBrandTrackingPage() {
       <Section background="var(--bg-section, #f7f5f1)" pad="80px 24px" width={1000}>
         <SectionHeader
           label="Why Livesov"
-          title="Livesov vs. one-off citation checkers and SEO suites"
+          title="The most complete Perplexity brand mention monitoring tool"
           subtitle="Perplexity citation data is only valuable if you can see it over time - and against your competitors. Livesov is the only tool that gives you both."
         />
         <ComparisonTable
@@ -348,8 +399,8 @@ export default function PerplexityBrandTrackingPage() {
       </Section>
 
       <FaqSection
-        title="Perplexity brand tracking FAQ"
-        subtitle="Common questions from marketers and SEO leads adopting Perplexity tracking."
+        title="Perplexity AI brand mention monitoring FAQ"
+        subtitle="Common questions from marketers and SEO leads adopting a Perplexity brand mention monitoring tool."
         items={faqs}
       />
 
