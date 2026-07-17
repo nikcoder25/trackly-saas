@@ -3,6 +3,7 @@ import { blogPosts } from '@/data/blog-posts';
 import { getAllTermSlugs } from '@/data/glossary';
 import { getAllCategorySlugs } from '@/data/best-categories';
 import { getAllCaseStudySlugs } from '@/data/case-studies';
+import { getAllAlternativeSlugs } from '@/data/alternatives';
 
 const BASE_URL = process.env.APP_URL || 'https://livesov.com';
 
@@ -34,6 +35,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     lastModified: new Date('2026-06-01'),
     changeFrequency: 'monthly' as const,
     priority: 0.6,
+  }));
+  // Competitor "alternative" landing pages (commercial-intent programmatic SEO).
+  const alternativeEntries: MetadataRoute.Sitemap = getAllAlternativeSlugs().map((slug) => ({
+    url: `${BASE_URL}/${slug}`,
+    lastModified: new Date('2026-07-17'),
+    changeFrequency: 'monthly' as const,
+    priority: 0.8,
   }));
 
   return [
@@ -117,5 +125,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...glossaryEntries,
     ...bestEntries,
     ...caseStudyEntries,
+    ...alternativeEntries,
   ];
 }

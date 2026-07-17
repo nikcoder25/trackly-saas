@@ -248,6 +248,7 @@ export default function VsPeecAiPage() {
       <PillarLinks
         title="Continue evaluating"
         links={[
+          { href: '/peec-ai-alternative', label: 'Peec AI alternative', description: 'Why teams switch from Peec AI to Livesov.' },
           { href: '/vs/otterly', label: 'Livesov vs Otterly', description: 'Two self-serve tools compared surface by surface.' },
           { href: '/vs/profound', label: 'Livesov vs Profound', description: 'Self-serve vs the enterprise platform.' },
           { href: '/pricing', label: 'Pricing & plans', description: 'Start free, scale to agency multi-brand.' },
