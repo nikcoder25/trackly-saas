@@ -1723,6 +1723,93 @@ ChatGPT doesn't change your Google rankings directly. What it changes is how muc
 Measure. Run a [free GEO audit](/geo-audit), check what ChatGPT already says about your brand, then optimize your highest-intent pages for both search rankings and AI citations. [Start a free trial](/signup) to track it - no card required.
 `,
   },
+  {
+    slug: 'how-to-fix-negative-brand-sentiment-in-ai',
+    title: 'How to Fix Negative Brand Sentiment in AI (2026 Playbook)',
+    description: 'How to fix negative brand sentiment in AI answers: detect it across ChatGPT, Perplexity, Claude and Gemini, find the source, correct it, and re-measure. A practical playbook.',
+    tag: 'Strategy',
+    date: '2026-07-17',
+    readTime: '8 min read',
+    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    image: '/blog/fix-ai-sentiment.svg',
+    imageAlt: 'Playbook for fixing negative brand sentiment in AI answers across ChatGPT, Perplexity, Claude and Gemini',
+    content: `
+## What negative brand sentiment in AI means
+
+Negative brand sentiment in AI is when an assistant like ChatGPT, Perplexity, Claude, or Gemini describes your brand in unfavourable, dismissive, or subtly hedged terms - "X is fine for small teams but usually replaced at scale," "X had a security incident," "X is more expensive than alternatives" - inside the answers real buyers read.
+
+Unlike a bad review sitting on one page, an AI opinion is **synthesised and repeated** across thousands of conversations, phrased with authority, and often invisible to you unless you measure it. **This playbook is how to fix negative brand sentiment in AI**: detect it, trace it to its source, correct that source, and hold the line over time.
+
+## Why AI sentiment is different from reviews or social
+
+Three things make AI sentiment its own problem:
+
+- **It's generated, not posted.** There's no single URL to report or take down. The model composes the sentiment fresh each time from what it has learned and retrieved.
+- **It's confident.** Assistants state opinions in a neutral, authoritative voice that buyers trust more than an anonymous review.
+- **It's non-deterministic.** The same prompt can produce different sentiment between runs and across models, so a one-off check tells you almost nothing.
+
+That last point matters most: you can only manage AI sentiment with continuous, multi-run measurement. A single screenshot is an anecdote, not a signal.
+
+## Step 1: Detect it - monitor sentiment across every engine
+
+You can't fix what you can't see. Start by tracking, per engine and over time:
+
+- **Sentiment** on your core buyer-intent prompts (positive / neutral / negative, plus the qualifiers)
+- **Which prompts** trigger negative framing - branded, comparison, or category queries
+- **Which competitors** are named more favourably on those same prompts
+
+Livesov scores sentiment tuned to each model's writing style across ChatGPT, Perplexity, Claude, Gemini, and Grok - see [ChatGPT brand tracking](/chatgpt-brand-tracking) and [Claude brand tracking](/claude-brand-tracking). Tuning matters: Claude and Gemini write balanced, hedged answers that generic sentiment models misread as neutral, burying the real signal.
+
+## Step 2: Diagnose it - find the source the AI is citing
+
+Negative AI sentiment almost always traces back to a source. For grounded engines (Perplexity, ChatGPT Search, Google AI Overviews), the answer lists its citations - read them. For non-grounded models, look at what the open web says: a critical Reddit thread, an outdated comparison article, a stale G2 category, a competitor's "vs" page.
+
+> The fix for AI sentiment is rarely arguing with the model. It's correcting the sources the model learned from or is citing right now.
+
+Use the citations Livesov captures on each answer to pinpoint the exact pages driving the framing, then rank them by how often they appear.
+
+## Step 3: Fix the source, not the symptom
+
+Once you know the source, act on it:
+
+- **Outdated third-party articles:** request updates or corrections; publish a fresher, more authoritative alternative that outranks them.
+- **Review sites (G2, Capterra, Trustpilot):** close the gap that's generating negative reviews, then encourage recent, specific positive reviews - AI weighs review recency and consistency heavily.
+- **Your own pages:** if the AI is citing a thin or outdated page of yours, rewrite it to state the correct, current facts clearly near the top.
+- **Competitor comparison pages:** counter with your own honest, well-cited comparison content (see how we approach [alternative and comparison pages](/best-ai-search-optimization-tools)).
+
+## Step 4: Correct the record with canonical facts
+
+Some "negative" sentiment is actually a factual error - wrong pricing, a misattributed incident, a discontinued limitation the model still repeats. This is a [hallucination](/blog/what-is-answer-engine-optimization-aeo), and it needs a different fix.
+
+Define your **canonical facts** - pricing tiers, security certifications, supported regions, current capabilities - and monitor every AI answer against them. Livesov's canonical facts store flags each drift with the exact quote, so you can correct the underlying sources and prove the record. Fixing a factual error is often the fastest sentiment win available.
+
+## Step 5: Re-measure and hold the line
+
+AI sentiment work is a loop, not a one-time cleanup:
+
+1. Detect negative sentiment and its sources
+2. Fix the highest-impact source
+3. Wait one model/monitoring cycle
+4. Re-measure the same prompts
+5. Repeat on the next source
+
+Set alerts so you're notified when sentiment on a key prompt drops, and run a [free GEO audit](/geo-audit) on the pages AI cites to keep them citation-ready. The brands that win aren't the ones that never get criticised - they're the ones that detect it early and correct the source before it spreads.
+
+## FAQ
+
+### Can you actually change what AI says about your brand?
+
+Yes, but indirectly. You don't edit the model - you improve the sources it learns from and cites: third-party reviews, comparison content, and your own pages. As those sources improve, the generated sentiment follows on the next training and retrieval cycle.
+
+### How long does it take to fix negative AI sentiment?
+
+Factual corrections (hallucinations) can resolve within a retrieval or training cycle once the cited source is fixed. Genuine sentiment shifts take longer - weeks to months - because they depend on the balance of sources across the web changing. Continuous measurement is how you confirm progress.
+
+### How do I monitor brand sentiment across AI models?
+
+Track your buyer-intent prompts on a schedule across every engine, score sentiment per platform, and capture the citations behind each answer. [Start a free 7-day trial](/signup) - no credit card required - or run a [free GEO audit](/geo-audit) first.
+`,
+  },
 ];
 
 export function getPostBySlug(slug: string): BlogPost | undefined {
