@@ -14,16 +14,16 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'ChatGPT Brand Tracker | Track Mentions | Livesov',
+  title: 'ChatGPT Brand Tracker | Monitor Mentions | Livesov',
   description:
-    'The ChatGPT brand tracker that shows how ChatGPT mentions, ranks, and recommends your brand. Track share of voice, sentiment, and citations. Free.',
+    'The ChatGPT brand tracker built to monitor brand mentions in ChatGPT - how it mentions, ranks, and recommends your brand. Track share of voice, sentiment, and citations. Free.',
   keywords:
-    'chatgpt brand tracking, chatgpt brand monitoring, chatgpt seo, ai visibility chatgpt, openai brand mentions, chatgpt rank tracking, chatgpt share of voice, gpt-5 brand tracking',
+    'chatgpt brand tracker, monitor brand mentions in chatgpt, how to track brand mentions in chatgpt, chatgpt brand tracking, chatgpt brand monitoring, chatgpt seo, ai visibility chatgpt, openai brand mentions, chatgpt rank tracking, chatgpt share of voice, gpt-5 brand tracking',
   alternates: { canonical: '/chatgpt-brand-tracking' },
   openGraph: {
-    title: 'ChatGPT Brand Tracker | Track Mentions | Livesov',
+    title: 'ChatGPT Brand Tracker | Monitor Mentions | Livesov',
     description:
-      'The ChatGPT brand tracker that shows how ChatGPT mentions, ranks, and recommends your brand. Track share of voice, sentiment, and citations. Free.',
+      'The ChatGPT brand tracker built to monitor brand mentions in ChatGPT - how it mentions, ranks, and recommends your brand. Track share of voice, sentiment, and citations. Free.',
     url: 'https://livesov.com/chatgpt-brand-tracking',
     siteName: 'Livesov',
     type: 'website',
@@ -38,9 +38,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ChatGPT Brand Tracker | Track Mentions | Livesov',
+    title: 'ChatGPT Brand Tracker | Monitor Mentions | Livesov',
     description:
-      'The ChatGPT brand tracker that shows how ChatGPT mentions, ranks, and recommends your brand. Track share of voice, sentiment, and citations. Free.',
+      'The ChatGPT brand tracker built to monitor brand mentions in ChatGPT - how it mentions, ranks, and recommends your brand. Track share of voice, sentiment, and citations. Free.',
     images: ['https://livesov.com/og-image.png'],
   },
 };
@@ -137,6 +137,11 @@ const useCases = [
 
 const faqs = [
   {
+    question: 'How do I monitor brand mentions in ChatGPT?',
+    answer:
+      'Add your brand and competitors, approve a set of buyer-intent prompts, and let Livesov query ChatGPT (GPT-5, GPT-5 mini, and ChatGPT Search) on a schedule. Each prompt runs multiple times so non-deterministic answers are averaged out, and the dashboard reports mention rate, recommendation rank, sentiment, and citations - the fastest way to monitor brand mentions in ChatGPT continuously instead of checking by hand.',
+  },
+  {
     question: 'How does Livesov actually query ChatGPT?',
     answer:
       'Livesov calls the OpenAI API directly using your tracked prompts. We rotate models (GPT-5, GPT-5 mini, GPT-5 Search) and run each prompt multiple times to capture variance, then aggregate results into mention rate, share of voice, and rank metrics.',
@@ -212,6 +217,30 @@ export default function ChatGPTBrandTrackingPage() {
             { value: '7-day', label: 'Free trial, no card' },
           ]}
         />
+      </Section>
+
+      {/* ── How to monitor brand mentions in ChatGPT ─ */}
+      <Section pad="8px 24px 0" width={860}>
+        <LongForm>
+          <h2>How to monitor brand mentions in ChatGPT</h2>
+          <p>
+            To monitor brand mentions in ChatGPT, send the questions your buyers actually ask -
+            &quot;best tool for X,&quot; &quot;is [brand] any good,&quot; &quot;[brand] vs
+            [competitor]&quot; - to ChatGPT on a repeating schedule and record how it answers.
+            Livesov automates the whole loop:
+          </p>
+          <ol>
+            <li><strong>Connect your brand and competitors</strong> and Livesov seeds a starter set of buyer-intent prompts in seconds.</li>
+            <li><strong>Approve the tracked prompts</strong> across GPT-5, GPT-5 mini, and ChatGPT Search.</li>
+            <li><strong>Livesov queries ChatGPT automatically</strong>, running each prompt several times to average out non-deterministic answers.</li>
+            <li><strong>Review mention rate, recommendation rank, sentiment, and citations</strong> as trend lines, with an alert whenever ChatGPT&apos;s answer about you changes.</li>
+          </ol>
+          <p>
+            A one-off check tells you what ChatGPT said once. To monitor brand mentions in
+            ChatGPT properly you need continuous, multi-run measurement with a competitor
+            benchmark - which is exactly what the sections below break down.
+          </p>
+        </LongForm>
       </Section>
 
       {/* ── Why it matters ───────────────────────── */}
