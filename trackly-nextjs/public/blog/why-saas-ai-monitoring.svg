@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/><stop offset="50%" stop-color="#141233"/><stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="pink" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#ec4899" stop-opacity="0.16"/><stop offset="100%" stop-color="#ec4899" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <ellipse cx="600" cy="350" rx="400" ry="250" fill="url(#glow)"/>
+
+  <!-- Big stat -->
+  <text x="600" y="300" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="130" font-weight="800" fill="url(#pink)">68%</text>
+  <text x="600" y="345" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" fill="#cbd5e1">of B2B buyers now consult an LLM before they buy</text>
+
+  <!-- Donut segments implied by arcs -->
+  <g fill="none" stroke-width="14" opacity="0.85">
+    <circle cx="330" cy="430" r="46" stroke="#1f2937" stroke-width="14"/>
+    <path d="M 330 384 A 46 46 0 1 1 292 454" stroke="url(#pink)" stroke-linecap="round"/>
+  </g>
+  <text x="330" y="436" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="700" fill="#f9a8d4">B2B</text>
+
+  <g fill="none" stroke-width="14" opacity="0.85">
+    <circle cx="870" cy="430" r="46" stroke="#1f2937" stroke-width="14"/>
+    <path d="M 870 384 A 46 46 0 0 1 908 454" stroke="#8b5cf6" stroke-linecap="round"/>
+  </g>
+  <text x="870" y="436" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="700" fill="#c4b5fd">SaaS</text>
+
+  <text x="600" y="90" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="40" font-weight="700" fill="white">Why SaaS Needs AI Brand Monitoring</text>
+  <text x="600" y="530" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#94a3b8" letter-spacing="2">THE DATA CASE FOR ACTING NOW</text>
+</svg>
