@@ -14,16 +14,16 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Gemini Brand Tracking & AI Overviews Monitor',
+  title: 'Gemini Brand Tracker | Track Mentions & AI Overviews',
   description:
-    'Track how Google Gemini and AI Overviews mention your brand. Monitor share of voice and see how to rank in AI Overviews. 7-day free trial.',
+    'How to track brand mentions in Google Gemini and AI Overviews - the Gemini brand tracker for share of voice, citations, and sentiment. 7-day free trial.',
   keywords:
-    'gemini brand tracking, google ai monitoring, gemini visibility, google ai brand mentions, ai overviews tracking, gemini pro tracking, gemini flash tracking, google sge tracking',
+    'how to track brand mentions in gemini, gemini brand tracker, track brand mentions in gemini, gemini rank tracker, gemini brand tracking, google ai monitoring, gemini visibility, google ai brand mentions, ai overviews tracking, gemini pro tracking, gemini flash tracking, google sge tracking',
   alternates: { canonical: '/gemini-brand-tracking' },
   openGraph: {
-    title: 'Gemini Brand Tracking & AI Overviews Monitor',
+    title: 'Gemini Brand Tracker | Track Mentions & AI Overviews',
     description:
-      'Track how Google Gemini and AI Overviews mention your brand. Monitor share of voice and see how to rank in AI Overviews. 7-day free trial.',
+      'How to track brand mentions in Google Gemini and AI Overviews - the Gemini brand tracker for share of voice, citations, and sentiment. 7-day free trial.',
     url: 'https://livesov.com/gemini-brand-tracking',
     siteName: 'Livesov',
     type: 'website',
@@ -38,9 +38,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Gemini Brand Tracking & AI Overviews Monitor',
+    title: 'Gemini Brand Tracker | Track Mentions & AI Overviews',
     description:
-      'Track how Google Gemini and AI Overviews mention your brand. Monitor share of voice and see how to rank in AI Overviews. 7-day free trial.',
+      'How to track brand mentions in Google Gemini and AI Overviews - the Gemini brand tracker for share of voice, citations, and sentiment. 7-day free trial.',
     images: ['https://livesov.com/og-image.png'],
   },
 };
@@ -137,6 +137,11 @@ const useCases = [
 
 const faqs = [
   {
+    question: 'How do I track brand mentions in Gemini?',
+    answer:
+      'Add your brand and competitors, approve a set of buyer-intent prompts, and let Livesov query Gemini automatically across Pro, Flash, Flash-Lite, and the grounded variants that power AI Overviews. Each prompt runs multiple times on your schedule, and the dashboard reports mention rate, share of voice, sentiment, and the exact citations Gemini used - so you can track brand mentions in Gemini continuously rather than checking once by hand.',
+  },
+  {
     question: 'How does Gemini tracking compare to tracking Google AI Overviews?',
     answer:
       'AI Overviews are powered by Gemini, so they are essentially Gemini responses served at the top of Google Search results. Livesov tracks both directly: API-level Gemini responses (for clean comparison across models) and grounded responses (the version closest to what users see in AI Overviews).',
@@ -211,6 +216,28 @@ export default function GeminiBrandTrackingPage() {
             { value: '7-day', label: 'Free trial, no card' },
           ]}
         />
+      </Section>
+
+      <Section pad="8px 24px 0" width={860}>
+        <LongForm>
+          <h2>How to track brand mentions in Google Gemini</h2>
+          <p>
+            To track brand mentions in Google Gemini, run your buyer-intent prompts against
+            every Gemini surface on a fixed schedule and record whether your brand is named,
+            ranked, and cited in the answer. With Livesov the setup takes about five minutes:
+          </p>
+          <ol>
+            <li><strong>Add your brand and competitors</strong> so Livesov can seed a Gemini-style prompt set for your category.</li>
+            <li><strong>Approve the tracked prompts</strong> - the real Google-style questions your buyers ask Gemini and AI Overviews.</li>
+            <li><strong>Let Livesov query Gemini automatically</strong> across Pro, Flash, Flash-Lite, and grounded (AI Overviews) variants, multiple times per prompt.</li>
+            <li><strong>Read the dashboard</strong> for mention rate, share of voice, AI Overviews presence, sentiment, and the exact citations Gemini used.</li>
+          </ol>
+          <p>
+            Because a single Gemini answer is non-deterministic, one manual check is never
+            enough - continuous, multi-run tracking is the only reliable way to measure brand
+            mentions in Gemini over time.
+          </p>
+        </LongForm>
       </Section>
 
       <Section background="var(--bg-section, #f7f5f1)" pad="80px 24px">

@@ -14,16 +14,16 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Claude Brand Tracking | Track Mentions on Claude AI',
+  title: 'Claude Brand Tracker | Track Mentions & Rank in Claude',
   description:
-    'Track how Anthropic\'s Claude mentions and recommends your brand. An LLM visibility tracker for share of voice, sentiment, and hallucinations.',
+    'How to track brand mentions in Claude and rank when it recommends brands. The Claude brand tracker and rank tracker for share of voice, sentiment, and hallucinations.',
   keywords:
-    'claude brand tracking, anthropic ai monitoring, claude visibility, claude brand mentions, claude opus tracking, claude sonnet tracking, claude haiku tracking, claude rank tracking',
+    'claude brand tracker, claude rank tracker, how to track brand mentions in claude, track brand mentions in claude, claude brand tracking, anthropic ai monitoring, claude visibility, claude brand mentions, claude opus tracking, claude sonnet tracking, claude haiku tracking, claude rank tracking',
   alternates: { canonical: '/claude-brand-tracking' },
   openGraph: {
-    title: 'Claude Brand Tracking | Track Mentions on Claude AI',
+    title: 'Claude Brand Tracker | Track Mentions & Rank in Claude',
     description:
-      'Track how Anthropic\'s Claude mentions and recommends your brand. An LLM visibility tracker for share of voice, sentiment, and hallucinations.',
+      'How to track brand mentions in Claude and rank when it recommends brands. The Claude brand tracker and rank tracker for share of voice, sentiment, and hallucinations.',
     url: 'https://livesov.com/claude-brand-tracking',
     siteName: 'Livesov',
     type: 'website',
@@ -38,9 +38,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Claude Brand Tracking | Track Mentions on Claude AI',
+    title: 'Claude Brand Tracker | Track Mentions & Rank in Claude',
     description:
-      'Track how Anthropic\'s Claude mentions and recommends your brand. An LLM visibility tracker for share of voice, sentiment, and hallucinations.',
+      'How to track brand mentions in Claude and rank when it recommends brands. The Claude brand tracker and rank tracker for share of voice, sentiment, and hallucinations.',
     images: ['https://livesov.com/og-image.png'],
   },
 };
@@ -137,6 +137,16 @@ const useCases = [
 
 const faqs = [
   {
+    question: 'How do I track brand mentions in Claude?',
+    answer:
+      'Add your brand and competitors, curate a set of buyer-intent prompts, and let Livesov query Claude - Opus, Sonnet, and Haiku - on a schedule. Each prompt runs multiple times, and the dashboard reports mention rate, recommendation rank, nuanced sentiment, and any drift from your canonical facts, so you can track brand mentions in Claude continuously rather than checking one answer by hand.',
+  },
+  {
+    question: 'Can I use Livesov as a Claude rank tracker?',
+    answer:
+      'Yes. Livesov tracks your recommendation rank every time Claude lists or shortlists options in your category, across Opus, Sonnet, and Haiku. Because Claude explains its reasoning, the rank tracker also surfaces why a competitor ranks higher - missing capabilities, weaker third-party reviews, or outdated public information - so you know exactly what to fix.',
+  },
+  {
     question: 'Why track Claude separately from ChatGPT?',
     answer:
       'Claude and ChatGPT are trained differently, fine-tuned differently, and aligned by different teams. They produce meaningfully different answers to the same prompt - especially for nuanced B2B research. If you only track one, you have only half the picture.',
@@ -211,6 +221,28 @@ export default function ClaudeBrandTrackingPage() {
             { value: '7-day', label: 'Free trial, no card' },
           ]}
         />
+      </Section>
+
+      <Section pad="8px 24px 0" width={860}>
+        <LongForm>
+          <h2>How to track brand mentions in Claude</h2>
+          <p>
+            To track brand mentions in Claude, run your buyer-intent prompts against every Claude
+            tier - Opus, Sonnet, and Haiku - on a schedule and record whether Claude names, ranks,
+            and recommends your brand. Livesov automates it end to end:
+          </p>
+          <ol>
+            <li><strong>Add your brand and competitors</strong> and Livesov drafts a seed set of Claude-style research prompts immediately.</li>
+            <li><strong>Curate the tracked prompts</strong> - the &quot;why,&quot; &quot;compare,&quot; and &quot;recommend for&quot; questions Claude&apos;s analytical users actually ask.</li>
+            <li><strong>Livesov queries Claude on a schedule</strong> across Opus, Sonnet, and Haiku, running each prompt multiple times.</li>
+            <li><strong>Track mention rate, recommendation rank, nuanced sentiment, and hallucinations</strong> as trend lines with downloadable evidence.</li>
+          </ol>
+          <p>
+            Used as a <strong>Claude rank tracker</strong>, Livesov shows exactly where you land
+            when Claude shortlists options - and, because Claude is unusually transparent about its
+            reasoning, why a competitor sometimes ranks above you.
+          </p>
+        </LongForm>
       </Section>
 
       <Section background="var(--bg-section, #f7f5f1)" pad="80px 24px">

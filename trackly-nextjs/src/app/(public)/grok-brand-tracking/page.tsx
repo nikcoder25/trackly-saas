@@ -14,16 +14,16 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Grok Brand Tracking | Monitor xAI Grok Mentions',
+  title: 'Grok Brand Tracker | Track Mentions & Rank in Grok',
   description:
-    'Track how xAI\'s Grok mentions your brand using real-time X data. Monitor share of voice, sentiment, and competitors. Lowest competition of the 5.',
+    'How to track brand mentions in Grok and rank in xAI\'s real-time answers. The Grok brand tracker and rank tracker for share of voice, sentiment, and competitors.',
   keywords:
-    'grok brand tracking, xai monitoring, grok visibility, x ai brand mentions, twitter ai tracking, grok-3 brand tracking, grok-4 monitoring, real-time ai tracking',
+    'how to track brand mentions in grok, grok brand tracker, grok rank tracker, track brand mentions in grok, grok brand tracking, xai monitoring, grok visibility, x ai brand mentions, twitter ai tracking, grok-4 monitoring, real-time ai tracking',
   alternates: { canonical: '/grok-brand-tracking' },
   openGraph: {
-    title: 'Grok Brand Tracking | Monitor xAI Grok Mentions',
+    title: 'Grok Brand Tracker | Track Mentions & Rank in Grok',
     description:
-      'Track how xAI\'s Grok mentions your brand using real-time X data. Monitor share of voice, sentiment, and competitors. Lowest competition of the 5.',
+      'How to track brand mentions in Grok and rank in xAI\'s real-time answers. The Grok brand tracker and rank tracker for share of voice, sentiment, and competitors.',
     url: 'https://livesov.com/grok-brand-tracking',
     siteName: 'Livesov',
     type: 'website',
@@ -38,9 +38,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Grok Brand Tracking | Monitor xAI Grok Mentions',
+    title: 'Grok Brand Tracker | Track Mentions & Rank in Grok',
     description:
-      'Track how xAI\'s Grok mentions your brand using real-time X data. Monitor share of voice, sentiment, and competitors. Lowest competition of the 5.',
+      'How to track brand mentions in Grok and rank in xAI\'s real-time answers. The Grok brand tracker and rank tracker for share of voice, sentiment, and competitors.',
     images: ['https://livesov.com/og-image.png'],
   },
 };
@@ -137,6 +137,16 @@ const useCases = [
 
 const faqs = [
   {
+    question: 'How do I track brand mentions in Grok?',
+    answer:
+      'Add your brand and competitors, approve a set of category prompts, and let Livesov query Grok - Grok 5, Grok 4, Grok 4 Mini, and the live-search variant - on a schedule. Each prompt runs multiple times, and the dashboard reports mention rate, rank, sentiment, and the X posts Grok cited, so you can track brand mentions in Grok continuously and see social-driven shifts as they happen.',
+  },
+  {
+    question: 'Can I use Livesov as a Grok rank tracker?',
+    answer:
+      'Yes. Livesov tracks your recommendation rank every time Grok lists alternatives in your category - position 1, 2, 3, or below - across every Grok model. Because Grok grounds answers in real-time X data, the rank tracker is especially useful for catching the launches, threads, and viral moments that move your position within hours.',
+  },
+  {
     question: 'Why does Grok matter when it&rsquo;s smaller than ChatGPT?',
     answer:
       'Two reasons. First, Grok has real-time X data baked into its answers - making it uniquely fast to absorb viral moments and social sentiment. Second, Grok is deeply embedded in X itself, which means its recommendations appear directly in front of an audience already engaged with brands. For consumer, crypto, and tech categories, Grok visibility moves on hours, not weeks.',
@@ -211,6 +221,29 @@ export default function GrokBrandTrackingPage() {
             { value: '7-day', label: 'Free trial, no card' },
           ]}
         />
+      </Section>
+
+      <Section pad="8px 24px 0" width={860}>
+        <LongForm>
+          <h2>How to track brand mentions in Grok</h2>
+          <p>
+            To track brand mentions in Grok, run your category prompts against xAI&apos;s Grok
+            models - including the live-search variant that grounds answers in real-time X data -
+            and record whether your brand is named, ranked, and cited. Livesov runs this
+            automatically:
+          </p>
+          <ol>
+            <li><strong>Add your brand, competitors, and X handle</strong> so Livesov can correlate AI visibility with social signal.</li>
+            <li><strong>Approve a Grok-style prompt set</strong> in the casual, conversational voice Grok users skew toward.</li>
+            <li><strong>Livesov queries Grok on a schedule</strong> across Grok 5, Grok 4, Grok 4 Mini, and live-search, multiple times per prompt.</li>
+            <li><strong>Track mention rate, recommendation rank, sentiment, and the X posts Grok cited</strong> - with alerts when a viral moment moves your position.</li>
+          </ol>
+          <p>
+            Used as a <strong>Grok rank tracker</strong>, Livesov shows exactly where you land
+            when Grok lists alternatives - position 1, 2, 3, or below - and how that rank shifts
+            after a launch, a thread, or a crisis on X.
+          </p>
+        </LongForm>
       </Section>
 
       <Section background="var(--bg-section, #f7f5f1)" pad="80px 24px">
