@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="ms-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#0c2a22"/>
+    </linearGradient>
+    <radialGradient id="ms-glow" cx="50%" cy="48%" r="55%">
+      <stop offset="0%" stop-color="#19c37d" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#19c37d" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ms-line" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10a37f"/>
+      <stop offset="100%" stop-color="#19c37d"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#ms-bg)"/>
+  <ellipse cx="600" cy="330" rx="440" ry="260" fill="url(#ms-glow)"/>
+
+  <!-- Monitoring chart panel -->
+  <g transform="translate(330,190)">
+    <rect x="0" y="0" width="540" height="250" rx="16" fill="#0b1220" stroke="#1f3a34" stroke-width="1.5"/>
+    <!-- gridlines -->
+    <line x1="30" y1="60" x2="510" y2="60" stroke="#1f2937" stroke-width="1" opacity="0.5"/>
+    <line x1="30" y1="120" x2="510" y2="120" stroke="#1f2937" stroke-width="1" opacity="0.5"/>
+    <line x1="30" y1="180" x2="510" y2="180" stroke="#1f2937" stroke-width="1" opacity="0.5"/>
+    <!-- trend line up -->
+    <polyline points="40,190 130,170 220,180 310,120 400,130 490,70" fill="none" stroke="url(#ms-line)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- points -->
+    <circle cx="40" cy="190" r="5" fill="#19c37d"/>
+    <circle cx="220" cy="180" r="5" fill="#19c37d"/>
+    <circle cx="310" cy="120" r="5" fill="#19c37d"/>
+    <circle cx="490" cy="70" r="6" fill="#19c37d"/>
+    <!-- alert marker -->
+    <circle cx="310" cy="120" r="14" fill="none" stroke="#f59e0b" stroke-width="2"/>
+    <text x="310" y="104" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#f59e0b">alert</text>
+  </g>
+
+  <text x="600" y="86" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="38" font-weight="700" fill="white" letter-spacing="1">
+    Monitoring ChatGPT Brand Visibility
+  </text>
+  <text x="600" y="500" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="19" fill="#cbd5e1" opacity="0.9">
+    7 strategies to run it as an ongoing program
+  </text>
+  <text x="600" y="592" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#94a3b8" letter-spacing="2">
+    PROMPTS &#183; SHARE OF VOICE &#183; ALERTS &#183; CITATIONS
+  </text>
+</svg>
