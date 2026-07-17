@@ -282,6 +282,23 @@ export function ProcessSteps({
   );
 }
 
+/* ───────────────────────── Generic JSON-LD emitter ───────────────────────── */
+
+/**
+ * Renders an arbitrary schema.org object as a nonce-safe JSON-LD script.
+ * Usage: <JsonLd data={softwareApplicationSchema} />
+ */
+export function JsonLd({ data }: { data: Record<string, unknown> }) {
+  const nonce = useNonce();
+  return (
+    <script
+      type="application/ld+json"
+      nonce={nonce || undefined}
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+    />
+  );
+}
+
 /* ───────────────────────── FAQ with JSON-LD schema ───────────────────────── */
 
 export interface FaqItem {
