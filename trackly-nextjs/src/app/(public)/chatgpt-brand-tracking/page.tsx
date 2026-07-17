@@ -414,6 +414,11 @@ export default function ChatGPTBrandTrackingPage() {
         title="Track every AI platform, not just ChatGPT"
         links={[
           {
+            href: '/chatgpt-rank-tracker',
+            label: 'ChatGPT rank tracker',
+            description: 'Track your position in ChatGPT answers over time.',
+          },
+          {
             href: '/perplexity-brand-tracking',
             label: 'Perplexity tracking',
             description: 'Citation-heavy AI search with live web grounding.',
