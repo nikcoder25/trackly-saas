@@ -408,6 +408,11 @@ export default function PerplexityBrandTrackingPage() {
         title="Track every AI platform that drives discovery"
         links={[
           {
+            href: '/perplexity-rank-tracker',
+            label: 'Perplexity rank tracker',
+            description: 'Track your position in Perplexity answers over time.',
+          },
+          {
             href: '/chatgpt-brand-tracking',
             label: 'ChatGPT tracking',
             description: 'OpenAI&rsquo;s flagship - most-used AI assistant on earth.',
