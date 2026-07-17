@@ -1897,6 +1897,79 @@ Daily for competitive categories where visibility moves fast, weekly for stable 
 Rank tracking measures your position when ChatGPT lists options; monitoring is the broader ongoing program - mention rate, share of voice, sentiment, citations, and competitors over time. See the [ChatGPT rank tracker](/chatgpt-rank-tracker) for the position-specific view, then [start a free trial](/signup) to run the full program.
 `,
   },
+  {
+    slug: 'how-to-check-if-chatgpt-mentions-my-brand',
+    title: 'How to Check If ChatGPT Mentions Your Brand (Free & Fast)',
+    description: 'How to check if ChatGPT mentions your brand: use a free ChatGPT mention checker, ask ChatGPT directly, or set up ongoing monitoring. Three methods, step by step.',
+    tag: 'Guide',
+    date: '2026-07-17',
+    readTime: '6 min read',
+    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    image: '/blog/check-chatgpt-mentions.svg',
+    imageAlt: 'Three ways to check if ChatGPT mentions your brand',
+    content: `
+## The quick answer
+
+**To check if ChatGPT mentions your brand, run your key buyer questions through ChatGPT and see whether it names you - the fastest way is a free ChatGPT mention checker that does it for you.** You can try Livesov's [free ChatGPT mention checker](/tools/chatgpt-mention-checker) in a few seconds, no signup required. Below are three methods, from a one-off check to continuous monitoring.
+
+## Why check what ChatGPT says about you
+
+Hundreds of millions of people ask ChatGPT for recommendations and comparisons every week. When someone asks "what's the best [your category] tool?" or "is [your brand] any good?", ChatGPT's answer shapes their shortlist before they ever reach your site. If you don't know whether ChatGPT mentions you - or what it says - you're flying blind on a channel that increasingly drives buying decisions.
+
+## Method 1: Use a free ChatGPT mention checker (fastest)
+
+The quickest way is a purpose-built tool. Livesov's [free ChatGPT mention checker](/tools/chatgpt-mention-checker) lets you:
+
+1. Enter your brand and a buyer-intent question
+2. See whether ChatGPT mentions your brand in the answer
+3. See how you're described and which competitors show up alongside you
+
+It runs the query for you and parses the result, so you don't have to interpret a raw answer yourself. No account needed for a one-off check.
+
+## Method 2: Ask ChatGPT directly (and its limits)
+
+You can also just ask ChatGPT yourself: open it and type the questions your buyers ask - "best [category] tool for [use case]", "[your brand] vs [competitor]", "is [your brand] worth it". Note whether you're named, where you appear, and how you're described.
+
+This works for a quick gut-check, but it has real limits:
+
+- **Answers are non-deterministic.** Ask the same question twice and you may get different brands. One check is an anecdote, not a measurement.
+- **It varies by model.** GPT-5, GPT-5 mini, and ChatGPT Search can answer differently.
+- **It doesn't scale.** Checking dozens of prompts across models by hand, repeatedly, is not realistic.
+
+That's why a checker (Method 1) or monitoring (Method 3) beats manual spot-checks for anything beyond a first look.
+
+## Method 3: Set up continuous monitoring (for ongoing visibility)
+
+A single check tells you about today. Because ChatGPT answers drift as models and the web update, real visibility is a monitoring problem. With [ChatGPT brand tracking](/chatgpt-brand-tracking), Livesov runs your prompts on a schedule, several times each, and reports:
+
+- **Mention rate** - how often ChatGPT names you
+- **Share of voice** - your mentions versus competitors on the same prompts
+- **Sentiment** - how you're described
+- **Citations** - which sources feed the answers
+
+That turns a one-time "does ChatGPT mention me?" into a trend you can act on. For the full approach, see [monitoring ChatGPT brand visibility strategies](/blog/monitoring-chatgpt-brand-visibility-strategies).
+
+## What to do if ChatGPT doesn't mention you (or gets it wrong)
+
+- **Not mentioned:** you have an AI visibility gap. Strengthen the sources ChatGPT learns from and cites - comparison content, review-site presence, and clear, well-structured pages. Run a [free GEO audit](/geo-audit) on your key pages to see how citation-ready they are.
+- **Mentioned negatively or incorrectly:** trace the answer to its source and fix it - our guide on [fixing negative brand sentiment in AI](/blog/how-to-fix-negative-brand-sentiment-in-ai) walks through the process.
+- **Mentioned but below competitors:** this is a share-of-voice problem; focus on the comparison and "best of" content ChatGPT pulls from.
+
+## FAQ
+
+### How do I check if ChatGPT mentions my brand for free?
+
+Use a [free ChatGPT mention checker](/tools/chatgpt-mention-checker) - enter your brand and a buyer question, and it shows whether ChatGPT names you and how. It needs no signup for a one-off check.
+
+### Can I ask ChatGPT if it knows my brand?
+
+Yes, but be careful how you read it. ChatGPT will often produce a confident description whether or not it truly "knows" you, and answers vary between runs. Checking specific buyer-intent prompts - and repeating them - is more reliable than asking "do you know [brand]?"
+
+### How often should I check?
+
+For a one-off, use the free checker any time. For anything you care about competitively, set up scheduled [monitoring](/chatgpt-brand-tracking) so you catch changes over time. [Start a free 7-day trial](/signup) - no credit card required.
+`,
+  },
 ];
 
 export function getPostBySlug(slug: string): BlogPost | undefined {
