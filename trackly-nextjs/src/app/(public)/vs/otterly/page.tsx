@@ -254,6 +254,7 @@ export default function VsOtterlyPage() {
       <PillarLinks
         title="Continue evaluating"
         links={[
+          { href: '/otterly-ai-alternative', label: 'Otterly.ai alternative', description: 'Why teams switch from Otterly to Livesov.' },
           { href: '/vs/profound', label: 'Livesov vs Profound', description: 'How Livesov compares to the enterprise leader.' },
           { href: '/vs/peec-ai', label: 'Livesov vs Peec AI', description: 'Add-on pricing vs all-platforms-included.' },
           { href: '/pricing', label: 'Pricing & plans', description: 'Start free, scale to agency multi-brand.' },

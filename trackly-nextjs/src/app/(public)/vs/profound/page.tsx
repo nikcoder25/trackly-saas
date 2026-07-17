@@ -245,6 +245,7 @@ export default function VsProfoundPage() {
       <PillarLinks
         title="Continue evaluating"
         links={[
+          { href: '/profound-alternative', label: 'Profound alternative', description: 'Why self-serve teams switch from Profound to Livesov.' },
           { href: '/vs/otterly', label: 'Livesov vs Otterly', description: 'Two self-serve tools compared surface by surface.' },
           { href: '/vs/peec-ai', label: 'Livesov vs Peec AI', description: 'Add-on pricing vs all-platforms-included.' },
           { href: '/pricing', label: 'Pricing & plans', description: 'Start free, scale to agency multi-brand.' },
