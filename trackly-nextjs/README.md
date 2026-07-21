@@ -91,6 +91,19 @@ npm run build   # Production build
 npm start       # Start production server
 ```
 
+### Admin CLI
+
+A command-line interface to the dashboard backend (`/api/admin-backend/*`) ships
+in [`cli/`](./cli/README.md). It reuses the app's auth, validation, and audit
+logging, so operators can inspect stats/revenue/system health and manage users
+and models without the web UI:
+
+```bash
+npm run admin -- login
+npm run admin -- stats
+npm run admin -- users list --plan pro
+```
+
 ## Folder Structure
 
 ```

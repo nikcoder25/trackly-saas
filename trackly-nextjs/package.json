@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "worker": "tsx --tsconfig tsconfig.worker.json src/lib/run-worker.ts",
+    "admin": "tsx cli/index.ts",
     "lint": "echo 'lint: no-op (eslint config pending) - see docs/LINT-TODO.md'",
     "test": "vitest run"
   },
