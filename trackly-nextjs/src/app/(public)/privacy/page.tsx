@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
+import EmailOff from '@/components/EmailOff';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy - Livesov',
@@ -56,10 +57,10 @@ export default function PrivacyPage() {
         <p>Account data is retained while your account is active. API logs are retained for 7 days. Query run data is retained for 90 days. You can delete your account at any time, which removes all associated data.</p>
 
         <h2>8. Your Rights (GDPR/CCPA)</h2>
-        <p>You have the right to access, correct, delete, and export your data. You can exercise these rights through your account settings or by contacting us at hello@livesov.com.</p>
+        <p>You have the right to access, correct, delete, and export your data. You can exercise these rights through your account settings or by contacting us at <EmailOff>hello@livesov.com</EmailOff>.</p>
 
         <h2>9. Contact</h2>
-        <p>For privacy-related inquiries, contact us at hello@livesov.com.</p>
+        <p>For privacy-related inquiries, contact us at <EmailOff>hello@livesov.com</EmailOff>.</p>
       </SeoContent>
     </SeoLayout>
   );

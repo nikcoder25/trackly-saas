@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Mail } from 'lucide-react';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 import ContactForm from '@/components/ContactForm';
+import EmailOff from '@/components/EmailOff';
 
 export const metadata: Metadata = {
   title: 'Contact Livesov | Support, Sales & Partnerships',
@@ -54,7 +55,9 @@ export default function ContactPage() {
           <Mail className="w-8 h-8 text-[var(--brand)] mx-auto mb-3" />
           <h3 className="font-bold text-gray-900 mb-2">Email Us</h3>
           <p className="text-gray-500 text-sm mb-3">For all inquiries including support, sales, and partnerships.</p>
-          <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">hello@livesov.com</a>
+          <EmailOff>
+            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">hello@livesov.com</a>
+          </EmailOff>
         </div>
       </div>
     </SeoLayout>

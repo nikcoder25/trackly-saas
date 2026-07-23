@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
+import EmailOff from '@/components/EmailOff';
 import {
   Section,
   SectionHeader,
@@ -391,7 +392,7 @@ export default function AiSearchStatistics2026Page() {
               Livesov AI Search Statistics 2026
             </a>
             . If you cite us in a study, send a note to{' '}
-            <a href="mailto:hello@livesov.com">hello@livesov.com</a> and we will add your work to
+            <EmailOff><a href="mailto:hello@livesov.com">hello@livesov.com</a></EmailOff> and we will add your work to
             our references list on the next refresh.
           </p>
           <p>

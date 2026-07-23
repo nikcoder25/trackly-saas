@@ -16,6 +16,7 @@ export default function robots(): MetadataRoute.Robots {
           '/signup',
           '/reset-password',
           '/home',       // duplicate of /, prevent indexing
+          '/cdn-cgi/',   // Cloudflare internal paths (email-protection links 404 for crawlers)
         ],
       },
     ],
