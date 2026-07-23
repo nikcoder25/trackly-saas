@@ -429,7 +429,16 @@ export async function updateFix(
   if (patch.previewUrl !== undefined) { sets.push(`preview_url = $${i++}`); values.push(patch.previewUrl); }
   if (patch.gscBefore !== undefined) { sets.push(`gsc_before = $${i++}`); values.push(patch.gscBefore ? JSON.stringify(patch.gscBefore) : null); }
   if (patch.gscAfter !== undefined) { sets.push(`gsc_after = $${i++}`); values.push(patch.gscAfter ? JSON.stringify(patch.gscAfter) : null); }
-  if (patch.archived !== undefined) { sets.push(patch.archived ? 'archived_at = NOW()' : 'archived_at = NULL'); }
+  if (patch.archived !== undefined) {
+    sets.push(patch.archived ? 'archived_at = NOW()' : 'archived_at = NULL');
+  } else if (patch.status !== undefined && !['shipped', 'verified'].includes(patch.status)) {
+    // Archived is a property of a LIVE fix. Any transition away from the live
+    // states (revert, reopen-for-edit, regenerate, retry…) clears it, so a
+    // once-archived fix re-enters the normal workflow — and doesn't jump
+    // straight back into the Archive tab when it ships again. The
+    // shipped↔verified recheck transition keeps the flag.
+    sets.push('archived_at = NULL');
+  }
   if (patch.error !== undefined) { sets.push(`error = $${i++}`); values.push(patch.error); }
   await pool.query(`UPDATE fixes SET ${sets.join(', ')} WHERE id = $1`, values);
 }
