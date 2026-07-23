@@ -2012,7 +2012,7 @@ function AssistantSection({ disabled, onAsk, onWholeSite, scanning }: {
       {open && (
       <div style={{ padding: '18px 20px', display: 'grid', gap: 14 }}>
         <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.55 }}>
-          Tell us what you want to fix or improve — in your own words, on one page or across the whole site. We figure out what needs to change, create the task, draft it, and add it to <strong>The Fixes</strong> ready to ship to your site. Titles, meta descriptions, page content &amp; passages, internal links &amp; anchors, keyword targeting, FAQ &amp; structured-data schema, image alt text, citations, content refreshes, social share cards, comparison pages, llms.txt, robots.txt AI access, noindex removal, or correcting false AI claims about you.
+          Tell us what you want to fix or improve — in your own words, on one page or across the whole site. We figure out what needs to change, create the task, draft it, and add it to <strong>The Fixes</strong>{' '}ready to ship to your site. Titles, meta descriptions, page content &amp; passages, internal links &amp; anchors, keyword targeting, FAQ &amp; structured-data schema, image alt text, citations, content refreshes, social share cards, comparison pages, llms.txt, robots.txt AI access, noindex removal, or correcting false AI claims about you.
         </p>
 
         <div>
@@ -2093,7 +2093,7 @@ function AssistantSection({ disabled, onAsk, onWholeSite, scanning }: {
               </div>
             )}
             <div style={{ padding: '11px 14px', borderTop: '2px solid var(--ink)', background: 'var(--surface)', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 150 }}>Saved to <strong>The Fixes</strong> below — review, then approve &amp; ship.</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 150 }}>Saved to <strong>The Fixes</strong>{' '}below — review, then approve &amp; ship.</span>
               {canSweep && (
                 <button className="gbtn" onClick={() => onWholeSite(result.moduleKey!)} disabled={scanning} style={{ padding: '7px 12px', fontSize: 12 }}>
                   {scanning ? 'Scanning…' : '↻ Do this on every page'}
