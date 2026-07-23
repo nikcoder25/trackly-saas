@@ -3,6 +3,7 @@ import Link from 'next/link';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 import { Section, SectionHeader, LongForm, PillarLinks } from '@/components/seo/SeoSections';
 import { GLOSSARY, type GlossaryTerm } from '@/data/glossary';
+import EmailOff from '@/components/EmailOff';
 
 export const metadata: Metadata = {
   title: 'AI Search & LLM SEO Glossary: GEO, AEO, RAG, llms.txt & 30+ Terms Defined | Livesov',
@@ -176,7 +177,7 @@ export default function GlossaryPage() {
             content stop talking past each other.
           </p>
           <p>
-            Suggestions or corrections: <a href="mailto:hello@livesov.com">hello@livesov.com</a>.
+            Suggestions or corrections: <EmailOff><a href="mailto:hello@livesov.com">hello@livesov.com</a></EmailOff>.
           </p>
         </LongForm>
       </Section>

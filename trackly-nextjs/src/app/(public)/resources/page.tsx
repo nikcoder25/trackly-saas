@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 import { Section, SectionHeader, LongForm, PillarLinks } from '@/components/seo/SeoSections';
+import EmailOff from '@/components/EmailOff';
 
 export const metadata: Metadata = {
   title: 'AI Visibility Resources, Templates & Free Downloads | Livesov',
@@ -174,7 +175,7 @@ export default function ResourcesPage() {
           </p>
           <p>
             If you build something on top of one of these resources, tell us - we&apos;ll add it
-            to the next refresh: <a href="mailto:hello@livesov.com">hello@livesov.com</a>.
+            to the next refresh: <EmailOff><a href="mailto:hello@livesov.com">hello@livesov.com</a></EmailOff>.
           </p>
         </LongForm>
       </Section>

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
+import EmailOff from '@/components/EmailOff';
 
 export const metadata: Metadata = {
   title: 'Terms of Service - Livesov',
@@ -58,7 +59,7 @@ export default function TermsPage() {
         <p>We may update these terms. Continued use after changes constitutes acceptance. Material changes will be communicated via email.</p>
 
         <h2>10. Contact</h2>
-        <p>Questions about these terms? Contact hello@livesov.com.</p>
+        <p>Questions about these terms? Contact <EmailOff>hello@livesov.com</EmailOff>.</p>
       </SeoContent>
     </SeoLayout>
   );

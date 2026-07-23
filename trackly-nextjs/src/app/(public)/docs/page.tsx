@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 import { Section, SectionHeader, LongForm, PillarLinks } from '@/components/seo/SeoSections';
+import EmailOff from '@/components/EmailOff';
 
 export const metadata: Metadata = {
   title: 'Livesov Docs: Help Center, Getting Started & API Reference',
@@ -214,7 +215,7 @@ export default function DocsHubPage() {
 
           <p>
             Looking for something not covered here? Email{' '}
-            <a href="mailto:hello@livesov.com">hello@livesov.com</a> - we read everything.
+            <EmailOff><a href="mailto:hello@livesov.com">hello@livesov.com</a></EmailOff> - we read everything.
           </p>
         </LongForm>
       </Section>
