@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { CookiePreferencesButton } from '@/components/CookieConsent';
 import { useNonce } from '@/components/NonceProvider';
 import { MARKETING_NAV_LINKS } from '@/lib/marketing-nav';
+import { alternatives } from '@/data/alternatives';
 
 interface SeoLayoutProps {
   children: React.ReactNode;
@@ -146,6 +147,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/ai-search-statistics-2026">AI Search Statistics 2026</Link>
             <Link href="/research/state-of-ai-search">State of AI Search (Live Report)</Link>
             <Link href="/geo-optimization">GEO Guide</Link>
+            <Link href="/learn">Learn: Pillar Guides</Link>
             <Link href="/learn/llm-seo">LLM SEO Guide</Link>
             <Link href="/learn/ai-search-optimization">AI Search Optimization</Link>
             <Link href="/learn/ai-overviews-optimization">AI Overviews Guide</Link>
@@ -179,6 +181,10 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/claude-brand-tracking">Claude Tracking</Link>
             <Link href="/gemini-brand-tracking">Gemini Tracking</Link>
             <Link href="/grok-brand-tracking">Grok Tracking</Link>
+            <div className="land-footer-subhead">Compare Alternatives</div>
+            {alternatives.map((a) => (
+              <Link key={a.slug} href={`/${a.slug}`}>{a.name} Alternative</Link>
+            ))}
             <div className="land-footer-subhead">Company</div>
             <Link href="/about">About</Link>
             <Link href="/contact">Contact</Link>
