@@ -58,14 +58,16 @@ export async function GET(
   }
 }
 
-interface PatchBody { note?: unknown; assignee?: unknown; generated?: unknown }
+interface PatchBody { note?: unknown; assignee?: unknown; generated?: unknown; archived?: unknown }
 
 /**
- * PATCH — set the fix's note / assignee (collaboration metadata), or edit
- * the generated draft's text fields before approval (inline draft editing).
- * Draft edits only merge string values into keys that already exist on the
- * draft, only while the fix is awaiting review, and re-apply the brand's
- * guardrail rules so a manual edit can't bypass them.
+ * PATCH — set the fix's note / assignee (collaboration metadata), archive or
+ * unarchive a live fix (shipping never auto-archives — the fix stays in the
+ * main list until the user moves it), or edit the generated draft's text
+ * fields before approval (inline draft editing). Draft edits only merge
+ * string values into keys that already exist on the draft, only while the
+ * fix is awaiting review, and re-apply the brand's guardrail rules so a
+ * manual edit can't bypass them.
  */
 export async function PATCH(
   request: Request,
@@ -84,9 +86,22 @@ export async function PATCH(
 
     let body: PatchBody;
     try { body = (await request.json()) as PatchBody; } catch { return Response.json({ error: 'Invalid JSON body' }, { status: 400 }); }
-    const patch: { note?: string | null; assignee?: string | null; generated?: Record<string, unknown>; status?: 'generated' } = {};
+    const patch: { note?: string | null; assignee?: string | null; generated?: Record<string, unknown>; status?: 'generated'; archived?: boolean } = {};
     if (body.note !== undefined) patch.note = typeof body.note === 'string' ? body.note.slice(0, 2000) : null;
     if (body.assignee !== undefined) patch.assignee = typeof body.assignee === 'string' ? body.assignee.slice(0, 120) : null;
+
+    if (body.archived !== undefined) {
+      if (typeof body.archived !== 'boolean') return Response.json({ error: 'archived must be a boolean' }, { status: 400 });
+      const isLive = existing.status === 'shipped' || existing.status === 'verified';
+      if (body.archived && !isLive) {
+        return Response.json({ error: 'Only a live (shipped or verified) fix can be archived.' }, { status: 400 });
+      }
+      if (!body.archived && !existing.archivedAt) {
+        return Response.json({ error: 'This fix is not archived.' }, { status: 400 });
+      }
+      patch.archived = body.archived;
+      await logFixEvent(fixId, id, user.id, body.archived ? 'fix.archived' : 'fix.unarchived', {});
+    }
 
     if (body.generated !== undefined) {
       // Editable while a draft awaits review, or when revising an already-live

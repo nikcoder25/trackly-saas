@@ -109,6 +109,17 @@ export async function ensureFixEngineSchema(): Promise<void> {
   // ship time, and again ~28 days later (set by the outcome cron pass).
   await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS gsc_before JSONB`);
   await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS gsc_after JSONB`);
+  // Explicit archiving: shipping no longer moves a fix out of the main list;
+  // the user clicks Archive when they're done with it. Backfill exactly once
+  // (when the column is first created) so fixes shipped before this feature
+  // stay in the Archive tab instead of flooding back into the to-do view.
+  const hadArchivedAt = await pool.query(
+    `SELECT 1 FROM information_schema.columns WHERE table_name = 'fixes' AND column_name = 'archived_at'`,
+  );
+  await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`);
+  if ((hadArchivedAt.rowCount || 0) === 0) {
+    await pool.query(`UPDATE fixes SET archived_at = updated_at WHERE status IN ('shipped','verified')`);
+  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS fix_connections (
@@ -212,6 +223,7 @@ export function mapFixRow(r: DbRow): FixRow {
     previewUrl: (r.preview_url as string | null) ?? null,
     gscBefore: (r.gsc_before as Record<string, unknown> | null) ?? null,
     gscAfter: (r.gsc_after as Record<string, unknown> | null) ?? null,
+    archivedAt: r.archived_at ? String(r.archived_at) : null,
     error: (r.error as string | null) ?? null,
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
@@ -394,6 +406,8 @@ export async function updateFix(
     previewUrl?: string | null;
     gscBefore?: Record<string, unknown> | null;
     gscAfter?: Record<string, unknown> | null;
+    /** true → stamp archived_at now; false → clear it (unarchive). */
+    archived?: boolean;
     error?: string | null;
   },
 ): Promise<void> {
@@ -415,6 +429,7 @@ export async function updateFix(
   if (patch.previewUrl !== undefined) { sets.push(`preview_url = $${i++}`); values.push(patch.previewUrl); }
   if (patch.gscBefore !== undefined) { sets.push(`gsc_before = $${i++}`); values.push(patch.gscBefore ? JSON.stringify(patch.gscBefore) : null); }
   if (patch.gscAfter !== undefined) { sets.push(`gsc_after = $${i++}`); values.push(patch.gscAfter ? JSON.stringify(patch.gscAfter) : null); }
+  if (patch.archived !== undefined) { sets.push(patch.archived ? 'archived_at = NOW()' : 'archived_at = NULL'); }
   if (patch.error !== undefined) { sets.push(`error = $${i++}`); values.push(patch.error); }
   await pool.query(`UPDATE fixes SET ${sets.join(', ')} WHERE id = $1`, values);
 }

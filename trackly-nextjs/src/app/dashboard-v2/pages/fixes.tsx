@@ -29,6 +29,8 @@ interface FixRow {
   pageImpressions?: number;
   gscBefore?: { ctr?: number; impressions?: number } | null;
   gscAfter?: { ctr?: number; impressions?: number; unavailable?: boolean } | null;
+  /** Set when the user explicitly moved this live fix to the Archive tab. */
+  archivedAt?: string | null;
 }
 interface PreviewBlock { kind: string; label: string; before?: string; after?: string; addNote?: string; language?: string }
 // Result of creating a targeted passage rewrite, returned to the
@@ -523,7 +525,7 @@ export function PageFixes() {
       if (d.fix) setFixes((rows) => rows.map((r) => (r.id === fixId ? { ...r, ...d.fix } : r)));
       if (action === 'generate') { await loadPreview(fixId); flash('Fix ready to review'); }
       if (action === 'approve') flash('Approved — ready to ship');
-      if (action === 'ship') { if (d.ok === false) setError(d.error || 'Ship failed'); else flash('Shipped to live site'); }
+      if (action === 'ship') { if (d.ok === false) setError(d.error || 'Ship failed'); else flash('Shipped to live site — it stays in this list until you archive it'); }
       if (action === 'stage') { if (d.ok === false) setError(d.error || 'Staging failed'); else flash('Staged as a draft — the Connector will create a preview shortly'); }
       if (action === 'publish') flash('Publishing the staged draft…');
       if (action === 'recheck') flash('Re-check complete');
@@ -762,6 +764,18 @@ export function PageFixes() {
     } catch (e) { setError((e as Error).message); }
   };
 
+  // Explicit archive/unarchive: shipping keeps a fix in the main list; only
+  // this action moves it to (or back out of) the Archive tab.
+  const archiveFix = async (fixId: string, archived: boolean) => {
+    if (!brandId) return;
+    setBusy((b) => ({ ...b, [fixId]: true }));
+    try {
+      const d = await api(`/api/brands/${brandId}/fixes/${fixId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archived }) });
+      if (d.fix) setFixes((rows) => rows.map((r) => (r.id === fixId ? { ...r, ...d.fix } : r)));
+      flash(archived ? 'Moved to Archive' : 'Restored from Archive — back in the main list');
+    } catch (e) { setError((e as Error).message); } finally { setBusy((b) => ({ ...b, [fixId]: false })); }
+  };
+
   const toggleModule = (k: string) => setSelected((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const availableKeys = catalog.filter((c) => c.available).map((c) => c.key);
   const allSelected = availableKeys.length > 0 && availableKeys.every((k) => selected.has(k));
@@ -867,6 +881,8 @@ export function PageFixes() {
 
   // ── derived ──
   const counts = React.useMemo(() => { const c: Record<string, number> = {}; for (const f of fixes) c[bucketOf(f.status)] = (c[bucketOf(f.status)] || 0) + 1; return c; }, [fixes]);
+  // A live fix only leaves the main list when the user explicitly archives it.
+  const archivedCount = React.useMemo(() => fixes.filter((f) => bucketOf(f.status) === 'shipped' && f.archivedAt).length, [fixes]);
   const sevCount = React.useMemo(() => { const c: Record<string, number> = {}; for (const f of fixes) c[f.severity] = (c[f.severity] || 0) + 1; return c; }, [fixes]);
   const statusCount = React.useMemo(() => { const c: Record<string, number> = {}; for (const f of fixes) c[f.status] = (c[f.status] || 0) + 1; return c; }, [fixes]);
   const moduleMeta = React.useCallback((k: string) => catalog.find((c) => c.key === k), [catalog]);
@@ -874,12 +890,14 @@ export function PageFixes() {
   const scanCost = React.useMemo(() => catalog.filter((c) => selected.has(c.key)).reduce((s, c) => s + (c.cost || 0), 0), [catalog, selected]);
 
   const shown = React.useMemo(() => {
-    // 'all' is the to-do view: it hides ignored fixes (Ignored tab) AND already
-    // published ones (shipped/verified → the Archive tab), so the main list
-    // shows only what still needs you — detect, review, approve, attention.
+    // 'all' is the to-do view: it hides ignored fixes (Ignored tab) and
+    // explicitly ARCHIVED ones (Archive tab). A freshly shipped fix stays
+    // right here, marked live, until the user clicks Archive on it.
     let list = filter === 'all'
-      ? fixes.filter((f) => f.status !== 'dismissed' && bucketOf(f.status) !== 'shipped')
-      : fixes.filter((f) => bucketOf(f.status) === filter);
+      ? fixes.filter((f) => f.status !== 'dismissed' && !f.archivedAt)
+      : filter === 'shipped'
+        ? fixes.filter((f) => bucketOf(f.status) === 'shipped' && !!f.archivedAt)
+        : fixes.filter((f) => bucketOf(f.status) === filter);
     if (quickWins) list = list.filter((f) => (moduleMeta(f.moduleKey)?.cost ?? 1) === 0 || f.severity === 'critical' || f.severity === 'high');
     // Rank by severity, then by estimated value: module impact weighted by
     // the target page's real 28-day GSC impressions (log-scaled so a huge
@@ -926,7 +944,7 @@ export function PageFixes() {
     { value: String(counts.detected || 0), label: 'Detected', bg: 'var(--primary-50)', fg: 'var(--primary)' },
     { value: String(counts.review || 0), label: 'In review', bg: 'var(--primary-50)', fg: 'var(--primary)' },
     { value: String(counts.approved || 0), label: 'Approved', bg: 'var(--info-50)', fg: 'var(--info)' },
-    { value: String(counts.shipped || 0), label: 'Archived', bg: 'var(--success-50)', fg: 'var(--success)' },
+    { value: String(archivedCount), label: 'Archived', bg: 'var(--success-50)', fg: 'var(--success)' },
     { value: String(counts.attention || 0), label: 'Attention', bg: 'var(--danger-50)', fg: 'var(--danger)' },
   ];
   const pipeline = [
@@ -938,14 +956,15 @@ export function PageFixes() {
     { n: '6', label: 're-check', color: 'var(--info)', bg: 'var(--info-50)' },
   ];
   const filterDefs = [
-    // ALL is the to-do count: total minus what's been archived (published) or ignored.
-    { key: 'all', label: 'ALL', count: fixes.length - (counts.dismissed || 0) - (counts.shipped || 0) },
+    // ALL is the to-do + live view: total minus what's been explicitly
+    // archived or ignored. Shipped fixes stay here until archived.
+    { key: 'all', label: 'ALL', count: fixes.length - (counts.dismissed || 0) - archivedCount },
     { key: 'detected', label: 'DETECTED', count: counts.detected || 0 },
     { key: 'review', label: 'REVIEW', count: counts.review || 0 },
     { key: 'approved', label: 'APPROVED', count: counts.approved || 0 },
     { key: 'attention', label: 'ATTENTION', count: counts.attention || 0 },
-    // Published fixes live here, out of the main to-do — still re-checkable/undoable.
-    { key: 'shipped', label: 'ARCHIVE', count: counts.shipped || 0 },
+    // Only fixes the user explicitly archived land here — still re-checkable/undoable.
+    { key: 'shipped', label: 'ARCHIVE', count: archivedCount },
     ...((counts.dismissed || 0) > 0 ? [{ key: 'dismissed', label: 'IGNORED', count: counts.dismissed || 0 }] : []),
   ];
 
@@ -1338,6 +1357,7 @@ export function PageFixes() {
             onStage={() => act(f.id, 'stage')} onPublish={() => act(f.id, 'publish')} onTicket={() => act(f.id, 'ticket')}
             onRequestReview={() => act(f.id, 'request-review')}
             onDismiss={() => dismissFix(f.id)} onRestore={() => dismissFix(f.id, true)}
+            onArchive={(archived) => archiveFix(f.id, archived)}
             editableField={EDITABLE_FIELD[f.moduleKey]}
             onEditDraft={(field, value) => editDraft(f.id, field, value)}
             downloadHref={f.channel === 'B' ? `/api/brands/${brandId}/fixes/${f.id}/file` : undefined}
@@ -2185,7 +2205,7 @@ function BeforeAfter({ before, after, label, addNote }: { before?: string; after
 }
 
 // ── Fix card ──
-function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRegenerate, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, onDismiss, onRestore, editableField, onEditDraft, downloadHref, open, onToggleOpen }: {
+function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRegenerate, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, onDismiss, onRestore, onArchive, editableField, onEditDraft, downloadHref, open, onToggleOpen }: {
   fix: FixRow; title: string; preview: PreviewBlock | null | undefined; cost: number; revertable: boolean; impact?: 1 | 2 | 3;
   events: FixEvent[] | undefined; busy: boolean; armed: boolean; canShip: boolean; picked: boolean;
   onTogglePick: () => void; onGenerate: () => void; onApprove: () => void; onArm: () => void; onCancelArm: () => void;
@@ -2193,6 +2213,7 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
   onSaveMeta: (patch: { note?: string; assignee?: string }) => void;
   hasConnector: boolean; hasTracker: boolean; onStage: () => void; onPublish: () => void; onTicket: () => void;
   onRequestReview: () => void; onDismiss: () => void; onRestore: () => void;
+  onArchive: (archived: boolean) => void;
   editableField?: string;
   onEditDraft: (field: string, value: string) => void;
   downloadHref?: string;
@@ -2252,6 +2273,16 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
           <button className="tbtn" title="Ignore — hide this suggestion (the AI may be wrong). Restore it later from the Ignored tab."
             onClick={(e) => { e.stopPropagation(); onDismiss(); }} disabled={busy}
             style={{ flexShrink: 0, fontSize: 11, color: 'var(--text-3)' }}>✕ Ignore</button>
+        )}
+        {isLive && !fix.archivedAt && (
+          <button className="tbtn" title="Done with this one? Move it to the Archive tab. The shipped change stays live on your site."
+            onClick={(e) => { e.stopPropagation(); onArchive(true); }} disabled={busy}
+            style={{ flexShrink: 0, fontSize: 11, color: 'var(--text-3)' }}>⇣ Archive</button>
+        )}
+        {isLive && fix.archivedAt && (
+          <button className="tbtn" title="Bring this fix back into the main list"
+            onClick={(e) => { e.stopPropagation(); onArchive(false); }} disabled={busy}
+            style={{ flexShrink: 0, fontSize: 11 }}>↩ Unarchive</button>
         )}
         {isDismissed && (
           <button className="tbtn" title="Restore this fix" onClick={(e) => { e.stopPropagation(); onRestore(); }} disabled={busy}
@@ -2477,6 +2508,10 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
             <a className="gbtn" href={downloadHref} style={{ padding: '7px 13px' }} title="Download this file and drop it at your site root — no plugin needed">⬇ Download file</a>
           )}
           <span style={{ flex: 1 }} />
+          {/* A live fix stays in the main list until explicitly archived —
+              the shipped change stays on the site either way. */}
+          {isLive && !fix.archivedAt && <button className="tbtn" onClick={() => onArchive(true)} disabled={busy} title="Done with this one? Move it to the Archive tab. The shipped change stays live on your site." style={{ color: 'var(--text-3)' }}>⇣ Archive</button>}
+          {isLive && fix.archivedAt && <button className="tbtn" onClick={() => onArchive(false)} disabled={busy} title="Bring this fix back into the main list">↩ Unarchive</button>}
           {canIgnore && <button className="tbtn" onClick={onDismiss} disabled={busy} title="Ignore — hide this suggestion (the AI may be wrong). Restore it later from the Ignored tab." style={{ color: 'var(--text-3)' }}>✕ Ignore</button>}
           {isDismissed && <button className="xbtn" onClick={onRestore} disabled={busy} style={{ background: 'var(--primary)' }}>↩ RESTORE</button>}
           <button className="tbtn" onClick={onTicket} disabled={busy} title={hasTracker ? 'Create a Linear/Jira issue for this fix' : 'Connect Linear or Jira (or a webhook) to hand this off'}>⊕ {hasTracker ? 'Ticket' : 'Hand off'}</button>
