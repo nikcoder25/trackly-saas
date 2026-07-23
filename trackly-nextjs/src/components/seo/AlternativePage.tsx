@@ -11,7 +11,7 @@ import {
   PillarLinks,
 } from '@/components/seo/SeoSections';
 import type { Alternative } from '@/data/alternatives';
-import { comparisonDisclaimer } from '@/data/alternatives';
+import { alternatives, comparisonDisclaimer } from '@/data/alternatives';
 
 // Livesov's own capabilities are the same on every alternative page, so they
 // live here once rather than being duplicated across nine data entries.
@@ -70,6 +70,14 @@ export default function AlternativePage({ data }: { data: Alternative }) {
     { href: '/tools', label: 'Free AI search tools', description: '11 free tools - no signup required.' },
     { href: '/best-ai-search-optimization-tools', label: 'Best AI visibility tools', description: 'How the category compares, ranked.' },
   );
+
+  const siblingAlternatives = alternatives
+    .filter((a) => a.slug !== data.slug)
+    .map((a) => ({
+      href: `/${a.slug}`,
+      label: `${a.name} alternative`,
+      description: `How Livesov compares to ${a.name} for AI visibility tracking.`,
+    }));
 
   return (
     <SeoLayout>
@@ -138,6 +146,8 @@ export default function AlternativePage({ data }: { data: Alternative }) {
       <FaqSection title={`${data.name} alternative - FAQ`} items={data.faqs} />
 
       <PillarLinks title="Keep evaluating" links={relatedLinks} />
+
+      <PillarLinks title="Compare other AI visibility tools" links={siblingAlternatives} />
     </SeoLayout>
   );
 }
