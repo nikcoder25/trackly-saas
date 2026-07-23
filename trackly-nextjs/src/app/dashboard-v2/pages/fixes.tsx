@@ -894,7 +894,7 @@ export function PageFixes() {
     // explicitly ARCHIVED ones (Archive tab). A freshly shipped fix stays
     // right here, marked live, until the user clicks Archive on it.
     let list = filter === 'all'
-      ? fixes.filter((f) => f.status !== 'dismissed' && !f.archivedAt)
+      ? fixes.filter((f) => f.status !== 'dismissed' && !(bucketOf(f.status) === 'shipped' && f.archivedAt))
       : filter === 'shipped'
         ? fixes.filter((f) => bucketOf(f.status) === 'shipped' && !!f.archivedAt)
         : fixes.filter((f) => bucketOf(f.status) === filter);

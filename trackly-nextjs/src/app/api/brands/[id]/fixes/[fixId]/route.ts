@@ -100,7 +100,6 @@ export async function PATCH(
         return Response.json({ error: 'This fix is not archived.' }, { status: 400 });
       }
       patch.archived = body.archived;
-      await logFixEvent(fixId, id, user.id, body.archived ? 'fix.archived' : 'fix.unarchived', {});
     }
 
     if (body.generated !== undefined) {
@@ -141,6 +140,10 @@ export async function PATCH(
     if (Object.keys(patch).length === 0) return Response.json({ error: 'Nothing to update' }, { status: 400 });
 
     await updateFix(fixId, patch);
+    // Audit the archive transition only once the row actually changed.
+    if (patch.archived !== undefined) {
+      await logFixEvent(fixId, id, user.id, patch.archived ? 'fix.archived' : 'fix.unarchived', {});
+    }
     const fix = await getFix(fixId, id);
     return Response.json({ fix }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) {
