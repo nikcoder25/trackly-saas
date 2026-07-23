@@ -272,6 +272,12 @@ export interface FixRow {
   /** Target page's 28-day GSC metrics captured at ship / ~28 days later. */
   gscBefore: Record<string, unknown> | null;
   gscAfter: Record<string, unknown> | null;
+  /**
+   * When the user explicitly moved this live fix to the Archive tab.
+   * Shipping does NOT set this — a shipped fix stays in the main list
+   * until the user archives it.
+   */
+  archivedAt: string | null;
   error: string | null;
   createdAt: string;
   updatedAt: string;

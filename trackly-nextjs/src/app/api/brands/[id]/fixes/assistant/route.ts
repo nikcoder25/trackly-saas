@@ -21,7 +21,7 @@ import { getFix } from '@/lib/fix-engine/schema';
 import { getModule, meetsPlan } from '@/lib/fix-engine/registry';
 import { buildContext } from '@/lib/fix-engine/engine';
 import { generateJson } from '@/lib/fix-engine/generate';
-import { createTargetedFix, TARGETED_MODULES, isTargetedModule } from '@/lib/fix-engine/targeted';
+import { createTargetedFix, TARGETED_MODULES, isTargetedModule, targetedModuleInfo } from '@/lib/fix-engine/targeted';
 
 interface Body { request?: unknown; url?: unknown }
 
@@ -30,10 +30,16 @@ interface Classified {
   url?: string;
   keyword?: string;
   passage?: string;
+  competitor?: string;
+  falseClaim?: string;
+  correctFact?: string;
+  factTopic?: string;
   instruction?: string;
   taskSummary?: string;
   clarify?: string;
 }
+
+const SITE_LEVEL_KEYS = TARGETED_MODULES.filter((m) => m.siteLevel).map((m) => m.key).join(', ');
 
 const ASSISTANT_SYSTEM = `You are the routing brain for a website fix assistant. The user describes, in plain language, something they want to improve on their website. Map the request to EXACTLY ONE capability and extract its inputs. Return ONLY a JSON object — no prose.
 
@@ -46,17 +52,25 @@ Return this JSON shape:
   "url": "the page URL the request is about (use the provided page URL if given), or empty string",
   "keyword": "the target keyword, only for keyword-opportunities, else empty",
   "passage": "the EXACT paragraph text the user pasted, only for passage-rewrite, else empty",
-  "instruction": "a short, specific restatement of what the user wants (tone, angle, which anchor/target, etc.) to steer the fix",
+  "competitor": "the competitor name, only for comparison-pages, else empty",
+  "falseClaim": "the false statement the AI makes, only for hallucination-correction, else empty",
+  "correctFact": "the correct fact that should replace it, only for hallucination-correction, else empty",
+  "factTopic": "a 1-3 word topic for the disputed fact (e.g. 'pricing'), only for hallucination-correction, else empty",
+  "instruction": "a short, specific restatement of what the user wants (tone, angle, which anchor/target, schema type, etc.) to steer the fix",
   "taskSummary": "one friendly sentence describing the task you'll create, e.g. 'Rewrite the title on /pricing to be punchier'",
   "clarify": "if you cannot proceed, ONE short question; else empty string"
 }
 
 Rules:
-- Every capability needs a page URL. If no URL is provided or present in the request, set clarify to ask which page (and leave moduleKey your best guess).
-- keyword-opportunities REQUIRES a keyword — if none is given, set clarify asking for it.
+- Page-level capabilities need a page URL. If none is provided or present in the request, set clarify to ask which page (and leave moduleKey your best guess).
+- Site-level capabilities (${SITE_LEVEL_KEYS}) do NOT need a page URL — never ask for one for those; they work from the site itself.
+- keyword-opportunities REQUIRES a keyword — if none is given, set clarify asking for it. It's also the right pick for "rank higher for X" / positions-slipping asks.
+- comparison-pages REQUIRES a competitor name — if none is given, set clarify asking for it.
+- hallucination-correction REQUIRES both the false claim and the correct fact — if either is missing, set clarify asking for it.
 - passage-rewrite is only when the user pasted the actual paragraph. If they want the page's content improved for AI/SEO generally, use geo-page-rewrite instead.
 - Pick internal-linking for anything about interlinking, internal links, or anchor text between pages.
-- If the request is off-topic or none of the capabilities fit, set moduleKey "unknown" and use clarify to briefly say what you CAN help with (titles, meta descriptions, passages, internal links/anchors, keyword targeting, FAQ schema, or optimising a page for AI answers).
+- "Improve CTR" / "more clicks from search" on a page → title-rewrite (or meta-rewrite if they mean the description).
+- If the request is off-topic or none of the capabilities fit, set moduleKey "unknown" and use clarify to briefly say what you CAN help with (titles, meta descriptions, page content, passages, internal links/anchors, keyword targeting, FAQ/structured schema, image alt text, citations, content refresh, social share cards, comparison pages, llms.txt, robots.txt AI access, noindex removal, or correcting false AI claims).
 - Never invent a URL that wasn't given.`;
 
 export async function POST(
@@ -101,7 +115,7 @@ export async function POST(
 
     // Not routable → surface the assistant's clarifying question.
     if (!isTargetedModule(moduleKey)) {
-      return Response.json({ ok: true, clarify: cls.clarify || 'I can help with titles, meta descriptions, rewriting a paragraph, internal links & anchor text, targeting a keyword, adding FAQ schema, or optimising a page for AI answers. Which of those — and on which page?' }, { headers: { 'Cache-Control': 'no-store' } });
+      return Response.json({ ok: true, clarify: cls.clarify || 'I can help with titles, meta descriptions, page content & passages, internal links & anchor text, keyword targeting, FAQ & structured-data schema, image alt text, external citations, refreshing stale pages, social share cards, comparison pages, llms.txt, robots.txt AI access, removing accidental noindex, or correcting false AI claims about you. Which of those — and on which page?' }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
     const mod = getModule(moduleKey)!;
@@ -112,7 +126,13 @@ export async function POST(
     }
 
     // Missing a required input, or the LLM asked something → clarify.
-    if (cls.clarify && (!url || (moduleKey === 'keyword-opportunities' && !cls.keyword) || (moduleKey === 'passage-rewrite' && !cls.passage))) {
+    const info = targetedModuleInfo(moduleKey);
+    const missingInput = (!info.siteLevel && !url)
+      || (info.needsKeyword && !cls.keyword)
+      || (info.needsPassage && !cls.passage)
+      || (info.needsCompetitor && !cls.competitor)
+      || (info.needsClaim && (!cls.falseClaim || !cls.correctFact));
+    if (cls.clarify && missingInput) {
       return Response.json({ ok: true, clarify: cls.clarify }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
@@ -125,6 +145,10 @@ export async function POST(
         url,
         keyword: cls.keyword,
         passage: cls.passage,
+        competitor: cls.competitor,
+        falseClaim: cls.falseClaim,
+        correctFact: cls.correctFact,
+        factTopic: cls.factTopic,
         instruction: cls.instruction,
         brandQueries: ctx.brand.queries,
       });
