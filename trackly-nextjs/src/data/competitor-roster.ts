@@ -122,6 +122,7 @@ export const COMPETITOR_ROSTER: CompetitorProfile[] = [
     blurb:
       'A prompt-monitoring tool that logs how answers to tracked prompts change over time.',
     bestFor: 'Teams that mainly want prompt-level change logging on a small set of queries.',
+    alternativeSlug: 'promptwatch-alternative',
   },
   {
     name: 'Bluefish',
@@ -129,6 +130,7 @@ export const COMPETITOR_ROSTER: CompetitorProfile[] = [
     blurb:
       'An enterprise AI-agent visibility and brand-management platform aimed at large organizations.',
     bestFor: 'Large brands treating AI representation as a governance problem rather than a marketing metric.',
+    alternativeSlug: 'bluefish-ai-alternative',
   },
   {
     name: 'Evertune',
@@ -136,6 +138,7 @@ export const COMPETITOR_ROSTER: CompetitorProfile[] = [
     blurb:
       'An AI brand analytics platform built around model-level brand association research.',
     bestFor: 'Brand and insights teams that want model-association research more than day-to-day tracking.',
+    alternativeSlug: 'evertune-alternative',
   },
   {
     name: 'Daydream',
@@ -143,6 +146,7 @@ export const COMPETITOR_ROSTER: CompetitorProfile[] = [
     blurb:
       'An AI-native marketing platform where search visibility sits inside a broader growth toolset.',
     bestFor: 'Teams looking to consolidate several marketing functions into one AI-native platform.',
+    alternativeSlug: 'daydream-alternative',
   },
   {
     name: 'Xfunnel',
@@ -150,6 +154,7 @@ export const COMPETITOR_ROSTER: CompetitorProfile[] = [
     blurb:
       'A buyer-journey oriented AI visibility tool that maps mentions to funnel stages.',
     bestFor: 'B2B teams that want AI visibility segmented by where a buyer is in the journey.',
+    alternativeSlug: 'xfunnel-alternative',
   },
   {
     name: 'Goodie',
@@ -157,6 +162,7 @@ export const COMPETITOR_ROSTER: CompetitorProfile[] = [
     blurb:
       'An AI search optimization platform combining monitoring with content recommendations.',
     bestFor: 'Marketers who want the tool to also tell them what to publish next.',
+    alternativeSlug: 'goodie-alternative',
   },
   {
     name: 'Semrush AI Toolkit',
