@@ -9,9 +9,11 @@ import {
   Callout,
   LongForm,
   PillarLinks,
+  JsonLd,
 } from '@/components/seo/SeoSections';
 import type { Alternative } from '@/data/alternatives';
 import { alternatives, comparisonDisclaimer } from '@/data/alternatives';
+import { buildShortlist } from '@/data/competitor-roster';
 
 // Livesov's own capabilities are the same on every alternative page, so they
 // live here once rather than being duplicated across nine data entries.
@@ -54,7 +56,41 @@ const LIVESOV_STRENGTHS = [
   },
 ];
 
+/**
+ * How we compare tools. This is deliberately explicit rather than implied:
+ * the page title carries a "(Tested)" claim, and an unbacked testing claim is
+ * both a trust problem and exactly what review-content ranking systems look
+ * for. State what was actually hands-on, what is desk research, and that we
+ * rank our own product first on our own site.
+ */
+const METHODOLOGY = [
+  'Livesov is hands-on: every capability we claim for it is running in the product today and is checkable on a free trial without a credit card.',
+  'Competing tools are assessed from public product documentation, pricing pages, and vendor marketing, plus hands-on time with the free tiers and trials that are openly available. Where a vendor is demo-gated we say so rather than guessing at what is behind the gate.',
+  'We do not publish competitor pricing or feature counts as settled fact. Those change without notice, so each entry links to the vendor so you can verify the current position yourself.',
+  'This is our own site and Livesov is ranked first. That is a disclosure, not a neutral verdict - the "best for" line on every other tool is the honest case for choosing it over us.',
+];
+
 export default function AlternativePage({ data }: { data: Alternative }) {
+  // The title promises seven alternatives, so the page must actually contain
+  // seven. buildShortlist rotates the window per subject so the nine
+  // alternative pages do not publish an identical list.
+  const shortlist = buildShortlist(data.name, 7);
+
+  const itemListSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: `7 best ${data.name} alternatives in 2026`,
+    itemListOrder: 'https://schema.org/ItemListOrderDescending',
+    numberOfItems: shortlist.length,
+    itemListElement: shortlist.map((tool, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: tool.name,
+      description: tool.blurb,
+      url: `https://${tool.domain}`,
+    })),
+  };
+
   const relatedLinks: Array<{ href: string; label: string; description: string }> = [];
   if (data.vsHref && data.vsLabel) {
     relatedLinks.push({
@@ -81,13 +117,15 @@ export default function AlternativePage({ data }: { data: Alternative }) {
 
   return (
     <SeoLayout>
-      <Breadcrumbs items={[{ name: `${data.name} Alternative`, url: `/${data.slug}` }]} />
+      <Breadcrumbs items={[{ name: `${data.name} Alternatives`, url: `/${data.slug}` }]} />
+
+      <JsonLd data={itemListSchema} />
 
       <SeoHero
         title={
           <>
-            The {data.name} Alternative with{' '}
-            <span className="text-[var(--brand)]">Every AI Engine Included</span>
+            7 Best {data.name} Alternatives in{' '}
+            <span className="text-[var(--brand)]">2026</span>
           </>
         }
         subtitle={data.heroSubtitle}
@@ -102,12 +140,110 @@ export default function AlternativePage({ data }: { data: Alternative }) {
         <LongForm>
           <p>
             <strong>{data.name}</strong> is {data.category} If you are weighing a{' '}
-            {data.name} alternative, the sections below compare it with{' '}
+            {data.name} alternative, the shortlist below ranks the seven tools worth
+            considering in 2026, followed by a full side-by-side of {data.name} against{' '}
             <strong>Livesov</strong> - an AI visibility tracker that measures how ChatGPT,
-            Claude, Gemini, Perplexity, and Grok mention, rank, and cite your brand - and show
-            where each tool fits.
+            Claude, Gemini, Perplexity, and Grok mention, rank, and cite your brand.
           </p>
         </LongForm>
+      </Section>
+
+      {/* The list the title promises. Searchers arriving on a "7 best X
+          alternatives" query want the seven up front, not after a wall of
+          prose - burying it costs the click back to the SERP. */}
+      <Section pad="56px 24px 24px" width={860}>
+        <SectionHeader
+          label="The shortlist"
+          title={`7 best ${data.name} alternatives in 2026`}
+          subtitle={`Ranked for teams actively looking to replace ${data.name}. Each entry says who it is genuinely the right call for - including where it beats us.`}
+        />
+
+        <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {shortlist.map((tool, i) => {
+            const isUs = tool.name === 'Livesov';
+            return (
+              <li
+                key={tool.name}
+                style={{
+                  display: 'flex', gap: 16, alignItems: 'flex-start',
+                  background: '#fff', borderRadius: 14, padding: '20px 22px',
+                  border: isUs ? '2px solid var(--brand, #6366f1)' : '1px solid var(--card-border, #e5e7eb)',
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    flexShrink: 0, width: 34, height: 34, borderRadius: 10,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 800, fontSize: 15,
+                    background: isUs ? 'var(--brand, #6366f1)' : 'rgba(99,102,241,.08)',
+                    color: isUs ? '#fff' : 'var(--brand, #6366f1)',
+                  }}
+                >
+                  {i + 1}
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <h3 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 6px', color: 'var(--text-primary)' }}>
+                    {i + 1}. {tool.name}
+                    {isUs && (
+                      <span style={{
+                        marginLeft: 8, fontSize: 10, fontWeight: 800, letterSpacing: 0.6,
+                        textTransform: 'uppercase', padding: '3px 8px', borderRadius: 100,
+                        background: 'var(--brand, #6366f1)', color: '#fff', verticalAlign: 'middle',
+                      }}>
+                        Our tool
+                      </span>
+                    )}
+                  </h3>
+                  <p style={{ margin: '0 0 8px', fontSize: 14, lineHeight: 1.65, color: 'var(--text-secondary)' }}>
+                    {tool.blurb}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+                    <strong style={{ color: 'var(--text-primary)' }}>Best for:</strong> {tool.bestFor}
+                  </p>
+                  {(tool.alternativeSlug || tool.vsHref) && (
+                    <p style={{ margin: '10px 0 0', fontSize: 13, display: 'flex', flexWrap: 'wrap', gap: 14 }}>
+                      {tool.alternativeSlug && (
+                        <a href={`/${tool.alternativeSlug}`} style={{ color: 'var(--brand, #6366f1)', fontWeight: 600 }}>
+                          {tool.name} alternatives &rarr;
+                        </a>
+                      )}
+                      {tool.vsHref && (
+                        <a href={tool.vsHref} style={{ color: 'var(--brand, #6366f1)', fontWeight: 600 }}>
+                          Livesov vs {tool.name} &rarr;
+                        </a>
+                      )}
+                    </p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </Section>
+
+      {/* Backs the "(Tested)" claim in the page title. */}
+      <Section pad="24px 24px 16px" width={860}>
+        <details
+          className="lp-faq-item"
+          style={{
+            background: 'var(--bg-section, #f7f5f1)', borderRadius: 12,
+            border: '1px solid var(--card-border, #e5e7eb)', padding: '18px 22px',
+          }}
+        >
+          <summary style={{
+            cursor: 'pointer', fontWeight: 700, fontSize: 15, color: 'var(--text-primary)',
+          }}>
+            How we compared these tools (and our bias, stated plainly)
+          </summary>
+          <ul style={{ margin: '12px 0 0', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {METHODOLOGY.map((line) => (
+              <li key={line} style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--text-secondary)' }}>
+                {line}
+              </li>
+            ))}
+          </ul>
+        </details>
       </Section>
 
       <Section pad="48px 24px 80px">

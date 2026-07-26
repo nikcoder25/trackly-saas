@@ -644,7 +644,10 @@ function Pricing() {
             </Reveal>
           ))}
         </div>
-        <p className="price-note">1 credit = 1 AI query checked across the engines. Annual billing saves 20%.</p>
+        <p className="price-note">
+          1 credit = 1 AI query checked across the engines. Annual billing saves 20%.{' '}
+          <Link href="/pricing">See full pricing, credit maths, and total cost examples &rarr;</Link>
+        </p>
       </div>
     </section>
   );
@@ -761,7 +764,7 @@ function Footer() {
           <ul>
             <li><Link href="/about">About</Link></li>
             <li><Link href="/use-cases">Use cases</Link></li>
-            <li><Link href="/#pricing">Pricing</Link></li>
+            <li><Link href="/pricing">Pricing</Link></li>
             <li><Link href="/partners">Partners</Link></li>
             <li><Link href="/contact">Contact</Link></li>
           </ul>

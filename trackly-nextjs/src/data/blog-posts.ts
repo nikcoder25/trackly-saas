@@ -1,3 +1,6 @@
+import type { Author } from './authors';
+import { NIK } from './authors';
+
 export interface BlogPost {
   slug: string;
   title: string;
@@ -5,7 +8,7 @@ export interface BlogPost {
   tag: string;
   date: string;
   readTime: string;
-  author: { name: string; role: string; initials: string };
+  author: Author;
   image: string;
   imageAlt: string;
   content: string;
@@ -19,7 +22,7 @@ export const blogPosts: BlogPost[] = [
     tag: 'Analytics',
     date: '2026-07-17',
     readTime: '11 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/best-ai-brand-monitoring-tools.svg',
     imageAlt: 'Leaderboard of the best AI brand monitoring and AI visibility tools for 2026 with Livesov ranked first',
     content: `
@@ -143,7 +146,7 @@ The best AI brand monitoring tool is the one that covers every platform your buy
     tag: 'GEO',
     date: '2026-07-16',
     readTime: '12 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/geo-guide-saas.svg',
     imageAlt: 'Generative engine optimization pillar diagram linking content, schema, citations, authority, freshness, and measurement',
     content: `
@@ -253,7 +256,7 @@ GEO is how SaaS brands stay discoverable as buyers shift from search boxes to an
     tag: 'Guide',
     date: '2026-07-14',
     readTime: '10 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/rank-on-chatgpt.svg',
     imageAlt: 'ChatGPT answer citing a brand first, with a rank-up arrow showing improved AI visibility',
     content: `
@@ -354,7 +357,7 @@ Ranking on ChatGPT is earned through authority, structure, and crawlability - an
     tag: 'Metrics',
     date: '2026-07-11',
     readTime: '8 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/why-saas-ai-monitoring.svg',
     imageAlt: 'Large statistic showing the share of B2B buyers who consult an LLM before purchasing SaaS',
     content: `
@@ -438,7 +441,7 @@ The hardest thing about AI invisibility is that it is silent. By the time you no
     tag: 'Strategy',
     date: '2026-07-09',
     readTime: '9 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/peec-promptwatch-livesov.svg',
     imageAlt: 'Three-way comparison of Peec AI, Promptwatch, and Livesov AI visibility trackers with Livesov highlighted',
     content: `
@@ -526,7 +529,7 @@ The right AI visibility tracker is the one that covers your engines, gives you c
     tag: 'Analytics',
     date: '2026-07-06',
     readTime: '10 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/ai-visibility-study.svg',
     imageAlt: 'Bar chart comparing brand recommendation rates across ChatGPT, Claude, Gemini, Perplexity, and Grok',
     content: `
@@ -621,7 +624,7 @@ The engines disagree, which means your brand is probably winning some and invisi
     tag: 'Guide',
     date: '2026-07-15',
     readTime: '9 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/perplexity-track-mentions.svg',
     imageAlt: 'Perplexity answer card highlighting a tracked brand mention and its ranked source citations',
     content: `
@@ -750,7 +753,7 @@ You cannot improve what you cannot see. Set up your prompt set, capture your bas
     tag: 'Analytics',
     date: '2026-07-12',
     readTime: '8 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/perplexity-citations.svg',
     imageAlt: 'Ranked Perplexity citation share-of-voice panel comparing a brand against competitor domains',
     content: `
@@ -848,7 +851,7 @@ Mentions tell you your reputation; citations tell you your sources. Track both a
     tag: 'Strategy',
     date: '2026-07-08',
     readTime: '7 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/perplexity-effective.svg',
     imageAlt: 'Bar chart showing brand share of voice in Perplexity climbing over six weeks of tracking and optimisation',
     content: `
@@ -943,7 +946,7 @@ Tracking brand mentions in Perplexity is effective because it converts a hidden 
     tag: 'Guide',
     date: '2026-07-04',
     readTime: '8 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/chatgpt-perplexity.svg',
     imageAlt: 'Side-by-side ChatGPT and Perplexity answer cards feeding a single unified brand tracking dashboard',
     content: `
@@ -1039,7 +1042,7 @@ Half your AI visibility lives in ChatGPT and half in Perplexity - measuring one 
     tag: 'GEO',
     date: '2026-06-02',
     readTime: '8 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/geo-optimization.svg',
     imageAlt: 'Generative Engine Optimization diagram showing how brands appear in AI answers',
     content: `
@@ -1121,7 +1124,7 @@ The first step? [Check your AI visibility](https://livesov.com/signup) across al
     tag: 'Strategy',
     date: '2026-05-22',
     readTime: '6 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/ai-vs-seo.svg',
     imageAlt: 'Comparison between traditional SEO and AI visibility tracking',
     content: `
@@ -1213,7 +1216,7 @@ The brands that win in 2026 will be those that master both traditional SEO **and
     tag: 'Guide',
     date: '2026-05-08',
     readTime: '7 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/track-brand.svg',
     imageAlt: 'Dashboard showing brand tracking across multiple AI platforms',
     content: `
@@ -1320,7 +1323,7 @@ The sooner you start tracking, the sooner you can improve. [Sign up for Livesov]
     tag: 'Analytics',
     date: '2026-04-24',
     readTime: '9 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/share-of-voice.svg',
     imageAlt: 'Chart showing Share of Voice metrics across AI platforms',
     content: `
@@ -1444,7 +1447,7 @@ You can't improve what you can't measure. [Start tracking your Share of Voice](h
     tag: 'Agency',
     date: '2026-04-10',
     readTime: '6 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/agency-monitoring.svg',
     imageAlt: 'Agency dashboard showing AI brand monitoring reports for multiple clients',
     content: `
@@ -1564,7 +1567,7 @@ The agencies that add AI visibility to their services now will have a **12-month
     tag: 'GEO',
     date: '2026-07-17',
     readTime: '10 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/what-is-aeo.svg',
     imageAlt: 'Diagram explaining answer engine optimization (AEO) and how AI answer engines cite sources',
     content: `
@@ -1654,7 +1657,7 @@ Ready to measure your answer-engine visibility? [Start a free 7-day trial](/sign
     tag: 'Strategy',
     date: '2026-07-17',
     readTime: '7 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/chatgpt-seo.svg',
     imageAlt: 'Illustration weighing whether ChatGPT is bad for SEO in 2026',
     content: `
@@ -1730,7 +1733,7 @@ Measure. Run a [free GEO audit](/geo-audit), check what ChatGPT already says abo
     tag: 'Strategy',
     date: '2026-07-17',
     readTime: '8 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/fix-ai-sentiment.svg',
     imageAlt: 'Playbook for fixing negative brand sentiment in AI answers across ChatGPT, Perplexity, Claude and Gemini',
     content: `
@@ -1817,7 +1820,7 @@ Track your buyer-intent prompts on a schedule across every engine, score sentime
     tag: 'Strategy',
     date: '2026-07-17',
     readTime: '9 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/monitor-chatgpt-strategies.svg',
     imageAlt: 'Seven strategies for monitoring ChatGPT brand visibility as an ongoing program',
     content: `

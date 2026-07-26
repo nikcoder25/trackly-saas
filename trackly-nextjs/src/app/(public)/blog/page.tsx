@@ -178,13 +178,18 @@ export default function BlogPage() {
                   {featured.description}
                 </p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{
-                    width: 32, height: 32, borderRadius: '50%', fontSize: 11, fontWeight: 700,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: getAccentGradient(featured.tag), color: '#fff',
-                  }}>
-                    {featured.author.initials}
-                  </div>
+                  <img
+                    src={featured.author.avatar}
+                    alt={featured.author.avatarAlt}
+                    width={32}
+                    height={32}
+                    loading="lazy"
+                    style={{
+                      width: 32, height: 32, borderRadius: '50%', objectFit: 'cover',
+                      flexShrink: 0, background: '#e2e8f0',
+                      border: '1px solid rgba(15,23,42,.08)',
+                    }}
+                  />
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{featured.author.name}</div>
                     <div style={{ fontSize: 11, color: '#94a3b8' }}>{featured.author.role}</div>
@@ -247,13 +252,18 @@ export default function BlogPage() {
                     {/* Footer */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{
-                          width: 26, height: 26, borderRadius: '50%', fontSize: 9, fontWeight: 700,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          background: getAccentGradient(post.tag), color: '#fff',
-                        }}>
-                          {post.author.initials}
-                        </div>
+                        <img
+                          src={post.author.avatar}
+                          alt={post.author.avatarAlt}
+                          width={26}
+                          height={26}
+                          loading="lazy"
+                          style={{
+                            width: 26, height: 26, borderRadius: '50%', objectFit: 'cover',
+                            flexShrink: 0, background: '#e2e8f0',
+                            border: '1px solid rgba(15,23,42,.08)',
+                          }}
+                        />
                         <span style={{ fontSize: 12, color: '#94a3b8' }}>{formatDate(post.date)}</span>
                       </div>
                       <span style={{ fontSize: 13, fontWeight: 700, color: '#6366f1' }}>

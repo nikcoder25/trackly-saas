@@ -46,12 +46,22 @@ describe('MARKETING_NAV_LINKS - canonical 6-link header set (finding #2)', () =>
     expect(new Set(hrefs).size).toBe(hrefs.length);
   });
 
-  it('homeHref (anchor-on-home variant) is only set for items with real pages - How it Works + Pricing', () => {
+  it('homeHref (anchor-on-home variant) is only set for How it Works', () => {
     const withHomeHref = MARKETING_NAV_LINKS.filter(l => l.homeHref);
-    expect(withHomeHref.map(l => l.href)).toEqual(['/how-it-works', '/pricing']);
+    expect(withHomeHref.map(l => l.href)).toEqual(['/how-it-works']);
     for (const link of withHomeHref) {
       expect(link.homeHref).toMatch(/^\/#/); // homeHref must be an in-page anchor
     }
+  });
+
+  it('Pricing always points at the real /pricing page, never the homepage anchor', () => {
+    // "pricing" and "cost" queries resolve to a dedicated pricing URL far
+    // more often than to a homepage anchor, so /pricing must receive every
+    // internal link. A homeHref here would send the homepage header to
+    // `/#pricing` and starve the real page of internal links.
+    const pricing = MARKETING_NAV_LINKS.find(l => l.label === 'Pricing');
+    expect(pricing?.href).toBe('/pricing');
+    expect(pricing?.homeHref).toBeUndefined();
   });
 
   it('Features always uses the anchor form (no `/features` real page exists; PR-1 added a 301)', () => {
@@ -59,6 +69,24 @@ describe('MARKETING_NAV_LINKS - canonical 6-link header set (finding #2)', () =>
     expect(features?.href).toBe('/#features');
     expect(features?.homeHref).toBeUndefined();
   });
+});
+
+describe('no header/footer links the homepage pricing anchor', () => {
+  // /pricing is a real, indexable page targeting "pricing"/"cost" intent.
+  // Every internal link must reach it directly - a `/#pricing` link in a
+  // sitewide footer silently redirects link equity to the homepage.
+  const SOURCES = [
+    'src/components/seo/SeoLayout.tsx',
+    'src/app/(public)/home/page.tsx',
+  ];
+
+  for (const rel of SOURCES) {
+    it(`${rel} links /pricing and never /#pricing`, () => {
+      const src = readFileSync(join(process.cwd(), rel), 'utf8');
+      expect(src).not.toMatch(/href\s*=\s*["'`]\/#pricing\b/);
+      expect(src).toMatch(/href\s*=\s*["'`]\/pricing\b/);
+    });
+  }
 });
 
 describe('Both header sources import MARKETING_NAV_LINKS (finding #2)', () => {
