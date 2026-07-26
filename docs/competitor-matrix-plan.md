@@ -5,6 +5,61 @@
 
 ---
 
+## 0. Audit update (2026-07-26) — plan revised after checking live pages
+
+Before building batch 1, every live public page was audited for keyword
+overlap. The audit changed the plan materially — read this section first; it
+supersedes the type list and batch below where they conflict.
+
+### Collisions found on the LIVE site
+
+The 5 `/vs/` pages were bidding on the alternatives pages' primary terms:
+
+| Borrowed term | Correct owner | Was also on |
+|---|---|---|
+| `profound alternative` | `/profound-alternative` | `/vs/profound` |
+| `peec ai alternative` | `/peec-ai-alternative` | `/vs/peec-ai` |
+| `otterly alternative` | `/otterly-ai-alternative` | `/vs/otterly` |
+| `semrush alternative for ai` | (alt page, not built) | `/vs/semrush` |
+| `ahrefs alternative for ai` | (alt page, not built) | `/vs/ahrefs` |
+
+Plus `{tool} review` and `{tool} pricing` terms sat on the `/vs/` pages,
+pre-claiming the exact keywords the proposed Review and Pricing page types
+would have targeted.
+
+### What Phase 0 shipped (this change)
+
+- **`primaryKeyword`** field on every alternative entry; one owned term per page.
+- **Borrowed terms stripped** from all 5 `/vs/` pages (`{tool} alternative`, `{tool} review`, `{tool} pricing` removed; `livesov vs {tool}` + `{tool} vs livesov` kept).
+- **`src/data/seo-registry.ts`** — single source of truth mapping each commercial URL → its one primary keyword.
+- **`tests/keyword-ownership.test.ts`** — CI guard: fails if two pages share a primary keyword, or if any page's keyword list even *contains* another page's primary term. Verified to catch the original collisions.
+
+### Revised type list — 4 types, not 6
+
+| Type | Verdict | Reason |
+|---|---|---|
+| Alternatives | **Keep** | Proven; owns `{tool} alternative` |
+| Vs | **Keep + expand** | Cheapest column; owns `livesov vs {tool}`; now conflict-free |
+| Competitors | **Conditional** | Only after `{tool} competitor` is parked (done); probe 3 |
+| A-vs-B | **Conditional** | Non-overlapping, but must not dupe the live *Peec AI vs Promptwatch vs Livesov* blog post |
+| Review | **Dropped as a type** | Term belongs to `/vs/`; add a review *section* there instead |
+| Pricing | **Dropped as a type** | Term belongs to `/vs/`; and the 87% own-domain stat says the vendor wins these |
+
+Dropping two types lowers the ceiling from 114 to ~70. Also note the **competitor
+list is 17 named, not 19** — two slots still need naming from demand data.
+
+### Revised batch 1 — 20 pages, zero collisions
+
+- **Arm A — expand `/vs/` (6):** scrunch-ai, rankscale, athenahq, knowatoa, llmrefs, waikay. Owns `livesov vs X`; no conflict.
+- **Arm B — new alternatives (6):** promptwatch, bluefish, evertune, daydream, xfunnel, goodie. No live page targets these. *(Semrush + Ahrefs alt pages dropped from batch 1 — they collided with `/vs/` and were the hardest ranks anyway.)*
+- **Arm C — Competitors probe (3):** profound, peec-ai, otterly. Cleared by Phase 0.
+- **Arm D — A-vs-B probe (5):** each pair checked against the existing blog post first.
+
+Every new page adds its row to `seo-registry.ts` **before** it ships. A red CI
+build means the keyword is already owned — that is the guard working.
+
+---
+
 ## 1. Where we are today
 
 14 of the 114 cells are already filled:

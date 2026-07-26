@@ -36,6 +36,16 @@ export interface Alternative {
   metaTitle: string;
   metaDescription: string;
   keywords: string;
+  /**
+   * The ONE search term this page is the designated owner of, site-wide.
+   * Registered in src/data/seo-registry.ts and guarded by
+   * tests/keyword-ownership.test.ts: no other page may claim it, and no
+   * other page's `keywords` may even contain it. This is the mechanical
+   * anti-cannibalisation control - an alternative page owns
+   * "{tool} alternative"; the matching /vs/ page owns "livesov vs {tool}"
+   * and must not borrow this term back.
+   */
+  primaryKeyword: string;
   heroSubtitle: string;
   stats: AlternativeStat[];
   /** [capability, livesov value, competitor value] */
@@ -64,8 +74,9 @@ export const alternatives: Alternative[] = [
     metaTitle: '7 Best Profound Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
       'Looking for a Profound alternative? Livesov is the self-serve AI visibility tracker - all 5 LLMs, citations, and evidence from $9/mo, no sales call. Compare it to Profound.',
+    primaryKeyword: 'profound alternative',
     keywords:
-      'profound alternative, best profound alternative, tryprofound alternative, profound alternatives, profound competitor, ai visibility tool, geo tool, answer engine optimization tool',
+      'profound alternative, best profound alternative, tryprofound alternative, profound alternatives, ai visibility tool, geo tool, answer engine optimization tool',
     heroSubtitle:
       'Profound is the best-funded enterprise platform in AI visibility - and priced for it. Livesov gives you the same core measurement across all five major LLMs, with citations and stored evidence, starting free and self-serve. No demo call, no annual contract.',
     stats: [
@@ -132,8 +143,9 @@ export const alternatives: Alternative[] = [
     metaTitle: '7 Best Peec AI Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
       'Looking for a Peec AI alternative? Livesov tracks all 5 LLMs with no per-platform add-ons, from $9/mo with a 7-day no-card trial. See how it compares to Peec AI.',
+    primaryKeyword: 'peec ai alternative',
     keywords:
-      'peec ai alternative, best peec ai alternative, peec.ai alternatives, peec ai alternatives, peec ai competitor, ai visibility tracker, geo tool, llm seo tool',
+      'peec ai alternative, best peec ai alternative, peec.ai alternatives, peec ai alternatives, ai visibility tracker, geo tool, llm seo tool',
     heroSubtitle:
       'Peec AI is a capable agency-focused AI visibility tracker - but Claude, Gemini, and Grok are listed as paid add-ons on top of the base subscription. Livesov includes all five major LLMs on every plan, starting at $9/mo with a 7-day no-card trial.',
     stats: [
@@ -199,8 +211,9 @@ export const alternatives: Alternative[] = [
     metaTitle: '7 Best Otterly.ai Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
       'Looking for an Otterly.ai alternative? Livesov tracks all 5 LLMs including Claude and Grok on every plan, with evidence capture, from $9/mo. Compare it to Otterly.',
+    primaryKeyword: 'otterly ai alternative',
     keywords:
-      'otterly ai alternative, otterly alternative, best otterly ai alternative, otterly.ai alternatives, otterly competitor, ai visibility tool, ai search monitoring tool',
+      'otterly ai alternative, otterly alternative, best otterly ai alternative, otterly.ai alternatives, ai visibility tool, ai search monitoring tool',
     heroSubtitle:
       'Otterly.ai is a well-established AI search monitor that leans into Google AI Overviews and Microsoft Copilot. Livesov covers all five major LLMs - including Claude and Grok - on every plan, stores full responses as evidence, and flags hallucinated brand facts, from $9/mo.',
     stats: [
@@ -267,8 +280,9 @@ export const alternatives: Alternative[] = [
     metaTitle: '7 Best Scrunch AI Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
       'Looking for a Scrunch AI alternative? Livesov tracks all 5 LLMs with citations, sentiment, and stored evidence from $9/mo and a 7-day no-card trial.',
+    primaryKeyword: 'scrunch ai alternative',
     keywords:
-      'scrunch ai alternative, best scrunch ai alternative, scrunch alternatives, scrunch ai competitor, ai visibility tool, geo tool, ai brand monitoring',
+      'scrunch ai alternative, best scrunch ai alternative, scrunch alternatives, ai visibility tool, geo tool, ai brand monitoring',
     heroSubtitle:
       'Scrunch AI helps content teams track brand presence in AI answers. Livesov is the all-platforms-included alternative: ChatGPT, Claude, Gemini, Perplexity, and Grok on every plan, with citation capture, per-platform sentiment, and stored evidence, from $9/mo.',
     stats: [
@@ -330,8 +344,9 @@ export const alternatives: Alternative[] = [
     metaTitle: '7 Best Rankscale Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
       'Looking for a Rankscale alternative? Livesov tracks brand mentions and rank across all 5 LLMs with citations and evidence, from $9/mo with a 7-day no-card trial.',
+    primaryKeyword: 'rankscale alternative',
     keywords:
-      'rankscale alternative, best rankscale alternative, rankscale.ai alternatives, rankscale competitor, ai rank tracker, ai visibility tool, geo tool',
+      'rankscale alternative, best rankscale alternative, rankscale.ai alternatives, ai rank tracker, ai visibility tool, geo tool',
     heroSubtitle:
       'Rankscale focuses on AI search rank tracking. Livesov gives you rank plus the full visibility picture - mention rate, share of voice, citations, sentiment, and hallucination detection across all five major LLMs - from $9/mo.',
     stats: [
@@ -393,8 +408,9 @@ export const alternatives: Alternative[] = [
     metaTitle: '7 Best Knowatoa Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
       'Looking for a Knowatoa alternative? Livesov tracks all 5 LLMs with citations, sentiment, and stored evidence, on an automated schedule, from $9/mo.',
+    primaryKeyword: 'knowatoa alternative',
     keywords:
-      'knowatoa alternative, best knowatoa alternative, knowatoa alternatives, knowatoa competitor, ai visibility tool, ai search monitoring, geo tool',
+      'knowatoa alternative, best knowatoa alternative, knowatoa alternatives, ai visibility tool, ai search monitoring, geo tool',
     heroSubtitle:
       'Knowatoa helps you check how AI assistants see your brand. Livesov turns that check into continuous monitoring: all five major LLMs, run on a schedule, with citations, sentiment, evidence, and competitor benchmarking, from $9/mo.',
     stats: [
@@ -456,8 +472,9 @@ export const alternatives: Alternative[] = [
     metaTitle: '7 Best AthenaHQ Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
       'Looking for an AthenaHQ alternative? Livesov tracks all 5 LLMs with citations, sentiment, hallucination detection, and evidence, from $9/mo with a 7-day trial.',
+    primaryKeyword: 'athenahq alternative',
     keywords:
-      'athenahq alternative, best athenahq alternative, athenahq alternatives, athena hq competitor, generative engine optimization tool, ai visibility tool, geo tool',
+      'athenahq alternative, best athenahq alternative, athenahq alternatives, generative engine optimization tool, ai visibility tool, geo tool',
     heroSubtitle:
       'AthenaHQ is a GEO platform for improving AI search presence. Livesov is the self-serve alternative that measures it across all five major LLMs - mention rate, share of voice, citations, sentiment, and hallucinations - with stored evidence, from $9/mo.',
     stats: [
@@ -519,8 +536,9 @@ export const alternatives: Alternative[] = [
     metaTitle: '7 Best LLMrefs Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
       'Looking for an LLMrefs alternative? Livesov tracks brand mentions, rank, citations, and sentiment across all 5 LLMs, with stored evidence, from $9/mo.',
+    primaryKeyword: 'llmrefs alternative',
     keywords:
-      'llmrefs alternative, best llmrefs alternative, llmrefs alternatives, llmrefs competitor, llm visibility tracker, ai rank tracker, ai visibility tool',
+      'llmrefs alternative, best llmrefs alternative, llmrefs alternatives, llm visibility tracker, ai rank tracker, ai visibility tool',
     heroSubtitle:
       'LLMrefs tracks LLM visibility and AI keyword rankings. Livesov adds the full brand picture on top - mention rate, share of voice, citations, sentiment, and hallucination detection across all five major LLMs, with stored evidence, from $9/mo.',
     stats: [
@@ -582,8 +600,9 @@ export const alternatives: Alternative[] = [
     metaTitle: '7 Best Waikay Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
       'Looking for a Waikay alternative? Livesov tracks all 5 LLMs with mention rate, citations, sentiment, and stored evidence, on an automated schedule, from $9/mo.',
+    primaryKeyword: 'waikay alternative',
     keywords:
-      'waikay alternative, best waikay alternative, waikay alternatives, waikay competitor, answer engine optimization tool, ai visibility tool, geo tool',
+      'waikay alternative, best waikay alternative, waikay alternatives, answer engine optimization tool, ai visibility tool, geo tool',
     heroSubtitle:
       'Waikay analyzes how AI models talk about your brand and topics. Livesov is the all-platforms-included alternative: continuous tracking across ChatGPT, Claude, Gemini, Perplexity, and Grok, with citations, sentiment, evidence, and competitor benchmarking, from $9/mo.',
     stats: [

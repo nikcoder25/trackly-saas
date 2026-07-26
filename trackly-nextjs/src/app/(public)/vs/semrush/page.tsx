@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   description:
     'Compare Livesov and the Semrush AI Toolkit. Side by side features, pricing, and AI coverage. A focused Semrush AI Toolkit alternative.',
   keywords:
-    'livesov vs semrush, ai seo tool, chatgpt tracking vs semrush, ai visibility tool comparison, semrush alternative for ai, ai search vs google seo, geo vs seo, semrush vs livesov',
+    'livesov vs semrush, semrush vs livesov, ai seo tool, chatgpt tracking vs semrush, ai visibility tool comparison, ai search vs google seo, geo vs seo',
   alternates: { canonical: '/vs/semrush' },
   openGraph: {
     title: 'Livesov vs Semrush AI Toolkit | Compare Features',

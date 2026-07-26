@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   description:
     'Compare Livesov and Profound: platforms covered, pricing, self-serve vs sales-led, and who each tool is really for. An honest Profound alternative comparison.',
   keywords:
-    'livesov vs profound, profound alternative, tryprofound review, profound pricing, ai visibility tool comparison, aeo tool, geo tool for smb',
+    'livesov vs profound, profound vs livesov, ai visibility tool comparison, aeo tool, geo tool for smb',
   alternates: { canonical: '/vs/profound' },
   openGraph: {
     title: 'Livesov vs Profound | Self-Serve AI Visibility vs Enterprise (2026)',
