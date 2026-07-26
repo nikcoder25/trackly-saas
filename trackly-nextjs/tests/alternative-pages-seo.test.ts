@@ -14,8 +14,8 @@ import {
 const TITLE_RE = /^7 Best .+ Alternatives in 2026 \(Tested\) \| Livesov$/;
 
 describe('alternative page titles', () => {
-  it('covers all nine competitor pages', () => {
-    expect(alternatives).toHaveLength(9);
+  it('covers all fifteen competitor pages', () => {
+    expect(alternatives).toHaveLength(15);
   });
 
   for (const alt of alternatives) {

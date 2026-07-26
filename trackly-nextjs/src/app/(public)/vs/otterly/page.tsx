@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   description:
     'Compare Livesov and Otterly.ai side by side: AI platforms covered, prompt limits, pricing, citations, and sentiment. An honest Otterly alternative comparison.',
   keywords:
-    'livesov vs otterly, otterly alternative, otterly ai review, ai visibility tool comparison, ai search monitoring tools, otterly pricing, track brand chatgpt',
+    'livesov vs otterly, otterly vs livesov, ai visibility tool comparison, ai search monitoring tools, track brand chatgpt',
   alternates: { canonical: '/vs/otterly' },
   openGraph: {
     title: 'Livesov vs Otterly.ai | AI Visibility Tools Compared (2026)',

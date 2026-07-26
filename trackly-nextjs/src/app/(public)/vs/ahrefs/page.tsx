@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   description:
     'Compare Livesov and Ahrefs Brand Radar for AI visibility. Pricing, features, and AI platforms covered. A cheaper Ahrefs Brand Radar alternative.',
   keywords:
-    'livesov vs ahrefs, ai visibility vs seo, ai brand tracking tool, ahrefs alternative for ai, ahrefs vs livesov, ai search vs google seo, geo vs seo',
+    'livesov vs ahrefs, ahrefs vs livesov, ai visibility vs seo, ai brand tracking tool, ai search vs google seo, geo vs seo',
   alternates: { canonical: '/vs/ahrefs' },
   openGraph: {
     title: 'Livesov vs Ahrefs Brand Radar | AI Visibility',
