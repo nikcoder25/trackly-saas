@@ -4,9 +4,11 @@ import { join } from 'node:path';
 import {
   COMMERCIAL_PAGES,
   VS_PAGES,
+  VS_DATA_PAGES,
   type CommercialPage,
 } from '@/data/seo-registry';
 import { alternatives } from '@/data/alternatives';
+import { vsComparisons } from '@/data/vs-comparisons';
 
 // The mechanical anti-cannibalisation guard. See src/data/seo-registry.ts for
 // the contract. If this file goes red, two competitor pages are fighting for
@@ -25,6 +27,10 @@ function keywordsFor(page: CommercialPage): string[] {
     const m = src.match(/keywords:\s*\n?\s*['"`]([^'"`]+)['"`]/);
     if (!m) throw new Error(`no keywords string found in ${page.keywordsFile}`);
     raw = m[1];
+  } else if (page.url.startsWith('/vs/')) {
+    const v = vsComparisons.find((c) => `/vs/${c.slug}` === page.url);
+    if (!v) throw new Error(`no vs-comparison data entry for ${page.url}`);
+    raw = v.keywords;
   } else {
     const alt = alternatives.find((a) => `/${a.slug}` === page.url);
     if (!alt) throw new Error(`no alternative data entry for ${page.url}`);
@@ -38,9 +44,11 @@ function keywordsFor(page: CommercialPage): string[] {
 
 describe('keyword ownership registry', () => {
   it('registers every alternative page and every vs page', () => {
-    // 9 alternatives + 5 vs. If a competitor page is added without a registry
-    // row, this count drifts and the omission is caught here.
-    expect(COMMERCIAL_PAGES.length).toBe(alternatives.length + VS_PAGES.length);
+    // alternatives + bespoke vs + data-driven vs. If a competitor page is added
+    // without a registry row, this count drifts and the omission is caught here.
+    expect(COMMERCIAL_PAGES.length).toBe(
+      alternatives.length + VS_PAGES.length + VS_DATA_PAGES.length,
+    );
   });
 
   it('gives every page a non-empty primary keyword', () => {
