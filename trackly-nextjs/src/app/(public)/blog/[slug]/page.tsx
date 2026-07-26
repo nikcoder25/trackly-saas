@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import SeoLayout from '@/components/seo/SeoLayout';
 import { escapeHtml } from '@/lib/sanitize';
 import { blogPosts, getPostBySlug, formatDate } from '@/data/blog-posts';
+import { authorPersonSchema } from '@/data/authors';
 
 export async function generateStaticParams() {
   return blogPosts.map(post => ({ slug: post.slug }));
@@ -198,7 +199,9 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     description: post.description,
     image: post.image,
     datePublished: post.date,
-    author: { '@type': 'Person', name: post.author.name },
+    // A full Person node (not just a name string) so the byline resolves to a
+    // real, linkable identity with its own bio page and sameAs profiles.
+    author: authorPersonSchema(post.author),
     publisher: { '@type': 'Organization', name: 'Livesov', url: 'https://livesov.com' },
   };
 
@@ -219,9 +222,18 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             <h1 className="blog-post-title">{post.title}</h1>
             <p className="blog-post-desc">{post.description}</p>
             <div className="blog-post-author">
-              <div className="blog-post-avatar">{post.author.initials}</div>
+              <img
+                src={post.author.avatar}
+                alt={post.author.avatarAlt}
+                className="blog-post-avatar blog-post-avatar-img"
+                width={44}
+                height={44}
+                loading="lazy"
+              />
               <div>
-                <div className="blog-post-author-name">{post.author.name}</div>
+                <div className="blog-post-author-name">
+                  <Link href={`/author/${post.author.slug}`}>{post.author.name}</Link>
+                </div>
                 <div className="blog-post-author-role">{post.author.role}</div>
               </div>
             </div>
@@ -237,6 +249,33 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         <div className="blog-post-body">
           {renderContent(post.content)}
         </div>
+
+        {/* Author bio. A named byline is only worth as much as the reader's
+            ability to check who it belongs to - so the bio, the credentials,
+            and the link to the full author page all sit with the article. */}
+        <aside className="blog-author-box" aria-labelledby="about-the-author">
+          <img
+            src={post.author.avatar}
+            alt={post.author.avatarAlt}
+            className="blog-author-box-img"
+            width={72}
+            height={72}
+            loading="lazy"
+          />
+          <div>
+            <p className="blog-author-box-eyebrow" id="about-the-author">About the author</p>
+            <p className="blog-author-box-name">
+              <Link href={`/author/${post.author.slug}`}>{post.author.name}</Link>
+              <span className="blog-author-box-role"> &middot; {post.author.role}</span>
+            </p>
+            <p className="blog-author-box-bio">{post.author.bio[0]}</p>
+            <p className="blog-author-box-more">
+              <Link href={`/author/${post.author.slug}`}>
+                More articles by {post.author.name} &rarr;
+              </Link>
+            </p>
+          </div>
+        </aside>
 
       </article>
     </SeoLayout>

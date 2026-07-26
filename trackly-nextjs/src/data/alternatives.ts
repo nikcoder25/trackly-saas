@@ -61,7 +61,7 @@ export const alternatives: Alternative[] = [
     domain: 'tryprofound.com',
     category:
       'an enterprise answer-engine-optimization platform for large brands, with monitoring, content generation, and automation agents.',
-    metaTitle: 'Best Profound Alternative (2026) | Livesov',
+    metaTitle: '7 Best Profound Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
       'Looking for a Profound alternative? Livesov is the self-serve AI visibility tracker - all 5 LLMs, citations, and evidence from $9/mo, no sales call. Compare it to Profound.',
     keywords:
@@ -129,7 +129,7 @@ export const alternatives: Alternative[] = [
     domain: 'peec.ai',
     category:
       'an AI visibility tracker popular with agencies, focused on reporting across AI answer engines.',
-    metaTitle: 'Best Peec AI Alternative (2026) | Livesov',
+    metaTitle: '7 Best Peec AI Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
       'Looking for a Peec AI alternative? Livesov tracks all 5 LLMs with no per-platform add-ons, from $9/mo with a 7-day no-card trial. See how it compares to Peec AI.',
     keywords:
@@ -196,7 +196,7 @@ export const alternatives: Alternative[] = [
     domain: 'otterly.ai',
     category:
       'one of the earliest AI search monitoring tools, with a focus on Google AI Overviews, AI Mode, and Microsoft Copilot.',
-    metaTitle: 'Best Otterly.ai Alternative (2026) | Livesov',
+    metaTitle: '7 Best Otterly.ai Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
       'Looking for an Otterly.ai alternative? Livesov tracks all 5 LLMs including Claude and Grok on every plan, with evidence capture, from $9/mo. Compare it to Otterly.',
     keywords:
@@ -264,7 +264,7 @@ export const alternatives: Alternative[] = [
     domain: 'scrunch.ai',
     category:
       'an AI visibility platform used by content teams to track brand presence across AI answer engines.',
-    metaTitle: 'Best Scrunch AI Alternative (2026) | Livesov',
+    metaTitle: '7 Best Scrunch AI Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
       'Looking for a Scrunch AI alternative? Livesov tracks all 5 LLMs with citations, sentiment, and stored evidence from $9/mo and a 7-day no-card trial.',
     keywords:
@@ -327,7 +327,7 @@ export const alternatives: Alternative[] = [
     domain: 'rankscale.ai',
     category:
       'an AI search rank-tracking and answer-engine-optimization tool for monitoring how brands appear in AI answers.',
-    metaTitle: 'Best Rankscale Alternative (2026) | Livesov',
+    metaTitle: '7 Best Rankscale Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
       'Looking for a Rankscale alternative? Livesov tracks brand mentions and rank across all 5 LLMs with citations and evidence, from $9/mo with a 7-day no-card trial.',
     keywords:
@@ -390,7 +390,7 @@ export const alternatives: Alternative[] = [
     domain: 'knowatoa.com',
     category:
       'an AI search visibility tool for checking how AI assistants represent your brand.',
-    metaTitle: 'Best Knowatoa Alternative (2026) | Livesov',
+    metaTitle: '7 Best Knowatoa Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
       'Looking for a Knowatoa alternative? Livesov tracks all 5 LLMs with citations, sentiment, and stored evidence, on an automated schedule, from $9/mo.',
     keywords:
@@ -453,7 +453,7 @@ export const alternatives: Alternative[] = [
     domain: 'athenahq.ai',
     category:
       'a generative-engine-optimization platform for monitoring and improving AI search presence.',
-    metaTitle: 'Best AthenaHQ Alternative (2026) | Livesov',
+    metaTitle: '7 Best AthenaHQ Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
       'Looking for an AthenaHQ alternative? Livesov tracks all 5 LLMs with citations, sentiment, hallucination detection, and evidence, from $9/mo with a 7-day trial.',
     keywords:
@@ -516,7 +516,7 @@ export const alternatives: Alternative[] = [
     domain: 'llmrefs.com',
     category:
       'an LLM visibility and AI keyword rank tracker for AI search results.',
-    metaTitle: 'Best LLMrefs Alternative (2026) | Livesov',
+    metaTitle: '7 Best LLMrefs Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
       'Looking for an LLMrefs alternative? Livesov tracks brand mentions, rank, citations, and sentiment across all 5 LLMs, with stored evidence, from $9/mo.',
     keywords:
@@ -579,7 +579,7 @@ export const alternatives: Alternative[] = [
     domain: 'waikay.io',
     category:
       'an answer-engine-optimization tool that analyzes how AI models talk about your brand and topics.',
-    metaTitle: 'Best Waikay Alternative (2026) | Livesov',
+    metaTitle: '7 Best Waikay Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
       'Looking for a Waikay alternative? Livesov tracks all 5 LLMs with mention rate, citations, sentiment, and stored evidence, on an automated schedule, from $9/mo.',
     keywords:

@@ -162,6 +162,89 @@ const COMPARISON_ROWS: Array<{
   },
 ];
 
+// ── Credit maths + total cost ────────────────────────────────────────────
+// Every number below is DERIVED from PLAN_CREDITS / PRICING_PLANS rather
+// than typed by hand, so "what 750 credits actually buys" can never drift
+// from what the backend enforces or from the price on the card above.
+//
+// One credit = one query sent to one AI platform. So a *full scan* - every
+// tracked prompt run against every platform the plan allows - costs
+// (trackedPromptsPerAccount x maxPlatforms) credits.
+const priceNum = (s: string) => Number(s.replace(/[^0-9.]/g, '')) || 0;
+const money = (n: number) =>
+  n >= 100 ? `$${Math.round(n).toLocaleString()}` : `$${n.toFixed(2).replace(/\.00$/, '')}`;
+
+/** Scheduled runs a plan's cadence fires in a 30-day month. */
+const RUNS_PER_MONTH: Record<AutoRunFrequency, number> = {
+  weekly: 4,
+  every_2_days: 15,
+  daily: 30,
+};
+
+interface CreditMath {
+  tier: Tier;
+  monthlyCredits: number;
+  prompts: number;
+  platforms: number;
+  /** Credits burned by one full scan of every prompt on every platform. */
+  fullScanCost: number;
+  fullScansPerMonth: number;
+  scheduledRuns: number;
+  scheduledSpend: number;
+  /** Extra full scans still affordable after the scheduled cadence runs. */
+  headroomScans: number;
+  /** Prompts you can scan on EVERY platform, every day, within budget. */
+  dailyPromptCapacity: number;
+  monthlyPrice: number;
+  annualMonthlyPrice: number;
+  costPerScan: number;
+}
+
+const buildCreditMath = (t: Tier): CreditMath => {
+  const cfg = PLAN_CREDITS[t];
+  const plan = TIER_TO_PLAN[t];
+  const fullScanCost = cfg.trackedPromptsPerAccount * cfg.maxPlatforms;
+  const scheduledRuns = RUNS_PER_MONTH[cfg.autoRunFrequency];
+  // A daily cadence on a large prompt set can exceed the monthly budget -
+  // clamp so we never advertise more scheduled spend than credits exist.
+  const scheduledSpend = Math.min(cfg.monthlyCredits, scheduledRuns * fullScanCost);
+  const monthlyPrice = priceNum(plan?.price ?? cfg.price);
+  return {
+    tier: t,
+    monthlyCredits: cfg.monthlyCredits,
+    prompts: cfg.trackedPromptsPerAccount,
+    platforms: cfg.maxPlatforms,
+    fullScanCost,
+    fullScansPerMonth: Math.floor(cfg.monthlyCredits / fullScanCost),
+    scheduledRuns,
+    scheduledSpend,
+    headroomScans: Math.floor((cfg.monthlyCredits - scheduledSpend) / fullScanCost),
+    dailyPromptCapacity: Math.floor(cfg.monthlyCredits / 30 / cfg.maxPlatforms),
+    monthlyPrice,
+    annualMonthlyPrice: priceNum(plan?.annualPrice ?? cfg.price),
+    costPerScan: (monthlyPrice / cfg.monthlyCredits) * fullScanCost,
+  };
+};
+
+const CREDIT_MATH: Record<Tier, CreditMath> = Object.fromEntries(
+  PUBLIC_TIERS.map((t) => [t, buildCreditMath(t)]),
+) as Record<Tier, CreditMath>;
+
+/**
+ * Plain-English answer to "what does my monthly credit allowance actually
+ * get me?" - the sentence a buyer needs before they can compare plans.
+ */
+const creditVerdict = (m: CreditMath): string => {
+  const scan = `${m.prompts} prompts x ${m.platforms} platforms = ${m.fullScanCost.toLocaleString()} credits`;
+  if (m.dailyPromptCapacity >= m.prompts) {
+    return `${scan}. Your full set runs every single day (${m.scheduledSpend.toLocaleString()} credits/month) and still leaves ${(m.monthlyCredits - m.scheduledSpend).toLocaleString()} credits - about ${m.headroomScans} extra on-demand scans - for the weeks you need to check something now.`;
+  }
+  if (m.headroomScans > 0) {
+    return `${scan}. The ${m.scheduledRuns} scheduled scans in a month use ${m.scheduledSpend.toLocaleString()} credits, leaving ${(m.monthlyCredits - m.scheduledSpend).toLocaleString()} credits - roughly ${m.headroomScans} extra on-demand scans - for launches, PR moments, and spot checks.`;
+  }
+  return `${scan}. That funds ${m.fullScansPerMonth} complete scans a month. If you want to scan daily instead, budget covers about ${m.dailyPromptCapacity} prompts across all ${m.platforms} platforms every day - so track your ${m.dailyPromptCapacity} highest-intent prompts daily and rotate the long tail weekly.`;
+};
+
 const FAQ = [
   {
     q: 'What is one AI credit?',
@@ -185,7 +268,23 @@ const FAQ = [
   },
   {
     q: 'How does annual billing work?',
-    a: 'Annual billing saves roughly 20% on every paid plan. Toggle the switch at the top of this page to see annual prices.',
+    a: `Annual billing is charged once, up front, for 12 months and saves roughly 20% versus paying monthly. Starter is ${money(CREDIT_MATH.starter.monthlyPrice * 12)}/year billed monthly or ${money(CREDIT_MATH.starter.annualMonthlyPrice * 12)} billed annually. Pro is ${money(CREDIT_MATH.pro.monthlyPrice * 12)} vs ${money(CREDIT_MATH.pro.annualMonthlyPrice * 12)}. Agency is ${money(CREDIT_MATH.agency.monthlyPrice * 12)} vs ${money(CREDIT_MATH.agency.annualMonthlyPrice * 12)}. Your credit allowance still resets monthly - annual billing changes the invoice, not the limits. Toggle the switch at the top of this page to see annual prices on the cards.`,
+  },
+  {
+    q: `What does ${PLAN_CREDITS.starter.monthlyCredits.toLocaleString()} credits actually buy me on Starter?`,
+    a: creditVerdict(CREDIT_MATH.starter),
+  },
+  {
+    q: `What does ${PLAN_CREDITS.pro.monthlyCredits.toLocaleString()} credits actually buy me on Pro?`,
+    a: creditVerdict(CREDIT_MATH.pro),
+  },
+  {
+    q: `What does ${PLAN_CREDITS.agency.monthlyCredits.toLocaleString()} credits actually buy me on Agency?`,
+    a: creditVerdict(CREDIT_MATH.agency),
+  },
+  {
+    q: 'Are there setup fees, overage charges, or per-seat costs?',
+    a: 'No. The monthly or annual price is the total cost - there is no setup fee, no per-seat charge, and no overage billing. Credits are a hard ceiling rather than a meter: when they run out, runs pause until the next monthly reset or until you upgrade. You can never receive a surprise invoice larger than the plan price you agreed to.',
   },
   {
     q: 'I need more than Agency offers.',
@@ -585,6 +684,256 @@ export default function PricingPage() {
           }}>
             Numbers above are sourced directly from the dashboard&apos;s plan configuration.
             Backend limits and these published values can never drift.
+          </p>
+        </div>
+      </section>
+
+      {/* ── Credit maths: what the allowance actually buys ─────── */}
+      <section style={{ padding: '64px 24px', background: 'var(--bg-landing)' }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <h2 style={{
+              fontSize: 32, fontWeight: 800, letterSpacing: -0.6,
+              color: 'var(--text-primary)', marginBottom: 10,
+            }}>
+              What {PUBLIC_TIERS.map((t) => PLAN_CREDITS[t].monthlyCredits.toLocaleString()).join(', ')} credits actually buy
+            </h2>
+            <p style={{
+              fontSize: 15, color: 'var(--text-secondary)',
+              maxWidth: 620, margin: '0 auto', lineHeight: 1.6,
+            }}>
+              &ldquo;Credits&rdquo; is a meaningless unit until you can convert it into scans. One credit
+              = one prompt sent to one AI platform, so a <strong>full scan</strong> - every tracked prompt
+              against every platform your plan allows - costs (prompts &times; platforms) credits. Here is
+              that arithmetic, worked out per plan.
+            </p>
+          </div>
+
+          <div style={{
+            display: 'grid', gap: 18,
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          }}>
+            {PUBLIC_TIERS.map((t) => {
+              const m = CREDIT_MATH[t];
+              const isPro = t === 'pro';
+              return (
+                <div
+                  key={t}
+                  style={{
+                    background: '#fff', borderRadius: 16, padding: '26px 24px',
+                    border: isPro ? '2px solid var(--primary)' : '1px solid var(--card-border)',
+                    display: 'flex', flexDirection: 'column',
+                  }}
+                >
+                  <div style={{
+                    fontSize: 12, fontWeight: 800, letterSpacing: 0.6,
+                    textTransform: 'uppercase',
+                    color: isPro ? 'var(--primary)' : 'var(--text-secondary)',
+                    marginBottom: 6,
+                  }}>
+                    {TIER_LABEL[t]}
+                  </div>
+                  <div style={{
+                    fontSize: 30, fontWeight: 800, letterSpacing: -0.8,
+                    color: 'var(--text-primary)', marginBottom: 2,
+                  }}>
+                    {m.monthlyCredits.toLocaleString()}
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted, #94a3b8)' }}>
+                      {' '}credits / mo
+                    </span>
+                  </div>
+
+                  <dl style={{ margin: '18px 0 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {[
+                      ['One full scan costs', `${m.prompts} x ${m.platforms} = ${m.fullScanCost.toLocaleString()} credits`],
+                      ['Full scans per month', `${m.fullScansPerMonth}`],
+                      ['Scheduled scans included', `${m.scheduledRuns} (${autoRunLabel(PLAN_CREDITS[t].autoRunFrequency).toLowerCase()})`],
+                      ['Cost per full scan', money(m.costPerScan)],
+                    ].map(([k, v]) => (
+                      <div key={k} style={{
+                        display: 'flex', justifyContent: 'space-between',
+                        alignItems: 'baseline', gap: 12,
+                        fontSize: 13.5, lineHeight: 1.5,
+                        borderBottom: '1px dashed var(--card-border)', paddingBottom: 8,
+                      }}>
+                        <dt style={{ color: 'var(--text-secondary)' }}>{k}</dt>
+                        <dd style={{
+                          margin: 0, fontWeight: 700, textAlign: 'right',
+                          color: 'var(--text-primary)',
+                        }}>
+                          {v}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+
+                  <p style={{
+                    margin: '16px 0 0', fontSize: 13.5, lineHeight: 1.65,
+                    color: 'var(--text-secondary)',
+                  }}>
+                    {creditVerdict(m)}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+
+          <p style={{
+            fontSize: 12, color: 'var(--text-muted, #94a3b8)',
+            textAlign: 'center', marginTop: 22, maxWidth: 720, marginLeft: 'auto', marginRight: 'auto',
+            lineHeight: 1.6,
+          }}>
+            Scheduled-scan counts assume a 30-day month. Credits reset at the start of every UTC month
+            and do not roll over. Failed provider calls are refunded automatically, so a platform outage
+            never costs you credits.
+          </p>
+        </div>
+      </section>
+
+      {/* ── Total cost of ownership ──────────────────────── */}
+      <section style={{ padding: '64px 24px', background: 'var(--bg-section)' }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <h2 style={{
+              fontSize: 32, fontWeight: 800, letterSpacing: -0.6,
+              color: 'var(--text-primary)', marginBottom: 10,
+            }}>
+              Total cost, written out in full
+            </h2>
+            <p style={{
+              fontSize: 15, color: 'var(--text-secondary)',
+              maxWidth: 620, margin: '0 auto', lineHeight: 1.6,
+            }}>
+              What you will actually be charged over twelve months, on both billing cycles.
+              No setup fee, no per-seat charge, no overage billing.
+            </p>
+          </div>
+
+          <div style={{
+            background: '#fff', borderRadius: 16, overflow: 'hidden',
+            border: '1px solid var(--card-border)',
+          }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table
+                style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 680 }}
+                aria-label="Total 12-month cost by plan and billing cycle"
+              >
+                <caption className="sr-only">
+                  Twelve-month total cost for each Livesov plan on monthly and annual billing
+                </caption>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--card-border)' }}>
+                    {['Plan', 'Billed monthly', '12-month total', 'Billed annually', '12-month total', 'You save'].map((h, i) => (
+                      <th
+                        key={h}
+                        scope="col"
+                        style={{
+                          padding: '16px 18px', textAlign: i === 0 ? 'left' : 'right',
+                          fontSize: 11.5, fontWeight: 700, letterSpacing: 0.5,
+                          textTransform: 'uppercase', color: 'var(--text-secondary)',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {PUBLIC_TIERS.map((t, ri) => {
+                    const m = CREDIT_MATH[t];
+                    const monthlyYear = m.monthlyPrice * 12;
+                    const annualYear = m.annualMonthlyPrice * 12;
+                    const saving = monthlyYear - annualYear;
+                    const isPro = t === 'pro';
+                    return (
+                      <tr
+                        key={t}
+                        style={{
+                          borderBottom: ri < PUBLIC_TIERS.length - 1 ? '1px solid var(--card-border)' : 'none',
+                          background: isPro ? 'rgba(99,102,241,.04)' : 'transparent',
+                        }}
+                      >
+                        <th scope="row" style={{
+                          padding: '16px 18px', textAlign: 'left', fontWeight: 700,
+                          color: isPro ? 'var(--primary)' : 'var(--text-primary)',
+                        }}>
+                          {TIER_LABEL[t]}
+                        </th>
+                        <td style={{ padding: '16px 18px', textAlign: 'right', color: 'var(--text-secondary)' }}>
+                          {money(m.monthlyPrice)}/mo
+                        </td>
+                        <td style={{ padding: '16px 18px', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          {money(monthlyYear)}
+                        </td>
+                        <td style={{ padding: '16px 18px', textAlign: 'right', color: 'var(--text-secondary)' }}>
+                          {money(m.annualMonthlyPrice)}/mo
+                        </td>
+                        <td style={{ padding: '16px 18px', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          {money(annualYear)}
+                        </td>
+                        <td style={{ padding: '16px 18px', textAlign: 'right', fontWeight: 700, color: '#10b981' }}>
+                          {money(saving)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Worked scenarios - the "is this worth it" arithmetic */}
+          <div style={{
+            display: 'grid', gap: 16, marginTop: 26,
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          }}>
+            {[
+              {
+                who: 'Solo founder, one brand',
+                plan: 'Starter',
+                body: `${money(CREDIT_MATH.starter.monthlyPrice)}/mo (${money(CREDIT_MATH.starter.annualMonthlyPrice * 12)}/year on annual). Tracks ${CREDIT_MATH.starter.prompts} buyer-intent prompts across ${CREDIT_MATH.starter.platforms} platforms, scanned ${autoRunLabel(PLAN_CREDITS.starter.autoRunFrequency).toLowerCase()}. Works out to ${money(CREDIT_MATH.starter.costPerScan)} per full scan.`,
+              },
+              {
+                who: 'In-house marketing team',
+                plan: 'Pro',
+                body: `${money(CREDIT_MATH.pro.monthlyPrice)}/mo (${money(CREDIT_MATH.pro.annualMonthlyPrice * 12)}/year on annual). ${CREDIT_MATH.pro.prompts} prompts across ${CREDIT_MATH.pro.platforms} platforms with daily scans and sentiment analysis - ${money(CREDIT_MATH.pro.costPerScan)} per full scan, or about ${money(CREDIT_MATH.pro.monthlyPrice / 30)} a day.`,
+              },
+              {
+                who: 'Agency, 10 client brands',
+                plan: 'Agency',
+                body: `${money(CREDIT_MATH.agency.monthlyPrice)}/mo (${money(CREDIT_MATH.agency.annualMonthlyPrice * 12)}/year on annual) covers unlimited brands, so ten clients is ${money(CREDIT_MATH.agency.monthlyPrice / 10)} per client per month. ${CREDIT_MATH.agency.prompts} prompts account-wide across all ${CREDIT_MATH.agency.platforms} platforms, plus API access and premium models.`,
+              },
+            ].map((s) => (
+              <div key={s.plan} style={{
+                background: '#fff', borderRadius: 14, padding: '22px 22px',
+                border: '1px solid var(--card-border)',
+              }}>
+                <div style={{
+                  fontSize: 11.5, fontWeight: 800, letterSpacing: 0.6,
+                  textTransform: 'uppercase', color: 'var(--primary)', marginBottom: 8,
+                }}>
+                  {s.plan}
+                </div>
+                <h3 style={{
+                  fontSize: 16, fontWeight: 700, color: 'var(--text-primary)',
+                  margin: '0 0 8px',
+                }}>
+                  {s.who}
+                </h3>
+                <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.65, color: 'var(--text-secondary)' }}>
+                  {s.body}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <p style={{
+            fontSize: 12, color: 'var(--text-muted, #94a3b8)',
+            textAlign: 'center', marginTop: 22,
+          }}>
+            Prices in USD. Annual plans are charged once for the full 12 months; the credit
+            allowance still resets monthly. Cancel anytime - you keep access to the end of the paid period.
           </p>
         </div>
       </section>
