@@ -6,6 +6,7 @@ import { getAllCaseStudySlugs } from '@/data/case-studies';
 import { getAllAlternativeSlugs } from '@/data/alternatives';
 import { getAllRankTrackerSlugs } from '@/data/rank-trackers';
 import { AUTHORS } from '@/data/authors';
+import { getAllVsSlugs } from '@/data/vs-comparisons';
 
 const BASE_URL = process.env.APP_URL || 'https://livesov.com';
 
@@ -44,6 +45,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     lastModified: new Date('2026-07-17'),
     changeFrequency: 'monthly' as const,
     priority: 0.8,
+  }));
+  // Data-driven /vs/ comparison pages (the newer cohort). The five bespoke
+  // vs pages are listed inline below; these are generated from the data module.
+  const vsDataEntries: MetadataRoute.Sitemap = getAllVsSlugs().map((slug) => ({
+    url: `${BASE_URL}/vs/${slug}`,
+    lastModified: new Date('2026-07-26'),
+    changeFrequency: 'monthly' as const,
+    priority: 0.7,
   }));
   // Author bio pages - the identity target every article byline links to.
   const authorEntries: MetadataRoute.Sitemap = Object.keys(AUTHORS).map((slug) => ({
@@ -143,6 +152,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...caseStudyEntries,
     ...alternativeEntries,
     ...rankTrackerEntries,
+    ...vsDataEntries,
     ...authorEntries,
   ];
 }

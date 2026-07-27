@@ -332,6 +332,9 @@ export const alternatives: Alternative[] = [
           'Set up the same tracked prompts and competitor set in both, run them in parallel for a week, and compare coverage, citation detail, and evidence export. Verify current Scrunch AI features and pricing on scrunch.ai.',
       },
     ],
+    vsHref: '/vs/scrunch-ai',
+    vsLabel: 'Livesov vs Scrunch AI',
+    vsDescription: 'The full head-to-head comparison.',
   },
 
   // ── 5. Rankscale ──────────────────────────────────────────────────────────
@@ -396,6 +399,9 @@ export const alternatives: Alternative[] = [
           'From $9/mo (Starter), with Pro at $29/mo and Agency at $89/mo, all five LLMs included, and a 7-day free trial with no credit card.',
       },
     ],
+    vsHref: '/vs/rankscale',
+    vsLabel: 'Livesov vs Rankscale',
+    vsDescription: 'The full head-to-head comparison.',
   },
 
   // ── 6. Knowatoa ───────────────────────────────────────────────────────────
@@ -460,6 +466,9 @@ export const alternatives: Alternative[] = [
           'Configure the same prompts and competitors in Livesov, run for a week, and compare coverage and evidence against Knowatoa. Livesov has a 7-day free trial with no credit card.',
       },
     ],
+    vsHref: '/vs/knowatoa',
+    vsLabel: 'Livesov vs Knowatoa',
+    vsDescription: 'The full head-to-head comparison.',
   },
 
   // ── 7. AthenaHQ ───────────────────────────────────────────────────────────
@@ -524,6 +533,9 @@ export const alternatives: Alternative[] = [
           'From $9/mo (Starter), $29/mo (Pro), and $89/mo (Agency), all five LLMs included, with a 7-day free trial and no credit card required.',
       },
     ],
+    vsHref: '/vs/athenahq',
+    vsLabel: 'Livesov vs AthenaHQ',
+    vsDescription: 'The full head-to-head comparison.',
   },
 
   // ── 8. LLMrefs ────────────────────────────────────────────────────────────
@@ -588,6 +600,9 @@ export const alternatives: Alternative[] = [
           'From $9/mo (Starter), with Pro at $29/mo and Agency at $89/mo, all five LLMs included, and a 7-day free trial with no credit card.',
       },
     ],
+    vsHref: '/vs/llmrefs',
+    vsLabel: 'Livesov vs LLMrefs',
+    vsDescription: 'The full head-to-head comparison.',
   },
 
   // ── 9. Waikay ─────────────────────────────────────────────────────────────
@@ -652,6 +667,9 @@ export const alternatives: Alternative[] = [
           'From $9/mo (Starter), $29/mo (Pro), and $89/mo (Agency), all five LLMs included, with a 7-day free trial and no credit card required.',
       },
     ],
+    vsHref: '/vs/waikay',
+    vsLabel: 'Livesov vs Waikay',
+    vsDescription: 'The full head-to-head comparison.',
   },
 
   // ── 10. Promptwatch ───────────────────────────────────────────────────────

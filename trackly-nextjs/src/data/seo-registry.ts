@@ -23,6 +23,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { alternatives } from './alternatives';
+import { vsComparisons } from './vs-comparisons';
 
 export interface CommercialPage {
   /** Site-relative URL, e.g. "/profound-alternative". */
@@ -42,6 +43,10 @@ export interface CommercialPage {
  * Head-to-head comparison pages. Each owns "livesov vs {tool}" (and the
  * reverse "{tool} vs livesov"), and must NOT reach for "{tool} alternative",
  * "{tool} review", or "{tool} pricing" — those belong to other intents.
+ *
+ * The five ORIGINAL pages are bespoke routes, so their keywords are parsed
+ * from the page file (keywordsFile). The NEWER cohort is data-driven via
+ * vs-comparisons.ts and derived below.
  */
 export const VS_PAGES: readonly CommercialPage[] = [
   { url: '/vs/profound', primaryKeyword: 'livesov vs profound', keywordsFile: 'src/app/(public)/vs/profound/page.tsx' },
@@ -50,6 +55,12 @@ export const VS_PAGES: readonly CommercialPage[] = [
   { url: '/vs/semrush',  primaryKeyword: 'livesov vs semrush',  keywordsFile: 'src/app/(public)/vs/semrush/page.tsx' },
   { url: '/vs/ahrefs',   primaryKeyword: 'livesov vs ahrefs',   keywordsFile: 'src/app/(public)/vs/ahrefs/page.tsx' },
 ] as const;
+
+/** Data-driven /vs/ pages, derived from vs-comparisons.ts so they can't drift. */
+export const VS_DATA_PAGES: readonly CommercialPage[] = vsComparisons.map((v) => ({
+  url: `/vs/${v.slug}`,
+  primaryKeyword: v.primaryKeyword,
+}));
 
 /** Alternative pages, derived from their data module so this can never drift. */
 export const ALTERNATIVE_PAGES: readonly CommercialPage[] = alternatives.map((a) => ({
@@ -61,4 +72,5 @@ export const ALTERNATIVE_PAGES: readonly CommercialPage[] = alternatives.map((a)
 export const COMMERCIAL_PAGES: readonly CommercialPage[] = [
   ...ALTERNATIVE_PAGES,
   ...VS_PAGES,
+  ...VS_DATA_PAGES,
 ];
