@@ -188,7 +188,15 @@ let undiciAgentCtor: AgentCtor | null | undefined;
 async function getAgentCtor(): Promise<AgentCtor | null> {
   if (undiciAgentCtor !== undefined) return undiciAgentCtor;
   try {
-    const mod = (await import('undici')) as { Agent?: AgentCtor };
+    // `undici` ships with the Node runtime (it backs global fetch) but isn't a
+    // declared dependency, so it has no type declarations at build time. Use a
+    // non-literal specifier so TypeScript treats this as a dynamic import
+    // (`Promise<any>`) instead of trying to resolve the module's types - the
+    // DO-parity `next build` typechecks and would otherwise fail with
+    // "Cannot find module 'undici'". If it isn't importable at runtime the
+    // catch below leaves us on the per-hop re-validation fallback.
+    const undiciSpecifier: string = 'undici';
+    const mod = (await import(undiciSpecifier)) as { Agent?: AgentCtor };
     undiciAgentCtor = mod.Agent ?? null;
   } catch {
     undiciAgentCtor = null;
