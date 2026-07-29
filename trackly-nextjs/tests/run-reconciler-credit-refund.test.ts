@@ -61,6 +61,14 @@ interface MockSetup {
   brandOwnerId?: string | null;
   /** Set hasKindCol=false to simulate the pre-migration schema. */
   hasKindCol?: boolean;
+  /** Include the credits_refunded column (exactly-once refund guard). */
+  hasCreditsRefundedCol?: boolean;
+  /**
+   * Whether the atomic reap claim (UPDATE ... status='running' [+ credits_
+   * refunded=TRUE]) wins the row. false simulates a row a still-alive worker
+   * already finalized/refunded, so the reaper must NOT refund again.
+   */
+  reapClaimWins?: boolean;
 }
 
 function setupMocks(opts: MockSetup) {
@@ -73,13 +81,17 @@ function setupMocks(opts: MockSetup) {
     { column_name: 'error' },
   ];
   if (opts.hasKindCol !== false) baseCols.push({ column_name: 'kind' });
+  if (opts.hasCreditsRefundedCol) baseCols.push({ column_name: 'credits_refunded' });
 
   queryFn.mockImplementation((sql: string, params: unknown[] = []) => {
     if (/FROM information_schema\.columns/.test(sql)) {
       return Promise.resolve({ rows: baseCols });
     }
     if (/UPDATE active_runs SET[\s\S]*WHERE id = \$1 AND status = 'running'/.test(sql)) {
-      return Promise.resolve({ rows: [{ id: opts.staleRow.id }], rowCount: 1 });
+      // The reap claim. reapClaimWins=false models a row a live worker already
+      // finalized, so the claim (and thus the refund) must no-op.
+      const won = opts.reapClaimWins !== false;
+      return Promise.resolve({ rows: won ? [{ id: opts.staleRow.id }] : [], rowCount: won ? 1 : 0 });
     }
     if (/SELECT user_id FROM brands WHERE id = \$1/.test(sql)) {
       const id = params[0];
@@ -305,5 +317,61 @@ describe('finalizeStaleRow refund - error resilience', () => {
       /^UPDATE brands SET data/.test(sql),
     );
     expect(brandUpdateCalls.length).toBe(1);
+  });
+});
+
+describe('finalizeStaleRow refund - exactly-once (credits_refunded guard)', () => {
+  it('refunds when the reaper WINS the atomic claim (credits_refunded FALSE->TRUE)', async () => {
+    setupMocks({
+      brandOwnerId: 'owner_x',
+      hasCreditsRefundedCol: true,
+      reapClaimWins: true,
+      staleRow: {
+        id: 'run_claim_win',
+        brand_id: 'brand_X',
+        received: 0,
+        found_count: 0,
+        error_count: 0,
+        total_expected: 40,
+        results: [],
+        started_at: fiveMinAgo(),
+        last_progress_at: fiveMinAgo(),
+        queries: [],
+        platforms: [],
+        kind: 'auto',
+      },
+    });
+
+    await reconcileStaleRuns({});
+    expect(refundFn).toHaveBeenCalledTimes(1);
+    expect(refundFn).toHaveBeenCalledWith('owner_x', 40, 'auto');
+  });
+
+  it('does NOT refund when a live worker already claimed the refund (claim returns 0 rows)', async () => {
+    setupMocks({
+      brandOwnerId: 'owner_y',
+      hasCreditsRefundedCol: true,
+      reapClaimWins: false,
+      staleRow: {
+        id: 'run_claim_lost',
+        brand_id: 'brand_Y',
+        received: 0,
+        found_count: 0,
+        error_count: 0,
+        total_expected: 40,
+        results: [],
+        started_at: fiveMinAgo(),
+        last_progress_at: fiveMinAgo(),
+        queries: [],
+        platforms: [],
+        kind: 'auto',
+      },
+    });
+
+    const out = await reconcileStaleRuns({});
+    // The claim lost, so the row was already finalized+refunded elsewhere:
+    // no second refund, and nothing new to reconcile.
+    expect(refundFn).not.toHaveBeenCalled();
+    expect(out.count).toBe(0);
   });
 });

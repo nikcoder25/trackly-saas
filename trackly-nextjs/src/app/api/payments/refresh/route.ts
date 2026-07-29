@@ -135,9 +135,26 @@ export async function POST(request: Request) {
     const customerId: string | null = sub.customer?.customer_id || null;
 
     // Determine target plan from the live Dodo state.
+    //
+    // Only TERMINAL statuses drop the plan to free. Transient "held" statuses
+    // (a declined renewal, an admin/API pause, a failed charge Dodo will
+    // retry) must NOT downgrade or strip the subscription binding - the sub
+    // can still recover. Previously any non-'active' status fell to free,
+    // which mirrored the webhook's cancel-on-hold bug: a transient decline
+    // stripped the binding and dropped the user to free. We keep the current
+    // plan and just record the status flag for those.
+    const TERMINAL_STATUSES = new Set(['cancelled', 'canceled', 'expired']);
+    const HELD_STATUSES = new Set(['on_hold', 'paused', 'failed']);
     let expectedPlan: string | null;
-    if (dodoStatus !== 'active') {
+    if (TERMINAL_STATUSES.has(dodoStatus)) {
       expectedPlan = 'free';
+    } else if (HELD_STATUSES.has(dodoStatus)) {
+      // Keep the paid plan; only the status flag changes below.
+      expectedPlan = row.plan || 'free';
+    } else if (dodoStatus !== 'active') {
+      // Unknown/unexpected status: don't guess a downgrade. Leave the plan as
+      // is and record the status so ops can see it.
+      expectedPlan = row.plan || 'free';
     } else {
       expectedPlan = dodoProductId ? PLAN_MAP[dodoProductId] : null;
       if (!expectedPlan || !ALLOWED_PLANS.has(expectedPlan)) {
@@ -176,10 +193,18 @@ export async function POST(request: Request) {
         if (dodoProductId) settingsUpdate.dodo_product_id = dodoProductId;
         if (customerId) settingsUpdate.dodo_customer_id = customerId;
         if (expectedPlan === 'free') {
-          // Mirror cancel/webhook behaviour: strip bindings on downgrade.
+          // Mirror cancel/webhook behaviour: strip bindings on downgrade - but
+          // ONLY if the subscription_id we validated is still the one bound.
+          // A concurrent upgrade webhook may have bound a NEW subscription_id
+          // between our SELECT and here; stripping unconditionally would orphan
+          // that fresh binding (leaving a paid user with no subscription_id, so
+          // a later cancel can't reach Dodo and the sub keeps billing).
           await client.query(
-            `UPDATE users SET settings = settings - 'subscription_id' - 'dodo_customer_id' - 'dodo_product_id' || $1::jsonb WHERE id = $2`,
-            [JSON.stringify(settingsUpdate), user.id],
+            `UPDATE users
+                SET settings = settings - 'subscription_id' - 'dodo_customer_id' - 'dodo_product_id' || $1::jsonb
+              WHERE id = $2
+                AND settings->>'subscription_id' IS NOT DISTINCT FROM $3`,
+            [JSON.stringify(settingsUpdate), user.id, subscriptionId],
           );
         } else {
           await client.query(

@@ -180,10 +180,14 @@ export async function GET(request: Request): Promise<Response> {
   const avgDailyCredits = Math.round((credits7d / 7) * 10) / 10;
   const monthlyUsedSoFar = Number((monthSpentRes.rows[0] as { c: number } | undefined)?.c || 0);
   const dayMs = 24 * 60 * 60 * 1000;
+  // daysIntoMonth is the 1-indexed current day (ceil of elapsed: the 1st is
+  // "day 1"). daysRemainingInMonth is FLOORed, not ceiled, so the two sum to
+  // the month's actual day count. Ceiling both counted the current partial day
+  // twice, yielding sums of daysInMonth+1 (e.g. "Day X of 32", "Jun 30 to Aug 1").
   const daysIntoMonth = Math.max(1, Math.ceil((now.getTime() - monthStart.getTime()) / dayMs));
   const daysRemainingInMonth = Math.max(
     0,
-    Math.ceil((monthEnd.getTime() - now.getTime()) / dayMs),
+    Math.floor((monthEnd.getTime() - now.getTime()) / dayMs),
   );
   const projectedMonthEnd = Math.round(
     monthlyUsedSoFar + avgDailyCredits * daysRemainingInMonth,

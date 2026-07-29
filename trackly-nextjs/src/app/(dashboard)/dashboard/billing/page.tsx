@@ -178,7 +178,7 @@ export default function BillingPage() {
     if (target === currentPlan) return;
 
     if (target === 'free') {
-      if (!confirm('Cancel your subscription? You will lose access to paid features at the end of your billing period.')) return;
+      if (!confirm('Cancel your subscription? You will be moved to the Free plan right away and lose access to paid features immediately. There is no proration or refund for the remainder of the period.')) return;
       setPlanSwitching(target);
       try {
         const res = await fetch('/api/payments/cancel', { method: 'POST', credentials: 'include' });
@@ -260,6 +260,13 @@ export default function BillingPage() {
     ? 0
     : Math.min(100, Math.round((monthlyUsed / monthlyCap) * 100));
   const planFeatures = currentPlanPricing?.features ?? [];
+  // NOTE: nextResetAt is the monthly CREDIT reset (1st of the next UTC month),
+  // NOT the subscription's billing anniversary. Dodo charges on the anniversary
+  // of the subscription start, which for anyone who didn't subscribe on the 1st
+  // is a different date. We don't currently store Dodo's next_billing_date, so
+  // this label describes the credit cycle truthfully rather than asserting a
+  // charge date we can't compute. (Follow-up: persist next_billing_date from
+  // the subscription webhook and show the real anniversary here.)
   const renewLabel = fmtBillDate(creditStatus?.nextResetAt ?? null);
   const daysRemaining = periodInfo.daysRemainingInMonth;
   const planActive = currentPlan !== 'free';
@@ -301,7 +308,7 @@ export default function BillingPage() {
                 : <><span className="mono">{currentPlanPricing?.price ?? monthlyPriceLabel}</span><i>/ month</i></>}
             </div>
             <div className="bh-renew">
-              {cycleSuffix} · renews <b>{renewLabel}</b>
+              {cycleSuffix} · credits renew <b>{renewLabel}</b>
             </div>
             <div className="bh-actions">
               <button className="btn-p" onClick={handleManagePlan}>Change plan</button>
@@ -337,7 +344,7 @@ export default function BillingPage() {
                   ? 'owner account'
                   : noChargeReason === 'custom'
                     ? 'invoiced'
-                    : `due ${renewLabel}`}
+                    : 'billed monthly'}
             </div>
             <div className="bhs-row">
               <span className="bhs-label">Member since</span>
