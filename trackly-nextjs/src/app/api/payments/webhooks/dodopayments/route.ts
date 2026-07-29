@@ -72,17 +72,28 @@ const DOWNGRADE_EVENTS = new Set([
     'refund.succeeded',
   ]);
 
-// Subscription-level statuses that mean the subscription is NOT active.
+// Terminal subscription statuses: the subscription is permanently over.
 // When a 'subscription.updated' / 'subscription.plan_changed' /
-// 'subscription.renewed' event carries one of these in its payload, we
-// remap the eventType to 'subscription.cancelled' so the downgrade
-// branch handles it. Includes both spellings ('cancelled'/'canceled')
-// because Dodo's docs and live payloads have used both at different
-// times.
-const INACTIVE_SUBSCRIPTION_STATUSES = new Set([
+// 'subscription.renewed' event carries one of these, we remap it to
+// 'subscription.cancelled' so the downgrade branch drops the plan to free.
+// Includes both spellings ('cancelled'/'canceled') because Dodo's docs and
+// live payloads have used both at different times.
+const TERMINAL_SUBSCRIPTION_STATUSES = new Set([
     'cancelled',
     'canceled',
     'expired',
+  ]);
+
+// Transient "not active right now" statuses: a card declined at renewal, an
+// admin/API pause, a failed charge that Dodo will retry. These are NOT
+// cancellations - the subscription can still recover on its own. Previously
+// these were lumped into the cancellation remap, so a single failed renewal
+// dropped the user to free, stripped their subscription binding (breaking
+// cancel/refresh), and fired a "your subscription was cancelled" email for a
+// transient decline. We now route them to the on_hold / paused handlers,
+// which keep the paid plan and only record a status flag - matching how the
+// native 'subscription.on_hold'/'subscription.paused' events are handled.
+const HELD_SUBSCRIPTION_STATUSES = new Set([
     'failed',
     'on_hold',
     'paused',
@@ -451,8 +462,17 @@ export async function POST(request: Request) {
         }
       }
 
-      // Fallback: try simple HMAC(body) verification
-      if (!verified) {
+      // Fallback: legacy body-only HMAC(body) verification. ONLY attempted
+      // when the Standard Webhooks headers are absent. This matters for
+      // security: the body-only scheme does NOT cover the `webhook-id` header
+      // that we use as the replay/dedupe idempotency key, so if we allowed it
+      // whenever the Standard verification happened to fail, an attacker could
+      // strip webhook-id/webhook-timestamp, keep a captured body signature,
+      // and replay the same body under a fresh (attacker-chosen) webhook-id
+      // that the dedupe guard has never seen. Gating the fallback to the
+      // header-absent case keeps webhook-id signature-covered whenever it's
+      // used as the key.
+      if (!verified && !(webhookId && webhookTimestamp)) {
         verified = verifySignature(rawBody, rawSignature, secrets);
         if (verified) {
           logger.debug('webhook.dodo.signature_verified', { format: 'simple_hmac' });
@@ -479,6 +499,29 @@ export async function POST(request: Request) {
           secrets_tried: secrets.length,
         });
         return Response.json({ error: 'Invalid signature' }, { status: 401 });
+      }
+
+      // Timestamp tolerance (Standard Webhooks). A valid signature proves the
+      // body wasn't tampered with, but not that it's FRESH - a captured
+      // delivery can be replayed verbatim. Reject deliveries whose signed
+      // timestamp is too far from now (defence-in-depth on top of the
+      // webhook-id dedupe). Window is generous so Dodo's own retries, which
+      // re-use the original timestamp, still land; tune via
+      // DODO_WEBHOOK_TOLERANCE_SEC. Only enforced when a timestamp is present.
+      if (webhookTimestamp) {
+        const toleranceSec = Number(process.env.DODO_WEBHOOK_TOLERANCE_SEC) || 900;
+        const tsSec = Number(webhookTimestamp);
+        if (Number.isFinite(tsSec)) {
+          const skewSec = Math.abs(Date.now() / 1000 - tsSec);
+          if (skewSec > toleranceSec) {
+            logger.error('webhook.dodo.timestamp_out_of_tolerance', {
+              webhook_timestamp: webhookTimestamp,
+              skew_sec: Math.round(skewSec),
+              tolerance_sec: toleranceSec,
+            });
+            return Response.json({ error: 'Stale webhook timestamp' }, { status: 401 });
+          }
+        }
       }
 
       const body = JSON.parse(rawBody);
@@ -515,18 +558,30 @@ export async function POST(request: Request) {
       const rawStatus = eventData.status ?? eventData.subscription_status ?? body.status;
       const payloadStatus = typeof rawStatus === 'string' ? rawStatus : null;
 
+      const isUpdateFamily =
+        eventType === 'subscription.updated'
+        || eventType === 'subscription.plan_changed'
+        || eventType === 'subscription.renewed';
+
       let effectiveEventType = eventType;
-      if (
-        (eventType === 'subscription.updated'
-          || eventType === 'subscription.plan_changed'
-          || eventType === 'subscription.renewed')
-        && payloadStatus
-        && INACTIVE_SUBSCRIPTION_STATUSES.has(payloadStatus)
-      ) {
+      if (isUpdateFamily && payloadStatus && TERMINAL_SUBSCRIPTION_STATUSES.has(payloadStatus)) {
+        // Permanently over -> real cancellation/downgrade.
         effectiveEventType = 'subscription.cancelled';
         logger.info('webhook.dodo.event_remapped', {
           from: eventType,
           to: 'subscription.cancelled',
+          payload_status: payloadStatus,
+        });
+      } else if (isUpdateFamily && payloadStatus && HELD_SUBSCRIPTION_STATUSES.has(payloadStatus)) {
+        // Transient hold (declined/paused/failed) -> keep the plan, just flag
+        // the hold. 'paused' maps to the paused handler; 'on_hold'/'failed'
+        // map to the on_hold handler. This does NOT downgrade or email.
+        effectiveEventType = payloadStatus === 'paused'
+          ? 'subscription.paused'
+          : 'subscription.on_hold';
+        logger.info('webhook.dodo.event_remapped', {
+          from: eventType,
+          to: effectiveEventType,
           payload_status: payloadStatus,
         });
       } else if (eventType === 'subscription.updated') {

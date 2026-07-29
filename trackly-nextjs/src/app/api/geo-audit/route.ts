@@ -273,11 +273,17 @@ function scoreAiReadability(html: string, bodyText: string): CategoryResult {
 function generateRecommendations(categories: Record<string, CategoryResult>): string[] {
   const recs: { priority: number; text: string }[] = [];
 
+  // Each condition must match ONLY the negative finding for that check. The
+  // analyzer pushes both positive ("Has FAQ-style heading sections") and
+  // negative ("Missing FAQ section ...") strings into the same findings
+  // array, so a broad substring like `includes('FAQ')` matched the positive
+  // too and recommended features the page already has. Match the negative
+  // sentinel ("Missing", "No ...", "Add ...", "Too many ...") instead.
   const cs = categories.contentStructure;
   if (cs.score < 60) {
     recs.push({ priority: cs.score, text: 'Improve content structure by adding clear H1/H2 headings and using lists for key points' });
   }
-  if (cs.findings.some(f => f.includes('FAQ'))) {
+  if (cs.findings.some(f => f.includes('Missing FAQ'))) {
     recs.push({ priority: cs.score + 5, text: 'Add FAQ-style sections with question-based headings to help AI platforms cite your answers directly' });
   }
 
@@ -285,37 +291,37 @@ function generateRecommendations(categories: Record<string, CategoryResult>): st
   if (sd.score < 50) {
     recs.push({ priority: sd.score, text: 'Add JSON-LD structured data (especially FAQPage and Organization schemas) to boost AI discoverability' });
   }
-  if (sd.findings.some(f => f.includes('FAQPage'))) {
+  if (sd.findings.some(f => f.includes('Missing FAQPage'))) {
     recs.push({ priority: sd.score + 5, text: 'Implement FAQPage schema markup to help AI platforms find and cite your FAQ content' });
   }
 
   const auth = categories.authoritySignals;
-  if (auth.findings.some(f => f.includes('publish date'))) {
+  if (auth.findings.some(f => f.includes('Missing publish date'))) {
     recs.push({ priority: auth.score, text: 'Include a visible publish date and last-modified date to signal content freshness' });
   }
-  if (auth.findings.some(f => f.includes('citations') || f.includes('external'))) {
+  if (auth.findings.some(f => f.includes('No external citations') || f.includes('aim for more citations'))) {
     recs.push({ priority: auth.score + 2, text: 'Add more factual citations and external references to authoritative sources' });
   }
-  if (auth.findings.some(f => f.includes('author'))) {
+  if (auth.findings.some(f => f.includes('Missing author'))) {
     recs.push({ priority: auth.score + 3, text: 'Add clear author attribution with credentials to build E-E-A-T signals' });
   }
 
   const tech = categories.technicalSeo;
-  if (tech.findings.some(f => f.includes('meta description'))) {
+  if (tech.findings.some(f => f.includes('Missing meta description'))) {
     recs.push({ priority: tech.score, text: 'Add a concise meta description that summarizes what the page offers' });
   }
-  if (tech.findings.some(f => f.includes('Open Graph'))) {
+  if (tech.findings.some(f => f.includes('Missing Open Graph'))) {
     recs.push({ priority: tech.score + 2, text: 'Add Open Graph meta tags for better content previewing by AI and social platforms' });
   }
 
   const ai = categories.aiReadability;
-  if (ai.findings.some(f => f.includes('buzzwords'))) {
+  if (ai.findings.some(f => f.includes('Too many marketing buzzwords'))) {
     recs.push({ priority: ai.score, text: 'Replace marketing buzzwords with clear, factual language that AI platforms prefer to cite' });
   }
-  if (ai.findings.some(f => f.includes('definition'))) {
+  if (ai.findings.some(f => f.includes('Add definition'))) {
     recs.push({ priority: ai.score + 3, text: 'Add definition-style sentences ("X is a...") so AI platforms can directly quote your content' });
   }
-  if (ai.findings.some(f => f.includes('comparison'))) {
+  if (ai.findings.some(f => f.includes('No comparison content'))) {
     recs.push({ priority: ai.score + 5, text: 'Include comparison content (vs, alternatives) to appear in AI comparison queries' });
   }
 
@@ -359,22 +365,6 @@ export async function POST(req: NextRequest) {
     const { allowed, retryAfter } = await rateLimit(rateLimitKey, 60 * 60 * 1000, maxRequests);
     if (!allowed) return rateLimitResponse(retryAfter);
 
-    // Check monthly GEO audit limit based on plan
-    let userPlan = 'free';
-    if (user) {
-      const planResult = await pool.query('SELECT plan FROM users WHERE id = $1', [user.id]);
-      userPlan = planResult.rows[0]?.plan || 'free';
-    }
-    const limits = getPlanLimits(userPlan);
-    const monthlyKey = user ? `geo-audit-monthly:${user.id}` : `geo-audit-monthly:ip:${ip}`;
-    const monthlyCheck = await rateLimit(monthlyKey, 30 * 24 * 60 * 60 * 1000, limits.geoAudits);
-    if (!monthlyCheck.allowed) {
-      return Response.json({
-        error: `Monthly GEO audit limit reached (${limits.geoAudits} audits/month on ${userPlan} plan). Upgrade for more audits.`,
-        planLimit: true
-      }, { status: 429 });
-    }
-
     // Parse and validate input
     const body = await req.json();
     const { url, website } = body;
@@ -389,6 +379,24 @@ export async function POST(req: NextRequest) {
     const trimmedUrl = url.trim();
     if (!isValidUrl(trimmedUrl)) {
       return Response.json({ error: 'Invalid URL. Must be a valid http or https URL.' }, { status: 400 });
+    }
+
+    // Check monthly GEO audit limit based on plan. Consumed only AFTER input
+    // validation so a malformed/empty URL (400) doesn't burn a monthly slot -
+    // the hourly anti-spam limiter above already gates raw request volume.
+    let userPlan = 'free';
+    if (user) {
+      const planResult = await pool.query('SELECT plan FROM users WHERE id = $1', [user.id]);
+      userPlan = planResult.rows[0]?.plan || 'free';
+    }
+    const limits = getPlanLimits(userPlan);
+    const monthlyKey = user ? `geo-audit-monthly:${user.id}` : `geo-audit-monthly:ip:${ip}`;
+    const monthlyCheck = await rateLimit(monthlyKey, 30 * 24 * 60 * 60 * 1000, limits.geoAudits);
+    if (!monthlyCheck.allowed) {
+      return Response.json({
+        error: `Monthly GEO audit limit reached (${limits.geoAudits} audits/month on ${userPlan} plan). Upgrade for more audits.`,
+        planLimit: true
+      }, { status: 429 });
     }
 
     // Fetch the page. safeFetch re-validates every redirect hop against the

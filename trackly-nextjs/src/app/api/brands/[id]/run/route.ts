@@ -5,7 +5,7 @@ import { getBrandWithAccess, uid, decryptApiKeys, loadTenantFairnessSettings } f
 import { setTenantFairness } from '@/lib/fairness-scheduler';
 import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 import { countTrackedPromptsForOwner } from '@/lib/prompt-quota';
-import { reserveTrialPromptBudget } from '@/lib/anti-abuse';
+import { reserveTrialPromptBudget, releaseTrialPromptBudget } from '@/lib/anti-abuse';
 import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, pickBestKey, withDeepRetry, withCacheAndRetry, isTransientError, acquirePlatformSlot, resolveChatGPTModel } from '@/lib/ai-platforms';
 import { isSearchEnabled } from '@/lib/response-cache';
 import { resolveSearchModelWithBudget } from '@/lib/search-budget';
@@ -82,6 +82,15 @@ async function ensureActiveRunsTable() {
   // reaper has to guess, and a wrong guess on manual runs over-refunds
   // the daily counter.
   await pool.query(`ALTER TABLE active_runs ADD COLUMN IF NOT EXISTS kind TEXT`);
+
+  // Exactly-once refund guard. Both the worker's terminal `finally` and the
+  // watchdog reaper (run-reconciler) can finalize the same run under a hang;
+  // without a shared marker they each refund `total_expected - chargeable`,
+  // double-crediting the counter (and the drift sweeper only corrects upward
+  // drift, so the over-refund sticks until month rollover). Every refund path
+  // now flips this flag with an atomic compare-and-set and only the winner
+  // applies the refund. DEFAULT FALSE so existing rows are refundable once.
+  await pool.query(`ALTER TABLE active_runs ADD COLUMN IF NOT EXISTS credits_refunded BOOLEAN NOT NULL DEFAULT FALSE`);
 
   // Records the moment a brand's guaranteed first run is claimed. Used to
   // exempt exactly one run per brand from the daily manual cap (see the
@@ -564,10 +573,31 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const runId = uid();
   const totalExpected = queries.length * activePlatforms.length;
 
+  // Unwind every reservation made above so a rejection AFTER `reserveCredits`
+  // doesn't leak. Without this, a trial-budget block or a per-brand lock 409
+  // leaves the reserved credits (and, on the lock path, the reserved trial
+  // budget) debited with no run to spend them — a double-click phantom-
+  // reserves credits that then wrongly pin the cap until month rollover.
+  // Best-effort and idempotent-enough: each primitive clamps at zero.
+  const unwindReservations = async (opts: { trialBudget: boolean }) => {
+    try { await refundCredits(ownerId, totalCredits, reserveKind); }
+    catch (e) { logger.warn('run.unwind_refund_failed', { brand_id: id, error: (e as Error).message }); }
+    if (opts.trialBudget) {
+      await releaseTrialPromptBudget(ownerId, ownerPlan, totalExpected);
+    }
+    if (firstRunExemptionClaimed) {
+      try { await pool.query('UPDATE brands SET first_run_at = NULL WHERE id = $1', [id]); }
+      catch { /* best-effort; the cap simply applies normally next time */ }
+    }
+  };
+
   // --- Trial prompt budgets (per-user daily + global daily) ---
   // Reserved against the brand owner so team runs still count against it.
   const budgetCheck = await reserveTrialPromptBudget(ownerId, ownerPlan, totalExpected);
   if (!budgetCheck.allowed) {
+    // Trial budget rolled back its own tx on rejection, so only the credit
+    // reservation (and first-run exemption) need unwinding here.
+    await unwindReservations({ trialBudget: false });
     return Response.json(
       { error: budgetCheck.reason, planLimit: true, code: budgetCheck.code },
       { status: 429 }
@@ -593,12 +623,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   } catch (e) {
     // 23505 = unique_violation. Concurrent request won the race.
     if ((e as { code?: string }).code === '23505') {
+      await unwindReservations({ trialBudget: true });
       return Response.json({ error: 'A run is already in progress for this brand. Please wait for it to finish.' }, { status: 409 });
     }
     throw e;
   }
 
   if (lockResult.rows.length === 0) {
+    await unwindReservations({ trialBudget: true });
     return Response.json({ error: 'A run is already in progress for this brand. Please wait for it to finish.' }, { status: 409 });
   }
 
@@ -725,25 +757,38 @@ async function executeRunBackground(
     //   - tasks that DID dispatch but the AI response failed (error_count):
     //     the user should never pay for a failed response.
     // Best-effort: a missed refund self-heals on month rollover.
+    //
+    // Exactly-once: claim the refund with an atomic compare-and-set on
+    // `credits_refunded`. If the watchdog reaper already refunded this run,
+    // the flag is TRUE and this UPDATE returns 0 rows, so we skip — no
+    // double refund. Whoever flips FALSE→TRUE first owns the refund.
     if (creditOwnerId && creditKind) {
       try {
         const r = await pool.query(
-          'SELECT received, error_count FROM active_runs WHERE id = $1',
+          `UPDATE active_runs
+             SET credits_refunded = TRUE
+           WHERE id = $1 AND credits_refunded = FALSE
+           RETURNING received, error_count`,
           [runId],
         );
-        const received = Number(r.rows[0]?.received || 0);
-        const errored = Number(r.rows[0]?.error_count || 0);
-        // Chargeable = sub-tasks that finished successfully. Failed responses
-        // (errored) are explicitly excluded so they don't burn credits.
-        const chargeable = Math.max(0, received - errored);
-        const unused = Math.max(0, totalExpected - chargeable);
-        if (unused > 0) {
-          await refundCredits(creditOwnerId, unused, creditKind);
-          logger.info('run.credits_refunded', {
-            runId, brandId, owner_id: creditOwnerId,
-            kind: creditKind, refunded: unused,
-            received, errored, total_expected: totalExpected,
-          });
+        if (r.rowCount === 0) {
+          // Watchdog reaper already claimed and refunded this run.
+          logger.info('run.refund_already_claimed', { runId, brandId });
+        } else {
+          const received = Number(r.rows[0]?.received || 0);
+          const errored = Number(r.rows[0]?.error_count || 0);
+          // Chargeable = sub-tasks that finished successfully. Failed responses
+          // (errored) are explicitly excluded so they don't burn credits.
+          const chargeable = Math.max(0, received - errored);
+          const unused = Math.max(0, totalExpected - chargeable);
+          if (unused > 0) {
+            await refundCredits(creditOwnerId, unused, creditKind);
+            logger.info('run.credits_refunded', {
+              runId, brandId, owner_id: creditOwnerId,
+              kind: creditKind, refunded: unused,
+              received, errored, total_expected: totalExpected,
+            });
+          }
         }
       } catch (e) {
         logger.warn('run.credit_refund_failed', {
@@ -818,8 +863,12 @@ async function executeRunBackgroundInner(
     if (pendingResults.length === 0 && !force) return;
     try {
       await pool.query(
+        // Append directly to the row's own current `results` rather than via a
+        // self-subselect. Concurrent workers flush on separate connections;
+        // the row lock serializes these UPDATEs, and a direct column reference
+        // re-reads the just-committed value, so no concurrent append is lost.
         `UPDATE active_runs SET received = $1, found_count = $2, error_count = $3,
-         results = (SELECT COALESCE(results, '[]'::jsonb) FROM active_runs WHERE id = $4) || $5::jsonb,
+         results = COALESCE(results, '[]'::jsonb) || $5::jsonb,
          updated_at = NOW() WHERE id = $4`,
         [received, foundCount, errorCount, runId, JSON.stringify(pendingResults)]
       );
@@ -1244,6 +1293,22 @@ async function executeRunBackgroundInner(
       return;
     }
 
+    // Zombie guard: if the watchdog reaper already finalized THIS run (flipped
+    // it out of 'running' after a >10-min progress stall) while the worker was
+    // still alive, we must NOT resurrect it. The superseded check above only
+    // catches a *different* running run; a reaped-then-finished run leaves no
+    // running row, so it would otherwise fall through, append a duplicate
+    // history entry, and flip 'error' back to 'done'. Bail here, and the
+    // terminal UPDATE below is additionally guarded with AND status='running'.
+    const selfStatus = await pool.query(
+      'SELECT status FROM active_runs WHERE id = $1',
+      [runId]
+    );
+    if (selfStatus.rows.length > 0 && selfStatus.rows[0].status !== 'running') {
+      runLog.warn('run.already_finalized', { status: selfStatus.rows[0].status });
+      return;
+    }
+
     // Save to brand data FIRST - must complete before marking active_runs as
     // done, because the client polls active_runs status and immediately calls
     // refreshBrands() when it sees "done". If brand data isn't saved yet, the
@@ -1279,14 +1344,20 @@ async function executeRunBackgroundInner(
 
     const competitorCounts = aggregateCompetitorCounts(allResults);
 
-    brandData.runs.push({
-      id: runId, date: new Date().toISOString().split('T')[0],
-      time: new Date().toISOString(), durationMs,
-      sov: overallSov, totalQ, totalM,
-      platforms: platformStats, allResults: lightResults,
-      queries: [...queries], activePlatforms: [...activePlatforms],
-      citations: citationCounts, competitors: competitorCounts,
-    });
+    // Idempotent append: if the watchdog reaper already recorded this runId
+    // (a partial 'watchdogReap' entry), don't add a second entry for the same
+    // run. Pairs with the zombie guard above and the status-guarded UPDATE
+    // below to keep watchdog-vs-worker races from duplicating history.
+    if (!brandData.runs.some((r: { id?: string }) => r && r.id === runId)) {
+      brandData.runs.push({
+        id: runId, date: new Date().toISOString().split('T')[0],
+        time: new Date().toISOString(), durationMs,
+        sov: overallSov, totalQ, totalM,
+        platforms: platformStats, allResults: lightResults,
+        queries: [...queries], activePlatforms: [...activePlatforms],
+        citations: citationCounts, competitors: competitorCounts,
+      });
+    }
     if (brandData.runs.length > 30) brandData.runs = brandData.runs.slice(-30);
 
     if (!brandData.sovHistory) brandData.sovHistory = [];
@@ -1312,7 +1383,7 @@ async function executeRunBackgroundInner(
     await pool.query(
       `UPDATE active_runs SET status = 'done', final_data = $1, received = $2,
        found_count = $3, error_count = $4, completed_at = NOW(), updated_at = NOW()
-       WHERE id = $5`,
+       WHERE id = $5 AND status = 'running'`,
       [JSON.stringify(finalResult), received, foundCount, errorCount, runId]
     );
 
@@ -1376,17 +1447,34 @@ async function executeRunBackgroundInner(
       try {
         const emergSov = computeSovFromResults(allResults);
         const emergResults = allResults.map(({ tokensIn, tokensOut, cost, ...rest }: Record<string, unknown>) => rest);
+        // Re-read the CURRENT brand data instead of writing back the run-start
+        // in-memory snapshot. A multi-minute run can overlap user edits
+        // (added queries/competitors/settings); persisting `{...brand}` here
+        // silently reverted them. We only append the run entry and touch
+        // updatedAt, leaving every other field as the DB has it now.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const brandData = { ...brand } as any;
-        delete brandData.id; delete brandData.userId; delete brandData.createdAt; delete brandData.updatedAt;
+        let brandData: any;
+        try {
+          const freshBrand = await pool.query('SELECT data FROM brands WHERE id = $1', [brandId]);
+          brandData = freshBrand.rows[0]?.data || {};
+          if (typeof brandData === 'string') brandData = JSON.parse(brandData);
+        } catch {
+          brandData = { ...brand } as any;
+          delete brandData.id; delete brandData.userId; delete brandData.createdAt; delete brandData.updatedAt;
+        }
         if (!brandData.runs) brandData.runs = [];
-        brandData.runs.push({
-          id: runId, date: new Date().toISOString().split('T')[0],
-          time: new Date().toISOString(), allResults: emergResults,
-          sov: emergSov, totalQ, totalM, queries: brand.queries || [],
-          activePlatforms: [], emergencySave: true, crashError: (err as Error).message,
-          competitors: aggregateCompetitorCounts(allResults),
-        });
+        // Idempotent: don't double-append if a terminal/reaper entry for this
+        // runId already landed.
+        if (!brandData.runs.some((r: { id?: string }) => r && r.id === runId)) {
+          brandData.runs.push({
+            id: runId, date: new Date().toISOString().split('T')[0],
+            time: new Date().toISOString(), allResults: emergResults,
+            sov: emergSov, totalQ, totalM, queries: brand.queries || [],
+            activePlatforms: [], emergencySave: true, crashError: (err as Error).message,
+            competitors: aggregateCompetitorCounts(allResults),
+          });
+        }
+        if (brandData.runs.length > 30) brandData.runs = brandData.runs.slice(-30);
         brandData.updatedAt = new Date().toISOString();
         await pool.query('UPDATE brands SET data = $1, updated_at = NOW() WHERE id = $2', [JSON.stringify(brandData), brandId]);
       } catch (e) {

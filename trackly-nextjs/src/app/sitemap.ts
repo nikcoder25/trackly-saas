@@ -86,6 +86,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/tools/prompt-generator`, lastModified: new Date('2026-05-01'), changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/tools/citation-finder`, lastModified: new Date('2026-05-01'), changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/tools/competitor-finder`, lastModified: new Date('2026-05-01'), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/tools/nap-verification`, lastModified: new Date('2026-05-01'), changeFrequency: 'monthly', priority: 0.7 },
 
     // Product & feature pages
     { url: `${BASE_URL}/how-it-works`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },

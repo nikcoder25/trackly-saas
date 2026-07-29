@@ -106,8 +106,16 @@ export function hashBackupCode(code: string): string {
  */
 export function findBackupCodeIndex(plaintextCode: string, hashedCodes: string[]): number {
   const hashed = hashBackupCode(plaintextCode);
+  const hashedBuf = Buffer.from(hashed, 'hex');
   for (let i = 0; i < hashedCodes.length; i++) {
-    if (crypto.timingSafeEqual(Buffer.from(hashed, 'hex'), Buffer.from(hashedCodes[i], 'hex'))) {
+    const stored = Buffer.from(hashedCodes[i], 'hex');
+    // A legacy plaintext (unhashed) backup code decodes to a different-length
+    // buffer; timingSafeEqual throws a RangeError on a length mismatch, which
+    // would surface as a 500 during login. Such a code can never equal our
+    // SHA-256 hash anyway, so skip it. Equal-length codes still get the
+    // constant-time comparison.
+    if (stored.length !== hashedBuf.length) continue;
+    if (crypto.timingSafeEqual(hashedBuf, stored)) {
       return i;
     }
   }

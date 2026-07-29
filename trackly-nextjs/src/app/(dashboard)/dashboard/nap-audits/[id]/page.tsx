@@ -235,7 +235,7 @@ export default function NapAuditDetailPage() {
 
   useEffect(() => {
     if (id) load();
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } };
   }, [id, load]);
 
   // Poll while the run is in progress so the progress bar and results

@@ -353,6 +353,9 @@ export function PageFixes() {
   // collapsed. Jumping to a filter (e.g. the banner's "View") has to expand
   // the section AND scroll it into view, or nothing appears to happen.
   const fixesRef = React.useRef<HTMLDivElement | null>(null);
+  // Guards the long-running poll loop from calling setState after unmount.
+  const mountedRef = React.useRef(true);
+  React.useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
   const jumpToFilter = React.useCallback((key: string) => {
     setFilter(key);
     setFixesOpen(true);
@@ -479,8 +482,10 @@ export function PageFixes() {
   const pollBatch = React.useCallback(async (id: string, batchId: string) => {
     for (let i = 0; i < 60; i++) {
       await new Promise((r) => setTimeout(r, 2000));
+      if (!mountedRef.current) return; // component unmounted — stop polling
       try {
         const d = await api(`/api/brands/${id}/fixes/batches/${batchId}`);
+        if (!mountedRef.current) return;
         const b = d.batch;
         setScanProgress({ received: b.received ?? 0, status: b.status });
         setToast(`Scanning… ${b.received} found (${b.status})`);

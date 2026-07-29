@@ -79,7 +79,7 @@ const livesovStrengths = [
     icon: '⟁',
     title: 'Free GEO audit + free tools',
     description:
-      'Eleven free tools and a URL-level GEO audit let you act on findings without buying anything.',
+      'Ten free tools and a URL-level GEO audit let you act on findings without buying anything.',
   },
 ];
 

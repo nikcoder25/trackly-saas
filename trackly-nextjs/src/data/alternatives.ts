@@ -92,7 +92,7 @@ export const alternatives: Alternative[] = [
       ['All 5 major LLMs on entry plan', '✓ ChatGPT, Claude, Gemini, Perplexity, Grok', '✗ Single engine at entry'],
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', '✗ Not advertised'],
       ['Full AI response stored as evidence', '✓', 'Partial'],
-      ['Free GEO audit + free tools', '✓ 11 free tools', 'Not the focus'],
+      ['Free GEO audit + free tools', '✓ 10 free tools', 'Not the focus'],
       ['Content generation / CMS publishing', '✗', '✓ Growth plan'],
       ['Automation agents', '✗', '✓ GEO Agents'],
       ['Enterprise SSO / procurement', 'Contact us', '✓ Core motion'],
@@ -163,7 +163,7 @@ export const alternatives: Alternative[] = [
       ['Citation capture', '✓ Full ranked list', 'Varies'],
       ['Competitor benchmarking', '✓ Up to 20', '✓'],
       ['GEO audit included', '✓ URL-level scoring', 'Not the focus'],
-      ['Free public tools', '✓ 11 free tools', 'Varies'],
+      ['Free public tools', '✓ 10 free tools', 'Varies'],
     ],
     switchHeading: 'Should you switch from Peec AI to Livesov?',
     switchParagraphs: [
@@ -274,7 +274,7 @@ export const alternatives: Alternative[] = [
   {
     slug: 'scrunch-ai-alternative',
     name: 'Scrunch AI',
-    domain: 'scrunch.ai',
+    domain: 'scrunchai.com',
     category:
       'an AI visibility platform used by content teams to track brand presence across AI answer engines.',
     metaTitle: '7 Best Scrunch AI Alternatives in 2026 (Tested) | Livesov',
@@ -299,12 +299,12 @@ export const alternatives: Alternative[] = [
       ['Full AI response stored as evidence', '✓', 'Varies'],
       ['Citation capture', '✓ Full ranked list', 'Varies'],
       ['Competitor benchmarking', '✓ Up to 20', 'Varies'],
-      ['Free GEO audit + free tools', '✓ 11 free tools', 'Varies'],
+      ['Free GEO audit + free tools', '✓ 10 free tools', 'Varies'],
     ],
     switchHeading: 'Should you switch from Scrunch AI to Livesov?',
     switchParagraphs: [
       'Both tools measure how AI answer engines represent your brand, so the practical question is coverage and evidence: how many engines are included, and can you prove to a stakeholder exactly what the AI said.',
-      'Livesov includes all five major LLMs on every plan, stores the complete AI response behind every metric, and adds a canonical facts store that flags when an AI states something untrue about your brand. A free URL-level GEO audit and 11 free tools let you act on findings without buying anything.',
+      'Livesov includes all five major LLMs on every plan, stores the complete AI response behind every metric, and adds a canonical facts store that flags when an AI states something untrue about your brand. A free URL-level GEO audit and 10 free tools let you act on findings without buying anything.',
       'If Scrunch AI fits your content workflow today, there may be no reason to move. If you want broad engine coverage and audit-grade evidence at a low entry price, Livesov is a strong Scrunch AI alternative.',
     ],
     calloutTitle: 'Ask for the receipts',
@@ -329,7 +329,7 @@ export const alternatives: Alternative[] = [
       {
         question: 'How do I compare Livesov and Scrunch AI fairly?',
         answer:
-          'Set up the same tracked prompts and competitor set in both, run them in parallel for a week, and compare coverage, citation detail, and evidence export. Verify current Scrunch AI features and pricing on scrunch.ai.',
+          'Set up the same tracked prompts and competitor set in both, run them in parallel for a week, and compare coverage, citation detail, and evidence export. Verify current Scrunch AI features and pricing on scrunchai.com.',
       },
     ],
     vsHref: '/vs/scrunch-ai',
@@ -366,7 +366,7 @@ export const alternatives: Alternative[] = [
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', 'Not advertised'],
       ['Full AI response stored as evidence', '✓', 'Varies'],
       ['Entry price', '$9/mo', 'Check current plan'],
-      ['Free GEO audit + free tools', '✓ 11 free tools', 'Varies'],
+      ['Free GEO audit + free tools', '✓ 10 free tools', 'Varies'],
     ],
     switchHeading: 'Should you switch from Rankscale to Livesov?',
     switchParagraphs: [
@@ -489,7 +489,7 @@ export const alternatives: Alternative[] = [
     stats: [
       { value: '5', label: 'LLMs on every plan' },
       { value: '$9', label: 'Entry price /mo' },
-      { value: '11', label: 'Free tools included' },
+      { value: '10', label: 'Free tools included' },
       { value: '7-day', label: 'Free trial, no card' },
     ],
     comparisonRows: [
@@ -500,7 +500,7 @@ export const alternatives: Alternative[] = [
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', 'Not advertised'],
       ['Full AI response stored as evidence', '✓', 'Varies'],
       ['Citation capture', '✓ Full ranked list', 'Varies'],
-      ['Free GEO audit + free tools', '✓ 11 free tools', 'Varies'],
+      ['Free GEO audit + free tools', '✓ 10 free tools', 'Varies'],
     ],
     switchHeading: 'Should you switch from AthenaHQ to Livesov?',
     switchParagraphs: [
@@ -639,7 +639,7 @@ export const alternatives: Alternative[] = [
     switchHeading: 'Should you switch from Waikay to Livesov?',
     switchParagraphs: [
       'Both tools analyze how AI engines represent your brand. The practical differences come down to engine coverage, whether tracking is continuous, and whether you can prove what the AI said.',
-      'Livesov includes all five major LLMs on every plan, runs your prompts on a schedule several times each, and stores the full AI response behind every metric - plus a canonical facts store that flags untrue statements about your brand. A free GEO audit and 11 free tools let you act on what you find.',
+      'Livesov includes all five major LLMs on every plan, runs your prompts on a schedule several times each, and stores the full AI response behind every metric - plus a canonical facts store that flags untrue statements about your brand. A free GEO audit and 10 free tools let you act on what you find.',
       'If Waikay matches your workflow, there may be no need to move. If you want broad engine coverage, continuous monitoring, and audit-grade evidence at a low entry price, Livesov is a strong Waikay alternative.',
     ],
     calloutTitle: 'Analysis is better with evidence',
@@ -994,12 +994,12 @@ export const alternatives: Alternative[] = [
       ['Competitor share of voice', '✓ Up to 20 brands', 'Verify on site'],
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', 'Verify on site'],
       ['Full AI response stored as evidence', '✓', 'Verify on site'],
-      ['Built-in content recommendations', 'Free GEO audit + 11 tools', '✓ Core feature'],
+      ['Built-in content recommendations', 'Free GEO audit + 10 tools', '✓ Core feature'],
       ['Entry price', '$9/mo', 'Verify on site'],
     ],
     switchHeading: 'Should you choose Goodie or Livesov?',
     switchParagraphs: [
-      'Goodie leans toward telling you what to do next - content recommendations bundled with the monitoring. Livesov leans toward telling you exactly what is true - every metric backed by the stored AI response - and pairs that with a free GEO audit and eleven free tools you can act on.',
+      'Goodie leans toward telling you what to do next - content recommendations bundled with the monitoring. Livesov leans toward telling you exactly what is true - every metric backed by the stored AI response - and pairs that with a free GEO audit and ten free tools you can act on.',
       'Recommendation engines are useful when you trust the inputs. Measurement-first tools earn that trust by making every number checkable: you can open the actual answer a buyer saw and see the citation that beat you.',
       'If bundled content recommendations are the draw, Goodie is built around that. If you want accurate, evidence-backed measurement across all five engines - and prefer to keep editorial judgment in-house - Livesov is a strong Goodie alternative.',
     ],
@@ -1015,7 +1015,7 @@ export const alternatives: Alternative[] = [
       {
         question: 'Does Livesov give content recommendations like Goodie?',
         answer:
-          'Livesov\'s free GEO audit scores a URL for AI citation-readiness and returns prioritized recommendations, and its eleven free tools help you act - but the core product is measurement-first. Verify Goodie\'s current recommendation features on higoodie.com.',
+          'Livesov\'s free GEO audit scores a URL for AI citation-readiness and returns prioritized recommendations, and its ten free tools help you act - but the core product is measurement-first. Verify Goodie\'s current recommendation features on higoodie.com.',
       },
       {
         question: 'How much does Livesov cost?',

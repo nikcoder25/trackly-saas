@@ -109,11 +109,15 @@ function buildBullets(planKey: string): string[] {
   return bullets;
 }
 
-function fmtPrice(planKey: string, annualBilling: boolean): string {
+function fmtPrice(planKey: string, _annualBilling: boolean): string {
   const p = PRICING_PLANS.find((x) => x.name.toLowerCase() === planKey);
   if (!p) return '-';
   if (p.price === 'Custom') return 'Custom';
-  return annualBilling ? p.annualPrice || p.price : p.price;
+  // Always show the monthly price. Checkout (`/api/payments/checkout`) only
+  // maps plans to their single monthly Dodo product id - there are no annual
+  // product ids - so an annual price shown here could never actually be
+  // charged. The annual toggle is removed below until annual products exist.
+  return p.price;
 }
 
 export default function ComparePlansGrid({
@@ -176,7 +180,9 @@ export default function ComparePlansGrid({
             Switch anytime · prorated billing
           </div>
         </div>
-        <BillingCycleToggle annual={annualBilling} onChange={onAnnualToggle} />
+        {/* Annual billing toggle removed: there are no annual Dodo products, so
+            the annual price it displayed could never be charged at checkout.
+            Re-add alongside real annual product ids. */}
       </div>
 
       {/* Cards */}

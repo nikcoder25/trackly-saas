@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { CookiePreferencesButton } from '@/components/CookieConsent';
 import EmailOff from '@/components/EmailOff';
+import FooterNewsletter from '@/components/seo/FooterNewsletter';
 import { useNonce } from '@/components/NonceProvider';
 import { MARKETING_NAV_LINKS } from '@/lib/marketing-nav';
 import { alternatives } from '@/data/alternatives';
@@ -73,23 +74,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
               <h3>Get the GEO playbook in your inbox</h3>
               <p>Insights on AI search, brand visibility tactics, and product updates straight to your inbox. No spam, unsubscribe anytime.</p>
             </div>
-            <form
-              className="land-footer-newsletter-form"
-              action="https://livesov.com/api/newsletter"
-              method="post"
-              onSubmit={(e) => { e.preventDefault(); }}
-            >
-              <label htmlFor="footer-newsletter-email" className="sr-only">Email address</label>
-              <input
-                id="footer-newsletter-email"
-                type="email"
-                name="email"
-                placeholder="you@company.com"
-                required
-                autoComplete="email"
-              />
-              <button type="submit" className="land-btn land-btn-primary">Subscribe</button>
-            </form>
+            <FooterNewsletter />
           </div>
         </div>
 
@@ -176,6 +161,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/tools/prompt-generator">Prompt Generator</Link>
             <Link href="/tools/citation-finder">AI Citation Finder</Link>
             <Link href="/tools/competitor-finder">AI Competitor Finder</Link>
+            <Link href="/tools/nap-verification">NAP Verification Tool</Link>
           </div>
           <div className="land-footer-col">
             <h4>AI Platforms</h4>

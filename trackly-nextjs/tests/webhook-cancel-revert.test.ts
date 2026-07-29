@@ -240,6 +240,60 @@ describe('dodopayments webhook - cancel-revert regression', () => {
     expect(reactivate, 'must NOT have re-activated subscription').toBeUndefined();
   });
 
+  it('T1b: subscription.updated with a transient status (on_hold) does NOT downgrade or strip the binding', async () => {
+    // A declined renewal / temporary hold must keep the paid plan. Pre-fix,
+    // 'on_hold' was in the cancellation status set, so a transient decline
+    // dropped the user to free, stripped the subscription binding, and fired
+    // a cancellation email.
+    const fake = makeFakeClient({
+      user: {
+        id: 'user_H',
+        email: 'h@test.com',
+        plan: 'agency',
+        settings: {
+          subscription_id: 'sub_hold',
+          dodo_customer_id: 'cus_hold',
+          dodo_product_id: 'prod_agency',
+          subscription_status: 'active',
+        },
+      },
+    });
+    safeConnectFn.mockResolvedValue(fake);
+
+    const req = buildSignedRequest({
+      type: 'subscription.updated',
+      data: {
+        subscription_id: 'sub_hold',
+        customer_id: 'cus_hold',
+        product_id: 'prod_agency',
+        status: 'on_hold',
+      },
+      metadata: { userId: 'user_H' },
+    });
+
+    const res = await webhookPost(req);
+    expect(res.status).toBe(200);
+
+    // Must NOT downgrade to free.
+    const planToFree = fake.recorded.find(
+      r => /UPDATE users SET plan = \$1/.test(r.sql) && r.params[0] === 'free',
+    );
+    expect(planToFree, 'on_hold must not downgrade to free').toBeUndefined();
+
+    // Must NOT strip the subscription binding.
+    const settingsStrip = fake.recorded.find(r =>
+      /settings - 'subscription_id' - 'dodo_customer_id' - 'dodo_product_id'/.test(r.sql),
+    );
+    expect(settingsStrip, 'on_hold must not strip the binding').toBeUndefined();
+
+    // Must record the on_hold status flag (keep-plan handler ran).
+    const onHold = fake.recorded.find(
+      r => /subscription_status.*on_hold/.test(r.sql)
+        || (typeof r.params[0] === 'string' && r.params[0].includes('"subscription_status":"on_hold"')),
+    );
+    expect(onHold, 'expected on_hold status to be recorded').toBeTruthy();
+  });
+
   it('T2: subscription.updated with status=active on a post-cancel user is ignored (post_cancel guard)', async () => {
     // Post-cancel state: cancel route already wiped subscription_id and
     // marked status='cancelled'. A late retry of subscription.updated with

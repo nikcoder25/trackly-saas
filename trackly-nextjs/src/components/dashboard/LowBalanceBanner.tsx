@@ -13,7 +13,9 @@ import { useCredits } from '@/contexts/CreditsContext';
 export default function LowBalanceBanner() {
   const { status } = useCredits();
   if (!status) return null;
-  // Hide on plans that effectively have no cap (owner/enterprise).
+  // Hide only on effectively-uncapped accounts (owner, cap 99999). Enterprise
+  // has a real 50k cap, so a low-balance warning is legitimate there and the
+  // banner intentionally still shows.
   if (status.monthlyCap >= 99999) return null;
   if (!status.lowBalance && status.remaining > 0) return null;
 

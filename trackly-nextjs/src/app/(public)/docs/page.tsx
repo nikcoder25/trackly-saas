@@ -38,7 +38,7 @@ const DOC_SECTIONS: DocSection[] = [
     title: 'Getting started',
     items: [
       { title: 'Quickstart in 5 minutes', description: 'Create your account, add your first brand, run your first measurement.', href: '/docs#quickstart' },
-      { title: 'Add a brand', description: 'Brand setup, competitors, category, and tracked URLs.', href: '/docs#add-brand' },
+      { title: 'Add a brand', description: 'Brand setup, competitors, category, and tracked URLs.', href: '/docs#quickstart' },
       { title: 'Build your prompt panel', description: 'Generate, import, or write the prompts that define your measurement scope.', href: '/docs#prompts' },
       { title: 'Pick which LLMs to track', description: 'ChatGPT, Claude, Gemini, Perplexity, and Grok - model tiers and grounding options.', href: '/docs#llms' },
     ],
@@ -46,19 +46,19 @@ const DOC_SECTIONS: DocSection[] = [
   {
     title: 'Measurement & metrics',
     items: [
-      { title: 'Mention rate', description: 'How we calculate per-platform and per-prompt mention rate.', href: '/docs#mention-rate' },
-      { title: 'Citation share', description: 'How citations are detected and attributed on grounded surfaces.', href: '/docs#citation-share' },
-      { title: 'Sentiment', description: 'Our 5-point sentiment scale and how it is scored.', href: '/docs#sentiment' },
-      { title: 'Rank in answer', description: 'First-paragraph, mid-answer, last-mention - the three rank tiers.', href: '/docs#rank' },
+      { title: 'Mention rate', description: 'How we calculate per-platform and per-prompt mention rate.', href: '/docs#quickstart' },
+      { title: 'Citation share', description: 'How citations are detected and attributed on grounded surfaces.', href: '/docs#quickstart' },
+      { title: 'Sentiment', description: 'Our 5-point sentiment scale and how it is scored.', href: '/docs#quickstart' },
+      { title: 'Rank in answer', description: 'First-paragraph, mid-answer, last-mention - the three rank tiers.', href: '/docs#quickstart' },
     ],
   },
   {
     title: 'Workflows',
     items: [
       { title: 'Alerts & notifications', description: 'Slack, email, and webhook alerts on mention-rate drops and competitor moves.', href: '/docs#alerts' },
-      { title: 'Reports & exports', description: 'Scheduled PDF reports, CSV exports, and the Livesov Reports Library.', href: '/docs#reports' },
-      { title: 'Team & collaboration', description: 'Roles, permissions, multi-brand workspaces, and seat management.', href: '/docs#team' },
-      { title: 'Multi-brand & agencies', description: 'Manage 5–500 brands in one Livesov account with white-label reports.', href: '/docs#agency' },
+      { title: 'Reports & exports', description: 'Scheduled PDF reports, CSV exports, and the Livesov Reports Library.', href: '/integrations' },
+      { title: 'Team & collaboration', description: 'Roles, permissions, multi-brand workspaces, and seat management.', href: '/solutions/agencies' },
+      { title: 'Multi-brand & agencies', description: 'Manage 5–500 brands in one Livesov account with white-label reports.', href: '/solutions/agencies' },
     ],
   },
   {
@@ -67,7 +67,7 @@ const DOC_SECTIONS: DocSection[] = [
       { title: 'Slack integration', description: 'Real-time alerts and weekly digests in any Slack channel.', href: '/integrations/slack' },
       { title: 'Zapier integration', description: '5,000+ apps via Zapier triggers and actions.', href: '/integrations/zapier' },
       { title: 'REST API', description: 'Pull metrics, write prompts, and stream events programmatically.', href: '/integrations/api' },
-      { title: 'Webhooks', description: 'Push events into your stack the moment they happen.', href: '/docs#webhooks' },
+      { title: 'Webhooks', description: 'Push events into your stack the moment they happen.', href: '/integrations/api' },
     ],
   },
   {
@@ -83,8 +83,8 @@ const DOC_SECTIONS: DocSection[] = [
     title: 'Account & billing',
     items: [
       { title: 'Plans & pricing', description: 'All tiers, what is included, and how to upgrade or downgrade.', href: '/pricing' },
-      { title: 'Billing & invoices', description: 'Cards, invoices, VAT, and changing your billing email.', href: '/docs#billing' },
-      { title: 'Security & privacy', description: 'How we handle your data, our security posture, and SOC 2 status.', href: '/docs#security' },
+      { title: 'Billing & invoices', description: 'Cards, invoices, VAT, and changing your billing email.', href: '/pricing' },
+      { title: 'Security & privacy', description: 'How we handle your data, our security posture, and SOC 2 status.', href: '/privacy' },
       { title: 'Support', description: 'Live chat, email, and your account manager (Pro and above).', href: '/contact' },
     ],
   },

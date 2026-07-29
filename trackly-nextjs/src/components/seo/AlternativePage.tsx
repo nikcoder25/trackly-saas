@@ -50,9 +50,9 @@ const LIVESOV_STRENGTHS = [
   },
   {
     icon: '🛠',
-    title: 'Free GEO audit + 11 free tools',
+    title: 'Free GEO audit + 10 free tools',
     description:
-      'A URL-level GEO audit with prioritized recommendations, plus eleven free tools, let you act on findings without buying anything.',
+      'A URL-level GEO audit with prioritized recommendations, plus ten free tools, let you act on findings without buying anything.',
   },
 ];
 
@@ -80,7 +80,7 @@ export default function AlternativePage({ data }: { data: Alternative }) {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
     name: `7 best ${data.name} alternatives in 2026`,
-    itemListOrder: 'https://schema.org/ItemListOrderDescending',
+    itemListOrder: 'https://schema.org/ItemListOrderAscending',
     numberOfItems: shortlist.length,
     itemListElement: shortlist.map((tool, i) => ({
       '@type': 'ListItem',
@@ -103,7 +103,7 @@ export default function AlternativePage({ data }: { data: Alternative }) {
     { href: '/pricing', label: 'Pricing & plans', description: 'Start free, scale to agency multi-brand tracking.' },
     { href: '/how-it-works', label: 'How Livesov works', description: 'Methodology and data pipeline explained.' },
     { href: '/geo-audit', label: 'Free GEO audit', description: 'Score any URL for AI citation-readiness in seconds.' },
-    { href: '/tools', label: 'Free AI search tools', description: '11 free tools - no signup required.' },
+    { href: '/tools', label: 'Free AI search tools', description: '10 free tools - most need no signup.' },
     { href: '/best-ai-search-optimization-tools', label: 'Best AI visibility tools', description: 'How the category compares, ranked.' },
   );
 

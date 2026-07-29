@@ -103,18 +103,24 @@ export function rateLimitResponse(retryAfter: number): Response {
   );
 }
 
-// Extract the caller IP from a standard Next.js Request. Prefers the first
-// entry of X-Forwarded-For (the client, not intermediate proxies), falling
-// back to X-Real-IP and finally a literal "unknown" bucket so rate-limit
-// keys are never null.
+// Extract the caller IP from a standard Next.js Request. Uses the same
+// precedence as the edge middleware (src/middleware.ts): trusted platform
+// headers first (`do-connecting-ip`, `cf-connecting-ip`, `x-real-ip`), and
+// client-supplied `x-forwarded-for` only as a last resort since it can be
+// spoofed unless a trusted proxy rewrites it. Falls back to a literal
+// "unknown" bucket so rate-limit keys are never null.
 export function getClientIp(request: Request): string {
+  const doIp = request.headers.get('do-connecting-ip');
+  if (doIp) return doIp.trim();
+  const cfIp = request.headers.get('cf-connecting-ip');
+  if (cfIp) return cfIp.trim();
+  const xri = request.headers.get('x-real-ip');
+  if (xri) return xri.trim();
   const xff = request.headers.get('x-forwarded-for');
   if (xff) {
     const first = xff.split(',')[0]?.trim();
     if (first) return first;
   }
-  const xri = request.headers.get('x-real-ip');
-  if (xri) return xri.trim();
   return 'unknown';
 }
 

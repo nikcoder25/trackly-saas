@@ -107,8 +107,11 @@ async function processRun(job: Job<BrandRunJobData>) {
     if (pendingResults.length === 0 && !force) return;
     try {
       await pool.query(
+        // Direct column append (not a self-subselect): the row lock serializes
+        // concurrent worker flushes and a direct reference re-reads the
+        // just-committed value, so no concurrent progress append is lost.
         `UPDATE active_runs SET received = $1, found_count = $2, error_count = $3,
-         results = (SELECT COALESCE(results, '[]'::jsonb) FROM active_runs WHERE id = $4) || $5::jsonb,
+         results = COALESCE(results, '[]'::jsonb) || $5::jsonb,
          updated_at = NOW() WHERE id = $4`,
         [received, foundCount, errorCount, runId, JSON.stringify(pendingResults)]
       );
@@ -381,6 +384,19 @@ async function processRun(job: Job<BrandRunJobData>) {
       return;
     }
 
+    // Zombie guard: if the watchdog reaper already finalized THIS run while
+    // the worker was still alive, don't resurrect it (append duplicate history
+    // + flip 'error'→'done'). The superseded check only catches a different
+    // running run; a reaped run leaves no running row and would fall through.
+    const selfStatus = await pool.query(
+      'SELECT status FROM active_runs WHERE id = $1',
+      [runId]
+    );
+    if (selfStatus.rows.length > 0 && selfStatus.rows[0].status !== 'running') {
+      logger.warn('worker.run_already_finalized', { run_id: runId, status: selfStatus.rows[0].status });
+      return;
+    }
+
     // Calculate SOV and save
     const platformStats: Record<string, { queries: number; mentions: number; sov: number; errors: number }> = {};
     for (const plat of activePlatforms) {
@@ -447,14 +463,18 @@ async function processRun(job: Job<BrandRunJobData>) {
 
     const competitorCounts = aggregateCompetitorCounts(allResults);
 
-    brandData.runs.push({
-      id: runId, date: new Date().toISOString().split('T')[0],
-      time: new Date().toISOString(), durationMs,
-      sov: overallSov, totalQ, totalM,
-      platforms: platformStats, allResults: lightResults,
-      queries: [...queries], activePlatforms: [...activePlatforms],
-      citations: citationCounts, competitors: competitorCounts,
-    });
+    // Idempotent append: skip if the watchdog reaper already recorded this
+    // runId, so a watchdog-vs-worker race can't duplicate run history.
+    if (!brandData.runs.some((r: { id?: string }) => r && r.id === runId)) {
+      brandData.runs.push({
+        id: runId, date: new Date().toISOString().split('T')[0],
+        time: new Date().toISOString(), durationMs,
+        sov: overallSov, totalQ, totalM,
+        platforms: platformStats, allResults: lightResults,
+        queries: [...queries], activePlatforms: [...activePlatforms],
+        citations: citationCounts, competitors: competitorCounts,
+      });
+    }
     if (brandData.runs.length > 30) brandData.runs = brandData.runs.slice(-30);
 
     if (!brandData.sovHistory) brandData.sovHistory = [];
@@ -478,7 +498,7 @@ async function processRun(job: Job<BrandRunJobData>) {
     await pool.query(
       `UPDATE active_runs SET status = 'done', final_data = $1, received = $2,
        found_count = $3, error_count = $4, completed_at = NOW(), updated_at = NOW()
-       WHERE id = $5`,
+       WHERE id = $5 AND status = 'running'`,
       [JSON.stringify(finalResult), received, foundCount, errorCount, runId]
     );
 

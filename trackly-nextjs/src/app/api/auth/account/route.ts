@@ -42,7 +42,12 @@ export async function DELETE(request: Request) {
       await client.query('DELETE FROM brands WHERE user_id = $1', [user.id]);
       await client.query('DELETE FROM notifications WHERE user_id = $1', [user.id]);
       await client.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [user.id]);
-      await client.query('DELETE FROM webhook_events WHERE event_id LIKE $1', [`%${user.id}%`]);
+      // NOTE: webhook_events is intentionally NOT pruned here. Its event_id is
+      // the provider's message id (e.g. 'msg_...'), which never contains the
+      // user id, so the previous `event_id LIKE '%userId%'` matched nothing.
+      // Keeping these rows is also correct: they back the webhook replay-
+      // idempotency guard, so a provider re-delivery after account deletion
+      // still de-dupes instead of being reprocessed.
       await client.query('DELETE FROM users WHERE id = $1', [user.id]);
       await client.query('COMMIT');
     } catch (txErr) {
