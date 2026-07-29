@@ -12,23 +12,28 @@ import { useRun } from '@/contexts/RunContext';
  * derives each step's completion from real app state, is dismissable, and
  * hides itself entirely once every step is done.
  */
-const RESULTS_SEEN_KEY = 'livesov_onboarding_results_seen';
-const DISMISSED_KEY = 'livesov_onboarding_checklist_dismissed';
+// Per-user so state doesn't bleed between accounts on a shared browser.
+const RESULTS_SEEN_PREFIX = 'livesov_onboarding_results_seen';
+const DISMISSED_PREFIX = 'livesov_onboarding_checklist_dismissed';
 
 export default function OnboardingChecklist() {
   const { user } = useAuth();
   const { brands, loading: brandsLoading, selectedBrandLocked } = useBrands();
   const { startRun, live } = useRun();
 
+  const userKey = user?.id || 'anon';
+  const RESULTS_SEEN_KEY = `${RESULTS_SEEN_PREFIX}:${userKey}`;
+  const DISMISSED_KEY = `${DISMISSED_PREFIX}:${userKey}`;
+
   const [dismissed, setDismissed] = useState(false);
   const [resultsSeen, setResultsSeen] = useState(false);
 
   useEffect(() => {
     try {
-      if (localStorage.getItem(DISMISSED_KEY) === '1') setDismissed(true);
-      if (localStorage.getItem(RESULTS_SEEN_KEY) === '1') setResultsSeen(true);
+      setDismissed(localStorage.getItem(DISMISSED_KEY) === '1');
+      setResultsSeen(localStorage.getItem(RESULTS_SEEN_KEY) === '1');
     } catch { /* storage unavailable */ }
-  }, []);
+  }, [DISMISSED_KEY, RESULTS_SEEN_KEY]);
 
   // Has any brand completed at least one run?
   const hasRun = useMemo(() => brands.some(b => {

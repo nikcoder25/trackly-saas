@@ -78,26 +78,39 @@ describe('no two pages own the same primary keyword', () => {
   });
 });
 
+/**
+ * Word-boundary-aware substring test: does `haystack` contain `needle` as a
+ * whole phrase? The boundaries stop false positives like "scrunch ai
+ * alternatives" matching the primary "scrunch ai alternative" (trailing "s"),
+ * while still catching "best scrunch ai alternative" containing it.
+ */
+function containsKeyword(haystack: string, needle: string): boolean {
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${escaped}\\b`).test(haystack);
+}
+
 describe('no page borrows another page primary keyword', () => {
-  // The load-bearing test. A page may list many keywords, but it must not list
-  // ANY OTHER registered page's primary term — that is exactly the overlap that
-  // makes two URLs compete. This is what caught the /vs/ pages carrying
-  // "profound alternative", "peec ai alternative", etc.
+  // The load-bearing test. The registry contract (seo-registry.ts, rule 3) is
+  // CONTAINMENT, not exact equality: a page's keyword list must not CONTAIN any
+  // other registered page's primary term as a substring — not even inside a
+  // longer secondary phrase. Exact-equality would have missed
+  // "best profound alternative" swallowing the owned "profound alternative".
+  // This is what caught the /vs/ pages carrying "profound alternative", etc.
   const primaries = COMMERCIAL_PAGES.map((p) => ({
     url: p.url,
     kw: p.primaryKeyword.toLowerCase(),
   }));
 
   for (const page of COMMERCIAL_PAGES) {
-    it(`${page.url} lists no rival's primary keyword`, () => {
+    it(`${page.url} contains no rival's primary keyword`, () => {
       const own = keywordsFor(page);
-      const ownSet = new Set(own);
       for (const other of primaries) {
         if (other.url === page.url) continue;
+        const offender = own.find((kw) => containsKeyword(kw, other.kw));
         expect(
-          ownSet.has(other.kw),
-          `${page.url} lists "${other.kw}", which is owned by ${other.url}`,
-        ).toBe(false);
+          offender,
+          `${page.url} lists "${offender}", which contains "${other.kw}" owned by ${other.url}`,
+        ).toBeUndefined();
       }
     });
   }

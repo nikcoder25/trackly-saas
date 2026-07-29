@@ -42,6 +42,7 @@ interface ActiveRunColumns {
   errorCol: 'error' | 'error_message' | null;
   hasUpdatedAt: boolean;
   hasKind: boolean;
+  hasCreditsRefunded: boolean;
 }
 
 async function introspectActiveRunsColumns(): Promise<ActiveRunColumns | null> {
@@ -59,6 +60,7 @@ async function introspectActiveRunsColumns(): Promise<ActiveRunColumns | null> {
         : null,
       hasUpdatedAt: cols.has('updated_at'),
       hasKind: cols.has('kind'),
+      hasCreditsRefunded: cols.has('credits_refunded'),
     };
   } catch {
     return null;
@@ -199,6 +201,14 @@ async function finalizeStaleRow(
     updateParams.push(reason);
     sets.push(`${cols.errorCol} = COALESCE(${cols.errorCol}, $${updateParams.length})`);
   }
+
+  // Claim the refund atomically as part of the reap. When the column exists,
+  // flip credits_refunded FALSE→TRUE in the same UPDATE that flips status
+  // running→error. The status flip is already exactly-once (only one caller
+  // can move a row out of 'running'), so winning it IS the refund claim: a
+  // still-alive worker that finishes later sees credits_refunded = TRUE and
+  // its own compare-and-set skips, so the run can't be refunded twice.
+  if (cols.hasCreditsRefunded) sets.push(`credits_refunded = TRUE`);
 
   // Only flip rows that are still 'running' so repeated calls no-op.
   const updateRes = await pool.query(

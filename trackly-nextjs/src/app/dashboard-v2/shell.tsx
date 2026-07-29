@@ -400,7 +400,12 @@ export function WhatChangedRecap() {
 
 export function GoalCard({ current = 27.4 }: { current?: number }) {
   const ex = useExtras();
-  const goal = ex?.goal || { target: 30, by: 'Jun 30' };
+  // When ExtrasProvider isn't mounted (e.g. production /dashboard), fall back to
+  // the same localStorage key it uses so Save actually persists and reads back
+  // instead of silently snapping to the hardcoded default on every render.
+  const [lsGoal, setLsGoal] = useLS('lvx_goal', { target: 30, by: 'Jun 30' });
+  const goal = ex?.goal || lsGoal;
+  const persistGoal = ex?.setGoal || setLsGoal;
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState<number | string>(goal.target);
   const pct = Math.max(0, Math.min(100, Math.round((current / goal.target) * 100)));
@@ -408,7 +413,7 @@ export function GoalCard({ current = 27.4 }: { current?: number }) {
   const hit = current >= goal.target;
   const save = () => {
     const n = Math.max(1, Math.min(100, Number(draft) || goal.target));
-    ex?.setGoal({ ...goal, target: n });
+    persistGoal({ ...goal, target: n });
     setEditing(false);
   };
   return (
@@ -442,7 +447,7 @@ export function GoalCard({ current = 27.4 }: { current?: number }) {
       <div className="goal-foot">
         {hit
           ? <span className="pos" style={{ fontWeight: 600 }}>🎉 Goal reached - set a bolder target!</span>
-          : <span><b className="mono" style={{ color: 'var(--text)' }}>{gap} points</b> to go - about <b>{Math.max(1, Math.ceil(Number(gap) / 0.6))} weeks</b> at your current pace.</span>}
+          : <span><b className="mono" style={{ color: 'var(--text)' }}>{gap} points</b> to go.</span>}
         <span className="goal-pct mono">{pct}%</span>
       </div>
     </section>

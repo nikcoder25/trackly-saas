@@ -164,6 +164,66 @@ export interface SafeFetchOptions {
   lookup?: LookupFn;
 }
 
+// ── Connection pinning (DNS-rebinding / TOCTOU defence) ──────────────────────
+//
+// `assertPublicUrl` validates the IPs a hostname resolves to, but plain
+// `fetch(url)` re-resolves the hostname independently when it opens the
+// socket. A hostname whose DNS answer flips between our check and the connect
+// (DNS rebinding) could therefore land on a private IP we already rejected.
+// To close that window we pin the socket to a validated IP via an undici
+// `Agent` with a custom `connect.lookup`, so the address fetch dials is the
+// exact one we approved. The TLS servername/SNI and Host header stay the
+// original hostname (undici derives them from the request URL), so HTTPS
+// certificate validation is unaffected.
+
+interface PinnedAgent {
+  close(): Promise<void>;
+  destroy(): Promise<void>;
+}
+type AgentCtor = new (opts: unknown) => PinnedAgent;
+
+// Cached result of `import('undici')`. `undefined` = not attempted yet,
+// `null` = unavailable (fall back to re-validation only).
+let undiciAgentCtor: AgentCtor | null | undefined;
+async function getAgentCtor(): Promise<AgentCtor | null> {
+  if (undiciAgentCtor !== undefined) return undiciAgentCtor;
+  try {
+    const mod = (await import('undici')) as { Agent?: AgentCtor };
+    undiciAgentCtor = mod.Agent ?? null;
+  } catch {
+    undiciAgentCtor = null;
+  }
+  return undiciAgentCtor;
+}
+
+// Build a dns.lookup-shaped function that always resolves to `ip`, matching
+// both the (err, address, family) and the `{ all: true }` array callback
+// forms Node's socket layer may use. Exported for tests.
+export function pinnedLookup(ip: string) {
+  const family = net.isIPv6(ip) ? 6 : 4;
+  return (
+    _hostname: string,
+    options: unknown,
+    callback: (err: Error | null, address: unknown, family?: number) => void,
+  ): void => {
+    if (options && typeof options === 'object' && (options as { all?: boolean }).all) {
+      callback(null, [{ address: ip, family }]);
+    } else {
+      callback(null, ip, family);
+    }
+  };
+}
+
+async function makePinnedAgent(ip: string): Promise<PinnedAgent | null> {
+  const Ctor = await getAgentCtor();
+  if (!Ctor) return null;
+  try {
+    return new Ctor({ connect: { lookup: pinnedLookup(ip) } });
+  } catch {
+    return null;
+  }
+}
+
 export async function safeFetch(
   input: string | URL,
   options: SafeFetchOptions = {},
@@ -185,14 +245,25 @@ export async function safeFetch(
 
   try {
     for (let hop = 0; hop <= maxRedirects; hop++) {
-      await assertPublicUrl(currentUrl, allowedProtocols, lookup);
+      const { ips } = await assertPublicUrl(currentUrl, allowedProtocols, lookup);
+      // Pin the connection to a validated IP so DNS can't be re-resolved to a
+      // private address between the check above and the connect below. When
+      // undici isn't available the per-hop re-validation still stands.
+      const agent = ips[0] ? await makePinnedAgent(ips[0]) : null;
       const response = await fetch(currentUrl, {
         method,
         headers,
         body,
         redirect: 'manual',
         signal: controller.signal,
-      });
+        // `dispatcher` is an undici-specific fetch option not yet in the DOM
+        // typings; it's honoured by Node's global (undici) fetch.
+        ...(agent ? { dispatcher: agent } : {}),
+      } as RequestInit);
+      // Graceful close: undici's Agent.close() waits for the in-flight request
+      // (and its streaming body) to finish before tearing the pool down, so
+      // this never truncates the response we're about to read.
+      if (agent) void agent.close().catch(() => {});
       if (response.status >= 300 && response.status < 400) {
         const location = response.headers.get('location');
         if (!location) return cappedResponse(response, maxBytes);

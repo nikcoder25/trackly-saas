@@ -275,6 +275,8 @@ function generateNonce(): string {
 function buildCsp(nonce: string): string {
   return [
     "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
     `script-src 'self' 'nonce-${nonce}' https://accounts.google.com https://apis.google.com https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://browser.sentry-cdn.com https://challenges.cloudflare.com https://www.clarity.ms https://*.clarity.ms`,
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self'",

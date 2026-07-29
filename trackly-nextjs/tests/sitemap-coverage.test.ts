@@ -1,9 +1,20 @@
 import { describe, it, expect } from 'vitest';
+import { readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import sitemap from '@/app/sitemap';
 import { blogPosts } from '@/data/blog-posts';
 import { getAllTermSlugs } from '@/data/glossary';
 import { getAllCategorySlugs } from '@/data/best-categories';
 import { getAllCaseStudySlugs } from '@/data/case-studies';
+
+// Every /tools/<slug> route directory that ships a page. Enumerated from the
+// filesystem so a newly-added tool (like nap-verification, which was missing
+// from the sitemap) can never silently drift out of coverage again.
+const TOOLS_DIR = join(process.cwd(), 'src/app/(public)/tools');
+const toolSlugs = readdirSync(TOOLS_DIR).filter((entry) => {
+  const full = join(TOOLS_DIR, entry);
+  return statSync(full).isDirectory();
+});
 
 // Regression test for sitemap coverage: the sitemap used to be a hardcoded
 // list that silently fell out of sync as sections shipped (~45 live pages
@@ -52,6 +63,14 @@ describe('sitemap.xml coverage', () => {
       '/ai-search-statistics-2026',
     ]) {
       expect(urls, `${path} missing from sitemap`).toContain(path);
+    }
+  });
+
+  it('contains every free tool plus the hub', () => {
+    expect(urls).toContain('/tools');
+    expect(toolSlugs.length).toBeGreaterThan(0);
+    for (const slug of toolSlugs) {
+      expect(urls, `/tools/${slug} missing from sitemap`).toContain(`/tools/${slug}`);
     }
   });
 

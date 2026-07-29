@@ -599,7 +599,10 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   const prevTotalM = prevRun
     ? (filtersActive
         ? prevFiltered.filter(r => r.mentioned).length
-        : (Number(prevRun.totalM) || 0))
+        // Mirror the current run's fallback (line ~347): when the previous run
+        // has no precomputed totalM, count its mentioned results so the delta
+        // is a true like-for-like comparison instead of being inflated against 0.
+        : (Number(prevRun.totalM) || prevFiltered.filter(r => r.mentioned).length))
     : 0;
 
   // Real "needs you today" insights - derived only from data we actually have.

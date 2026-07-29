@@ -16,11 +16,14 @@ import { useAuth } from '@/contexts/AuthContext';
  * brand run consumes queries × platforms credits). Banner is purely
  * informational - there's no choice to make.
  */
-const STORAGE_KEY = 'livesov_credits_v2_seen';
+// Per-user so the dismissal doesn't bleed between accounts on a shared browser.
+const STORAGE_PREFIX = 'livesov_credits_v2_seen';
 
 export default function CreditMigrationBanner() {
   const { user } = useAuth();
   const [dismissed, setDismissed] = useState(true); // start hidden until we know
+
+  const STORAGE_KEY = `${STORAGE_PREFIX}:${user?.id || 'anon'}`;
 
   useEffect(() => {
     try {
@@ -29,7 +32,7 @@ export default function CreditMigrationBanner() {
     } catch {
       setDismissed(true);
     }
-  }, []);
+  }, [STORAGE_KEY]);
 
   if (dismissed) return null;
   if (!user) return null;

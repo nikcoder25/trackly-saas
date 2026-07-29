@@ -8,6 +8,7 @@
  */
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
+import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 import { getNapAudit } from '@/lib/nap-audits';
 import { findCitationGaps, type RecommendedDirectory } from '@/lib/nap-verify';
@@ -58,6 +59,13 @@ export async function POST(
   const auth = await requireVerifiedAuth(request, pool);
   if (auth instanceof Response) return auth;
   const { id } = await params;
+
+  // Each call spends a paid AI-platform request, so cap per-user/IP.
+  const rl = await checkUserIpRateLimit('nap_audit_gaps', auth.id, getClientIp(request), {
+    user: { max: 20, windowMs: 60 * 60 * 1000 },
+    ip: { max: 40, windowMs: 60 * 60 * 1000 },
+  });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   let body: Record<string, unknown>;
   try {

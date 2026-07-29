@@ -75,6 +75,7 @@ export const COMPETITOR_ROSTER: CompetitorProfile[] = [
       'An AI search visibility platform aimed at content and brand teams, leaning toward the enterprise end.',
     bestFor: 'Content teams that want visibility data tied closely to a content production workflow.',
     alternativeSlug: 'scrunch-ai-alternative',
+    vsHref: '/vs/scrunch-ai',
   },
   {
     name: 'Rankscale',
@@ -83,6 +84,7 @@ export const COMPETITOR_ROSTER: CompetitorProfile[] = [
       'An AI search analytics tool focused on rank-style scoring of brand presence in answer engines.',
     bestFor: 'SEOs who want AI visibility framed in familiar rank-tracking terms.',
     alternativeSlug: 'rankscale-alternative',
+    vsHref: '/vs/rankscale',
   },
   {
     name: 'AthenaHQ',
@@ -91,6 +93,7 @@ export const COMPETITOR_ROSTER: CompetitorProfile[] = [
       'A GEO platform positioned around agentic optimization workflows rather than measurement alone.',
     bestFor: 'Teams that want recommendations and execution bundled with the tracking.',
     alternativeSlug: 'athenahq-alternative',
+    vsHref: '/vs/athenahq',
   },
   {
     name: 'Knowatoa',
@@ -99,6 +102,7 @@ export const COMPETITOR_ROSTER: CompetitorProfile[] = [
       'An AI search console that checks how a site is read and represented across assistants.',
     bestFor: 'Technical SEOs who want crawler-and-representation diagnostics alongside mention tracking.',
     alternativeSlug: 'knowatoa-alternative',
+    vsHref: '/vs/knowatoa',
   },
   {
     name: 'LLMrefs',
@@ -107,6 +111,7 @@ export const COMPETITOR_ROSTER: CompetitorProfile[] = [
       'A keyword-and-ranking oriented LLM visibility tracker with a free tier used widely for first checks.',
     bestFor: 'Anyone who wants a zero-cost first look before committing to a paid tool.',
     alternativeSlug: 'llmrefs-alternative',
+    vsHref: '/vs/llmrefs',
   },
   {
     name: 'Waikay',
@@ -115,6 +120,7 @@ export const COMPETITOR_ROSTER: CompetitorProfile[] = [
       'A knowledge-and-entity focused tool that looks at what AI models know about a brand, not just whether they mention it.',
     bestFor: 'Brand teams whose main worry is entity understanding and knowledge-graph accuracy.',
     alternativeSlug: 'waikay-alternative',
+    vsHref: '/vs/waikay',
   },
   {
     name: 'Promptwatch',

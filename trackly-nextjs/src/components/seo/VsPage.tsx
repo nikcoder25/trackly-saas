@@ -50,23 +50,29 @@ const LIVESOV_STRENGTHS = [
   },
   {
     icon: '🛠',
-    title: 'Free GEO audit + 11 free tools',
+    title: 'Free GEO audit + 10 free tools',
     description:
-      'A URL-level GEO audit with prioritized recommendations, plus eleven free tools, let you act on findings without buying anything.',
+      'A URL-level GEO audit with prioritized recommendations, plus ten free tools, let you act on findings without buying anything.',
   },
 ];
 
 export default function VsPage({ data }: { data: VsComparison }) {
   // Cross-link the other /vs/ pages in this data-driven cohort, plus the
-  // matching alternative page and the core evaluation links.
-  const siblingVs = vsComparisons
-    .filter((v) => v.slug !== data.slug)
-    .slice(0, 3)
-    .map((v) => ({
+  // matching alternative page and the core evaluation links. Rotate the window
+  // by this page's position so every /vs/ page is surfaced as a sibling
+  // somewhere - a fixed slice(0,3) always linked the same three and left the
+  // later pages (llmrefs, waikay) near-orphaned. Deterministic, no randomness.
+  const pool = vsComparisons.filter((v) => v.slug !== data.slug);
+  const subjectIndex = vsComparisons.findIndex((v) => v.slug === data.slug);
+  const offset = subjectIndex >= 0 ? subjectIndex : 0;
+  const siblingVs = Array.from({ length: Math.min(3, pool.length) }, (_, i) => {
+    const v = pool[(offset + i) % pool.length];
+    return {
       href: `/vs/${v.slug}`,
       label: `Livesov vs ${v.name}`,
       description: `How Livesov compares to ${v.name} for AI visibility.`,
-    }));
+    };
+  });
 
   const relatedLinks = [
     {

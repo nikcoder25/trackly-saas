@@ -180,7 +180,7 @@ export default function AuditsListTable({
               <div className="ral-cell-mentions" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span data-mobile-label style={{ display: 'none', color: 'var(--muted)', fontSize: 11 }}>Mentions</span>
                 <span style={{ fontFamily: 'var(--mono)', fontVariantNumeric: 'tabular-nums' }}>
-                  {row.mentionsCount} / {row.totalExpected}
+                  {row.mentionsCount} / {row.received}
                 </span>
                 {mentionPct !== null && (
                   <span

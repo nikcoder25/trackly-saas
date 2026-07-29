@@ -76,6 +76,11 @@ export async function POST(request: NextRequest) {
         return Response.json({ error: 'Token has expired' }, { status: 400 });
       }
       if (!payload.sub) return Response.json({ error: 'Invalid token: missing user ID' }, { status: 400 });
+      // tokeninfo returns email_verified as the string "true"/"false"; the
+      // access_token branch above rejects unverified emails too.
+      if (payload.email_verified !== true && payload.email_verified !== 'true') {
+        return Response.json({ error: 'Google email is not verified' }, { status: 400 });
+      }
       googleId = payload.sub;
       email = payload.email?.toLowerCase();
       name = payload.name || email?.split('@')[0];

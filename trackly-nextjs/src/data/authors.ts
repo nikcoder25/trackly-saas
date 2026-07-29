@@ -64,7 +64,7 @@ export const NIK: Author = {
     'Publishes the methodology behind every competitor comparison, including where rivals are the better choice',
   ],
   sameAs: [
-    'https://twitter.com/livesov',
+    'https://x.com/livesov',
     'https://linkedin.com/company/livesov',
   ],
   email: 'hello@livesov.com',

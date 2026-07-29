@@ -44,6 +44,7 @@ import { decideRequiresFreshness } from './freshness-classifier';
 import {
   isChatGPTBatchEnabled,
   submitChatGPTBatch,
+  getChatGPTBatchMaxWaitMs,
   ChatGPTBatchError,
 } from './chatgpt-batch';
 
@@ -1898,10 +1899,19 @@ export async function queryAI(
               const customId = options?.queryId
                 ? `q-${options.queryId}`
                 : `cgpt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+              // Bound the batch's own wall-clock wait to the synchronous
+              // timeout budget. The OpenAI Batch API realistically takes
+              // minutes-to-hours, but the task `signal` aborts at ~180s; if
+              // the batch polled until that abort it would consume the whole
+              // budget and then the sync fallback below would run with an
+              // already-aborted signal and fail instantly (guaranteed task
+              // failure + wasted spend). Capping the wait lets the batch fail
+              // FAST so the sync fallback still has budget to land the tick.
+              const batchMaxWaitMs = Math.min(getChatGPTBatchMaxWaitMs(), chatgptTimeoutMs);
               const results = await submitChatGPTBatch(
                 [{ customId, body: buildPayload(m) as unknown as Record<string, unknown> }],
                 apiKey,
-                { signal },
+                { signal, maxWaitMs: batchMaxWaitMs },
               );
               const r = results[0];
               if (!r) {
@@ -1923,7 +1933,14 @@ export async function queryAI(
                 errorClass: (e as Error).name || 'Error',
                 errorMessage: ((e as Error).message || '').slice(0, 240),
               });
-              // Fall through to sync below.
+              // Fall through to sync below - but only if the task signal is
+              // still usable. If the batch exhausted the budget and the
+              // signal already aborted, a sync fetch would throw instantly;
+              // surface the abort as a transient error instead of pretending
+              // to retry.
+              if (signal?.aborted) {
+                throw tagError('ChatGPT: batch path exhausted the request budget', { isTransient: true });
+              }
             }
           }
           return await fetchAI(API_ENDPOINTS.openai.chat, {

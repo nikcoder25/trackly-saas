@@ -50,19 +50,44 @@ export function PageConnect() {
 
   React.useEffect(() => { if (brandId) start(brandId, method); }, [brandId, method, start]);
 
-  // Poll status until the first heartbeat flips it to connected.
+  // Poll status until the first heartbeat flips it to connected. Pauses while
+  // the tab is hidden (no point polling a backgrounded tab) and caps the total
+  // number of attempts so an abandoned tab doesn't poll forever.
   const connId = conn?.id;
   const connected = conn?.status === 'connected';
   React.useEffect(() => {
     if (!connId || connected) return;
     let alive = true;
-    const t = setInterval(async () => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 200; // ~10 min at 3s — enough for a paste-and-refresh
+
+    const tick = async () => {
+      if (!alive) return;
+      if (document.visibilityState === 'hidden') { schedule(); return; }
+      if (attempts >= MAX_ATTEMPTS) return;
+      attempts += 1;
       try {
         const d = await api(`/api/connections/${connId}/status`);
         if (alive) setConn((c) => (c ? { ...c, status: d.status, lastSeenAt: d.lastSeenAt } : c));
       } catch { /* keep polling */ }
-    }, 3000);
-    return () => { alive = false; clearInterval(t); };
+      if (alive) schedule();
+    };
+    function schedule() {
+      if (!alive) return;
+      timer = setTimeout(tick, 3000);
+    }
+
+    // Resume promptly when the tab becomes visible again.
+    const onVisible = () => { if (alive && document.visibilityState === 'visible' && attempts < MAX_ATTEMPTS) { if (timer) clearTimeout(timer); tick(); } };
+    document.addEventListener('visibilitychange', onVisible);
+    schedule();
+
+    return () => {
+      alive = false;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [connId, connected]);
 
   const copy = () => {

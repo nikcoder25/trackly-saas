@@ -77,7 +77,7 @@ const livesovStrengths = [
   },
   {
     icon: '🛠',
-    title: '11 free public tools',
+    title: '10 free public tools',
     description:
       'llms.txt generator, AI crawler checker, citation finder and more - useful before you ever sign up.',
   },
@@ -254,7 +254,7 @@ export default function VsPeecAiPage() {
           { href: '/pricing', label: 'Pricing & plans', description: 'Start free, scale to agency multi-brand.' },
           { href: '/how-it-works', label: 'How Livesov works', description: 'Methodology and data pipeline explained.' },
           { href: '/geo-audit', label: 'Free GEO audit', description: 'Score any URL for AI citation-readiness.' },
-          { href: '/tools', label: 'Free AI search tools', description: '11 free tools - no signup required.' },
+          { href: '/tools', label: 'Free AI search tools', description: '10 free tools - most need no signup.' },
         ]}
       />
     </SeoLayout>

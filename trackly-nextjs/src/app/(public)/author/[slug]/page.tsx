@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import SeoLayout, { Breadcrumbs } from '@/components/seo/SeoLayout';
+import EmailOff from '@/components/EmailOff';
 import { Section, SectionHeader, JsonLd } from '@/components/seo/SeoSections';
 import { AUTHORS, getAuthor, authorPersonSchema } from '@/data/authors';
 import { blogPosts, formatDate } from '@/data/blog-posts';
@@ -100,9 +101,11 @@ export default async function AuthorPage({ params }: { params: Promise<{ slug: s
             {author.email && (
               <p style={{ fontSize: 14, margin: '4px 0 0', color: 'var(--text-secondary)' }}>
                 Get in touch:{' '}
-                <a href={`mailto:${author.email}`} style={{ color: 'var(--brand, #6366f1)', fontWeight: 600 }}>
-                  {author.email}
-                </a>
+                <EmailOff>
+                  <a href={`mailto:${author.email}`} style={{ color: 'var(--brand, #6366f1)', fontWeight: 600 }}>
+                    {author.email}
+                  </a>
+                </EmailOff>
               </p>
             )}
           </div>

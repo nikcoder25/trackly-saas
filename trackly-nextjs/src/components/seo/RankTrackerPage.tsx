@@ -184,7 +184,7 @@ export default function RankTrackerPage({ data }: { data: RankTracker }) {
           { href: data.brandTrackingHref, label: data.brandTrackingLabel, description: data.brandTrackingDescription },
           { href: data.otherHref, label: data.otherLabel, description: data.otherDescription },
           { href: '/geo-audit', label: 'Free GEO audit', description: 'Score any URL for AI citation-readiness in seconds.' },
-          { href: '/tools', label: 'Free AI search tools', description: '11 free tools - no signup required.' },
+          { href: '/tools', label: 'Free AI search tools', description: '10 free tools - most need no signup.' },
           { href: '/pricing', label: 'Pricing & plans', description: 'Start free, scale to agency multi-brand tracking.' },
           { href: '/how-it-works', label: 'How Livesov works', description: 'Methodology and data pipeline explained.' },
         ]}

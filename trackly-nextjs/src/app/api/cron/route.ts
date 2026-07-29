@@ -350,16 +350,16 @@ export async function GET(request: Request) {
 
       if (lastRunTime) {
         const hoursSince = (Date.now() - lastRunTime) / (1000 * 60 * 60);
-        // Daily floor ignores the interval gate entirely - it's the
-        // "run at least once per day" safety net.
-        if (isDailyFloor) return true;
-        // 5 minutes of tolerance so a run that completed at 10:01:42
-        // doesn't have to wait until 10:02 the next day to requalify. The
-        // previous exact-inequality check was the main cause of the
-        // compounding multi-day skip: a 59-minute drift on the in-process
-        // self-trigger was enough to push `hoursSince` just below the
-        // threshold every tick.
-        const toleranceHours = 5 / 60;
+        // The daily_floor tick is a once-a-day "second chance" window that
+        // catches brands the hourly tick perpetually skipped (drift, or a
+        // handler killed mid-fleet). It MUST still respect the effective
+        // schedule (plan floor) and the crash-backoff gate below - it is NOT
+        // an override. Previously it `return true`d here unconditionally,
+        // which re-ran every paid brand daily (a 48h-floor starter got 2x its
+        // contracted cadence) and re-ran permanently-broken brands past their
+        // backoff. It only relaxes the tolerance: a brand within ~1h of due is
+        // caught at the daily window instead of waiting for the next hourly.
+        const toleranceHours = isDailyFloor ? 1 : 5 / 60;
         if (hoursSince < effectiveSchedule - toleranceHours) {
           logSkip('interval_not_elapsed', {
             brand_id: row.id,
@@ -399,15 +399,37 @@ export async function GET(request: Request) {
 
     // Process eligible brands in parallel (batches of 5 to avoid overwhelming)
     let processed = 0;
+    let deferred = 0;
     const errors: string[] = [];
     const BATCH_SIZE = 5;
+    // Wall-clock budget guard. maxDuration is 300s; leave margin so the
+    // handler exits cleanly with a summary instead of being killed mid-loop
+    // (which drops the tail of the fleet silently AND outlives the scheduler
+    // lock TTL, allowing an overlapping tick). Any brands we don't reach are
+    // logged as deferred and picked up by the next hourly / daily_floor tick.
+    const dispatchStart = Date.now();
+    const DISPATCH_BUDGET_MS = 240_000;
     for (let i = 0; i < eligible.length; i += BATCH_SIZE) {
+      if (Date.now() - dispatchStart > DISPATCH_BUDGET_MS) {
+        deferred = eligible.length - i;
+        logger.warn('cron.dispatch_budget_reached', {
+          mode,
+          dispatched: i,
+          deferred,
+          elapsed_ms: Date.now() - dispatchStart,
+        });
+        break;
+      }
       const batch = eligible.slice(i, i + BATCH_SIZE);
       const results = await Promise.allSettled(
         batch.map(async (row, batchIdx: number) => {
-          const brandIndex = i + batchIdx;
-          // Stagger per-brand launches so we don't burst fetches simultaneously
-          if (brandIndex > 0) await sleep(brandIndex * BRAND_STAGGER_MS);
+          // Stagger launches WITHIN the batch so 5 background runs don't start
+          // their provider fetches simultaneously. Keyed on the within-batch
+          // index (0..4), NOT the absolute brand index: the old `i + batchIdx`
+          // made each batch sleep up to N*8s from its own start, so total
+          // runtime grew ~quadratically and the handler blew past maxDuration
+          // at ~35-40 brands, silently dropping the rest of the fleet.
+          if (batchIdx > 0) await sleep(batchIdx * BRAND_STAGGER_MS);
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 120000); // 120s timeout per run trigger
           try {
@@ -488,7 +510,7 @@ export async function GET(request: Request) {
     const skipReasonsWithStale = { ...skipCounts, stale_reconciled: reconciled };
     logger.info('cron.summary', {
       mode,
-      processed, skipped, reconciled, total,
+      processed, skipped, reconciled, total, deferred,
       skip_reasons: skipReasonsWithStale,
       errors_count: errors?.length || 0,
       timestamp,

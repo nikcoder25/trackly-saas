@@ -403,6 +403,11 @@ export function Heatmap({ rows, cols, data, label }: { rows: string[]; cols: str
 
 export function StackBar({ items, height = 14 }: { items: { label: string; value: number; color?: string }[]; height?: number }) {
   const total = items.reduce((a, b) => a + b.value, 0);
+  // All-zero (or empty) totals would make width `NaN%`; render a muted empty
+  // bar instead.
+  if (total <= 0) {
+    return <div className="stack" style={{ height, background: 'var(--line, #e5e7eb)', opacity: 0.4 }} />;
+  }
   return (
     <div className="stack" style={{ height }}>
       {items.map((it, i) => (

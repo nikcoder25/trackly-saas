@@ -28,7 +28,12 @@ export const TOTP_CONFIG = {
 //   brands                   ↔ PLAN_CREDITS[plan].brandsCap
 //   minScheduleHours         ↔ AUTO_RUN_HOURS[PLAN_CREDITS[plan].autoRunFrequency]
 export const PLAN_LIMITS: Record<string, PlanLimits> = {
-  free:       { brands: 1,    runsPerMonth: 4,   trackedPromptsPerAccount: 5,    queries: 5,    competitors: 0,   platforms: 2, prioritySupport: false, sentiment: false, scheduledRuns: true,  minScheduleHours: 168, geoAudits: 3 },
+  // Free plans do NOT auto-run: the cron scheduler's plan filter (see
+  // src/app/api/cron/route.ts - `u.plan IN ('starter','pro',...)`) excludes
+  // 'free', so scheduledRuns must be false here to match reality. It was
+  // `true` with minScheduleHours 168, which made the pricing/UsageSection UI
+  // advertise a weekly auto-run that never fired. Manual runs still work.
+  free:       { brands: 1,    runsPerMonth: 4,   trackedPromptsPerAccount: 5,    queries: 5,    competitors: 0,   platforms: 2, prioritySupport: false, sentiment: false, scheduledRuns: false, minScheduleHours: 168, geoAudits: 3 },
   trial:      { brands: 9999, runsPerMonth: 40,  trackedPromptsPerAccount: 30,   queries: 30,   competitors: 5,   platforms: 5, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 20 },
   starter:    { brands: 3,    runsPerMonth: 15,  trackedPromptsPerAccount: 15,   queries: 15,   competitors: 3,   platforms: 2, prioritySupport: false, sentiment: false, scheduledRuns: true,  minScheduleHours: 48,  geoAudits: 20 },
   pro:        { brands: 9999, runsPerMonth: 30,  trackedPromptsPerAccount: 25,   queries: 25,   competitors: 8,   platforms: 3, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 75 },

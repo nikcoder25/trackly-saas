@@ -217,7 +217,7 @@ export const vsComparisons: VsComparison[] = [
       ['Citation capture (ranked sources)', '✓ Perplexity + ChatGPT Search', 'Verify on site'],
       ['Per-platform sentiment', '✓', 'Verify on site'],
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', 'Verify on site'],
-      ['Agentic optimization workflows', 'Free GEO audit + 11 tools', '✓ Core framing'],
+      ['Agentic optimization workflows', 'Free GEO audit + 10 tools', '✓ Core framing'],
       ['Self-serve entry price', '$9/mo', 'Verify on site'],
     ],
     competitorFit: [
@@ -335,7 +335,7 @@ export const vsComparisons: VsComparison[] = [
     ],
     comparisonRows: [
       ['All 5 major LLMs on every plan', '✓ ChatGPT, Claude, Gemini, Perplexity, Grok', 'Verify on site'],
-      ['Free tier for first checks', 'Free GEO audit + 11 tools', '✓ Free tier'],
+      ['Free tier for first checks', 'Free GEO audit + 10 tools', '✓ Free tier'],
       ['Rank / visibility tracking', '✓ Rank + mention rate', '✓'],
       ['Citation capture (ranked sources)', '✓ Perplexity + ChatGPT Search', 'Verify on site'],
       ['Per-platform sentiment', '✓', 'Verify on site'],
@@ -370,7 +370,7 @@ export const vsComparisons: VsComparison[] = [
       {
         question: 'Does Livesov have a free option like LLMrefs?',
         answer:
-          'Livesov offers a 7-day free trial of paid features with no credit card, plus a free GEO audit and eleven free one-off tools that need no signup. Verify LLMrefs\' current free tier on llmrefs.com.',
+          'Livesov offers a 7-day free trial of paid features with no credit card, plus a free GEO audit and ten free one-off tools that need no signup. Verify LLMrefs\' current free tier on llmrefs.com.',
       },
     ],
     alternativeHref: '/llmrefs-alternative',

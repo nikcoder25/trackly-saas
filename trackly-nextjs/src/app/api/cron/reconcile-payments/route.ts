@@ -27,10 +27,9 @@ if (process.env.DODO_ENTERPRISE_PRODUCT_ID) PLAN_MAP[process.env.DODO_ENTERPRISE
  * any plan/status drift (downgrades after cancellation, upgrades after
  * a lost webhook, stale subscription_id cleanup on 404).
  *
- * Authorize with `Authorization: Bearer $CRON_SECRET`. A legacy
- * `?secret=` query param is still accepted for backward compatibility
- * but should be removed from any crontab because query strings leak
- * into access logs.
+ * Authorize with `Authorization: Bearer $CRON_SECRET`. The secret is only
+ * accepted via the header - a `?secret=` query param is not honoured
+ * because query strings leak into access logs.
  */
 export async function GET(request: Request) {
   try {
@@ -40,10 +39,7 @@ export async function GET(request: Request) {
     }
 
     const authHeader = request.headers.get('authorization') || '';
-    const headerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-    const { searchParams } = new URL(request.url);
-    const queryToken = searchParams.get('secret') || '';
-    const candidate = headerToken || queryToken;
+    const candidate = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
 
     const ok = !!candidate
       && candidate.length === cronSecret.length
