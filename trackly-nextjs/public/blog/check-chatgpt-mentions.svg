@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="cc-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#0c2a22"/>
+    </linearGradient>
+    <radialGradient id="cc-glow" cx="50%" cy="46%" r="55%">
+      <stop offset="0%" stop-color="#19c37d" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#19c37d" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#cc-bg)"/>
+  <ellipse cx="600" cy="330" rx="440" ry="260" fill="url(#cc-glow)"/>
+
+  <!-- Chat answer card with brand highlighted + check -->
+  <g transform="translate(360,190)">
+    <rect x="0" y="0" width="480" height="250" rx="18" fill="#0b1220" stroke="#1f3a34" stroke-width="1.5"/>
+    <!-- prompt line -->
+    <rect x="30" y="34" width="270" height="12" rx="6" fill="#334155" opacity="0.7"/>
+    <!-- answer lines -->
+    <rect x="30" y="78" width="420" height="10" rx="5" fill="#243244" opacity="0.8"/>
+    <rect x="30" y="102" width="400" height="10" rx="5" fill="#243244" opacity="0.8"/>
+    <!-- highlighted brand mention -->
+    <rect x="30" y="130" width="150" height="22" rx="6" fill="#19c37d" opacity="0.22" stroke="#19c37d" stroke-width="1.5"/>
+    <text x="46" y="146" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" fill="#19c37d">Your Brand</text>
+    <rect x="196" y="134" width="254" height="10" rx="5" fill="#243244" opacity="0.8"/>
+    <rect x="30" y="170" width="380" height="10" rx="5" fill="#243244" opacity="0.8"/>
+    <rect x="30" y="194" width="300" height="10" rx="5" fill="#243244" opacity="0.8"/>
+
+    <!-- check badge -->
+    <circle cx="440" cy="30" r="26" fill="#0c2a22" stroke="#19c37d" stroke-width="2.5"/>
+    <path d="M 428 30 l 8 9 l 16 -18" fill="none" stroke="#19c37d" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <text x="600" y="86" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="40" font-weight="700" fill="white" letter-spacing="1">
+    Does ChatGPT Mention Your Brand?
+  </text>
+  <text x="600" y="498" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="19" fill="#cbd5e1" opacity="0.9">
+    Three ways to check - starting with a free checker
+  </text>
+  <text x="600" y="592" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#94a3b8" letter-spacing="2">
+    CHECK &#183; ASK &#183; MONITOR
+  </text>
+</svg>
