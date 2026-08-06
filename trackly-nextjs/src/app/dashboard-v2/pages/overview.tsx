@@ -17,7 +17,7 @@ import { useRun } from '@/contexts/RunContext';
 import { useToast } from '@/components/dashboard/Toast';
 import { useBrands } from '@/contexts/BrandContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { KpiCardsSkeleton } from '@/components/dashboard/Skeleton';
+import { KpiCardsSkeleton, CardsSkeleton, ChartSkeleton } from '@/components/dashboard/Skeleton';
 import { highlightBrand as highlightBrandText, sanitizeHtml } from '@/lib/sanitize';
 
 /* ───────────────────────── real-data hook ───────────────────────── */
@@ -178,12 +178,25 @@ function normPlatform(pd: any): { sov: number; total: number; mentions: number; 
   return { sov: 0, total: 0, mentions: 0, errors: 0 };
 }
 
-export function useOverviewData(filters: OverviewFilters = DEFAULT_FILTERS): OverviewData | null {
+export interface OverviewState {
+  /** The figures to render. Null while loading, and null when the selected
+   *  brand's data could not be fetched - callers must branch on `loading` /
+   *  `error` rather than substituting sample data. */
+  data: OverviewData | null;
+  loading: boolean;
+  /** Set only when a brand *is* selected but its data could not be loaded.
+   *  This is deliberately distinct from "no brand connected": the latter is
+   *  the one state where the sample dashboard is the right answer. */
+  error: string | null;
+  retry: () => void | Promise<void>;
+}
+
+export function useOverviewData(filters: OverviewFilters = DEFAULT_FILTERS): OverviewState {
   // Consume the shared brand hook so the Overview reacts to the brand selected
   // in the topbar (BrandContext), auto-reloads on run completion, and reflects
   // live runs - exactly like every other dashboard page. Previously this made a
   // one-off /api/brands fetch on mount that never re-ran when the brand changed.
-  const { brand, loading } = useBrandData({ fullData: true });
+  const { brand, loading, error, reload } = useBrandData({ fullData: true });
   const brandId = (brand as any)?.id as string | undefined;
 
   // Accuracy data lives behind /api/brands/:id/accuracy - the same endpoint the
@@ -234,11 +247,20 @@ export function useOverviewData(filters: OverviewFilters = DEFAULT_FILTERS): Ove
     };
   }, [brandId, loadAccuracy]);
 
-  return React.useMemo(() => {
-    if (loading) return null;
+  // `error` covers both the brand-list fetch (401 / network) and the selected
+  // brand's own fetch. Either way, error + no brand means we could not load
+  // this user's data - which is emphatically not the same as them having no
+  // brand. Falling through to buildFallback() there would show them another
+  // company's demo numbers, indefinitely, with no sign anything went wrong.
+  const loadFailed = !!error && !brand;
+
+  const data = React.useMemo(() => {
+    if (loading || loadFailed) return null;
     if (!brand) return buildFallback();
     return buildFromBrand(brand as any, accData, filters);
-  }, [brand, loading, accData, filters]);
+  }, [brand, loading, loadFailed, accData, filters]);
+
+  return { data, loading, error: loadFailed ? error : null, retry: reload };
 }
 
 function buildFallback(): OverviewData {
@@ -745,7 +767,11 @@ export function PageOverview() {
     () => ({ range, engine, intent, competitorView }),
     [range, engine, intent, competitorView],
   );
-  const data = useOverviewData(filters);
+  // The hook reports loading and load-failure separately from the data itself.
+  // Both are states where we do *not* know the user's numbers, and neither may
+  // fall through to the sample dashboard - that is only correct for an account
+  // with no brand connected, which the hook signals with hasReal:false data.
+  const { data, loading, error: loadError, retry } = useOverviewData(filters);
   const d = data || buildFallback();
 
   // While a scan is in progress the brand's live/partial results can flow into
@@ -759,6 +785,10 @@ export function PageOverview() {
   // First name only, and never an email fragment - fall back to a plain
   // greeting when the account has no display name.
   const firstName = (user?.name || '').trim().split(/\s+/)[0] || null;
+
+  // Every hook above runs unconditionally; the early returns below are safe.
+  if (loading) return <OverviewSkeleton firstName={firstName} />;
+  if (loadError) return <OverviewLoadError firstName={firstName} message={loadError} onRetry={retry} />;
 
   // With real data we only have the brand's own SOV history, so show just that
   // line rather than fabricated competitor trends. The demo overlay is kept for
@@ -925,10 +955,12 @@ function HBar({ label, v, sub }: { label: string; v: number; sub: string }) {
   );
 }
 
-// Loading placeholder for the score banner, shown while a scan is running so
-// the gauge + bars never bind to partial live data (which used to flash an
-// inflated "100 Excellent" before settling on the real score).
-function HealthBannerSkeleton() {
+// Loading placeholder for the score banner. Used in two states:
+//  - a scan is running, so the gauge + bars must not bind to partial live data
+//    (which used to flash an inflated "100 Excellent" before the real score);
+//  - the brand data is still being fetched, so there is nothing real to show
+//    yet and we must not fall back to the demo figures.
+function HealthBannerSkeleton({ grade = 'Scanning…', note = 'Calculating once the run completes', barNote = 'Scanning…' }: { grade?: string; note?: string; barNote?: string } = {}) {
   const bars = ['Visibility', 'Sentiment', 'Accuracy', 'Competitive'];
   return (
     <section className="hb" aria-busy="true">
@@ -936,8 +968,8 @@ function HealthBannerSkeleton() {
         <div style={{ width: 96, height: 96, borderRadius: '50%', border: '6px solid rgba(255,255,255,.18)', boxSizing: 'border-box' }} />
         <div>
           <div className="eyebrow" style={{ color: 'rgba(255,255,255,.7)' }}>BRAND HEALTH</div>
-          <div className="hb-grade" style={{ opacity: .8 }}>Scanning…</div>
-          <div className="hb-d"><span style={{ color: 'rgba(255,255,255,.7)' }}>Calculating once the run completes</span></div>
+          <div className="hb-grade" style={{ opacity: .8 }}>{grade}</div>
+          <div className="hb-d"><span style={{ color: 'rgba(255,255,255,.7)' }}>{note}</span></div>
         </div>
       </div>
       <div className="hb-bars">
@@ -948,11 +980,89 @@ function HealthBannerSkeleton() {
               <span className="hbar-v mono" style={{ opacity: .5 }}>-</span>
             </div>
             <div className="hbar-track"><i style={{ width: '0%' }} /></div>
-            <div className="hbar-sub">Scanning…</div>
+            <div className="hbar-sub">{barNote}</div>
           </div>
         ))}
       </div>
     </section>
+  );
+}
+
+/** Full-page loading state for the Overview.
+ *
+ *  This is the fix for the "sample data flashes on load" bug: `useOverviewData`
+ *  returns `null` while the brand fetch is in flight, and the page used to do
+ *  `data || buildFallback()`, which rendered the Acme PM demo numbers (27.4%
+ *  SOV, 1,284 mentions, Linear/Asana competitors) for the few hundred ms before
+ *  the real brand landed. We now render skeletons for that window instead, so
+ *  the sample figures are only ever shown in the state they're meant for - an
+ *  account with no brand connected at all. */
+function OverviewSkeleton({ firstName }: { firstName: string | null }) {
+  return (
+    <>
+      <PageHead
+        title={firstName ? <>Welcome back, <span style={{ color: 'var(--primary)' }}>{firstName}</span>.</> : <>Welcome back.</>}
+        sub={<>Loading your latest AI visibility data…</>}
+      />
+      <div className="page-body" aria-busy="true">
+        <HealthBannerSkeleton grade="Loading…" note="Fetching your latest scan" barNote="Loading…" />
+        <KpiCardsSkeleton count={5} />
+        <div className="g2">
+          <div style={{ gridColumn: 'span 2' }}><ChartSkeleton h={280} /></div>
+        </div>
+        <CardsSkeleton count={4} />
+      </div>
+    </>
+  );
+}
+
+/** Shown when the signed-in user has a brand selected but its data could not
+ *  be fetched. Without this the page fell through to `buildFallback()`, so a
+ *  network blip left the user staring at the Acme PM demo figures - not for a
+ *  flash, but until they reloaded - with nothing to indicate the numbers
+ *  weren't theirs. An explicit failure with a retry is the honest answer. */
+function OverviewLoadError({ firstName, message, onRetry }: { firstName: string | null; message: string; onRetry: () => void | Promise<void> }) {
+  const [busy, setBusy] = React.useState(false);
+  const retry = async () => {
+    setBusy(true);
+    try { await onRetry(); } finally { setBusy(false); }
+  };
+  // Upstream messages are inconsistently punctuated ("Failed to load brand
+  // data" vs "Your session expired. Please log in again."), and this one is
+  // followed by another sentence.
+  const trimmed = (message || '').trim();
+  const detail = !trimmed ? 'We couldn’t reach your data.' : /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+  return (
+    <>
+      <PageHead
+        title={firstName ? <>Welcome back, <span style={{ color: 'var(--primary)' }}>{firstName}</span>.</> : <>Welcome back.</>}
+        sub={<>We couldn&rsquo;t load your dashboard just now.</>}
+      />
+      <div className="page-body">
+        <div role="alert" style={{
+          border: '1px solid rgba(245,158,11,.35)', borderRadius: 14,
+          padding: '22px 24px',
+          background: 'rgba(245,158,11,.06)',
+          display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap',
+        }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(245,158,11,.12)', color: '#b45309', fontSize: 22,
+          }}>⚠</div>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Couldn&rsquo;t load your data</div>
+            <div style={{ fontSize: 13, color: 'var(--mute, var(--muted))', lineHeight: 1.55 }}>
+              {detail} Your data is safe - this is a problem reaching it, not a problem with your account.
+            </div>
+          </div>
+          <button className="btn-p" onClick={retry} disabled={busy}
+            style={busy ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}>
+            {busy ? 'Retrying…' : '↻ Retry'}
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 
