@@ -21,18 +21,27 @@ const HERO_GRADIENTS: Record<string, string> = {
     'text-transparent bg-clip-text bg-gradient-to-r from-[#20b8cd] to-[#1a94a5]',
   'chatgpt-rank-tracker':
     'text-transparent bg-clip-text bg-gradient-to-r from-[#19c37d] to-[#10a37f]',
+  'llm-rank-tracker':
+    'text-transparent bg-clip-text bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]',
 };
 const FALLBACK_GRADIENT = 'text-[var(--brand)]';
 
 // Rank-tracker scaffolding is the same for every engine, so the generic
 // features/steps/comparison live here and interpolate the engine name. Only
 // engine-specific nuance (subtitle, why-copy, faqs, models) lives in the data.
-function buildFeatures(engine: string) {
+//
+// Two forms of the engine name are threaded through:
+//   `engine`  - attributive, inside a noun phrase ("ChatGPT rank", "LLM rank")
+//   `subject` - standalone noun, as the subject/object of a verb, paired with
+//               `vs` (the third-person verb suffix) so both "ChatGPT cites" and
+//               "LLMs cite" come out grammatical. For a single named engine
+//               subject === engine and vs === 's', so this is a no-op.
+function buildFeatures(engine: string, subject: string, vs: string) {
   return [
     {
       icon: '◈',
       title: 'Prompt & keyword rank',
-      description: `Track your exact position each time ${engine} lists or recommends options for your target prompts and keywords.`,
+      description: `Track your exact position each time ${subject} list${vs} or recommend${vs} options for your target prompts and keywords.`,
     },
     {
       icon: '📈',
@@ -47,7 +56,7 @@ function buildFeatures(engine: string) {
     {
       icon: '⟁',
       title: 'Citation & source tracking',
-      description: `Capture the URLs ${engine} cites so you know which pages drive each ranking - yours and competitors'.`,
+      description: `Capture the URLs ${subject} cite${vs} so you know which pages drive each ranking - yours and competitors'.`,
     },
     {
       icon: '✺',
@@ -62,15 +71,15 @@ function buildFeatures(engine: string) {
   ];
 }
 
-function buildSteps(engine: string) {
+function buildSteps(engine: string, subject: string) {
   return [
     {
       title: 'Add brand, competitors & prompts',
-      description: `Add your brand, domain, competitor set, and the target prompts and keywords you want to rank for in ${engine}.`,
+      description: `Add your brand, domain, competitor set, and the target prompts and keywords you want to rank for in ${subject}.`,
     },
     {
       title: `Automated ${engine} runs`,
-      description: `Livesov queries ${engine} on your schedule and runs each prompt multiple times, because AI answers are non-deterministic.`,
+      description: `Livesov queries ${subject} on your schedule and runs each prompt multiple times, because AI answers are non-deterministic.`,
     },
     {
       title: 'Record rank, citations, competitors',
@@ -97,8 +106,12 @@ function buildComparisonRows(engine: string): [string, string, string][] {
 }
 
 export default function RankTrackerPage({ data }: { data: RankTracker }) {
-  const features = buildFeatures(data.engine);
-  const steps = buildSteps(data.engine);
+  // Single named engines leave both fields unset, so subject === engine and the
+  // verb suffix stays 's' - byte-identical output to before this was added.
+  const subject = data.engineSubject ?? data.engine;
+  const vs = data.enginePlural ? '' : 's';
+  const features = buildFeatures(data.engine, subject, vs);
+  const steps = buildSteps(data.engine, subject);
   const comparisonRows = buildComparisonRows(data.engine);
   const modelList = data.models.join(', ');
 
@@ -128,7 +141,7 @@ export default function RankTrackerPage({ data }: { data: RankTracker }) {
           <p>
             <strong>Livesov</strong> is a {data.engineFull} rank tracker built for AI answers, not
             Google SERPs. It tracks where you rank across {modelList} for the prompts and keywords
-            that matter, records the sources {data.engine} cites, and charts how your position
+            that matter, records the sources {subject} cite{vs}, and charts how your position
             trends over time - so &quot;{data.engine} rank tracking&quot; becomes a measured number
             instead of a guess.
           </p>

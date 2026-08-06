@@ -61,6 +61,7 @@ const CSRF_BOOTSTRAP_PATHS = new Set([
   // - same posture as /api/contact and /api/free-check above.
   '/api/geo-audit',
   '/api/tools/llms-txt-generator',
+  '/api/tools/llms-txt-validator',
   '/api/tools/ai-crawler-checker',
   '/api/tools/chatgpt-mention-checker',
   '/api/tools/citation-finder',
