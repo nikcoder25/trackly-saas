@@ -208,6 +208,9 @@
 .lv-home .prob-stat { padding: 4px 6px; }
 .lv-home .prob-stat-v { font-size: 56px; line-height: 1; color: var(--ink); letter-spacing: -0.03em; }
 .lv-home .prob-stat-l { margin-top: 12px; font-size: 15.5px; color: var(--ink-2); line-height: 1.5; max-width: 30ch; }
+/* Citation link on a stat: readable but deliberately quieter than the claim. */
+.lv-home .prob-stat-src { color: inherit; opacity: .6; text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
+.lv-home .prob-stat-src:hover { opacity: 1; }
 
 @media (max-width: 860px) {
   .lv-home .prob-grid { grid-template-columns: 1fr; }

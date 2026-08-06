@@ -54,7 +54,7 @@ const personaFeatures = [
     icon: '◑',
     title: 'Digital marketing agencies',
     description:
-      'Add AI visibility tracking to client engagements. White-label reports, multi-brand dashboards, and a new measurable deliverable for retainers.',
+      'Add AI visibility tracking to client engagements. Client-ready reports, multi-brand dashboards, and a new measurable deliverable for retainers.',
   },
   {
     icon: '✸',
@@ -98,7 +98,7 @@ const faqs = [
   {
     question: 'Is Livesov agency-friendly?',
     answer:
-      'Yes. The Agency plan supports multi-brand tracking under one workspace, white-labeled PDF reports for client deliverables, team seats with role-based access, and a partner program with 20–30% recurring commissions. See our /partners page for details.',
+      'Yes. The Agency plan supports multi-brand tracking under one workspace, client-ready PDF reports, API access for your own reporting, and a partner program with 20–30% recurring commissions. Reports carry Livesov branding today. See our /partners page for details.',
   },
   {
     question: 'Can a single person manage this, or do I need a team?',
@@ -113,7 +113,7 @@ const faqs = [
   {
     question: 'How is Livesov priced for agencies managing multiple brands?',
     answer:
-      'The Agency plan includes multiple brands, multiple seats, white-label reports, and higher monthly credits. For unusual scale or custom integrations, the contact page connects you with a tailored plan.',
+      'The Agency plan includes unlimited brands, client-ready reports, API access, and higher monthly credits. For unusual scale or custom integrations, the contact page connects you with a tailored plan.',
   },
   {
     question: 'What does a typical first-month workflow look like?',
@@ -176,7 +176,7 @@ export default function UseCasesPage() {
             shipped this&quot; data point in every monthly review.
           </p>
           <p>
-            Livesov&apos;s Agency plan was built for this: multi-brand workspaces, white-label
+            Livesov&apos;s Agency plan was built for this: multi-brand workspaces, client-ready
             PDF reports for client delivery, team seats with role-based access, and a partner
             program that pays recurring commissions on referrals. Many agencies run Livesov
             as a packaged add-on (&quot;AI visibility tier&quot;) at a fixed monthly markup.
@@ -267,7 +267,7 @@ export default function UseCasesPage() {
           {
             href: '/partners',
             label: 'Agency partner program',
-            description: 'Recurring commissions, white-label, dedicated support.',
+            description: 'Recurring commissions, co-marketing, dedicated support.',
           },
           {
             href: '/chatgpt-brand-tracking',

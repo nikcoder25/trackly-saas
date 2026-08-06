@@ -48,7 +48,14 @@ export async function POST(request: NextRequest) {
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   try {
-    const { name, email, subject, inquiryType, message, turnstileToken, hp_field } = await request.json();
+    // A malformed body falls through to the field validation below (which
+    // returns 400) rather than throwing into the catch-all as a 500 - see
+    // geo-audit/route.ts for the rationale.
+    const body = (await request.json().catch(() => ({}))) as {
+      name?: unknown; email?: unknown; subject?: unknown; inquiryType?: unknown;
+      message?: unknown; turnstileToken?: unknown; hp_field?: unknown;
+    };
+    const { name, email, subject, inquiryType, message, turnstileToken, hp_field } = body;
 
     // --- Honeypot check ---
     // The "hp_field" field is hidden from real users; bots will fill it in
@@ -82,7 +89,10 @@ export async function POST(request: NextRequest) {
     if (!subject || typeof subject !== 'string' || !subject.trim()) {
       return Response.json({ error: 'Subject is required.' }, { status: 400 });
     }
-    if (!inquiryType || !INQUIRY_TYPES.includes(inquiryType)) {
+    // typeof guard as well as the allow-list: previously `inquiryType` was
+    // implicitly `any`, so a non-string value reached `INQUIRY_TYPES.includes`
+    // and was only rejected by luck of that comparison.
+    if (typeof inquiryType !== 'string' || !INQUIRY_TYPES.includes(inquiryType)) {
       return Response.json({ error: 'Please select a valid inquiry type.' }, { status: 400 });
     }
     if (!message || typeof message !== 'string' || message.trim().length < 20) {

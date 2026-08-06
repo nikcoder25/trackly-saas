@@ -25,8 +25,10 @@ export async function POST(request: NextRequest) {
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   try {
-    const body = await request.json();
-    const { email, website, source } = body;
+    // A malformed body falls through to the 400 below rather than throwing
+    // into the catch-all as a 500 (see geo-audit/route.ts for the rationale).
+    const body = await request.json().catch(() => ({}));
+    const { email, website, source } = body as { email?: unknown; website?: unknown; source?: unknown };
 
     // Honeypot: silently reject if filled
     if (website) return Response.json({ success: true });

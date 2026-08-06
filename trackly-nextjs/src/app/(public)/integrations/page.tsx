@@ -113,7 +113,7 @@ const channels = [
     items: [
       'CSV export of every metric, every run',
       'JSON export for developer integrations',
-      'PDF reports (white-label on Agency plans)',
+      'PDF reports (client-ready, one click)',
       'Full raw AI response evidence packs',
     ],
   },
@@ -153,7 +153,7 @@ const faqs = [
   {
     question: 'What export formats are supported?',
     answer:
-      'CSV (every metric + every raw response), JSON (developer-friendly bulk export), and PDF (client-ready reports, white-labelable on Agency plans). Exports are available on-demand and can be scheduled to deliver weekly or monthly.',
+      'CSV (every metric + every raw response), JSON (developer-friendly bulk export), and PDF (client-ready reports). Exports are available on-demand and can be scheduled to deliver weekly or monthly.',
   },
   {
     question: 'Is there a public API?',
@@ -454,8 +454,8 @@ export default function IntegrationsPage() {
           <p>
             Every dashboard view exports to CSV with one click. JSON exports power custom
             downstream pipelines (BI tools, internal dashboards, analyst notebooks). PDF
-            reports are designed for client and stakeholder delivery - white-labeled on Agency
-            plans with your logo, brand colors, and disclaimer text.
+            reports are designed for client and stakeholder delivery - share of voice,
+            sentiment and citations, generated in one click on any plan.
           </p>
           <p>
             Scheduled reports (weekly or monthly) deliver the same PDFs by email to a

@@ -365,9 +365,12 @@ export async function POST(req: NextRequest) {
     const { allowed, retryAfter } = await rateLimit(rateLimitKey, 60 * 60 * 1000, maxRequests);
     if (!allowed) return rateLimitResponse(retryAfter);
 
-    // Parse and validate input
-    const body = await req.json();
-    const { url, website } = body;
+    // Parse and validate input. A malformed body must fall through to the
+    // 400 below, not throw into the catch-all and report a 500 - this is an
+    // anonymous endpoint, so junk payloads from bots are routine traffic and
+    // would otherwise pollute error monitoring with fake server errors.
+    const body = await req.json().catch(() => ({}));
+    const { url, website } = body as { url?: unknown; website?: unknown };
 
     // Honeypot: silently reject if filled
     if (website) return Response.json({ url: '', overallScore: 0, categories: [], recommendations: [], meta: { title: '', wordCount: 0, fetchTimeMs: 0 } });

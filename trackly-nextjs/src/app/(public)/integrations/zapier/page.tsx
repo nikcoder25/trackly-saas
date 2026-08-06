@@ -72,7 +72,7 @@ const faqs = [
   { question: 'Do I need a developer to set up Zaps?', answer: 'No. The integration uses standard Zapier triggers and actions - no code required.' },
   { question: 'What is the polling frequency?', answer: 'Triggers fire near real-time (within 60 seconds) for paid Zapier tiers; up to 15 minutes for the Zapier free tier.' },
   { question: 'How do I get an API key?', answer: 'Settings → API in your Livesov dashboard. Keys are per-workspace; rotate them anytime.' },
-  { question: 'Can I use Zapier for white-label client reporting?', answer: 'Yes - many agencies trigger Livesov report generation via Zapier on a per-client cadence and email the PDFs through Zapier\'s Gmail or SMTP actions.' },
+  { question: 'Can I use Zapier for client reporting?', answer: 'Yes - many agencies trigger Livesov report generation via Zapier on a per-client cadence and email the PDFs through Zapier\'s Gmail or SMTP actions. The PDFs carry Livesov branding; if you need your own, pull the metrics via the API and render them in your template.' },
 ];
 
 export default function ZapierIntegrationPage() {

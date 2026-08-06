@@ -58,7 +58,7 @@ const DOC_SECTIONS: DocSection[] = [
       { title: 'Alerts & notifications', description: 'Slack, email, and webhook alerts on mention-rate drops and competitor moves.', href: '/docs#alerts' },
       { title: 'Reports & exports', description: 'Scheduled PDF reports, CSV exports, and the Livesov Reports Library.', href: '/integrations' },
       { title: 'Team & collaboration', description: 'Roles, permissions, multi-brand workspaces, and seat management.', href: '/solutions/agencies' },
-      { title: 'Multi-brand & agencies', description: 'Manage 5–500 brands in one Livesov account with white-label reports.', href: '/solutions/agencies' },
+      { title: 'Multi-brand & agencies', description: 'Manage 5–500 brands in one Livesov account with client-ready reports.', href: '/solutions/agencies' },
     ],
   },
   {
