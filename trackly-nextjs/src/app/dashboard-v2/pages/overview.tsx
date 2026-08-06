@@ -17,7 +17,7 @@ import { useRun } from '@/contexts/RunContext';
 import { useToast } from '@/components/dashboard/Toast';
 import { useBrands } from '@/contexts/BrandContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { KpiCardsSkeleton } from '@/components/dashboard/Skeleton';
+import { KpiCardsSkeleton, CardsSkeleton, ChartSkeleton } from '@/components/dashboard/Skeleton';
 import { highlightBrand as highlightBrandText, sanitizeHtml } from '@/lib/sanitize';
 
 /* ───────────────────────── real-data hook ───────────────────────── */
@@ -746,6 +746,11 @@ export function PageOverview() {
     [range, engine, intent, competitorView],
   );
   const data = useOverviewData(filters);
+  // `useOverviewData` returns null *only* while the brand data is still being
+  // fetched. That is a genuinely unknown state - not a "no brand" state - so it
+  // must render skeletons, never the demo fallback. (When there really is no
+  // brand the hook returns buildFallback() itself, flagged hasReal:false.)
+  const loading = data === null;
   const d = data || buildFallback();
 
   // While a scan is in progress the brand's live/partial results can flow into
@@ -759,6 +764,9 @@ export function PageOverview() {
   // First name only, and never an email fragment - fall back to a plain
   // greeting when the account has no display name.
   const firstName = (user?.name || '').trim().split(/\s+/)[0] || null;
+
+  // Every hook above runs unconditionally; the early return below is safe.
+  if (loading) return <OverviewSkeleton firstName={firstName} />;
 
   // With real data we only have the brand's own SOV history, so show just that
   // line rather than fabricated competitor trends. The demo overlay is kept for
@@ -925,10 +933,12 @@ function HBar({ label, v, sub }: { label: string; v: number; sub: string }) {
   );
 }
 
-// Loading placeholder for the score banner, shown while a scan is running so
-// the gauge + bars never bind to partial live data (which used to flash an
-// inflated "100 Excellent" before settling on the real score).
-function HealthBannerSkeleton() {
+// Loading placeholder for the score banner. Used in two states:
+//  - a scan is running, so the gauge + bars must not bind to partial live data
+//    (which used to flash an inflated "100 Excellent" before the real score);
+//  - the brand data is still being fetched, so there is nothing real to show
+//    yet and we must not fall back to the demo figures.
+function HealthBannerSkeleton({ grade = 'Scanning…', note = 'Calculating once the run completes', barNote = 'Scanning…' }: { grade?: string; note?: string; barNote?: string } = {}) {
   const bars = ['Visibility', 'Sentiment', 'Accuracy', 'Competitive'];
   return (
     <section className="hb" aria-busy="true">
@@ -936,8 +946,8 @@ function HealthBannerSkeleton() {
         <div style={{ width: 96, height: 96, borderRadius: '50%', border: '6px solid rgba(255,255,255,.18)', boxSizing: 'border-box' }} />
         <div>
           <div className="eyebrow" style={{ color: 'rgba(255,255,255,.7)' }}>BRAND HEALTH</div>
-          <div className="hb-grade" style={{ opacity: .8 }}>Scanning…</div>
-          <div className="hb-d"><span style={{ color: 'rgba(255,255,255,.7)' }}>Calculating once the run completes</span></div>
+          <div className="hb-grade" style={{ opacity: .8 }}>{grade}</div>
+          <div className="hb-d"><span style={{ color: 'rgba(255,255,255,.7)' }}>{note}</span></div>
         </div>
       </div>
       <div className="hb-bars">
@@ -948,11 +958,39 @@ function HealthBannerSkeleton() {
               <span className="hbar-v mono" style={{ opacity: .5 }}>-</span>
             </div>
             <div className="hbar-track"><i style={{ width: '0%' }} /></div>
-            <div className="hbar-sub">Scanning…</div>
+            <div className="hbar-sub">{barNote}</div>
           </div>
         ))}
       </div>
     </section>
+  );
+}
+
+/** Full-page loading state for the Overview.
+ *
+ *  This is the fix for the "sample data flashes on load" bug: `useOverviewData`
+ *  returns `null` while the brand fetch is in flight, and the page used to do
+ *  `data || buildFallback()`, which rendered the Acme PM demo numbers (27.4%
+ *  SOV, 1,284 mentions, Linear/Asana competitors) for the few hundred ms before
+ *  the real brand landed. We now render skeletons for that window instead, so
+ *  the sample figures are only ever shown in the state they're meant for - an
+ *  account with no brand connected at all. */
+function OverviewSkeleton({ firstName }: { firstName: string | null }) {
+  return (
+    <>
+      <PageHead
+        title={firstName ? <>Welcome back, <span style={{ color: 'var(--primary)' }}>{firstName}</span>.</> : <>Welcome back.</>}
+        sub={<>Loading your latest AI visibility data…</>}
+      />
+      <div className="page-body" aria-busy="true">
+        <HealthBannerSkeleton grade="Loading…" note="Fetching your latest scan" barNote="Loading…" />
+        <KpiCardsSkeleton count={5} />
+        <div className="g2">
+          <div style={{ gridColumn: 'span 2' }}><ChartSkeleton h={280} /></div>
+        </div>
+        <CardsSkeleton count={4} />
+      </div>
+    </>
   );
 }
 
