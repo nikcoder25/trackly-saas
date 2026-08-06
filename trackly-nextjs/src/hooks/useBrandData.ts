@@ -18,11 +18,11 @@ import { useRun, type LiveResult } from '@/contexts/RunContext';
  *   real time - the same data that drives the bottom-right toasts.
  */
 export function useBrandData({ fullData = false }: { fullData?: boolean } = {}) {
-  const { selectedBrand, brands, loading: contextLoading, refreshBrands } = useBrands();
+  const { selectedBrand, brands, loading: contextLoading, error: contextError, refreshBrands } = useBrands();
   const { live } = useRun();
   const [fullBrand, setFullBrand] = useState<Record<string, unknown> | null>(null);
   const [fullLoading, setFullLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [fullError, setFullError] = useState<string | null>(null);
 
   const brandId = selectedBrand?.id;
 
@@ -41,17 +41,23 @@ export function useBrandData({ fullData = false }: { fullData?: boolean } = {}) 
     }
     let cancelled = false;
     setFullLoading(true);
-    setError(null);
+    setFullError(null);
     fetchFullBrand(brandId)
       .then(b => { if (!cancelled) setFullBrand(b); })
       .catch(err => {
-        if (!cancelled) { setFullBrand(null); setError((err as Error)?.message || 'Failed to load brand data'); }
+        if (!cancelled) { setFullBrand(null); setFullError((err as Error)?.message || 'Failed to load brand data'); }
       })
       .finally(() => { if (!cancelled) setFullLoading(false); });
     return () => { cancelled = true; };
   }, [fullData, brandId, fetchFullBrand]);
 
   const baseBrand = fullData ? (fullBrand as typeof selectedBrand) : selectedBrand;
+  // Surface the brand-*list* failure alongside the full-brand fetch failure.
+  // Without this a consumer cannot tell "this account has no brands" from "we
+  // couldn't reach /api/brands" - both look like brands:[] + selectedBrand:null.
+  // The Overview relies on that distinction: the first is the one state where
+  // its sample dashboard is the right answer, the second must show a retry.
+  const error = contextError || fullError;
   // Hold `loading` true through the one-render gap between BrandContext
   // resolving and the fetch effect flipping `fullLoading` to true. Without
   // the `!fullBrand && !error` clause, the page briefly mounts with
@@ -69,7 +75,11 @@ export function useBrandData({ fullData = false }: { fullData?: boolean } = {}) 
       try {
         const b = await fetchFullBrand(brandId);
         setFullBrand(b);
-      } catch (err) { setError((err as Error)?.message || 'Failed to reload brand data'); }
+        // Clear a prior failure so a successful retry actually leaves the
+        // error state, rather than the consumer having to infer it from
+        // `brand` becoming non-null.
+        setFullError(null);
+      } catch (err) { setFullError((err as Error)?.message || 'Failed to reload brand data'); }
     }
   }, [fullData, brandId, refreshBrands, fetchFullBrand]);
 
