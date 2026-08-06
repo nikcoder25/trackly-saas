@@ -29,8 +29,23 @@ export interface RankTrackerFaq {
 export interface RankTracker {
   /** URL slug, e.g. "perplexity-rank-tracker" -> /perplexity-rank-tracker */
   slug: string;
-  /** Short engine name, e.g. "Perplexity" */
+  /**
+   * Short engine name used ATTRIBUTIVELY, i.e. inside a noun phrase:
+   * "Perplexity rank", "Automated ChatGPT runs", "LLM rank tracker".
+   */
   engine: string;
+  /**
+   * The same engine as a standalone noun - the form that reads correctly as the
+   * subject or object of a verb ("the URLs <subject> cites"). Defaults to
+   * `engine`, which is right for a single named engine. The category-level page
+   * needs a plural here ("LLMs") because "the URLs LLM cites" is not English.
+   */
+  engineSubject?: string;
+  /**
+   * True when `engineSubject` is plural, so the scaffolding drops the
+   * third-person -s ("LLMs cite" vs "ChatGPT cites"). Defaults to false.
+   */
+  enginePlural?: boolean;
   /** Full engine name, e.g. "Perplexity AI" */
   engineFull: string;
   /** Tailwind gradient stops for the hero accent */
@@ -193,6 +208,86 @@ export const rankTrackers: RankTracker[] = [
     otherHref: '/perplexity-rank-tracker',
     otherLabel: 'Perplexity rank tracker',
     otherDescription: 'Track your rankings in Perplexity answers too.',
+  },
+
+  // ── LLM (category level) ──────────────────────────────────────────────────
+  // The parent of the two engine pages above. Live SERP testing (Aug 2026) put
+  // "llm rank tracker" at Google Ads competition index 2, with the #1 organic
+  // result held by a help-doc subdomain at domain authority 8 - i.e. a
+  // documentation page outranking rankscale, mangools, nightwatch and
+  // keyword.com. The engine-level SERPs are far harder, so this page targets
+  // the category vocabulary ("llm ...") the incumbents have not saturated.
+  // Deliberately scoped to LLM/AI-wide terms so it cannot cannibalise the
+  // engine-specific pages: no "chatgpt rank tracker" or "perplexity rank
+  // tracker" terms appear in the keyword list below.
+  {
+    slug: 'llm-rank-tracker',
+    engine: 'LLM',
+    engineSubject: 'LLMs',
+    enginePlural: true,
+    engineFull: 'large language model',
+    gradientFrom: '#6366f1',
+    gradientTo: '#8b5cf6',
+    metaTitle: 'LLM Rank Tracker | Track Your Rank Across AI Models | Livesov',
+    metaDescription:
+      'The LLM rank tracker that records where your brand ranks across ChatGPT, Claude, Gemini, Perplexity, and Grok - and how that position moves over time. Free to start.',
+    keywords:
+      'llm rank tracker, llm rank tracking, llm rank tracker tool, free llm rank tracker, best llm rank tracker, llm tracker, llm visibility checker, llm seo rank tracking, large language model rank tracker, track llm rankings, llm brand rank tracker',
+    heroSubtitle:
+      'Livesov is the LLM rank tracker that records where your brand lands when large language models recommend options for your target prompts - across every major model, not just one. Benchmark competitors, capture the sources they cite, and start free with no credit card.',
+    stats: [
+      { value: '5', label: 'AI engines tracked' },
+      { value: '20', label: 'Competitors benchmarked' },
+      { value: '24/7', label: 'Automated rank tracking' },
+      { value: '7-day', label: 'Free trial, no card' },
+    ],
+    models: ['ChatGPT', 'Claude', 'Gemini', 'Perplexity', 'Grok'],
+    engineFeatureNote:
+      'Every model answers differently - one can rank you first while another omits you entirely - so an LLM rank tracker has to measure each engine separately and then roll them into a single cross-model position.',
+    whyHeading: 'Why track your rank across LLMs, not just one?',
+    whyParagraphs: [
+      'Buyers do not stay on one assistant. The same question gets asked in ChatGPT, Claude, Gemini, Perplexity, and Grok - and the answers disagree. Tracking a single engine tells you how you are doing on that engine, which is a fraction of the picture and can be badly misleading when your weakest engine is the one your buyers actually use.',
+      'A rank tracker built for Google cannot see any of this. LLM answers are generated rather than retrieved, they are non-deterministic, and each model has its own training data, retrieval stack, and citation behaviour. A one-off check on one model is noise dressed up as a metric.',
+      'Livesov runs your target prompts against all five engines on a schedule, runs each prompt several times to average out variance, records your position and the cited sources every time, and charts both the per-engine trend and your combined cross-model rank.',
+    ],
+    faqs: [
+      {
+        question: 'What is an LLM rank tracker?',
+        answer:
+          'An LLM rank tracker measures where your brand or pages appear when large language models list or recommend options for a set of target prompts, and how that position changes over time. Because LLM answers are generated and non-deterministic, it runs each prompt multiple times across multiple models and aggregates the results into a stable rank rather than reporting a single snapshot.',
+      },
+      {
+        question: 'How is an LLM rank tracker different from a normal rank tracker?',
+        answer:
+          'A traditional rank tracker reads a fixed list of ten blue links from a search engine. An LLM rank tracker reads a generated answer that changes between runs, varies by model, and often cites sources instead of ranking pages. That means multi-run sampling, per-model measurement, and citation capture - none of which a Google rank tracker does.',
+      },
+      {
+        question: 'Which LLMs does Livesov track?',
+        answer:
+          'ChatGPT, Claude, Gemini, Perplexity, and Grok, across multiple models per engine. You can view rank per engine or as a single combined cross-model position, so you can see both your overall standing and the specific engine dragging it down.',
+      },
+      {
+        question: 'Is there a free LLM rank tracker?',
+        answer:
+          'Livesov offers a 7-day free trial with no credit card, plus a free GEO audit and a set of free one-off tools that need no signup at all. That is enough to see your LLM rankings before paying anything. Paid plans start at $9/mo.',
+      },
+      {
+        question: 'Can I track competitor rankings across LLMs?',
+        answer:
+          'Yes. Livesov benchmarks up to 20 competitors on the same prompts across every tracked engine, so you can see who each model ranks above you, on which queries, and how the gap moves over time.',
+      },
+      {
+        question: 'How often should LLM rank be checked?',
+        answer:
+          'More often than Google rank, because the variance is higher. Livesov runs on a daily, 2-day, or weekly schedule depending on your plan, and runs each prompt several times per scheduled check so the number you see is an average rather than a single roll of the dice.',
+      },
+    ],
+    brandTrackingHref: '/chatgpt-brand-tracking',
+    brandTrackingLabel: 'AI brand tracking',
+    brandTrackingDescription: 'Track mentions and sentiment, not just rank.',
+    otherHref: '/chatgpt-rank-tracker',
+    otherLabel: 'ChatGPT rank tracker',
+    otherDescription: 'Drill into rank for ChatGPT specifically.',
   },
 ];
 

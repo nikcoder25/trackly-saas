@@ -11,13 +11,74 @@ interface Result {
   llmsTxt: string;
 }
 
+type CheckLevel = 'pass' | 'warn' | 'fail';
+
+interface ValidationCheck {
+  id: string;
+  label: string;
+  level: CheckLevel;
+  detail: string;
+}
+
+interface ValidationResult {
+  source: string;
+  score: number;
+  valid: boolean;
+  checks: ValidationCheck[];
+  stats: { sections: number; links: number; bytes: number };
+}
+
+const LEVEL_STYLE: Record<CheckLevel, { bg: string; fg: string; icon: string; label: string }> = {
+  pass: { bg: 'rgba(16,163,127,.10)', fg: '#0f766e', icon: '✓', label: 'PASS' },
+  warn: { bg: 'rgba(245,158,11,.12)', fg: '#b45309', icon: '!', label: 'WARN' },
+  fail: { bg: 'rgba(239,68,68,.10)', fg: '#b91c1c', icon: '✕', label: 'FAIL' },
+};
+
+type Mode = 'generate' | 'validate';
+
 export default function LlmsTxtGeneratorPage() {
+  const [mode, setMode] = useState<Mode>('generate');
   const [domain, setDomain] = useState('');
   const [honeypot, setHoneypot] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<Result | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // ── Validator state ──
+  const [validateUrl, setValidateUrl] = useState('');
+  const [validatePaste, setValidatePaste] = useState('');
+  const [validation, setValidation] = useState<ValidationResult | null>(null);
+
+  const switchMode = (next: Mode) => {
+    setMode(next);
+    setError('');
+  };
+
+  const handleValidate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (honeypot) return;
+    setError('');
+    setValidation(null);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/tools/llms-txt-validator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: validateUrl.trim(), content: validatePaste }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Something went wrong.');
+        return;
+      }
+      setValidation(data);
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,12 +127,80 @@ export default function LlmsTxtGeneratorPage() {
 
   return (
     <ToolPage
-      title={<>Free <span style={{ color: 'var(--brand)' }}>llms.txt</span> Generator</>}
-      subtitle="Build a valid llms.txt for your site in seconds. We crawl your sitemap and group URLs into clean sections."
-      toolName="llms.txt Generator"
+      title={<>Free <span style={{ color: 'var(--brand)' }}>llms.txt</span> Generator &amp; Validator</>}
+      subtitle="Build a valid llms.txt in seconds, or check an existing one against the spec. Free, no signup."
+      toolName="llms.txt Generator & Validator"
       toolSlug="llms-txt-generator"
     >
       <div style={cardStyle}>
+        <div
+          role="tablist"
+          aria-label="Tool mode"
+          style={{ display: 'flex', gap: 6, marginBottom: 22, background: '#f3f4f6', padding: 4, borderRadius: 10 }}
+        >
+          {([
+            ['generate', 'Generate'],
+            ['validate', 'Validate / check'],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              role="tab"
+              type="button"
+              aria-selected={mode === value}
+              onClick={() => switchMode(value)}
+              style={{
+                flex: 1,
+                padding: '9px 14px',
+                borderRadius: 7,
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: 13.5,
+                fontWeight: 600,
+                background: mode === value ? '#fff' : 'transparent',
+                color: mode === value ? '#1a1a2e' : '#6b7280',
+                boxShadow: mode === value ? '0 1px 3px rgba(0,0,0,.08)' : 'none',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {mode === 'validate' ? (
+          <form onSubmit={handleValidate}>
+            <div style={{ marginBottom: 18 }}>
+              <label htmlFor="validate-url" style={labelStyle}>llms.txt URL or domain</label>
+              <input
+                id="validate-url"
+                type="text"
+                placeholder="https://example.com/llms.txt"
+                value={validateUrl}
+                onChange={(e) => setValidateUrl(e.target.value)}
+                style={inputStyle}
+              />
+              <div style={{ marginTop: 6, fontSize: 12, color: '#6b7280' }}>
+                Give a bare domain and we&apos;ll look for <code>/llms.txt</code> automatically.
+              </div>
+            </div>
+            <div style={{ marginBottom: 18 }}>
+              <label htmlFor="validate-paste" style={labelStyle}>…or paste the file</label>
+              <textarea
+                id="validate-paste"
+                rows={7}
+                placeholder={'# Your Project\n\n> One-line summary\n\n## Docs\n- [Getting started](https://example.com/docs): How to begin'}
+                value={validatePaste}
+                onChange={(e) => setValidatePaste(e.target.value)}
+                style={{ ...inputStyle, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12.5, resize: 'vertical' }}
+              />
+              <div style={{ marginTop: 6, fontSize: 12, color: '#6b7280' }}>
+                Pasted content wins if you fill in both.
+              </div>
+            </div>
+            <PrimaryButton type="submit" loading={loading}>
+              {loading ? 'Checking...' : 'Validate llms.txt'}
+            </PrimaryButton>
+          </form>
+        ) : (
         <form onSubmit={handleSubmit}>
           <div style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }} aria-hidden="true" tabIndex={-1}>
             <label htmlFor="llms-website">Website</label>
@@ -96,10 +225,78 @@ export default function LlmsTxtGeneratorPage() {
             {loading ? 'Generating...' : 'Generate llms.txt'}
           </PrimaryButton>
         </form>
+        )}
         <ErrorBanner message={error} />
       </div>
 
-      {result && (
+      {mode === 'validate' && validation && (
+        <div style={{ marginTop: 24 }}>
+          <div style={cardStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 13, color: '#6b7280', wordBreak: 'break-all' }}>Checked {validation.source}</div>
+                <div style={{ fontSize: 14, color: '#1a1a2e', marginTop: 4 }}>
+                  <strong>{validation.stats.sections}</strong> section{validation.stats.sections !== 1 ? 's' : ''} ·{' '}
+                  <strong>{validation.stats.links}</strong> link{validation.stats.links !== 1 ? 's' : ''} ·{' '}
+                  {(validation.stats.bytes / 1024).toFixed(1)} KB
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{
+                  fontSize: 30, fontWeight: 700, lineHeight: 1,
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                  color: validation.score >= 80 ? '#0f766e' : validation.score >= 55 ? '#b45309' : '#b91c1c',
+                }}>
+                  {validation.score}
+                </div>
+                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 3, letterSpacing: '.06em' }}>
+                  {validation.valid ? 'VALID' : 'INVALID'} · / 100
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gap: 10 }}>
+              {validation.checks.map((c) => {
+                const s = LEVEL_STYLE[c.level];
+                return (
+                  <div key={c.id} style={{ display: 'flex', gap: 12, padding: '12px 14px', background: s.bg, borderRadius: 9 }}>
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        flexShrink: 0, width: 20, height: 20, borderRadius: '50%',
+                        background: s.fg, color: '#fff', fontSize: 12, fontWeight: 700,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1,
+                      }}
+                    >
+                      {s.icon}
+                    </span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: '#1a1a2e' }}>
+                        {c.label}{' '}
+                        <span style={{ fontSize: 10.5, fontWeight: 700, color: s.fg, letterSpacing: '.06em' }}>
+                          {s.label}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 13, color: '#4b5563', marginTop: 3, lineHeight: 1.55, overflowWrap: 'anywhere' }}>
+                        {c.detail}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p style={{ marginTop: 16, fontSize: 13, color: '#6b7280' }}>
+              Warnings do not make a file invalid - they are the difference between a file that parses
+              and one that actually earns citations. Switch to <strong>Generate</strong> to rebuild from your sitemap.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {mode === 'validate' && validation && <ToolEmailCapture source="llms-txt-validator" />}
+
+      {mode === 'generate' && result && (
         <div style={{ marginTop: 24 }}>
           <div style={cardStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
@@ -149,19 +346,19 @@ export default function LlmsTxtGeneratorPage() {
         </div>
       )}
 
-      {result && <ToolEmailCapture source="llms-txt-generator" />}
+      {mode === 'generate' && result && <ToolEmailCapture source="llms-txt-generator" />}
 
       <ToolArticle>
         <ArticleSchema
-          headline="Free llms.txt Generator: Build a Valid llms.txt File for Your Site in Seconds"
-          description="A complete guide to llms.txt - what it is, why AI engines reward it, the v0.1 spec, hosting, validation and best practice. Includes a free generator."
+          headline="Free llms.txt Generator & Validator: Build or Check a Valid llms.txt File"
+          description="A complete guide to llms.txt - what it is, why AI engines reward it, the v0.1 spec, hosting, validation and best practice. Includes a free generator and a free spec validator."
           url="https://livesov.com/tools/llms-txt-generator"
           datePublished="2026-05-01"
           dateModified="2026-05-06"
         />
 
         <AnswerCapsule>
-          <strong>llms.txt</strong> is a plain-text markdown file at the root of your domain (<code>/llms.txt</code>) that tells large language models like ChatGPT, Claude and Perplexity which URLs on your site are worth reading. This generator crawls your sitemap, groups URLs into clean sections and gives you a copy-paste-ready file in under 10 seconds. No signup.
+          <strong>llms.txt</strong> is a plain-text markdown file at the root of your domain (<code>/llms.txt</code>) that tells large language models like ChatGPT, Claude and Perplexity which URLs on your site are worth reading. This page does both jobs: the <strong>generator</strong> crawls your sitemap and gives you a copy-paste-ready file in under 10 seconds, and the <strong>validator</strong> checks an existing file against the spec and scores it out of 100. No signup for either.
         </AnswerCapsule>
 
         <KeyTakeaways
@@ -283,6 +480,18 @@ export default function LlmsTxtGeneratorPage() {
         </table>
 
         <h2>How to validate your llms.txt</h2>
+        <p>
+          The fastest route is the <strong>Validate / check</strong> tab at the top of this page: paste a file or
+          give it a domain, and it checks the file against the spec - one H1, the blockquote summary,
+          H2-grouped link sections, well-formed markdown links - then flags the quality problems that
+          make a technically-valid file useless, like relative URLs, duplicate entries, empty sections
+          and missing link descriptions. You get a pass/warn/fail on each rule and a score out of 100.
+        </p>
+        <p>
+          A file can be valid and still perform badly, so the checker separates the two. Errors mean an
+          LLM will mis-parse the file. Warnings mean it will parse it and then find nothing worth citing.
+          To verify the file is actually reachable and well-served, work through this by hand as well:
+        </p>
         <ol>
           <li>Visit <code>https://yourdomain.com/llms.txt</code> in a browser. You should see plain markdown, not a 404 or a HTML page.</li>
           <li>Check the response headers in DevTools. <code>content-type</code> should start with <code>text/</code>.</li>
@@ -376,6 +585,18 @@ export default function LlmsTxtGeneratorPage() {
 
         <FaqSection
           items={[
+            {
+              q: 'How do I check if my llms.txt is valid?',
+              a: 'Use the "Validate / check" tab at the top of this page. Paste your file or give it a domain and it checks the spec rules - exactly one H1 as the first content, an optional blockquote summary, H2-grouped sections, and well-formed `- [title](url)` links - then reports each rule as pass, warning or failure with a score out of 100. It needs no signup and does not store your file.',
+            },
+            {
+              q: 'What is the difference between an llms.txt validator and a checker?',
+              a: 'Nothing meaningful - the terms are used interchangeably for the same job: reading an llms.txt file and reporting whether it conforms to the spec. This tool does both under one tab. The useful distinction is between validity and quality: a file can pass every spec rule and still perform badly if its links are relative, duplicated, undescribed, or crammed 200-to-a-section. The checker reports those separately as warnings.',
+            },
+            {
+              q: 'Can I validate an llms.txt without publishing it first?',
+              a: 'Yes. Paste the file contents straight into the validator instead of giving it a URL - nothing has to be live. That is the usual workflow: generate, edit by hand, paste and check, then publish once it scores well.',
+            },
             {
               q: 'Do AI models actually read llms.txt today?',
               a: 'Yes, with growing support. Anthropic, Cursor, Mintlify, Continue, and a long list of vendors check for the file. Many web indexers (including the corpora that feed retrieval-augmented systems) treat it as a high-priority hint. Even where it is not consumed directly, having a clean manifest forces you to audit your information architecture, which improves AI visibility regardless.',
