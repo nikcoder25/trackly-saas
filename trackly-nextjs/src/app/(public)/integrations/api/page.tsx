@@ -165,7 +165,7 @@ export default function ApiIntegrationPage() {
           <h2>What teams build on the API</h2>
           <ul>
             <li><strong>Custom dashboards.</strong> Stream metrics into your own data warehouse, then visualise in Looker / Metabase / Tableau.</li>
-            <li><strong>White-label client reports.</strong> Agencies render branded PDFs nightly via the report endpoint.</li>
+            <li><strong>Custom client reports.</strong> Agencies pull metrics nightly via the API and render them inside their own reporting template.</li>
             <li><strong>CRM enrichment.</strong> Append AI share-of-voice to every account record in Salesforce or HubSpot.</li>
             <li><strong>Programmatic prompt management.</strong> Auto-generate prompt panels from a content calendar or product launch list.</li>
             <li><strong>Real-time PR rapid-response.</strong> Webhook into PagerDuty or Linear when a competitor lands a major citation.</li>

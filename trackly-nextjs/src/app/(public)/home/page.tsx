@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { MARKETING_NAV_LINKS } from '@/lib/marketing-nav';
+import { PRICING_PLANS } from '@/lib/constants';
 import { newsreader, hankenGrotesk } from './fonts';
 import '@/styles/livesov-home.css';
 
@@ -336,8 +337,21 @@ function X() {
 
 /* ─── Problem ─── */
 function Problem() {
-  const stats = [
-    { v: 68, suf: '%', l: 'of B2B buyers now consult an LLM before they shortlist vendors' },
+  // The 68% figure is a third-party claim, so it links to the page where we
+  // show the sourcing rather than sitting on the homepage unattributed. An
+  // uncited number is both a trust problem for humans and a citation problem
+  // for the AI engines this product exists to win - they attribute claims to
+  // whoever shows the source.
+  const stats: { v: number; suf: string; l: React.ReactNode }[] = [
+    {
+      v: 68, suf: '%',
+      l: (
+        <>
+          of B2B buyers now consult an LLM before they shortlist vendors{' '}
+          <Link href="/ai-search-statistics-2026" className="prob-stat-src">(source)</Link>
+        </>
+      ),
+    },
     { v: 0, suf: '', l: 'legacy SEO platforms that surface this in their dashboard today' },
     { v: 5, suf: '', l: 'AI engines Livesov queries on your behalf, every single day' },
   ];
@@ -563,7 +577,7 @@ function Compare() {
 function UseCases() {
   const cases = [
     { t: 'SaaS marketing teams', d: 'Track every prompt buyers ask about your category and catch the moment an engine starts recommending a competitor instead of you.', v: '50+', l: 'buyer-intent queries seeded at setup' },
-    { t: 'Agencies', d: 'Add GEO to your client deck without hiring an AI team. White-label reports, client workspaces, bulk audits.', v: '100', l: 'tracked prompts per Agency workspace' },
+    { t: 'Agencies', d: 'Add GEO to your client deck without hiring an AI team. Client-ready PDF reports, multi-brand workspaces, bulk audits.', v: '100', l: 'tracked prompts per Agency workspace' },
     { t: 'E-commerce brands', d: 'When a shopper asks an AI “what’s the best running shoe for flat feet”, be in the answer - and track every review-site citation.', v: '5 / 5', l: 'engines tracked for product queries' },
     { t: 'Enterprise brand teams', d: 'Catch hallucinations about your products before they spread, submit corrections, and get alerted when share of voice drops.', v: 'Daily', l: 'hallucination checks on every tracked prompt' },
   ];
@@ -600,23 +614,25 @@ function Tick() {
 }
 
 function Pricing() {
-  const tiers: { k: string; p: string; credits: string; s: string; f: string[]; cta: string; href: string; pri?: boolean; badge?: string }[] = [
-    {
-      k: 'Starter', p: '$9', credits: '750', s: 'Perfect for getting started',
-      f: ['3 brands', '15 tracked prompts', '2 AI platforms', 'Competitor tracking (3)', 'Auto-runs every 2 days', '20 GEO audits / month'],
-      cta: 'Start 7-day trial', href: '/signup', pri: false,
-    },
-    {
-      k: 'Pro', p: '$29', credits: '2,500', s: 'For growing businesses',
-      f: ['Unlimited brands', '25 tracked prompts', '3 AI platforms', 'Competitor tracking (8)', 'Daily auto-runs', 'Sentiment analysis', '75 GEO audits / month'],
-      cta: 'Start 7-day trial', href: '/signup', pri: true, badge: 'Most popular',
-    },
-    {
-      k: 'Agency', p: '$89', credits: '8,000', s: 'For agencies & teams',
-      f: ['Unlimited brands', '100 tracked prompts', '5 AI platforms (all)', 'Competitor tracking (20)', 'Premium AI models', 'Daily auto-runs', 'Sentiment analysis', 'White-label reports'],
-      cta: 'Contact sales', href: '/contact', pri: false,
-    },
-  ];
+  // Derived from PRICING_PLANS in src/lib/constants.ts - the same source the
+  // /pricing page reads. This used to be a hardcoded copy, and it had drifted:
+  // the homepage advertised "White-label reports" (a feature that does not
+  // exist) and sent Agency buyers to "Contact sales" while /pricing offered
+  // the same plan self-serve with a free trial. Two different stories about
+  // the top tier on the two highest-traffic pages. Deriving it means the
+  // homepage can never disagree with /pricing again.
+  const tiers = PRICING_PLANS.map((p) => ({
+    k: p.name,
+    price: p.price,
+    // headline is "8,000 AI credits/month" - the card renders the unit itself.
+    credits: p.headline.replace(/\s*AI credits\/month\s*$/i, ''),
+    s: p.sub,
+    f: p.features,
+    cta: p.cta,
+    href: '/signup',
+    pri: p.name === 'Pro',
+    badge: p.name === 'Pro' ? 'Most popular' : undefined,
+  }));
   return (
     <section className="section pricing" id="pricing">
       <div className="container">
@@ -631,7 +647,7 @@ function Pricing() {
             <Reveal key={t.k} className={'price-card' + (t.pri ? ' pri' : '')} delay={i * 70}>
               {t.badge && <span className="price-badge">{t.badge}</span>}
               <div className="price-k">{t.k}</div>
-              <div className="price-p"><span className="serif">{t.p}</span><i>/mo</i></div>
+              <div className="price-p"><span className="serif">{t.price}</span><i>/mo</i></div>
               <div className="price-incl">
                 <span className="price-incl-lbl">Includes</span>
                 <span className="price-incl-v"><b>{t.credits}</b> AI credits / month</span>

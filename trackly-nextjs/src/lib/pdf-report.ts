@@ -1,6 +1,8 @@
 // @ts-nocheck
 /**
- * PDF Report Generator - White-label AI Visibility Report.
+ * PDF Report Generator - branded AI Visibility Report.
+ * NOTE: output carries Livesov branding (see BRANDING below). There is no
+ * white-label / customer-branding capability; do not advertise one.
  *
  * Produces a polished, print-ready A4 report from a brand's stored runs.
  * Single entry point `generateReport(brand)` returns a PDFKit document

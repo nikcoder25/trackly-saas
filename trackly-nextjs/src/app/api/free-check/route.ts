@@ -19,8 +19,10 @@ export async function POST(req: NextRequest) {
     const { allowed, retryAfter } = await rateLimit(`free-check:${ip}`, 60 * 60 * 1000, 3);
     if (!allowed) return rateLimitResponse(retryAfter);
 
-    const body = await req.json();
-    const { brandName, industry } = body;
+    // A malformed body falls through to the 400 below rather than throwing
+    // into the catch-all as a 500 (see geo-audit/route.ts for the rationale).
+    const body = await req.json().catch(() => ({}));
+    const { brandName, industry } = body as { brandName?: unknown; industry?: unknown };
 
     if (!brandName || typeof brandName !== 'string' || !brandName.trim() || brandName.length > 200) {
       return Response.json({ error: 'Brand name is required (max 200 chars).' }, { status: 400 });

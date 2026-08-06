@@ -26,42 +26,50 @@ const DISPLAY_ORDER: ReadonlyArray<typeof GEO_AUDIT_PLATFORMS[number]> = [
   'ChatGPT', 'Claude', 'Perplexity', 'Gemini', 'Grok',
 ];
 
+// Structure follows the llms.txt spec literally, because our own free
+// validator at /tools/llms-txt-generator enforces it and a GEO product whose
+// own manifest fails its own checker is not a good look:
+//   - exactly one H1, first content in the file
+//   - a blockquote summary immediately after it
+//   - free prose BEFORE the first H2 (the spec allows this; putting the
+//     descriptive text here rather than under its own heading is what keeps
+//     every H2 section a real link list instead of a linkless section)
+//   - H2 sections whose bullets are `- [title](url): description` markdown
+//     links. The previous `- URL - Description` form parsed as zero links,
+//     which is the one thing the spec says a useful file must not be.
+const PLATFORM_LIST = DISPLAY_ORDER.map(name => `${name} (${VENDORS[name]})`).join(', ');
+
 const BODY = [
   '# Livesov',
   '',
-  '> AI brand-visibility tracking across ChatGPT, Claude, Perplexity, Gemini, and Grok. Monitor share-of-voice, run GEO audits, and surface optimization recommendations from a single dashboard.',
+  '> AI brand-visibility tracking across ChatGPT, Claude, Perplexity, Gemini, and Grok. Monitor share of voice, run GEO audits, and surface optimization recommendations from a single dashboard.',
   '',
-  '## What it is',
+  'Livesov is a SaaS platform that tracks how generative AI assistants reference brands. It runs scheduled prompts against five AI platforms, records mentions, computes share of voice against competitors, and produces GEO (generative engine optimization) audits with prioritized recommendations. It is built for marketing teams, agencies, and in-house growth teams as buyer discovery shifts from traditional search to AI assistants.',
   '',
-  'Livesov is a SaaS platform that tracks how generative AI assistants reference brands. It runs scheduled prompts against five AI platforms, records mentions, computes share-of-voice against competitors, and produces GEO (generative engine optimization) audits with prioritized recommendations.',
+  `Platforms queried for every tracked prompt and every GEO audit, on every plan: ${PLATFORM_LIST}.`,
   '',
-  "## Who it's for",
+  'Plans are Free, Starter, Pro, and Agency. Per-plan limits (credits, brands, audits) are deliberately not listed here, so this file can never drift from the live pricing page.',
   '',
-  'Marketing teams, agencies, and in-house growth teams that need to monitor and improve brand visibility in AI-generated answers as user discovery shifts from traditional search to AI assistants.',
+  '## Product',
   '',
-  '## AI platforms tracked',
+  `- [Homepage](${BASE_URL}/): What Livesov does and who it is for.`,
+  `- [Pricing](${BASE_URL}/pricing): Plans, credit maths, and twelve-month totals worked out per tier.`,
+  `- [How it works](${BASE_URL}/how-it-works): Setup, scheduling, and the measurement pipeline.`,
+  `- [LLM rank tracker](${BASE_URL}/llm-rank-tracker): Track brand rank across all five models at once.`,
   '',
-  'All five platforms are queried for every tracked prompt and every GEO audit, regardless of plan tier.',
+  '## Free tools',
   '',
-  ...DISPLAY_ORDER.map(name => `- ${name} (${VENDORS[name]})`),
+  `- [Free GEO audit](${BASE_URL}/geo-audit): Score any URL for AI citation-readiness in seconds.`,
+  `- [All free tools](${BASE_URL}/tools): The full tools hub; most need no signup.`,
+  `- [llms.txt generator and validator](${BASE_URL}/tools/llms-txt-generator): Build an llms.txt file, or check an existing one against this spec.`,
+  `- [ChatGPT mention checker](${BASE_URL}/tools/chatgpt-mention-checker): See whether ChatGPT names your brand for a prompt.`,
   '',
-  '## Pricing tiers',
+  '## Learn',
   '',
-  '- Free',
-  '- Starter',
-  '- Pro',
-  '- Agency',
-  '',
-  'Per-plan limits (credits, brands, audits) are not listed here to prevent drift between this document and the live pricing page. See /pricing for current details.',
-  '',
-  '## Key URLs',
-  '',
-  `- ${BASE_URL}/ - Homepage`,
-  `- ${BASE_URL}/pricing - Pricing`,
-  `- ${BASE_URL}/how-it-works - How it works`,
-  `- ${BASE_URL}/blog - Blog`,
-  `- ${BASE_URL}/tools - Free tools hub`,
-  `- ${BASE_URL}/geo-audit - Free GEO audit tool`,
+  `- [Blog](${BASE_URL}/blog): GEO tactics, AI-search research, and product updates.`,
+  `- [LLM SEO guide](${BASE_URL}/learn/llm-seo): How visibility works inside language models.`,
+  `- [Glossary](${BASE_URL}/glossary): Definitions for AI-search and GEO terminology.`,
+  `- [AI search statistics 2026](${BASE_URL}/ai-search-statistics-2026): Sourced data on AI-search adoption.`,
   '',
 ].join('\n');
 

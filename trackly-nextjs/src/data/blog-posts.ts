@@ -511,7 +511,7 @@ Promptwatch is primarily ChatGPT-focused. If you need Perplexity, Gemini, Claude
 
 ### Which tool is best for agencies?
 
-Agencies need multi-client dashboards, competitor benchmarking, and white-label-friendly exports. Livesov's evidence export and multi-brand tracking are built for that; see the [agency guide](/blog/ai-brand-monitoring-for-agencies).
+Agencies need multi-client dashboards, competitor benchmarking, and exports they can build client reporting on. Livesov's evidence export and multi-brand tracking are built for that; see the [agency guide](/blog/ai-brand-monitoring-for-agencies).
 
 ### Can I try Livesov before committing?
 
@@ -1443,7 +1443,7 @@ You can't improve what you can't measure. [Start tracking your Share of Voice](h
   {
     slug: 'ai-brand-monitoring-for-agencies',
     title: 'AI Brand Monitoring for Agencies: 2026 Playbook',
-    description: 'How agencies can offer AI brand monitoring as a premium service. Pricing, deliverables, and white-label report templates.',
+    description: 'How agencies can offer AI brand monitoring as a premium service. Pricing, deliverables, and client report templates.',
     tag: 'Agency',
     date: '2026-04-10',
     readTime: '6 min read',
@@ -1521,8 +1521,8 @@ Track up to 20 brands from one account. Perfect for:
 - Running competitive audits
 - Comparing performance across clients
 
-### White-Label Reporting
-Export data in CSV format to build branded reports:
+### Build Your Own Branded Reports
+Export data in CSV format and drop it into your own report template:
 - SOV trends over time
 - Platform-by-platform breakdown
 - Competitor comparison charts
