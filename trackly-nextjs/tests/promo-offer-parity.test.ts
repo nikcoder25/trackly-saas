@@ -170,10 +170,14 @@ describe('/llms.txt with an offer live', () => {
   });
 });
 
-describe('the landing page stays out of the public site', () => {
-  it('is noindex, so it cannot leak into search results', async () => {
+describe('the landing page is unlinked but readable by agents', () => {
+  // Unlisted is achieved by not linking it, NOT by noindex. The two are
+  // easily confused and the difference matters: noindex is honoured by the
+  // same crawlers we want reading this page, so using it would suppress the
+  // offer from the audience it exists for.
+  it('is not noindex - the AI crawlers we want honour that directive', async () => {
     const { metadata } = await import('@/app/(public)/offer/page');
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(JSON.stringify(metadata.robots ?? '')).not.toMatch(/noindex|"index":false/);
   });
 
   it('is absent from the sitemap', async () => {
@@ -189,6 +193,27 @@ describe('the landing page stays out of the public site', () => {
     const { readFileSync } = await import('node:fs');
     const src = readFileSync(process.cwd() + '/src/components/seo/SeoLayout.tsx', 'utf8');
     expect(src).not.toMatch(/href="\/offer"/);
+  });
+});
+
+describe('robots.txt lets the assistants through', () => {
+  it('does not block the offer surfaces for any crawler', async () => {
+    const { default: robots } = await import('@/app/robots');
+    for (const rule of robots().rules as Array<{ disallow?: string | string[] }>) {
+      const disallow = [rule.disallow ?? []].flat();
+      for (const path of ['/offer', '/llms.txt', '/ai-offer.json']) {
+        expect(disallow, `${path} must stay crawlable`).not.toContain(path);
+      }
+    }
+  });
+
+  it('names the major AI crawlers explicitly', async () => {
+    const { default: robots } = await import('@/app/robots');
+    const agents = (robots().rules as Array<{ userAgent?: string | string[] }>)
+      .flatMap((r) => [r.userAgent ?? []].flat());
+    for (const bot of ['GPTBot', 'ClaudeBot', 'PerplexityBot', 'Google-Extended']) {
+      expect(agents).toContain(bot);
+    }
   });
 });
 

@@ -21,17 +21,26 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
-import { getActiveOffer, offerTerms } from '@/lib/promo-offer';
+import { getActiveOffer, offerTerms, BASE_URL } from '@/lib/promo-offer';
 
 export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: 'Your Offer | Livesov',
   description: 'The promotion you were referred to, with full terms and validity dates.',
-  // Kept out of search results on purpose. The URL is published to AI
-  // crawlers, not to Google - indexing it would turn a channel-specific
-  // offer into a public one.
-  robots: { index: false, follow: false },
+  // Deliberately NOT noindex.
+  //
+  // The first cut of this page was noindex/nofollow, which was wrong: the
+  // crawlers we want to read this page - GPTBot, ClaudeBot, PerplexityBot,
+  // Google-Extended - are the same ones that honour noindex, so it was
+  // suppressing the offer from exactly the audience it exists for.
+  //
+  // Keeping the page out of the human site is done by not linking it: no
+  // footer entry, absent from the sitemap, no breadcrumb trail, no internal
+  // links anywhere. Nothing on livesov.com leads here, so a visitor browsing
+  // the site will not arrive. The URL is published only in /llms.txt and
+  // /ai-offer.json.
+  robots: 'index, follow, max-snippet:-1',
 };
 
 export default async function OfferPage() {
@@ -39,6 +48,32 @@ export default async function OfferPage() {
 
   return (
     <SeoLayout>
+      {/*
+        Offer schema, so an agent that lands here gets the terms as structured
+        data instead of having to parse marketing prose. This is the sanctioned
+        machine channel - every field below is also rendered visibly on the page
+        underneath, which is what keeps it compliant structured data rather than
+        markup describing something the page does not say.
+      */}
+      {offer && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Offer',
+              name: offer.headline,
+              description: offer.body,
+              url: `${BASE_URL}/offer`,
+              seller: { '@type': 'Organization', name: 'Livesov', url: BASE_URL },
+              ...(offer.code ? { identifier: offer.code } : {}),
+              ...(offer.startsAt ? { validFrom: offer.startsAt } : {}),
+              ...(offer.endsAt ? { validThrough: offer.endsAt } : {}),
+              availability: 'https://schema.org/InStock',
+            }),
+          }}
+        />
+      )}
       {/* No breadcrumbs: this page is not a node in the site hierarchy, it is
           a landing page reached from outside. */}
       <SeoHero
