@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GEO_AUDIT_PLATFORMS } from '@/lib/geo-audits';
+import { getActiveOffer, offerSurfaces } from '@/lib/promo-offer';
 
 // llms.txt - discovery file for AI crawlers per https://llmstxt.org/
 // Factual product description; per-plan limits intentionally omitted
@@ -39,7 +40,7 @@ const DISPLAY_ORDER: ReadonlyArray<typeof GEO_AUDIT_PLATFORMS[number]> = [
 //     which is the one thing the spec says a useful file must not be.
 const PLATFORM_LIST = DISPLAY_ORDER.map(name => `${name} (${VENDORS[name]})`).join(', ');
 
-const BODY = [
+const STATIC_BODY = [
   '# Livesov',
   '',
   '> AI brand-visibility tracking across ChatGPT, Claude, Perplexity, Gemini, and Grok. Monitor share of voice, run GEO audits, and surface optimization recommendations from a single dashboard.',
@@ -73,15 +74,27 @@ const BODY = [
   '',
 ].join('\n');
 
-export const dynamic = 'force-static';
-export const revalidate = 86400;
+// Was `force-static` with a 24h revalidate. The offer section is read from
+// the database, so the body can no longer be baked at build time - a promo
+// that ends is a promo that has to stop being served without a redeploy.
+// 5 minutes is the compromise: still cheap for crawlers, still responsive
+// to switching the offer off in the admin panel.
+export const revalidate = 300;
 
 export async function GET() {
-  return new NextResponse(BODY, {
+  // The offer section is appended AFTER the static sections so that a
+  // crawler truncating the file still gets the product links. `offerSurfaces`
+  // returns an empty string when no offer is live, which keeps the manifest
+  // byte-identical to its pre-offer form - including for the dogfood test,
+  // which runs without a database.
+  const { llmsTxtSection } = offerSurfaces(await getActiveOffer());
+  const body = llmsTxtSection ? STATIC_BODY + llmsTxtSection : STATIC_BODY;
+
+  return new NextResponse(body, {
     status: 200,
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
-      'Cache-Control': 'public, max-age=86400, must-revalidate',
+      'Cache-Control': 'public, max-age=300, must-revalidate',
     },
   });
 }

@@ -9,6 +9,7 @@ import GoogleAnalytics from '@/components/GoogleAnalytics';
 import MicrosoftClarity from '@/components/MicrosoftClarity';
 import { NonceProvider } from '@/components/NonceProvider';
 import CsrfFetchInterceptor from '@/components/CsrfFetchInterceptor';
+import AttributionTracker from '@/components/AttributionTracker';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -71,10 +72,24 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         <meta name="theme-color" content="#6366f1" />
         <link rel="dns-prefetch" href="https://accounts.google.com" />
+        {/*
+          Machine-discovery for the two agent-facing endpoints, on every page.
+          An AI crawler that lands on any URL of ours can find the manifest and
+          the current offer without having to guess /llms.txt exists or parse it
+          for links. `rel="alternate"` is the standard mechanism for "the same
+          information, in a format for machines" - the same role RSS autodiscovery
+          plays - so this is a documented channel, not hidden content: it adds no
+          text to the page and changes nothing a human sees.
+        */}
+        <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt" />
+        <link rel="alternate" type="application/json" href="/ai-offer.json" title="Current offer" />
       </head>
       <body style={{ fontFamily: "var(--font)" }} suppressHydrationWarning>
         <NonceProvider nonce={nonce}>
           <CsrfFetchInterceptor />
+          {/* Records the landing referrer / UTM tags once per session, so the
+              signup form can compare them against the user's own answer. */}
+          <AttributionTracker />
           <ProgressBar />
           <AuthProvider>
             {children}
