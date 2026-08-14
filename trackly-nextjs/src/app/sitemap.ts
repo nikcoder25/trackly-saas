@@ -125,9 +125,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // Content pages
     { url: `${BASE_URL}/blog`, lastModified: new Date('2026-04-01'), changeFrequency: 'weekly', priority: 0.7 },
     { url: `${BASE_URL}/changelog`, lastModified: new Date('2026-04-01'), changeFrequency: 'weekly', priority: 0.5 },
-    // Human-readable twin of /ai-offer.json. Indexable on purpose: the offer
-    // we publish to AI crawlers has to be findable by people too.
-    { url: `${BASE_URL}/offer`, lastModified: new Date('2026-08-14'), changeFrequency: 'weekly', priority: 0.6 },
+    // NOTE: /offer is deliberately NOT listed here. It is the redemption
+    // landing page for the AI-channel offer, reachable only via the link
+    // published in /llms.txt and /ai-offer.json - the same way a podcast or
+    // affiliate code has a landing page that is not part of site navigation.
+    // Adding it to the sitemap would put it in search results and defeat the
+    // point. See src/lib/promo-offer.ts.
     { url: `${BASE_URL}/glossary`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/best`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/case-studies`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.7 },

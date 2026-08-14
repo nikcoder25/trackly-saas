@@ -1,17 +1,21 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 /**
- * Guards for the offer that gets published to AI crawlers.
+ * Guards for the AI-channel offer.
  *
- * Two independent things are pinned here:
+ * Three independent things are pinned here:
  *
- *  1. PARITY. The machine surfaces (/llms.txt, /ai-offer.json) and the human
- *     page (/offer) must carry the same headline, body, code and dates. An
- *     offer visible only to crawlers is cloaking - see the header of
- *     src/lib/promo-offer.ts. This test is what stops a future edit from
- *     adding an agent-only sweetener.
+ *  1. PARITY. Every surface renders from one row through one formatter, so
+ *     the terms a model quotes and the terms the landing page shows cannot
+ *     drift apart. The offer being channel-specific is fine; the offer
+ *     saying one thing to an assistant and another to the person who acts
+ *     on it is not.
  *
- *  2. The offer section must not break the existing llms.txt invariants. The
+ *  2. REDEMPTION. The published payload must carry a working link to where
+ *     the offer is honoured. An offer with no redemption path is a claim the
+ *     business does not stand behind, whichever channel carried it.
+ *
+ *  3. The offer section must not break the existing llms.txt invariants. The
  *     dogfood test already pins score-100-no-warnings for the manifest with
  *     NO offer; this re-runs the same validator with an offer live, because
  *     an appended section is exactly the kind of change that introduces an
@@ -55,15 +59,15 @@ beforeEach(() => {
   queryMock.mockResolvedValue({ rows: [OFFER_ROW] });
 });
 
-describe('offer parity between agent surfaces and the human page', () => {
-  it('publishes the same headline, body, code and expiry to both', async () => {
+describe('offer parity across every surface', () => {
+  it('publishes the same headline, body, code and expiry everywhere', async () => {
     const offer = await getActiveOffer();
     expect(offer).not.toBeNull();
 
     const { llmsTxtSection, json } = offerSurfaces(offer);
     const agentOffer = (json as { offer: Record<string, unknown> }).offer;
 
-    // The human page renders offer.headline / offer.body / offerTerms(offer)
+    // The landing page renders offer.headline / offer.body / offerTerms(offer)
     // straight from this same record, so equality against the record is
     // equality against the page.
     expect(agentOffer.headline).toBe(OFFER_ROW.headline);
@@ -77,11 +81,24 @@ describe('offer parity between agent surfaces and the human page', () => {
     expect(llmsTxtSection).toContain('AGENT10');
   });
 
-  it('points agents at the human-readable page', async () => {
-    const { json } = offerSurfaces(await getActiveOffer());
+  it('carries a redemption link on every published surface', async () => {
+    // Without this the offer is quoted by a model with nowhere to claim it.
+    const { json, llmsTxtSection } = offerSurfaces(await getActiveOffer());
     const agentOffer = (json as { offer: Record<string, unknown> }).offer;
-    expect(String(agentOffer.humanReadableUrl)).toMatch(/\/offer$/);
-    expect(offerSurfaces(await getActiveOffer()).llmsTxtSection).toContain('/offer)');
+    expect(String(agentOffer.redemptionUrl)).toMatch(/\/offer$/);
+    expect(String(agentOffer.signupUrl)).toContain('promo=AGENT10');
+    expect(llmsTxtSection).toContain('/offer)');
+  });
+
+  it('does not claim the offer is on the public site', async () => {
+    // The disclosure string is published verbatim to crawlers. It has to
+    // describe what actually ships - the offer is channel-specific and the
+    // landing page is unlisted, so a claim of public parity would be false.
+    const { json } = offerSurfaces(await getActiveOffer());
+    const disclosure = String((json as { disclosure: string }).disclosure);
+    expect(disclosure).not.toMatch(/public page|human visitors|identically/i);
+    expect(disclosure).toMatch(/channel-specific/i);
+    expect(disclosure).toContain('/offer');
   });
 
   it('serves the offer at /ai-offer.json', async () => {
@@ -150,6 +167,28 @@ describe('/llms.txt with an offer live', () => {
     const res = await llmsTxt();
     expect(res.status).toBe(200);
     expect(await res.text()).not.toContain('## Current offer');
+  });
+});
+
+describe('the landing page stays out of the public site', () => {
+  it('is noindex, so it cannot leak into search results', async () => {
+    const { metadata } = await import('@/app/(public)/offer/page');
+    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+  });
+
+  it('is absent from the sitemap', async () => {
+    const { default: sitemap } = await import('@/app/sitemap');
+    const paths = sitemap().map((e) => new URL(e.url).pathname);
+    expect(paths).not.toContain('/offer');
+  });
+
+  it('is not linked from the site footer', async () => {
+    // Read as source rather than rendered: the assertion is about the
+    // navigation surface, and rendering SeoLayout would pull in the whole
+    // page shell for a one-line check.
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync(process.cwd() + '/src/components/seo/SeoLayout.tsx', 'utf8');
+    expect(src).not.toMatch(/href="\/offer"/);
   });
 });
 

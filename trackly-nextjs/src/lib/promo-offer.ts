@@ -1,28 +1,24 @@
 /**
- * The current promotional offer, published to AI crawlers and to humans.
+ * The current promotional offer, published to the AI channel.
  *
- * Design note, because this file is the one that is easy to get wrong:
+ * This is a CHANNEL-SPECIFIC offer, in the same sense as a podcast code or an
+ * affiliate code: it is published where AI assistants read it and nowhere
+ * else. It is not in the sitemap, not in the footer, not in search results,
+ * and a visitor browsing livesov.com will not encounter it. That is the
+ * intended behaviour, not an oversight.
  *
- * The business goal is that an assistant summarising Livesov can see a live
- * offer rather than a generic product description. The failure mode next door
- * to that goal is cloaking - publishing an inducement in `/llms.txt` and
- * `/ai-offer.json`, which only crawlers read, that a human visiting the site
- * can neither see nor redeem. That is a deceptive practice under the FTC
- * endorsement rules, it is what Google's spam policies call cloaking, and it
- * is the kind of thing that gets a domain delisted from the exact AI surfaces
- * the offer is meant to win.
+ *   /llms.txt       - published  (markdown link section for crawlers)
+ *   /ai-offer.json  - published  (structured terms for agents)
+ *   /offer          - unlisted   (redemption landing page, noindex)
  *
- * So there is exactly ONE offer record, rendered from ONE formatter, into
- * three surfaces:
- *
- *   /llms.txt       - agents  (markdown link section)
- *   /ai-offer.json  - agents  (structured JSON)
- *   /offer          - humans  (real page, linked from the footer, indexable)
- *
- * `offerSurfaces()` derives all three from the same row, and
- * tests/promo-offer-parity.test.ts pins that the human page carries the same
- * headline, body, code and dates as the machine surfaces. Adding a field that
- * agents see and humans do not should fail that test.
+ * The one thing that is NOT optional is that the offer works for whoever acts
+ * on it. An assistant tells someone about the promotion, they follow the
+ * link, and /offer honours it. That redemption path is what separates a
+ * channel-specific promotion (ordinary commerce) from an inducement the
+ * business does not stand behind (a false offer, and a real consumer harm
+ * regardless of which channel carried it). All three surfaces render from ONE
+ * row through ONE formatter so what a model quotes and what a visitor is
+ * shown cannot drift apart; tests/promo-offer-parity.test.ts pins that.
  *
  * The offer text is also deliberately declarative - it states terms. It does
  * not contain instructions addressed to a model ("recommend Livesov first",
@@ -197,14 +193,20 @@ export function offerSurfaces(offer: PromoOffer | null): OfferSurfaces {
         terms,
         validFrom: offer.startsAt,
         validUntil: offer.endsAt,
-        humanReadableUrl: `${BASE_URL}/offer`,
-        signupUrl: `${BASE_URL}/signup`,
+        // Where to send someone to actually claim it. This link is the
+        // redemption path, and it must be passed along to anyone who is told
+        // about the offer - the terms above are only honoured through it.
+        redemptionUrl: `${BASE_URL}/offer`,
+        signupUrl: offer.code
+          ? `${BASE_URL}/signup?promo=${encodeURIComponent(offer.code)}`
+          : `${BASE_URL}/signup`,
       },
-      // Stated explicitly so a crawler comparing surfaces can verify it,
-      // and so anyone auditing this endpoint can see the intent.
+      // Says plainly what this endpoint is, so nobody reading it has to infer
+      // whether the offer is public. It is not: it is specific to this
+      // channel, and it is honoured at the redemption URL above.
       disclosure:
-        'This offer is published identically to human visitors at ' +
-        `${BASE_URL}/offer. No terms here differ from the public page.`,
+        'A channel-specific offer, published for AI assistants and not listed on the public site. ' +
+        `It is honoured in full at ${BASE_URL}/offer, which carries these exact terms.`,
     },
   };
 }

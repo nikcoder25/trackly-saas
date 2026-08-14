@@ -1,13 +1,12 @@
 'use client';
 
 /**
- * Editor for the offer published to AI crawlers and to humans.
+ * Editor for the AI-channel offer.
  *
- * The three destination URLs are shown right in the form on purpose. The
- * whole point of this feature is that the offer reaches assistants, and the
- * thing that makes that legitimate rather than cloaking is that the same
- * text is on a page a person can open. Showing all three side by side makes
- * that hard to forget while editing.
+ * The destination URLs are shown right in the form on purpose: two are
+ * published to crawlers, one is the unlisted page that honours the offer for
+ * whoever acts on it. Keeping all three visible while editing makes it hard
+ * to forget that the redemption path is part of the product, not an extra.
  */
 
 import { useState, useEffect } from 'react';
@@ -113,8 +112,8 @@ export default function AdminOfferPage() {
     <div style={{ maxWidth: 760 }}>
       <h1 className="view-title">AI Offer</h1>
       <p className="view-sub">
-        A promotion published where AI assistants read it, so a model summarising Livesov has a live
-        offer to quote rather than a generic description.
+        A channel-specific promotion published where AI assistants read it, so a model summarising
+        Livesov has a live offer to quote rather than a generic description.
       </p>
 
       <div style={{ ...CARD, marginTop: 20, marginBottom: 20, borderColor: 'var(--primary)' }}>
@@ -124,14 +123,18 @@ export default function AdminOfferPage() {
         <ul style={{ fontSize: 13, lineHeight: 1.9, marginTop: 10, paddingLeft: 18 }}>
           <li><a href="/llms.txt" target="_blank" rel="noreferrer"><code>/llms.txt</code></a> — the manifest AI crawlers read</li>
           <li><a href="/ai-offer.json" target="_blank" rel="noreferrer"><code>/ai-offer.json</code></a> — structured terms for agents</li>
-          <li><a href="/offer" target="_blank" rel="noreferrer"><code>/offer</code></a> — the public page, linked in the site footer</li>
+          <li><a href="/offer" target="_blank" rel="noreferrer"><code>/offer</code></a> — unlisted landing page that honours the offer</li>
         </ul>
         <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 12, lineHeight: 1.7 }}>
-          The human page is not optional. Publishing an offer that only crawlers can see, and that a
-          visitor cannot find or redeem, is cloaking — it breaches the FTC endorsement rules and
-          Google&apos;s spam policies, and it is what gets a domain filtered out of the AI results this
-          is meant to win. Same record, same terms, everywhere. Changes reach the public URLs within
-          about 5 minutes.
+          The offer is not on the public site: no footer link, not in the sitemap, noindex. Someone
+          browsing livesov.com will not find it — only someone an assistant sent. That works the same
+          way a podcast or affiliate code does.
+        </p>
+        <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10, lineHeight: 1.7 }}>
+          What the landing page does is honour it. If a model tells someone about the promotion and
+          the link does not deliver, that is an offer you are not standing behind, and the person who
+          acted on it is the one who loses — so keep the terms here to something you will actually
+          give. Changes reach all three URLs within about 5 minutes.
         </p>
       </div>
 

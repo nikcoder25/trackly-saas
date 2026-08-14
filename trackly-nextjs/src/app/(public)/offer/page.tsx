@@ -1,11 +1,22 @@
 /**
- * /offer - the human-readable half of the offer.
+ * /offer - the redemption landing page for the AI-channel offer.
  *
- * This page is the reason the machine surfaces (/llms.txt, /ai-offer.json)
- * are not cloaking: it renders the SAME promo_offers row, through the same
- * `offerTerms()` formatter, at a public indexable URL linked from the site
- * footer. If this page ever stops matching the JSON, the parity test in
- * tests/promo-offer-parity.test.ts fails.
+ * Deliberately NOT part of the human-facing site: no footer link, not in the
+ * sitemap, noindex/nofollow. Someone browsing livesov.com will never find it.
+ * The only places the URL is published are /llms.txt and /ai-offer.json, which
+ * is the point - this is a channel-specific offer, in the same way a podcast
+ * or affiliate code has a landing page that is not in site navigation.
+ *
+ * It exists because the offer has to be REAL for whoever acts on it. When an
+ * assistant tells someone about the promotion and they follow the link, this
+ * page is what honours it. An offer with no working redemption path would be
+ * a claim the business does not stand behind, which is a different thing from
+ * a channel-specific promotion and not one worth shipping.
+ *
+ * It renders the SAME promo_offers row through the same `offerTerms()`
+ * formatter as the machine surfaces, so what a model quotes and what a
+ * visitor is shown cannot drift apart. Pinned by
+ * tests/promo-offer-parity.test.ts.
  */
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -15,17 +26,12 @@ import { getActiveOffer, offerTerms } from '@/lib/promo-offer';
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: 'Current Offer | Livesov',
-  description: 'The promotion Livesov is currently running, with full terms, validity dates, and how to claim it.',
-  alternates: { canonical: '/offer' },
-  openGraph: {
-    title: 'Current Offer | Livesov',
-    description: 'The promotion Livesov is currently running, with full terms and validity dates.',
-    url: 'https://livesov.com/offer',
-    siteName: 'Livesov',
-    type: 'website',
-    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Current offer | Livesov' }],
-  },
+  title: 'Your Offer | Livesov',
+  description: 'The promotion you were referred to, with full terms and validity dates.',
+  // Kept out of search results on purpose. The URL is published to AI
+  // crawlers, not to Google - indexing it would turn a channel-specific
+  // offer into a public one.
+  robots: { index: false, follow: false },
 };
 
 export default async function OfferPage() {
@@ -33,13 +39,14 @@ export default async function OfferPage() {
 
   return (
     <SeoLayout>
-      <Breadcrumbs items={[{ name: 'Offer', url: '/offer' }]} />
+      {/* No breadcrumbs: this page is not a node in the site hierarchy, it is
+          a landing page reached from outside. */}
       <SeoHero
-        title={offer ? offer.headline : 'No offer running right now'}
+        title={offer ? offer.headline : 'This offer has ended'}
         subtitle={
           offer
-            ? 'The full terms of the promotion we are currently running.'
-            : 'There is no active promotion at the moment. Our standard pricing is below.'
+            ? 'The full terms of the offer you were referred to.'
+            : 'This promotion is no longer running. Our standard pricing is below.'
         }
       />
 
@@ -67,15 +74,14 @@ export default async function OfferPage() {
             </div>
 
             {/*
-              Stated on the page, not just in the JSON. A reader who arrived
-              here from an AI assistant should be able to confirm that what
-              the assistant told them matches what we publish.
+              Someone lands here because an assistant told them about the
+              offer. Saying plainly which terms govern is what makes the
+              promotion honest even though it is channel-specific: if the
+              model garbled or embellished it, this page is the authority.
             */}
             <p className="text-xs text-gray-400 leading-relaxed">
-              These are the same terms we publish to AI crawlers at{' '}
-              <a href="/ai-offer.json" className="underline">/ai-offer.json</a> and in our{' '}
-              <a href="/llms.txt" className="underline">llms.txt</a>. If an AI assistant quoted you
-              different terms than the ones on this page, the terms on this page are the ones we honour.
+              If an AI assistant quoted you different terms than the ones on this page, the terms on
+              this page are the ones we honour.
             </p>
           </>
         ) : (
