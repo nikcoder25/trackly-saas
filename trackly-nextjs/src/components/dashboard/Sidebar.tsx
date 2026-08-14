@@ -5,50 +5,8 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRun } from '@/contexts/RunContext';
 import { useBrands } from '@/contexts/BrandContext';
-
-const navGroups = [
-  {
-    label: 'Dashboard',
-    items: [
-      { href: '/dashboard', label: 'Overview', icon: '📊' },
-      { href: '/dashboard/mentions', label: 'Mentions', icon: '◎' },
-      { href: '/dashboard/proof', label: 'Evidence & Proof', icon: '◆' },
-      { href: '/dashboard/platforms', label: 'Platform Status', icon: '●' },
-    ],
-  },
-  {
-    label: 'Analysis',
-    items: [
-      { href: '/dashboard/competitors', label: 'Competitors', icon: '⊘' },
-      { href: '/dashboard/trends', label: 'SOV Trends', icon: '◆' },
-      { href: '/dashboard/accuracy', label: 'Accuracy Monitor', icon: '◎' },
-      { href: '/dashboard/citations', label: 'Citations', icon: '◇' },
-      { href: '/dashboard/results', label: 'Results', icon: '☰' },
-      { href: '/dashboard/query-tracker', label: 'Query Tracker', icon: '◈' },
-      { href: '/dashboard/recommendations', label: 'Recommendations', icon: '◆' },
-    ],
-  },
-  {
-    label: 'Tools',
-    items: [
-      { href: '/dashboard/reports', label: 'Reports', icon: '🗂️' },
-      { href: '/dashboard/geo-audit', label: 'GEO Audit', icon: '◉' },
-      { href: '/dashboard/geo-audits', label: 'Regional Audits', icon: '🌍' },
-      { href: '/dashboard/nap-audits', label: 'NAP Audits', icon: '📍' },
-    ],
-  },
-  {
-    label: 'Settings',
-    items: [
-      { href: '/dashboard/setup', label: 'Brand Setup', icon: '◇' },
-      { href: '/dashboard/prompts', label: 'Tracked Prompts', icon: '⚡' },
-      { href: '/dashboard/account', label: 'Account & Plan', icon: '◉' },
-      { href: '/dashboard/billing', label: 'Billing & Usage', icon: '◆' },
-{ href: '/dashboard/alerts', label: 'Alerts', icon: '◈' },
-      { href: '/dashboard/admin', label: 'Admin Panel', icon: '⚑', adminOnly: true },
-    ],
-  },
-];
+// Shared with the command palette so both offer the same destinations.
+import { navGroups } from '@/lib/dashboard-nav';
 
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname();

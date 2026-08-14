@@ -17,6 +17,7 @@ import { useBrands } from '@/contexts/BrandContext';
 import { useRun, markPendingFirstRun } from '@/contexts/RunContext';
 import { Logo } from '@/app/dashboard-v2/ui';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
+import CommandPalette from '@/components/dashboard/CommandPalette';
 import '@/app/dashboard-v2/dashboard-v2.css';
 
 interface NavItem { id: string; href: string; label: string; badge?: string; adminOnly?: boolean }
@@ -124,6 +125,8 @@ function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   // currently-selected brand is the one being scanned right now.
   const selectedBrandRunning = live.running && !!selectedBrand && live.brandId === selectedBrand.id;
   const [showAddBrand, setShowAddBrand] = React.useState(false);
+  // Shared by the topbar search button and the ⌘K shortcut inside the palette.
+  const [searchOpen, setSearchOpen] = React.useState(false);
   const [showLimitPrompt, setShowLimitPrompt] = React.useState(false);
   const limitRef = React.useRef<HTMLDivElement>(null);
   const atBrandLimit = brands.length >= brandLimit;
@@ -221,14 +224,29 @@ function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
             </div>
           )}
         </div>
-        <Link href="/dashboard/query-tracker" className="global-search lvx-search" style={{ display: 'none' }}>
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
+        {/*
+          Was a <Link> wrapping a <span> - it looked like a search field, could
+          not be typed into, navigated to Query Tracker on click, and showed a
+          ⌘K badge with no handler behind it. Now a real button that opens the
+          command palette, which is also what ⌘K binds to.
+        */}
+        <button
+          type="button"
+          onClick={() => setSearchOpen(true)}
+          className="global-search lvx-search"
+          // fontFamily (not the `font` shorthand) so the stylesheet's
+          // font-size: 13px still wins; `font: inherit` would reset it.
+          style={{ display: 'none', fontFamily: 'inherit', textAlign: 'left' }}
+          aria-label="Search prompts, mentions and sources"
+          aria-keyshortcuts="Meta+K Control+K"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }} aria-hidden="true">
             <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.5" />
             <path d="M9.5 9.5L12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
           <span>Search prompts, mentions, sources…</span>
           <kbd>⌘ K</kbd>
-        </Link>
+        </button>
         <style>{`@media(min-width:1100px){.lvx-search{display:flex!important;}}@media(max-width:1023px){.lvx-hamburger{display:inline-flex!important;}}`}</style>
       </div>
       <div className="topbar-right">
@@ -239,6 +257,8 @@ function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
         <button className="avatar" title={user?.email || ''}>{user?.name?.[0]?.toUpperCase() || 'U'}</button>
       </div>
     </header>
+    {/* Always mounted: it owns the ⌘K listener and renders null while closed. */}
+    <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
     {showAddBrand && (
       <AddBrandModal
         onClose={() => setShowAddBrand(false)}
