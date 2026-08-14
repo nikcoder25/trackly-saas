@@ -6,6 +6,8 @@ import { uid, safeUser, normaliseEmail } from '@/lib/helpers';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, issueSession, sessionContextFromRequest } from '@/lib/auth';
 import { API_ENDPOINTS, AUTH, TRIAL_DURATION_MS, getEffectivePlan } from '@/lib/constants';
 import { runSignupAbuseChecks, logSuspiciousSignupPattern } from '@/lib/anti-abuse';
+import { recordSignupAttribution } from '@/lib/attribution-server';
+import type { AttributionInput } from '@/lib/attribution';
 import { logger } from '@/lib/logger';
 
 async function generateUsername(nameOrEmail: string): Promise<string> {
@@ -29,10 +31,15 @@ export async function POST(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
 
   let credential: string | undefined, access_token: string | undefined;
+  // Only present when the request came from the signup form; the login page
+  // sends none. Hoisted out of the parse block so the new-user branch below
+  // can reach it.
+  let attribution: AttributionInput | undefined;
   try {
     const body = await request.json();
     credential = body.credential;
     access_token = body.access_token;
+    attribution = body.attribution;
   } catch {
     return Response.json({ error: 'Invalid request body' }, { status: 400 });
   }
@@ -126,6 +133,10 @@ export async function POST(request: NextRequest) {
           [id, email, autoUsername, name, dummyHash, trialEndsAt, googleId, avatarUrl, emailNorm, ip]
         );
         user = (await pool.query(`SELECT ${selectCols} FROM users WHERE id = $1`, [id])).rows[0];
+        // Only on the brand-new-user branch. A returning Google user hitting
+        // this endpoint is logging in, not signing up, and must not have their
+        // original attribution overwritten by a later session's referrer.
+        await recordSignupAttribution(id, 'google', attribution);
         auditLog(id, 'register', 'user', id, { email, method: 'google' }, ip);
         logSuspiciousSignupPattern(ip, email).catch(() => {});
       }

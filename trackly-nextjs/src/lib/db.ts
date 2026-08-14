@@ -262,6 +262,58 @@ function runMigrations(): Promise<void> {
         CREATE INDEX IF NOT EXISTS cited_pages_pickup_idx
           ON cited_pages (status, attempts, first_seen_at)
           WHERE status IN ('pending', 'error');
+        -- Self-reported signup attribution ("Where did you find us?").
+        -- The point of this table is the gap between the two halves: the
+        -- source_* columns are what the human typed, the referrer /
+        -- utm_* / gclid columns are what click tracking actually saw.
+        -- Someone answering "ChatGPT" with an empty referrer is the dark
+        -- funnel made countable - that comparison is the whole feature,
+        -- so both halves are stored side by side on one row and neither
+        -- is allowed to overwrite the other.
+        CREATE TABLE IF NOT EXISTS signup_attribution (
+          user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+          source TEXT NOT NULL,
+          source_detail TEXT,
+          signup_method TEXT NOT NULL DEFAULT 'email',
+          referrer TEXT,
+          referrer_domain TEXT,
+          landing_path TEXT,
+          utm_source TEXT,
+          utm_medium TEXT,
+          utm_campaign TEXT,
+          utm_term TEXT,
+          utm_content TEXT,
+          gclid TEXT,
+          promo_code TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS signup_attribution_source_idx
+          ON signup_attribution (source, created_at DESC);
+        CREATE INDEX IF NOT EXISTS signup_attribution_created_idx
+          ON signup_attribution (created_at DESC);
+        CREATE INDEX IF NOT EXISTS signup_attribution_promo_idx
+          ON signup_attribution (promo_code)
+          WHERE promo_code IS NOT NULL;
+        -- Promotional offer published to AI crawlers via /llms.txt and
+        -- /ai-offer.json, and to humans via /offer. One row per offer;
+        -- the active flag is what the public surfaces read. Deliberately a real
+        -- table rather than a hardcoded string so the offer can be turned
+        -- off without a deploy - a promo that outlives its end date is a
+        -- consumer-protection problem, not just a stale cache.
+        CREATE TABLE IF NOT EXISTS promo_offers (
+          id TEXT PRIMARY KEY,
+          headline TEXT NOT NULL,
+          body TEXT NOT NULL,
+          code TEXT,
+          starts_at TIMESTAMPTZ,
+          ends_at TIMESTAMPTZ,
+          active BOOLEAN NOT NULL DEFAULT FALSE,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_by TEXT
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS promo_offers_single_active_idx
+          ON promo_offers ((active)) WHERE active;
         DO $$
         BEGIN
           IF NOT EXISTS (

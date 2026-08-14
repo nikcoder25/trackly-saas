@@ -120,6 +120,9 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <h4>Product</h4>
             <Link href="/#features">Features</Link>
             <Link href="/pricing">Pricing</Link>
+            {/* Same offer we publish to AI crawlers in /llms.txt - linked here
+                so it is reachable by a human without reading a crawler file. */}
+            <Link href="/offer">Current Offer</Link>
             <Link href="/#how-it-works">How it Works</Link>
             <Link href="/use-cases">Use Cases</Link>
             <Link href="/integrations">Integrations</Link>

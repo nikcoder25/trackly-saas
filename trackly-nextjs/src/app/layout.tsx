@@ -9,6 +9,7 @@ import GoogleAnalytics from '@/components/GoogleAnalytics';
 import MicrosoftClarity from '@/components/MicrosoftClarity';
 import { NonceProvider } from '@/components/NonceProvider';
 import CsrfFetchInterceptor from '@/components/CsrfFetchInterceptor';
+import AttributionTracker from '@/components/AttributionTracker';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -75,6 +76,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body style={{ fontFamily: "var(--font)" }} suppressHydrationWarning>
         <NonceProvider nonce={nonce}>
           <CsrfFetchInterceptor />
+          {/* Records the landing referrer / UTM tags once per session, so the
+              signup form can compare them against the user's own answer. */}
+          <AttributionTracker />
           <ProgressBar />
           <AuthProvider>
             {children}

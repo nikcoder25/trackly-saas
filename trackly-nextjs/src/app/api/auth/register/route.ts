@@ -8,6 +8,7 @@ import { getPlanLimits, AUTH, TRIAL_INITIAL_UNVERIFIED_MS } from '@/lib/constant
 import { sendVerificationEmail } from '@/lib/email';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { runSignupAbuseChecks, logSuspiciousSignupPattern } from '@/lib/anti-abuse';
+import { recordSignupAttribution } from '@/lib/attribution-server';
 import { logger } from '@/lib/logger';
 
 // ─── Anti-spam helpers ──────────────────────────────────────────
@@ -149,6 +150,12 @@ export async function POST(request: NextRequest) {
 
     const accessToken = signAccessToken({ id, email: email.toLowerCase(), role: 'user', plan: 'trial' });
     const refreshToken = await issueSession(pool, id, sessionContextFromRequest(request));
+
+    // Awaited rather than fire-and-forget: the row is small, and losing the
+    // attribution for a signup that succeeded is the one outcome this feature
+    // exists to prevent. `recordSignupAttribution` swallows its own errors,
+    // so this cannot fail the registration.
+    await recordSignupAttribution(id, 'email', body.attribution);
 
     auditLog(id, 'register', 'user', id, { email: email.toLowerCase() }, ip);
     // Fire-and-forget alert for signup bursts from the same /24 block

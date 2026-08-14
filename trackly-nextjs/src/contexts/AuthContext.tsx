@@ -28,7 +28,9 @@ interface AuthContextType {
   authError: string | null;
   login: (email: string, password: string, totpCode?: string) => Promise<{ requires2FA?: boolean; error?: string }>;
   register: (email: string, password: string, name?: string, spamFields?: Record<string, unknown>) => Promise<{ error?: string }>;
-  loginWithGoogle: (accessToken: string) => Promise<{ error?: string }>;
+  // `attribution` is only meaningful on the signup page - the login page
+  // passes nothing, and the server ignores it for an existing account.
+  loginWithGoogle: (accessToken: string, attribution?: Record<string, unknown>) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -128,9 +130,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginWithGoogle = async (accessToken: string) => {
+  const loginWithGoogle = async (accessToken: string, attribution?: Record<string, unknown>) => {
     try {
-      const data = await api('POST', '/api/auth/google', { access_token: accessToken });
+      const data = await api('POST', '/api/auth/google', { access_token: accessToken, attribution });
       setUser(data.user);
       return {};
     } catch (e) {
