@@ -13,8 +13,10 @@ import {
 } from '@/components/seo/SeoSections';
 import EmailOff from '@/components/EmailOff';
 
-const PLUGIN_VERSION = '1.3.1';
-const DOWNLOAD_URL = '/wordpress-plugin/livesov-connector.zip';
+import {
+  CONNECTOR_PLUGIN_VERSION as PLUGIN_VERSION,
+  CONNECTOR_PLUGIN_ZIP_PATH as DOWNLOAD_URL,
+} from '@/lib/connector-version';
 
 export const metadata: Metadata = {
   title: 'Livesov WordPress Plugin: What It Is & How to Install It',

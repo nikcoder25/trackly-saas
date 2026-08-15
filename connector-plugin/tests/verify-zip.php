@@ -71,10 +71,12 @@ if ($errors) {
 }
 
 /**
- * The version is written in four places: the plugin header, LVX_CONN_VERSION,
- * and the PLUGIN_VERSION constant on each page that offers the download. The
- * zip check above cannot catch it — the zip can match its source perfectly
- * while both download pages advertise a version nobody is shipping.
+ * The version is written in three places: the plugin header, LVX_CONN_VERSION,
+ * and the CONNECTOR_PLUGIN_VERSION constant in the TypeScript module that the
+ * download pages, the dashboard's outdated-connector warning, and the
+ * update-check endpoint all read. The zip check above cannot catch drift here
+ * — the zip can match its source perfectly while the site advertises (and the
+ * update endpoint serves) a version nobody is shipping.
  */
 $main = $expected['livesov-connector.php'];
 preg_match('/^\s*\*\s*Version:\s*(\S+)/m', $main, $m_header);
@@ -84,14 +86,13 @@ $versions = array(
     'plugin header (Version:)'      => isset($m_header[1]) ? $m_header[1] : null,
     'plugin LVX_CONN_VERSION'       => isset($m_const[1]) ? $m_const[1] : null,
 );
-foreach (array(
-    'trackly-nextjs/src/app/(public)/integrations/wordpress/page.tsx',
-    'trackly-nextjs/src/app/dashboard-v2/pages/connect.tsx',
-) as $rel_page) {
-    $path = $root . '/' . $rel_page;
-    if (!file_exists($path)) { $versions[$rel_page] = null; continue; }
-    preg_match("/PLUGIN_VERSION\s*=\s*'([^']+)'/", file_get_contents($path), $m_page);
-    $versions[$rel_page] = isset($m_page[1]) ? $m_page[1] : null;
+$ts_module = 'trackly-nextjs/src/lib/connector-version.ts';
+$ts_path = $root . '/' . $ts_module;
+if (file_exists($ts_path)) {
+    preg_match("/CONNECTOR_PLUGIN_VERSION\s*=\s*'([^']+)'/", file_get_contents($ts_path), $m_ts);
+    $versions[$ts_module] = isset($m_ts[1]) ? $m_ts[1] : null;
+} else {
+    $versions[$ts_module] = null;
 }
 
 $distinct = array_unique(array_values($versions));

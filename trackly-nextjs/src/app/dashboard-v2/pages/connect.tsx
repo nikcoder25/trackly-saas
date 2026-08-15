@@ -16,10 +16,11 @@ import * as React from 'react';
 import { PageHead, Card } from '../ui';
 import { useBrandData } from '@/hooks/useBrandData';
 
-// Keep in sync with PLUGIN_VERSION in app/(public)/integrations/wordpress/page.tsx
-// and the plugin header in connector-plugin/livesov-connector.php.
-const PLUGIN_VERSION = '1.3.1';
-const PLUGIN_DOWNLOAD_URL = '/wordpress-plugin/livesov-connector.zip';
+import {
+  CONNECTOR_PLUGIN_VERSION as PLUGIN_VERSION,
+  CONNECTOR_PLUGIN_ZIP_PATH as PLUGIN_DOWNLOAD_URL,
+} from '@/lib/connector-version';
+
 const PLUGIN_GUIDE_URL = '/integrations/wordpress';
 
 async function api(path: string, init?: RequestInit) {
