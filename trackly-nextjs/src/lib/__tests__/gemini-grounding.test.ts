@@ -42,12 +42,21 @@ vi.mock('../metrics', () => ({
   classifyOutcome: vi.fn().mockReturnValue('success'),
 }));
 
+// Hoisted because vi.mock's factory is lifted above ordinary top-level
+// declarations, which would otherwise be in the temporal dead zone.
+const { recordCostEventMock, recordCallMock } = vi.hoisted(() => ({
+  recordCostEventMock: vi.fn().mockResolvedValue(undefined),
+  recordCallMock: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('../cost-tracker', () => ({
   enforceCostCap: vi.fn().mockResolvedValue(undefined),
-  recordCostEvent: vi.fn().mockResolvedValue(undefined),
-  recordCall: vi.fn().mockResolvedValue(undefined),
+  recordCostEvent: recordCostEventMock,
+  recordCall: recordCallMock,
   CHATGPT_WEB_SEARCH_CALL_USD: 0.030,
-  estimateCostUsd: vi.fn().mockReturnValue(0),
+  GEMINI_GROUNDING_CALL_USD: 0.035,
+  // Fixed token cost so assertions isolate the grounding surcharge.
+  estimateCostUsd: vi.fn().mockReturnValue(0.0004),
   CostCapExceededError: class CostCapExceededError extends Error {},
 }));
 
@@ -156,6 +165,38 @@ describe('queryAI(Gemini) grounding', () => {
     const result = await queryAI('Gemini', 'q', 'test-key', 'gemini-2.5-flash');
     expect(result.fanout).toEqual([]);
     expect(result.citations).toEqual([]);
+  });
+
+  it('bills the per-call grounding fee, not just tokens', async () => {
+    // The fee is ~99% of a grounded call's cost. Left to the token-only
+    // fallback, both the ledger and enforceCostCap would see about 1% of
+    // real spend - the same under-reporting that had to be fixed for
+    // ChatGPT's web_search surcharge.
+    fetchMock.mockResolvedValue(geminiResponse({
+      webSearchQueries: ['hvac auburn'],
+      groundingChunks: [{ web: { uri: 'https://example.com/a' } }],
+    }));
+    await queryAI('Gemini', 'q', 'test-key', 'gemini-2.5-flash', undefined, {
+      tenantId: 'tenant-1',
+    });
+    expect(recordCostEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({ usdCost: 0.0004 + 0.035 }),
+    );
+    expect(recordCallMock).toHaveBeenCalledWith(
+      expect.objectContaining({ costUsd: 0.0004 + 0.035 }),
+    );
+  });
+
+  it('does not bill grounding when the model answered without searching', async () => {
+    // A model offered the tool may decline to use it. Charging for that
+    // would over-report spend and trip tenant cost caps early.
+    fetchMock.mockResolvedValue(geminiResponse());
+    await queryAI('Gemini', 'q', 'test-key', 'gemini-2.5-flash', undefined, {
+      tenantId: 'tenant-1',
+    });
+    expect(recordCallMock).toHaveBeenCalledWith(
+      expect.objectContaining({ costUsd: undefined }),
+    );
   });
 
   it('ignores malformed grounding metadata', async () => {

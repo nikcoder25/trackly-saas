@@ -40,6 +40,20 @@ export const DEFAULT_MONTHLY_CAP_USD = (() => {
 // from env so the recorded ledger remains auditable from source code alone.
 export const CHATGPT_WEB_SEARCH_CALL_USD = 0.030;
 
+// Google bills Grounding with Google Search as a flat per-grounded-prompt
+// fee on top of tokens. $0.035/call is the public rate at time of writing.
+// Same policy as the OpenAI constant above: NOT read from env, so the
+// recorded ledger stays auditable from source alone.
+//
+// This dwarfs the token cost and is the reason it must be tracked rather
+// than left to estimateCostUsd. A grounded gemini-2.5-flash answer of ~900
+// output tokens costs about $0.0004 in tokens and $0.035 in grounding -
+// the fee is ~99% of the call. Without it here, both the ledger and the
+// per-tenant cost cap in enforceCostCap would see ~1% of real spend, which
+// is exactly the under-reporting bug that was fixed for ChatGPT's
+// web_search surcharge.
+export const GEMINI_GROUNDING_CALL_USD = 0.035;
+
 // Per-platform daily cost-alarm threshold (USD). When today's cost_usd_total
 // for any single platform crosses this number, we WARN once per UTC day per
 // platform. Default $3.00 keeps alarm noise low for the dev workload while
