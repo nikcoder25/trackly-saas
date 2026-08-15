@@ -51,11 +51,38 @@ async function patchSeo(creds: WebflowCreds, pageId: string, seo: Record<string,
   const res = await safeFetch(`${API}/pages/${pageId}`, { method: 'PATCH', headers: headers(creds), body: JSON.stringify({ seo }), timeoutMs: 15_000 });
   if (res.status === 401 || res.status === 403) throw new CmsAuthError('Webflow rejected the API token on write');
   if (!res.ok) return { ok: false, detail: { status: res.status } };
-  // Best-effort publish so the change goes live; don't fail the op if it errors.
-  await safeFetch(`${API}/sites/${creds.siteId}/publish`, {
-    method: 'POST', headers: headers(creds), timeoutMs: 15_000, body: JSON.stringify({ publishToWebflowSubdomain: true }),
-  }).catch(() => undefined);
-  return { ok: true, resourceId: pageId };
+
+  // The PATCH only stages the change in the designer — nothing is live until
+  // the site publishes, and a production site on a custom domain doesn't
+  // change at all when the publish targets only the *.webflow.io subdomain.
+  // So: publish to the custom domains too, and treat a failed publish as a
+  // failed ship. The staged PATCH is idempotent, so retrying is safe — and a
+  // "shipped" fix whose change is only in the designer is exactly the
+  // reports-success-changes-nothing failure this engine exists to avoid.
+  let customDomains: string[] = [];
+  try {
+    const site = await safeFetch(`${API}/sites/${creds.siteId}`, { headers: headers(creds), timeoutMs: 10_000 });
+    if (site.ok) {
+      const json = (await site.json().catch(() => ({}))) as { customDomains?: Array<{ id?: string }> };
+      customDomains = (json.customDomains || []).map((d) => String(d.id || '')).filter(Boolean);
+    }
+  } catch { /* fall through — publish to the subdomain at minimum */ }
+
+  const pub = await safeFetch(`${API}/sites/${creds.siteId}/publish`, {
+    method: 'POST', headers: headers(creds), timeoutMs: 20_000,
+    body: JSON.stringify(customDomains.length
+      ? { publishToWebflowSubdomain: true, customDomains }
+      : { publishToWebflowSubdomain: true }),
+  }).catch(() => null);
+  if (!pub || !pub.ok) {
+    return {
+      ok: false,
+      resourceId: pageId,
+      detail: { status: pub ? pub.status : 0, step: 'publish', staged: true },
+      error: `SEO fields saved in Webflow but the site publish failed${pub ? ` (HTTP ${pub.status})` : ''} — the change is not live. Retry the ship (Webflow allows one publish per minute).`,
+    };
+  }
+  return { ok: true, resourceId: pageId, detail: { publishedTo: customDomains.length ? 'custom_domains+subdomain' : 'subdomain' } };
 }
 
 export const webflowAdapter: CmsAdapter = {

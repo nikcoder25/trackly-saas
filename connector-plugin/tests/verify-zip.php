@@ -70,5 +70,40 @@ if ($errors) {
     exit(1);
 }
 
-echo 'OK: zip matches ' . count($expected) . " plugin source file(s)\n";
+/**
+ * The version is written in three places: the plugin header, LVX_CONN_VERSION,
+ * and the CONNECTOR_PLUGIN_VERSION constant in the TypeScript module that the
+ * download pages, the dashboard's outdated-connector warning, and the
+ * update-check endpoint all read. The zip check above cannot catch drift here
+ * — the zip can match its source perfectly while the site advertises (and the
+ * update endpoint serves) a version nobody is shipping.
+ */
+$main = $expected['livesov-connector.php'];
+preg_match('/^\s*\*\s*Version:\s*(\S+)/m', $main, $m_header);
+preg_match("/define\('LVX_CONN_VERSION',\s*'([^']+)'\)/", $main, $m_const);
+
+$versions = array(
+    'plugin header (Version:)'      => isset($m_header[1]) ? $m_header[1] : null,
+    'plugin LVX_CONN_VERSION'       => isset($m_const[1]) ? $m_const[1] : null,
+);
+$ts_module = 'trackly-nextjs/src/lib/connector-version.ts';
+$ts_path = $root . '/' . $ts_module;
+if (file_exists($ts_path)) {
+    preg_match("/CONNECTOR_PLUGIN_VERSION\s*=\s*'([^']+)'/", file_get_contents($ts_path), $m_ts);
+    $versions[$ts_module] = isset($m_ts[1]) ? $m_ts[1] : null;
+} else {
+    $versions[$ts_module] = null;
+}
+
+$distinct = array_unique(array_values($versions));
+if (count($distinct) !== 1 || in_array(null, $versions, true)) {
+    fwrite(STDERR, "FAIL: plugin version disagrees across files\n");
+    foreach ($versions as $where => $v) {
+        fwrite(STDERR, sprintf("  %-60s %s\n", $where, $v === null ? '(not found)' : $v));
+    }
+    exit(1);
+}
+
+echo 'OK: zip matches ' . count($expected) . ' plugin source file(s); version '
+    . reset($distinct) . " consistent across " . count($versions) . " files\n";
 exit(0);

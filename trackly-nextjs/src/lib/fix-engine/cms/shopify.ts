@@ -62,13 +62,35 @@ async function putPage(creds: ShopifyCreds, id: number, page: Record<string, unk
   return res.ok ? { ok: true, resourceId: json.page?.id ?? id } : { ok: false, detail: { status: res.status } };
 }
 
+/**
+ * Upsert a `global.*` metafield. Shopify's metafield POST is create-only —
+ * it 422s when the namespace/key already exists on the page. Since any page
+ * whose SEO title or description was EVER set in admin has these metafields,
+ * create-only meant the write failed on exactly the pages most worth fixing.
+ * So: look up the existing metafield and PUT it, POST only when absent.
+ */
 async function setMetafield(creds: ShopifyCreds, pageId: number, key: string, value: string): Promise<CmsWriteResult> {
-  const res = await safeFetch(`${base(creds)}/pages/${pageId}/metafields.json`, {
-    method: 'POST', headers: headers(creds), timeoutMs: 15_000,
-    body: JSON.stringify({ metafield: { namespace: 'global', key, type: 'single_line_text_field', value } }),
+  const list = await safeFetch(`${base(creds)}/pages/${pageId}/metafields.json?namespace=global`, {
+    headers: headers(creds), timeoutMs: 12_000,
   });
+  if (list.status === 401 || list.status === 403) throw new CmsAuthError('Shopify rejected the access token on metafield read');
+  if (!list.ok) return { ok: false, detail: { status: list.status, step: 'metafield_read' }, error: `Shopify metafield lookup failed (HTTP ${list.status})` };
+  const listJson = (await list.json().catch(() => ({}))) as { metafields?: Array<{ id: number; namespace: string; key: string }> };
+  const existing = (listJson.metafields || []).find((m) => m.namespace === 'global' && m.key === key);
+
+  const res = existing
+    ? await safeFetch(`${base(creds)}/metafields/${existing.id}.json`, {
+        method: 'PUT', headers: headers(creds), timeoutMs: 15_000,
+        body: JSON.stringify({ metafield: { id: existing.id, value, type: 'single_line_text_field' } }),
+      })
+    : await safeFetch(`${base(creds)}/pages/${pageId}/metafields.json`, {
+        method: 'POST', headers: headers(creds), timeoutMs: 15_000,
+        body: JSON.stringify({ metafield: { namespace: 'global', key, type: 'single_line_text_field', value } }),
+      });
   if (res.status === 401 || res.status === 403) throw new CmsAuthError('Shopify rejected the access token on metafield write');
-  return res.ok ? { ok: true, resourceId: pageId } : { ok: false, detail: { status: res.status } };
+  return res.ok
+    ? { ok: true, resourceId: pageId }
+    : { ok: false, detail: { status: res.status, step: existing ? 'metafield_update' : 'metafield_create' }, error: `Shopify metafield write failed (HTTP ${res.status})` };
 }
 
 export const shopifyAdapter: CmsAdapter = {
@@ -88,8 +110,13 @@ export const shopifyAdapter: CmsAdapter = {
     const creds = readCreds(rawCreds);
     const page = await resolvePage(creds, target.url);
     if (!page) return { ok: false, detail: { reason: 'page_not_found' } };
-    await setMetafield(creds, page.id, 'title_tag', title).catch(() => undefined);
-    return putPage(creds, page.id, { title });
+    // The SEO title is the `global.title_tag` metafield — that is what themes
+    // render into <title>. This used to ALSO rename the page (putPage
+    // {title}) while swallowing the metafield result, so on any page whose
+    // SEO title already existed the visible page name changed, the actual
+    // <title> didn't, and the write reported ok. SEO fields only, judged by
+    // the write that matters — same stance as the WordPress adapter.
+    return setMetafield(creds, page.id, 'title_tag', title);
   },
 
   async updateMetaDescription(rawCreds, target, description) {

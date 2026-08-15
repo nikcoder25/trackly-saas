@@ -13,8 +13,10 @@ import {
 } from '@/components/seo/SeoSections';
 import EmailOff from '@/components/EmailOff';
 
-const PLUGIN_VERSION = '1.3.0';
-const DOWNLOAD_URL = '/wordpress-plugin/livesov-connector.zip';
+import {
+  CONNECTOR_PLUGIN_VERSION as PLUGIN_VERSION,
+  CONNECTOR_PLUGIN_ZIP_PATH as DOWNLOAD_URL,
+} from '@/lib/connector-version';
 
 export const metadata: Metadata = {
   title: 'Livesov WordPress Plugin: What It Is & How to Install It',
@@ -182,7 +184,7 @@ const faqs = [
   {
     question: 'Does it conflict with Yoast or Rank Math?',
     answer:
-      'No - it cooperates with them. When Livesov ships a title, meta description, or canonical change, the plugin writes it into both the Yoast and Rank Math meta fields, so whichever SEO plugin you run picks it up and stays the single source of truth for that page.',
+      'No - it cooperates with them. When Livesov ships a title, meta description, or canonical change, the plugin detects which SEO plugin you run and writes the change into that plugin’s own fields, so it stays the single source of truth for the page rather than being overridden from the theme head. If you run both, both are written. If you run neither, WordPress has nowhere to store a meta description, so the plugin reports that the field did not land instead of claiming a success.',
   },
   {
     question: 'What access does the plugin give Livesov to my site?',
@@ -382,8 +384,8 @@ export default function WordPressIntegrationPage() {
               fails. Add those in the builder. Livesov reports which path was used.
             </li>
             <li>
-              <strong>Title, meta description, canonical, robots</strong> — builder-independent, and
-              written into both the Yoast and Rank Math fields.
+              <strong>Title, meta description, canonical, robots</strong> — builder-independent,
+              written into whichever of Yoast and Rank Math you run.
             </li>
             <li>
               <strong>Replace the whole page body</strong> — deliberately refused on builders that

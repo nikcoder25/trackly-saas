@@ -29,13 +29,40 @@ describe('Shopify adapter', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('https://acme.myshopify.com/admin/api/2024-07/shop.json');
   });
 
-  it('updates a page title by resolving its handle', async () => {
-    fetchMock.mockResolvedValueOnce(res(200, { pages: [{ id: 7, handle: 'about', body_html: '<p>x</p>' }] })); // list
-    fetchMock.mockResolvedValueOnce(res(201, { metafield: { id: 1 } }));                                        // title_tag metafield
-    fetchMock.mockResolvedValueOnce(res(200, { page: { id: 7 } }));                                             // PUT title
+  it('creates the title_tag metafield when the page has none', async () => {
+    fetchMock.mockResolvedValueOnce(res(200, { pages: [{ id: 7, handle: 'about', body_html: '<p>x</p>' }] })); // list pages
+    fetchMock.mockResolvedValueOnce(res(200, { metafields: [] }));                                              // metafield lookup
+    fetchMock.mockResolvedValueOnce(res(201, { metafield: { id: 1 } }));                                        // POST create
     const r = await shopifyAdapter.updateTitle(creds, { url: 'https://acme.com/pages/about' }, 'New');
     expect(r.ok).toBe(true);
     expect(r.resourceId).toBe(7);
+    const create = fetchMock.mock.calls[2];
+    expect(create[1].method).toBe('POST');
+    expect(JSON.parse(create[1].body as string).metafield.key).toBe('title_tag');
+    // SEO title only — the visible page name must not be renamed.
+    expect(fetchMock.mock.calls).toHaveLength(3);
+  });
+
+  it('updates the existing title_tag metafield via PUT — POST would 422', async () => {
+    // Any page whose SEO title was ever set in admin already has the
+    // metafield; the create-only path failed on exactly those pages.
+    fetchMock.mockResolvedValueOnce(res(200, { pages: [{ id: 7, handle: 'about' }] }));                          // list pages
+    fetchMock.mockResolvedValueOnce(res(200, { metafields: [{ id: 99, namespace: 'global', key: 'title_tag' }] })); // lookup finds it
+    fetchMock.mockResolvedValueOnce(res(200, { metafield: { id: 99 } }));                                        // PUT update
+    const r = await shopifyAdapter.updateTitle(creds, { url: 'https://acme.com/pages/about' }, 'New');
+    expect(r.ok).toBe(true);
+    const put = fetchMock.mock.calls[2];
+    expect(String(put[0])).toContain('/metafields/99.json');
+    expect(put[1].method).toBe('PUT');
+  });
+
+  it('reports a failed metafield write instead of swallowing it', async () => {
+    fetchMock.mockResolvedValueOnce(res(200, { pages: [{ id: 7, handle: 'about' }] }));
+    fetchMock.mockResolvedValueOnce(res(200, { metafields: [] }));
+    fetchMock.mockResolvedValueOnce(res(422, { errors: 'key exists' }));
+    const r = await shopifyAdapter.updateTitle(creds, { url: 'https://acme.com/pages/about' }, 'New');
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('metafield write failed');
   });
 
   it('reports page_not_found when the handle is absent', async () => {
@@ -80,13 +107,30 @@ describe('Webflow adapter', () => {
     expect(await webflowAdapter.verify(creds, '')).toEqual({ ok: true });
   });
 
-  it('updates page SEO title and best-effort publishes', async () => {
+  it('updates page SEO title and publishes to the custom domains', async () => {
     fetchMock.mockResolvedValueOnce(res(200, { pages: [{ id: 'pg1', slug: 'about' }] })); // list pages
     fetchMock.mockResolvedValueOnce(res(200, { id: 'pg1' }));                              // PATCH seo
+    fetchMock.mockResolvedValueOnce(res(200, { customDomains: [{ id: 'd1' }, { id: 'd2' }] })); // GET site
     fetchMock.mockResolvedValueOnce(res(200, {}));                                          // publish
     const r = await webflowAdapter.updateTitle(creds, { url: 'https://site.com/about' }, 'New');
     expect(r.ok).toBe(true);
     expect(r.resourceId).toBe('pg1');
+    // The publish must include the custom domains — subdomain-only publishing
+    // leaves a production site on a custom domain unchanged forever.
+    const publishCall = fetchMock.mock.calls[3];
+    expect(String(publishCall[0])).toContain('/publish');
+    expect(JSON.parse(publishCall[1].body as string)).toEqual({ publishToWebflowSubdomain: true, customDomains: ['d1', 'd2'] });
+  });
+
+  it('fails the ship when the publish fails — staged-only is not live', async () => {
+    fetchMock.mockResolvedValueOnce(res(200, { pages: [{ id: 'pg1', slug: 'about' }] })); // list pages
+    fetchMock.mockResolvedValueOnce(res(200, { id: 'pg1' }));                              // PATCH seo
+    fetchMock.mockResolvedValueOnce(res(200, { customDomains: [] }));                      // GET site
+    fetchMock.mockResolvedValueOnce(res(429, {}));                                          // publish rate-limited
+    const r = await webflowAdapter.updateTitle(creds, { url: 'https://site.com/about' }, 'New');
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('publish failed');
+    expect(r.detail).toMatchObject({ step: 'publish', staged: true, status: 429 });
   });
 
   it('throws on unsupported body / create', async () => {

@@ -55,6 +55,10 @@ the token + signing secret, so the secret never appears in the URL.
   - `publish_content` — promotes the staged change to live, after
     snapshotting the previous state (post content *and* builder data) so it
     can be undone from **Settings → Livesov Connector**.
+
+An instruction that throws is caught and acked as a failure with the reason,
+rather than escaping into wp-cron — where it would kill every instruction
+queued behind it and, because the ack never sent, be re-sent forever.
 - After applying, the plugin `POST`s `{pull_url}/{id}/ack` (with a `detail`
   object, e.g. the preview URL for `stage_content`). On success the fix is
   marked delivered in Livesov; on failure it's flagged with the reported
@@ -114,6 +118,40 @@ that appears twice or no longer exists. Full-body replacement (`bodyHtml`) is
 refused on builders that store layout outside the post body.
 
 A failed fix is a retry. A corrupted layout is a rebuild.
+
+## SEO fields (`includes/seo.php`)
+
+A patch's `title` is the post title. Its `metaDescription`, `canonical` and
+`indexable` are not — WordPress core has nowhere to store them, since a meta
+description is entirely an SEO plugin's concept. So they are written into
+whichever of **Yoast** and **Rank Math** is active, which keeps that plugin
+the single source of truth for the page rather than fighting it from
+`wp_head`:
+
+| Field | Yoast | Rank Math |
+|---|---|---|
+| SEO title | `_yoast_wpseo_title` | `rank_math_title` |
+| Meta description | `_yoast_wpseo_metadesc` | `rank_math_description` |
+| Canonical | `_yoast_wpseo_canonical` | `rank_math_canonical_url` |
+| Indexable | `_yoast_wpseo_meta-robots-noindex` = `2` | `rank_math_robots` = `['index']` |
+
+Clearing a noindex sets *explicit* index rather than deleting the override,
+because deleting reverts to the site-wide default — which may itself be
+noindex for that post type, leaving the page just as invisible.
+
+If neither plugin is active there is nowhere to put these fields. The ack
+reports which plugins were written to (`seo`) and which fields landed
+(`seoFields`), so Livesov can say the page edit shipped but the meta
+description did not, instead of reporting a clean success.
+
+## Undo across retries
+
+The pre-publish snapshot is taken immediately before the write, so re-taking
+it on a **retry** would capture the already-published page and destroy the
+only copy of the original. Retries are routine — an instruction is re-sent
+whenever its ack does not reach Livesov. So a snapshot already taken for the
+same instruction id is kept (`Lvx_Publish::should_snapshot`); one from a
+different instruction is stale and is replaced.
 
 ## Tests
 

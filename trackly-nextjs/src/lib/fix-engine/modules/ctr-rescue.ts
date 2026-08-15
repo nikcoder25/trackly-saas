@@ -132,11 +132,15 @@ export const ctrRescueModule: FixModule = {
     const t = await cms.adapter.updateTitle(cms.creds, { url: issue.targetUrl! }, g.title);
     const m = await cms.adapter.updateMetaDescription(cms.creds, { url: issue.targetUrl! }, g.description);
     const ok = t.ok && m.ok;
+    // Pass the adapter's own reason through — it is often actionable ("your
+    // SEO plugin does not expose that field — connect the Connector"), and a
+    // generic "writes failed" buries it. Both writes are idempotent, so
+    // there's no ordering hazard in attempting both.
     return {
       ok,
       detail: { title: t.detail, meta: m.detail },
       after: { title: g.title, description: g.description },
-      error: ok ? undefined : 'One or more CMS writes failed',
+      error: ok ? undefined : [t.ok ? null : t.error ?? 'Title update failed', m.ok ? null : m.error ?? 'Meta description update failed'].filter(Boolean).join('; '),
     };
   },
 

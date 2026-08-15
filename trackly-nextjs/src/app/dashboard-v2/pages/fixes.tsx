@@ -9,6 +9,7 @@
 import * as React from 'react';
 import { useBrandData } from '@/hooks/useBrandData';
 import { buildEdgeWorkerScript } from '@/lib/fix-engine/edge-worker';
+import { CONNECTOR_PLUGIN_VERSION, isConnectorOutdated } from '@/lib/connector-version';
 
 // ── types mirrored from the API ──
 interface CatalogItem {
@@ -1149,7 +1150,9 @@ export function PageFixes() {
     <ConnectionsSection
       cms={!!cmsConn} cmsMeta={cmsConn ? `${cmsConn.cmsType} · ${cmsConn.siteUrl}` : 'Required to ship on-site fixes'}
       gsc={!!gscConn} gscSite={gscConn?.siteUrl ?? null}
-      connector={!!connectorConn} connectorLastSeen={connectorConn?.lastSeenAt ?? null} pairing={pairing}
+      connector={!!connectorConn} connectorLastSeen={connectorConn?.lastSeenAt ?? null}
+      connectorVersion={typeof connectorConn?.meta?.pluginVersion === 'string' ? connectorConn.meta.pluginVersion : null}
+      pairing={pairing}
       supportedCms={supportedCms} defaultSite={(brand as any)?.website || ''} disabled={!enabled}
       linear={!!linearConn} jira={!!jiraConn} sheet={!!sheetConn} kwe={!!kweConn} onConnectTracker={connectTracker} onConnectKwe={connectKwe}
       sheetUrl={(sheetConn?.meta as { spreadsheetUrl?: string } | undefined)?.spreadsheetUrl ?? null}
@@ -1455,8 +1458,9 @@ export function PageFixes() {
 }
 
 // ── Connections ──
-function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, linear, jira, sheet, kwe, sheetUrl, onConnectTracker, onConnectKwe, onConnectCms, onConnectWp, onConnectCmsGeneric, onDetectCms, onDeployCloudflare, onConnectGsc, onCreateSheet, onPairConnector, onRevokeConnector, onCopy, openRequest }: {
+function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, connectorVersion, pairing, supportedCms, defaultSite, disabled, linear, jira, sheet, kwe, sheetUrl, onConnectTracker, onConnectKwe, onConnectCms, onConnectWp, onConnectCmsGeneric, onDetectCms, onDeployCloudflare, onConnectGsc, onCreateSheet, onPairConnector, onRevokeConnector, onCopy, openRequest }: {
   cms: boolean; cmsMeta: string; gsc: boolean; gscSite: string | null; connector: boolean; connectorLastSeen: string | null;
+  connectorVersion: string | null;
   pairing: { token: string; hmacSecret: string; pullUrl: string } | null;
   supportedCms: string[]; defaultSite: string; disabled: boolean;
   linear: boolean; jira: boolean; sheet: boolean; kwe: boolean; sheetUrl: string | null;
@@ -1688,9 +1692,21 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               if (!connectorLastSeen) return 'Paired · waiting for the plugin’s first poll (within 5 min)…';
               const online = Date.now() - Date.parse(connectorLastSeen) <= 12 * 60_000;
               const mins = Math.max(0, Math.round((Date.now() - Date.parse(connectorLastSeen)) / 60_000));
-              return online ? `● Online · last polled ${mins}m ago` : `○ Offline · last seen ${mins}m ago (check the plugin)`;
+              const ver = connectorVersion ? ` · plugin v${connectorVersion}` : '';
+              return online ? `● Online · last polled ${mins}m ago${ver}` : `○ Offline · last seen ${mins}m ago (check the plugin)${ver}`;
             })()}
           </div>
+          {/* The plugin ships as a zip, so an old install never hears about a
+              new version on its own — this row is where the user finds out.
+              Only warn on a version the plugin actually reported; null just
+              means no poll has landed since version recording shipped. */}
+          {connector && connectorVersion && isConnectorOutdated(connectorVersion) && (
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--warn)', marginTop: 4 }}>
+              ⚠ Plugin v{connectorVersion} is outdated — current is v{CONNECTOR_PLUGIN_VERSION}. Update it from
+              wp-admin (Plugins → Update) or re-upload the{' '}
+              <a href="/integrations/wordpress" target="_blank" rel="noopener" style={{ color: 'var(--warn)' }}>latest zip</a>.
+            </div>
+          )}
           </div>
           {connector
             ? (connectorLastSeen && Date.now() - Date.parse(connectorLastSeen) <= 12 * 60_000
