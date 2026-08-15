@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Livesov Connector
  * Description: Applies Livesov Fix Engine instructions (llms.txt, robots.txt, head schema) and page-content edits to your site — including pages built with Elementor, Divi, WPBakery, Beaver Builder, Bricks, or Oxygen. Pulls securely from your Livesov account; no inbound access to your server is required.
- * Version: 1.3.0
+ * Version: 1.3.1
  * Author: Livesov
  * License: GPL-2.0-or-later
  *
@@ -23,7 +23,7 @@
 
 if (!defined('ABSPATH')) { exit; }
 
-define('LVX_CONN_VERSION', '1.3.0');
+define('LVX_CONN_VERSION', '1.3.1');
 define('LVX_CONN_OPT', 'livesov_connector_settings');
 define('LVX_CONN_HEAD_OPT', 'livesov_connector_head');     // set_header_block content
 define('LVX_CONN_ROBOTS_OPT', 'livesov_connector_robots'); // patch_robots content
@@ -33,6 +33,8 @@ require_once __DIR__ . '/includes/text.php';
 require_once __DIR__ . '/includes/builders.php';
 require_once __DIR__ . '/includes/patch.php';
 require_once __DIR__ . '/includes/preview.php';
+require_once __DIR__ . '/includes/publish.php';
+require_once __DIR__ . '/includes/seo.php';
 
 Lvx_Preview::boot();
 
@@ -365,6 +367,19 @@ function lvx_conn_status($msg) {
  * string, 'detail' => extra data for the ack, e.g. a preview URL).
  */
 function lvx_conn_apply($op, $payload, $instruction_id = '') {
+    // One bad instruction must not take down the whole poll. Without this, a
+    // fatal here escapes into wp-cron: the ack never fires (so Livesov re-sends
+    // the instruction forever), and every instruction queued behind it in the
+    // same batch is skipped. Turning it into a failed ack means the fix is
+    // reported broken, with a reason, and the batch carries on.
+    try {
+        return lvx_conn_apply_op($op, $payload, $instruction_id);
+    } catch (Throwable $e) {
+        return array('err' => 'plugin error: ' . $e->getMessage(), 'detail' => array());
+    }
+}
+
+function lvx_conn_apply_op($op, $payload, $instruction_id = '') {
     $ok = array('err' => '', 'detail' => array());
     switch ($op) {
         case 'write_file':
@@ -475,7 +490,7 @@ function lvx_conn_publish_content($payload, $instruction_id = '') {
 
     // Snapshot before writing. Post revisions only carry post_content, so a
     // builder change is only reversible if we keep the previous meta too.
-    lvx_conn_backup($post, $builder);
+    lvx_conn_backup($post, $builder, $instruction_id);
     wp_save_post_revision($pid);
 
     if (isset($state['post_content']) && $state['post_content'] !== null) {
@@ -495,24 +510,40 @@ function lvx_conn_publish_content($payload, $instruction_id = '') {
         Lvx_Preview::record_appended($pid, ($instruction_id !== '' ? $instruction_id : 'lvx') . '-' . $i, $html);
     }
 
-    lvx_conn_apply_meta($pid, $patch);
+    $seo = lvx_conn_apply_meta($pid, $patch);
     $builder->clear_cache($pid);
     lvx_conn_purge_caches($pid);
     Lvx_Preview::clear_staged($pid);
 
-    return array('err' => '', 'detail' => array(
+    return array('err' => '', 'detail' => array_merge(array(
         'url'     => get_permalink($pid),
         'builder' => $builder->slug(),
-    ));
+    ), $seo));
+}
+
+/**
+ * Write the patch's SEO fields (meta description, canonical, per-page robots)
+ * into the site's SEO plugin. Returns the ack detail describing where they
+ * landed — see Lvx_Seo for why an inactive SEO plugin is reported rather than
+ * ignored.
+ */
+function lvx_conn_apply_meta($post_id, $patch) {
+    return Lvx_Seo::apply($post_id, $patch);
 }
 
 /** Keep the pre-publish state so a change can be undone. */
-function lvx_conn_backup($post, $builder) {
+function lvx_conn_backup($post, $builder, $instruction_id = '') {
+    $existing = get_post_meta($post->ID, LVX_BACKUP_META, true);
+    // Never overwrite the snapshot belonging to the publish we are retrying —
+    // it holds the only copy of the original page. See Lvx_Publish.
+    if (!Lvx_Publish::should_snapshot($existing, $instruction_id)) { return; }
+
     $current = $builder->read($post);
     update_post_meta($post->ID, LVX_BACKUP_META, array(
         'builder' => $builder->slug(),
         'state'   => $current,
         'title'   => $post->post_title,
+        'fix'     => (string) $instruction_id,
         'at'      => time(),
     ));
 }

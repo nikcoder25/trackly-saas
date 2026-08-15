@@ -18,7 +18,7 @@ import { useBrandData } from '@/hooks/useBrandData';
 
 // Keep in sync with PLUGIN_VERSION in app/(public)/integrations/wordpress/page.tsx
 // and the plugin header in connector-plugin/livesov-connector.php.
-const PLUGIN_VERSION = '1.3.0';
+const PLUGIN_VERSION = '1.3.1';
 const PLUGIN_DOWNLOAD_URL = '/wordpress-plugin/livesov-connector.zip';
 const PLUGIN_GUIDE_URL = '/integrations/wordpress';
 
@@ -242,7 +242,7 @@ export function PageConnect() {
               <li>Writes <code>llms.txt</code>, AI-crawler <code>robots.txt</code> rules and <code>/.well-known/</code> files to your site root.</li>
               <li>Ships page edits as a <strong>draft with a preview link</strong> first, and keeps an undo snapshot of the builder data.</li>
               <li>Outbound-only — it polls Livesov every 5 minutes. Nothing needs inbound access to your server.</li>
-              <li>Writes into Yoast / Rank Math fields, so your SEO plugin stays the source of truth.</li>
+              <li>Writes meta descriptions and canonicals into Yoast or Rank Math when one of them is active, so your SEO plugin stays the source of truth. If neither is installed, it reports that instead of quietly dropping them.</li>
             </ul>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <a
