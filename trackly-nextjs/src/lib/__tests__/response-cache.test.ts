@@ -119,9 +119,21 @@ describe('isSearchEnabled', () => {
     expect(isSearchEnabled('ChatGPT', 'gpt-4o-search-preview')).toBe(true);
     expect(isSearchEnabled('ChatGPT', 'gpt-4o')).toBe(false);
   });
+  it('treats grounded Gemini as search so it gets the short, fresh TTL', () => {
+    // Gemini now attaches the google_search tool by default, so it really
+    // does hit a retrieval path. If this returned false, a grounded answer
+    // would be cached under the long non-search TTL and served days later
+    // as though it were current.
+    delete process.env.GEMINI_GROUNDING_DISABLED;
+    expect(isSearchEnabled('Gemini', 'gemini-2.5-pro')).toBe(true);
+  });
+  it('treats Gemini as non-search once grounding is switched off', () => {
+    process.env.GEMINI_GROUNDING_DISABLED = 'true';
+    expect(isSearchEnabled('Gemini', 'gemini-2.5-pro')).toBe(false);
+    delete process.env.GEMINI_GROUNDING_DISABLED;
+  });
   it('treats other platforms as non-search', () => {
     expect(isSearchEnabled('Claude', 'claude-3-5-sonnet')).toBe(false);
-    expect(isSearchEnabled('Gemini', 'gemini-2.5-pro')).toBe(false);
     expect(isSearchEnabled('Grok', 'grok-2')).toBe(false);
   });
 });

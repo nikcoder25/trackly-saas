@@ -2,6 +2,7 @@ import { pool, safeConnect } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { countTrackedPromptsForOwner } from '@/lib/prompt-quota';
 import { badRequest, logError, serverError } from '@/lib/api-error';
+import { prunePromptMeta } from '@/lib/prompt-meta';
 
 interface BrandDeletion {
   brandId: string;
@@ -70,6 +71,9 @@ export async function POST(request: Request) {
   try {
     const client = await safeConnect();
     let removedTotal = 0;
+    // Surviving prompts per brand, captured inside the transaction so the
+    // metadata prune below works from what was actually committed.
+    const survivors = new Map<string, string[]>();
     try {
       await client.query('BEGIN');
 
@@ -107,6 +111,10 @@ export async function POST(request: Request) {
         const removed = existing.length - filtered.length;
         if (removed === 0) continue;
         removedTotal += removed;
+        survivors.set(
+          row.id,
+          filtered.filter((q): q is string => typeof q === 'string'),
+        );
 
         const nextData = { ...data, queries: filtered };
         await client.query(
@@ -121,6 +129,16 @@ export async function POST(request: Request) {
       throw txErr;
     } finally {
       client.release();
+    }
+
+    // Drop topic/page metadata for the prompts that just went away. This
+    // path doesn't go through PUT /api/brands/[id], so without it a prompt
+    // deleted here and retyped later would silently inherit the topic and
+    // page binding of its long-gone namesake. prunePromptMeta swallows its
+    // own errors - the prompts are already deleted and reporting a
+    // bookkeeping failure as a delete failure would be wrong.
+    for (const [brandId, queries] of survivors) {
+      await prunePromptMeta(brandId, queries);
     }
 
     const remainingTotal = await countTrackedPromptsForOwner(user.id);

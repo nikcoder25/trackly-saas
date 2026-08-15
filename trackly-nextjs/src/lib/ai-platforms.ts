@@ -39,6 +39,7 @@ import {
   getCached,
   setCached,
   getCacheTtl,
+  geminiGroundingEnabled,
 } from './response-cache';
 import { decideRequiresFreshness } from './freshness-classifier';
 import {
@@ -1464,6 +1465,15 @@ interface QueryResult {
   tokensIn: number;
   tokensOut: number;
   citations: string[];
+  /**
+   * The sub-queries the engine issued to a search index while answering
+   * ("query fan-out"). Only populated by providers that report it -
+   * today that is grounded Gemini via `groundingMetadata.webSearchQueries`.
+   * Absent, rather than empty, when the provider does not expose it, so
+   * "this engine does not tell us" stays distinguishable from "this engine
+   * searched for nothing".
+   */
+  fanout?: string[];
   cached?: boolean;
 }
 export interface QueryOptions {
@@ -1528,6 +1538,47 @@ interface GeminiPayload {
   systemInstruction: { parts: Array<{ text: string }> };
   contents: Array<{ parts: Array<{ text: string }> }>;
   generationConfig: { maxOutputTokens: number; responseMimeType?: string };
+  tools?: Array<{ google_search: Record<string, never> }>;
+}
+
+/**
+ * Pull the queries Gemini actually issued to Google Search, plus the URLs
+ * it retrieved, out of a grounded response.
+ *
+ * `webSearchQueries` is the genuine article: not an inference about what a
+ * fan-out might look like, but the sub-queries Google's own model chose to
+ * expand the prompt into. That makes it the highest-quality fan-out signal
+ * available from any provider we call, and it costs nothing extra once
+ * grounding is on.
+ */
+function extractGeminiGrounding(cand: unknown): { citations: string[]; fanout: string[] } {
+  const meta = (cand as { groundingMetadata?: {
+    webSearchQueries?: unknown;
+    groundingChunks?: Array<{ web?: { uri?: string } }>;
+  } })?.groundingMetadata;
+  if (!meta) return { citations: [], fanout: [] };
+
+  const fanout = Array.isArray(meta.webSearchQueries)
+    ? [...new Set(
+        meta.webSearchQueries
+          .filter((q): q is string => typeof q === 'string' && q.trim().length > 0)
+          .map(q => q.trim()),
+      )].slice(0, 20)
+    : [];
+
+  // groundingChunks carry Google's redirect URLs rather than the publisher
+  // domain. They are still the authoritative retrieved-source list, and the
+  // citations pipeline normalizes whatever it is handed, so pass them
+  // through rather than trying to unwrap the redirect here.
+  const citations = Array.isArray(meta.groundingChunks)
+    ? [...new Set(
+        meta.groundingChunks
+          .map(c => c?.web?.uri)
+          .filter((u): u is string => typeof u === 'string' && !!u),
+      )].slice(0, 10)
+    : [];
+
+  return { citations, fanout };
 }
 
 async function callGemini(model: string, query: string, apiKey: string, sysPrompt: string, maxTok: number, options?: QueryOptions): Promise<QueryResult> {
@@ -1546,6 +1597,9 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
       generationConfig: { maxOutputTokens: maxTok },
     };
     if (options?.jsonMode) payload.generationConfig.responseMimeType = 'application/json';
+    if (geminiGroundingEnabled(options?.jsonMode)) {
+      payload.tools = [{ google_search: {} }];
+    }
     try {
       const d = await fetchAI(url, {
         method: 'POST',
@@ -1561,11 +1615,13 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
       const parts = cand.content?.parts || [];
       const text = parts.map((p: { text?: string }) => p.text || '').join('\n').trim();
       if (!text) throw tagError('Gemini empty response', { isTransient: true });
+      const grounding = extractGeminiGrounding(cand);
       return {
         text, model: geminiModel,
         tokensIn: d.usageMetadata?.promptTokenCount || 0,
         tokensOut: d.usageMetadata?.candidatesTokenCount || 0,
-        citations: [],
+        citations: grounding.citations,
+        fanout: grounding.fanout,
       };
     } catch (e) {
       lastErr = e as AiError;
