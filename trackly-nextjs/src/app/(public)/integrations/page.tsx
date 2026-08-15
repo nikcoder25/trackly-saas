@@ -472,6 +472,32 @@ export default function IntegrationsPage() {
       />
 
       <PillarLinks
+        title="Connect Livesov to your stack"
+        links={[
+          {
+            href: '/integrations/wordpress',
+            label: 'WordPress plugin',
+            description: 'Apply approved llms.txt, schema, and draft page fixes to your site.',
+          },
+          {
+            href: '/integrations/slack',
+            label: 'Slack',
+            description: 'Real-time alerts and weekly digests in any channel.',
+          },
+          {
+            href: '/integrations/zapier',
+            label: 'Zapier',
+            description: '5,000+ apps via Zapier triggers and actions.',
+          },
+          {
+            href: '/integrations/api',
+            label: 'REST API',
+            description: 'Read every metric and push events programmatically.',
+          },
+        ]}
+      />
+
+      <PillarLinks
         title="Explore Livesov by platform"
         links={[
           {

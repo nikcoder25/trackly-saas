@@ -18,7 +18,7 @@
 
 if (!defined('ABSPATH')) { exit; }
 
-define('LVX_CONN_VERSION', '1.2.0');
+define('LVX_CONN_VERSION', '1.2.1');
 define('LVX_CONN_OPT', 'livesov_connector_settings');
 define('LVX_CONN_HEAD_OPT', 'livesov_connector_head');     // set_header_block content
 define('LVX_CONN_ROBOTS_OPT', 'livesov_connector_robots'); // patch_robots content

@@ -64,10 +64,10 @@ const DOC_SECTIONS: DocSection[] = [
   {
     title: 'Integrations',
     items: [
+      { title: 'WordPress plugin', description: 'Install the Connector and apply approved fixes to your site automatically.', href: '/integrations/wordpress' },
       { title: 'Slack integration', description: 'Real-time alerts and weekly digests in any Slack channel.', href: '/integrations/slack' },
       { title: 'Zapier integration', description: '5,000+ apps via Zapier triggers and actions.', href: '/integrations/zapier' },
       { title: 'REST API', description: 'Pull metrics, write prompts, and stream events programmatically.', href: '/integrations/api' },
-      { title: 'Webhooks', description: 'Push events into your stack the moment they happen.', href: '/integrations/api' },
     ],
   },
   {

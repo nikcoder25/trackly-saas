@@ -6,10 +6,16 @@ page edits to a WordPress site. The plugin is **outbound-only**: it pulls
 instructions from Livesov, applies them, and acknowledges. Nothing needs
 inbound access to the site.
 
+The user-facing install guide lives at
+[`/integrations/wordpress`](https://livesov.com/integrations/wordpress).
+
 ## Install
 
-1. Copy `livesov-connector.php` into `wp-content/plugins/livesov-connector/`
-   (or zip it and upload via **Plugins → Add New → Upload Plugin**).
+1. Download `livesov-connector.zip` from
+   [livesov.com/integrations/wordpress](https://livesov.com/integrations/wordpress)
+   and upload it via **Plugins → Add New → Upload Plugin**. (Or, from a
+   checkout, copy `livesov-connector.php` into
+   `wp-content/plugins/livesov-connector/`.)
 2. Activate **Livesov Connector**.
 
 ### Connect — one click (recommended)
@@ -59,3 +65,17 @@ the token + signing secret, so the secret never appears in the URL.
   (re-pair to rotate). Livesov stores only its hash.
 - The signing secret lets the plugin reject tampered instructions.
 - File writes are constrained to the root-file allow-list above.
+
+## Releasing a new version
+
+`livesov-connector.php` here is the source of truth. After editing it, bump
+`Version:` in the plugin header **and** `LVX_CONN_VERSION`, then regenerate the
+zip the download page serves:
+
+```bash
+cd trackly-nextjs && node scripts/build-connector-zip.mjs
+```
+
+That writes `trackly-nextjs/public/wordpress-plugin/livesov-connector.zip`
+(committed, reproducible). Update `PLUGIN_VERSION` in
+`trackly-nextjs/src/app/(public)/integrations/wordpress/page.tsx` to match.
