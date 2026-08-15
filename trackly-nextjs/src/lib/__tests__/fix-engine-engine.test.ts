@@ -127,7 +127,7 @@ vi.mock('@/lib/fix-engine/schema', () => ({
   findStuckQueuedBatches: vi.fn(async () => []),
 }));
 
-import { generateFix, approveFix, shipFix, recheckFix, revertFix, dismissFix, restoreFix, restoreAllDismissed } from '@/lib/fix-engine/engine';
+import { generateFix, approveFix, shipFix, publishStagedFix, recheckFix, revertFix, dismissFix, restoreFix, restoreAllDismissed } from '@/lib/fix-engine/engine';
 import { refundCredits } from '@/lib/credits';
 
 function seedFix(over: Partial<FixRow> = {}): string {
@@ -238,6 +238,41 @@ describe('revise a live fix (regenerate/edit after shipping)', () => {
     const id = seedFix({ status: 'shipped', generated: { value: 'OLD' } });
     await expect(generateFix(id, 'brand1')).rejects.toMatchObject({ paymentRequired: true });
     expect(store.fixes.get(id)!.status).toBe('shipped'); // not rolled back to 'detected'
+  });
+});
+
+describe('live changes require a human', () => {
+  // The product rule: automation may detect, generate, and stage a preview,
+  // but nothing reaches a live page without a person approving it. userId is
+  // the seam — every human path carries one, every cron path passes null —
+  // and it is enforced inside shipFix/publishStagedFix rather than at each
+  // call site, so a future caller cannot reintroduce silent publishing by
+  // forgetting a check.
+  it('refuses to ship with no user id', async () => {
+    const id = seedFix({ status: 'approved', generated: { value: 'NEW' } });
+    await expect(shipFix(id, 'brand1', null)).rejects.toThrow(/needs a person to approve it/i);
+    expect(store.fixes.get(id)!.status).toBe('approved'); // untouched
+  });
+
+  it('refuses to publish a staged change with no user id', async () => {
+    const id = seedFix({ status: 'staged', generated: { value: 'NEW' } });
+    await expect(publishStagedFix(id, 'brand1', null)).rejects.toThrow(/needs a person to approve it/i);
+    expect(store.fixes.get(id)!.status).toBe('staged');
+  });
+
+  it('ships normally once a person is attached', async () => {
+    const id = seedFix({ status: 'approved', generated: { value: 'NEW' } });
+    const shipped = await shipFix(id, 'brand1', 'owner1');
+    expect(shipped.status).toBe('shipped');
+  });
+
+  it('fails before touching the fix, not halfway through', async () => {
+    // A refusal that had already flipped the row to 'shipping' would strand
+    // the fix in a transient state no UI can recover from.
+    const id = seedFix({ status: 'approved', generated: { value: 'NEW' } });
+    await expect(shipFix(id, 'brand1', null)).rejects.toThrow();
+    expect(store.fixes.get(id)!.status).toBe('approved');
+    expect(store.fixes.get(id)!.shipResult ?? null).toBeNull();
   });
 });
 

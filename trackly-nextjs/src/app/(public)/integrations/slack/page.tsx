@@ -12,15 +12,15 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Livesov + Slack: Real-time AI Visibility Alerts & Weekly Digests',
+  title: 'Livesov + Slack: Send AI Visibility Updates to Any Channel',
   description:
-    'Stream AI mention drops, competitor moves, and weekly visibility digests into any Slack channel. Native Livesov Slack integration - 2-click setup.',
+    'Point Livesov at a Slack incoming webhook and get Fix Engine updates and issue hand-offs in the channel your team already lives in. Two minutes, no app install.',
   keywords:
-    'livesov slack integration, ai visibility slack alerts, chatgpt mention slack, ai search alerts slack, geo slack integration, llm alerts slack',
+    'livesov slack, ai visibility slack alerts, chatgpt mention slack, ai search alerts slack, geo slack webhook, llm alerts slack',
   alternates: { canonical: '/integrations/slack' },
   openGraph: {
-    title: 'Livesov + Slack: Real-time AI Visibility Alerts',
-    description: 'Real-time mention drops and weekly digests, in your Slack channels.',
+    title: 'Livesov + Slack: AI Visibility Updates in Any Channel',
+    description: 'Send Livesov updates to Slack with an incoming webhook.',
     url: 'https://livesov.com/integrations/slack',
     siteName: 'Livesov',
     type: 'article',
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Livesov + Slack: Real-time AI Visibility Alerts',
+        alt: 'Livesov + Slack',
       },
     ],
   },
@@ -37,50 +37,83 @@ export const metadata: Metadata = {
 
 const features = [
   {
-    icon: '🔔',
-    title: 'Mention-rate drop alerts',
-    description: 'Get pinged the moment your mention rate drops more than a configurable threshold on any tracked LLM.',
+    icon: '🔧',
+    title: 'Fix Engine updates',
+    description: 'Status summaries from the Fix Engine post straight into the channel — what was found, what shipped, what failed and why.',
   },
   {
-    icon: '◆',
-    title: 'Competitor pass-through',
-    description: 'When a competitor overtakes you in citation share or rank-in-answer, the alert lands in Slack with the prompt and the screenshot.',
+    icon: '🎫',
+    title: 'Issue hand-offs',
+    description: 'Send an individual fix to the channel as a formatted message when the brand has no Linear or Jira connected.',
   },
   {
-    icon: '✦',
-    title: 'New citation surfacing',
-    description: 'A new third-party source citing your brand? Slack notifies the right channel - perfect for PR and brand teams.',
+    icon: '💬',
+    title: 'Native Slack formatting',
+    description: 'The payload is a Slack incoming-webhook body, so messages render with bold, links, and line breaks rather than as a wall of JSON.',
   },
   {
-    icon: '↻',
-    title: 'Weekly digest',
-    description: 'Every Monday: mention-rate delta, top movers, new citations, and the week\'s biggest sentiment shifts.',
+    icon: '🔗',
+    title: 'Works with any catch-hook',
+    description: 'The same webhook URL can point at Zapier, Make, n8n, or your own endpoint — nothing about it is Slack-specific.',
   },
   {
-    icon: '🎯',
-    title: 'Per-channel routing',
-    description: 'Route different brands, categories, or alert types to different Slack channels.',
+    icon: '🛡',
+    title: 'SSRF-validated',
+    description: 'The webhook URL must be public HTTPS. Internal and private-range destinations are rejected when you save it.',
   },
   {
-    icon: '◐',
-    title: 'Threaded context',
-    description: 'Every alert includes the prompt, the LLM output, and a link to the dashboard - so the conversation can happen right there.',
+    icon: '🏷',
+    title: 'One per brand',
+    description: 'Each brand carries its own webhook URL, so agencies can route each client to that client\'s own channel.',
   },
 ];
 
 const steps = [
-  { title: 'Open Livesov Settings', description: 'In your Livesov dashboard, go to Settings → Integrations → Slack.' },
-  { title: 'Click "Connect Slack"', description: 'OAuth flow handles the authentication. Pick the workspace and the default channel.' },
-  { title: 'Configure alert types', description: 'Choose which events post to which channels - mention drops, competitor moves, weekly digests.' },
-  { title: 'Test the connection', description: 'Send a test alert. If it lands, you\'re live. Otherwise we\'ll guide you to the fix.' },
+  {
+    title: 'Create a Slack incoming webhook',
+    description: 'In Slack: Apps → Incoming Webhooks → Add to Slack. Pick the channel and copy the webhook URL Slack gives you.',
+  },
+  {
+    title: 'Paste it into Livesov',
+    description: 'Dashboard → Alerts → Webhook URL. It has to be a public HTTPS URL; Livesov rejects internal destinations.',
+  },
+  {
+    title: 'Save',
+    description: 'The webhook is stored against the brand. Fix Engine notifications for that brand start posting to the channel.',
+  },
 ];
 
 const faqs = [
-  { question: 'Is the Slack integration free?', answer: 'Slack is included on every paid Livesov plan, including the entry tier. The free trial includes Slack so you can validate setup before upgrading.' },
-  { question: 'How many channels can I route to?', answer: 'Unlimited. Most teams use 2–3 channels (one alerts, one digest, one brand-specific) but agencies often use one channel per client.' },
-  { question: 'Does Slack post the full LLM output?', answer: 'Yes - the relevant snippet plus a link to the full response in your Livesov dashboard. You can truncate at 300 characters or expand to the full paragraph.' },
-  { question: 'Can I trigger Livesov actions from Slack?', answer: 'Inbound slash commands are on the roadmap (snooze alerts, mark resolved). Today, the integration is one-directional: Livesov → Slack.' },
-  { question: 'How is Slack different from email alerts?', answer: 'Same events, different surface. Slack is better for fast-moving teams that already live in channels; email is better for executive digests and external stakeholders.' },
+  {
+    question: 'Is this a Slack app I install?',
+    answer:
+      'No. There is no Livesov app in the Slack directory and no OAuth flow. This is a plain Slack incoming webhook: you create the webhook in Slack, paste the URL into Livesov, and Livesov posts to it. A native Slack app with OAuth, channel pickers, and slash commands is on the roadmap, not shipped.',
+  },
+  {
+    question: 'What actually gets posted today?',
+    answer:
+      'Fix Engine notifications: status summaries, and individual fix hand-offs when a brand has no Linear or Jira tracker connected. Mention-rate and competitor alerts are delivered by email today, not through the webhook — if you want those in Slack, route Livesov\'s alert emails into a channel with Slack\'s email-to-channel address, or watch this page.',
+  },
+  {
+    question: 'Does it cost anything?',
+    answer:
+      'No. The webhook field is available on every plan, including the trial. Slack does not charge for incoming webhooks either.',
+  },
+  {
+    question: 'Can I route different brands to different channels?',
+    answer:
+      'Yes. The webhook URL is stored per brand, so give each brand the webhook for its own channel. Agencies typically run one channel per client this way.',
+  },
+  {
+    question: 'Are the requests signed?',
+    answer:
+      'Not today. Livesov POSTs a JSON body to the URL you configured, with no HMAC signature. Treat the webhook URL itself as the secret — anyone holding it can post to your channel, which is true of Slack incoming webhooks generally. Signed payloads are part of the planned public API work.',
+  },
+  {
+    question: 'Can I trigger Livesov from Slack?',
+    answer:
+      'No. The integration is one-directional: Livesov → Slack. Inbound slash commands are on the roadmap.',
+  },
 ];
 
 export default function SlackIntegrationPage() {
@@ -97,55 +130,88 @@ export default function SlackIntegrationPage() {
             </span>
           </>
         }
-        subtitle="Real-time AI visibility alerts, weekly digests, and competitor moves - delivered to the Slack channels you already live in. Two-click setup."
-        ctaText="Connect Slack"
+        subtitle="Point Livesov at a Slack incoming webhook and Fix Engine updates land in the channel your team already lives in. No app to install, no OAuth, about two minutes of setup."
+        ctaText="Start free"
         ctaHref="/signup"
       />
 
       <Section background="var(--bg-section, #f7f5f1)" pad="72px 24px">
         <SectionHeader
-          label="What you'll see in Slack"
-          title="The six alerts that actually matter"
-          subtitle="Configurable per channel, per brand, per LLM."
+          label="What you get"
+          title="A webhook, wired to the channel that cares"
+          subtitle="Configured per brand, so each client can have its own channel."
         />
         <FeatureGrid items={features} columns={3} />
       </Section>
 
       <Section pad="72px 24px">
-        <SectionHeader label="Setup" title="From zero to first alert in 2 minutes" />
+        <SectionHeader label="Setup" title="Three steps, about two minutes" />
         <ProcessSteps steps={steps} />
       </Section>
 
       <Section background="var(--bg-section, #f7f5f1)" pad="64px 24px">
         <LongForm>
-          <h2>Why marketing leaders run Livesov alerts through Slack</h2>
+          <Callout title="What this is, precisely" variant="note">
+            A Slack <strong>incoming webhook</strong> — not a Livesov app in the Slack directory.
+            You create the webhook in Slack, paste the URL into Livesov, and Livesov POSTs a
+            Slack-formatted message to it. A native app with OAuth, a channel picker, per-event
+            routing, and slash commands is on the roadmap and is not shipped. We would rather tell
+            you that here than have you go looking for us in the Slack directory.
+          </Callout>
+
+          <h2>Why teams run Livesov through Slack anyway</h2>
           <p>
-            AI visibility moves in days, not quarters. A new competitor placement on Reddit can
-            shift your mention rate on ChatGPT Search within 48 hours. Email digests miss the
-            window. Slack catches it.
-          </p>
-          <p>
-            The fastest-moving Livesov teams run a single &quot;#ai-visibility&quot; channel that
-            mirrors the dashboard in near-real-time. Anyone on the team - PMM, content, PR, exec
-            - can react to a drop or a competitor move without opening another tool.
+            AI visibility moves in days, not quarters. A new competitor placement can shift your
+            mention rate within a week, and a Fix Engine change that fails to apply is worth knowing
+            about before the next reporting cycle, not after it. A channel that mirrors what the Fix
+            Engine is doing keeps content, PR, and exec eyes on the same signal without anyone
+            opening another dashboard.
           </p>
 
-          <Callout title="Try it with the free trial" variant="tip">
-            Slack is included on the free trial. <a href="/signup">Start free</a> - you can
-            connect Slack from Settings → Integrations the moment your account is live.
-          </Callout>
+          <h2>What is delivered where</h2>
+          <p>
+            Worth being exact, because &quot;alerts in Slack&quot; means different things in
+            different tools:
+          </p>
+          <ul>
+            <li>
+              <strong>Fix Engine status summaries and fix hand-offs</strong> — the webhook. This is
+              what the setup above configures.
+            </li>
+            <li>
+              <strong>Linear and Jira</strong> — native. When a brand has a tracker connected,
+              individual fixes become real issues there instead of webhook messages.
+            </li>
+            <li>
+              <strong>Mention-rate drops, competitor moves, sentiment shifts</strong> — email today.
+              If you want them in a channel now, Slack&rsquo;s per-channel email address works well
+              as a stopgap.
+            </li>
+            <li>
+              <strong>Weekly and monthly reports</strong> — email, as scheduled PDFs.
+            </li>
+          </ul>
+
+          <h2>The same webhook, pointed elsewhere</h2>
+          <p>
+            Nothing about the payload is Slack-specific — it is a JSON body with a{' '}
+            <code>text</code> field, which is exactly what a{' '}
+            <a href="/integrations/zapier">Zapier</a> or Make catch-hook expects too. If you want
+            Livesov output in Teams, Discord, or your own service, point the same field at that
+            endpoint instead.
+          </p>
         </LongForm>
       </Section>
 
-      <FaqSection title="Slack integration FAQ" items={faqs} />
+      <FaqSection title="Slack FAQ" items={faqs} />
 
       <PillarLinks
         title="More ways to plug Livesov in"
         links={[
-          { href: '/integrations/zapier', label: 'Zapier integration', description: '5,000+ apps via Zapier triggers and actions.' },
-          { href: '/integrations/api', label: 'REST API', description: 'Build directly against Livesov metrics and events.' },
-          { href: '/integrations', label: 'All integrations', description: 'Every LLM, alert route, export format, and API surface.' },
-          { href: '/docs', label: 'Docs', description: 'Setup guides, workflows, and integration reference.' },
+          { href: '/integrations/wordpress', label: 'WordPress plugin', description: 'Apply approved fixes straight to your site.' },
+          { href: '/integrations/zapier', label: 'Zapier', description: 'Same webhook, pointed at a catch-hook.' },
+          { href: '/integrations/api', label: 'API & webhooks', description: 'What is available today, and what is coming.' },
+          { href: '/integrations', label: 'All integrations', description: 'Every LLM, alert route, and export format.' },
         ]}
       />
     </SeoLayout>

@@ -35,7 +35,7 @@ import { recheckFix, revertFix, getOwnerId } from './engine';
 import { getModule } from './registry';
 import { getAutomation } from './automation';
 import { notifyBrand } from './notify';
-import { fetchUrlMetricsLive, PAGE_METRICS_WINDOW_DAYS } from './page-metrics';
+import { fetchUrlMetricsLive, fetchSiteMetricsLive, PAGE_METRICS_WINDOW_DAYS } from './page-metrics';
 
 export const OUTCOME_WINDOW_DAYS = PAGE_METRICS_WINDOW_DAYS; // measure after a full comparable window
 export const REGRESSION_AFTER_DAYS = 7;
@@ -68,6 +68,42 @@ export function ctrDelta(
   return (Number(after.ctr) - bc) / bc;
 }
 
+/**
+ * The page's CTR change relative to the whole site's change over the same
+ * window — the number that actually says whether the fix helped.
+ *
+ * A raw page delta answers "did this page's CTR move?", which is not the
+ * question. When Google ships a core update, or the client's category has a
+ * quiet month, every page moves together: the raw delta then reports a wall
+ * of failures, the measured auto-revert cheerfully undoes good work one page
+ * at a time, and anything learning from those numbers learns the weather.
+ *
+ * Differencing against the site's own trend removes what is common to every
+ * page, which is the closest thing to a control group this data affords. A
+ * page that fell 25% while the site fell 30% gets a +5pp adjusted delta —
+ * it outperformed, and should be kept.
+ *
+ * Falls back to the raw delta when no site baseline was captured (GSC
+ * connected after the fix shipped, or an older fix from before this
+ * existed), so measurement degrades rather than disappearing.
+ */
+export function adjustedCtrDelta(
+  before: { ctr?: number; impressions?: number; site?: { ctr?: number } | null } | null,
+  after: { ctr?: number; impressions?: number } | null,
+  siteAfter: { ctr?: number } | null,
+  minImpressions = 100,
+): { delta: number | null; siteDelta: number | null; adjusted: boolean } {
+  const raw = ctrDelta(before, after, minImpressions);
+  if (raw == null) return { delta: null, siteDelta: null, adjusted: false };
+
+  const sb = Number(before?.site?.ctr) || 0;
+  const sa = Number(siteAfter?.ctr) || 0;
+  if (sb <= 0 || sa <= 0) return { delta: raw, siteDelta: null, adjusted: false };
+
+  const siteDelta = (sa - sb) / sb;
+  return { delta: raw - siteDelta, siteDelta, adjusted: true };
+}
+
 export async function runOutcomePass(limit = 20): Promise<OutcomeSummary> {
   const due = await findFixesDueOutcome(OUTCOME_WINDOW_DAYS, limit);
   let measured = 0, improved = 0, declined = 0, reverted = 0;
@@ -77,19 +113,33 @@ export async function runOutcomePass(limit = 20): Promise<OutcomeSummary> {
       const ownerId = await getOwnerId(fix.brandId);
       if (!ownerId) continue;
       const after = await fetchUrlMetricsLive(fix.brandId, ownerId, fix.targetUrl);
+      // Same window, whole site: the control the page delta is measured
+      // against, so a sitewide swing isn't mistaken for this fix's doing.
+      const siteAfter = await fetchSiteMetricsLive(fix.brandId, ownerId).catch(() => null);
       const gscAfter = after
-        ? { clicks: after.clicks, impressions: after.impressions, ctr: after.ctr, position: after.position, at: new Date().toISOString() }
+        ? {
+            clicks: after.clicks, impressions: after.impressions, ctr: after.ctr, position: after.position,
+            at: new Date().toISOString(),
+            site: siteAfter ? { clicks: siteAfter.clicks, impressions: siteAfter.impressions, ctr: siteAfter.ctr } : null,
+          }
         : { unavailable: true, at: new Date().toISOString() };
       await updateFix(fix.id, { gscAfter });
-      const delta = ctrDelta(fix.gscBefore as { ctr?: number; impressions?: number } | null, after);
+
+      const before = fix.gscBefore as
+        { ctr?: number; impressions?: number; site?: { ctr?: number } | null } | null;
+      const { delta, siteDelta, adjusted } = adjustedCtrDelta(before, after, siteAfter);
+      const rawDelta = ctrDelta(before, after);
       if (delta != null) { delta >= 0 ? improved++ : declined++; }
       measured++;
       await logFixEvent(fix.id, fix.brandId, null, 'outcome.measured', {
-        ctrDelta: delta, before: fix.gscBefore, after: gscAfter,
+        ctrDelta: delta, rawCtrDelta: rawDelta, siteCtrDelta: siteDelta, baselineAdjusted: adjusted,
+        before: fix.gscBefore, after: gscAfter,
       });
 
       // Guarded measured auto-revert (opt-in per brand): a big, well-fed
       // CTR decline on an auto-revertable module gets undone automatically.
+      // Uses the baseline-adjusted delta, so a bad month for the whole site
+      // no longer un-ships every fix on it.
       if (delta != null && delta <= REVERT_CTR_DROP && (await shouldAutoRevert(fix.brandId, fix.moduleKey, fix.gscBefore, gscAfter))) {
         try {
           const out = await revertFix(fix.id, fix.brandId, null);
@@ -100,7 +150,9 @@ export async function runOutcomePass(limit = 20): Promise<OutcomeSummary> {
             });
             await notifyBrand(fix.brandId, {
               title: 'Fix Engine — a fix was auto-undone',
-              description: `The ${fix.moduleKey} change on ${fix.targetUrl} measured CTR ${Math.round(delta * 100)}% after 28 days, so it was reverted to the previous version (Measured mode).`,
+              description: `The ${fix.moduleKey} change on ${fix.targetUrl} measured CTR ${Math.round(delta * 100)}% after 28 days`
+                + (adjusted ? ' (after adjusting for the site-wide trend)' : '')
+                + ', so it was reverted to the previous version (Measured mode).',
             }).catch(() => undefined);
           }
         } catch (e) {

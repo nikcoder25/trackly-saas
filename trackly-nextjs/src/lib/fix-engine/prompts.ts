@@ -58,6 +58,48 @@ ${BEAT_THE_SERP}
 
 Return ONLY a JSON object: {"title": "<new title>", "rationale": "<one sentence>"}`;
 
+/**
+ * This brand's own measured winners and losers for the module being run.
+ *
+ * A model told "write a compelling title" guesses at the house style. A model
+ * shown three titles that measurably lifted CTR on this exact site, and two
+ * that measurably cost it, has evidence. The losers matter as much as the
+ * winners: the ways a title fails are site-specific and unguessable — a
+ * length that truncates in this brand's SERP, a phrasing their audience
+ * reads as spam.
+ *
+ * Deltas are baseline-adjusted (see outcomes.ts), so they say "beat the
+ * site's own trend" rather than "went up in a good month". Renders to an
+ * empty string when the brand has no measured history, leaving the prompt
+ * byte-identical to what it was before any of this existed.
+ */
+export function learnedBlock(
+  learned: {
+    winners: Array<{ delta: number; generated: Record<string, unknown> | null }>;
+    losers: Array<{ delta: number; generated: Record<string, unknown> | null }>;
+  } | undefined,
+  field: string,
+): string {
+  if (!learned) return '';
+  const line = (e: { delta: number; generated: Record<string, unknown> | null }) => {
+    const v = e.generated?.[field];
+    if (typeof v !== 'string' || !v.trim()) return null;
+    const pct = Math.round(e.delta * 100);
+    return `- "${v.trim().slice(0, 160)}" (${pct >= 0 ? '+' : ''}${pct}% CTR vs site trend)`;
+  };
+  const won = learned.winners.map(line).filter(Boolean);
+  const lost = learned.losers.map(line).filter(Boolean);
+  if (!won.length && !lost.length) return '';
+
+  return `
+
+What has actually worked on THIS site (measured 28 days after publishing, adjusted for the site's overall trend):${
+    won.length ? `\n\nThese lifted click-through — match their register and structure:\n${won.join('\n')}` : ''
+  }${
+    lost.length ? `\n\nThese lost click-through — do not repeat these patterns:\n${lost.join('\n')}` : ''
+  }`;
+}
+
 export function titleUserPrompt(args: {
   brand: BrandPromptContext;
   url: string;
@@ -66,13 +108,14 @@ export function titleUserPrompt(args: {
   pageSummary: string;
   query?: string | null;
   competitors?: SerpCompetitor[];
+  learned?: Parameters<typeof learnedBlock>[0];
 }): string {
   return `${brandBlock(args.brand)}
 
 Page URL: ${args.url}
 Current <title>: ${args.currentTitle ?? '(missing)'}
 Page H1: ${args.h1 ?? '(none)'}
-Page content summary: ${args.pageSummary.slice(0, 1200)}${competitorBlock(args.query, args.competitors)}
+Page content summary: ${args.pageSummary.slice(0, 1200)}${competitorBlock(args.query, args.competitors)}${learnedBlock(args.learned, 'title')}
 
 Rewrite the <title> for this page${args.competitors?.length ? ' so it wins the click against the results above' : ''}.`;
 }
@@ -99,13 +142,14 @@ export function metaUserPrompt(args: {
   pageSummary: string;
   query?: string | null;
   competitors?: SerpCompetitor[];
+  learned?: Parameters<typeof learnedBlock>[0];
 }): string {
   return `${brandBlock(args.brand)}
 
 Page URL: ${args.url}
 Current meta description: ${args.currentMeta ?? '(missing)'}
 Page title: ${args.title ?? '(none)'}
-Page content summary: ${args.pageSummary.slice(0, 1500)}${competitorBlock(args.query, args.competitors)}
+Page content summary: ${args.pageSummary.slice(0, 1500)}${competitorBlock(args.query, args.competitors)}${learnedBlock(args.learned, 'description')}
 
 Rewrite the meta description for this page${args.competitors?.length ? ' so it wins the click against the results above' : ''}.`;
 }

@@ -87,6 +87,7 @@ export const titleRewriteModule: FixModule = {
       pageSummary: d.pageSummary || '',
       query,
       competitors,
+      learned: ctx.learned,
     });
     // A user-initiated request can add direction (e.g. "make it punchier").
     if (typeof d.instruction === 'string' && d.instruction.trim()) user += `\n\nUser preference (honor this): ${d.instruction.trim()}`;

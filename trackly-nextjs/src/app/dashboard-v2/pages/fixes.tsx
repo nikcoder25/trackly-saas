@@ -27,6 +27,11 @@ interface FixRow {
   shipMode?: 'live' | 'draft'; previewUrl?: string | null;
   shipResult?: { op?: string } | null;
   pageImpressions?: number;
+  /** Learned ranking multiplier from measured outcomes (1 = neutral). */
+  learnedWeight?: number;
+  /** Evidence pool behind learnedWeight: brand | industry | global | none. */
+  learnedBasis?: string;
+  learnedSamples?: number;
   gscBefore?: { ctr?: number; impressions?: number } | null;
   gscAfter?: { ctr?: number; impressions?: number; unavailable?: boolean } | null;
   /** Set when the user explicitly moved this live fix to the Archive tab. */
@@ -252,6 +257,17 @@ const MODULE_GROUP: Record<string, string> = {
   'noindex-removal': 'Technical & rankings', 'og-cards': 'Technical & rankings',
 };
 const GROUP_ORDER = ['Structured data & schema', 'AI crawler access', 'Content optimization', 'Authority & citations', 'Accuracy & corrections', 'Technical & rankings', 'Other'];
+/**
+ * What /connections/cms/detect returns. `needsConnector` is the one that
+ * changes the advice: it marks a WordPress site whose front end is rendered
+ * by a builder that ignores post_content, so the Application Password route
+ * would write edits nowhere visible.
+ */
+type CmsDetected = {
+  cms: string; confidence: string; hasAdapter: boolean;
+  builder?: string; builderLabel?: string; needsConnector?: boolean;
+};
+
 // Modules whose change can be staged as a Connector draft revision
 // (mirrors the modules that implement contentPatch() server-side).
 const STAGEABLE_MODULES = new Set(['title-rewrite', 'meta-rewrite', 'geo-page-rewrite', 'faq-schema', 'canonical-fix', 'passage-rewrite', 'citable-passages', 'content-freshness', 'keyword-opportunities']);
@@ -335,7 +351,7 @@ export function PageFixes() {
   const [health, setHealth] = React.useState<{ score: number; openIssues: number } | null>(null);
   const [activity, setActivity] = React.useState<{ id: string; event: string; detail: any; createdAt: string }[]>([]);
   const [wizSite, setWizSite] = React.useState('');
-  const [wizDetected, setWizDetected] = React.useState<{ cms: string; confidence: string; hasAdapter: boolean } | null>(null);
+  const [wizDetected, setWizDetected] = React.useState<CmsDetected | null>(null);
   const [wizBusy, setWizBusy] = React.useState(false);
   const [wizDismissed, setWizDismissed] = React.useState(false);
   // Lets the wizard (or the "connect this way" hints) open the Connections
@@ -655,9 +671,9 @@ export function PageFixes() {
     await load(brandId);
     flash(`Applied ${ok} fix${ok === 1 ? '' : 'es'}${fail ? ` · ${fail} need attention` : ''}`);
   };
-  const toggleAutofix = async () => {
-    const next = !automation?.autopilotShipDeterministic;
-    await saveAutomation({ autopilotShipDeterministic: next, ...(next && !automation?.scanEnabled ? { scanEnabled: true } : {}) });
+  const toggleAutoStage = async () => {
+    const next = !automation?.autopilotStage;
+    await saveAutomation({ autopilotStage: next, ...(next && !automation?.scanEnabled ? { scanEnabled: true } : {}) });
   };
 
   // ── Publish everything live in one click ─────────────────────────
@@ -818,7 +834,7 @@ export function PageFixes() {
     try { await api(`/api/brands/${brandId}/connections`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'cms', cmsType, siteUrl, creds }) }); flash(`${cmsType} connected`); await load(brandId); }
     catch (e) { setError((e as Error).message); }
   };
-  const detectCms = async (site: string): Promise<{ cms: string; confidence: string; hasAdapter: boolean } | null> => {
+  const detectCms = async (site: string): Promise<CmsDetected | null> => {
     if (!brandId || !site) return null;
     try { const d = await api(`/api/brands/${brandId}/connections/cms/detect?site=${encodeURIComponent(site)}`); return d.detection; }
     catch { return null; }
@@ -906,8 +922,14 @@ export function PageFixes() {
     if (quickWins) list = list.filter((f) => (moduleMeta(f.moduleKey)?.cost ?? 1) === 0 || f.severity === 'critical' || f.severity === 'high');
     // Rank by severity, then by estimated value: module impact weighted by
     // the target page's real 28-day GSC impressions (log-scaled so a huge
-    // page doesn't drown everything). Falls back to impact alone.
-    const value = (f: FixRow) => (moduleMeta(f.moduleKey)?.impact ?? 2) * Math.log10((f.pageImpressions ?? 0) + 10);
+    // page doesn't drown everything), then by what this module has actually
+    // achieved once shipped. The learned term is 1 until there is enough
+    // measured history to say anything, and is capped at ±50% — enough to
+    // reorder a list, never enough to bury something the customer asked for.
+    const value = (f: FixRow) =>
+      (moduleMeta(f.moduleKey)?.impact ?? 2)
+      * Math.log10((f.pageImpressions ?? 0) + 10)
+      * (f.learnedWeight ?? 1);
     return [...list].sort((a, b) => {
       const sev = (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9);
       if (sev !== 0) return sev;
@@ -1051,25 +1073,38 @@ export function PageFixes() {
           </div>
           {(() => {
             // What did detection find, and where should we steer them?
-            //   wordpress          → one-click WP (no plugin)
+            //   wordpress + builder   → the Connector plugin (see below)
+            //   wordpress             → one-click WP (no plugin)
             //   shopify/ghost/webflow → open Connections with that platform
-            //   anything else / unknown → custom-coded endpoint path
+            //   anything else/unknown → custom-coded endpoint path
             const d = wizDetected;
             const isWp = d?.cms === 'wordpress';
+            // The one-click route authenticates with an Application Password
+            // and edits through the REST API — which means it edits
+            // post_content. Elementor, Beaver Builder, Bricks and Oxygen
+            // render from their own storage and never read that field, so
+            // sending those sites down this path produces fixes that report
+            // success and change nothing on the page. Steer them to the
+            // plugin, which writes to the builder's own data.
+            const needsPlugin = isWp && !!d?.needsConnector;
+            const builderName = d?.builderLabel || d?.builder || 'a page builder';
             const adapterPlatform = d && d.hasAdapter && d.cms !== 'wordpress' && d.cms !== 'unknown' ? d.cms : null;
             const isCustom = !!d && !isWp && !adapterPlatform;
             const site = wizSite || (brand as any)?.website || '';
             return (<>
               {d && (
-                <span className="nb-sm" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)', padding: '9px 13px', boxShadow: 'none', background: isWp ? 'var(--success-50)' : 'var(--warn-50)', borderColor: isWp ? 'var(--success)' : 'var(--warn)', marginLeft: 46, display: 'block' }}>
-                  {isWp ? '✓ Detected WordPress — use the one-click connect below.'
+                <span className="nb-sm" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)', padding: '9px 13px', boxShadow: 'none', background: needsPlugin ? 'var(--warn-50)' : isWp ? 'var(--success-50)' : 'var(--warn-50)', borderColor: needsPlugin ? 'var(--warn)' : isWp ? 'var(--success)' : 'var(--warn)', marginLeft: 46, display: 'block' }}>
+                  {needsPlugin ? `✓ Detected WordPress + ${builderName}. This site needs the Connector plugin — ${builderName} renders its own content, so the one-click route would save edits where the page never reads them.`
+                    : isWp ? `✓ Detected WordPress${d.builderLabel ? ` + ${d.builderLabel}` : ''} — use the one-click connect below.`
                     : adapterPlatform ? `✓ Detected ${adapterPlatform}. Click “Connect ${adapterPlatform}” below to enter your API token.`
                     : `This looks like a custom-coded site (no CMS we recognize). No problem — connect it with a small endpoint your developer drops in once. Click “Connect custom-coded site” below.`}
                 </span>
               )}
               <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                 <span className="disp nb-sm" style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, background: 'var(--surface-2)', flexShrink: 0 }}>2</span>
-                {isCustom ? (
+                {needsPlugin ? (
+                  <a className="xbtn" href="/integrations/wordpress" target="_blank" rel="noopener" style={{ background: 'var(--primary)', textDecoration: 'none', display: 'inline-block' }}>GET THE CONNECTOR PLUGIN →</a>
+                ) : isCustom ? (
                   <button className="xbtn" onClick={() => { setWizSite(site); requestConnect('custom'); }} style={{ background: 'var(--warn)' }}>CONNECT CUSTOM-CODED SITE →</button>
                 ) : adapterPlatform ? (
                   <button className="xbtn" onClick={() => { setWizSite(site); requestConnect(adapterPlatform); }} style={{ background: 'var(--primary)' }}>CONNECT {adapterPlatform.toUpperCase()} →</button>
@@ -1077,7 +1112,8 @@ export function PageFixes() {
                   <button className="xbtn" onClick={() => connectWp(site)} disabled={!site} style={{ background: 'var(--primary)' }}>CONNECT WORDPRESS — ONE CLICK →</button>
                 )}
                 <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>
-                  {isCustom ? 'Any stack (React, Next.js, PHP, Django…). Ticket hand-off & scan work with zero setup too.'
+                  {needsPlugin ? 'Install it once, then Connect with Livesov from WordPress — it writes into your builder’s own content.'
+                    : isCustom ? 'Any stack (React, Next.js, PHP, Django…). Ticket hand-off & scan work with zero setup too.'
                     : 'No plugin. Not WordPress? Hit Detect platform, or use Connections below.'}
                 </span>
               </div>
@@ -1252,11 +1288,11 @@ export function PageFixes() {
           <span className="disp" style={{ fontSize: 20 }}>✨</span>
           <div style={{ flex: 1, minWidth: 180 }}>
             <div className="disp" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{safeFixes.length > 0 ? `${safeFixes.length} safe fix${safeFixes.length === 1 ? '' : 'es'} ready` : 'No safe fixes pending'}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Deterministic, no-AI technical fixes (canonical, AI-crawler access, accidental-noindex) — safe, standard SEO best practices, applied in one click.</div>
+            <div style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Deterministic, no-AI technical fixes (canonical, AI-crawler access, accidental-noindex) — safe, standard SEO best practices. Reviewed and applied by you, in one click.</div>
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: 'var(--text-2)', cursor: 'pointer' }}>
-            <input type="checkbox" checked={!!automation?.autopilotShipDeterministic} onChange={toggleAutofix} disabled={!canShip} style={{ accentColor: 'var(--success)', width: 15, height: 15 }} />
-            Autofix on
+            <input type="checkbox" checked={!!automation?.autopilotStage} onChange={toggleAutoStage} disabled={!canShip} style={{ accentColor: 'var(--success)', width: 15, height: 15 }} />
+            Auto-prepare
           </label>
           <button className="xbtn" onClick={applyAllSafe} disabled={bulkBusy || safeFixes.length === 0 || !canShip} style={{ background: 'var(--success)' }}>{bulkBusy ? 'APPLYING…' : `APPLY ${safeFixes.length} SAFE FIX${safeFixes.length === 1 ? '' : 'ES'}`}</button>
         </div>
@@ -1429,7 +1465,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
   onConnectCms: (f: { cmsType: string; siteUrl: string; username: string; appPassword: string }) => void;
   onConnectWp: (site: string) => void;
   onConnectCmsGeneric: (cmsType: string, siteUrl: string, creds: Record<string, string>) => void;
-  onDetectCms: (site: string) => Promise<{ cms: string; confidence: string; hasAdapter: boolean } | null>;
+  onDetectCms: (site: string) => Promise<CmsDetected | null>;
   onDeployCloudflare: (apiToken: string) => Promise<void> | void;
   onConnectGsc: () => void; onCreateSheet: () => void; onPairConnector: () => void; onRevokeConnector: () => void; onCopy: (label: string) => void;
   openRequest?: { platform: string; nonce: number } | null;
@@ -1446,7 +1482,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
   const [appPassword, setAppPassword] = React.useState('');
   const [cc, setCc] = React.useState<Record<string, string>>({}); // generic CMS creds
   const ccSet = (k: string, v: string) => setCc((p) => ({ ...p, [k]: v }));
-  const [detected, setDetected] = React.useState<{ cms: string; confidence: string; hasAdapter: boolean } | null>(null);
+  const [detected, setDetected] = React.useState<CmsDetected | null>(null);
   const [detecting, setDetecting] = React.useState(false);
   const runDetect = async () => { if (!siteUrl) return; setDetecting(true); const d = await onDetectCms(siteUrl); setDetected(d); if (d?.hasAdapter && d.cms !== 'unknown') setCmsType(d.cms); else if (d && (d.cms === 'unknown' || !d.hasAdapter)) setCmsType('custom'); setDetecting(false); };
   const [tracker, setTracker] = React.useState<'' | 'linear' | 'jira' | 'sheet'>('');
@@ -1908,14 +1944,14 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingTop: 12, borderTop: '2px dashed var(--line)' }}>
           <strong className="disp" style={{ fontSize: 14, minWidth: 150 }}>Auto-pilot</strong>
           <Toggle on={!!a.autopilotGenerate} onClick={() => onSave({ autopilotGenerate: !a.autopilotGenerate })} dim={!a.scanEnabled}>Auto-generate</Toggle>
-          <Toggle on={!!a.autopilotShipDeterministic} onClick={() => onSave({ autopilotShipDeterministic: !a.autopilotShipDeterministic })} dim={!a.scanEnabled || !canShip}>Auto-ship safe fixes</Toggle>
+          <Toggle on={!!a.autopilotStage} onClick={() => onSave({ autopilotStage: !a.autopilotStage })} dim={!a.scanEnabled || !canShip}>Auto-prepare previews</Toggle>
           <Toggle on={!!a.measuredRevert} onClick={() => onSave({ measuredRevert: !a.measuredRevert })}>Measured mode</Toggle>
           <span className="quiet" style={{ fontSize: 12, color: 'var(--text-2)', marginLeft: 'auto' }}>
-            After each scheduled scan, draft fixes{a.autopilotShipDeterministic ? ' and auto-ship the deterministic (FREE) ones' : ''}. LLM-written content always waits for your approval.
-            {a.measuredRevert ? ' Measured mode: a title/meta fix whose CTR drops ≥20% over 28 days (300+ impressions both windows) is auto-undone.' : ''}
+            After each scheduled scan, draft fixes{a.autopilotStage ? ' and stage them as previews you can open' : ''}. Nothing is ever published automatically — every live change needs your approval.
+            {a.measuredRevert ? ' Measured mode is the one exception, and it only ever restores: a title/meta fix whose CTR drops ≥20% over 28 days (300+ impressions both windows, adjusted for the site-wide trend) is put back to the previous version.' : ''}
           </span>
         </div>
-        {!canShip && a.autopilotShipDeterministic && <p className="quiet" style={{ margin: 0, fontSize: 11, color: 'var(--warn)' }}>Connect a CMS or the Connector to enable auto-ship.</p>}
+        {!canShip && a.autopilotStage && <p className="quiet" style={{ margin: 0, fontSize: 11, color: 'var(--warn)' }}>Connect the Connector plugin to enable previews.</p>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingTop: 12, borderTop: '2px dashed var(--line)' }}>
           <strong className="disp" style={{ fontSize: 14, minWidth: 150 }}>Digest</strong>
           <Toggle on={!!a.notifyOnScan} onClick={() => onSave({ notifyOnScan: !a.notifyOnScan })} dim={!a.scanEnabled}>Notify me after each scan</Toggle>
@@ -2340,6 +2376,25 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
               return (
                 <span className="chip" title={`Draft was written against the ${Number(g.serpCompared)} pages currently ranking for "${g.serpQuery}" — to win the click on the live SERP`} style={{ color: 'var(--warning, #b45309)', borderColor: 'var(--warning, #b45309)' }}>
                   ⚔ VS {Number(g.serpCompared)} RANKING RESULTS · “{g.serpQuery.length > 32 ? `${g.serpQuery.slice(0, 32)}…` : g.serpQuery}”
+                </span>
+              );
+            })()}
+            {/* Why this fix is ranked where it is. Silent reordering is
+                indistinguishable from a bug, so if measured history moved a
+                fix up or down the list, say so and show the sample size. */}
+            {!!fix.learnedWeight && fix.learnedWeight !== 1 && (fix.learnedSamples ?? 0) > 0 && (() => {
+              const up = fix.learnedWeight! > 1;
+              const pct = Math.round(Math.abs(fix.learnedWeight! - 1) * 100);
+              const basis = fix.learnedBasis === 'brand' ? 'on this site'
+                : fix.learnedBasis === 'industry' ? 'in this industry'
+                : 'across Livesov';
+              return (
+                <span
+                  className="chip"
+                  title={`Ranked ${up ? 'higher' : 'lower'} because ${fix.learnedSamples} measured outcome(s) ${basis} show this fix type ${up ? 'tends to help' : 'has underperformed'} 28 days after publishing, adjusted for the site-wide trend. Ranking only — the fix is still available.`}
+                  style={{ color: up ? 'var(--success, #15803d)' : 'var(--text-2)', borderColor: up ? 'var(--success, #15803d)' : undefined }}
+                >
+                  {up ? '📈' : '📉'} {up ? '+' : '−'}{pct}% RANK · {fix.learnedSamples} MEASURED {basis.toUpperCase()}
                 </span>
               );
             })()}

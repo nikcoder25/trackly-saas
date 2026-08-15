@@ -95,6 +95,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/integrations/api`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/integrations/slack`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/integrations/zapier`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/integrations/wordpress`, lastModified: new Date('2026-08-15'), changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/geo-optimization`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
     { url: `${BASE_URL}/generative-engine-optimization-tool`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${BASE_URL}/docs`, lastModified: new Date('2026-06-01'), changeFrequency: 'monthly', priority: 0.6 },
