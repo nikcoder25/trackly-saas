@@ -12,9 +12,7 @@ import {
   PillarLinks,
 } from '@/components/seo/SeoSections';
 import EmailOff from '@/components/EmailOff';
-
-const PLUGIN_VERSION = '1.3.0';
-const DOWNLOAD_URL = '/wordpress-plugin/livesov-connector.zip';
+import { PLUGIN_VERSION, PLUGIN_DOWNLOAD_URL as DOWNLOAD_URL } from '@/lib/connect/plugin';
 
 export const metadata: Metadata = {
   title: 'Livesov WordPress Plugin: What It Is & How to Install It',
