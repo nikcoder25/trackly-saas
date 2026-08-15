@@ -1,14 +1,22 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// Self-Serve Connect — the "Connect your website" screen (M1 snippet + M2
-// WordPress). One paste, done: create a connection, show the one-liner + copy
-// button, and flip to "Connected ✓" the moment the first heartbeat lands.
-// WordPress uses the SAME one-line snippet (no plugin) — the WordPress choice
-// just records the flow and shows a "where to paste it" guide.
+// Self-Serve Connect — the "Connect your website" screen.
+//
+// WordPress plugin only. The one-line snippet this page used to offer ran in
+// the visitor's browser, which meant it could decorate a page after load but
+// could never change the HTML a crawler is served, and never touch the actual
+// page content. That is the whole point of the Fix Engine, so a method that
+// cannot do it is not a method — it is a way to look connected while nothing
+// ships. The plugin edits real content server-side (staged as a draft first,
+// with an undo snapshot) and reports back.
+//
+// The snippet backend (c.js, site_connection, heartbeat) is left in place; it
+// simply has no entry point here any more.
 
 import * as React from 'react';
 import { PageHead, Card } from '../ui';
 import { useBrandData } from '@/hooks/useBrandData';
+import { PLUGIN_VERSION, PLUGIN_DOWNLOAD_URL, CONNECTOR_ONLINE_MS } from '@/lib/connect/plugin';
 
 async function api(path: string, init?: RequestInit) {
   const res = await fetch(path, { credentials: 'include', cache: 'no-store', ...init });
@@ -17,69 +25,80 @@ async function api(path: string, init?: RequestInit) {
   return data;
 }
 
-type Method = 'snippet' | 'wordpress';
-type Conn = { id: string; status: 'pending' | 'connected' | 'stale'; publicKey: string; lastSeenAt: string | null };
+type Conn = {
+  id: string;
+  provider: string;
+  status: 'active' | 'revoked' | 'error';
+  lastSeenAt: string | null;
+};
+type Pairing = { token: string; hmacSecret: string; pullUrl: string };
+
+/** not_paired → paired (no poll yet) → online ⇄ offline */
+type State = 'not_paired' | 'paired' | 'online' | 'offline';
 
 export function PageConnect() {
   const { brand, loading: brandLoading } = useBrandData({ fullData: true });
   const brandId = (brand as any)?.id as string | undefined;
 
-  const [method, setMethod] = React.useState<Method>('snippet');
-  const [conn, setConn] = React.useState<Conn | null>(null);
-  const [snippet, setSnippet] = React.useState('');
+  const [conns, setConns] = React.useState<Conn[] | null>(null);
+  const [pairing, setPairing] = React.useState<Pairing | null>(null);
   const [err, setErr] = React.useState('');
-  const [copied, setCopied] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [copied, setCopied] = React.useState('');
 
-  // Create (or fetch) the brand's connection for the chosen method. WordPress
-  // and snippet are separate connections (each with its own key); both apply
-  // the identical one-liner — `method` only records which flow was picked.
-  const start = React.useCallback(async (id: string, m: Method) => {
-    setErr('');
+  const load = React.useCallback(async (id: string) => {
     try {
-      const d = await api(`/api/brands/${id}/connections`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ method: m }),
-      });
-      setConn(d.connection);
-      setSnippet(d.snippet || '');
+      const d = await api(`/api/brands/${id}/connections`);
+      setConns((d.connections || []) as Conn[]);
     } catch (e: any) {
-      setErr(e?.message || 'Could not start connect');
+      setErr(e?.message || 'Could not load connection status');
     }
   }, []);
 
-  React.useEffect(() => { if (brandId) start(brandId, method); }, [brandId, method, start]);
+  React.useEffect(() => { if (brandId) load(brandId); }, [brandId, load]);
 
-  // Poll status until the first heartbeat flips it to connected. Pauses while
-  // the tab is hidden (no point polling a backgrounded tab) and caps the total
-  // number of attempts so an abandoned tab doesn't poll forever.
-  const connId = conn?.id;
-  const connected = conn?.status === 'connected';
+  const connector = conns?.find((c) => c.provider === 'connector' && c.status === 'active') || null;
+  const lastSeen = connector?.lastSeenAt || null;
+
+  const state: State = !connector
+    ? 'not_paired'
+    : !lastSeen
+      ? 'paired'
+      : Date.now() - Date.parse(lastSeen) <= CONNECTOR_ONLINE_MS
+        ? 'online'
+        : 'offline';
+
+  // Poll while we are waiting for the plugin's first (or next) poll. Pauses on
+  // a hidden tab and caps attempts, so an abandoned tab stops on its own. The
+  // plugin's wp-cron runs every 5 min, so 10s is plenty and 120 attempts is
+  // ~20 min of waiting — long enough to install the plugin in another tab.
+  const waiting = state === 'not_paired' || state === 'paired' || state === 'offline';
   React.useEffect(() => {
-    if (!connId || connected) return;
+    if (!brandId || !waiting) return;
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let attempts = 0;
-    const MAX_ATTEMPTS = 200; // ~10 min at 3s — enough for a paste-and-refresh
+    const MAX_ATTEMPTS = 120;
 
     const tick = async () => {
       if (!alive) return;
       if (document.visibilityState === 'hidden') { schedule(); return; }
       if (attempts >= MAX_ATTEMPTS) return;
       attempts += 1;
-      try {
-        const d = await api(`/api/connections/${connId}/status`);
-        if (alive) setConn((c) => (c ? { ...c, status: d.status, lastSeenAt: d.lastSeenAt } : c));
-      } catch { /* keep polling */ }
+      await load(brandId);
       if (alive) schedule();
     };
     function schedule() {
       if (!alive) return;
-      timer = setTimeout(tick, 3000);
+      timer = setTimeout(tick, 10_000);
     }
 
-    // Resume promptly when the tab becomes visible again.
-    const onVisible = () => { if (alive && document.visibilityState === 'visible' && attempts < MAX_ATTEMPTS) { if (timer) clearTimeout(timer); tick(); } };
+    const onVisible = () => {
+      if (alive && document.visibilityState === 'visible' && attempts < MAX_ATTEMPTS) {
+        if (timer) clearTimeout(timer);
+        tick();
+      }
+    };
     document.addEventListener('visibilitychange', onVisible);
     schedule();
 
@@ -88,38 +107,55 @@ export function PageConnect() {
       if (timer) clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [connId, connected]);
+  }, [brandId, waiting, load]);
 
-  const copy = () => {
+  const pair = async () => {
+    if (!brandId) return;
+    setErr('');
+    setBusy(true);
     try {
-      navigator.clipboard?.writeText(snippet);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch { /* clipboard blocked — the field is selectable */ }
+      const d = await api(`/api/brands/${brandId}/connections/connector/pair`, { method: 'POST' });
+      setPairing({ token: d.token, hmacSecret: d.hmacSecret, pullUrl: d.pullUrl });
+      await load(brandId);
+    } catch (e: any) {
+      setErr(e?.message || 'Could not create pairing credentials');
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const chip = connected
-    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: 'var(--success-50)', color: 'var(--success)', border: '1px solid var(--success)' }}>● Connected ✓</span>
-    : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: 'var(--warn-50, #fef3c7)', color: 'var(--warn, #b45309)', border: '1px solid var(--warn, #f59e0b)' }}>○ Waiting for first load…</span>;
+  const copy = (label: string, value: string) => {
+    try {
+      navigator.clipboard?.writeText(value);
+      setCopied(label);
+      setTimeout(() => setCopied(''), 1500);
+    } catch { /* clipboard blocked — the value is selectable */ }
+  };
 
-  const tab = (m: Method, label: string) => (
-    <button
-      onClick={() => setMethod(m)}
-      aria-pressed={method === m}
-      style={{
-        padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-        border: '1px solid ' + (method === m ? 'var(--primary, #5B5BD6)' : 'var(--line, #e5e7eb)'),
-        background: method === m ? 'var(--primary, #5B5BD6)' : 'var(--surface, #fff)',
-        color: method === m ? '#fff' : 'var(--text-2, #4b5563)',
-      }}
-    >
-      {label}
-    </button>
-  );
+  const chipStyle = (bg: string, fg: string, bd: string): React.CSSProperties => ({
+    display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999,
+    fontSize: 12, fontWeight: 700, background: bg, color: fg, border: '1px solid ' + bd,
+  });
+  const chip = {
+    online: <span style={chipStyle('var(--success-50, #ecfdf5)', 'var(--success, #10b981)', 'var(--success, #10b981)')}>● Connected ✓</span>,
+    offline: <span style={chipStyle('var(--warn-50, #fef3c7)', 'var(--warn, #b45309)', 'var(--warn, #f59e0b)')}>○ Offline — no poll in a while</span>,
+    paired: <span style={chipStyle('var(--warn-50, #fef3c7)', 'var(--warn, #b45309)', 'var(--warn, #f59e0b)')}>○ Paired — waiting for first poll…</span>,
+    not_paired: <span style={chipStyle('var(--surface-2, #f6f7f9)', 'var(--text-2, #4b5563)', 'var(--line, #e5e7eb)')}>○ Not connected</span>,
+  }[state];
+
+  const mono: React.CSSProperties = {
+    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+    fontSize: 12.5, lineHeight: 1.5, wordBreak: 'break-all',
+    background: 'var(--surface-2, #f6f7f9)', border: '1px solid var(--line, #e5e7eb)',
+    borderRadius: 8, padding: '10px 12px', color: 'var(--text-1, #111)',
+  };
 
   return (
     <>
-      <PageHead title="Connect your website" sub="One paste, done — no DNS, no ownership challenge, no waiting. WordPress included." />
+      <PageHead
+        title="Connect your website"
+        sub="Install the WordPress plugin and your fixes ship to the real pages — content included, staged as a draft first."
+      />
       <div className="page-body" style={{ display: 'grid', gap: 16, maxWidth: 720 }}>
         <div
           style={{
@@ -130,83 +166,132 @@ export function PageConnect() {
         >
           <span aria-hidden style={{ fontSize: 15, lineHeight: 1.4 }}>✓</span>
           <span>
-            <strong>No Cloudflare, no plugins, no DNS, no CNAME</strong> — nothing in your domain settings.
-            Just paste one line.
+            <strong>No Cloudflare, no DNS, no CNAME</strong> — nothing in your domain settings, and no
+            inbound access to your site. The plugin polls us.
           </span>
         </div>
-        <div style={{ display: 'flex', gap: 8 }} role="tablist" aria-label="Connect method">
-          {tab('snippet', 'Any site (snippet)')}
-          {tab('wordpress', 'WordPress')}
-        </div>
+
+        {err && (
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--danger, #e11d48)' }}>{err}</p>
+        )}
+        {brandLoading && !brandId && (
+          <p className="quiet" style={{ margin: 0, fontSize: 13 }}>Loading your brand…</p>
+        )}
 
         <Card
-          title={method === 'wordpress' ? 'WordPress — paste the snippet' : 'Paste a snippet'}
-          right={conn ? chip : undefined}
-          lede={method === 'wordpress'
-            ? 'No plugin needed — WordPress uses the same one-line snippet.'
-            : 'The easy default — works on any custom-coded site. Client-side.'}
+          title="1 · Install the plugin"
+          right={conns ? chip : undefined}
+          lede="WordPress. Plain PHP — no build step, no Composer, no dependencies."
         >
-          {brandLoading && !brandId && (
-            <p className="quiet" style={{ margin: 0, fontSize: 13 }}>Loading your brand…</p>
+          <a
+            href={PLUGIN_DOWNLOAD_URL}
+            download
+            style={{
+              display: 'inline-block', padding: '10px 18px', borderRadius: 8, textDecoration: 'none',
+              border: '1px solid var(--primary, #5B5BD6)', background: 'var(--primary, #5B5BD6)',
+              color: '#fff', fontSize: 13.5, fontWeight: 600,
+            }}
+          >
+            ⇩ Download the plugin (v{PLUGIN_VERSION})
+          </a>
+          <ol style={{ margin: '16px 0 0', paddingLeft: 18, display: 'grid', gap: 10, fontSize: 13, lineHeight: 1.6, color: 'var(--text-2, #374151)' }}>
+            <li>
+              In WordPress: <em>Plugins → Add New → Upload Plugin</em>, choose{' '}
+              <code>livesov-connector.zip</code>, install it.
+            </li>
+            <li>Activate <strong>Livesov Connector</strong>.</li>
+            <li>
+              Go to <em>Settings → Livesov Connector</em> and click{' '}
+              <strong>Connect with Livesov</strong>. You approve this brand here, get bounced
+              back, and the credentials fill in on their own — nothing to copy. The first sync
+              runs immediately.
+            </li>
+          </ol>
+          {state === 'online' && (
+            <p style={{ margin: '14px 0 0', fontSize: 13, lineHeight: 1.6, color: 'var(--success, #10b981)' }}>
+              Connected. Fixes you ship from the Fix Engine will be applied by this site, and page
+              edits land as a draft with a preview link before anything goes live.
+            </p>
           )}
-          {err && (
-            <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--danger, #e11d48)' }}>{err}</p>
+          {state === 'paired' && (
+            <p className="quiet" style={{ margin: '14px 0 0', fontSize: 12.5, lineHeight: 1.6 }}>
+              Paired. The plugin polls every 5 minutes, so this flips to{' '}
+              <strong>Connected&nbsp;✓</strong> on its own — or hit <em>Poll now</em> in the
+              plugin&rsquo;s settings if you would rather not wait.
+            </p>
           )}
-          {snippet && (
-            <>
-              <p className="quiet" style={{ margin: '0 0 10px', fontSize: 13, lineHeight: 1.6 }}>
-                {method === 'wordpress'
-                  ? <>Copy this one line, then add it to your theme&rsquo;s header (see the guide below). It applies your shipped SEO fixes to every page and reports back here.</>
-                  : <>Paste this one line into your site&rsquo;s <code>&lt;head&gt;</code> (or just before <code>&lt;/body&gt;</code>). It applies your shipped SEO fixes to each page and reports back here — no other setup.</>}
-              </p>
-              <div
-                style={{
-                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                  fontSize: 12.5, lineHeight: 1.5, wordBreak: 'break-all',
-                  background: 'var(--surface-2, #f6f7f9)', border: '1px solid var(--line, #e5e7eb)',
-                  borderRadius: 8, padding: '12px 14px', color: 'var(--text-1, #111)',
-                }}
-              >
-                {snippet}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
-                <button
-                  onClick={copy}
-                  style={{
-                    padding: '8px 16px', borderRadius: 8, border: '1px solid var(--primary, #5B5BD6)',
-                    background: 'var(--primary, #5B5BD6)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                  }}
-                >
-                  {copied ? 'Copied ✓' : '⧉ Copy snippet'}
-                </button>
-                {!connected && (
-                  <span className="quiet" style={{ fontSize: 12.5 }}>
-                    Once it&rsquo;s live on your site, this flips to <strong>Connected&nbsp;✓</strong> automatically.
-                  </span>
-                )}
-              </div>
-            </>
+          {state === 'offline' && lastSeen && (
+            <p style={{ margin: '14px 0 0', fontSize: 12.5, lineHeight: 1.6, color: 'var(--warn, #b45309)' }}>
+              Paired, but the plugin has not polled since{' '}
+              {new Date(lastSeen).toLocaleString()}. Check the plugin is still active and that
+              wp-cron is running on the site.
+            </p>
           )}
         </Card>
 
-        {method === 'wordpress' && (
-          <Card title="Where to paste it in WordPress" lede="No plugin needed — pick whichever fits your setup.">
-            <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 10, fontSize: 13, lineHeight: 1.6, color: 'var(--text-2, #374151)' }}>
-              <li>
-                <strong>Most themes:</strong> go to <em>Appearance → Customize → your theme&rsquo;s Header / Custom Code box</em>,
-                paste the snippet, and hit <em>Publish</em>.
-              </li>
-              <li>
-                <strong>Child theme:</strong> add it via <code>functions.php</code> on the <code>wp_head</code> hook
-                (so it survives theme updates).
-              </li>
-              <li>
-                <strong>Last resort:</strong> <em>Appearance → Theme File Editor → header.php</em>, and paste it
-                just before <code>&lt;/head&gt;</code>.
-              </li>
-            </ul>
-          </Card>
-        )}
+        <Card
+          title="2 · Pair manually"
+          lede="Only if the one-click handshake above will not go through."
+        >
+          <p className="quiet" style={{ margin: '0 0 12px', fontSize: 13, lineHeight: 1.6 }}>
+            Mint the credentials here, then paste all three into{' '}
+            <em>Settings → Livesov Connector → Connect manually</em> in WordPress. The token is
+            shown <strong>once</strong>; pairing again replaces it.
+          </p>
+          <button
+            onClick={pair}
+            disabled={busy || !brandId}
+            style={{
+              padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+              cursor: busy || !brandId ? 'not-allowed' : 'pointer', opacity: busy || !brandId ? 0.6 : 1,
+              border: '1px solid var(--line, #e5e7eb)', background: 'var(--surface, #fff)',
+              color: 'var(--text-2, #4b5563)',
+            }}
+          >
+            {busy ? 'Pairing…' : connector ? 'Re-pair (replaces the old token)' : 'Create pairing credentials'}
+          </button>
+          {pairing && (
+            <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
+              {[
+                { k: 'Pull URL', v: pairing.pullUrl },
+                { k: 'Token', v: pairing.token },
+                { k: 'Signing secret', v: pairing.hmacSecret },
+              ].map((r) => (
+                <div key={r.k}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2, #4b5563)' }}>{r.k}</span>
+                    <button
+                      onClick={() => copy(r.k, r.v)}
+                      style={{
+                        padding: '3px 9px', borderRadius: 6, fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+                        border: '1px solid var(--line, #e5e7eb)', background: 'var(--surface, #fff)',
+                        color: 'var(--text-2, #4b5563)',
+                      }}
+                    >
+                      {copied === r.k ? 'Copied ✓' : '⧉ Copy'}
+                    </button>
+                  </div>
+                  <div style={mono}>{r.v}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card title="Not on WordPress?" lede="Worth being straight about what we can and cannot do.">
+          <p className="quiet" style={{ margin: 0, fontSize: 13, lineHeight: 1.6 }}>
+            Content fixes need something running on your site that can rewrite the page before it
+            is served, and on a custom-coded site that has to be your deploy, not a script we hand
+            you. A browser snippet can only decorate a page after it loads — it cannot change the
+            HTML a crawler is given, so it would report &ldquo;connected&rdquo; while your fixes
+            went nowhere. We would rather not offer that.
+          </p>
+          <p className="quiet" style={{ margin: '10px 0 0', fontSize: 13, lineHeight: 1.6 }}>
+            For a custom site, ship the fixes yourself: the Fix Engine gives you every change as a
+            reviewable diff. Tell us what you are built on and we will say whether a real
+            integration is coming.
+          </p>
+        </Card>
       </div>
     </>
   );
