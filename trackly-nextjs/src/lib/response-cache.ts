@@ -132,7 +132,41 @@ export function getCacheTtl(searchEnabled: boolean): number {
 export function isSearchEnabled(platform: string, model: string): boolean {
   if (platform === 'Perplexity') return true;
   if (platform === 'ChatGPT' && model.includes('search')) return true;
+  // Grounded Gemini genuinely hits Google Search, so it must be keyed and
+  // expired like the other retrieval paths. Getting this wrong would let a
+  // grounded answer sit in cache for the long non-search TTL and be served
+  // as though it were today's answer.
+  if (platform === 'Gemini' && geminiGroundingEnabled()) return true;
   return false;
+}
+
+/**
+ * Whether to ask Gemini to ground its answer in Google Search.
+ *
+ * This defaults ON because an ungrounded Gemini answer is not the thing
+ * this product claims to measure: it is the model's recollection of the
+ * world at training time, not what Gemini tells a user who asks today. A
+ * "mention" harvested from parametric memory is not comparable to one
+ * harvested from Perplexity or a ChatGPT search-preview model, and mixing
+ * the two silently made cross-engine share-of-voice misleading.
+ *
+ * Google bills grounding per request on top of tokens, so the escape hatch
+ * exists for anyone who needs to trade the accuracy back for cost.
+ *
+ * JSON mode forces it off regardless: the Gemini API rejects a request that
+ * asks for both a search tool and a response MIME type, and the callers
+ * that use JSON mode (topic classification, nearby areas) are generating
+ * text rather than measuring an engine, so they lose nothing.
+ *
+ * `isSearchEnabled` above calls this without the jsonMode argument because
+ * cache keys are built from (platform, model) before per-call options are
+ * known. The only consequence is that a JSON-mode Gemini call is cached
+ * under the shorter search TTL despite not having searched - it re-asks
+ * sooner than it strictly needs to, which costs a little and risks nothing.
+ */
+export function geminiGroundingEnabled(jsonMode?: boolean): boolean {
+  if (jsonMode) return false;
+  return process.env.GEMINI_GROUNDING_DISABLED !== 'true';
 }
 
 export async function getCached<T = unknown>(cacheKey: string): Promise<CachedEntry<T> | null> {

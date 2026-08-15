@@ -11,6 +11,7 @@ import { useBrands } from '@/contexts/BrandContext';
 import { useRun, markPendingFirstRun } from '@/contexts/RunContext';
 import { useToast } from '@/components/dashboard/Toast';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
+import { PromptDiscovery } from '@/components/dashboard/PromptDiscovery';
 import { Card, Badge, PageHead } from '@/app/dashboard-v2/ui';
 
 /* ── design-system field/tag helpers (presentation only) ───────────────── */
@@ -617,6 +618,29 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
       <Card title="Nearby areas">
         <NearbyAreasSection city={city} areas={nearbyAreas} onChange={setNearbyAreas} brandId={brand.id} />
       </Card>
+
+      <PromptDiscovery
+        brandId={brand.id}
+        disabled={!industry || (!isPromptCapUnlimited && accountSlotsRemaining <= 0)}
+        disabledReason={
+          !industry
+            ? 'Set this brand’s industry first.'
+            : 'Account-wide prompt limit reached.'
+        }
+        onAccept={async (found) => {
+          const existing = new Set(queries.map(q => q.toLowerCase()));
+          let fresh = found.filter(q => !existing.has(q.toLowerCase()));
+          if (!isPromptCapUnlimited && fresh.length > accountSlotsRemaining) {
+            fresh = fresh.slice(0, accountSlotsRemaining);
+          }
+          if (!fresh.length) {
+            setMessage('Those prompts are already tracked on this brand.');
+            return;
+          }
+          setQueries([...queries, ...fresh]);
+          setMessage(`+ ${fresh.length} prompt${fresh.length === 1 ? '' : 's'} added - save to start tracking them.`);
+        }}
+      />
 
       <Card title="Manage queries"
         lede={isPromptCapUnlimited

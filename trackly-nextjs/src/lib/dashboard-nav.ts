@@ -37,6 +37,8 @@ export const navGroups: NavGroup[] = [
       { href: '/dashboard/trends', label: 'SOV Trends', icon: '◆' },
       { href: '/dashboard/accuracy', label: 'Accuracy Monitor', icon: '◎' },
       { href: '/dashboard/citations', label: 'Citations', icon: '◇' },
+      { href: '/dashboard/fanout', label: 'Fan-out Queries', icon: '⑂' },
+      { href: '/dashboard/volatility', label: 'AI Volatility', icon: '◬' },
       { href: '/dashboard/results', label: 'Results', icon: '☰' },
       { href: '/dashboard/query-tracker', label: 'Query Tracker', icon: '◈' },
       { href: '/dashboard/recommendations', label: 'Recommendations', icon: '◆' },

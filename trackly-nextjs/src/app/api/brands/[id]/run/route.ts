@@ -14,6 +14,7 @@ import { computeSovFromResults } from '@/lib/run-sov';
 import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
 import { mergeCitations, persistCitations, type CitationBatchRow } from '@/lib/citations';
+import { persistFanout, type FanoutBatchRow } from '@/lib/fanout';
 import { after } from 'next/server';
 import { isQueueAvailable, enqueueBrandRun } from '@/lib/job-queue';
 import { getServerKeys } from '@/lib/server-keys';
@@ -881,7 +882,7 @@ async function executeRunBackgroundInner(
     }
   }
 
-  function processResult(plat: string, q: string, result: { text: string; model: string; tokensIn: number; tokensOut: number; citations?: string[] }, fromCache = false) {
+  function processResult(plat: string, q: string, result: { text: string; model: string; tokensIn: number; tokensOut: number; citations?: string[]; fanout?: string[] }, fromCache = false) {
     const parsed = parseResponse(result.text, brand, q, matcher);
     const competitors = detectCompetitors(result.text, matcher);
     // Cache hits cost zero (no provider call happened) and emit no token
@@ -900,6 +901,10 @@ async function executeRunBackgroundInner(
       mentioned: parsed.mentioned, recommended: parsed.recommended,
       sentiment: parsed.sentiment, listPosition: parsed.listPosition,
       citations, competitorMentions: competitors,
+      // Reported by the engine, never inferred. Survives the response
+      // cache because it is part of the cached QueryResult, so a cache
+      // hit replays the same fan-out the live call saw.
+      fanout: Array.isArray(result.fanout) ? result.fanout : undefined,
       context: result.text.substring(0, ctxLen),
       snippet: result.text.substring(0, 200),
       raw: result.text,
@@ -1328,7 +1333,11 @@ async function executeRunBackgroundInner(
       delete brandData.id; delete brandData.userId; delete brandData.createdAt; delete brandData.updatedAt;
     }
     if (!brandData.runs) brandData.runs = [];
-    const lightResults = allResults.map(({ tokensIn, tokensOut, cost, ...rest }: Record<string, unknown>) => rest);
+    // `fanout` is dropped here alongside the cost fields: it is already
+    // normalized into prompt_fanout, and the brand JSON blob is trimmed
+    // aggressively on every list read, so carrying a second copy of it
+    // would cost payload weight for nothing.
+    const lightResults = allResults.map(({ tokensIn, tokensOut, cost, fanout, ...rest }: Record<string, unknown>) => rest);
 
     // Aggregate citation URLs into domain counts for the dashboard
     const citationCounts: Record<string, number> = {};
@@ -1394,6 +1403,7 @@ async function executeRunBackgroundInner(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const p: any[] = [];
       const citationRows: CitationBatchRow[] = [];
+      const fanoutRows: FanoutBatchRow[] = [];
       let pi = 1;
       for (const r of batch) {
         const prId = uid();
@@ -1408,6 +1418,9 @@ async function executeRunBackgroundInner(
         if (Array.isArray(r.citations) && r.citations.length > 0) {
           citationRows.push({ promptRunId: prId, brandId, prompt: r.query, platform: r.platform, urls: r.citations });
         }
+        if (Array.isArray(r.fanout) && r.fanout.length > 0) {
+          fanoutRows.push({ promptRunId: prId, brandId, prompt: r.query, platform: r.platform, queries: r.fanout });
+        }
       }
       try {
         await pool.query(
@@ -1416,6 +1429,7 @@ async function executeRunBackgroundInner(
         // Citation Decoder normalized rows. Only written when the parent
         // prompt_runs batch landed so prompt_run_id always resolves.
         await persistCitations(citationRows);
+        await persistFanout(fanoutRows);
       } catch (e) {
         runLog.error('run.persist_prompt_runs_failed', {
           errorClass: (e as Error).name || 'Error',
@@ -1446,7 +1460,7 @@ async function executeRunBackgroundInner(
     if (allResults.length > 0) {
       try {
         const emergSov = computeSovFromResults(allResults);
-        const emergResults = allResults.map(({ tokensIn, tokensOut, cost, ...rest }: Record<string, unknown>) => rest);
+        const emergResults = allResults.map(({ tokensIn, tokensOut, cost, fanout, ...rest }: Record<string, unknown>) => rest);
         // Re-read the CURRENT brand data instead of writing back the run-start
         // in-memory snapshot. A multi-minute run can overlap user edits
         // (added queries/competitors/settings); persisting `{...brand}` here

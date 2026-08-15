@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrands } from '@/contexts/BrandContext';
@@ -24,6 +24,29 @@ interface BrandLite {
   shared?: boolean;
 }
 
+/** Per-prompt outcome stats, as returned by /prompt-map. */
+interface PromptStats {
+  runs: number;
+  mentions: number;
+  mentionRate: number | null;
+  avgPosition: number | null;
+  competitorBrands: string[];
+}
+
+interface PromptMapEntry {
+  topic: string | null;
+  pageUrl: string | null;
+  source: string;
+}
+
+interface PromptMapResponse {
+  map: Record<string, PromptMapEntry>;
+  stats: Record<string, PromptStats>;
+  classified: number;
+  total: number;
+  days: number;
+}
+
 interface PromptRow {
   brandId: string;
   brandName: string;
@@ -34,11 +57,92 @@ interface PromptRow {
   // honest TRACKING / PENDING status badge so the page can't claim a prompt
   // is "tracking" when Query Tracker shows zero runs for it.
   hasData: boolean;
+  topic: string | null;
+  pageUrl: string | null;
+  /** True when a human set this binding, so a rebuild will leave it alone. */
+  pinned: boolean;
+  stats: PromptStats | null;
 }
+
+/** Rollup for one topic group within a brand. */
+interface TopicGroup {
+  topic: string;
+  rows: PromptRow[];
+  /** Distinct competitor brands across every prompt in the group. */
+  brandCount: number;
+  mentionRate: number | null;
+  avgPosition: number | null;
+  measured: boolean;
+}
+
+const UNGROUPED = 'Ungrouped';
 
 // Stable id for selection - index is appended so duplicate strings
 // across brands stay independently selectable.
 const rowKey = (r: PromptRow) => `${r.brandId}::${r.index}::${r.query}`;
+
+/** Show a bound page as its path - the origin is the same on every row. */
+function pagePath(url: string): string {
+  try {
+    const u = new URL(url);
+    return (u.pathname.replace(/\/+$/, '') || '/');
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * Roll a topic's prompts up into the numbers the group header shows.
+ *
+ * Mention rate is weighted by measurement count rather than being a mean of
+ * per-prompt rates: a prompt measured 30 times should not carry the same
+ * weight as one measured twice. Position is averaged only over prompts that
+ * actually ranked, because a prompt that never appears has no position - and
+ * treating "absent" as a bad position would quietly invent data.
+ */
+function buildGroups(rows: PromptRow[]): TopicGroup[] {
+  const byTopic = new Map<string, PromptRow[]>();
+  for (const r of rows) {
+    const key = r.topic || UNGROUPED;
+    const list = byTopic.get(key) || [];
+    list.push(r);
+    byTopic.set(key, list);
+  }
+
+  const groups: TopicGroup[] = [];
+  for (const [topic, groupRows] of byTopic) {
+    const competitors = new Set<string>();
+    let runs = 0;
+    let mentions = 0;
+    let posSum = 0;
+    let posCount = 0;
+    for (const r of groupRows) {
+      if (!r.stats) continue;
+      runs += r.stats.runs;
+      mentions += r.stats.mentions;
+      for (const c of r.stats.competitorBrands) competitors.add(c);
+      if (r.stats.avgPosition != null) { posSum += r.stats.avgPosition; posCount++; }
+    }
+    groups.push({
+      topic,
+      rows: groupRows,
+      brandCount: competitors.size,
+      mentionRate: runs > 0 ? Math.round((mentions / runs) * 100) : null,
+      avgPosition: posCount > 0 ? posSum / posCount : null,
+      measured: runs > 0,
+    });
+  }
+
+  // Worst mention rate first - the point of grouping is to surface the
+  // topics you are losing. Unmeasured groups sort last; Ungrouped always
+  // sits at the bottom because it is a to-do, not a finding.
+  return groups.sort((a, b) => {
+    if (a.topic === UNGROUPED) return 1;
+    if (b.topic === UNGROUPED) return -1;
+    if (a.measured !== b.measured) return a.measured ? -1 : 1;
+    return (a.mentionRate ?? 101) - (b.mentionRate ?? 101);
+  });
+}
 
 export default function TrackedPromptsPage() {
   const { user } = useAuth();
@@ -56,6 +160,12 @@ export default function TrackedPromptsPage() {
   const [busy, setBusy] = useState(false);
   // Brand id currently being kicked off via "Start tracking" (button spinner).
   const [startingBrand, setStartingBrand] = useState<string | null>(null);
+  // Topic/page map + outcome stats, keyed by brand id.
+  const [maps, setMaps] = useState<Record<string, PromptMapResponse>>({});
+  // Brand id currently being (re)organised into topics.
+  const [organizing, setOrganizing] = useState<string | null>(null);
+  // Collapsed topic groups, keyed by `${brandId}::${topic}`.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   // Owned brands only - shared/team brands belong to a different
   // owner whose quota the caller doesn't control. Trimming those here
@@ -87,12 +197,14 @@ export default function TrackedPromptsPage() {
     for (const brand of ownedBrands) {
       const queries = Array.isArray(brand.queries) ? brand.queries : [];
       const info = ranQueriesByBrand.get(brand.id);
+      const brandMap = maps[brand.id];
       // If the brand has runs but the per-query result detail was trimmed
       // from the list payload, fall back to "has data" so a tracked brand
       // doesn't read as PENDING after older runs age out.
       const trimmedRuns = !!info?.hasRuns && (info?.queries.size ?? 0) === 0;
       for (let i = 0; i < queries.length; i++) {
         const hasData = !!info && (info.queries.has(queries[i].toLowerCase().trim()) || trimmedRuns);
+        const entry = brandMap?.map?.[queries[i]];
         out.push({
           brandId: brand.id,
           brandName: brand.name || 'Untitled brand',
@@ -100,11 +212,75 @@ export default function TrackedPromptsPage() {
           query: queries[i],
           locked: !!brand.lockedByPlan,
           hasData,
+          topic: entry?.topic ?? null,
+          pageUrl: entry?.pageUrl ?? null,
+          pinned: entry?.source === 'manual',
+          stats: brandMap?.stats?.[queries[i]] ?? null,
         });
       }
     }
     return out;
-  }, [ownedBrands, ranQueriesByBrand]);
+  }, [ownedBrands, ranQueriesByBrand, maps]);
+
+  // Load each owned brand's topic map. Kept separate from the brand list
+  // fetch because it reads prompt_runs, which the list payload deliberately
+  // doesn't carry.
+  const loadMap = useCallback(async (brandId: string) => {
+    try {
+      const res = await fetch(`/api/brands/${brandId}/prompt-map`, { credentials: 'include' });
+      if (!res.ok) return;
+      const data = (await res.json()) as PromptMapResponse;
+      setMaps(prev => ({ ...prev, [brandId]: data }));
+    } catch {
+      // A missing map degrades the page to one "Ungrouped" bucket, which
+      // is exactly how it behaved before topics existed. Not worth a toast.
+    }
+  }, []);
+
+  const brandIdsKey = ownedBrands.map(b => b.id).join(',');
+  useEffect(() => {
+    for (const brand of ownedBrands) loadMap(brand.id);
+  }, [brandIdsKey, loadMap]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Stats come from prompt_runs, so a completed run changes them.
+  useEffect(() => {
+    const handler = () => { for (const brand of ownedBrands) loadMap(brand.id); };
+    window.addEventListener('livesov:run-complete', handler);
+    return () => window.removeEventListener('livesov:run-complete', handler);
+  }, [brandIdsKey, loadMap]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const organize = async (brandId: string) => {
+    if (organizing) return;
+    setOrganizing(brandId);
+    try {
+      const res = await fetch(`/api/brands/${brandId}/prompt-map`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string })?.error || 'Failed to organize prompts');
+      await loadMap(brandId);
+      const skipped = (data as { skippedManual?: number }).skippedManual ?? 0;
+      toast(
+        `Organized into ${(data as { topics?: number }).topics ?? 0} topics.` +
+          (skipped > 0 ? ` ${skipped} prompt${skipped === 1 ? '' : 's'} left as you set them.` : ''),
+        'success',
+      );
+    } catch (e) {
+      toast((e as Error).message || 'Failed to organize prompts', 'error');
+    }
+    setOrganizing(null);
+  };
+
+  const toggleGroup = (key: string) => {
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
 
   const totalUsed = rows.length;
   const pendingCount = rows.filter((r) => !r.locked && !r.hasData).length;
@@ -420,6 +596,18 @@ export default function TrackedPromptsPage() {
                 }
                 right={
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    {totalForBrand > 0 && (
+                      <button
+                        type="button"
+                        className="btn-d"
+                        onClick={() => organize(brand.id)}
+                        disabled={organizing !== null}
+                        title="Group these prompts into topics and bind each one to the page that should win it"
+                        style={{ opacity: organizing !== null ? 0.5 : 1 }}
+                      >
+                        {organizing === brand.id ? 'Organizing…' : '⊞ Organize'}
+                      </button>
+                    )}
                     {canStart && (
                       <button
                         type="button"
@@ -476,46 +664,143 @@ export default function TrackedPromptsPage() {
                               }}
                             />
                           </th>
-                          <th>PROMPT</th>
-                          <th>BRAND</th>
+                          <th>TOPIC / PROMPT</th>
+                          <th>PAGE</th>
+                          <th className="num">BRANDS</th>
+                          <th className="num">AVG POS</th>
+                          <th className="num">MENTION RATE</th>
                           <th>STATUS</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {brandRows.map((r) => {
-                          const key = rowKey(r);
-                          const isSelected = selected.has(key);
+                        {buildGroups(brandRows).map((group) => {
+                          const groupKey = `${brand.id}::${group.topic}`;
+                          const isCollapsed = collapsed.has(groupKey);
+                          const allSelected =
+                            group.rows.length > 0 && group.rows.every((r) => selected.has(rowKey(r)));
                           return (
-                            <tr key={key}>
-                              <td>
-                                <input
-                                  id={`prompt-${key}`}
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => toggle(key)}
-                                />
-                              </td>
-                              <td>
-                                <label
-                                  htmlFor={`prompt-${key}`}
-                                  style={{ cursor: 'pointer', wordBreak: 'break-word' }}
-                                >
-                                  <b>{r.query}</b>
-                                </label>
-                              </td>
-                              <td className="mono dim" style={{ fontSize: 11 }}>
-                                {r.brandName}
-                              </td>
-                              <td>
-                                {r.locked ? (
-                                  <Badge tone="warn">LOCKED</Badge>
-                                ) : r.hasData ? (
-                                  <Badge tone="pos">TRACKING</Badge>
-                                ) : (
-                                  <Badge tone="neu">PENDING</Badge>
-                                )}
-                              </td>
-                            </tr>
+                            <Fragment key={groupKey}>
+                              <tr className="topic-row" style={{ background: 'var(--surface-2, rgba(127,127,127,.06))' }}>
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`Select all prompts in ${group.topic}`}
+                                    checked={allSelected}
+                                    onChange={(e) => {
+                                      setSelected((prev) => {
+                                        const next = new Set(prev);
+                                        for (const r of group.rows) {
+                                          if (e.target.checked) next.add(rowKey(r));
+                                          else next.delete(rowKey(r));
+                                        }
+                                        return next;
+                                      });
+                                    }}
+                                  />
+                                </td>
+                                <td>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleGroup(groupKey)}
+                                    aria-expanded={!isCollapsed}
+                                    style={{
+                                      display: 'inline-flex', alignItems: 'center', gap: 8,
+                                      background: 'none', border: 0, padding: 0, cursor: 'pointer',
+                                      font: 'inherit', color: 'inherit',
+                                    }}
+                                  >
+                                    <span className="mono dim" style={{ fontSize: 10 }}>
+                                      {isCollapsed ? '▸' : '▾'}
+                                    </span>
+                                    <b>{group.topic}</b>
+                                    <span className="dim" style={{ fontWeight: 400, fontSize: 12 }}>
+                                      {group.rows.length} prompt{group.rows.length === 1 ? '' : 's'}
+                                    </span>
+                                  </button>
+                                </td>
+                                <td />
+                                <td className="num">
+                                  {group.brandCount > 0 ? `+${group.brandCount}` : '—'}
+                                </td>
+                                <td className="num">
+                                  {group.avgPosition == null ? '—' : group.avgPosition.toFixed(1)}
+                                </td>
+                                <td className="num">
+                                  {group.mentionRate == null ? (
+                                    '—'
+                                  ) : (
+                                    <b style={{ color: group.mentionRate === 0 ? 'var(--danger)' : undefined }}>
+                                      {group.mentionRate}%
+                                    </b>
+                                  )}
+                                </td>
+                                <td />
+                              </tr>
+
+                              {!isCollapsed && group.rows.map((r) => {
+                                const key = rowKey(r);
+                                const isSelected = selected.has(key);
+                                return (
+                                  <tr key={key}>
+                                    <td>
+                                      <input
+                                        id={`prompt-${key}`}
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => toggle(key)}
+                                      />
+                                    </td>
+                                    <td style={{ paddingLeft: 28 }}>
+                                      <label
+                                        htmlFor={`prompt-${key}`}
+                                        style={{ cursor: 'pointer', wordBreak: 'break-word' }}
+                                      >
+                                        {r.query}
+                                      </label>
+                                    </td>
+                                    <td className="mono" style={{ fontSize: 11 }}>
+                                      {r.pageUrl ? (
+                                        <a
+                                          href={r.pageUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          title={r.pageUrl}
+                                        >
+                                          {pagePath(r.pageUrl)}
+                                        </a>
+                                      ) : (
+                                        <span className="dim" title="No page owns this prompt - it reads as brand-level">
+                                          brand-level
+                                        </span>
+                                      )}
+                                      {r.pinned && (
+                                        <span className="dim" title="Set by hand - automatic rebuilds leave it alone"> 📌</span>
+                                      )}
+                                    </td>
+                                    <td className="num dim">
+                                      {r.stats?.competitorBrands.length
+                                        ? `+${r.stats.competitorBrands.length}`
+                                        : '—'}
+                                    </td>
+                                    <td className="num dim">
+                                      {r.stats?.avgPosition == null ? '—' : r.stats.avgPosition.toFixed(1)}
+                                    </td>
+                                    <td className="num dim">
+                                      {r.stats?.mentionRate == null ? '—' : `${r.stats.mentionRate}%`}
+                                    </td>
+                                    <td>
+                                      {r.locked ? (
+                                        <Badge tone="warn">LOCKED</Badge>
+                                      ) : r.hasData ? (
+                                        <Badge tone="pos">TRACKING</Badge>
+                                      ) : (
+                                        <Badge tone="neu">PENDING</Badge>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </Fragment>
                           );
                         })}
                       </tbody>

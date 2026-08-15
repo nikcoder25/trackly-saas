@@ -67,6 +67,10 @@ vi.mock('../response-cache', () => ({
   getCached: vi.fn().mockResolvedValue(null),
   setCached: vi.fn().mockResolvedValue(undefined),
   getCacheTtl: vi.fn().mockReturnValue(60),
+  // callGemini consults this to decide whether to attach the
+  // google_search tool; omitting it from the mock makes the Gemini
+  // branch throw on an undefined call rather than testing anything.
+  geminiGroundingEnabled: vi.fn().mockReturnValue(false),
   __cacheStats: { hits: 0, misses: 0, writes: 0, errors: 0 },
 }));
 

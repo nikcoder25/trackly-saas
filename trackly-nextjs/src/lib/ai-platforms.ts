@@ -31,6 +31,7 @@ import {
   recordCostEvent,
   recordCall,
   CHATGPT_WEB_SEARCH_CALL_USD,
+  GEMINI_GROUNDING_CALL_USD,
   estimateCostUsd,
   CostCapExceededError,
 } from './cost-tracker';
@@ -39,6 +40,7 @@ import {
   getCached,
   setCached,
   getCacheTtl,
+  geminiGroundingEnabled,
 } from './response-cache';
 import { decideRequiresFreshness } from './freshness-classifier';
 import {
@@ -1464,6 +1466,23 @@ interface QueryResult {
   tokensIn: number;
   tokensOut: number;
   citations: string[];
+  /**
+   * The sub-queries the engine issued to a search index while answering
+   * ("query fan-out"). Only populated by providers that report it -
+   * today that is grounded Gemini via `groundingMetadata.webSearchQueries`.
+   * Absent, rather than empty, when the provider does not expose it, so
+   * "this engine does not tell us" stays distinguishable from "this engine
+   * searched for nothing".
+   */
+  fanout?: string[];
+  /**
+   * True when the provider actually performed grounded retrieval for this
+   * answer. Drives the per-call grounding fee in the cost ledger, so it
+   * must reflect what happened rather than what was requested - a model
+   * offered a search tool may decline to use it, and billing that would
+   * over-report spend and trip cost caps early.
+   */
+  grounded?: boolean;
   cached?: boolean;
 }
 export interface QueryOptions {
@@ -1528,6 +1547,51 @@ interface GeminiPayload {
   systemInstruction: { parts: Array<{ text: string }> };
   contents: Array<{ parts: Array<{ text: string }> }>;
   generationConfig: { maxOutputTokens: number; responseMimeType?: string };
+  tools?: Array<{ google_search: Record<string, never> }>;
+}
+
+/**
+ * Pull the queries Gemini actually issued to Google Search, plus the URLs
+ * it retrieved, out of a grounded response.
+ *
+ * `webSearchQueries` is the genuine article: not an inference about what a
+ * fan-out might look like, but the sub-queries Google's own model chose to
+ * expand the prompt into. That makes it the highest-quality fan-out signal
+ * available from any provider we call, and it costs nothing extra once
+ * grounding is on.
+ */
+function extractGeminiGrounding(
+  cand: unknown,
+): { citations: string[]; fanout: string[]; grounded: boolean } {
+  const meta = (cand as { groundingMetadata?: {
+    webSearchQueries?: unknown;
+    groundingChunks?: Array<{ web?: { uri?: string } }>;
+  } })?.groundingMetadata;
+  // No groundingMetadata at all means the model answered without
+  // searching, so Google has nothing to charge a grounding fee for.
+  if (!meta) return { citations: [], fanout: [], grounded: false };
+
+  const fanout = Array.isArray(meta.webSearchQueries)
+    ? [...new Set(
+        meta.webSearchQueries
+          .filter((q): q is string => typeof q === 'string' && q.trim().length > 0)
+          .map(q => q.trim()),
+      )].slice(0, 20)
+    : [];
+
+  // groundingChunks carry Google's redirect URLs rather than the publisher
+  // domain. They are still the authoritative retrieved-source list, and the
+  // citations pipeline normalizes whatever it is handed, so pass them
+  // through rather than trying to unwrap the redirect here.
+  const citations = Array.isArray(meta.groundingChunks)
+    ? [...new Set(
+        meta.groundingChunks
+          .map(c => c?.web?.uri)
+          .filter((u): u is string => typeof u === 'string' && !!u),
+      )].slice(0, 10)
+    : [];
+
+  return { citations, fanout, grounded: true };
 }
 
 async function callGemini(model: string, query: string, apiKey: string, sysPrompt: string, maxTok: number, options?: QueryOptions): Promise<QueryResult> {
@@ -1546,6 +1610,9 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
       generationConfig: { maxOutputTokens: maxTok },
     };
     if (options?.jsonMode) payload.generationConfig.responseMimeType = 'application/json';
+    if (geminiGroundingEnabled(options?.jsonMode)) {
+      payload.tools = [{ google_search: {} }];
+    }
     try {
       const d = await fetchAI(url, {
         method: 'POST',
@@ -1561,11 +1628,14 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
       const parts = cand.content?.parts || [];
       const text = parts.map((p: { text?: string }) => p.text || '').join('\n').trim();
       if (!text) throw tagError('Gemini empty response', { isTransient: true });
+      const grounding = extractGeminiGrounding(cand);
       return {
         text, model: geminiModel,
         tokensIn: d.usageMetadata?.promptTokenCount || 0,
         tokensOut: d.usageMetadata?.candidatesTokenCount || 0,
-        citations: [],
+        citations: grounding.citations,
+        fanout: grounding.fanout,
+        grounded: grounding.grounded,
       };
     } catch (e) {
       lastErr = e as AiError;
@@ -1763,7 +1833,11 @@ export async function queryAI(
       // estimateCostUsd. Set here so the success-path `recordCall` below
       // can read them without a platform-specific branch.
       let webSearchCalls = 0;
-      let chatgptCostUsd: number | null = null;
+      // Explicit USD cost for providers that bill a per-call retrieval fee
+      // on top of tokens (ChatGPT web_search, Gemini grounding). Left null
+      // for the rest, where recordCall's estimateCostUsd fallback is
+      // accurate because tokens are the whole bill.
+      let retrievalCostUsd: number | null = null;
 
       if (platform === 'ChatGPT') {
         const isSearch = useModel.includes('search');
@@ -2014,7 +2088,7 @@ export async function queryAI(
             : 0.030;
           searchSurcharge = webSearchCalls * perCallUsd;
         }
-        chatgptCostUsd = tokenCost + searchSurcharge;
+        retrievalCostUsd = tokenCost + searchSurcharge;
       } else if (platform === 'Claude') {
         const d = await fetchAI(API_ENDPOINTS.claude.messages, {
           method: 'POST',
@@ -2031,6 +2105,15 @@ export async function queryAI(
         };
       } else if (platform === 'Gemini') {
         result = await callGemini(useModel, query, apiKey, sysPrompt, maxTok, options);
+        // Google charges per grounded prompt. Bill on evidence that
+        // grounding actually ran (the response carried groundingMetadata)
+        // rather than on merely having offered the tool - the model can
+        // decline to search, and charging for that would over-report.
+        if (result.grounded) {
+          retrievalCostUsd =
+            estimateCostUsd(result.model, result.tokensIn, result.tokensOut)
+            + GEMINI_GROUNDING_CALL_USD;
+        }
       } else if (platform === 'Perplexity') {
         const d = await fetchAI(API_ENDPOINTS.perplexity.chat, {
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
@@ -2098,7 +2181,7 @@ export async function queryAI(
           model: result.model,
           tokensIn: result.tokensIn,
           tokensOut: result.tokensOut,
-          usdCost: chatgptCostUsd ?? undefined,
+          usdCost: retrievalCostUsd ?? undefined,
         });
       }
 
@@ -2112,7 +2195,7 @@ export async function queryAI(
         tokensIn: result.tokensIn,
         tokensOut: result.tokensOut,
         webSearchCalls,
-        costUsd: chatgptCostUsd ?? undefined,
+        costUsd: retrievalCostUsd ?? undefined,
       });
 
       return result;

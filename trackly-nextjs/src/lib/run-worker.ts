@@ -15,6 +15,7 @@ import { resolveSearchModelWithBudget } from './search-budget';
 import { getAdminModel } from './site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from './parser';
 import { mergeCitations, persistCitations, type CitationBatchRow } from './citations';
+import { persistFanout, type FanoutBatchRow } from './fanout';
 import { uid, decryptApiKeys, loadTenantFairnessSettings } from './helpers';
 import { circuitBreakerCheck, recordApiKeyFailure, resetApiKeyFailures, acquirePlatformSlot } from './ai-platforms';
 import { setTenantFairness } from './fairness-scheduler';
@@ -124,7 +125,7 @@ async function processRun(job: Job<BrandRunJobData>) {
     }
   }
 
-  function processResult(plat: string, q: string, result: { text: string; model: string; tokensIn: number; tokensOut: number; citations?: string[] }, fromCache = false) {
+  function processResult(plat: string, q: string, result: { text: string; model: string; tokensIn: number; tokensOut: number; citations?: string[]; fanout?: string[] }, fromCache = false) {
     const parsed = parseResponse(result.text, brand, q, matcher);
     const competitors = detectCompetitors(result.text, matcher);
     const cost = fromCache ? 0 : estimateCost(result.model, result.tokensIn, result.tokensOut);
@@ -139,6 +140,10 @@ async function processRun(job: Job<BrandRunJobData>) {
       mentioned: parsed.mentioned, recommended: parsed.recommended,
       sentiment: parsed.sentiment, listPosition: parsed.listPosition,
       citations, competitorMentions: competitors,
+      // Reported by the engine, never inferred. Survives the response
+      // cache because it is part of the cached QueryResult, so a cache
+      // hit replays the same fan-out the live call saw.
+      fanout: Array.isArray(result.fanout) ? result.fanout : undefined,
       context: result.text.substring(0, ctxLen),
       snippet: result.text.substring(0, 200),
       raw: result.text,
@@ -448,7 +453,11 @@ async function processRun(job: Job<BrandRunJobData>) {
       delete brandData.id; delete brandData.userId; delete brandData.createdAt; delete brandData.updatedAt;
     }
     if (!brandData.runs) brandData.runs = [];
-    const lightResults = allResults.map(({ tokensIn, tokensOut, cost, ...rest }: Record<string, unknown>) => rest);
+    // `fanout` is dropped here alongside the cost fields: it is already
+    // normalized into prompt_fanout, and the brand JSON blob is trimmed
+    // aggressively on every list read, so carrying a second copy of it
+    // would cost payload weight for nothing.
+    const lightResults = allResults.map(({ tokensIn, tokensOut, cost, fanout, ...rest }: Record<string, unknown>) => rest);
 
     const citationCounts: Record<string, number> = {};
     for (const r of allResults) {
@@ -509,6 +518,7 @@ async function processRun(job: Job<BrandRunJobData>) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const p: any[] = [];
       const citationRows: CitationBatchRow[] = [];
+      const fanoutRows: FanoutBatchRow[] = [];
       let pi = 1;
       for (const r of batch) {
         const prId = uid();
@@ -523,6 +533,9 @@ async function processRun(job: Job<BrandRunJobData>) {
         if (Array.isArray(r.citations) && r.citations.length > 0) {
           citationRows.push({ promptRunId: prId, brandId, prompt: r.query, platform: r.platform, urls: r.citations });
         }
+        if (Array.isArray(r.fanout) && r.fanout.length > 0) {
+          fanoutRows.push({ promptRunId: prId, brandId, prompt: r.query, platform: r.platform, queries: r.fanout });
+        }
       }
       try {
         await pool.query(
@@ -531,6 +544,7 @@ async function processRun(job: Job<BrandRunJobData>) {
         // Citation Decoder normalized rows. Only written when the parent
         // prompt_runs batch landed so prompt_run_id always resolves.
         await persistCitations(citationRows);
+        await persistFanout(fanoutRows);
       } catch (e) {
         logger.error('worker.prompt_runs_batch_failed', {
           run_id: runId,

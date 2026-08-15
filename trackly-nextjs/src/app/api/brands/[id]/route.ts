@@ -1,9 +1,21 @@
+import { after } from 'next/server';
 import { pool, safeConnect, ensureColumns } from '@/lib/db';
 import { verifyRequestAuth, requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 import { countTrackedPromptsForOwnerExcluding } from '@/lib/prompt-quota';
 import { logError, serverError } from '@/lib/api-error';
+import { logger } from '@/lib/logger';
+import { classifyPrompts, selectImportantPages } from '@/lib/prompt-map';
+import {
+  ensurePromptMetaSchema,
+  getPromptMeta,
+  normalizePromptKey,
+  prunePromptMeta,
+  upsertPromptMeta,
+} from '@/lib/prompt-meta';
+import { ensureFanoutSchema } from '@/lib/fanout';
+import { ensureDiscoverySchema } from '@/lib/prompt-discovery';
 
 // GET /api/brands/:id
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -196,6 +208,42 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const updated = { ...brand, ...safeBody, id: brand.id, userId: brand.userId };
     const { id: _id, userId: _uid, createdAt: _ca, updatedAt: _ua, ...dataOnly } = updated;
     await pool.query('UPDATE brands SET data = $1, updated_at = NOW() WHERE id = $2', [JSON.stringify(dataOnly), id]);
+
+    // Keep the prompt map in step with the prompt list. Pruning is cheap
+    // and runs inline; classification is an LLM call, so it goes to
+    // after() - saving a prompt list must not wait on a model. Only the
+    // prompts that are genuinely new get classified, which keeps the
+    // common "added one prompt" edit down to a single small call.
+    if (safeBody.queries !== undefined) {
+      const nextQueries = (safeBody.queries as string[]) || [];
+      after(async () => {
+        try {
+          await prunePromptMeta(id, nextQueries);
+          const existing = await getPromptMeta(id);
+          const fresh = nextQueries.filter(q => !existing.has(normalizePromptKey(q)));
+          if (!fresh.length) return;
+          const pages = await selectImportantPages(updated.website);
+          const outcome = await classifyPrompts({
+            tenantId: updated.userId || user.id,
+            brandName: updated.name || 'the brand',
+            industry: updated.industry,
+            city: updated.city,
+            queries: fresh,
+            pages,
+          });
+          if (outcome.rows.length) await upsertPromptMeta(id, outcome.rows);
+        } catch (e) {
+          // A failed auto-classification leaves the prompts unclassified,
+          // which the prompts page shows as "Ungrouped" with a rebuild
+          // button. Never surface it as a brand-save failure.
+          logger.warn('brands.prompt_map_sync_failed', {
+            brandId: id,
+            errorMessage: (e as Error).message,
+          });
+        }
+      });
+    }
+
     return Response.json({ brand: updated });
   } catch (e) {
     logError('brands.update_failed', e);
@@ -211,6 +259,16 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   const { id } = await params;
   try {
+    // These three are created lazily by their own ensureSchema(), so a
+    // brand deleted before any of those features ever ran would hit
+    // "relation does not exist" mid-transaction - and in Postgres that
+    // poisons every statement after it, not just its own. Create them up
+    // front, outside the transaction, so the DELETEs below are guaranteed
+    // to have something to delete from.
+    await ensurePromptMetaSchema();
+    await ensureFanoutSchema();
+    await ensureDiscoverySchema();
+
     // Cascading delete in a transaction to clean up all related data
     const client = await safeConnect();
     try {
@@ -226,6 +284,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       await client.query('DELETE FROM recommendations WHERE brand_id = $1', [id]);
       await client.query('DELETE FROM brand_facts WHERE brand_id = $1', [id]);
       await client.query('DELETE FROM prompt_runs WHERE brand_id = $1', [id]);
+      await client.query('DELETE FROM prompt_meta WHERE brand_id = $1', [id]);
+      await client.query('DELETE FROM prompt_fanout WHERE brand_id = $1', [id]);
+      await client.query('DELETE FROM prompt_discovery_jobs WHERE brand_id = $1', [id]);
       await client.query('DELETE FROM active_runs WHERE brand_id = $1', [id]);
       await client.query('DELETE FROM alert_rules WHERE brand_id = $1', [id]);
       // geo_audits (+ geo_audit_results), nap_audits and report_drafts/
