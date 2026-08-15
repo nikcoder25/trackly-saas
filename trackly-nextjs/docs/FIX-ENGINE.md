@@ -86,7 +86,7 @@ Fix-Engine-specific:
 2. **CMS shipping (Channel A)**: in each brand's WordPress, create an
    Application Password and connect it in **Fix Engine → Connections**.
 3. **Connector (Channel B)** for `llms-txt`, `robots-ai-access`,
-   `og-cards`: install `connector-plugin/livesov-connector.php`, then
+   `og-cards`: install the Connector plugin (`connector-plugin/`), then
    **Pair Connector** in the dashboard and paste the token/secret/pull URL.
 4. The cron safety-net (`/api/cron/fix-engine-worker`) is already wired
    into `.github/workflows/cron.yml` (every 15 min, `Bearer CRON_SECRET`).
@@ -372,7 +372,7 @@ fetches the live `/llms.txt`) flips it to `verified`. A failed ack
   `revoked` and the Connector stops receiving instructions.
 
 > **Status: built.** The `/api/connector/*` endpoints and a reference
-> WordPress plugin (`connector-plugin/livesov-connector.php`) are
+> WordPress plugin (`connector-plugin/`) are
 > implemented:
 >
 > - `POST /api/brands/[id]/connections/connector/pair` → issues the raw

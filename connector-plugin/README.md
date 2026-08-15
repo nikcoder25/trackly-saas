@@ -14,7 +14,7 @@ The user-facing install guide lives at
 1. Download `livesov-connector.zip` from
    [livesov.com/integrations/wordpress](https://livesov.com/integrations/wordpress)
    and upload it via **Plugins → Add New → Upload Plugin**. (Or, from a
-   checkout, copy `livesov-connector.php` into
+   checkout, copy this whole directory — minus `tests/` — to
    `wp-content/plugins/livesov-connector/`.)
 2. Activate **Livesov Connector**.
 
@@ -31,8 +31,8 @@ the token + signing secret, so the secret never appears in the URL.
 
 ### Connect — manually (fallback)
 
-3. In Livesov: **Fix Engine → Connections → Pair Connector**. Copy the
-   **Pull URL**, **Token**, and **Signing secret** (shown once).
+3. In Livesov: **Fix Engine → Connections → Connector plugin → Pair**. Copy
+   the **Pull URL**, **Token**, and **Signing secret** (shown once).
 4. In WordPress: **Settings → Livesov Connector → Connect manually**, paste
    the three values, Save. Click **Poll now** to apply anything pending.
 
@@ -48,16 +48,73 @@ the token + signing secret, so the secret never appears in the URL.
   - `patch_robots` — appended to WordPress's virtual robots.txt via the
     `robots_txt` filter.
   - `set_header_block` — printed on `wp_head` (no theme files are edited).
-  - `stage_content` — saves a page edit (title / meta / canonical / body) as
-    a **draft revision** via `wp_create_post_autosave` **without changing the
-    live page**, and returns a preview URL in the ack. For ship-as-draft.
-  - `publish_content` — promotes the staged change to live via
-    `wp_update_post` (which snapshots the prior content into a revision, so
-    it's reversible from **wp-admin → Revisions**).
+  - `stage_content` — computes the page edit (title / meta / canonical /
+    body) and parks it behind a **tokenised preview URL** **without changing
+    the live page**. Returns the preview URL and the detected builder in the
+    ack.
+  - `publish_content` — promotes the staged change to live, after
+    snapshotting the previous state (post content *and* builder data) so it
+    can be undone from **Settings → Livesov Connector**.
 - After applying, the plugin `POST`s `{pull_url}/{id}/ack` (with a `detail`
   object, e.g. the preview URL for `stage_content`). On success the fix is
   marked delivered in Livesov; on failure it's flagged with the reported
   reason and re-tried on the next poll.
+
+## Page builders
+
+A WordPress page is only *sometimes* its `post_content`. Elementor renders a
+JSON tree from postmeta and ignores `post_content` entirely; Beaver Builder
+keeps a serialized node graph; Divi and WPBakery keep shortcodes; Bricks and
+Oxygen each have their own meta key. Writing a fix into `post_content` on an
+Elementor site is the classic silent failure: the update succeeds, the tool
+reports success, and the live page is unchanged.
+
+So content edits go through a builder adapter (`includes/builders.php`):
+
+| Builder | Detected by | Content lives in | Rewrite passage | Add block |
+|---|---|---|---|---|
+| Gutenberg | `<!-- wp:` in body | `post_content` | yes | native (`wp:html`) |
+| Classic | fallback | `post_content` | yes | native |
+| Elementor | `_elementor_edit_mode` | `_elementor_data` (JSON) | yes | native (html widget) |
+| Divi | `_et_pb_use_builder` | `post_content` (shortcodes) | yes | native (section) |
+| WPBakery | `_wpb_vc_js_status` | `post_content` (shortcodes) | yes | native (row) |
+| Beaver Builder | `_fl_builder_enabled` | `_fl_builder_data` (serialized) | yes | content filter |
+| Bricks | `_bricks_page_content_2` | that meta (array) | yes | content filter |
+| Oxygen | `ct_builder_shortcodes` | that meta (shortcodes) | yes | content filter |
+
+Where synthesising a native node would mean guessing at a builder's internal
+structure, the adapter declines and the block is rendered through a
+`the_content` filter instead — after the builder's output rather than inside
+it. A block in slightly the wrong place is a cosmetic problem; a malformed
+node written into someone's layout data is a broken site. The ack reports
+which path was taken (`nativeAppend`).
+
+### Why it refuses things
+
+`includes/text.php` locates a passage by projecting the source down to
+visible text — entities decoded, whitespace collapsed, tags and shortcodes
+skipped — while tracking the source byte span each character came from. A
+replacement is applied only when the passage is unambiguous **and** its span
+crosses nothing but inline formatting. Spanning a shortcode, a block
+delimiter, or a section wrapper is refused with a reason, as is a passage
+that appears twice or no longer exists. Full-body replacement (`bodyHtml`) is
+refused on builders that store layout outside the post body.
+
+A failed fix is a retry. A corrupted layout is a rebuild.
+
+## Tests
+
+The adapters rewrite markup we did not author, so the logic is unit tested
+against fixtures shaped like what each builder really stores. No WordPress
+install needed — the harness stubs the few WP functions involved.
+
+```bash
+php connector-plugin/tests/run.php        # adapters, text primitive, patch layer
+php connector-plugin/tests/verify-zip.php # committed zip matches the source
+```
+
+Both run in CI (`.github/workflows/test.yml`, job **WordPress connector
+plugin**).
 
 ## Security
 
@@ -68,14 +125,16 @@ the token + signing secret, so the secret never appears in the URL.
 
 ## Releasing a new version
 
-`livesov-connector.php` here is the source of truth. After editing it, bump
-`Version:` in the plugin header **and** `LVX_CONN_VERSION`, then regenerate the
-zip the download page serves:
+This directory is the source of truth. After editing it, bump `Version:` in
+the plugin header **and** `LVX_CONN_VERSION`, then regenerate the zip the
+download page serves:
 
 ```bash
 cd trackly-nextjs && node scripts/build-connector-zip.mjs
 ```
 
 That writes `trackly-nextjs/public/wordpress-plugin/livesov-connector.zip`
-(committed, reproducible). Update `PLUGIN_VERSION` in
+(committed, reproducible — every `.php` file here except `tests/`). Update
+`PLUGIN_VERSION` in
 `trackly-nextjs/src/app/(public)/integrations/wordpress/page.tsx` to match.
+CI fails if the zip drifts from the source.

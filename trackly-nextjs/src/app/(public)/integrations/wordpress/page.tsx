@@ -13,7 +13,7 @@ import {
 } from '@/components/seo/SeoSections';
 import EmailOff from '@/components/EmailOff';
 
-const PLUGIN_VERSION = '1.2.1';
+const PLUGIN_VERSION = '1.3.0';
 const DOWNLOAD_URL = '/wordpress-plugin/livesov-connector.zip';
 
 export const metadata: Metadata = {
@@ -68,16 +68,22 @@ const capabilities = [
       'Organization, Product, and FAQ JSON-LD plus canonical and meta tags print on wp_head. Your theme files are never touched.',
   },
   {
+    icon: '🧱',
+    title: 'Works with page builders',
+    description:
+      'Elementor, Divi, WPBakery, Beaver Builder, Bricks, Oxygen, Gutenberg, Classic. Each one stores content somewhere different — the plugin writes to the place your builder actually renders from.',
+  },
+  {
     icon: '✎',
     title: 'Ships page edits as drafts',
     description:
-      'Content fixes land as a draft revision with a preview link. Nothing on the live page changes until you click publish in Livesov.',
+      'Content fixes are parked behind a preview link that works on any builder — and without a wp-admin login. Nothing on the live page changes until you publish from Livesov.',
   },
   {
     icon: '↺',
     title: 'Reversible by design',
     description:
-      'Publishing goes through wp_update_post, which snapshots the previous version first. Every change can be rolled back from wp-admin → Revisions.',
+      'Every publish snapshots the previous state first — post content and builder data alike — so one click in Settings → Livesov Connector puts the page back.',
   },
   {
     icon: '🔒',
@@ -146,7 +152,7 @@ const faqs = [
   {
     question: 'Do I have to install a plugin to connect WordPress at all?',
     answer:
-      'No. Fix Engine can also connect a WordPress site over the REST API using an Application Password - one click, nothing installed. The plugin is the better option when you want llms.txt and /.well-known files written to the site root, or when Application Passwords are disabled on your install; the Application Password route is the better option when you would rather not add a plugin.',
+      'No. Fix Engine can also connect a WordPress site over the REST API using an Application Password - one click, nothing installed. That route writes through the REST API, which means it edits post_content, so it is the weaker option on a page-builder site. Use the plugin when the site runs Elementor, Divi, Beaver Builder, Bricks or Oxygen, when you want llms.txt and /.well-known files written to the site root, or when Application Passwords are disabled on your install.',
   },
   {
     question: 'What are the requirements?',
@@ -156,7 +162,22 @@ const faqs = [
   {
     question: 'Will the plugin change my live pages without asking?',
     answer:
-      'No. Technical fixes - llms.txt, robots.txt, head schema - apply automatically once you approve them in Livesov, because they are additive and reversible. Page content edits never touch the live page: they are saved as a draft revision with a preview URL, and only go live when you explicitly publish them from Livesov.',
+      'No. Technical fixes - llms.txt, robots.txt, head schema - apply automatically once you approve them in Livesov, because they are additive and reversible. Page content edits never touch the live page: the change is parked behind a preview URL, and only goes live when you explicitly publish it from Livesov. Every publish also snapshots the previous state first, so it can be undone from Settings → Livesov Connector.',
+  },
+  {
+    question: 'Does it work with Elementor, Divi, and other page builders?',
+    answer:
+      'Yes - that is the main thing version 1.3 added. The plugin detects which builder owns each page and writes to where that builder actually stores its content: Elementor\'s JSON tree, Beaver Builder\'s node graph, Divi and WPBakery shortcodes, Bricks and Oxygen meta, Gutenberg blocks, or plain post_content. Rewriting a passage works on all eight. Adding a block is inserted as a native builder element on Gutenberg, Classic, Elementor, Divi, and WPBakery; on Beaver Builder, Bricks, and Oxygen it renders through a content filter after the builder output instead, because synthesising a node there would mean guessing at internal structure.',
+  },
+  {
+    question: 'What stops it from mangling my layout?',
+    answer:
+      'It refuses more than it forces. A passage is only replaced when it can be located unambiguously and when the replacement would not cross a structural boundary - a shortcode, a Gutenberg block delimiter, a section wrapper. If the text appears twice, has changed since Livesov crawled it, or can only be matched by swallowing layout markup, the fix fails with the reason and is retried rather than applied. Full-body replacement is refused outright on builders that store their layout outside the post body.',
+  },
+  {
+    question: 'Can I undo a change the plugin made?',
+    answer:
+      'Yes. Settings → Livesov Connector has a Page changes table listing every page the Connector staged or published, the builder it detected, and an "Undo this change" button that restores the pre-publish snapshot. This matters because WordPress revisions only cover post_content and are no help on a builder-driven page - so the plugin keeps its own snapshot of the builder data too.',
   },
   {
     question: 'Does it conflict with Yoast or Rank Math?',
@@ -220,7 +241,7 @@ export default function WordPressIntegrationPage() {
             </span>
           </>
         }
-        subtitle="The Livesov Connector plugin applies the fixes you approve - llms.txt, AI-crawler rules, head schema, and page edits - directly to your WordPress site. Install it once, connect in one click, and stop copying snippets between two tabs."
+        subtitle="The Livesov Connector plugin applies the fixes you approve - llms.txt, AI-crawler rules, head schema, and real page-content edits - directly to your WordPress site. Elementor, Divi, WPBakery, Beaver Builder, Bricks and Oxygen included. Install once, connect in one click, and stop copying snippets between two tabs."
         hideCta
       />
 
@@ -289,12 +310,14 @@ export default function WordPressIntegrationPage() {
             </li>
           </ul>
 
-          <Callout title="You may not need the plugin at all" variant="tip">
+          <Callout title="There is a no-plugin route too" variant="tip">
             Fix Engine can also connect a WordPress site over the REST API with an{' '}
             <strong>Application Password</strong> - one click in the dashboard, nothing installed.
-            Reach for the plugin when you want <code>llms.txt</code> and <code>/.well-known/</code>{' '}
-            files written to the site root, or when Application Passwords are disabled on your
-            install. Both routes support ship-as-draft.
+            It edits through the REST API and therefore through <code>post_content</code>, so it is
+            the weaker choice on a page-builder site. Reach for the plugin when the site runs
+            Elementor, Divi, Beaver Builder, Bricks or Oxygen, when you want <code>llms.txt</code>{' '}
+            and <code>/.well-known/</code> files written to the site root, or when Application
+            Passwords are disabled on your install.
           </Callout>
 
           <h2 id="manual">Connecting manually (fallback)</h2>
@@ -327,6 +350,54 @@ export default function WordPressIntegrationPage() {
             your <code>&lt;head&gt;</code>.
           </Callout>
 
+          <h2 id="builders">Page builders</h2>
+          <p>
+            A WordPress page is only <em>sometimes</em> its <code>post_content</code>. Elementor
+            renders a JSON tree stored in postmeta and ignores <code>post_content</code> entirely.
+            Beaver Builder keeps a serialized node graph. Divi and WPBakery keep shortcodes. Bricks
+            and Oxygen each have their own meta key.
+          </p>
+          <p>
+            This is the failure mode that makes most &quot;auto-apply SEO&quot; tools useless on
+            real sites: they write the fix into <code>post_content</code>, the database update
+            genuinely succeeds, the tool reports success — and the live page looks exactly the same,
+            because the builder never reads that field. The Connector routes every content edit
+            through an adapter that knows where each builder actually keeps its content.
+          </p>
+
+          <h3>What is supported where</h3>
+          <ul>
+            <li>
+              <strong>Rewrite a passage</strong> — supported on all eight: Gutenberg, Classic,
+              Elementor, Divi, WPBakery, Beaver Builder, Bricks, and Oxygen.
+            </li>
+            <li>
+              <strong>Add a block</strong> (FAQ, TL;DR, schema section) — added as a native builder
+              element on Gutenberg, Classic, Elementor, Divi, and WPBakery. On Beaver Builder,
+              Bricks, and Oxygen, synthesising a native node would mean guessing at internal
+              structure, so the block is rendered through a <code>the_content</code> filter instead:
+              it appears after the builder&rsquo;s output rather than inside it. Livesov tells you
+              which path was used.
+            </li>
+            <li>
+              <strong>Title, meta description, canonical, robots</strong> — builder-independent, and
+              written into both the Yoast and Rank Math fields.
+            </li>
+            <li>
+              <strong>Replace the whole page body</strong> — deliberately refused on builders that
+              store their layout outside the post body. Overwriting there would erase the layout, so
+              the plugin declines and says so rather than doing it.
+            </li>
+          </ul>
+
+          <Callout title="It refuses more than it forces" variant="note">
+            A passage is only replaced when it can be located unambiguously and the replacement
+            would not cross a structural boundary — a shortcode, a block delimiter, a section
+            wrapper. If the passage appears twice, or has been edited since Livesov crawled it, or
+            can only be matched by swallowing layout markup, the fix fails with the reason instead
+            of guessing. A failed fix is a retry; a corrupted layout is a rebuild.
+          </Callout>
+
           <h2 id="what-changes">What actually changes on your site</h2>
           <p>
             Worth being precise about, because &quot;an SEO plugin that edits your site&quot; is a
@@ -349,20 +420,35 @@ export default function WordPressIntegrationPage() {
               <code>wp_head</code>. No theme file is ever written.
             </li>
             <li>
-              <code>stage_content</code> — saves a page edit as a <strong>draft revision</strong>{' '}
-              via <code>wp_create_post_autosave</code> and returns a preview URL. The published page
-              is untouched.
+              <code>stage_content</code> — computes the edit and parks it behind a{' '}
+              <strong>tokenised preview URL</strong>. The published page is untouched, and the
+              preview works on any builder without a wp-admin login, so whoever is reviewing the fix
+              in Livesov can just open the link.
             </li>
             <li>
-              <code>publish_content</code> — promotes the staged draft to live, snapshotting the
-              previous version into a revision on the way so it stays reversible.
+              <code>publish_content</code> — promotes the staged change to live, after snapshotting
+              the previous state (post content <em>and</em> builder data) so it can be undone.
             </li>
           </ul>
           <p>
             Every instruction is signed{' '}
             <code>HMAC-SHA256(id | op | sha256(content))</code> and verified before it runs. After
             applying, the plugin acknowledges back to Livesov, so the dashboard reflects what
-            actually landed - including failures, with the reason, retried on the next poll.
+            actually landed - including which builder it detected, and any failure with its reason,
+            retried on the next poll.
+          </p>
+
+          <h2 id="undo">Undoing a change</h2>
+          <p>
+            WordPress revisions only carry <code>post_content</code>, which means they are no help
+            at all on a builder-driven page. So every publish also writes its own snapshot of the
+            previous state — including the builder&rsquo;s data — before touching anything.
+          </p>
+          <p>
+            Go to <strong>Settings → Livesov Connector</strong> and you will find a{' '}
+            <strong>Page changes</strong> table: every page the Connector has staged or published,
+            which builder it detected, and an <strong>Undo this change</strong> button. You never
+            have to open Livesov to find out what was changed on your own site, or to put it back.
           </p>
 
           <h2 id="troubleshooting">Troubleshooting</h2>
@@ -393,9 +479,26 @@ export default function WordPressIntegrationPage() {
           </p>
           <p>
             <strong>&quot;page not found on this site&quot; on a content fix.</strong> Livesov
-            resolved a URL that WordPress does not map to a post - usually a trailing-slash or
-            www/non-www mismatch between your brand&rsquo;s configured domain and the site&rsquo;s
-            actual home URL. Align them in your brand settings and re-run.
+            resolved a URL that WordPress does not map to a post. The plugin already retries against
+            your site&rsquo;s own home URL to absorb www/non-www and trailing-slash differences, so
+            this usually means the page really has moved or the brand&rsquo;s configured domain
+            points somewhere else. Check the domain in your brand settings and re-run.
+          </p>
+          <p>
+            <strong>&quot;passage not found on the page&quot;.</strong> The page has been edited
+            since Livesov crawled it, so the text the fix was written against is gone. Re-run the
+            scan to pick up the current copy, then regenerate the fix.
+          </p>
+          <p>
+            <strong>&quot;passage appears more than once&quot;.</strong> The snippet occurs in two
+            places (often a hero and a footer CTA sharing a line), and blindly picking one would be
+            a coin flip. Make the target passage unique on the page, or apply that one by hand.
+          </p>
+          <p>
+            <strong>&quot;would break the page structure&quot;.</strong> The passage spans a
+            structural boundary — two Divi modules, two Gutenberg blocks, a section wrapper — so
+            replacing it would take the layout with it. Split the fix into per-block edits, or apply
+            it in the builder.
           </p>
 
           <h2 id="updating">Updating the plugin</h2>

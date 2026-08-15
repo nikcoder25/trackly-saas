@@ -64,6 +64,31 @@ jobs:
       - name: Run tests
         run: npm test
 
+  connector-plugin:
+    # The WordPress plugin rewrites markup we didn't author — Elementor JSON,
+    # Divi shortcodes, Beaver Builder node graphs — so its find/replace and
+    # builder-adapter logic is unit tested against fixtures shaped like what
+    # each builder really stores. No WordPress install required; the harness
+    # stubs the handful of WP functions involved.
+    name: WordPress connector plugin
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Lint plugin sources
+        run: find connector-plugin -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Run plugin tests
+        run: php connector-plugin/tests/run.php
+
+      # The zip is a committed build artifact, so it can drift from the source
+      # it is built from. Compare contents rather than rebuilding, which keeps
+      # this job free of the Node toolchain.
+      - name: Verify the shipped zip matches the plugin source
+        run: php connector-plugin/tests/verify-zip.php
+
   prod-build:
     # Mirrors the DigitalOcean App Platform build environment, which sets
     # NODE_ENV=production so `npm ci` SKIPS devDependencies, then runs
