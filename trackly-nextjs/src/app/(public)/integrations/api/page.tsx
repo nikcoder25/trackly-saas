@@ -9,17 +9,18 @@ import {
   LongForm,
   PillarLinks,
 } from '@/components/seo/SeoSections';
+import EmailOff from '@/components/EmailOff';
 
 export const metadata: Metadata = {
-  title: 'Livesov API: Programmatic AI Visibility Tracking (REST + Webhooks)',
+  title: 'Livesov Data Access: Webhooks, Exports & Integrations',
   description:
-    'Build directly against the Livesov AI visibility platform. REST endpoints for mention rate, citations, sentiment, and rank. Webhooks for real-time events.',
+    'How to get Livesov data out today - outbound webhooks, JSON and CSV exports, Google Sheets sync, Linear and Jira - and where the public REST API stands.',
   keywords:
-    'livesov api, ai visibility api, geo api, llm tracking api, chatgpt mention api, ai search api, generative engine optimization api',
+    'livesov api, ai visibility api, geo api, llm tracking api, ai visibility webhooks, livesov data export',
   alternates: { canonical: '/integrations/api' },
   openGraph: {
-    title: 'Livesov API: Programmatic AI Visibility',
-    description: 'REST endpoints and webhooks for AI mention rate, citations, sentiment, and rank.',
+    title: 'Livesov Data Access: Webhooks, Exports & Integrations',
+    description: 'Every way to get Livesov data into your own systems today.',
     url: 'https://livesov.com/integrations/api',
     siteName: 'Livesov',
     type: 'article',
@@ -28,165 +29,188 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Livesov API: Programmatic AI Visibility',
+        alt: 'Livesov Data Access',
       },
     ],
   },
 };
 
-const endpoints = [
-  { icon: 'GET', title: '/v1/brands', description: 'List, create, update, and delete tracked brands. Includes competitor sets and tracked URLs.' },
-  { icon: 'GET', title: '/v1/prompts', description: 'Manage the prompt panel for any brand - list, add, update, delete, or bulk-import.' },
-  { icon: 'GET', title: '/v1/runs', description: 'Trigger a measurement run or fetch results from a previous run, scoped by brand, prompt, or LLM.' },
-  { icon: 'GET', title: '/v1/metrics', description: 'Aggregated mention rate, citation share, sentiment, and rank-in-answer over any time range.' },
-  { icon: 'GET', title: '/v1/citations', description: 'The full list of cited URLs detected for any brand or prompt across grounded LLM surfaces.' },
-  { icon: 'POST', title: '/v1/reports', description: 'Generate a PDF or CSV report on demand for any brand and time range.' },
-];
-
-const webhooks = [
-  { icon: '◆', title: 'mention_rate.dropped', description: 'A tracked brand\'s mention rate dropped past your configured threshold on an LLM.' },
-  { icon: '◆', title: 'competitor.passed', description: 'A competitor overtook your brand on mention rate, citation share, or rank.' },
-  { icon: '◆', title: 'citation.created', description: 'A new third-party URL began citing your brand on a grounded LLM surface.' },
-  { icon: '◆', title: 'sentiment.shifted', description: 'Net sentiment for a brand or prompt moved past your threshold.' },
-  { icon: '◆', title: 'report.ready', description: 'A scheduled or on-demand report finished generating and is ready to fetch.' },
-  { icon: '◆', title: 'run.completed', description: 'A measurement run completed (useful for cron-driven measurement flows).' },
-];
-
-const sample = `curl https://api.livesov.com/v1/metrics \\
-  -H "Authorization: Bearer $LIVESOV_API_KEY" \\
-  -d brand_id=br_abc123 \\
-  -d range=30d \\
-  -d llms=chatgpt,perplexity,gemini
-
-# {
-#   "brand_id": "br_abc123",
-#   "range": "30d",
-#   "metrics": {
-#     "chatgpt":    { "mention_rate": 0.64, "citation_share": 0.21, ... },
-#     "perplexity": { "mention_rate": 0.71, "citation_share": 0.18, ... },
-#     "gemini":     { "mention_rate": 0.58, "citation_share": 0.14, ... }
-#   }
-# }`;
-
-const sampleWebhook = `POST https://your.app/webhooks/livesov
-Content-Type: application/json
-X-Livesov-Signature: sha256=...
-
-{
-  "type": "mention_rate.dropped",
-  "id": "evt_01h...",
-  "occurred_at": "2026-06-06T09:31:22Z",
-  "brand": { "id": "br_abc123", "name": "Northwind" },
-  "llm": "chatgpt",
-  "metric": {
-    "previous": 0.64,
-    "current": 0.51,
-    "delta_pp": -13
+const available = [
+  {
+    icon: '🪝',
+    title: 'Outbound webhook',
+    description: 'A per-brand HTTPS endpoint that receives Fix Engine notifications as a JSON body with a text field. Slack-incoming-webhook compatible, so it also works with Zapier, Make, n8n, or your own service.',
   },
-  "prompts_affected": [ "prompt_01h...", "prompt_01h..." ]
-}`;
+  {
+    icon: '📄',
+    title: 'JSON brand export',
+    description: 'Download a brand and its full run history as JSON, straight from the dashboard. This is the complete record, not a summary.',
+  },
+  {
+    icon: '📊',
+    title: 'CSV export',
+    description: 'Fix Engine results export to CSV for spreadsheets, BI tools, and client reporting.',
+  },
+  {
+    icon: '📑',
+    title: 'Scheduled PDF reports',
+    description: 'Weekly or monthly client-ready reports, generated and emailed to a distribution list you configure.',
+  },
+  {
+    icon: '🎫',
+    title: 'Linear & Jira',
+    description: 'Native tracker integrations. A fix becomes a real issue in your backlog, with the context attached.',
+  },
+  {
+    icon: '🗒',
+    title: 'Google Sheets',
+    description: 'Connect a sheet and let Livesov write into it - the path most agencies use for always-current client dashboards.',
+  },
+];
+
+const planned = [
+  { icon: '🔑', title: 'API keys', description: 'Per-workspace keys with separate read and write scopes.' },
+  { icon: '🌐', title: 'REST endpoints', description: 'Brands, prompts, runs, metrics, and citations over plain HTTP with bearer auth.' },
+  { icon: '✍️', title: 'Signed webhooks', description: 'HMAC-SHA256 signatures and typed event payloads, so you can verify and route by event.' },
+  { icon: '📦', title: 'SDKs', description: 'Thin TypeScript and Python wrappers over the REST surface.' },
+];
 
 const faqs = [
-  { question: 'How do I get an API key?', answer: 'Settings → API in your Livesov dashboard. Keys are per-workspace; rotate any time. Read and write scopes are separate.' },
-  { question: 'What are the rate limits?', answer: 'Default: 60 requests per minute per workspace, 10,000 per day. Higher limits available on Scale and Enterprise plans.' },
-  { question: 'Is the API REST or GraphQL?', answer: 'REST today. We use standard HTTP verbs, JSON request/response bodies, and bearer-token auth. A GraphQL layer is on the roadmap for late 2026.' },
-  { question: 'How are webhooks authenticated?', answer: 'HMAC-SHA256 signatures via the X-Livesov-Signature header. Use the signing secret from your webhook config to verify every payload.' },
-  { question: 'Is there a Node / Python SDK?', answer: 'Official TypeScript and Python SDKs ship in the docs. Both wrap REST + webhook signature verification + retries.' },
-  { question: 'Can I use the API during the free trial?', answer: 'Read-only API access is included on the 7-day free trial. Write endpoints and webhooks require any paid plan.' },
+  {
+    question: 'Does Livesov have a public REST API today?',
+    answer:
+      'No. There are no API keys to issue and no documented /v1 endpoints. Getting data out today means the outbound webhook, the JSON and CSV exports, the Google Sheets connection, or the Linear and Jira integrations - all of which are shipped and covered above. A REST API is in development; we would rather say that plainly than publish an endpoint table you cannot call.',
+  },
+  {
+    question: 'How do I get Livesov data into my own systems right now?',
+    answer:
+      'Three routes, in rough order of how most teams use them. Point the brand webhook at a Zapier or Make catch hook and fan out from there. Connect a Google Sheet and read from it downstream. Or export the brand as JSON and load it into your own store - that export carries the full run history, so it is the right choice for a one-off backfill or an audit.',
+  },
+  {
+    question: 'Are webhook requests signed?',
+    answer:
+      'Not today. Livesov POSTs a JSON body to the URL you configured, with no signature header. Treat the webhook URL itself as the secret, and prefer an endpoint that does not act on the payload without its own checks. Signed payloads ship with the public API.',
+  },
+  {
+    question: 'Can I bring my own LLM API keys?',
+    answer:
+      'Yes, and this one is shipped. Agency-plan tenants can supply their own OpenAI, Anthropic, Google, Perplexity, and xAI keys, so every measurement call is billed and attributed to their own accounts. Everything else - parsing, scoring, dashboards, reports - works identically.',
+  },
+  {
+    question: 'When will the API be available?',
+    answer:
+      'No date we are willing to commit to in public. If API access is what decides whether Livesov fits your stack, email us with what you need to call and we will tell you honestly where it stands rather than sell you a roadmap.',
+  },
+  {
+    question: 'Can I trigger a measurement run programmatically?',
+    answer:
+      'Not through a public endpoint. Runs happen on the schedule you configure per brand, or on demand from the dashboard. Programmatic runs are part of the planned REST surface.',
+  },
 ];
 
 export default function ApiIntegrationPage() {
   return (
     <SeoLayout>
-      <Breadcrumbs items={[{ name: 'Integrations', url: '/integrations' }, { name: 'API', url: '/integrations/api' }]} />
+      <Breadcrumbs items={[{ name: 'Integrations', url: '/integrations' }, { name: 'API & data access', url: '/integrations/api' }]} />
 
       <SeoHero
         title={
           <>
-            Livesov{' '}
+            Getting your data{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand)] to-[#6366f1]">
-              REST API
+              out of Livesov
             </span>
           </>
         }
-        subtitle="Programmatic access to every Livesov surface - brands, prompts, runs, metrics, citations, and reports. REST endpoints plus signed webhooks for real-time events."
-        ctaText="Get an API key"
+        subtitle="Webhooks, JSON and CSV exports, Google Sheets, Linear and Jira - the routes that exist today, and a straight answer on where the public REST API stands."
+        ctaText="Start free"
         ctaHref="/signup"
       />
 
-      <Section background="var(--bg-section, #f7f5f1)" pad="72px 24px">
-        <SectionHeader label="Endpoints" title="Six resources, full CRUD" subtitle="REST conventions, JSON in and out, bearer-token auth." />
-        <FeatureGrid items={endpoints} columns={3} />
+      <Section pad="56px 24px 0" width={1000}>
+        <Callout title="Read this first" variant="note">
+          <strong>Livesov has no public REST API yet.</strong> There are no API keys to issue and no{' '}
+          <code>/v1</code> endpoints to call. Everything in the next section is shipped and usable
+          today; everything in the section after it is not. If you found this page looking for API
+          docs, that is the honest answer — and the export and webhook routes below cover more
+          workflows than people expect.
+        </Callout>
       </Section>
 
-      <Section pad="64px 24px" width={820}>
-        <SectionHeader title="A request, end-to-end" subtitle="Fetch mention rate across three LLMs for one brand over 30 days." />
-        <pre
-          style={{
-            background: '#0f172a',
-            color: '#e2e8f0',
-            padding: 24,
-            borderRadius: 12,
-            overflowX: 'auto',
-            fontSize: 13.5,
-            lineHeight: 1.6,
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-          }}
-        >
-          {sample}
-        </pre>
+      <Section background="var(--bg-section, #f7f5f1)" pad="64px 24px">
+        <SectionHeader
+          label="Available today"
+          title="Six ways to get data out"
+          subtitle="All shipped, all usable without talking to us first."
+        />
+        <FeatureGrid items={available} columns={3} />
       </Section>
 
-      <Section background="var(--bg-section, #f7f5f1)" pad="72px 24px">
-        <SectionHeader label="Webhooks" title="Six real-time events" subtitle="Signed with HMAC-SHA256, delivered with automatic retry + idempotency keys." />
-        <FeatureGrid items={webhooks} columns={3} />
-      </Section>
-
-      <Section pad="64px 24px" width={820}>
-        <SectionHeader title="A webhook payload" />
-        <pre
-          style={{
-            background: '#0f172a',
-            color: '#e2e8f0',
-            padding: 24,
-            borderRadius: 12,
-            overflowX: 'auto',
-            fontSize: 13.5,
-            lineHeight: 1.6,
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-          }}
-        >
-          {sampleWebhook}
-        </pre>
+      <Section pad="72px 24px">
+        <SectionHeader
+          label="In development"
+          title="Not shipped — do not plan against these"
+          subtitle="Listed so you know what is coming, and so nobody builds against something that does not exist yet."
+        />
+        <FeatureGrid items={planned} columns={4} />
       </Section>
 
       <Section background="var(--bg-section, #f7f5f1)" pad="64px 24px">
         <LongForm>
-          <h2>What teams build on the API</h2>
-          <ul>
-            <li><strong>Custom dashboards.</strong> Stream metrics into your own data warehouse, then visualise in Looker / Metabase / Tableau.</li>
-            <li><strong>Custom client reports.</strong> Agencies pull metrics nightly via the API and render them inside their own reporting template.</li>
-            <li><strong>CRM enrichment.</strong> Append AI share-of-voice to every account record in Salesforce or HubSpot.</li>
-            <li><strong>Programmatic prompt management.</strong> Auto-generate prompt panels from a content calendar or product launch list.</li>
-            <li><strong>Real-time PR rapid-response.</strong> Webhook into PagerDuty or Linear when a competitor lands a major citation.</li>
-          </ul>
+          <h2>Picking a route</h2>
+          <p>
+            <strong>Real-time push → webhook.</strong> Set a public HTTPS URL per brand in{' '}
+            <strong>Dashboard → Alerts</strong>. Livesov POSTs{' '}
+            <code>{'{ "text": "…" }'}</code> to it for Fix Engine notifications. Because that shape
+            is Slack-compatible, the same field drives{' '}
+            <a href="/integrations/slack">Slack</a>, <a href="/integrations/zapier">Zapier</a>,
+            Make, n8n, or your own endpoint with no adapter.
+          </p>
+          <p>
+            <strong>A live spreadsheet → Google Sheets.</strong> Connect a sheet and Livesov writes
+            into it. For agencies this is usually the fastest path to a client-facing dashboard,
+            because the client already knows how to read a spreadsheet.
+          </p>
+          <p>
+            <strong>Everything, once → JSON export.</strong> The brand export carries the full
+            historical run record rather than a rollup, which makes it the right input for a
+            warehouse load, an analyst notebook, or an audit.
+          </p>
+          <p>
+            <strong>Work that needs doing → Linear or Jira.</strong> Connect a tracker and fixes
+            arrive as real issues with their context attached, instead of as messages someone has to
+            re-type into a backlog.
+          </p>
 
-          <Callout title="Docs and SDKs" variant="info">
-            Full REST reference, webhook signature verification, and official TypeScript + Python
-            SDKs live at <a href="/docs">/docs</a>.
-          </Callout>
+          <h2>Bring your own keys</h2>
+          <p>
+            Enterprise and regulated customers often need every AI API call attributed to their own
+            org account — for compliance, cost transparency, or a negotiated rate limit. Agency-plan
+            tenants can supply their own keys for any combination of OpenAI, Anthropic, Google,
+            Perplexity, and xAI. This is shipped, and unrelated to the REST API work.
+          </p>
+
+          <h2>If you need the API</h2>
+          <p>
+            Tell us what you would call and why. It genuinely shapes what gets built first, and you
+            will get a straight answer about timing rather than a roadmap page. Email{' '}
+            <EmailOff>
+              <a href="mailto:hello@livesov.com">hello@livesov.com</a>
+            </EmailOff>
+            .
+          </p>
         </LongForm>
       </Section>
 
-      <FaqSection title="API FAQ" items={faqs} />
+      <FaqSection title="Data access FAQ" items={faqs} />
 
       <PillarLinks
         title="More ways to plug Livesov in"
         links={[
-          { href: '/integrations/slack', label: 'Slack integration', description: 'Native real-time alerts in Slack channels.' },
-          { href: '/integrations/zapier', label: 'Zapier integration', description: '5,000+ apps without code.' },
+          { href: '/integrations/wordpress', label: 'WordPress plugin', description: 'Apply approved fixes straight to your site.' },
+          { href: '/integrations/slack', label: 'Slack', description: 'Updates in the channel your team lives in.' },
+          { href: '/integrations/zapier', label: 'Zapier', description: 'Fan updates out to 5,000+ apps.' },
           { href: '/integrations', label: 'All integrations', description: 'Every LLM, alert route, and export format.' },
-          { href: '/docs', label: 'Docs', description: 'API reference, SDKs, and integration guides.' },
         ]}
       />
     </SeoLayout>

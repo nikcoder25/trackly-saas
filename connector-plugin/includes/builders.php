@@ -171,6 +171,18 @@ abstract class Lvx_Builder {
     /** Clear whatever the builder caches about this post. */
     public function clear_cache($post_id) {}
 
+    /**
+     * Does this builder's front end actually run `the_content`?
+     *
+     * It matters because that filter is the fallback for appending a block
+     * when no native node can be synthesised. Builders that render through a
+     * template of their own (Oxygen, Bricks) never call it, so a block handed
+     * to the fallback there would be accepted, acknowledged, and then never
+     * appear — the exact silent failure this whole adapter layer exists to
+     * stop. Those builders return false so the append is refused out loud.
+     */
+    public function renders_the_content() { return true; }
+
     protected function meta_of($state) {
         return (isset($state['meta']) && is_array($state['meta'])) ? $state['meta'] : array();
     }
@@ -276,29 +288,89 @@ class Lvx_Builder_WPBakery extends Lvx_Builder_Shortcode {
 }
 
 /**
- * Oxygen keeps its shortcode tree in postmeta, and its elements carry
- * generated ids plus a JSON options blob. Replacement is safe; synthesising a
- * new element is not, so appends fall through to the content filter.
+ * Oxygen stores its element tree as JSON in `ct_builder_json` (3.6+), with an
+ * older shortcode representation in `ct_builder_shortcodes` still present on
+ * many installs. Prefer the JSON — walking a tree finds prose wherever the
+ * schema puts it, whereas the shortcode form hides some element text inside
+ * a `ct_options` attribute where it is not visible text at all.
+ *
+ * Oxygen renders through its own template rather than `the_content`, so the
+ * append fallback would never show. Appends are refused instead.
  */
 class Lvx_Builder_Oxygen extends Lvx_Builder {
 
-    const META = 'ct_builder_shortcodes';
+    const JSON_META  = 'ct_builder_json';
+    const SHORT_META = 'ct_builder_shortcodes';
 
     public function slug()  { return 'oxygen'; }
     public function label() { return 'Oxygen Builder'; }
 
+    public function renders_the_content() { return false; }
+
     public function detect($post) {
-        return (string) get_post_meta($post->ID, self::META, true) !== '';
+        return (string) get_post_meta($post->ID, self::JSON_META, true) !== ''
+            || (string) get_post_meta($post->ID, self::SHORT_META, true) !== '';
     }
 
     public function read($post) {
-        return $this->state(null, array(self::META => (string) get_post_meta($post->ID, self::META, true)));
+        $meta = array();
+        $json = (string) get_post_meta($post->ID, self::JSON_META, true);
+        if ($json !== '') { $meta[self::JSON_META] = $json; }
+        $short = (string) get_post_meta($post->ID, self::SHORT_META, true);
+        if ($short !== '') { $meta[self::SHORT_META] = $short; }
+        return $this->state(null, $meta);
     }
 
     public function replace($state, $find, $replace) {
-        $r = Lvx_Text::replace((string) $state['meta'][self::META], $find, $replace, true);
-        $state['meta'][self::META] = $r['result'];
-        return array('ok' => $r['ok'], 'state' => $state, 'error' => $r['error']);
+        if (!empty($state['meta'][self::JSON_META])) {
+            return $this->replace_json($state, $find, $replace);
+        }
+        if (!empty($state['meta'][self::SHORT_META])) {
+            $r = Lvx_Text::replace((string) $state['meta'][self::SHORT_META], $find, $replace, true);
+            $state['meta'][self::SHORT_META] = $r['result'];
+            return array('ok' => $r['ok'], 'state' => $state, 'error' => $r['error']);
+        }
+        return array('ok' => false, 'state' => $state, 'error' => 'no Oxygen content found on this page');
+    }
+
+    private function replace_json($state, $find, $replace) {
+        $depth = 0;
+        $tree = self::decode_json((string) $state['meta'][self::JSON_META], $depth);
+        if ($tree === null) {
+            return array('ok' => false, 'state' => $state, 'error' => 'Oxygen JSON is unreadable');
+        }
+        $r = Lvx_Tree::replace($tree, $find, $replace);
+        if (!$r['ok']) { return array('ok' => false, 'state' => $state, 'error' => $r['error']); }
+
+        // Re-apply exactly the slashing the value arrived with, so a payload
+        // that was double-escaped in the database stays double-escaped.
+        $encoded = wp_json_encode($r['data']);
+        for ($i = 0; $i < $depth; $i++) { $encoded = addslashes($encoded); }
+        $state['meta'][self::JSON_META] = $encoded;
+
+        // The shortcode copy is now stale. Dropping it from the state means
+        // persist() leaves the stored value alone rather than writing back
+        // content that no longer matches the JSON Oxygen actually renders.
+        unset($state['meta'][self::SHORT_META]);
+
+        return array('ok' => true, 'state' => $state, 'error' => '');
+    }
+
+    /**
+     * Oxygen's stored JSON is routinely mangled — a UTF-8 BOM in front, and
+     * one to three rounds of WordPress slashing baked in. Peel the layers off
+     * until it parses, recording how many so the write can put them back.
+     */
+    public static function decode_json($raw, &$depth) {
+        $raw = preg_replace('/^\xEF\xBB\xBF/', '', (string) $raw);
+        for ($depth = 0; $depth <= 3; $depth++) {
+            $candidate = $raw;
+            for ($i = 0; $i < $depth; $i++) { $candidate = stripslashes($candidate); }
+            $decoded = json_decode($candidate, true);
+            if (is_array($decoded)) { return $decoded; }
+        }
+        $depth = 0;
+        return null;
     }
 }
 
@@ -428,9 +500,13 @@ class Lvx_Builder_Bricks extends Lvx_Builder {
     public function slug()  { return 'bricks'; }
     public function label() { return 'Bricks Builder'; }
 
+    /** Bricks renders through its own template, never `the_content`. */
+    public function renders_the_content() { return false; }
+
     public function detect($post) {
         $d = get_post_meta($post->ID, self::META, true);
-        return is_array($d) && !empty($d);
+        if (is_array($d) && !empty($d)) { return true; }
+        return get_post_meta($post->ID, '_bricks_editor_mode', true) === 'bricks';
     }
 
     public function read($post) {
@@ -447,6 +523,29 @@ class Lvx_Builder_Bricks extends Lvx_Builder {
 
         $state['meta'][self::META] = $r['data'];
         return array('ok' => true, 'state' => $state, 'error' => '');
+    }
+
+    /**
+     * Bricks elements are a flat list linked by parent/children ids, so a new
+     * root-level text element is a well-defined addition rather than a guess.
+     * It has to be native: Bricks never runs `the_content`, so the fallback
+     * would render nowhere.
+     */
+    public function append($state, $html) {
+        $data = $state['meta'][self::META];
+        if (!is_array($data)) {
+            return array('ok' => false, 'state' => $state, 'native' => false,
+                'error' => 'Bricks layout data is unreadable');
+        }
+        $data[] = array(
+            'id'       => Lvx_Tree::element_id(),
+            'name'     => 'text-basic',
+            'parent'   => 0,
+            'children' => array(),
+            'settings' => array('text' => $html),
+        );
+        $state['meta'][self::META] = $data;
+        return array('ok' => true, 'state' => $state, 'native' => true, 'error' => '');
     }
 }
 

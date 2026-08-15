@@ -55,7 +55,7 @@ const DOC_SECTIONS: DocSection[] = [
   {
     title: 'Workflows',
     items: [
-      { title: 'Alerts & notifications', description: 'Slack, email, and webhook alerts on mention-rate drops and competitor moves.', href: '/docs#alerts' },
+      { title: 'Alerts & notifications', description: 'Email alerts on mention-rate drops and competitor moves, plus the outbound webhook.', href: '/docs#alerts' },
       { title: 'Reports & exports', description: 'Scheduled PDF reports, CSV exports, and the Livesov Reports Library.', href: '/integrations' },
       { title: 'Team & collaboration', description: 'Roles, permissions, multi-brand workspaces, and seat management.', href: '/solutions/agencies' },
       { title: 'Multi-brand & agencies', description: 'Manage 5–500 brands in one Livesov account with client-ready reports.', href: '/solutions/agencies' },
@@ -65,9 +65,9 @@ const DOC_SECTIONS: DocSection[] = [
     title: 'Integrations',
     items: [
       { title: 'WordPress plugin', description: 'Install the Connector and apply approved fixes to your site automatically.', href: '/integrations/wordpress' },
-      { title: 'Slack integration', description: 'Real-time alerts and weekly digests in any Slack channel.', href: '/integrations/slack' },
-      { title: 'Zapier integration', description: '5,000+ apps via Zapier triggers and actions.', href: '/integrations/zapier' },
-      { title: 'REST API', description: 'Pull metrics, write prompts, and stream events programmatically.', href: '/integrations/api' },
+      { title: 'Slack', description: 'Send Fix Engine updates to a channel with an incoming webhook.', href: '/integrations/slack' },
+      { title: 'Zapier', description: 'Route the same webhook into a Catch Hook and on to 5,000+ apps.', href: '/integrations/zapier' },
+      { title: 'API & data access', description: 'Webhooks, JSON and CSV exports, Sheets - and where the REST API stands.', href: '/integrations/api' },
     ],
   },
   {
@@ -209,8 +209,11 @@ export default function DocsHubPage() {
           <h2 id="alerts">Alerts</h2>
           <p>
             Alerts fire on three signals: mention-rate drop above a threshold, sentiment shift,
-            and competitor pass-through. Routes: email, Slack, generic webhook. See the{' '}
-            <a href="/integrations/slack">Slack integration</a> for the most common setup.
+            and competitor pass-through. These are delivered by email today. Separately, each
+            brand can set one outbound webhook (Dashboard → Alerts) that carries Fix Engine
+            notifications - point it at{' '}
+            <a href="/integrations/slack">Slack</a> or{' '}
+            <a href="/integrations/zapier">Zapier</a> to get those into a channel.
           </p>
 
           <p>

@@ -79,15 +79,28 @@ So content edits go through a builder adapter (`includes/builders.php`):
 | Divi | `_et_pb_use_builder` | `post_content` (shortcodes) | yes | native (section) |
 | WPBakery | `_wpb_vc_js_status` | `post_content` (shortcodes) | yes | native (row) |
 | Beaver Builder | `_fl_builder_enabled` | `_fl_builder_data` (serialized) | yes | content filter |
-| Bricks | `_bricks_page_content_2` | that meta (array) | yes | content filter |
-| Oxygen | `ct_builder_shortcodes` | that meta (shortcodes) | yes | content filter |
+| Bricks | `_bricks_page_content_2`, `_bricks_editor_mode` | that meta (array) | yes | native (text element) |
+| Oxygen | `ct_builder_json`, `ct_builder_shortcodes` | JSON meta, shortcode fallback | yes | refused |
 
-Where synthesising a native node would mean guessing at a builder's internal
-structure, the adapter declines and the block is rendered through a
-`the_content` filter instead — after the builder's output rather than inside
-it. A block in slightly the wrong place is a cosmetic problem; a malformed
-node written into someone's layout data is a broken site. The ack reports
-which path was taken (`nativeAppend`).
+Where a native node can't be synthesised safely, the block falls through to a
+`the_content` filter — after the builder's output rather than inside it. A
+block in slightly the wrong place is cosmetic; a malformed node written into
+someone's layout data is a broken site. The ack reports which path was taken
+(`nativeAppend`).
+
+That fallback is only offered to builders whose front end actually runs
+`the_content` (`renders_the_content()`). Oxygen and Bricks render their own
+templates and never call it, so a block handed to the filter there would be
+applied, acknowledged, and never appear — the exact silent failure this layer
+exists to prevent. Bricks therefore appends natively; Oxygen refuses with an
+error telling the user to add the block in the builder.
+
+Oxygen note: 3.6+ stores the element tree as JSON in `ct_builder_json`, with
+the older shortcode form still present in `ct_builder_shortcodes` on many
+installs. The JSON is preferred (walking a tree finds prose wherever the
+schema puts it) and is decoded defensively — stored copies routinely carry a
+UTF-8 BOM and one to three rounds of WordPress slashing, so the layers are
+peeled off until it parses and re-applied on write.
 
 ### Why it refuses things
 

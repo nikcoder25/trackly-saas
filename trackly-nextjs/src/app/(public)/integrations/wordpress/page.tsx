@@ -71,7 +71,7 @@ const capabilities = [
     icon: '🧱',
     title: 'Works with page builders',
     description:
-      'Elementor, Divi, WPBakery, Beaver Builder, Bricks, Oxygen, Gutenberg, Classic. Each one stores content somewhere different — the plugin writes to the place your builder actually renders from.',
+      'Elementor, Divi, WPBakery, Beaver Builder, Bricks, Oxygen, Gutenberg, Classic. Each one stores content somewhere different — the plugin detects which is in charge and writes where that builder actually renders from.',
   },
   {
     icon: '✎',
@@ -96,7 +96,7 @@ const capabilities = [
 const installSteps = [
   {
     title: 'Download the plugin',
-    description: `Grab livesov-connector.zip (v${PLUGIN_VERSION}) from the download button on this page. It is a single-file plugin - no build step, no dependencies.`,
+    description: `Grab livesov-connector.zip (v${PLUGIN_VERSION}) from the download button on this page. Plain PHP - no build step, no Composer, no dependencies.`,
   },
   {
     title: 'Upload it to WordPress',
@@ -167,7 +167,7 @@ const faqs = [
   {
     question: 'Does it work with Elementor, Divi, and other page builders?',
     answer:
-      'Yes - that is the main thing version 1.3 added. The plugin detects which builder owns each page and writes to where that builder actually stores its content: Elementor\'s JSON tree, Beaver Builder\'s node graph, Divi and WPBakery shortcodes, Bricks and Oxygen meta, Gutenberg blocks, or plain post_content. Rewriting a passage works on all eight. Adding a block is inserted as a native builder element on Gutenberg, Classic, Elementor, Divi, and WPBakery; on Beaver Builder, Bricks, and Oxygen it renders through a content filter after the builder output instead, because synthesising a node there would mean guessing at internal structure.',
+      'Yes - that is the main thing version 1.3 added. The plugin detects which builder owns each page and writes to where that builder actually stores its content: Elementor\'s JSON tree, Beaver Builder\'s node graph, Divi and WPBakery shortcodes, Bricks elements, Oxygen\'s JSON (with the legacy shortcode format as a fallback), Gutenberg blocks, or plain post_content. Rewriting a passage works on all eight. Adding a block is a native builder element on Gutenberg, Classic, Elementor, Divi, WPBakery, and Bricks; on Beaver Builder it renders through a content filter after the builder output; on Oxygen it is refused, because Oxygen renders its own template and a block placed there would never appear.',
   },
   {
     question: 'What stops it from mangling my layout?',
@@ -373,11 +373,13 @@ export default function WordPressIntegrationPage() {
             </li>
             <li>
               <strong>Add a block</strong> (FAQ, TL;DR, schema section) — added as a native builder
-              element on Gutenberg, Classic, Elementor, Divi, and WPBakery. On Beaver Builder,
-              Bricks, and Oxygen, synthesising a native node would mean guessing at internal
-              structure, so the block is rendered through a <code>the_content</code> filter instead:
-              it appears after the builder&rsquo;s output rather than inside it. Livesov tells you
-              which path was used.
+              element on Gutenberg, Classic, Elementor, Divi, WPBakery, and Bricks. On Beaver
+              Builder the block renders through a <code>the_content</code> filter instead, so it
+              appears after the builder&rsquo;s output rather than inside it. On <strong>Oxygen</strong>{' '}
+              it is refused outright: Oxygen renders its own template and never runs{' '}
+              <code>the_content</code>, so a block placed there would be accepted and then never
+              appear — and a fix that reports success while changing nothing is worse than one that
+              fails. Add those in the builder. Livesov reports which path was used.
             </li>
             <li>
               <strong>Title, meta description, canonical, robots</strong> — builder-independent, and
@@ -499,6 +501,12 @@ export default function WordPressIntegrationPage() {
             structural boundary — two Divi modules, two Gutenberg blocks, a section wrapper — so
             replacing it would take the layout with it. Split the fix into per-block edits, or apply
             it in the builder.
+          </p>
+          <p>
+            <strong>&quot;renders its own template, so a new block can only be added in the
+            builder&quot;.</strong> An Oxygen page. Oxygen bypasses <code>the_content</code>{' '}
+            entirely, so there is no safe place for the plugin to put a new block. Paste it into
+            Oxygen yourself — rewrites of existing passages still apply automatically.
           </p>
 
           <h2 id="updating">Updating the plugin</h2>

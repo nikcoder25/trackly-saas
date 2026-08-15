@@ -89,3 +89,26 @@ $post = lvx_test_post(107, '<p>one</p><div><p>two</p></div>');
 $r = Lvx_Patch::build($post, array('bodyReplace' => array('find' => 'one two', 'replace' => 'merged')));
 T::ok($r['err'] !== '', 'structure-breaking replace refused');
 T::contains($r['err'], 'break the page structure', 'refusal explains the risk');
+
+/* ── an append that could never render is refused, not silently accepted ── */
+
+$post = lvx_test_post(108, '', array('ct_builder_json' => '[{"name":"ct_text_block","options":{"content":"hi"}}]'));
+$r = Lvx_Patch::build($post, array('bodyAppend' => '<h2>FAQ</h2>'));
+T::ok($r['err'] !== '', 'Oxygen append is refused rather than dropped into a filter that never runs');
+T::contains($r['err'], 'renders its own template', 'refusal explains why');
+T::same(array(), $r['appended'], 'nothing is queued for a filter that would not fire');
+
+/* ── Bricks appends natively, so the same patch succeeds there ── */
+
+$post = lvx_test_post(109, '', array('_bricks_page_content_2' => array(
+    array('id' => 'e1', 'name' => 'heading', 'parent' => 0, 'children' => array(), 'settings' => array('text' => 'hi')))));
+$r = Lvx_Patch::build($post, array('bodyAppend' => '<h2>FAQ</h2>'));
+T::same('', $r['err'], 'Bricks append succeeds');
+T::ok($r['native'], 'Bricks append is native');
+
+/* ── Beaver Builder does run the_content, so its fallback is still allowed ── */
+
+$post = lvx_test_post(110, '', array('_fl_builder_enabled' => 1, '_fl_builder_data' => array()));
+$r = Lvx_Patch::build($post, array('bodyAppend' => '<h2>FAQ</h2>'));
+T::same('', $r['err'], 'Beaver append still falls back cleanly');
+T::same(array('<h2>FAQ</h2>'), $r['appended'], 'Beaver block queued for the content filter');

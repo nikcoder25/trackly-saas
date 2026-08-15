@@ -99,22 +99,22 @@ const channels = [
   },
   {
     icon: '⟁',
-    title: 'Webhooks',
+    title: 'Outbound webhook',
     items: [
-      'Real-time push to your endpoint on every event',
-      'Slack / Microsoft Teams ready payloads',
-      'Configurable per event type (alerts, runs, hallucinations)',
-      'Signed requests with HMAC verification',
+      'One HTTPS endpoint per brand, set in Dashboard → Alerts',
+      'Slack-incoming-webhook payload shape',
+      'Drives Slack, Zapier, Make, n8n, or your own service',
+      'Carries Fix Engine notifications today',
     ],
   },
   {
     icon: '⇩',
     title: 'Data exports',
     items: [
-      'CSV export of every metric, every run',
-      'JSON export for developer integrations',
+      'JSON brand export with the full run history',
+      'CSV export of Fix Engine results',
       'PDF reports (client-ready, one click)',
-      'Full raw AI response evidence packs',
+      'Google Sheets sync for live client dashboards',
     ],
   },
   {
@@ -143,22 +143,22 @@ const faqs = [
   {
     question: 'Are there webhook integrations?',
     answer:
-      'Yes. Configure HTTPS webhook endpoints for any combination of event types (alerts, completed runs, hallucinations, competitor overtakes). Payloads are JSON, requests are signed with HMAC, and you can re-deliver from the dashboard if your endpoint was down.',
+      'Yes, one: a per-brand outbound HTTPS webhook, configured in Dashboard → Alerts. It carries Fix Engine notifications as a JSON body with a text field. Requests are not signed today and there is no per-event-type routing or dashboard re-delivery - those ship with the public API. See the API page for what exists versus what is planned.',
   },
   {
-    question: 'Can I send alerts directly to Slack or Microsoft Teams?',
+    question: 'Can I send alerts directly to Slack?',
     answer:
-      'Yes. Webhook payloads are formatted to work natively with Slack incoming webhooks and Microsoft Teams adaptive cards. Email alerts are also available out of the box.',
+      'You can point the brand webhook at a Slack incoming webhook - the payload shape matches, so messages render properly with no adapter. There is no Livesov app in the Slack directory and no OAuth flow; a native app is on the roadmap. Mention-rate and competitor alerts go out by email today rather than through the webhook.',
   },
   {
     question: 'What export formats are supported?',
     answer:
-      'CSV (every metric + every raw response), JSON (developer-friendly bulk export), and PDF (client-ready reports). Exports are available on-demand and can be scheduled to deliver weekly or monthly.',
+      'JSON (a full brand export including the complete run history), CSV (Fix Engine results), and PDF (client-ready reports, on demand or scheduled weekly or monthly). A Google Sheets connection is also available for teams who want a live sheet rather than a download.',
   },
   {
     question: 'Is there a public API?',
     answer:
-      'Agency plans include API access for programmatic reading of every metric Livesov computes. Custom integrations and enterprise SLAs are available - contact us for details.',
+      'Not yet. There are no API keys and no documented REST endpoints today - a public API is in development. Programmatic access right now means the outbound webhook, the JSON and CSV exports, or the Google Sheets connection. If API access decides whether Livesov fits your stack, email us and we will tell you honestly where it stands.',
   },
   {
     question: 'Will Livesov add support for new AI platforms as they launch?',
@@ -178,7 +178,7 @@ export default function IntegrationsPage() {
             Integrated with <span className="text-[var(--brand)]">5 AI platforms</span> - and your stack
           </>
         }
-        subtitle="Direct API access to ChatGPT, Claude, Gemini, Perplexity, and Grok. Plus email alerts, webhooks for Slack / Teams, CSV / JSON / PDF exports, and bring-your-own-key support on Agency plans."
+        subtitle="Direct API access to ChatGPT, Claude, Gemini, Perplexity, and Grok. Plus email alerts, an outbound webhook that drives Slack and Zapier, JSON / CSV / PDF exports, and bring-your-own-key support on Agency plans."
         ctaText="Start integrating - free"
       />
 
@@ -437,25 +437,35 @@ export default function IntegrationsPage() {
 
           <h2>Webhooks &amp; alerting</h2>
           <p>
-            Every Livesov event - a hallucination flag, a share-of-voice swing, a completed run,
-            a competitor overtake - can be pushed to a webhook endpoint in real time. Payloads
-            are JSON, requests are signed with HMAC for verification, and the dashboard lets
-            you re-deliver failed events. Out of the box, the payloads work cleanly with Slack
-            incoming webhooks and Microsoft Teams adaptive cards.
+            Each brand carries one outbound HTTPS webhook, set in{' '}
+            <strong>Dashboard → Alerts</strong>. Livesov POSTs a JSON body with a{' '}
+            <code>text</code> field, which is the shape Slack&rsquo;s incoming webhooks expect -
+            so the same URL field drives Slack, a Zapier or Make catch hook, n8n, or your own
+            endpoint without an adapter in between. Fix Engine notifications flow through it
+            today; mention-rate drops, competitor moves, and scheduled reports go out by email.
+          </p>
+          <p>
+            Two things it does not do yet, worth knowing before you design around it: requests
+            carry no HMAC signature, and there is no per-event-type routing or re-delivery of
+            failed sends. Both belong to the public API work.
           </p>
 
-          <Callout title="Roadmap note" variant="info">
-            Native Slack, Microsoft Teams, HubSpot, Salesforce, Zapier, and n8n integrations
-            are on the public roadmap. For anything you don&apos;t see today, the webhook
-            integration covers nearly every workflow with a few lines of code.
+          <Callout title="What is not built yet" variant="note">
+            There is no public REST API, no API keys, no Livesov app in the Slack or Zapier
+            directories, and no native HubSpot, Salesforce, Teams, or n8n integration. All of
+            that is roadmap. What exists today is the outbound webhook, the exports, the Google
+            Sheets connection, native Linear and Jira trackers, and the{' '}
+            <a href="/integrations/wordpress">WordPress plugin</a> - see{' '}
+            <a href="/integrations/api">API &amp; data access</a> for the full picture.
           </Callout>
 
           <h2>Exports &amp; reporting</h2>
           <p>
-            Every dashboard view exports to CSV with one click. JSON exports power custom
-            downstream pipelines (BI tools, internal dashboards, analyst notebooks). PDF
-            reports are designed for client and stakeholder delivery - share of voice,
-            sentiment and citations, generated in one click on any plan.
+            A brand exports to JSON carrying its complete historical run record rather than a
+            rollup, which makes it the right input for a warehouse load or an analyst notebook.
+            Fix Engine results export to CSV for spreadsheets and client reporting. PDF reports
+            are built for client and stakeholder delivery - share of voice, sentiment, and
+            citations, generated in one click on any plan.
           </p>
           <p>
             Scheduled reports (weekly or monthly) deliver the same PDFs by email to a

@@ -11,6 +11,9 @@ import { safeFetch } from '@/lib/safe-fetch';
 
 export type DetectedCms = 'wordpress' | 'shopify' | 'webflow' | 'ghost' | 'unknown';
 
+export type DetectedBuilder =
+  | 'elementor' | 'divi' | 'wpbakery' | 'beaver' | 'bricks' | 'oxygen' | 'gutenberg';
+
 export interface CmsDetection {
   cms: DetectedCms;
   /** 'high' when a definitive signal matched, 'low' for a weak hint. */
@@ -18,9 +21,66 @@ export interface CmsDetection {
   signals: string[];
   /** True when we ship a write adapter for the detected CMS. */
   hasAdapter: boolean;
+  /** WordPress only: the page builder rendering the front end, if any. */
+  builder?: DetectedBuilder;
+  builderLabel?: string;
+  /**
+   * True when editing this site over the REST API would write to
+   * post_content that the front end does not actually render — i.e. the
+   * Connector plugin is required, not merely preferable.
+   */
+  needsConnector?: boolean;
 }
 
 const WITH_ADAPTER = new Set<DetectedCms>(['wordpress', 'shopify', 'ghost', 'webflow']);
+
+/**
+ * Front-end fingerprints for the builders the Connector plugin supports.
+ *
+ * This exists to stop the connect wizard giving bad advice. The Application
+ * Password route writes through the REST API, which means it writes to
+ * post_content — and on Elementor, Beaver Builder, Bricks or Oxygen the front
+ * end never reads that field, so the edit lands nowhere visible. Steering a
+ * builder site down that path produces fixes that report success and change
+ * nothing, which is the single worst outcome the Fix Engine can produce.
+ *
+ * Ordered most-specific first: Divi and Elementor sites often carry generic
+ * block-editor markup too, so `gutenberg` has to be the last thing checked.
+ */
+const BUILDER_SIGNATURES: Array<{
+  builder: DetectedBuilder;
+  label: string;
+  /** post_content is not what the front end renders. */
+  needsConnector: boolean;
+  pattern: RegExp;
+}> = [
+  { builder: 'elementor', label: 'Elementor', needsConnector: true,
+    pattern: /elementor-(?:frontend|page-\d+|kit-\d+)|\/plugins\/elementor\/|class="[^"]*\belementor\b/i },
+  { builder: 'divi', label: 'Divi', needsConnector: false,
+    pattern: /\bet_pb_section\b|\bet_pb_row\b|id="et-boc"|\/themes\/Divi\//i },
+  { builder: 'wpbakery', label: 'WPBakery', needsConnector: false,
+    pattern: /js_composer|\bvc_row\b|\bwpb_wrapper\b/i },
+  { builder: 'beaver', label: 'Beaver Builder', needsConnector: true,
+    pattern: /\bfl-builder-content\b|\/plugins\/bb-plugin\/|\bfl-node-\w/i },
+  { builder: 'bricks', label: 'Bricks', needsConnector: true,
+    pattern: /\bbrxe-\w|\/plugins\/bricks\/|id="brx-content"/i },
+  { builder: 'oxygen', label: 'Oxygen', needsConnector: true,
+    pattern: /\bct-section\b|\bct_section\b|\/plugins\/oxygen\/|oxy-(?:header|stock-content)/i },
+  { builder: 'gutenberg', label: 'Block editor', needsConnector: false,
+    pattern: /\bwp-block-\w/i },
+];
+
+/** Identify the page builder rendering a WordPress front end, if any. */
+export function detectBuilder(html: string): {
+  builder?: DetectedBuilder; builderLabel?: string; needsConnector: boolean;
+} {
+  for (const sig of BUILDER_SIGNATURES) {
+    if (sig.pattern.test(html)) {
+      return { builder: sig.builder, builderLabel: sig.label, needsConnector: sig.needsConnector };
+    }
+  }
+  return { needsConnector: false };
+}
 
 function origin(raw: string): string | null {
   try { return new URL(raw.startsWith('http') ? raw : `https://${raw}`).origin; }
@@ -47,10 +107,21 @@ export async function detectCms(siteUrl: string): Promise<CmsDetection> {
   let cms: DetectedCms = 'unknown';
   let confidence: CmsDetection['confidence'] = 'none';
 
-  // 1) WordPress REST namespace — definitive.
+  // 1) WordPress REST namespace — definitive. The homepage is still fetched
+  //    afterwards, because knowing it is WordPress is not enough: which page
+  //    builder renders the front end decides whether the REST route can edit
+  //    this site at all.
   const wpJson = await getText(`${base}/wp-json/`);
   if (wpJson && wpJson.status === 200 && /"namespaces?"|wp\/v2/.test(wpJson.body)) {
-    return { cms: 'wordpress', confidence: 'high', signals: ['wp-json'], hasAdapter: true };
+    const home = await getText(`${base}/`);
+    const b = detectBuilder(home?.body ?? '');
+    return {
+      cms: 'wordpress',
+      confidence: 'high',
+      signals: b.builder ? ['wp-json', `builder:${b.builder}`] : ['wp-json'],
+      hasAdapter: true,
+      ...b,
+    };
   }
 
   // 2) Homepage HTML + headers.
@@ -74,5 +145,9 @@ export async function detectCms(siteUrl: string): Promise<CmsDetection> {
   }
 
   if (cms === 'unknown' && home) signals.push(`no-match(status ${home.status})`);
-  return { cms, confidence, signals, hasAdapter: WITH_ADAPTER.has(cms) };
+
+  const builder = cms === 'wordpress' ? detectBuilder(html) : { needsConnector: false };
+  if (builder.builder) signals.push(`builder:${builder.builder}`);
+
+  return { cms, confidence, signals, hasAdapter: WITH_ADAPTER.has(cms), ...builder };
 }

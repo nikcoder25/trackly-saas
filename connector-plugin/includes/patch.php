@@ -54,13 +54,23 @@ class Lvx_Patch {
             $r = $builder->append($state, $html);
             if ($r['ok']) {
                 $state = $r['state'];
-            } else {
-                // The builder declined to synthesise a node of its own. Render
-                // the block through the_content instead: it lands after the
-                // builder's output rather than inside it, which is a layout
-                // compromise rather than a corrupted layout.
+            } elseif ($builder->renders_the_content()) {
+                // The builder declined to synthesise a node of its own, but its
+                // front end does run the_content — so render the block there.
+                // It lands after the builder's output rather than inside it,
+                // which is a layout compromise rather than a corrupted layout.
                 $appended[] = $html;
                 $native = false;
+            } else {
+                // Nowhere safe to put it: no native node, and this builder
+                // renders through its own template, so a the_content fallback
+                // would be accepted and then never appear. Refusing is the
+                // whole point — a fix that reports success and changes nothing
+                // is worse than one that fails.
+                return self::fail($builder, $state,
+                    $builder->label() . ' renders its own template, so a new block can only be added in the builder — '
+                    . 'Livesov cannot place this one automatically'
+                    . ($r['error'] !== '' ? ' (' . $r['error'] . ')' : ''));
             }
         }
 

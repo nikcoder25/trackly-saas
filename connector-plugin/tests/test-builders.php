@@ -141,17 +141,75 @@ T::contains($r['state']['post_content'], 'seven days a week', 'WPBakery replacem
 $r = $b->append($state, '<h2>Reviews</h2>');
 T::contains($r['state']['post_content'], '[vc_column_text]<h2>Reviews</h2>[/vc_column_text]', 'WPBakery append wraps correctly');
 
-/* ── Oxygen: replace in meta, append declines to native ── */
+/* ── Oxygen: legacy shortcode storage ── */
 
 $ox = '[ct_section][ct_text_block]Licensed and insured in Oklahoma[/ct_text_block][/ct_section]';
 $post = lvx_test_post(22, '', array('ct_builder_shortcodes' => $ox));
 $b = Lvx_Builders::for_post($post);
 $state = $b->read($post);
 $r = $b->replace($state, 'Licensed and insured in Oklahoma', 'Licensed, bonded and insured in Oklahoma');
-T::ok($r['ok'], 'Oxygen replace succeeds');
-T::contains($r['state']['meta']['ct_builder_shortcodes'], 'bonded', 'Oxygen replacement applied');
+T::ok($r['ok'], 'Oxygen shortcode replace succeeds');
+T::contains($r['state']['meta']['ct_builder_shortcodes'], 'bonded', 'Oxygen shortcode replacement applied');
 $r = $b->append($state, '<h2>x</h2>');
 T::ok(!$r['ok'] && $r['native'] === false, 'Oxygen append declines rather than guessing');
+T::ok(!$b->renders_the_content(), 'Oxygen is known not to run the_content');
+
+/* ── Oxygen: modern JSON storage wins over the stale shortcode copy ── */
+
+$ox_json = json_encode(array(array(
+    'id' => 5, 'name' => 'ct_headline',
+    'options' => array('ct_options' => array('selector' => 'headline-5'), 'content' => 'Emergency electrician'),
+    'children' => array(),
+)));
+$post = lvx_test_post(26, '', array(
+    'ct_builder_json'       => $ox_json,
+    'ct_builder_shortcodes' => '[ct_headline]Emergency electrician[/ct_headline]',
+));
+$b = Lvx_Builders::for_post($post);
+$r = $b->replace($b->read($post), 'Emergency electrician', '24/7 emergency electrician');
+T::ok($r['ok'], 'Oxygen JSON replace succeeds');
+$out = json_decode($r['state']['meta']['ct_builder_json'], true);
+T::same('24/7 emergency electrician', $out[0]['options']['content'], 'Oxygen JSON content updated');
+T::same('headline-5', $out[0]['options']['ct_options']['selector'], 'Oxygen selector untouched');
+T::ok(!isset($r['state']['meta']['ct_builder_shortcodes']), 'stale Oxygen shortcode copy is not written back');
+
+/* ── Oxygen: BOM + multi-layer slashing is peeled and restored ── */
+
+$depth = 0;
+$mangled = "\xEF\xBB\xBF" . addslashes(addslashes('[{"name":"ct_text_block","options":{"content":"He said \"go\""}}]'));
+$decoded = Lvx_Builder_Oxygen::decode_json($mangled, $depth);
+T::ok(is_array($decoded), 'double-slashed Oxygen JSON with a BOM still decodes');
+T::same(2, $depth, 'slash depth is measured');
+T::same('He said "go"', $decoded[0]['options']['content'], 'Oxygen JSON content survives unslashing');
+
+$post = lvx_test_post(27, '', array('ct_builder_json' => $mangled));
+$b = Lvx_Builders::for_post($post);
+$r = $b->replace($b->read($post), 'He said "go"', 'He said "stop"');
+T::ok($r['ok'], 'replace works on mangled Oxygen JSON');
+$again = 0;
+$out = Lvx_Builder_Oxygen::decode_json($r['state']['meta']['ct_builder_json'], $again);
+T::same(2, $again, 'the original slash depth is restored on write');
+T::same('He said "stop"', $out[0]['options']['content'], 'mangled Oxygen JSON round-trips');
+
+/* ── Bricks appends natively, because it never runs the_content ── */
+
+$post = lvx_test_post(28, '', array('_bricks_page_content_2' => array(
+    array('id' => 'e1', 'name' => 'heading', 'parent' => 0, 'children' => array(),
+          'settings' => array('text' => 'Roofing')))));
+$b = Lvx_Builders::for_post($post);
+T::ok(!$b->renders_the_content(), 'Bricks is known not to run the_content');
+$r = $b->append($b->read($post), '<h2>FAQ</h2>');
+T::ok($r['ok'] && $r['native'], 'Bricks append is native');
+$data = $r['state']['meta']['_bricks_page_content_2'];
+T::same(2, count($data), 'Bricks append added an element');
+T::same('text-basic', $data[1]['name'], 'appended Bricks element is a text element');
+T::same(0, $data[1]['parent'], 'appended Bricks element sits at the root');
+T::same('<h2>FAQ</h2>', $data[1]['settings']['text'], 'appended Bricks html preserved');
+
+/* ── Bricks detected from editor mode even before content exists ── */
+
+$post = lvx_test_post(29, '', array('_bricks_editor_mode' => 'bricks'));
+T::same('bricks', Lvx_Builders::for_post($post)->slug(), 'Bricks detected from editor mode');
 
 /* ── Beaver Builder: serialized node objects ── */
 
