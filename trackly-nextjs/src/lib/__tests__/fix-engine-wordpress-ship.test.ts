@@ -98,3 +98,46 @@ describe('WordPress canonical / indexable writes', () => {
     expect(r.ok).toBe(false);
   });
 });
+
+describe('WordPress body append read guard', () => {
+  // The append path reads the current body, concatenates, and writes back.
+  // Before the guard, a failed read produced existing='' and the write
+  // REPLACED the page's entire content with just the appended block — a
+  // transient 429/500 on the read destroyed the page and reported ok.
+  it('fails without writing when the body read errors', async () => {
+    mockResolveToPage();
+    fetchMock.mockResolvedValueOnce(res(500, { message: 'boom' })); // GET ?context=edit fails
+    const r = await wordpressAdapter.updateBody(creds, target, '<p>block</p>', 'append');
+    expect(r.ok).toBe(false);
+    expect(r.detail).toMatchObject({ reason: 'body_read_failed', status: 500 });
+    // Exactly two calls: resolve + failed read. No PATCH ever happened.
+    expect(fetchMock.mock.calls).toHaveLength(2);
+  });
+
+  it('fails without writing when the body response has no content object', async () => {
+    mockResolveToPage();
+    fetchMock.mockResolvedValueOnce(res(200, { id: 7 })); // ok status, no content field
+    const r = await wordpressAdapter.updateBody(creds, target, '<p>block</p>', 'append');
+    expect(r.ok).toBe(false);
+    expect(r.detail).toMatchObject({ reason: 'body_read_unparseable' });
+    expect(fetchMock.mock.calls).toHaveLength(2);
+  });
+
+  it('appends to the fetched body on the happy path', async () => {
+    mockResolveToPage();
+    fetchMock.mockResolvedValueOnce(res(200, { id: 7, content: { raw: '<p>existing</p>' } })); // read
+    fetchMock.mockResolvedValueOnce(res(200, { id: 7, link: 'https://acme.test/x' }));          // PATCH
+    const r = await wordpressAdapter.updateBody(creds, target, '<p>block</p>', 'append');
+    expect(r.ok).toBe(true);
+    const patch = fetchMock.mock.calls[2];
+    expect(JSON.parse(patch[1].body as string).content).toBe('<p>existing</p>\n\n<p>block</p>');
+  });
+
+  it('replaceInBody reports a read failure as a read failure, not passage-not-found', async () => {
+    mockResolveToPage();
+    fetchMock.mockResolvedValueOnce(res(502, {})); // read fails
+    const r = await wordpressAdapter.replaceInBody(creds, target, 'find', 'replace');
+    expect(r.ok).toBe(false);
+    expect(r.detail).toMatchObject({ reason: 'body_read_failed', status: 502 });
+  });
+});

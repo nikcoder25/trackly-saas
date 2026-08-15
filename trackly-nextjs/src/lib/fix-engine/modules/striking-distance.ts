@@ -111,14 +111,24 @@ export const strikingDistanceModule: FixModule = {
     const cms = await resolveCmsForBrand(ctx);
     if ('error' in cms) return cms.error;
     const g = draft.generated as { title: string; sectionHtml: string };
+    // Title first, and stop if it fails: the title write is idempotent but
+    // the body APPEND is not. Appending after a failed title marks the fix
+    // failed with the section already live — and the retry appends the same
+    // section a second time.
     const titleRes = await cms.adapter.updateTitle(cms.creds, { url: issue.targetUrl! }, g.title);
+    if (!titleRes.ok) {
+      return {
+        ok: false,
+        detail: { title: titleRes.detail },
+        error: titleRes.error ?? 'Title update failed',
+      };
+    }
     const bodyRes = await cms.adapter.updateBody(cms.creds, { url: issue.targetUrl! }, g.sectionHtml, 'append');
-    const ok = titleRes.ok && bodyRes.ok;
     return {
-      ok,
+      ok: bodyRes.ok,
       detail: { title: titleRes.detail, body: bodyRes.detail },
       after: { title: g.title, sectionHtml: g.sectionHtml },
-      error: ok ? undefined : 'One or more CMS writes failed',
+      error: bodyRes.ok ? undefined : bodyRes.error ?? 'Body update failed',
     };
   },
 

@@ -8,6 +8,8 @@ import { describe, expect, it } from 'vitest';
 import { buildSeoManifest, stableStringify, DEFAULT_MANIFEST_PATH } from '@/lib/fix-engine/git/manifest';
 import { getFile, putFile, toBase64, type FetchLike, type GitHubRepoRef } from '@/lib/fix-engine/git/github';
 import { syncSeoToRepo, isGitConnectorCreds } from '@/lib/fix-engine/git/sync';
+import { gitAdapter } from '@/lib/fix-engine/cms/git';
+import { CmsUnsupportedError } from '@/lib/fix-engine/cms/types';
 import type { EdgeSeoOverride } from '@/lib/fix-engine/schema';
 
 const REF: GitHubRepoRef = { token: 't', owner: 'acme', repo: 'site' };
@@ -144,5 +146,31 @@ describe('isGitConnectorCreds', () => {
 describe('manifest path default', () => {
   it('is under a livesov/ folder', () => {
     expect(DEFAULT_MANIFEST_PATH).toBe('livesov/seo-overrides.json');
+  });
+});
+
+describe('gitAdapter write methods', () => {
+  // The manifest only carries the edge-serveable modules, and the engine's
+  // ship fast-path intercepts those before module.ship() runs — so any call
+  // reaching these methods is for a change the manifest will NEVER deliver.
+  // They used to return ok:true anyway, marking fixes "shipped" while the
+  // change existed nowhere: not committed, not served, not scheduled.
+  const creds = { token: 't', owner: 'acme', repo: 'site' };
+  const target = { url: 'https://acme.dev/page' };
+
+  it('refuses every per-field write instead of claiming manifest delivery', async () => {
+    await expect(gitAdapter.updateTitle(creds, target, 'T')).rejects.toBeInstanceOf(CmsUnsupportedError);
+    await expect(gitAdapter.updateMetaDescription(creds, target, 'D')).rejects.toBeInstanceOf(CmsUnsupportedError);
+    await expect(gitAdapter.updateCanonical(creds, target, 'https://x/')).rejects.toBeInstanceOf(CmsUnsupportedError);
+    await expect(gitAdapter.injectSchema(creds, target, '{}')).rejects.toBeInstanceOf(CmsUnsupportedError);
+    await expect(gitAdapter.updateBody(creds, target, '<p>x</p>', 'append')).rejects.toBeInstanceOf(CmsUnsupportedError);
+    await expect(gitAdapter.setIndexable(creds, target)).rejects.toBeInstanceOf(CmsUnsupportedError);
+  });
+
+  it('keeps the honest replaceInBody / createPage refusals', async () => {
+    const r = await gitAdapter.replaceInBody(creds, target, 'a', 'b');
+    expect(r.ok).toBe(false);
+    expect(r.found).toBe(false);
+    await expect(gitAdapter.createPage(creds, { title: 't', slug: 's', html: 'h' })).rejects.toBeInstanceOf(CmsUnsupportedError);
   });
 });

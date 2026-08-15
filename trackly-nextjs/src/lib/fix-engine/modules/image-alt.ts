@@ -16,6 +16,7 @@ import { crawlPage, resolveCrawlTargets } from '../crawl';
 import { generateJson } from '../generate';
 import { IMAGE_ALT_SYSTEM, imageAltUserPrompt } from '../prompts';
 import { resolveCmsForBrand } from './_shared';
+import { CmsAuthError, CmsUnsupportedError } from '../cms/types';
 import type {
   DetectedIssue,
   FixContext,
@@ -105,7 +106,13 @@ export const imageAltModule: FixModule = {
         );
         if (r.ok) applied++;
         else skipped.push(a.src); // not in the stored body (theme-rendered)
-      } catch {
+      } catch (e) {
+        // Auth failures and unsupported ops are NOT "image is theme-rendered".
+        // Swallowing them here told the user to fix alt text in their page
+        // builder when the real problem was a revoked token or a CMS that
+        // can't do replaceInBody at all — and it bypassed the engine's
+        // verify-by-fetch hand-off for unsupported ops. Let them propagate.
+        if (e instanceof CmsAuthError || e instanceof CmsUnsupportedError) throw e;
         skipped.push(a.src);
       }
     }
