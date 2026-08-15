@@ -15,6 +15,7 @@ import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
 import { classifyPrompts, selectImportantPages } from '@/lib/prompt-map';
+import { intParam } from '@/lib/query-params';
 import {
   getPromptMeta,
   getPromptStats,
@@ -73,8 +74,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const queries = trackedQueries(brand);
     const sp = new URL(request.url).searchParams;
-    const rawDays = Number(sp.get('days'));
-    const days = Number.isFinite(rawDays) ? Math.min(365, Math.max(1, Math.trunc(rawDays))) : 30;
+    const days = intParam(sp.get('days'), 30, 1, 365);
 
     const [meta, stats] = await Promise.all([
       getPromptMeta(id),

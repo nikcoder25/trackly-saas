@@ -12,3 +12,6 @@ dist/
 trackly-nextjs/node_modules/
 trackly-nextjs/.next/
 .next/
+
+# Local demo screenshots (regenerated on demand, not part of the app)
+screenshots/
