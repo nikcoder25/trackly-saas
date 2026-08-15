@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
   stale: [] as any[],
   unverifiedShipped: [] as any[],
   liveMetrics: { clicks: 60, impressions: 1200, ctr: 0.05, position: 8 } as any,
+  siteMetrics: null as any,
   recheckResult: 'verified' as string,
   measuredRevert: false,
   revertable: true,
@@ -41,6 +42,10 @@ vi.mock('@/lib/fix-engine/notify', () => ({ notifyBrand: vi.fn(async () => ({ ok
 vi.mock('@/lib/fix-engine/page-metrics', () => ({
   PAGE_METRICS_WINDOW_DAYS: 28,
   fetchUrlMetricsLive: vi.fn(async () => (state.liveMetrics ? { url: 'u', ...state.liveMetrics, fetchedAt: 'now' } : null)),
+  // Site-wide control for the same window. Null by default so these tests
+  // keep exercising the raw-delta path; set state.siteMetrics to exercise
+  // the baseline-adjusted one.
+  fetchSiteMetricsLive: vi.fn(async () => (state.siteMetrics ? { url: 's', ...state.siteMetrics, fetchedAt: 'now' } : null)),
 }));
 
 import { runOutcomePass, runRegressionWatch, runShipVerifyPass } from '@/lib/fix-engine/outcomes';
@@ -51,6 +56,7 @@ beforeEach(() => {
   state.stale = [{ id: 'v1', brandId: 'b1', moduleKey: 'title-rewrite', targetUrl: 'https://a.com/p', status: 'verified' }];
   state.unverifiedShipped = [{ id: 's1', brandId: 'b1', moduleKey: 'title-rewrite', targetUrl: 'https://a.com/p', status: 'shipped' }];
   state.liveMetrics = { clicks: 60, impressions: 1200, ctr: 0.05, position: 8 };
+  state.siteMetrics = null;
   state.recheckResult = 'verified';
   state.measuredRevert = false; state.revertable = true; state.revertCalls = [];
   state.updates = []; state.events = [];
@@ -86,6 +92,43 @@ describe('measured auto-revert', () => {
     expect(r.reverted).toBe(1);
     expect(state.revertCalls).toEqual(['f1']);
     expect(state.events.map((e) => e.event)).toContain('outcome.autoreverted');
+  });
+
+  it('does NOT revert when the whole site fell just as hard', async () => {
+    // The regression this guards: a core update or a seasonal trough drags
+    // every page down together. Judged on the raw page delta the fix looks
+    // like a 37% failure and gets un-shipped; judged against the site's own
+    // trend it merely moved with the market, and should be left alone.
+    state.measuredRevert = true;
+    state.due = [{
+      id: 'f1', brandId: 'b1', moduleKey: 'title-rewrite', targetUrl: 'https://a.com/p',
+      gscBefore: { ctr: 0.04, impressions: 1000, at: '2026-06-01', site: { ctr: 0.04 } },
+    }];
+    state.liveMetrics = bigDrop;           // page 0.04 → 0.025  (-37%)
+    state.siteMetrics = { clicks: 100, impressions: 50_000, ctr: 0.025, position: 12 }; // site -37% too
+
+    const r = await runOutcomePass();
+    expect(r.reverted).toBe(0);
+    expect(state.revertCalls).toEqual([]);
+
+    const measured = state.events.find((e) => e.event === 'outcome.measured')!;
+    expect(measured.detail.baselineAdjusted).toBe(true);
+    expect(measured.detail.ctrDelta).toBeCloseTo(0, 5);       // neutral once adjusted
+    expect(measured.detail.rawCtrDelta).toBeLessThan(-0.3);   // raw still looks terrible
+  });
+
+  it('still reverts a page that fell while the site held steady', async () => {
+    state.measuredRevert = true;
+    state.due = [{
+      id: 'f1', brandId: 'b1', moduleKey: 'title-rewrite', targetUrl: 'https://a.com/p',
+      gscBefore: { ctr: 0.04, impressions: 1000, at: '2026-06-01', site: { ctr: 0.04 } },
+    }];
+    state.liveMetrics = bigDrop;
+    state.siteMetrics = { clicks: 100, impressions: 50_000, ctr: 0.04, position: 12 }; // site flat
+
+    const r = await runOutcomePass();
+    expect(r.reverted).toBe(1);
+    expect(state.revertCalls).toEqual(['f1']);
   });
 
   it('does nothing when Measured mode is off (default)', async () => {

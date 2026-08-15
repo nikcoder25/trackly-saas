@@ -3,19 +3,19 @@
  *
  * Per-brand settings stored in `fix_automation`:
  *   - scheduled scans: re-scan on a cadence (daily/weekly) via cron.
- *   - auto-pilot: after a scheduled scan, auto-generate detected fixes,
- *     and optionally auto-ship the SAFE deterministic ones (cost 0, no
- *     LLM content — robots-ai-access, noindex-removal, canonical-fix).
+ *   - auto-pilot: after a scheduled scan, auto-generate detected fixes and
+ *     optionally auto-STAGE them as previews.
  *
- * Auto-ship is intentionally limited to deterministic fixes so the engine
- * never publishes LLM-written content to a live site without human review.
+ * Automation never publishes. It detects, generates, and can park a change
+ * behind a preview link, but putting anything on a live site requires a
+ * person — enforced in engine.ts, which rejects a ship with no user id.
  */
 
 import { pool } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { createBatch, listFixes, logFixEvent } from './schema';
 import { resolveCrawlTargets } from './crawl';
-import { runScan, generateFix, approveFix, shipFix } from './engine';
+import { runScan, generateFix, approveFix, stageFix } from './engine';
 import { generateCost, listModules } from './registry';
 import { getConnection } from './connections';
 import { notifyBrand } from './notify';
@@ -29,7 +29,12 @@ export interface Automation {
   scanFrequency: ScanFrequency;
   scanModules: string[];          // empty = all available
   autopilotGenerate: boolean;     // auto-generate detected fixes
-  autopilotShipDeterministic: boolean; // auto-ship cost-0 fixes
+  /**
+   * Auto-stage generated fixes as previews after a scheduled scan.
+   * Formerly auto-ship; the column keeps its old name, but the behaviour is
+   * now stage-only, which is strictly safer for anyone who had it on.
+   */
+  autopilotStage: boolean;
   notifyOnScan: boolean;          // send a digest to the brand's webhook/tracker after each scheduled scan
   /** Auto-undo revertable fixes whose measured 28d CTR dropped sharply. */
   measuredRevert: boolean;
@@ -85,7 +90,7 @@ function mapRow(r: Record<string, unknown>): Automation {
     scanFrequency: (r.scan_frequency as ScanFrequency) || 'weekly',
     scanModules: (r.scan_modules as string[]) ?? [],
     autopilotGenerate: !!r.autopilot_generate,
-    autopilotShipDeterministic: !!r.autopilot_ship_deterministic,
+    autopilotStage: !!r.autopilot_ship_deterministic,
     notifyOnScan: !!r.notify_on_scan,
     measuredRevert: !!r.measured_revert,
     rules: (r.rules as BrandRules) ?? {},
@@ -96,7 +101,7 @@ function mapRow(r: Record<string, unknown>): Automation {
 
 const DEFAULT_AUTOMATION = (brandId: string): Automation => ({
   brandId, scanEnabled: false, scanFrequency: 'weekly', scanModules: [],
-  autopilotGenerate: false, autopilotShipDeterministic: false, notifyOnScan: false, measuredRevert: false, rules: {}, lastScanAt: null, nextScanAt: null,
+  autopilotGenerate: false, autopilotStage: false, notifyOnScan: false, measuredRevert: false, rules: {}, lastScanAt: null, nextScanAt: null,
 });
 
 export async function getAutomation(brandId: string): Promise<Automation> {
@@ -110,7 +115,7 @@ export interface AutomationPatch {
   scanFrequency?: ScanFrequency;
   scanModules?: string[];
   autopilotGenerate?: boolean;
-  autopilotShipDeterministic?: boolean;
+  autopilotStage?: boolean;
   notifyOnScan?: boolean;
   measuredRevert?: boolean;
   rules?: BrandRules;
@@ -137,7 +142,7 @@ export async function setAutomation(brandId: string, patch: AutomationPatch): Pr
            measured_revert = EXCLUDED.measured_revert,
            next_scan_at = CASE WHEN EXCLUDED.scan_enabled THEN NOW() + ($7)::interval ELSE NULL END,
            updated_at = NOW()`,
-    [brandId, next.scanEnabled, next.scanFrequency, next.scanModules, next.autopilotGenerate, next.autopilotShipDeterministic, interval, next.notifyOnScan, JSON.stringify(next.rules ?? {}), next.measuredRevert],
+    [brandId, next.scanEnabled, next.scanFrequency, next.scanModules, next.autopilotGenerate, next.autopilotStage, interval, next.notifyOnScan, JSON.stringify(next.rules ?? {}), next.measuredRevert],
   );
   return getAutomation(brandId);
 }
@@ -169,17 +174,17 @@ async function bumpNextScan(brandId: string, frequency: ScanFrequency): Promise<
  * Always reschedules next_scan_at, even on partial failure, so a stuck
  * brand doesn't wedge the queue.
  */
-export async function processScheduledScan(brandId: string): Promise<{ scanned: boolean; generated: number; shipped: number }> {
+export async function processScheduledScan(brandId: string): Promise<{ scanned: boolean; generated: number; staged: number }> {
   const auto = await getAutomation(brandId);
-  if (!auto.scanEnabled) return { scanned: false, generated: 0, shipped: 0 };
+  if (!auto.scanEnabled) return { scanned: false, generated: 0, staged: 0 };
 
   const modules = auto.scanModules.length ? auto.scanModules : listModules().map((m) => m.key);
-  let generated = 0, shipped = 0;
+  let generated = 0, staged = 0;
   try {
     const ownerRes = await pool.query(`SELECT user_id, data->>'website' AS website FROM brands WHERE id = $1 LIMIT 1`, [brandId]);
     const ownerId = String(ownerRes.rows[0]?.user_id || '');
     const website = (ownerRes.rows[0]?.website as string | null) || undefined;
-    if (!ownerId) return { scanned: false, generated: 0, shipped: 0 };
+    if (!ownerId) return { scanned: false, generated: 0, staged: 0 };
 
     // New-page trigger: flag pages that appeared since the last run so the
     // activity feed (and digest) show "3 new pages picked up". The scan
@@ -190,9 +195,9 @@ export async function processScheduledScan(brandId: string): Promise<{ scanned: 
     const batchId = await createBatch(ownerId, brandId, modules);
     await runScan(batchId, { moduleKeys: modules });
 
-    if (auto.autopilotGenerate || auto.autopilotShipDeterministic) {
+    if (auto.autopilotGenerate || auto.autopilotStage) {
       const result = await applyAutopilot(brandId, auto);
-      generated = result.generated; shipped = result.shipped;
+      generated = result.generated; staged = result.staged;
     }
 
     // Opt-in digest: summarise the scan to the brand's tracker/webhook so the
@@ -208,7 +213,7 @@ export async function processScheduledScan(brandId: string): Promise<{ scanned: 
           description: [
             `${all.length} fixes tracked`,
             `${detected} newly detected · ${review} in review · ${live} live`,
-            shipped ? `${shipped} safe fix(es) auto-applied this run` : null,
+            staged ? `${staged} change(s) staged for your review — nothing is live yet` : null,
           ].filter(Boolean).join('\n'),
         });
       } catch (e) {
@@ -220,7 +225,7 @@ export async function processScheduledScan(brandId: string): Promise<{ scanned: 
   } finally {
     await bumpNextScan(brandId, auto.scanFrequency);
   }
-  return { scanned: true, generated, shipped };
+  return { scanned: true, generated, staged };
 }
 
 /**
@@ -228,9 +233,8 @@ export async function processScheduledScan(brandId: string): Promise<{ scanned: 
  * (cost-0, no-LLM-content) fixes when a ship channel is connected. Each
  * step is best-effort and isolated so one failure doesn't stop the rest.
  */
-export async function applyAutopilot(brandId: string, auto: Automation): Promise<{ generated: number; shipped: number }> {
-  let generated = 0, shipped = 0;
-  const canShip = await brandCanShip(brandId);
+export async function applyAutopilot(brandId: string, auto: Automation): Promise<{ generated: number; staged: number }> {
+  let generated = 0, staged = 0;
 
   // 1) Generate detected fixes (respects credits inside generateFix).
   if (auto.autopilotGenerate) {
@@ -241,29 +245,30 @@ export async function applyAutopilot(brandId: string, auto: Automation): Promise
     }
   }
 
-  // 2) Auto-ship deterministic fixes only (never LLM-written content).
-  // Change-rate throttle: cap live changes per run so a big backlog rolls
-  // out over successive scheduled runs instead of hitting the site at once.
-  if (auto.autopilotShipDeterministic && canShip) {
+  // 2) Auto-stage generated fixes as previews. Nothing goes live here —
+  // staging writes a draft the customer can look at and leaves the published
+  // page untouched, so the worst case of a bad autopilot run is a preview
+  // link nobody clicks. Throttled per run so a big backlog arrives as a
+  // reviewable trickle rather than fifty previews at once.
+  if (auto.autopilotStage) {
     const generatedFixes = await listFixes(brandId, { status: 'generated' });
     for (const f of generatedFixes) {
-      if (generateCost(f.moduleKey) !== 0) continue; // deterministic only
-      if (shipped >= MAX_AUTOPILOT_SHIPS_PER_RUN) {
-        logger.info('fix_engine.autopilot_ship_throttled', { brandId, cap: MAX_AUTOPILOT_SHIPS_PER_RUN });
+      if (staged >= MAX_AUTOPILOT_STAGES_PER_RUN) {
+        logger.info('fix_engine.autopilot_stage_throttled', { brandId, cap: MAX_AUTOPILOT_STAGES_PER_RUN });
         break;
       }
       try {
         await approveFix(f.id, brandId, null);
-        const after = await shipFix(f.id, brandId, null);
-        if (after.status === 'shipped') shipped++;
-      } catch (e) { logger.warn('fix_engine.autopilot_ship_skip', { fixId: f.id, err: (e as Error).message }); }
+        const after = await stageFix(f.id, brandId, null);
+        if (after.status === 'staged') staged++;
+      } catch (e) { logger.warn('fix_engine.autopilot_stage_skip', { fixId: f.id, err: (e as Error).message }); }
     }
   }
-  return { generated, shipped };
+  return { generated, staged };
 }
 
-/** Max live changes autopilot ships in a single scheduled run. */
-export const MAX_AUTOPILOT_SHIPS_PER_RUN = 10;
+/** Max previews autopilot stages in a single scheduled run. */
+export const MAX_AUTOPILOT_STAGES_PER_RUN = 10;
 
 /**
  * Diff the brand's current crawl targets against pages we've seen before;

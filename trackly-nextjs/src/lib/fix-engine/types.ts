@@ -178,6 +178,21 @@ export interface FixContext {
    * Connector as a previewable draft revision (see ContentPatch / stageFix).
    */
   shipMode?: 'live' | 'draft';
+  /**
+   * This brand's own past results for the module being generated — the
+   * drafts that measurably won and lost, from `outcome.measured` history.
+   *
+   * Showing a model what actually worked on this site beats any amount of
+   * abstract instruction about what "good" looks like, and the losers carry
+   * as much signal as the winners because the failure modes are specific: a
+   * title that got truncated in the SERP, a meta description that read as
+   * spam. Absent on a brand with no measured history yet, so modules must
+   * treat it as optional enrichment.
+   */
+  learned?: {
+    winners: Array<{ targetUrl: string | null; delta: number; generated: Record<string, unknown> | null }>;
+    losers: Array<{ targetUrl: string | null; delta: number; generated: Record<string, unknown> | null }>;
+  };
 }
 
 /** The contract every module implements. */

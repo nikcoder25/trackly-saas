@@ -1,7 +1,7 @@
 /**
  * Fix Engine - automation tests. Focus on the auto-pilot safety rule:
- * auto-ship is limited to deterministic (cost-0) fixes and only when a
- * ship channel is connected.
+ * automation may detect, generate, and STAGE a preview, but it never
+ * publishes to a live site. Publishing requires a person.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
   generated: [] as any[],
   canShip: true,
   shipped: [] as string[],
+  staged: [] as string[],
   generatedCalls: [] as string[],
   approvedCalls: [] as string[],
 }));
@@ -26,7 +27,10 @@ vi.mock('@/lib/fix-engine/engine', () => ({
   runScan: vi.fn(async () => {}),
   generateFix: vi.fn(async (id: string) => { state.generatedCalls.push(id); return { id }; }),
   approveFix: vi.fn(async (id: string) => { state.approvedCalls.push(id); return { id }; }),
+  // Present but never expected to be called: automation has no user id to
+  // pass, and engine.shipFix rejects a null one.
   shipFix: vi.fn(async (id: string) => { state.shipped.push(id); return { id, status: 'shipped' }; }),
+  stageFix: vi.fn(async (id: string) => { state.staged.push(id); return { id, status: 'staged' }; }),
 }));
 vi.mock('@/lib/fix-engine/registry', () => ({
   // free-* modules are deterministic (cost 0), paid-* cost 1
@@ -41,13 +45,13 @@ import { applyAutopilot } from '@/lib/fix-engine/automation';
 
 const baseAuto = {
   brandId: 'b1', scanEnabled: true, scanFrequency: 'weekly' as const, scanModules: [],
-  autopilotGenerate: false, autopilotShipDeterministic: false, lastScanAt: null, nextScanAt: null,
+  autopilotGenerate: false, autopilotStage: false, lastScanAt: null, nextScanAt: null,
 };
 
 beforeEach(() => {
   state.detected = [{ id: 'd1', moduleKey: 'free-a' }, { id: 'd2', moduleKey: 'paid-b' }];
   state.generated = [{ id: 'g-free', moduleKey: 'free-a' }, { id: 'g-paid', moduleKey: 'paid-b' }];
-  state.canShip = true; state.shipped = []; state.generatedCalls = []; state.approvedCalls = [];
+  state.canShip = true; state.shipped = []; state.staged = []; state.generatedCalls = []; state.approvedCalls = [];
   vi.clearAllMocks();
 });
 
@@ -57,21 +61,29 @@ describe('auto-pilot', () => {
     expect(state.generatedCalls).toEqual(['d1', 'd2']);
   });
 
-  it('auto-ships ONLY deterministic (cost-0) generated fixes', async () => {
-    const r = await applyAutopilot('b1', { ...baseAuto, autopilotShipDeterministic: true });
-    expect(state.shipped).toEqual(['g-free']); // paid (LLM-content) is never auto-shipped
-    expect(r.shipped).toBe(1);
+  it('stages generated fixes as previews and ships nothing', async () => {
+    const r = await applyAutopilot('b1', { ...baseAuto, autopilotStage: true });
+    expect(state.staged).toEqual(['g-free', 'g-paid']);
+    expect(r.staged).toBe(2);
+    // The rule this file exists to protect: no live write, ever, from a
+    // scheduled run — including for cheap deterministic fixes, which the
+    // old behaviour did auto-publish.
+    expect(state.shipped).toEqual([]);
   });
 
-  it('ships nothing when no channel is connected', async () => {
-    state.canShip = false;
-    await applyAutopilot('b1', { ...baseAuto, autopilotShipDeterministic: true });
+  it('stages LLM-written fixes too, because staging is not publishing', async () => {
+    // The old auto-ship path had to exclude paid/LLM modules, since shipping
+    // them put unreviewed generated copy on a live page. A preview carries
+    // no such risk, so the distinction is no longer needed.
+    await applyAutopilot('b1', { ...baseAuto, autopilotStage: true });
+    expect(state.staged).toContain('g-paid');
     expect(state.shipped).toEqual([]);
   });
 
   it('does nothing when both auto-pilot toggles are off', async () => {
     await applyAutopilot('b1', baseAuto);
     expect(state.generatedCalls).toEqual([]);
+    expect(state.staged).toEqual([]);
     expect(state.shipped).toEqual([]);
   });
 });

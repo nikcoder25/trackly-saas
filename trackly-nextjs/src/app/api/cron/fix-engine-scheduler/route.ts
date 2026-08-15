@@ -30,13 +30,13 @@ export async function GET(request: Request): Promise<Response> {
   if (!lock) return NextResponse.json({ skipped: true, reason: 'locked' });
 
   const startedAt = Date.now();
-  let processed = 0, generated = 0, shipped = 0;
+  let processed = 0, generated = 0, staged = 0;
   try {
     const due = (await findDueScans(MAX_PER_TICK));
     for (const brandId of due) {
       const r = await processScheduledScan(brandId);
       if (r.scanned) processed++;
-      generated += r.generated; shipped += r.shipped;
+      generated += r.generated; staged += r.staged;
     }
     // Housekeeping: drop SERP + keyword caches past any useful TTL. Both
     // tables are re-populated lazily on the next generation that needs them.
@@ -45,8 +45,8 @@ export async function GET(request: Request): Promise<Response> {
       await pool.query(`DELETE FROM fix_keyword_metrics WHERE fetched_at < NOW() - INTERVAL '60 days'`);
     } catch { /* tables may not exist until first use */ }
 
-    logger.info('cron.fix_engine_scheduler.done', { due: due.length, processed, generated, shipped, durationMs: Date.now() - startedAt });
-    return NextResponse.json({ ok: true, processed, generated, shipped, durationMs: Date.now() - startedAt, timestamp: new Date().toISOString() });
+    logger.info('cron.fix_engine_scheduler.done', { due: due.length, processed, generated, staged, durationMs: Date.now() - startedAt });
+    return NextResponse.json({ ok: true, processed, generated, staged, durationMs: Date.now() - startedAt, timestamp: new Date().toISOString() });
   } catch (e) {
     logger.error('cron.fix_engine_scheduler.failed', { error: (e as Error).message });
     return NextResponse.json({ error: 'Scheduler tick failed', message: (e as Error).message }, { status: 500 });

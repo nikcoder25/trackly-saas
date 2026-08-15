@@ -218,6 +218,15 @@ export async function generateFix(fixId: string, brandId: string, instruction?: 
     throw new Error('Brand not found');
   }
 
+  // Seed the draft with this brand's own measured history for this module.
+  // Enrichment only: a brand with nothing shipped yet generates exactly as
+  // it did before, and a failed lookup must never block a generation.
+  try {
+    const { getModuleExamples } = await import('./learning');
+    const learned = await getModuleExamples(brandId, mod.key);
+    if (learned.winners.length || learned.losers.length) ctx.learned = learned;
+  } catch { /* enrichment only */ }
+
   const plan = await getUserEffectivePlan(ctx.brand.userId);
   const cost = generateCost(mod.key);
   const reservation = await reserveCredits(ctx.brand.userId, plan, cost, 'manual');
@@ -311,9 +320,22 @@ async function finalizeShippedFix(
   let gscBefore: Record<string, unknown> | null = null;
   if (fix.targetUrl) {
     try {
-      const { getPageMetrics, normUrl } = await import('./page-metrics');
+      const { getPageMetrics, normUrl, fetchSiteMetricsLive } = await import('./page-metrics');
       const m = (await getPageMetrics(brandId, [fix.targetUrl])).get(normUrl(fix.targetUrl));
-      if (m) gscBefore = { clicks: m.clicks, impressions: m.impressions, ctr: m.ctr, position: m.position, at: new Date().toISOString() };
+      if (m) {
+        // The site-wide totals for the same window are the control group:
+        // without them a page that fell less than the site still measures as
+        // a loss. Captured here so the "after" pass 28 days later has
+        // something to difference against. Null when GSC isn't connected —
+        // measurement then falls back to the raw page delta.
+        const ownerId = await getOwnerId(brandId);
+        const site = ownerId ? await fetchSiteMetricsLive(brandId, ownerId).catch(() => null) : null;
+        gscBefore = {
+          clicks: m.clicks, impressions: m.impressions, ctr: m.ctr, position: m.position,
+          at: new Date().toISOString(),
+          site: site ? { clicks: site.clicks, impressions: site.impressions, ctr: site.ctr } : null,
+        };
+      }
     } catch { /* enrichment only */ }
   }
   await updateFix(fix.id, {
@@ -333,7 +355,35 @@ async function finalizeShippedFix(
   }
 }
 
+/**
+ * Automation is never allowed to put new content on a live site.
+ *
+ * `userId` is the seam: every human-initiated path carries the id of the
+ * person who clicked, and every scheduled/cron path passes null. Enforcing
+ * it here rather than at each call site means a future caller cannot
+ * reintroduce silent publishing by forgetting a check — there is exactly
+ * one door, and it needs a name on it.
+ *
+ * The one deliberate exception is revertFix: restoring content the site
+ * already had is a rollback, not a publication, and it is the safety net
+ * that makes shipping tolerable. It stays opt-in per brand.
+ */
+export class LiveChangeNeedsApprovalError extends Error {
+  constructor(action: string) {
+    super(
+      `${action} publishes to the live site and needs a person to approve it. `
+      + 'Automation can detect, generate, and stage a preview, but only a human can publish.',
+    );
+    this.name = 'LiveChangeNeedsApprovalError';
+  }
+}
+
+function requireHumanApproval(userId: string | null, action: string): asserts userId is string {
+  if (!userId) throw new LiveChangeNeedsApprovalError(action);
+}
+
 export async function shipFix(fixId: string, brandId: string, userId: string | null): Promise<FixRow> {
+  requireHumanApproval(userId, 'Shipping a fix');
   const fix = await getFix(fixId, brandId);
   if (!fix) throw new Error('Fix not found');
   const mod = getModule(fix.moduleKey);
@@ -490,6 +540,7 @@ export async function stageFix(fixId: string, brandId: string, userId: string | 
  * rechecks (handled in the ack route).
  */
 export async function publishStagedFix(fixId: string, brandId: string, userId: string | null): Promise<FixRow> {
+  requireHumanApproval(userId, 'Publishing a staged change');
   const fix = await getFix(fixId, brandId);
   if (!fix) throw new Error('Fix not found');
   if (fix.status !== 'staged') throw new Error(`Only a staged fix can be published (status: ${fix.status})`);

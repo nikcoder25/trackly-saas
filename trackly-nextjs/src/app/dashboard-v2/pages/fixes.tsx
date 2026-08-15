@@ -27,6 +27,11 @@ interface FixRow {
   shipMode?: 'live' | 'draft'; previewUrl?: string | null;
   shipResult?: { op?: string } | null;
   pageImpressions?: number;
+  /** Learned ranking multiplier from measured outcomes (1 = neutral). */
+  learnedWeight?: number;
+  /** Evidence pool behind learnedWeight: brand | industry | global | none. */
+  learnedBasis?: string;
+  learnedSamples?: number;
   gscBefore?: { ctr?: number; impressions?: number } | null;
   gscAfter?: { ctr?: number; impressions?: number; unavailable?: boolean } | null;
   /** Set when the user explicitly moved this live fix to the Archive tab. */
@@ -666,9 +671,9 @@ export function PageFixes() {
     await load(brandId);
     flash(`Applied ${ok} fix${ok === 1 ? '' : 'es'}${fail ? ` · ${fail} need attention` : ''}`);
   };
-  const toggleAutofix = async () => {
-    const next = !automation?.autopilotShipDeterministic;
-    await saveAutomation({ autopilotShipDeterministic: next, ...(next && !automation?.scanEnabled ? { scanEnabled: true } : {}) });
+  const toggleAutoStage = async () => {
+    const next = !automation?.autopilotStage;
+    await saveAutomation({ autopilotStage: next, ...(next && !automation?.scanEnabled ? { scanEnabled: true } : {}) });
   };
 
   // ── Publish everything live in one click ─────────────────────────
@@ -917,8 +922,14 @@ export function PageFixes() {
     if (quickWins) list = list.filter((f) => (moduleMeta(f.moduleKey)?.cost ?? 1) === 0 || f.severity === 'critical' || f.severity === 'high');
     // Rank by severity, then by estimated value: module impact weighted by
     // the target page's real 28-day GSC impressions (log-scaled so a huge
-    // page doesn't drown everything). Falls back to impact alone.
-    const value = (f: FixRow) => (moduleMeta(f.moduleKey)?.impact ?? 2) * Math.log10((f.pageImpressions ?? 0) + 10);
+    // page doesn't drown everything), then by what this module has actually
+    // achieved once shipped. The learned term is 1 until there is enough
+    // measured history to say anything, and is capped at ±50% — enough to
+    // reorder a list, never enough to bury something the customer asked for.
+    const value = (f: FixRow) =>
+      (moduleMeta(f.moduleKey)?.impact ?? 2)
+      * Math.log10((f.pageImpressions ?? 0) + 10)
+      * (f.learnedWeight ?? 1);
     return [...list].sort((a, b) => {
       const sev = (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9);
       if (sev !== 0) return sev;
@@ -1277,11 +1288,11 @@ export function PageFixes() {
           <span className="disp" style={{ fontSize: 20 }}>✨</span>
           <div style={{ flex: 1, minWidth: 180 }}>
             <div className="disp" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{safeFixes.length > 0 ? `${safeFixes.length} safe fix${safeFixes.length === 1 ? '' : 'es'} ready` : 'No safe fixes pending'}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Deterministic, no-AI technical fixes (canonical, AI-crawler access, accidental-noindex) — safe, standard SEO best practices, applied in one click.</div>
+            <div style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Deterministic, no-AI technical fixes (canonical, AI-crawler access, accidental-noindex) — safe, standard SEO best practices. Reviewed and applied by you, in one click.</div>
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: 'var(--text-2)', cursor: 'pointer' }}>
-            <input type="checkbox" checked={!!automation?.autopilotShipDeterministic} onChange={toggleAutofix} disabled={!canShip} style={{ accentColor: 'var(--success)', width: 15, height: 15 }} />
-            Autofix on
+            <input type="checkbox" checked={!!automation?.autopilotStage} onChange={toggleAutoStage} disabled={!canShip} style={{ accentColor: 'var(--success)', width: 15, height: 15 }} />
+            Auto-prepare
           </label>
           <button className="xbtn" onClick={applyAllSafe} disabled={bulkBusy || safeFixes.length === 0 || !canShip} style={{ background: 'var(--success)' }}>{bulkBusy ? 'APPLYING…' : `APPLY ${safeFixes.length} SAFE FIX${safeFixes.length === 1 ? '' : 'ES'}`}</button>
         </div>
@@ -1933,14 +1944,14 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingTop: 12, borderTop: '2px dashed var(--line)' }}>
           <strong className="disp" style={{ fontSize: 14, minWidth: 150 }}>Auto-pilot</strong>
           <Toggle on={!!a.autopilotGenerate} onClick={() => onSave({ autopilotGenerate: !a.autopilotGenerate })} dim={!a.scanEnabled}>Auto-generate</Toggle>
-          <Toggle on={!!a.autopilotShipDeterministic} onClick={() => onSave({ autopilotShipDeterministic: !a.autopilotShipDeterministic })} dim={!a.scanEnabled || !canShip}>Auto-ship safe fixes</Toggle>
+          <Toggle on={!!a.autopilotStage} onClick={() => onSave({ autopilotStage: !a.autopilotStage })} dim={!a.scanEnabled || !canShip}>Auto-prepare previews</Toggle>
           <Toggle on={!!a.measuredRevert} onClick={() => onSave({ measuredRevert: !a.measuredRevert })}>Measured mode</Toggle>
           <span className="quiet" style={{ fontSize: 12, color: 'var(--text-2)', marginLeft: 'auto' }}>
-            After each scheduled scan, draft fixes{a.autopilotShipDeterministic ? ' and auto-ship the deterministic (FREE) ones' : ''}. LLM-written content always waits for your approval.
-            {a.measuredRevert ? ' Measured mode: a title/meta fix whose CTR drops ≥20% over 28 days (300+ impressions both windows) is auto-undone.' : ''}
+            After each scheduled scan, draft fixes{a.autopilotStage ? ' and stage them as previews you can open' : ''}. Nothing is ever published automatically — every live change needs your approval.
+            {a.measuredRevert ? ' Measured mode is the one exception, and it only ever restores: a title/meta fix whose CTR drops ≥20% over 28 days (300+ impressions both windows, adjusted for the site-wide trend) is put back to the previous version.' : ''}
           </span>
         </div>
-        {!canShip && a.autopilotShipDeterministic && <p className="quiet" style={{ margin: 0, fontSize: 11, color: 'var(--warn)' }}>Connect a CMS or the Connector to enable auto-ship.</p>}
+        {!canShip && a.autopilotStage && <p className="quiet" style={{ margin: 0, fontSize: 11, color: 'var(--warn)' }}>Connect the Connector plugin to enable previews.</p>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingTop: 12, borderTop: '2px dashed var(--line)' }}>
           <strong className="disp" style={{ fontSize: 14, minWidth: 150 }}>Digest</strong>
           <Toggle on={!!a.notifyOnScan} onClick={() => onSave({ notifyOnScan: !a.notifyOnScan })} dim={!a.scanEnabled}>Notify me after each scan</Toggle>
@@ -2365,6 +2376,25 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
               return (
                 <span className="chip" title={`Draft was written against the ${Number(g.serpCompared)} pages currently ranking for "${g.serpQuery}" — to win the click on the live SERP`} style={{ color: 'var(--warning, #b45309)', borderColor: 'var(--warning, #b45309)' }}>
                   ⚔ VS {Number(g.serpCompared)} RANKING RESULTS · “{g.serpQuery.length > 32 ? `${g.serpQuery.slice(0, 32)}…` : g.serpQuery}”
+                </span>
+              );
+            })()}
+            {/* Why this fix is ranked where it is. Silent reordering is
+                indistinguishable from a bug, so if measured history moved a
+                fix up or down the list, say so and show the sample size. */}
+            {!!fix.learnedWeight && fix.learnedWeight !== 1 && (fix.learnedSamples ?? 0) > 0 && (() => {
+              const up = fix.learnedWeight! > 1;
+              const pct = Math.round(Math.abs(fix.learnedWeight! - 1) * 100);
+              const basis = fix.learnedBasis === 'brand' ? 'on this site'
+                : fix.learnedBasis === 'industry' ? 'in this industry'
+                : 'across Livesov';
+              return (
+                <span
+                  className="chip"
+                  title={`Ranked ${up ? 'higher' : 'lower'} because ${fix.learnedSamples} measured outcome(s) ${basis} show this fix type ${up ? 'tends to help' : 'has underperformed'} 28 days after publishing, adjusted for the site-wide trend. Ranking only — the fix is still available.`}
+                  style={{ color: up ? 'var(--success, #15803d)' : 'var(--text-2)', borderColor: up ? 'var(--success, #15803d)' : undefined }}
+                >
+                  {up ? '📈' : '📉'} {up ? '+' : '−'}{pct}% RANK · {fix.learnedSamples} MEASURED {basis.toUpperCase()}
                 </span>
               );
             })()}

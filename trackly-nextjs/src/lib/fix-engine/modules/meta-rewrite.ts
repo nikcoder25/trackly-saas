@@ -76,6 +76,7 @@ export const metaRewriteModule: FixModule = {
       pageSummary: d.pageSummary || '',
       query,
       competitors,
+      learned: ctx.learned,
     });
     if (typeof d.instruction === 'string' && d.instruction.trim()) user += `\n\nUser preference (honor this): ${d.instruction.trim()}`;
     const { data } = await generateJson<{ description: string; rationale: string }>({
