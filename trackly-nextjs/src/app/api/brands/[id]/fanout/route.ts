@@ -8,15 +8,10 @@ import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { logError, serverError } from '@/lib/api-error';
 import { getFanoutSummary } from '@/lib/fanout';
+import { intParam } from '@/lib/query-params';
 
 const MAX_DAYS = 365;
 const MAX_LIMIT = 500;
-
-function clampInt(raw: string | null, fallback: number, min: number, max: number): number {
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.min(max, Math.max(min, Math.trunc(n)));
-}
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -29,8 +24,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
 
     const sp = new URL(request.url).searchParams;
-    const days = clampInt(sp.get('days'), 30, 1, MAX_DAYS);
-    const limit = clampInt(sp.get('limit'), 200, 1, MAX_LIMIT);
+    const days = intParam(sp.get('days'), 30, 1, MAX_DAYS);
+    const limit = intParam(sp.get('limit'), 200, 1, MAX_LIMIT);
 
     const summary = await getFanoutSummary(id, days, limit);
     return Response.json({ ...summary, days });

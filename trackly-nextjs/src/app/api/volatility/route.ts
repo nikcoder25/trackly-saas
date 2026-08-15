@@ -11,6 +11,7 @@ import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { logError, serverError } from '@/lib/api-error';
 import { getVolatilitySeries, MIN_COHORT } from '@/lib/volatility';
+import { intParam } from '@/lib/query-params';
 
 const MAX_DAYS = 365;
 
@@ -19,8 +20,7 @@ export async function GET(request: Request) {
     const authResult = await requireVerifiedAuth(request, pool);
     if (authResult instanceof Response) return authResult;
 
-    const raw = Number(new URL(request.url).searchParams.get('days'));
-    const days = Number.isFinite(raw) ? Math.min(MAX_DAYS, Math.max(7, Math.trunc(raw))) : 90;
+    const days = intParam(new URL(request.url).searchParams.get('days'), 90, 7, MAX_DAYS);
 
     const series = await getVolatilitySeries(days);
     return Response.json({

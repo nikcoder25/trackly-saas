@@ -1,10 +1,17 @@
 /**
- * The dashboard navigation tree.
+ * Destinations offered by the command palette.
  *
- * Extracted from Sidebar so the command palette can offer the same
- * destinations without a second copy drifting out of sync - a palette that
- * cannot reach a page the sidebar has is worse than no palette, because the
- * user stops trusting it.
+ * IMPORTANT - this is NOT what renders the sidebar. The visible sidebar is
+ * the hard-coded `NAV` in components/dashboard/LvxShell.tsx, which is what
+ * DashboardLayoutClient mounts; this module feeds the palette (and the
+ * legacy Sidebar.tsx). Adding a page here does NOT put it in the sidebar,
+ * and adding it there does NOT make it findable in the palette - both need
+ * the entry, plus LvxShell's THEMED_ROUTES if the page renders its own
+ * `.lvx` layout.
+ *
+ * That split is how Fan-out Queries and AI Volatility shipped reachable
+ * only by typing the URL: they were added here and nowhere else. Until the
+ * two lists are merged, treat them as a pair that must be edited together.
  */
 
 export interface NavItem {
@@ -47,6 +54,11 @@ export const navGroups: NavGroup[] = [
   {
     label: 'Tools',
     items: [
+      // Present in LvxShell's sidebar but previously missing here, so the
+      // palette could not reach them - the same drift, in the other
+      // direction.
+      { href: '/dashboard/connect', label: 'Connect Site', icon: '⚯' },
+      { href: '/dashboard/fixes', label: 'Fix Engine', icon: '✦' },
       { href: '/dashboard/reports', label: 'Reports', icon: '🗂️' },
       { href: '/dashboard/geo-audit', label: 'GEO Audit', icon: '◉' },
       { href: '/dashboard/geo-audits', label: 'Regional Audits', icon: '🌍' },
