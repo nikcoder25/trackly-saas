@@ -10,13 +10,63 @@ interface DiscoveryStage {
   detail?: string;
 }
 
+interface PromptDemand {
+  volume: number | null;
+  trend: 'rising' | 'falling' | 'flat' | null;
+  /** Volume borrowed from the de-localized head term, not the prompt itself. */
+  proxy: boolean;
+  proxyFor?: string;
+}
+
 export interface DiscoveryJob {
   id: string;
   brandId: string;
   status: 'queued' | 'running' | 'done' | 'failed';
   stages: DiscoveryStage[];
   prompts: string[];
+  demand?: Record<string, PromptDemand>;
   error: string | null;
+}
+
+const TREND_MARK: Record<string, { glyph: string; title: string; color: string }> = {
+  rising: { glyph: '↑', title: 'Asked more than a year ago', color: 'var(--success)' },
+  falling: { glyph: '↓', title: 'Asked less than a year ago', color: 'var(--danger)' },
+  flat: { glyph: '→', title: 'Roughly flat over the year', color: 'var(--mute)' },
+};
+
+/**
+ * Render one prompt's demand.
+ *
+ * The distinction that has to survive into the UI: no volume data is NOT
+ * zero demand. Local prompts are simply absent from the dataset, and for
+ * a local business those are the prompts that matter most - so they show
+ * "local" rather than "0", and a borrowed head-term figure is labelled as
+ * a category estimate rather than presented as this prompt's own number.
+ */
+function DemandCell({ demand }: { demand?: PromptDemand }) {
+  if (!demand || demand.volume === null) {
+    return (
+      <span className="dim mono" style={{ fontSize: 11 }} title="Not in the AI search volume dataset - typical for local and “near me” prompts, and not a sign of low demand">
+        local
+      </span>
+    );
+  }
+  const trend = demand.trend ? TREND_MARK[demand.trend] : null;
+  return (
+    <span
+      className="mono"
+      style={{ fontSize: 11, whiteSpace: 'nowrap' }}
+      title={demand.proxy
+        ? `Category volume for “${demand.proxyFor}” - the local phrasing has no data of its own`
+        : 'Monthly AI search volume for this exact prompt'}
+    >
+      {demand.proxy && <span className="dim">~</span>}
+      {demand.volume.toLocaleString()}
+      {trend && (
+        <span style={{ color: trend.color, marginLeft: 4 }} title={trend.title}>{trend.glyph}</span>
+      )}
+    </span>
+  );
 }
 
 const POLL_MS = 1500;
@@ -207,7 +257,8 @@ export function PromptDiscovery({
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <Pill tone="acc">{job.prompts.length} prompts</Pill>
                 <span className="dim" style={{ fontSize: 12 }}>
-                  Review them below, then add the ones you want.
+                  Ordered by how often each is asked. “local” means no national
+                  volume data — normal for “near me” prompts, and not low demand.
                 </span>
               </div>
               <ul
@@ -217,8 +268,16 @@ export function PromptDiscovery({
                 }}
               >
                 {job.prompts.map(p => (
-                  <li key={p} style={{ padding: '4px 0', borderBottom: '1px solid var(--line, rgba(127,127,127,.15))' }}>
-                    {p}
+                  <li
+                    key={p}
+                    style={{
+                      display: 'flex', alignItems: 'baseline', gap: 10,
+                      padding: '4px 0',
+                      borderBottom: '1px solid var(--line, rgba(127,127,127,.15))',
+                    }}
+                  >
+                    <span style={{ flex: 1 }}>{p}</span>
+                    <DemandCell demand={job.demand?.[p]} />
                   </li>
                 ))}
               </ul>

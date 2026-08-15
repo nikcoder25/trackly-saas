@@ -22,11 +22,20 @@ import { queryAI, getDefaultModel } from './ai-platforms';
 import { resolveGeneratorKey } from './generator-key';
 import { classifyPrompts, selectImportantPages, type CandidatePage } from './prompt-map';
 import { upsertPromptMeta } from './prompt-meta';
+import {
+  deLocalize,
+  getAiSearchVolume,
+  getSearchIntent,
+  isBuyingIntent,
+  isDataForSeoConfigured,
+  type KeywordIntent,
+} from './dataforseo';
 
 export type DiscoveryStageKey =
   | 'generate'
   | 'dedupe'
   | 'intent'
+  | 'demand'
   | 'pages'
   | 'topics';
 
@@ -49,6 +58,7 @@ export const STAGE_DEFS: Array<{ key: DiscoveryStageKey; label: string }> = [
   { key: 'generate', label: 'Generating candidate prompts' },
   { key: 'dedupe', label: 'Deduplicating and cleaning up results' },
   { key: 'intent', label: 'Determining search intent' },
+  { key: 'demand', label: 'Checking how often these are asked' },
   { key: 'pages', label: 'Finding your most important pages' },
   { key: 'topics', label: 'Grouping into topics' },
 ];
@@ -61,6 +71,8 @@ export interface DiscoveryJob {
   stages: DiscoveryStage[];
   /** Prompts the job settled on, available once status is 'done'. */
   prompts: string[];
+  /** Demand data per prompt, keyed by the prompt text. May be empty. */
+  demand: Record<string, PromptDemand>;
   error: string | null;
   createdAt: string;
   completedAt: string | null;
@@ -77,11 +89,16 @@ export async function ensureDiscoverySchema(): Promise<void> {
       status       TEXT NOT NULL DEFAULT 'queued',
       stages       JSONB NOT NULL DEFAULT '[]'::jsonb,
       prompts      JSONB NOT NULL DEFAULT '[]'::jsonb,
+      demand       JSONB NOT NULL DEFAULT '{}'::jsonb,
       error        TEXT,
       created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       completed_at TIMESTAMPTZ
     );
+    -- Additive, for environments that created the table before demand
+    -- data existed. Jobs written then simply have no demand to show.
+    ALTER TABLE prompt_discovery_jobs
+      ADD COLUMN IF NOT EXISTS demand JSONB NOT NULL DEFAULT '{}'::jsonb;
     CREATE INDEX IF NOT EXISTS prompt_discovery_brand_idx
       ON prompt_discovery_jobs (brand_id, created_at DESC);
   `);
@@ -107,7 +124,7 @@ export async function createDiscoveryJob(brandId: string, userId: string): Promi
     [id, brandId, userId, JSON.stringify(stages)],
   );
   return {
-    id, brandId, userId, status: 'queued', stages, prompts: [],
+    id, brandId, userId, status: 'queued', stages, prompts: [], demand: {},
     error: null, createdAt: new Date().toISOString(), completedAt: null,
   };
 }
@@ -115,7 +132,7 @@ export async function createDiscoveryJob(brandId: string, userId: string): Promi
 export async function getDiscoveryJob(jobId: string): Promise<DiscoveryJob | null> {
   await ensureDiscoverySchema();
   const res = await pool.query(
-    `SELECT id, brand_id, user_id, status, stages, prompts, error, created_at, completed_at
+    `SELECT id, brand_id, user_id, status, stages, prompts, demand, error, created_at, completed_at
        FROM prompt_discovery_jobs WHERE id = $1`,
     [jobId],
   );
@@ -128,6 +145,9 @@ export async function getDiscoveryJob(jobId: string): Promise<DiscoveryJob | nul
     status: row.status,
     stages: Array.isArray(row.stages) ? row.stages : [],
     prompts: Array.isArray(row.prompts) ? row.prompts : [],
+    demand: (row.demand && typeof row.demand === 'object' && !Array.isArray(row.demand))
+      ? row.demand as Record<string, PromptDemand>
+      : {},
     error: row.error,
     createdAt: new Date(row.created_at).toISOString(),
     completedAt: row.completed_at ? new Date(row.completed_at).toISOString() : null,
@@ -204,6 +224,96 @@ export function dedupePrompts(prompts: string[]): string[] {
     out.push(clean);
   }
   return out;
+}
+
+/**
+ * Never hand back fewer than this many prompts because a classifier
+ * misfired. The user waited on a job; an empty result is worse than a
+ * slightly noisy one they can prune.
+ */
+export const MIN_KEPT_PROMPTS = 5;
+
+export interface PromptDemand {
+  /** Monthly AI search volume for the prompt itself, if the dataset has it. */
+  volume: number | null;
+  trend: 'rising' | 'falling' | 'flat' | null;
+  /**
+   * True when `volume` came from the de-localized head term rather than
+   * the prompt itself - "best hvac company" standing in for "best hvac
+   * company in auburn wa". Surfaced so the UI can say "category volume"
+   * instead of overstating what is known about the local phrasing.
+   */
+  proxy: boolean;
+  /** The head term used, when proxy is true. */
+  proxyFor?: string;
+}
+
+/**
+ * Look up AI search volume for a set of prompts, falling back to the
+ * de-localized head term for prompts the dataset has never seen.
+ *
+ * Two batched requests at most: one for the prompts as written, one for
+ * the head terms of whatever came back empty.
+ */
+export async function measureDemand(
+  prompts: string[],
+  city?: string,
+): Promise<Map<string, PromptDemand>> {
+  const out = new Map<string, PromptDemand>();
+  if (!prompts.length) return out;
+
+  const direct = await getAiSearchVolume(prompts);
+  const needsProxy: Array<{ prompt: string; head: string }> = [];
+
+  for (const prompt of prompts) {
+    const hit = direct.get(prompt.toLowerCase());
+    if (hit && hit.volume !== null) {
+      out.set(prompt, { volume: hit.volume, trend: hit.trend, proxy: false });
+      continue;
+    }
+    const head = deLocalize(prompt, city);
+    if (head) needsProxy.push({ prompt, head });
+    else out.set(prompt, { volume: null, trend: null, proxy: false });
+  }
+
+  if (needsProxy.length) {
+    const heads = await getAiSearchVolume(needsProxy.map(p => p.head));
+    for (const { prompt, head } of needsProxy) {
+      const hit = heads.get(head.toLowerCase());
+      out.set(prompt, {
+        volume: hit?.volume ?? null,
+        trend: hit?.trend ?? null,
+        proxy: hit?.volume != null,
+        proxyFor: hit?.volume != null ? head : undefined,
+      });
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Order prompts by demand, strongest first.
+ *
+ * Direct volume outranks proxy volume at the same number, because a
+ * figure measured on the exact phrasing is worth more than one borrowed
+ * from its head term. Prompts with no data at all keep their original
+ * relative order at the end rather than being shuffled arbitrarily - and
+ * they are kept, not dropped.
+ */
+export function rankByDemand(prompts: string[], demand: Map<string, PromptDemand>): string[] {
+  return prompts
+    .map((prompt, index) => ({ prompt, index, d: demand.get(prompt) }))
+    .sort((a, b) => {
+      const av = a.d?.volume ?? -1;
+      const bv = b.d?.volume ?? -1;
+      if (av !== bv) return bv - av;
+      const aProxy = a.d?.proxy ? 1 : 0;
+      const bProxy = b.d?.proxy ? 1 : 0;
+      if (aProxy !== bProxy) return aProxy - bProxy;
+      return a.index - b.index;
+    })
+    .map(x => x.prompt);
 }
 
 const GENERATE_PROMPT = (input: DiscoveryInput) => {
@@ -306,27 +416,82 @@ export async function runDiscovery(input: DiscoveryInput): Promise<void> {
     });
 
     // ── Stage 3: intent ──────────────────────────────────
+    // DataForSEO's classifier is preferred over asking a model to
+    // introspect: it is trained on SERP data, it is consistent between
+    // runs, and it covers localized prompts ("best hvac company in
+    // auburn wa" -> commercial, p=0.95) which is precisely the traffic
+    // this product exists to measure.
     await patchStage(jobId, 'intent', { status: 'running' });
     let kept = candidates;
-    try {
-      const intent = await queryAI(
-        key.platform, INTENT_PROMPT(candidates), key.apiKey, model, undefined,
-        { jsonMode: true, tenantId: input.tenantId, maxTokens: 1500 },
-      );
-      const keepIdx = new Set(parseNumberArray(intent?.text || ''));
-      const filtered = candidates.filter((_, i) => keepIdx.has(i + 1));
-      // A model that returns nothing usable must not silently wipe the
-      // list - fall back to keeping everything and say so.
-      if (filtered.length) kept = filtered;
-    } catch (e) {
-      logger.warn('discovery.intent_failed', { jobId, errorMessage: (e as Error).message });
+    let intentSource: 'dataforseo' | 'llm' | 'none' = 'none';
+    let intentMap = new Map<string, KeywordIntent>();
+
+    if (isDataForSeoConfigured()) {
+      intentMap = await getSearchIntent(candidates);
+      if (intentMap.size > 0) {
+        intentSource = 'dataforseo';
+        kept = candidates.filter(p => isBuyingIntent(intentMap.get(p.toLowerCase())));
+      }
     }
+
+    if (intentSource === 'none') {
+      try {
+        const intent = await queryAI(
+          key.platform, INTENT_PROMPT(candidates), key.apiKey, model, undefined,
+          { jsonMode: true, tenantId: input.tenantId, maxTokens: 1500 },
+        );
+        const keepIdx = new Set(parseNumberArray(intent?.text || ''));
+        const filtered = candidates.filter((_, i) => keepIdx.has(i + 1));
+        if (filtered.length) { kept = filtered; intentSource = 'llm'; }
+      } catch (e) {
+        logger.warn('discovery.intent_failed', { jobId, errorMessage: (e as Error).message });
+      }
+    }
+
+    // Floor: a classifier having a bad day must not hand the user an
+    // empty prompt set. Better to keep some unfiltered candidates and let
+    // them prune than to return nothing from a run they waited on.
+    if (kept.length < MIN_KEPT_PROMPTS) {
+      kept = candidates.slice(0, Math.max(MIN_KEPT_PROMPTS, kept.length));
+      intentSource = intentSource === 'none' ? 'none' : intentSource;
+    }
+
     const dropped = candidates.length - kept.length;
-    kept = kept.slice(0, input.maxPrompts);
     await patchStage(jobId, 'intent', {
       status: 'done',
-      detail: dropped > 0 ? `${dropped} informational dropped` : 'all commercial',
+      detail: intentSource === 'none'
+        ? 'not classified'
+        : `${dropped} informational dropped`
+          + (intentSource === 'dataforseo' ? ' · DataForSEO' : ' · model'),
     });
+
+    // ── Stage 4: demand ──────────────────────────────────
+    // Rank by how often each prompt is actually asked of an AI assistant.
+    //
+    // Volume NEVER drops a prompt. Localized and "near me" prompts return
+    // no data at all from this dataset, and for a local service business
+    // those are the most valuable prompts there are - filtering on volume
+    // would delete the good ones and keep the national head terms the
+    // customer cannot rank for. It is a sort key and a label, nothing more.
+    await patchStage(jobId, 'demand', { status: 'running' });
+    let demand = new Map<string, PromptDemand>();
+    if (isDataForSeoConfigured()) {
+      demand = await measureDemand(kept, input.city);
+      const withVolume = [...demand.values()].filter(d => d.volume !== null).length;
+      kept = rankByDemand(kept, demand);
+      await patchStage(jobId, 'demand', {
+        status: 'done',
+        detail: withVolume > 0
+          ? `${withVolume} of ${kept.length} have volume data`
+          : 'no volume data (all local)',
+      });
+    } else {
+      // Shown as skipped rather than ticked - the stage genuinely did not
+      // run, and a tick for nothing is how progress UI starts lying.
+      await patchStage(jobId, 'demand', { status: 'skipped', detail: 'DataForSEO not configured' });
+    }
+
+    kept = kept.slice(0, input.maxPrompts);
 
     // ── Stage 4: pages ───────────────────────────────────
     await patchStage(jobId, 'pages', { status: 'running' });
@@ -363,9 +528,16 @@ export async function runDiscovery(input: DiscoveryInput): Promise<void> {
 
     await pool.query(
       `UPDATE prompt_discovery_jobs
-          SET status = 'done', prompts = $1, updated_at = NOW(), completed_at = NOW()
-        WHERE id = $2`,
-      [JSON.stringify(kept), jobId],
+          SET status = 'done', prompts = $1, demand = $2,
+              updated_at = NOW(), completed_at = NOW()
+        WHERE id = $3`,
+      [
+        JSON.stringify(kept),
+        // Only the surviving prompts - carrying demand for candidates that
+        // were filtered out would leave the UI joining against ghosts.
+        JSON.stringify(Object.fromEntries(kept.map(p => [p, demand.get(p)]).filter(([, d]) => d))),
+        jobId,
+      ],
     );
     logger.info('discovery.completed', {
       jobId, brandId: input.brandId, prompts: kept.length, topics: topicCount,
