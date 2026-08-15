@@ -33,6 +33,8 @@ const NAV: { label: string; items: NavItem[] }[] = [
     { id: 'trends', href: '/dashboard/trends', label: 'SOV Trends' },
     { id: 'accuracy', href: '/dashboard/accuracy', label: 'Accuracy Monitor' },
     { id: 'citations', href: '/dashboard/citations', label: 'Citations' },
+    { id: 'fanout', href: '/dashboard/fanout', label: 'Fan-out Queries', badge: 'BETA' },
+    { id: 'volatility', href: '/dashboard/volatility', label: 'AI Volatility' },
     { id: 'results', href: '/dashboard/results', label: 'Results' },
     { id: 'query-tracker', href: '/dashboard/query-tracker', label: 'Query Tracker' },
     { id: 'recommendations', href: '/dashboard/recommendations', label: 'Recommendations' },
@@ -66,6 +68,8 @@ const THEMED_ROUTES = new Set<string>([
   '/dashboard/mentions',
   '/dashboard/competitors',
   '/dashboard/citations',
+  '/dashboard/fanout',
+  '/dashboard/volatility',
   '/dashboard/platforms',
   '/dashboard/trends',
   '/dashboard/accuracy',
@@ -95,6 +99,10 @@ function NavIcon({ id }: { id: string }) {
     case 'trends': return <svg {...s}><path d="M2 11l3-3 2 2 5-5" /><path d="M12 5h-2V3" /></svg>;
     case 'accuracy': return <svg {...s}><circle cx="7" cy="7" r="5" /><path d="M5 7l2 2 3-3" /></svg>;
     case 'citations': return <svg {...s}><path d="M2 5c1-2 3-2 4-2v3c-1 0-2.5.5-2.5 2v2H2zM7.5 5c1-2 3-2 4-2v3c-1 0-2.5.5-2.5 2v2H7.5z" /></svg>;
+    // One prompt branching into the sub-queries an engine actually issued.
+    case 'fanout': return <svg {...s}><path d="M2 7h3" /><path d="M5 7l3-3.5h4M5 7h7M5 7l3 3.5h4" /></svg>;
+    // A jagged trace: answers moving day over day.
+    case 'volatility': return <svg {...s}><path d="M2 9l2.5-4L7 8l2-5 3 6" /></svg>;
     case 'results': return <svg {...s}><path d="M2 4h10M2 7h10M2 10h7" /></svg>;
     case 'query-tracker': return <svg {...s}><circle cx="6" cy="6" r="4" /><path d="M9 9l3 3" /></svg>;
     case 'recommendations': return <svg {...s}><path d="M7 2l1.8 3.6 4 .6-2.9 2.8.7 4-3.6-1.9-3.6 1.9.7-4-2.9-2.8 4-.6z" /></svg>;
