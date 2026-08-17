@@ -237,3 +237,35 @@ export function trailingDateRange(days: number): { startDate: string; endDate: s
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
   return { startDate: fmt(start), endDate: fmt(end) };
 }
+
+export interface DateRange { startDate: string; endDate: string }
+
+/**
+ * Two adjacent, equal-length windows for period-over-period comparison:
+ * the trailing `days` (recent) and the `days` immediately before it
+ * (previous). Both honour the same ~2-day reporting lag as
+ * trailingDateRange, so neither window contains partial data.
+ *
+ * Window length is a real tradeoff. Short windows (7-14 days) react fast
+ * but fire on ordinary weekday and seasonal swings; long ones are stable
+ * but only notice a decline once it has already cost a month of traffic.
+ * 28 days is the default because it covers whole weeks, which cancels the
+ * day-of-week cycle that dominates a 14-day read.
+ */
+export function comparisonWindows(days: number): { recent: DateRange; previous: DateRange } {
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const recentEnd = new Date();
+  recentEnd.setUTCDate(recentEnd.getUTCDate() - 2);
+  const recentStart = new Date(recentEnd);
+  recentStart.setUTCDate(recentStart.getUTCDate() - days);
+  // The previous window ends the day before the recent one starts, so the
+  // two never share a day and double-count it.
+  const prevEnd = new Date(recentStart);
+  prevEnd.setUTCDate(prevEnd.getUTCDate() - 1);
+  const prevStart = new Date(prevEnd);
+  prevStart.setUTCDate(prevStart.getUTCDate() - days);
+  return {
+    recent: { startDate: fmt(recentStart), endDate: fmt(recentEnd) },
+    previous: { startDate: fmt(prevStart), endDate: fmt(prevEnd) },
+  };
+}

@@ -210,6 +210,23 @@ export interface FixModule {
   /** Phase 1/2/3 - informational, used for grouping in the UI. */
   phase: 1 | 2 | 3;
   /**
+   * True when this module diagnoses rather than edits: shipping it writes
+   * nothing to the customer's site, it hands over findings (a decay
+   * diagnosis, a cannibalisation verdict, a content brief) for a human or
+   * another module to act on.
+   *
+   * The engine treats these differently in one specific place. Outcome
+   * measurement (outcomes.ts) attributes the 28-day CTR change on a page
+   * to the fix that shipped against it, and feeds that delta into the
+   * per-module learning priors. A module that changed nothing has no
+   * claim on that delta, so recording one would teach the ranker from
+   * pure noise - and, on a page that happened to slide further, could
+   * trip the auto-revert machinery over a change that never existed.
+   * `finalizeShippedFix` therefore skips the GSC baseline capture for
+   * diagnostic modules, which keeps them out of the outcome pass entirely.
+   */
+  diagnostic?: boolean;
+  /**
    * Find issues this module can fix. Pure read - may crawl the site or
    * read GSC, but must not write. Returns [] when nothing needs fixing.
    */

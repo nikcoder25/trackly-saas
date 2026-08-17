@@ -15,7 +15,7 @@ import { CONNECTOR_PLUGIN_VERSION, isConnectorOutdated } from '@/lib/connector-v
 interface CatalogItem {
   key: string; title: string; description: string;
   channel: 'A' | 'B'; trigger: string; minPlan: string; phase: number; available: boolean;
-  cost: number; revertable: boolean; impact?: 1 | 2 | 3;
+  cost: number; revertable: boolean; impact?: 1 | 2 | 3; diagnostic?: boolean;
 }
 interface FixEvent { id: string; event: string; detail: any; userId: string | null; createdAt: string }
 interface FixRow {
@@ -256,8 +256,12 @@ const MODULE_GROUP: Record<string, string> = {
   'striking-distance': 'Technical & rankings', 'ctr-rescue': 'Technical & rankings',
   'indexing-repair': 'Technical & rankings', 'canonical-fix': 'Technical & rankings',
   'noindex-removal': 'Technical & rankings', 'og-cards': 'Technical & rankings',
+  // Diagnostics report findings rather than editing, so they get their own
+  // group instead of sitting among modules that write to the site.
+  'search-decay': 'Diagnose & investigate', 'cannibalization': 'Diagnose & investigate',
+  'content-gap': 'Diagnose & investigate',
 };
-const GROUP_ORDER = ['Structured data & schema', 'AI crawler access', 'Content optimization', 'Authority & citations', 'Accuracy & corrections', 'Technical & rankings', 'Other'];
+const GROUP_ORDER = ['Diagnose & investigate', 'Structured data & schema', 'AI crawler access', 'Content optimization', 'Authority & citations', 'Accuracy & corrections', 'Technical & rankings', 'Other'];
 /**
  * What /connections/cms/detect returns. `needsConnector` is the one that
  * changes the advice: it marks a WordPress site whose front end is rendered
@@ -492,6 +496,17 @@ export function PageFixes() {
   const jiraConn = connections.find((c) => c.provider === 'jira' && c.status === 'active');
   const kweConn = connections.find((c) => c.provider === 'kwe' && c.status === 'active');
   const canShip = !!cmsConn || !!connectorConn;
+  // Diagnostic modules (search-decay, cannibalization, content-gap) report
+  // findings and write nothing to the site, so the CMS/Connector gate does
+  // not apply to them and "ship" means "accept this finding".
+  const isDiagnosticModule = React.useCallback(
+    (moduleKey: string) => !!catalog.find((c) => c.key === moduleKey)?.diagnostic,
+    [catalog],
+  );
+  const canShipFix = React.useCallback(
+    (f: FixRow) => canShip || isDiagnosticModule(f.moduleKey),
+    [canShip, isDiagnosticModule],
+  );
   const hasConnector = !!connectorConn;
   const hasTracker = !!linearConn || !!jiraConn || !!sheetConn;
 
@@ -547,7 +562,11 @@ export function PageFixes() {
       if (d.fix) setFixes((rows) => rows.map((r) => (r.id === fixId ? { ...r, ...d.fix } : r)));
       if (action === 'generate') { await loadPreview(fixId); flash('Fix ready to review'); }
       if (action === 'approve') flash('Approved — ready to ship');
-      if (action === 'ship') { if (d.ok === false) setError(d.error || 'Ship failed'); else flash('Shipped to live site — it stays in this list until you archive it'); }
+      if (action === 'ship') {
+        if (d.ok === false) setError(d.error || 'Ship failed');
+        else if (d.fix && isDiagnosticModule(d.fix.moduleKey)) flash('Finding accepted — nothing was written to your site');
+        else flash('Shipped to live site — it stays in this list until you archive it');
+      }
       if (action === 'stage') { if (d.ok === false) setError(d.error || 'Staging failed'); else flash('Staged as a draft — the Connector will create a preview shortly'); }
       if (action === 'publish') flash('Publishing the staged draft…');
       if (action === 'recheck') flash('Re-check complete');
@@ -557,7 +576,10 @@ export function PageFixes() {
     } catch (e) { setError((e as Error).message); } finally { setBusy((b) => ({ ...b, [fixId]: false })); }
   };
   const shipConfirm = async (fixId: string) => {
-    if (!canShip) { flash('Connect a CMS or the Connector first'); return; }
+    const target = fixes.find((f) => f.id === fixId);
+    if (!canShip && !(target && isDiagnosticModule(target.moduleKey))) {
+      flash('Connect a CMS or the Connector first'); return;
+    }
     setArmed((a) => ({ ...a, [fixId]: false }));
     await act(fixId, 'ship');
   };
@@ -1389,7 +1411,8 @@ export function PageFixes() {
             open={openCards.has(f.id)}
             onToggleOpen={() => setOpenCards((s) => { const n = new Set(s); if (n.has(f.id)) n.delete(f.id); else n.add(f.id); return n; })}
             cost={moduleMeta(f.moduleKey)?.cost ?? 1} revertable={!!moduleMeta(f.moduleKey)?.revertable} impact={moduleMeta(f.moduleKey)?.impact ?? 2}
-            events={events[f.id]} busy={!!busy[f.id]} armed={!!armed[f.id]} canShip={canShip}
+            events={events[f.id]} busy={!!busy[f.id]} armed={!!armed[f.id]} canShip={canShipFix(f)}
+            diagnostic={isDiagnosticModule(f.moduleKey)}
             picked={picked.has(f.id)} onTogglePick={() => togglePick(f.id)}
             onGenerate={() => act(f.id, 'generate')} onApprove={() => act(f.id, 'approve')}
             onArm={() => setArmed((a) => ({ ...a, [f.id]: true }))} onCancelArm={() => setArmed((a) => ({ ...a, [f.id]: false }))}
@@ -2262,8 +2285,10 @@ function BeforeAfter({ before, after, label, addNote }: { before?: string; after
 }
 
 // ── Fix card ──
-function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRegenerate, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, onDismiss, onRestore, onArchive, editableField, onEditDraft, downloadHref, open, onToggleOpen }: {
+function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRegenerate, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, onDismiss, onRestore, onArchive, editableField, onEditDraft, downloadHref, open, onToggleOpen }: {
   fix: FixRow; title: string; preview: PreviewBlock | null | undefined; cost: number; revertable: boolean; impact?: 1 | 2 | 3;
+  /** Module reports findings instead of editing the site — relabels the ship step. */
+  diagnostic?: boolean;
   events: FixEvent[] | undefined; busy: boolean; armed: boolean; canShip: boolean; picked: boolean;
   onTogglePick: () => void; onGenerate: () => void; onApprove: () => void; onArm: () => void; onCancelArm: () => void;
   onShipConfirm: () => void; onRecheck: () => void; onRetry: () => void; onRegenerate: (instruction?: string) => void; onRevert: () => void; onLoadHistory: () => void;
@@ -2535,13 +2560,13 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
             {fix.shipResult && <span className="xlbl" style={{ width: '100%', color: 'var(--text-2)' }}>↩ Revising a live fix — your page keeps the shipped version until you approve &amp; re-ship.</span>}
           </>)}
           {isApproved && !armed && (<>
-            <button className="xbtn" onClick={onArm} disabled={busy} style={{ background: 'var(--success)' }}>⬢ SHIP TO SITE</button>
-            {stageable && (
+            <button className="xbtn" onClick={diagnostic ? onShipConfirm : onArm} disabled={busy} style={{ background: 'var(--success)' }}>{diagnostic ? '✓ ACCEPT FINDING' : '⬢ SHIP TO SITE'}</button>
+            {!diagnostic && stageable && (
               hasConnector
                 ? <button className="gbtn" onClick={onStage} disabled={busy} style={{ padding: '7px 13px' }} title="Stage as a draft revision on your site and preview it before going live">⎘ Ship as draft</button>
                 : <span className="xlbl" style={{ color: 'var(--text-3)' }}>pair the Connector to preview as a draft</span>
             )}
-            <span className="xlbl" style={{ color: 'var(--text-2)' }}>approved · writes live</span>
+            <span className="xlbl" style={{ color: 'var(--text-2)' }}>{diagnostic ? 'approved · nothing is written to your site' : 'approved · writes live'}</span>
           </>)}
           {isStaged && (() => {
             const publishing = fix.shipResult?.op === 'publish_content';

@@ -57,18 +57,81 @@ attribution.
 
 | SEO need | Module(s) |
 |---|---|
-| Titles / meta / CTR | title-rewrite, meta-rewrite, ctr-rescue |
+| Titles / meta / CTR (positions 1-5) | title-rewrite, meta-rewrite, ctr-rescue |
 | Content depth & GEO structure | geo-page-rewrite, citable-passages, indexing-repair |
 | **Internal linking** | internal-linking |
 | **External authoritative citations** | external-citations (verified URLs) |
 | Structured data | faq-schema, schema-markup (Org/LocalBusiness/Article/Product/Service) |
-| Rankings (near page-1) | striking-distance |
+| Rankings (positions 6-15) | striking-distance |
+| **Traffic decline** | search-decay *(diagnostic)* |
+| **Self-competition** | cannibalization *(diagnostic)* |
+| **Competitor content depth** | content-gap *(diagnostic)* |
 | Indexing & canonical | indexing-repair, canonical-fix, noindex-removal |
 | Crawlability / AI access | robots-ai-access, llms-txt |
 | Social / sharing | og-cards |
 | Comparison/alternatives (GEO) | comparison-pages |
 | Accuracy / corrections | hallucination-correction |
 | Surgical edits | passage-rewrite |
+
+### The SERP is partitioned, not shared
+
+`ctr-rescue` owns positions 1-5, `striking-distance` owns 6-15, and
+`content-gap` looks at 6-20. The split follows the diagnosis - in the top
+five the page is already visible, so weak metadata is the lever; below that
+the problem is rank itself and a better title cannot fix it.
+
+It is also a correctness constraint. `ctr-rescue` and `striking-distance`
+both write the page `<title>`, and `fixes.dedupe_key` is scoped *within* a
+module, so an overlapping band lets both queue a title rewrite for the same
+URL with nothing in the engine to catch the collision. Changing either
+band means re-checking that they still meet exactly once.
+
+## Diagnostic modules
+
+Three modules report instead of editing: `search-decay`, `cannibalization`,
+and `content-gap`. They set `diagnostic: true` on the `FixModule`, and
+shipping one writes nothing to the customer's site - it records the finding
+and, for decay, names the module that should act on it.
+
+This is not a limitation, it is what the work is. A decay diagnosis is a
+claim about *why* traffic fell, and the fix depends entirely on the answer.
+A cannibalisation resolution means 301s and content merges - permanent
+changes to a site's URL structure that should not sit behind one click. A
+content brief is instructions for a writer ("cover these concepts"), not
+publishable copy, so shipping it would put the instructions on the page.
+
+`diagnostic: true` has one mechanical consequence, in
+`finalizeShippedFix`: the GSC baseline is not captured, which keeps these
+modules out of `findFixesDueOutcome` and therefore out of both the
+per-module learning priors and the measured auto-revert. A module that
+changed nothing has no claim on a page's later CTR movement, and letting it
+record one would train the fix ranker on noise.
+
+### What search-decay can say that other tools cannot
+
+Every GSC-driven module in the engine reads one trailing window, which means
+none of them can see a page that looks fine today and is worth half what it
+was three months ago. `search-decay` compares two 28-day windows, so it can.
+
+The interesting pattern is impressions holding flat while clicks fall: the
+ranking did not move, so the click was taken by something rendered above the
+result. Any tool can spot that shape and none can name the cause, because
+Search Console reports the impression and says nothing about what sat on top
+of it.
+
+Livesov already stores every URL each answer engine cited for the brand's
+tracked prompts, so `ai-capture.ts` can answer it from data the product
+collects anyway: for this page's topic, are the engines citing this page,
+another page of ours, or a competitor's? That turns "clicks fell, probably
+AI" into "clicks fell 34%, impressions flat, position held at 4, and the
+brand is absent from the grounded answers for these prompts while
+competitor.com is cited on six of them." It is the fifth decay vector and
+the only one that needs this product to exist.
+
+Thresholds are tuned for local service businesses, not national publishers:
+a 100-prior-clicks floor (the usual choice) reports "no decay" forever on a
+site whose best page sees 40 clicks a month. See the comments in
+`modules/search-decay.ts` for what replaced it and why.
 
 ## Setup checklist (to run it live)
 
@@ -78,7 +141,8 @@ Already used by the app (no action if set): `DATABASE_URL`, `JWT_SECRET`,
 Fix-Engine-specific:
 
 1. **Google Search Console** (for `striking-distance`, `ctr-rescue`,
-   `indexing-repair`, `canonical-fix`):
+   `search-decay`, `cannibalization`, `content-gap`, `indexing-repair`,
+   `canonical-fix`):
    - Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
    - In Google Cloud Console, add the OAuth redirect URI
      `$APP_URL/api/connections/gsc/callback`.
@@ -88,7 +152,22 @@ Fix-Engine-specific:
 3. **Connector (Channel B)** for `llms-txt`, `robots-ai-access`,
    `og-cards`: install the Connector plugin (`connector-plugin/`), then
    **Pair Connector** in the dashboard and paste the token/secret/pull URL.
-4. The cron safety-net (`/api/cron/fix-engine-worker`) is already wired
+4. **Real Google SERP results** (`SERPER_API_KEY`, else `SERPAPI_KEY`).
+   Used by `ctr-rescue`, `search-decay` and `content-gap` to see what
+   actually ranks for a query. Without either key the sourcing chain falls
+   back to a web-grounded Perplexity call, which approximates the SERP
+   rather than measuring it — and `content-gap` needs real competitor URLs
+   to crawl, so it fails with an explanation instead of guessing. Serper is
+   ~$1/1,000 searches, cached 7 days per (brand, query).
+5. **A render backend** for `content-gap` (`SCRAPERAPI_KEY`, `ZYTE_API_KEY`,
+   `BRIGHTDATA_API_TOKEN` + zone, or `NAP_RENDER_ENDPOINT`). Competitor
+   pages are frequently JS-rendered, and a plain GET of one returns an
+   almost-empty shell. Measuring topical depth against that shell would
+   report a content gap that does not exist, so `depth.ts` retries a
+   suspiciously thin read through the render cascade and marks the page
+   *unread* if it still cannot see a body. Budget ~4 renders per analysed
+   page; the module caps itself at 3 target pages per scan.
+6. The cron safety-net (`/api/cron/fix-engine-worker`) is already wired
    into `.github/workflows/cron.yml` (every 15 min, `Bearer CRON_SECRET`).
 
 ## Architecture
@@ -118,6 +197,9 @@ src/lib/fix-engine/
   connections.ts    encrypted per-brand integration credentials
   engine.ts         the runner: runScan, generateFix, approveFix, shipFix, recheckFix
   registry.ts       module registry + plan gating (meetsPlan/planRank)
+  intent.ts         zero-click query screening (shape rule + DataForSEO intent)
+  depth.ts          content-depth extraction for competitor comparison
+  ai-capture.ts     AI answer-capture evidence, read from `citations`
   cms/              Channel-A CMS adapters (interface + WordPress reference)
   modules/          the five Phase-1 modules
 ```
