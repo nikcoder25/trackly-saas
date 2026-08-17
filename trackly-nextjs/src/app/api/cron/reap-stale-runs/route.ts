@@ -26,12 +26,19 @@ import { NextResponse } from 'next/server';
 import { acquireCronLock } from '@/lib/cron-lock';
 import { reconcileStaleRuns } from '@/lib/run-reconciler';
 import { reapStaleGeoAudits } from '@/lib/geo-audits';
+import { reapStaleDiscoveryJobs } from '@/lib/prompt-discovery';
 import { logger } from '@/lib/logger';
 
 // Geo-audit reaper threshold (minutes). Mirrors the active_runs
 // watchdog window so a stuck Regional Audit gets reaped on the same
 // tick as a stuck brand-run.
 const GEO_AUDIT_STALE_MINUTES = 10;
+
+// Prompt-discovery reaper threshold (minutes). Longer than the geo-audit
+// window because a healthy discovery run legitimately takes several LLM
+// round trips plus a sitemap fetch, and reaping one mid-flight would fail
+// a job that was about to succeed.
+const DISCOVERY_STALE_MINUTES = 20;
 
 export async function GET(request: Request): Promise<Response> {
   const cronSecret = process.env.CRON_SECRET;
@@ -76,14 +83,28 @@ export async function GET(request: Request): Promise<Response> {
         error: (e as Error).message,
       });
     }
+    // And prompt-discovery jobs orphaned by a restart. Their pipeline runs
+    // in after(), which has no durable queue behind it: if the instance goes
+    // away mid-run nothing resumes the work and nothing closes the row, so
+    // the job polls as 'running' forever and every later page load rejoins
+    // the same zombie.
+    let discoveryReaped = 0;
+    try {
+      discoveryReaped = await reapStaleDiscoveryJobs(DISCOVERY_STALE_MINUTES);
+    } catch (e) {
+      logger.warn('cron.reap_stale_runs.discovery_reap_failed', {
+        error: (e as Error).message,
+      });
+    }
     const durationMs = Date.now() - start;
 
-    if (result.count > 0 || geoReaped.length > 0) {
+    if (result.count > 0 || geoReaped.length > 0 || discoveryReaped > 0) {
       logger.info('cron.reap_stale_runs.reaped', {
         count: result.count,
         brand_ids: result.brandIds.slice(0, 20),
         run_ids: result.runIds.slice(0, 20),
         geo_audit_ids: geoReaped.slice(0, 20),
+        discovery_jobs_reaped: discoveryReaped,
         duration_ms: durationMs,
       });
     }
@@ -94,6 +115,7 @@ export async function GET(request: Request): Promise<Response> {
       brandIds: result.brandIds,
       runIds: result.runIds,
       geoAuditsReaped: geoReaped,
+      discoveryJobsReaped: discoveryReaped,
       durationMs,
       timestamp: new Date().toISOString(),
     });

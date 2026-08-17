@@ -1,9 +1,12 @@
 /**
  * Staged prompt discovery.
  *
- *   POST - start a discovery job and return immediately with its id
- *   GET  - poll a job's stage-by-stage progress (`?job=<id>`, or the
- *          brand's most recent job when omitted)
+ *   POST   - start a discovery job and return immediately with its id
+ *   GET    - poll a job's stage-by-stage progress (`?job=<id>`, or the
+ *            brand's most recent unconsumed job when omitted)
+ *   DELETE - mark a job dealt with (`?job=<id>`), so a reopened tab stops
+ *            rejoining it. Sent when the user accepts or dismisses the
+ *            result; the row is kept for history.
  *
  * The work runs in after(), so the response does not wait on it and the
  * user can close the page without cancelling anything.
@@ -18,6 +21,7 @@ import { countTrackedPromptsForOwnerExcluding } from '@/lib/prompt-quota';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
 import {
+  consumeDiscoveryJob,
   createDiscoveryJob,
   getDiscoveryJob,
   getLatestDiscoveryJob,
@@ -128,5 +132,34 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   } catch (e) {
     logError('discover_prompts.status_failed', e);
     return serverError({ message: 'Failed to read discovery status' });
+  }
+}
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const authResult = await requireVerifiedAuth(request, pool);
+    if (authResult instanceof Response) return authResult;
+    const user = authResult;
+    const { id } = await params;
+
+    const access = await getBrandWithAccess(id, user.id);
+    if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
+    if (access.role === 'viewer') {
+      return Response.json({ error: 'Viewers cannot change discovery jobs' }, { status: 403 });
+    }
+
+    const jobId = new URL(request.url).searchParams.get('job');
+    if (!jobId) return Response.json({ error: 'job is required' }, { status: 400 });
+    const job = await getDiscoveryJob(jobId);
+    // Same ownership check as GET: a job id must not be a capability.
+    if (!job || job.brandId !== id) {
+      return Response.json({ error: 'Job not found' }, { status: 404 });
+    }
+
+    await consumeDiscoveryJob(jobId, id);
+    return Response.json({ ok: true });
+  } catch (e) {
+    logError('discover_prompts.dismiss_failed', e);
+    return serverError({ message: 'Failed to dismiss the discovery job' });
   }
 }
