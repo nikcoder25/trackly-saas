@@ -6,7 +6,7 @@ import { Card, Badge, Pill } from '@/app/dashboard-v2/ui';
 interface DiscoveryStage {
   key: string;
   label: string;
-  status: 'pending' | 'running' | 'done' | 'skipped';
+  status: 'pending' | 'running' | 'done' | 'skipped' | 'failed';
   detail?: string;
 }
 
@@ -80,6 +80,7 @@ const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 function StageIcon({ status }: { status: DiscoveryStage['status'] }) {
   if (status === 'done') return <span style={{ color: 'var(--success)' }}>✓</span>;
   if (status === 'skipped') return <span className="dim">–</span>;
+  if (status === 'failed') return <span style={{ color: 'var(--danger)' }}>✕</span>;
   if (status === 'running') {
     return (
       <span
@@ -123,19 +124,39 @@ export function PromptDiscovery({
     return (data.job as DiscoveryJob | null) ?? null;
   }, [brandId]);
 
-  // Rejoin an in-flight job on mount. This is what makes closing the tab
-  // safe: the work is server-side, so coming back just re-attaches to it.
+  // Rejoin the brand's outstanding job on mount. This is what makes closing
+  // the tab safe: the work is server-side, so coming back re-attaches to it.
+  //
+  // Terminal jobs are adopted too, and that is the whole point. Discovery
+  // usually finishes in well under the time it takes to wander off and come
+  // back, so the common case is returning to a job that is already 'done' -
+  // and only adopting live jobs meant the user landed on the empty start
+  // screen with their finished prompt set sitting unreachable in the
+  // database. From the outside that is indistinguishable from the work
+  // having been cancelled, which is exactly what the card promises will not
+  // happen. The server only offers jobs that have not been accepted or
+  // dismissed, so an old result cannot keep reappearing.
   useEffect(() => {
     let cancelled = false;
     fetchStatus().then(j => {
       if (cancelled || !j) return;
-      if (j.status === 'queued' || j.status === 'running') {
-        startedAt.current = Date.now();
-        setJob(j);
-      }
+      startedAt.current = Date.now();
+      setJob(j);
     });
     return () => { cancelled = true; };
   }, [fetchStatus]);
+
+  /**
+   * Tell the server this job has been dealt with so a later visit does not
+   * rejoin it. Best-effort: failing to dismiss is not worth blocking the
+   * user on, it only means the card reopens on the finished job once more.
+   */
+  const dismissJob = useCallback(async (jobId: string) => {
+    await fetch(`/api/brands/${brandId}/discover-prompts?job=${encodeURIComponent(jobId)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    }).catch(() => {});
+  }, [brandId]);
 
   // Poll while the job is live.
   useEffect(() => {
@@ -178,11 +199,19 @@ export function PromptDiscovery({
     setAccepting(true);
     try {
       await onAccept(job.prompts);
+      await dismissJob(job.id);
       setJob(null);
     } catch (e) {
       setError((e as Error).message || 'Failed to add the prompts');
     }
     setAccepting(false);
+  };
+
+  /** Clear the card without taking the prompts (the "Try again" path). */
+  const discard = async () => {
+    if (job) await dismissJob(job.id);
+    setJob(null);
+    setError(null);
   };
 
   const running = job?.status === 'queued' || job?.status === 'running';
@@ -246,7 +275,7 @@ export function PromptDiscovery({
           {job.status === 'failed' && (
             <div style={{ fontSize: 12.5, color: 'var(--danger)' }}>
               {job.error || 'Discovery failed.'}{' '}
-              <button type="button" className="btn-d" onClick={() => { setJob(null); setError(null); }}>
+              <button type="button" className="btn-d" onClick={discard}>
                 Try again
               </button>
             </div>

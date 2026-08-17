@@ -44,7 +44,7 @@ export type DiscoveryStatus = 'queued' | 'running' | 'done' | 'failed';
 export interface DiscoveryStage {
   key: DiscoveryStageKey;
   label: string;
-  status: 'pending' | 'running' | 'done' | 'skipped';
+  status: 'pending' | 'running' | 'done' | 'skipped' | 'failed';
   /** Short result line, e.g. "38 candidates" - shown next to the tick. */
   detail?: string;
 }
@@ -99,6 +99,12 @@ export async function ensureDiscoverySchema(): Promise<void> {
     -- data existed. Jobs written then simply have no demand to show.
     ALTER TABLE prompt_discovery_jobs
       ADD COLUMN IF NOT EXISTS demand JSONB NOT NULL DEFAULT '{}'::jsonb;
+    -- Set when the user accepts or dismisses a finished job. A finished
+    -- job has to stay rejoinable so that closing the tab does not lose the
+    -- result, but it must stop coming back once it has been dealt with -
+    -- otherwise every later visit reopens the same completed run.
+    ALTER TABLE prompt_discovery_jobs
+      ADD COLUMN IF NOT EXISTS consumed_at TIMESTAMPTZ;
     CREATE INDEX IF NOT EXISTS prompt_discovery_brand_idx
       ON prompt_discovery_jobs (brand_id, created_at DESC);
   `);
@@ -159,10 +165,24 @@ export async function getLatestDiscoveryJob(brandId: string): Promise<DiscoveryJ
   await ensureDiscoverySchema();
   const res = await pool.query(
     `SELECT id FROM prompt_discovery_jobs
-      WHERE brand_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      WHERE brand_id = $1 AND consumed_at IS NULL
+      ORDER BY created_at DESC LIMIT 1`,
     [brandId],
   );
   return res.rows[0] ? getDiscoveryJob(res.rows[0].id) : null;
+}
+
+/**
+ * Mark a job as dealt with, so it stops being the one a reopened tab
+ * rejoins. Called when the user accepts its prompts or dismisses it.
+ */
+export async function consumeDiscoveryJob(jobId: string, brandId: string): Promise<void> {
+  await ensureDiscoverySchema();
+  await pool.query(
+    `UPDATE prompt_discovery_jobs SET consumed_at = NOW(), updated_at = NOW()
+      WHERE id = $1 AND brand_id = $2`,
+    [jobId, brandId],
+  );
 }
 
 async function patchStage(
@@ -335,6 +355,24 @@ Write them the way people actually talk to an assistant - full questions, not ke
 Return ONLY a JSON array of strings.${already}`;
 };
 
+/**
+ * Second attempt after an unreadable reply. Same task, but the format
+ * demand is stated in the terms the first attempt actually got wrong:
+ * one flat array, no grouping, no objects, nothing around it.
+ */
+const GENERATE_RETRY_PROMPT = (input: DiscoveryInput) => {
+  const where = input.city ? ` in or near ${input.city}` : '';
+  return `List ${Math.min(30, input.maxPrompts * 2)} search prompts a real person would type into an AI assistant when looking for "${input.industry || 'these'}" services${where}. Full spoken questions, covering urgent need, price, comparison, specific services, and trust.
+
+FORMAT - this is strict, the last reply could not be read:
+- Output a single flat JSON array of plain strings and NOTHING else.
+- No object wrapper, no category grouping, no keys, no numbering.
+- No explanation before or after. No markdown fences.
+- Do not include the brand name.
+
+Correct: ["who fixes a furnace at night", "how much does a new furnace cost"]`;
+};
+
 const INTENT_PROMPT = (prompts: string[]) =>
   `For each prompt below, decide whether someone asking it is close to hiring a local service business (commercial intent) or just reading (informational).
 
@@ -345,17 +383,153 @@ ${prompts.map((p, i) => `${i + 1}. ${p}`).join('\n')}
 
 Return ONLY a JSON array of the 1-based numbers to KEEP, e.g. [1,3,4,7]`;
 
-function parseStringArray(text: string): string[] {
-  const match = text.match(/\[[\s\S]*\]/);
-  if (!match) return [];
-  try {
-    const parsed = JSON.parse(match[0]);
-    return Array.isArray(parsed)
-      ? parsed.filter((s): s is string => typeof s === 'string')
-      : [];
-  } catch {
-    return [];
+/**
+ * Pull a list of prompts out of whatever the model actually returned.
+ *
+ * This is deliberately forgiving, because the alternative is throwing away
+ * work the model did correctly. `jsonMode` is only wired to Gemini (see
+ * ai-platforms.ts), and the default generator is Claude, so nothing
+ * structurally enforces the "return ONLY a JSON array" instruction - the
+ * model is free to answer in any of the shapes below and regularly does.
+ *
+ * The previous single greedy `/\[[\s\S]*\]/` handled a clean array, a
+ * fenced array, and an array inside prose. It returned nothing - and the
+ * job failed with "The model returned no usable prompts" - for output
+ * grouped into categories, an array of objects, a truncated array, or a
+ * plain numbered list. Those are all recoverable, so recover them.
+ *
+ * Order matters: strict JSON first so a well-formed response is parsed
+ * exactly, and the line-based reading only as a last resort.
+ */
+export function parseStringArray(text: string): string[] {
+  const raw = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+
+  // 1. The whole response is valid JSON.
+  const whole = tryJson(raw);
+  if (whole) {
+    const out = dedupe(harvestStrings(whole));
+    if (out.length) return out;
   }
+
+  // 2. A JSON value is embedded in prose. Scan for balanced [...] and
+  //    {...} spans rather than one greedy match, so several arrays (the
+  //    "grouped by category" shape) each parse instead of being swallowed
+  //    into one unparseable blob.
+  const spans = [...balancedSpans(raw, '[', ']'), ...balancedSpans(raw, '{', '}')];
+  const fromSpans: string[] = [];
+  for (const span of spans) {
+    const parsed = tryJson(span);
+    if (parsed) fromSpans.push(...harvestStrings(parsed));
+  }
+  if (fromSpans.length) return dedupe(fromSpans);
+
+  // 3. Nothing parsed. The response may be a numbered/bulleted list, or a
+  //    JSON array truncated by the token limit - both still carry usable
+  //    prompts, one per line.
+  return dedupe(harvestLines(raw));
+}
+
+function tryJson(s: string): unknown {
+  try { return JSON.parse(s); } catch { return null; }
+}
+
+/**
+ * Every string in a parsed JSON value, at any depth. Handles a bare array,
+ * `{"prompts":[...]}`, `{"urgent":[...],"price":[...]}`, and
+ * `[{"prompt":"..."}]` with one traversal.
+ */
+function harvestStrings(node: unknown, depth = 0): string[] {
+  if (depth > 6) return [];
+  if (typeof node === 'string') return isPromptLike(node) ? [node.trim()] : [];
+  if (Array.isArray(node)) return node.flatMap((n) => harvestStrings(n, depth + 1));
+  if (node && typeof node === 'object') {
+    return Object.values(node as Record<string, unknown>).flatMap((n) => harvestStrings(n, depth + 1));
+  }
+  return [];
+}
+
+/** Substrings that open and close balanced, ignoring brackets inside strings. */
+function balancedSpans(text: string, open: string, close: string): string[] {
+  const spans: string[] = [];
+  let depth = 0, start = -1, inString = false, escaped = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) { escaped = false; continue; }
+    if (ch === '\\') { escaped = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === open) { if (depth === 0) start = i; depth++; }
+    else if (ch === close && depth > 0) {
+      depth--;
+      if (depth === 0 && start >= 0) { spans.push(text.slice(start, i + 1)); start = -1; }
+    }
+  }
+  return spans;
+}
+
+/**
+ * Last-resort line reading, for a numbered list or an array the token
+ * limit cut off mid-flight.
+ *
+ * A line only counts if it is visibly a list item - it carried a bullet or
+ * a number, or it is a fully quoted JSON string. Without that requirement
+ * this reads any prose sentence as a prompt, and the sentence it most often
+ * gets handed is the model refusing: "I cannot help with that request." is
+ * five words of plain English and would sail through a length-and-shape
+ * check. Tracking a prompt the model never wrote is worse than failing.
+ */
+function harvestLines(text: string): string[] {
+  const out: string[] = [];
+  for (const rawLine of text.split('\n')) {
+    // Drop the opening bracket of a truncated array before looking for a
+    // marker, so `["first prompt",` reads as the quoted string it is.
+    const line = rawLine.replace(/^\s*\[\s*/, '').trim();
+    if (!line) continue;
+
+    const bulleted = /^[-*•]\s+/.test(line);
+    const numbered = /^\d+[.)]\s+/.test(line);
+    // A complete JSON string, optionally followed by a comma. An unclosed
+    // quote means the token limit cut this line in half - the fragment is
+    // not a usable prompt even though the lines above it are.
+    const quoted = /^"[^"]*"\s*,?$/.test(line);
+    if (!bulleted && !numbered && !quoted) continue;
+
+    const cleaned = line
+      .replace(/^[-*•]\s+/, '')
+      .replace(/^\d+[.)]\s+/, '')
+      .replace(/\s*,\s*$/, '')
+      .trim()
+      .replace(/^"(.*)"$/, '$1')
+      .trim();
+    if (isPromptLike(cleaned)) out.push(cleaned);
+  }
+  return out;
+}
+
+/**
+ * Is this a prompt rather than a stray fragment? Long enough to be a real
+ * question and short enough not to be a paragraph of the model's preamble.
+ */
+function isPromptLike(s: string): boolean {
+  const t = s.trim();
+  if (t.length < 8 || t.length > 200) return false;
+  if (!/[a-z]/i.test(t)) return false;
+  // Drop obvious scaffolding: keys, headings, and the model talking to us.
+  if (/^(prompts?|queries|questions|category|categories|urgent|price|comparison|services|trust)$/i.test(t)) return false;
+  if (/^(here|these|below|i['’]ll|sure|certainly)\b/i.test(t)) return false;
+  return t.split(/\s+/).length >= 2;
+}
+
+function dedupe(list: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const s of list) {
+    const key = s.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(s.trim());
+  }
+  return out;
 }
 
 function parseNumberArray(text: string): number[] {
@@ -391,13 +565,42 @@ export async function runDiscovery(input: DiscoveryInput): Promise<void> {
     const model = getDefaultModel(key.platform);
 
     // ── Stage 1: generate ────────────────────────────────
+    //
+    // Retried once. A single unusable response is not evidence that the
+    // model cannot do this - it is usually one badly-shaped reply - and
+    // failing the whole job for it means the user starts over by hand.
+    // The retry restates the format demand more bluntly, which is the
+    // thing that actually differs between the attempt that parses and the
+    // one that doesn't.
     await patchStage(jobId, 'generate', { status: 'running' });
-    const generated = await queryAI(
-      key.platform, GENERATE_PROMPT(input), key.apiKey, model, undefined,
-      { jsonMode: true, tenantId: input.tenantId, maxTokens: 3000 },
-    );
-    let candidates = parseStringArray(generated?.text || '');
-    if (!candidates.length) throw new Error('The model returned no usable prompts. Try again.');
+    let candidates: string[] = [];
+    let lastRaw = '';
+    for (let attempt = 0; attempt < 2 && !candidates.length; attempt++) {
+      const generated = await queryAI(
+        key.platform,
+        attempt === 0 ? GENERATE_PROMPT(input) : GENERATE_RETRY_PROMPT(input),
+        key.apiKey, model, undefined,
+        { jsonMode: true, tenantId: input.tenantId, maxTokens: 3000 },
+      );
+      lastRaw = generated?.text || '';
+      candidates = parseStringArray(lastRaw);
+      if (!candidates.length) {
+        logger.warn('discovery.generate_unparsed', {
+          jobId, attempt, platform: key.platform, model,
+          // The shape of the reply is what makes this diagnosable later;
+          // the reply itself is the tenant's data and does not belong in logs.
+          length: lastRaw.length,
+          preview: lastRaw.slice(0, 120),
+        });
+      }
+    }
+    if (!candidates.length) {
+      throw new Error(
+        lastRaw.trim()
+          ? 'The model’s reply could not be read as a list of prompts, twice. Try again in a moment.'
+          : 'The model returned an empty reply. Check your AI API key in Account Settings, then try again.',
+      );
+    }
     await patchStage(jobId, 'generate', {
       status: 'done',
       detail: `${candidates.length} candidates`,
@@ -545,6 +748,10 @@ export async function runDiscovery(input: DiscoveryInput): Promise<void> {
   } catch (e) {
     const message = (e as Error).message || 'Prompt discovery failed';
     logger.error('discovery.failed', { jobId, errorMessage: message });
+    // Close out whichever stage was mid-flight. Without this the stage
+    // keeps its 'running' status, so the UI renders a spinner that turns
+    // forever directly above the error explaining the job already stopped.
+    await failRunningStage(jobId).catch(() => {});
     await pool.query(
       `UPDATE prompt_discovery_jobs
           SET status = 'failed', error = $1, updated_at = NOW(), completed_at = NOW()
@@ -552,4 +759,45 @@ export async function runDiscovery(input: DiscoveryInput): Promise<void> {
       [message.slice(0, 500), jobId],
     ).catch(() => {});
   }
+}
+
+/** Move any stage still marked 'running' to 'failed'. */
+async function failRunningStage(jobId: string): Promise<void> {
+  const job = await getDiscoveryJob(jobId);
+  if (!job) return;
+  if (!job.stages.some(s => s.status === 'running')) return;
+  const stages = job.stages.map(s =>
+    s.status === 'running' ? { ...s, status: 'failed' as const } : s);
+  await pool.query(
+    `UPDATE prompt_discovery_jobs SET stages = $1, updated_at = NOW() WHERE id = $2`,
+    [JSON.stringify(stages), jobId],
+  );
+}
+
+/**
+ * Reap discovery jobs left 'running' by a process that went away.
+ *
+ * The pipeline runs in after(), which has no durable queue behind it: if
+ * the instance restarts or redeploys mid-job, nothing resumes the work and
+ * nothing marks the row finished. The UI then polls a job that will never
+ * move until its own ten-minute timeout, and the next page load rejoins
+ * the same zombie. Called from /api/cron/reap-stale-runs.
+ */
+export async function reapStaleDiscoveryJobs(staleMinutes = 20): Promise<number> {
+  await ensureDiscoverySchema();
+  const res = await pool.query(
+    `UPDATE prompt_discovery_jobs
+        SET status = 'failed',
+            error = 'Discovery stopped unexpectedly (the server restarted mid-run). Try again.',
+            updated_at = NOW(), completed_at = NOW()
+      WHERE status IN ('queued','running')
+        AND updated_at < NOW() - ($1 || ' minutes')::interval
+      RETURNING id`,
+    [String(staleMinutes)],
+  );
+  for (const row of res.rows) {
+    await failRunningStage(row.id as string).catch(() => {});
+  }
+  if (res.rowCount) logger.warn('discovery.reaped_stale', { count: res.rowCount });
+  return res.rowCount ?? 0;
 }
