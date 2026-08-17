@@ -1141,6 +1141,46 @@ function _abortReasonMessage(signal: AbortSignal | undefined, fallback: string):
   return fallback;
 }
 
+/**
+ * Read the assistant's text out of an Anthropic Messages response.
+ *
+ * `content` is an ARRAY OF BLOCKS, not a single value, and only blocks of
+ * type "text" carry prose. This used to be read as `content[0].text`,
+ * which silently produced "" for any response whose first block is
+ * something else - a `thinking` block from a reasoning model, or a
+ * `tool_use` block. The call had succeeded, tokens were spent and billed,
+ * and the caller was handed an empty string that surfaced to users as "AI
+ * returned empty response" with nothing to debug.
+ *
+ * That read was written when the default model returned exactly one text
+ * block. The default moved to a Claude 5 model in #719 without this being
+ * revisited, and index 0 stopped being a safe assumption.
+ *
+ * So: concatenate every text block and ignore the rest. Multiple text
+ * blocks are legal and their concatenation is the reply; non-text blocks
+ * are not the reply and must not be mistaken for its absence.
+ */
+export function extractAnthropicText(content: unknown): string {
+  if (typeof content === 'string') return content.trim();
+  if (!Array.isArray(content)) return '';
+  const parts: string[] = [];
+  for (const block of content) {
+    if (!block || typeof block !== 'object') continue;
+    const b = block as { type?: unknown; text?: unknown };
+    if (b.type === 'text' && typeof b.text === 'string') parts.push(b.text);
+  }
+  if (parts.length) return parts.join('').trim();
+  // Tolerate an untyped block that still carries text, rather than
+  // discarding a usable reply over a missing discriminator.
+  for (const block of content) {
+    const b = block as { type?: unknown; text?: unknown } | null;
+    if (b && typeof b === 'object' && b.type === undefined && typeof b.text === 'string') {
+      parts.push(b.text);
+    }
+  }
+  return parts.join('').trim();
+}
+
 async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST_TIMEOUT_MS, apiKey?: string, platform?: string, retryConfig?: FetchAiRetryConfig): Promise<AiResponseData> {
   const MAX_RETRIES = retryConfig?.maxRetries ?? (Number(process.env.AI_MAX_RETRIES) || 5);
   const CALL_MAX_RETRY_SLEEP_MS = retryConfig?.maxSleepMs ?? MAX_RETRY_SLEEP_MS;
@@ -2096,8 +2136,29 @@ export async function queryAI(
           body: JSON.stringify({ model: useModel, max_tokens: maxTok, system: sysPrompt, messages: [{ role: 'user', content: query }] }),
           signal,
         }, AI_CLAUDE_REQUEST_TIMEOUT_MS, apiKey, 'Claude');
+        const claudeText = extractAnthropicText(d.content);
+        if (!claudeText) {
+          // A 200 with no readable text. fetchAI throws on every non-2xx,
+          // so reaching here means the call succeeded and we still have
+          // nothing - which used to surface to users as a bare "AI
+          // returned empty response" with no way to tell why. Record the
+          // shape so the next occurrence is diagnosable rather than a
+          // guess: stop_reason distinguishes "ran out of output budget"
+          // from "refused", and the block types say whether the text was
+          // there in a form we failed to read.
+          logger.warn('[claude] empty_text_response', {
+            model: d.model || useModel,
+            stopReason: (d as { stop_reason?: string }).stop_reason ?? null,
+            blockTypes: Array.isArray(d.content)
+              ? (d.content as Array<{ type?: string }>).map(b => b?.type ?? 'unknown')
+              : typeof d.content,
+            blockCount: Array.isArray(d.content) ? d.content.length : 0,
+            maxTokens: maxTok,
+            tokensOut: d.usage?.output_tokens ?? 0,
+          });
+        }
         result = {
-          text: d.content?.[0]?.text || '',
+          text: claudeText,
           model: d.model || useModel,
           tokensIn: d.usage?.input_tokens || 0,
           tokensOut: d.usage?.output_tokens || 0,
