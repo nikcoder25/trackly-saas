@@ -2,9 +2,10 @@
  * Module: CTR rescue (GSC-driven, Channel A).
  *
  * Detect: pull Search Analytics (query × page) for the last 28 days; find
- *   pages with high impressions but low CTR for their average position
- *   (i.e. underperforming the position-expected click rate). Rewrite the
- *   title + meta description to win more clicks.
+ *   pages averaging positions 1-5 with high impressions but low CTR for
+ *   that position (i.e. underperforming the position-expected click rate),
+ *   excluding queries Google answers without a click. Rewrite the title +
+ *   meta description to win more clicks.
  * Generate: LLM rewrites title + meta.
  * Ship: update title + meta description via the CMS adapter.
  * Recheck: re-pull Search Analytics and confirm CTR improved.
@@ -12,6 +13,7 @@
 
 import { crawlPage } from '../crawl';
 import { generateJson } from '../generate';
+import { screenZeroClickQueries } from '../intent';
 import { CTR_SYSTEM, ctrUserPrompt } from '../prompts';
 import { getValidAccessToken, searchAnalytics, trailingDateRange } from '../gsc';
 import { resolveCmsForBrand } from './_shared';
@@ -19,11 +21,30 @@ import type {
   DetectedIssue, FixContext, FixModule, GeneratedDraft, PreviewBlock, RecheckVerdict, ShipResult,
 } from '../types';
 
-const MIN_IMPRESSIONS = 100; // page-level, to focus on pages with real demand
+export const MIN_IMPRESSIONS = 500; // page-level, to focus on pages with real demand
+
+/**
+ * Positions this module owns.
+ *
+ * Capped at 5 on purpose, and `striking-distance` now starts at 6, so the
+ * two modules partition the SERP instead of overlapping it.
+ *
+ * The split follows the diagnosis. In positions 1-5 the page is already
+ * visible, so if it isn't being clicked the metadata is the lever. From 6
+ * down, visibility itself is the problem and a better title cannot fix it
+ * - that is a ranking job.
+ *
+ * This is also a correctness fix, not just tidiness. Both modules write
+ * the page <title>, and the engine's dedupe key is scoped within a module
+ * (see types.ts), so an overlapping band let both queue a title rewrite
+ * for the same URL with nothing to catch the collision.
+ */
+export const POS_MIN = 1;
+export const POS_MAX = 5;
 
 // Rough position→expected-CTR curve (organic). A page well below the
 // expected CTR for its position is a rescue candidate.
-function expectedCtr(position: number): number {
+export function expectedCtr(position: number): number {
   if (position <= 1) return 0.28;
   if (position <= 2) return 0.15;
   if (position <= 3) return 0.10;
@@ -32,12 +53,26 @@ function expectedCtr(position: number): number {
   return 0.01;
 }
 
+/** Flag when actual CTR is below this share of the position-expected rate. */
+export const CTR_SHORTFALL_RATIO = 0.6;
+
 interface CtrQuery { query: string; impressions: number; ctr: number }
+
+/**
+ * Clicks the page would gain over the same window if it merely hit the
+ * position-expected CTR. This is the number that makes a fix worth doing,
+ * and it is deliberately clicks and not currency: the app has no GA4
+ * connection and no conversion data, so any revenue figure would be
+ * invented. Callers wanting money multiply by their own lead value.
+ */
+export function projectedClickGain(impressions: number, ctr: number, position: number): number {
+  return Math.max(0, Math.round(impressions * (expectedCtr(position) - ctr)));
+}
 
 export const ctrRescueModule: FixModule = {
   key: 'ctr-rescue',
   title: 'CTR rescue',
-  description: 'High impressions, low CTR — rewrite title and meta to win clicks.',
+  description: 'Positions 1-5 with high impressions and low CTR — rewrite title and meta to win clicks.',
   channel: 'A',
   trigger: 'gsc',
   minPlan: 'pro',
@@ -66,22 +101,49 @@ export const ctrRescueModule: FixModule = {
       byPage.set(page, a);
     }
 
-    const issues: DetectedIssue[] = [];
+    // First pass: everything that looks like a CTR shortfall on the numbers
+    // alone. Screening happens after, so the zero-click lookup is one
+    // batched call over just the candidates' primary queries.
+    interface Candidate {
+      page: string; avgPos: number; ctr: number; impressions: number;
+      expected: number; queries: CtrQuery[];
+    }
+    const candidates: Candidate[] = [];
     for (const [page, a] of byPage) {
       if (a.impressions < MIN_IMPRESSIONS) continue;
       const avgPos = a.posSum / a.n;
+      if (avgPos < POS_MIN || avgPos > POS_MAX) continue;
       const ctr = a.clicks / a.impressions;
       const exp = expectedCtr(avgPos);
-      // Underperforming if actual CTR is below ~60% of position-expected.
-      if (ctr >= exp * 0.6) continue;
+      if (ctr >= exp * CTR_SHORTFALL_RATIO) continue;
       a.queries.sort((x, y) => y.impressions - x.impressions);
+      candidates.push({ page, avgPos, ctr, impressions: a.impressions, expected: exp, queries: a.queries });
+    }
+    if (!candidates.length) return [];
+
+    // A page whose primary query is one Google answers in the SERP is not
+    // underperforming, it is being read correctly - see intent.ts.
+    const zeroClick = await screenZeroClickQueries(
+      candidates.map((c) => c.queries[0]?.query).filter((q): q is string => !!q),
+    );
+
+    const issues: DetectedIssue[] = [];
+    for (const c of candidates) {
+      const primary = c.queries[0]?.query;
+      if (primary && zeroClick.has(primary.trim().toLowerCase())) continue;
+      const gain = projectedClickGain(c.impressions, c.ctr, c.avgPos);
       issues.push({
-        key: page,
-        targetUrl: page,
-        severity: a.impressions > 1000 ? 'high' : 'medium',
-        summary: `CTR ${(ctr * 100).toFixed(1)}% vs ~${(exp * 100).toFixed(0)}% expected at pos ${avgPos.toFixed(1)}`,
-        detected: { url: page, queries: a.queries.slice(0, 10) },
-        before: { ctr, impressions: a.impressions },
+        key: c.page,
+        targetUrl: c.page,
+        severity: c.impressions > 1000 ? 'high' : 'medium',
+        summary: `CTR ${(c.ctr * 100).toFixed(1)}% vs ~${(c.expected * 100).toFixed(0)}% expected at pos ${c.avgPos.toFixed(1)}`
+          + ` - about ${gain} clicks/month on the table`,
+        detected: {
+          url: c.page,
+          queries: c.queries.slice(0, 10),
+          projectedClickGain: gain,
+        },
+        before: { ctr: c.ctr, impressions: c.impressions, position: c.avgPos },
       });
     }
     return issues;

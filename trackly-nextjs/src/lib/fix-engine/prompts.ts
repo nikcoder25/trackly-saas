@@ -272,7 +272,7 @@ Generate the llms.txt file for this site.`;
 
 // ── Striking distance (GSC-driven) ───────────────────────────────
 
-export const STRIKING_SYSTEM = `You are an SEO specialist optimising a page that already ranks on the edge of page 1 (positions ~4-15) for several queries. Small, targeted on-page improvements can push it up.
+export const STRIKING_SYSTEM = `You are an SEO specialist optimising a page that already ranks on the edge of page 1 (positions ~6-15) for several queries. Small, targeted on-page improvements can push it up.
 
 Produce:
 - A sharper <title> (50-60 chars) that better targets the near-ranking queries.
@@ -749,4 +749,247 @@ ${args.pageText.slice(0, 3000)}
 """
 
 Produce the targeting plan and the ready-to-publish section for this keyword.`;
+}
+
+// ── Search decay diagnosis (GSC period-over-period) ──────────────
+
+/**
+ * The closed vocabulary of causes the decay diagnosis must choose from.
+ * Exported so the module can validate the model's answer against the same
+ * list the prompt offered, rather than trusting free text.
+ *
+ * The first four are the classic decay vectors. `ai_answer_capture` is the
+ * fifth and it is the reason this module is worth building here: a page
+ * whose impressions hold while its clicks fall has usually not lost its
+ * ranking, it has lost the click to an answer rendered above it. Livesov
+ * already measures which engines cite the brand, so that vector can be
+ * evidenced rather than guessed at.
+ */
+export const DECAY_VECTORS = [
+  'stale_content',
+  'intent_shift',
+  'competitor_leapfrog',
+  'cannibalization',
+  'ai_answer_capture',
+] as const;
+export type DecayVector = (typeof DECAY_VECTORS)[number];
+
+export const DECAY_SYSTEM = `You are an SEO forensics analyst diagnosing why one page lost search clicks. You are given a complete evidence file: click and impression movement across two equal windows, query-level detail, ranking movement, the page itself, and (when available) whether AI answer engines cite this page or a competitor's.
+
+Your job is diagnosis, not reassurance. Commit to ONE primary cause.
+
+The five causes you may choose from, and what each looks like in the evidence:
+- "stale_content": the page has not been substantively updated, the topic has moved on, and dated or superseded facts remain. Competitors' equivalents are fresher.
+- "intent_shift": what searchers want from this query changed. The SERP now favours a different format or angle than this page offers.
+- "competitor_leapfrog": one or more competitors published something materially better and took the clicks. Position slipped or the SERP composition changed around a held position.
+- "cannibalization": another page on the SAME site now competes for these queries, splitting or stealing the impressions.
+- "ai_answer_capture": impressions held or grew while clicks fell, ranking is broadly intact, and the click is being absorbed by an answer surface above the results. Strongest when AI-visibility evidence shows the query being answered without this page being cited.
+
+Hard rules:
+- Pick exactly one primary cause, from that list, spelled exactly as written.
+- Give a confidence score from 1 to 10. Be honest and use the low end: if the evidence is thin or two causes fit equally, say 4, not 8. A confident wrong diagnosis costs the user more than an admitted uncertainty.
+- Ground every claim in the supplied evidence. Quote the numbers you relied on. If you did not receive evidence for something, do not assert it.
+- "ai_answer_capture" requires impressions to be roughly flat or up while clicks fell. If impressions fell too, the click loss has a more ordinary explanation and you must choose one.
+- Recommended actions must be specific to this page. No generic SEO advice.
+
+Return ONLY a JSON object:
+{
+  "primaryCause": "<one of the five keys>",
+  "confidence": <integer 1-10>,
+  "evidence": "<2-3 sentences citing the specific numbers that led you here>",
+  "ruledOut": "<one sentence on the most plausible alternative and why you rejected it>",
+  "actions": [
+    { "action": "<specific, concrete instruction>", "priority": "high" | "medium" | "low" }
+  ]
+}`;
+
+export function decayUserPrompt(args: {
+  brand: BrandPromptContext;
+  url: string;
+  title: string | null;
+  windowDays: number;
+  recent: { clicks: number; impressions: number; ctr: number; position: number };
+  previous: { clicks: number; impressions: number; ctr: number; position: number };
+  queries: {
+    query: string;
+    clicksBefore: number; clicksAfter: number;
+    impressionsBefore: number; impressionsAfter: number;
+    positionBefore: number; positionAfter: number;
+  }[];
+  pattern: string;
+  pageText: string;
+  lastModified: string | null;
+  siteTrend: { clicksDelta: number; impressionsDelta: number } | null;
+  aiEvidence: string | null;
+  competitors?: SerpCompetitor[];
+}): string {
+  const pct = (before: number, after: number) =>
+    before > 0 ? `${(((after - before) / before) * 100).toFixed(0)}%` : 'n/a';
+  const q = args.queries.slice(0, 12).map((x) =>
+    `- "${x.query}": clicks ${x.clicksBefore} → ${x.clicksAfter} (${pct(x.clicksBefore, x.clicksAfter)}),`
+    + ` impressions ${x.impressionsBefore} → ${x.impressionsAfter} (${pct(x.impressionsBefore, x.impressionsAfter)}),`
+    + ` position ${x.positionBefore.toFixed(1)} → ${x.positionAfter.toFixed(1)}`,
+  ).join('\n');
+
+  const site = args.siteTrend
+    ? `\nWhole-site movement over the same windows (the control - a page that fell less than the site as a whole has not really fallen):\n`
+      + `- clicks ${(args.siteTrend.clicksDelta * 100).toFixed(0)}%, impressions ${(args.siteTrend.impressionsDelta * 100).toFixed(0)}%\n`
+    : '';
+
+  const ai = args.aiEvidence
+    ? `\nAI answer-engine evidence for this brand and these queries:\n${args.aiEvidence}\n`
+    : `\nAI answer-engine evidence: none available for this brand. Do not infer AI capture without it; judge on the click/impression pattern alone and lower your confidence accordingly.\n`;
+
+  return `${brandBlock(args.brand)}
+
+Page URL: ${args.url}
+Current <title>: ${args.title ?? '(none)'}
+Last substantive update detected: ${args.lastModified ?? 'unknown'}
+Observed pattern: ${args.pattern}
+
+Page totals, comparing the last ${args.windowDays} days against the ${args.windowDays} days before that:
+- clicks ${args.previous.clicks} → ${args.recent.clicks} (${pct(args.previous.clicks, args.recent.clicks)})
+- impressions ${args.previous.impressions} → ${args.recent.impressions} (${pct(args.previous.impressions, args.recent.impressions)})
+- CTR ${(args.previous.ctr * 100).toFixed(2)}% → ${(args.recent.ctr * 100).toFixed(2)}%
+- average position ${args.previous.position.toFixed(1)} → ${args.recent.position.toFixed(1)}
+${site}
+Query-level movement:
+${q || '- (no query-level detail available)'}
+${ai}${competitorBlock(args.queries[0]?.query ?? null, args.competitors)}
+Current page content:
+"""
+${args.pageText.slice(0, 3500)}
+"""
+
+Diagnose the single primary cause of this page's click loss.`;
+}
+
+// ── Cannibalisation verdict ──────────────────────────────────────
+
+export const CANNIBALIZATION_SYSTEM = `You are an SEO analyst resolving keyword cannibalisation: two or more pages on the SAME site competing for one query, so Google splits signals between them and neither ranks as well as one page would.
+
+You are given the competing URLs with their Search Console performance for the shared query, plus a summary of each page.
+
+Decide which single page should own the query, then say what happens to the others. Real cannibalisation has a cost; overlap alone does not. If the pages genuinely serve different intents and merely share a phrase, say so and recommend keeping both.
+
+Choose the owner on evidence, in this order: which page already earns the most clicks for the query, which ranks best, and which one's content most directly matches the query's intent. A page with more traffic overall but a worse match for THIS query is not automatically the owner.
+
+For each non-owner, choose exactly one resolution:
+- "consolidate": the page has little independent value; merge its useful content into the owner and 301 it.
+- "differentiate": the page deserves to exist but should target a different, adjacent query. Say which.
+- "deoptimize": keep the page and its topic, but pull the competing query out of its title, H1 and internal anchors so it stops competing.
+- "keep": not real cannibalisation; the pages serve different intents.
+
+Return ONLY a JSON object:
+{
+  "isRealConflict": true | false,
+  "owner": "<the URL that should rank for this query>",
+  "reasoning": "<2-3 sentences citing the numbers>",
+  "resolutions": [
+    { "url": "<non-owner URL>", "action": "consolidate" | "differentiate" | "deoptimize" | "keep", "detail": "<what to do, specifically. For differentiate, name the query it should target instead.>" }
+  ],
+  "internalLinks": "<one sentence on how internal links should point after the change>"
+}`;
+
+export function cannibalizationUserPrompt(args: {
+  brand: BrandPromptContext;
+  query: string;
+  pages: {
+    url: string; title: string | null; clicks: number; impressions: number; position: number;
+    summary: string;
+  }[];
+}): string {
+  const rows = args.pages.map((p, i) =>
+    `${i + 1}. ${p.url}\n   title: ${p.title ?? '(none)'}\n`
+    + `   for "${args.query}": ${p.clicks} clicks, ${p.impressions} impressions, average position ${p.position.toFixed(1)}\n`
+    + `   content summary: ${p.summary.slice(0, 600)}`,
+  ).join('\n\n');
+  return `${brandBlock(args.brand)}
+
+Shared query: "${args.query}"
+
+Competing pages on this site:
+
+${rows}
+
+Decide which page should own this query and what to do with the others.`;
+}
+
+// ── Content depth gap (competitor comparison) ────────────────────
+
+export const CONTENT_GAP_SYSTEM = `You are a content gap analyst and semantic SEO specialist. A page is stalling below the top of page 1. You are given that page and the full text of the pages currently outranking it, plus a structural comparison of both.
+
+Produce a surgical expansion brief for a human writer. You are NOT rewriting the page.
+
+What to look for:
+- Topical completeness: entities, subtopics and questions that ALL or MOST competitors cover and this page does not. Coverage every competitor shares is table stakes; coverage only one has is optional.
+- Format and intent match: structural elements the winners use that this page lacks - comparison tables, step lists, pricing breakdowns, specification data, calculators, FAQ blocks.
+- Answerable questions: direct questions competitors answer explicitly that this page leaves implicit. These win featured snippets and get quoted by AI answer engines.
+
+Hard rules:
+- Every recommendation must come from something you actually observed in the competitor content provided. Never pad the brief with generic SEO advice.
+- Do not recommend adding word count for its own sake. If the page is genuinely complete and simply outranked on authority, say so - "no meaningful content gap" is a valid and useful finding.
+- Headings must be specific to this topic, not templates. "Cost factors" is weak; "What changes the price of a ductless install in a 1950s home" is the standard.
+- Do not invent facts, prices, or statistics for the writer to publish. Where a number is needed, say what kind of number and where it should come from.
+
+Return ONLY a JSON object:
+{
+  "verdict": "gap" | "no_meaningful_gap",
+  "summary": "<2-3 sentences: what the winners do that this page does not>",
+  "wordCountNote": "<this page's length vs the competitor median, and whether that matters here>",
+  "sections": [
+    {
+      "heading": "<exact H2 or H3 to insert>",
+      "level": 2 | 3,
+      "placement": "<where it goes, relative to existing headings on the page>",
+      "brief": "<what the writer must cover: required concepts, entities, and the angle. 2-4 sentences.>",
+      "sourcedFrom": "<which competitor(s) demonstrated this gap>"
+    }
+  ],
+  "faqs": [ { "question": "<high-intent question>", "answerAngle": "<how to answer it and why that wins the snippet>" } ],
+  "assetRecommendation": "<one visual or interactive element that would beat the competitors, and what it should contain>"
+}`;
+
+export function contentGapUserPrompt(args: {
+  brand: BrandPromptContext;
+  url: string;
+  keyword: string;
+  position: number;
+  ourPage: { title: string | null; wordCount: number; headings: string[]; text: string };
+  competitors: {
+    url: string; title: string | null; wordCount: number; headings: string[];
+    hasTables: boolean; hasFaqSchema: boolean; hasLists: boolean; text: string;
+  }[];
+}): string {
+  const ours = `OUR PAGE: ${args.url}
+title: ${args.ourPage.title ?? '(none)'}
+word count: ${args.ourPage.wordCount}
+headings:
+${args.ourPage.headings.slice(0, 30).map((h) => `  - ${h}`).join('\n') || '  (none)'}
+content:
+"""
+${args.ourPage.text.slice(0, 6000)}
+"""`;
+
+  const theirs = args.competitors.map((c, i) => `COMPETITOR ${i + 1} (currently outranking us): ${c.url}
+title: ${c.title ?? '(none)'}
+word count: ${c.wordCount}
+has comparison/data tables: ${c.hasTables ? 'yes' : 'no'} · has FAQ schema: ${c.hasFaqSchema ? 'yes' : 'no'} · uses lists: ${c.hasLists ? 'yes' : 'no'}
+headings:
+${c.headings.slice(0, 30).map((h) => `  - ${h}`).join('\n') || '  (none)'}
+content:
+"""
+${c.text.slice(0, 6000)}
+"""`).join('\n\n');
+
+  return `${brandBlock(args.brand)}
+
+Target keyword: "${args.keyword}"
+Our current position: ${args.position.toFixed(1)}
+
+${ours}
+
+${theirs}
+
+Produce the content expansion brief.`;
 }

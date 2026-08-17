@@ -2,7 +2,7 @@
  * Module: Striking distance (GSC-driven, Channel A). The highest-ROI module.
  *
  * Detect: pull Search Analytics (query × page) for the last 28 days, find
- *   pages with queries ranking in positions 4-15 (page-1 edge) that have
+ *   pages with queries ranking in positions 6-15 (page-1 edge) that have
  *   real impressions. Group by page; each page with enough striking-distance
  *   opportunity becomes one fix.
  * Generate: LLM produces a sharper title + a focused content section
@@ -20,8 +20,14 @@ import type {
   DetectedIssue, FixContext, FixModule, GeneratedDraft, PreviewBlock, RecheckVerdict, ShipResult,
 } from '../types';
 
-const POS_MIN = 4;
-const POS_MAX = 15;
+// Starts at 6 so this module and `ctr-rescue` (positions 1-5) partition
+// the SERP rather than overlapping it. Both write the page <title>, and
+// the engine's dedupe key is scoped within a module, so an overlapping
+// band let both queue a title rewrite for the same URL. The split also
+// follows the diagnosis: at 1-5 the page is visible and metadata is the
+// lever; from 6 down the problem is rank itself, which is this module.
+export const POS_MIN = 6;
+export const POS_MAX = 15;
 const MIN_IMPRESSIONS = 20;     // per query, to ignore noise
 const MIN_QUERIES_PER_PAGE = 1; // a page needs at least this many striking queries
 
@@ -30,7 +36,7 @@ interface StrikingQuery { query: string; position: number; impressions: number }
 export const strikingDistanceModule: FixModule = {
   key: 'striking-distance',
   title: 'Striking distance',
-  description: 'Find position 4-15 queries and optimise the page to climb. Highest ROI.',
+  description: 'Find position 6-15 queries and optimise the page to climb. Highest ROI.',
   channel: 'A',
   trigger: 'gsc',
   minPlan: 'pro',

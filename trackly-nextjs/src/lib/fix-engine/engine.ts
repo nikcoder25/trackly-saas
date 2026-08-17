@@ -318,7 +318,11 @@ async function finalizeShippedFix(
 ): Promise<void> {
   const aiBefore = await getBrandAiVisibility(brandId);
   let gscBefore: Record<string, unknown> | null = null;
-  if (fix.targetUrl) {
+  // Diagnostic modules write nothing to the site, so the page's later CTR
+  // movement isn't theirs to claim. Skipping the baseline keeps them out
+  // of findFixesDueOutcome (which requires gsc_before) and therefore out
+  // of the learning priors and the measured auto-revert. See FixModule.
+  if (fix.targetUrl && !mod.diagnostic) {
     try {
       const { getPageMetrics, normUrl, fetchSiteMetricsLive } = await import('./page-metrics');
       const m = (await getPageMetrics(brandId, [fix.targetUrl])).get(normUrl(fix.targetUrl));
