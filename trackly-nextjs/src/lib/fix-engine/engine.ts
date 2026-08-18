@@ -404,7 +404,18 @@ export async function shipFix(fixId: string, brandId: string, userId: string | n
     throw new Error(`Cannot ship a fix in status '${fix.status}'`);
   }
   if (!(await claimFixTransition(fix.id, fix.status, 'shipping'))) {
-    return (await getFix(fixId, brandId))!;
+    // Another request got there first. Normally that one is mid-flight or
+    // already done, and returning the current row is right. But if the row
+    // is STILL sitting at a shippable status, nothing shipped and nothing
+    // failed - the caller gets its fix back unchanged and the dashboard
+    // simply re-renders the Ship button, which reads as the click doing
+    // nothing at all. Say so instead of failing silently.
+    const current = (await getFix(fixId, brandId))!;
+    if (['approved', 'failed'].includes(current.status)) {
+      logger.warn('fix_engine.ship_claim_lost', { fixId: fix.id, status: current.status });
+      throw new Error('Could not start shipping this fix - it may have been changed in another tab. Reload and try again.');
+    }
+    return current;
   }
 
   const ctx = await buildContext(brandId);

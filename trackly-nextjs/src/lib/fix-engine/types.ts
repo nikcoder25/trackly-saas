@@ -295,6 +295,14 @@ export interface FixRow {
    * fix has been verified once.
    */
   liveCheck: Record<string, unknown> | null;
+  /**
+   * When the Connector plugin pulled and applied this Channel-B fix.
+   *
+   * Null means the instruction is still queued. Channel-B "shipped" only
+   * ever meant queued - the queue IS this row - so a card that reads
+   * SHIPPED while this is null is claiming something the site has not done.
+   */
+  connectorDeliveredAt: string | null;
   shipResult: Record<string, unknown> | null;
   scoreBefore: number | null;
   scoreAfter: number | null;
