@@ -85,24 +85,57 @@ const COLLAPSE_POSITION_DRIFT = 5;
 export type DecayPattern = 'quiet' | 'drifting' | 'collapsed' | 'impressions_lost';
 
 /**
- * Which module actually fixes each diagnosis. The decay module deliberately
- * owns none of these: duplicating a fix that already exists elsewhere is
- * how two modules end up writing the same field on the same page.
+ * What to do next about each diagnosis. The decay module deliberately owns
+ * none of these: duplicating a fix that already exists elsewhere is how two
+ * modules end up writing the same field on the same page.
  *
- * `module` is null when the engine has no module that can fix the cause. On-
- * page friction is the honest case: removing a consent wall, cutting 600KB of
- * script or deleting an ad slot is a change to the site's templates, not to
- * one page's copy, and no module here can make it. Pointing the user at a
- * module that would edit prose instead would read as a fix and quietly not be
- * one, so the finding says plainly that this one is a human job.
+ * `kind` is the part that has to be honest, because a diagnosis is worth
+ * nothing to the user if they cannot tell how far it gets them:
+ *
+ * - 'fix' writes to the site. One click and the page changes.
+ * - 'analysis' is another diagnostic. It narrows the problem down but still
+ *   publishes nothing, so a card that offered it as "the fix" would send the
+ *   user round a loop - accept a finding, get another finding, and never
+ *   reach a change. Two of the six causes route this way for a real reason
+ *   (deciding WHICH url should own a query, or what a competitor covers,
+ *   takes its own pass) and the UI now says so instead of implying a fix.
+ * - 'manual' has no module at all. Removing a consent wall or cutting 600KB
+ *   of script is a template and performance job; pointing at a prose module
+ *   would read as a fix and quietly not be one.
  */
-export const ROUTING: Record<DecayVector, { module: string | null; label: string }> = {
-  stale_content: { module: 'content-freshness', label: 'Content freshness' },
-  intent_shift: { module: 'geo-page-rewrite', label: 'GEO page rewrite' },
-  competitor_leapfrog: { module: 'content-gap', label: 'Content gap' },
-  cannibalization: { module: 'cannibalization', label: 'Cannibalisation' },
-  ai_answer_capture: { module: 'citable-passages', label: 'Citable passages' },
-  onpage_friction: { module: null, label: 'Manual page-experience work — no module ships this' },
+export type RouteKind = 'fix' | 'analysis' | 'manual';
+
+export const ROUTING: Record<DecayVector, {
+  module: string | null;
+  label: string;
+  kind: RouteKind;
+  /** What the next step actually achieves, in the user's terms. */
+  outcome: string;
+}> = {
+  stale_content: {
+    module: 'content-freshness', label: 'Content freshness', kind: 'fix',
+    outcome: 'Adds a dated update block to this page.',
+  },
+  intent_shift: {
+    module: 'geo-page-rewrite', label: 'GEO page rewrite', kind: 'fix',
+    outcome: 'Rewrites this page around what searchers now want.',
+  },
+  competitor_leapfrog: {
+    module: 'content-gap', label: 'Content gap', kind: 'analysis',
+    outcome: 'Reads the pages outranking you and briefs what to add. Produces a writer’s brief, not a published change.',
+  },
+  cannibalization: {
+    module: 'cannibalization', label: 'Cannibalisation', kind: 'analysis',
+    outcome: 'Decides which of your competing URLs should own the query, and what to do with the others. That verdict is what the consolidation or title fix is then based on.',
+  },
+  ai_answer_capture: {
+    module: 'citable-passages', label: 'Citable passages', kind: 'fix',
+    outcome: 'Adds a TL;DR and key-facts block AI answers can quote.',
+  },
+  onpage_friction: {
+    module: null, label: 'Manual page-experience work', kind: 'manual',
+    outcome: 'No module ships this — it is template and performance work on your site.',
+  },
 };
 
 interface WindowStats { clicks: number; impressions: number; ctr: number; position: number }
@@ -382,7 +415,7 @@ export const searchDecayModule: FixModule = {
     const g = draft.generated as {
       primaryCause?: DecayVector; confidence?: number; evidence?: string; ruledOut?: string;
       actions?: { action: string; priority: string }[];
-      routeTo?: { label: string };
+      routeTo?: { label: string; kind?: RouteKind; outcome?: string };
     };
     const actions = (g.actions ?? [])
       .map((a) => `- [${a.priority}] ${a.action}`)
@@ -391,7 +424,9 @@ export const searchDecayModule: FixModule = {
       kind: 'key-values',
       label: 'Decay diagnosis',
       addNote: 'A diagnosis, not an edit. Nothing is written to your site when you accept this - '
-        + `it tells you which fix to run next${g.routeTo ? ` (suggested: ${g.routeTo.label})` : ''}.`,
+        + (g.routeTo
+          ? `next step: ${g.routeTo.label}${g.routeTo.kind === 'analysis' ? ' (another analysis, not a published change)' : ''}.`
+          : 'it tells you what to do next.'),
       after: `Primary cause: ${g.primaryCause ?? 'unknown'} (confidence ${g.confidence ?? '?'}/10)\n\n`
         + `Evidence: ${g.evidence ?? ''}\n\n`
         + `Ruled out: ${g.ruledOut ?? ''}\n\n`
@@ -405,7 +440,10 @@ export const searchDecayModule: FixModule = {
    * module, and `diagnostic: true` keeps this out of outcome measurement.
    */
   async ship(_issue: DetectedIssue, draft: GeneratedDraft): Promise<ShipResult> {
-    const g = draft.generated as { primaryCause?: DecayVector; confidence?: number; routeTo?: { module: string | null; label: string } };
+    const g = draft.generated as {
+      primaryCause?: DecayVector; confidence?: number;
+      routeTo?: { module: string | null; label: string; kind?: RouteKind; outcome?: string };
+    };
     return {
       ok: true,
       detail: {
@@ -413,8 +451,13 @@ export const searchDecayModule: FixModule = {
         primaryCause: g.primaryCause ?? null,
         confidence: g.confidence ?? null,
         recommendedModule: g.routeTo?.module ?? null,
+        recommendedKind: g.routeTo?.kind ?? null,
       },
-      after: { diagnosis: g.primaryCause ?? null, recommendedModule: g.routeTo?.module ?? null },
+      after: {
+        diagnosis: g.primaryCause ?? null,
+        recommendedModule: g.routeTo?.module ?? null,
+        recommendedKind: g.routeTo?.kind ?? null,
+      },
     };
   },
 

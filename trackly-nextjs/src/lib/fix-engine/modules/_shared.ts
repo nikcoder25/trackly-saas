@@ -49,10 +49,24 @@ export async function resolveCmsForBrand(
 }
 
 /**
- * Channel B delivery: persist a Connector instruction the plugin will
- * pull and apply. Until the Connector is live this records the intent +
- * payload so the content is never lost; the UI can also offer it as a
- * manual download. The returned ShipResult is treated as "shipped".
+ * Channel B delivery: queue an instruction for the Connector plugin to pull
+ * and apply.
+ *
+ * The queue IS the fixes row - listPendingConnectorInstructions selects
+ * channel-B rows at status 'shipped' with connector_delivered_at NULL - so
+ * "shipped" here has only ever meant QUEUED, never applied.
+ *
+ * That distinction used to be invisible, and with no Connector paired it was
+ * a straight falsehood. This returned ok:true unconditionally, so a brand
+ * with no plugin got a fix marked SHIPPED, a green tick, and a row queued
+ * for a puller that does not exist. The change never reached the site and
+ * nothing ever said so - the file-download route right next door documents
+ * that such a brand has to upload the file by hand, which the user had no
+ * reason to do while the card claimed the job was done.
+ *
+ * So a missing Connector is now a failed ship with an actionable reason.
+ * The payload still comes back on the result, and `generated` is untouched,
+ * so the Download-file fallback keeps working from the ATTENTION state.
  */
 export async function queueConnectorInstruction(
   ctx: FixContext,
@@ -60,14 +74,27 @@ export async function queueConnectorInstruction(
   instruction: { op: string; payload: Record<string, unknown> },
 ): Promise<ShipResult> {
   const conn = await getConnection(ctx.brand.id, 'connector');
-  const delivery = conn && conn.status === 'active' ? 'connector_pull' : 'pending_connector';
+  const connectorLive = !!conn && conn.status === 'active';
+
   await logFixEvent(fixId, ctx.brand.id, ctx.tenantId, 'connector.instruction.queued', {
     op: instruction.op,
-    delivery,
+    delivery: connectorLive ? 'connector_pull' : 'no_connector',
   });
+
+  if (!connectorLive) {
+    return {
+      ok: false,
+      detail: { channel: 'B', delivery: 'no_connector', op: instruction.op },
+      after: instruction.payload,
+      error: 'This change needs the Livesov Connector plugin to write to your site, and your site has not paired one. '
+        + 'Either install it from Connect Site and ship again, or use Download file, upload it to your site, and hit Re-check - '
+        + 'the live page is what resolves this fix.',
+    };
+  }
+
   return {
     ok: true,
-    detail: { channel: 'B', delivery, op: instruction.op },
+    detail: { channel: 'B', delivery: 'connector_pull', op: instruction.op },
     after: instruction.payload,
   };
 }

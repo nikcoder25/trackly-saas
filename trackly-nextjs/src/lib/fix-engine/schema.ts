@@ -217,6 +217,8 @@ export function mapFixRow(r: DbRow): FixRow {
     beforeSnapshot: (r.before_snapshot as Record<string, unknown> | null) ?? null,
     afterSnapshot: (r.after_snapshot as Record<string, unknown> | null) ?? null,
     liveCheck: (r.live_check as Record<string, unknown> | null) ?? null,
+    connectorDeliveredAt: (r.connector_delivered_at as Date | string | null)
+      ? new Date(r.connector_delivered_at as string).toISOString() : null,
     shipResult: (r.ship_result as Record<string, unknown> | null) ?? null,
     scoreBefore: r.score_before == null ? null : Number(r.score_before),
     scoreAfter: r.score_after == null ? null : Number(r.score_after),

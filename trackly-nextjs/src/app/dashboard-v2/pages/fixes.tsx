@@ -39,6 +39,8 @@ interface FixRow {
   archivedAt?: string | null;
   /** Last live-page verification. See LiveCheck / live-check.ts. */
   liveCheck?: LiveCheck | null;
+  /** When your site's Connector actually applied a Channel-B fix. Null = queued. */
+  connectorDeliveredAt?: string | null;
 }
 
 /** One thing we looked for on the live page, and whether it was there. */
@@ -217,7 +219,13 @@ const MX_CSS = `
 `;
 
 // ── status / severity / grouping helpers ──
-function statusMeta(s: string): { label: string; color: string; bg: string } {
+/**
+ * `diagnostic` relabels the shipped state. A diagnostic module writes
+ * nothing to the site by design, so "SHIPPED" tells the user their page
+ * changed when it did not - and they then go looking for a change that was
+ * never made. Same colour, honest word.
+ */
+function statusMeta(s: string, diagnostic = false, queuedOnConnector = false): { label: string; color: string; bg: string } {
   const m: Record<string, { label: string; color: string; bg: string }> = {
     detected: { label: 'DETECTED', color: 'var(--text-3)', bg: 'var(--surface-2)' },
     generating: { label: 'GENERATING', color: 'var(--primary)', bg: 'var(--primary-50)' },
@@ -226,8 +234,12 @@ function statusMeta(s: string): { label: string; color: string; bg: string } {
     approved: { label: 'APPROVED', color: 'var(--info)', bg: 'var(--info-50)' },
     shipping: { label: 'SHIPPING', color: 'var(--info)', bg: 'var(--info-50)' },
     staged: { label: 'STAGED DRAFT', color: 'var(--info)', bg: 'var(--info-50)' },
-    shipped: { label: 'SHIPPED', color: 'var(--success)', bg: 'var(--success-50)' },
-    verified: { label: 'VERIFIED', color: 'var(--success)', bg: 'var(--success-50)' },
+    shipped: queuedOnConnector
+      ? { label: 'QUEUED', color: 'var(--info)', bg: 'var(--info-50)' }
+      : { label: diagnostic ? 'DIAGNOSED' : 'SHIPPED', color: 'var(--success)', bg: 'var(--success-50)' },
+    verified: queuedOnConnector
+      ? { label: 'QUEUED', color: 'var(--info)', bg: 'var(--info-50)' }
+      : { label: diagnostic ? 'DIAGNOSED' : 'VERIFIED', color: 'var(--success)', bg: 'var(--success-50)' },
     failed: { label: 'ATTENTION', color: 'var(--danger)', bg: 'var(--danger-50)' },
     reverted: { label: 'REVERTED', color: 'var(--warn)', bg: 'var(--warn-50)' },
     dismissed: { label: 'IGNORED', color: 'var(--text-3)', bg: 'var(--surface-2)' },
@@ -578,9 +590,22 @@ export function PageFixes() {
       if (action === 'generate') { await loadPreview(fixId); flash('Fix ready to review'); }
       if (action === 'approve') flash('Approved — ready to ship');
       if (action === 'ship') {
-        if (d.ok === false) setError(d.error || 'Ship failed');
-        else if (d.fix && isDiagnosticModule(d.fix.moduleKey)) flash('Finding accepted — nothing was written to your site');
-        else flash('Shipped to live site — it stays in this list until you archive it');
+        // Report what the row actually says, not what was hoped for. The
+        // ship route returns 200 with the fix even when the write failed,
+        // so the old `d.ok === false` check never fired and a failed ship
+        // still flashed "Shipped to live site" while the card went red.
+        const shipped = d.fix as FixRow | undefined;
+        if (!shipped || shipped.status === 'failed') {
+          setError(shipped?.error || d.error || 'The change could not be written to your site.');
+        } else if (shipped.status === 'approved') {
+          setError('Nothing was shipped — the fix is still waiting. Reload and try again.');
+        } else if (isDiagnosticModule(shipped.moduleKey)) {
+          flash('Finding accepted — nothing was written to your site');
+        } else if (shipped.channel === 'B' && !shipped.connectorDeliveredAt) {
+          flash('Queued — your site’s Connector applies it within a few minutes');
+        } else {
+          flash('Shipped to live site — it stays in this list until you archive it');
+        }
       }
       if (action === 'stage') { if (d.ok === false) setError(d.error || 'Staging failed'); else flash('Staged as a draft — the Connector will create a preview shortly'); }
       if (action === 'publish') flash('Publishing the staged draft…');
@@ -798,6 +823,24 @@ export function PageFixes() {
       await loadPreview(fixId);
       flash('Draft updated');
     } catch (e) { setError((e as Error).message); } finally { setBusy((b) => ({ ...b, [fixId]: false })); }
+  };
+
+  // Run the module a diagnosis recommends, on the page it diagnosed. This is
+  // what turns "your page decayed because of X" into an actual change - the
+  // recommendation used to be text with nowhere to go.
+  const runRecommended = async (moduleKey: string, url: string | null) => {
+    if (!brandId) return;
+    setFixesOpen(true);
+    setToast(`Creating the ${moduleKey.replace(/-/g, ' ')} fix…`);
+    try {
+      const d = await api(`/api/brands/${brandId}/fixes/targeted`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ moduleKey, url: url ?? '' }),
+      });
+      await load(brandId);
+      flash('Created — generate the draft to see the change before it ships');
+      requestAnimationFrame(() => fixesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    } catch (e) { setError((e as Error).message); }
   };
 
   // Fetch the live page and confirm the shipped value is really on it.
@@ -1463,6 +1506,8 @@ export function PageFixes() {
             editableField={EDITABLE_FIELD[f.moduleKey]}
             onEditDraft={(patch) => editDraft(f.id, patch)}
             onVerifyLive={() => verifyLive(f.id)}
+            onRunRecommended={(moduleKey) => runRecommended(moduleKey, f.targetUrl)}
+            onRunScan={runModuleScan}
             downloadHref={f.channel === 'B' ? `/api/brands/${brandId}/fixes/${f.id}/file` : undefined}
           />
         );
@@ -2335,6 +2380,91 @@ function BeforeAfter({ before, after, label, addNote }: { before?: string; after
  * working rather than break on a missing field.
  */
 /**
+ * The next step after a diagnosis, as a button.
+ *
+ * A diagnostic module ends by naming what should happen next - "this page
+ * decayed because of cannibalisation, run Cannibalisation" - and until now
+ * that was where the product stopped. The recommendation was stored, shown
+ * in the preview note, and the user was left to find the module themselves.
+ * Accepting a finding therefore looked like shipping a fix while changing
+ * nothing, which reads as the tool being broken.
+ *
+ * The wording follows `kind`, and it matters that it is honest:
+ *   fix      - one click and the page changes.
+ *   analysis - the next pass is another diagnostic. It narrows the problem
+ *              down and still publishes nothing, so promising a fix here
+ *              would just move the same disappointment one step along.
+ *   manual   - no module ships it; say so and stop.
+ */
+function NextStepPanel({ fix, diagnostic, busy, onRunTargeted, onRunScan }: {
+  fix: FixRow;
+  diagnostic: boolean;
+  busy: boolean;
+  onRunTargeted: (moduleKey: string) => void;
+  onRunScan: (moduleKey: string) => void;
+}) {
+  const g = (fix.generated ?? null) as {
+    routeTo?: { module?: string | null; label?: string; kind?: string; outcome?: string };
+  } | null;
+  const route = g?.routeTo;
+  if (!diagnostic || !route?.label) return null;
+
+  const kind = route.kind ?? (route.module ? 'fix' : 'manual');
+  const moduleKey = route.module ?? null;
+  // Modules that can be pointed at a single page vs ones that only run as a
+  // site-wide pass. Cannibalisation and Content gap are the latter: deciding
+  // which URL should own a query needs every URL, not just this one.
+  const PAGE_LEVEL = new Set([
+    'content-freshness', 'geo-page-rewrite', 'citable-passages', 'title-rewrite',
+    'meta-rewrite', 'faq-schema', 'schema-markup', 'internal-linking',
+    'external-citations', 'image-alt', 'keyword-opportunities',
+  ]);
+  const canTarget = !!moduleKey && PAGE_LEVEL.has(moduleKey);
+
+  return (
+    <div className="nb-sm" style={{ padding: '12px 14px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', display: 'grid', gap: 9 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span className="xlbl" style={{ color: 'var(--info)' }}>NEXT STEP</span>
+        <span className="disp" style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{route.label}</span>
+        {kind === 'analysis' && (
+          <span className="chip" style={{ fontSize: 10.5, padding: '3px 8px', color: 'var(--text-2)' }}>another analysis</span>
+        )}
+      </div>
+
+      {route.outcome && (
+        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-2)', fontWeight: 500 }}>{route.outcome}</div>
+      )}
+
+      {kind === 'manual' ? (
+        <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--text-2)', fontWeight: 500 }}>
+          Nothing to run — this one needs a change to your site’s templates or hosting, which no fix module can make for you.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', alignItems: 'center' }}>
+          {canTarget ? (
+            <button className="xbtn" disabled={busy || !fix.targetUrl} onClick={() => onRunTargeted(moduleKey!)}
+              style={{ background: 'var(--info)', padding: '8px 14px' }}
+              title={fix.targetUrl ? `Create the ${route.label} fix for this page` : 'This finding has no page URL to act on'}>
+              → RUN {route.label.toUpperCase()} ON THIS PAGE
+            </button>
+          ) : (
+            <button className="xbtn" disabled={busy} onClick={() => onRunScan(moduleKey!)}
+              style={{ background: 'var(--info)', padding: '8px 14px' }}
+              title={`${route.label} compares pages across your whole site, so it runs as a scan`}>
+              → RUN {route.label.toUpperCase()}
+            </button>
+          )}
+          <span className="xlbl" style={{ color: 'var(--text-2)' }}>
+            {canTarget ? 'creates a draft you review before it ships'
+              : 'runs across your site — it needs every URL to compare'}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * "Is it actually on my page?" panel for a shipped fix.
  *
  * The card's SHIPPED chip only means the write was attempted and the CMS
@@ -2530,7 +2660,7 @@ function CtrOptionPicker({ fix, busy, onEditDraft }: {
   );
 }
 
-function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRegenerate, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, onDismiss, onRestore, onArchive, editableField, onEditDraft, onVerifyLive, downloadHref, open, onToggleOpen }: {
+function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRegenerate, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, onDismiss, onRestore, onArchive, editableField, onEditDraft, onVerifyLive, onRunRecommended, onRunScan, downloadHref, open, onToggleOpen }: {
   fix: FixRow; title: string; preview: PreviewBlock | null | undefined; cost: number; revertable: boolean; impact?: 1 | 2 | 3;
   /** Module reports findings instead of editing the site — relabels the ship step. */
   diagnostic?: boolean;
@@ -2544,6 +2674,8 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
   editableField?: string;
   onEditDraft: (patch: Record<string, string>) => void;
   onVerifyLive: () => void;
+  onRunRecommended: (moduleKey: string) => void;
+  onRunScan: (moduleKey: string) => void;
   downloadHref?: string;
   open: boolean;
   onToggleOpen: () => void;
@@ -2557,7 +2689,12 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
   const [assignee, setAssignee] = React.useState(fix.assignee || '');
   React.useEffect(() => { setNote(fix.note || ''); setAssignee(fix.assignee || ''); }, [fix.note, fix.assignee]);
   const s = fix.status;
-  const sm = statusMeta(s); const sev = sevMeta(fix.severity); const cf = chanFill(fix.channel);
+  // Channel B is applied by the Connector plugin on YOUR site, not by us.
+  // Until it acks (connectorDeliveredAt), the change is queued - saying
+  // SHIPPED there tells the user their site changed when it has not.
+  const queuedOnConnector = fix.channel === 'B' && !fix.connectorDeliveredAt
+    && (s === 'shipped' || s === 'verified');
+  const sm = statusMeta(s, diagnostic, queuedOnConnector); const sev = sevMeta(fix.severity); const cf = chanFill(fix.channel);
   const isDetected = s === 'detected';
   const isReview = s === 'generated' || s === 'preview_ready';
   const isApproved = s === 'approved';
@@ -2798,6 +2935,26 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
           <div className="nb-sm" style={{ padding: '14px 16px', background: 'var(--danger-50)', borderColor: 'var(--danger)', boxShadow: 'none', display: 'flex', gap: 11, alignItems: 'flex-start' }}><span className="disp" style={{ color: 'var(--danger)', fontSize: 16, fontWeight: 700 }}>✕</span><span style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--text)', fontWeight: 500 }}><b className="disp" style={{ color: 'var(--danger)' }}>FAILED.</b> {fix.error}</span></div>
         )}
 
+        {/* A Channel-B fix is applied by the plugin on the user's own site.
+            Between shipping and that ack there is a real window where the
+            card used to say SHIPPED and the site was unchanged. */}
+        {queuedOnConnector && (
+          <div className="nb-sm" style={{ padding: '11px 13px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', fontSize: 12.5, lineHeight: 1.5, color: 'var(--text)', fontWeight: 500 }}>
+            <strong>Queued, not live yet.</strong> This one is written by the Connector plugin on your own site, which picks up changes every few minutes. It isn’t on your site until your site applies it — use <em>Check my page</em> below to see the moment it lands{downloadHref ? ', or Download file and upload it yourself' : ''}.
+          </div>
+        )}
+
+        {/* Where an accepted diagnosis actually leads. Shown once the
+            finding is accepted, which is the moment the user asks "so what
+            changed?" and, for a diagnostic, the honest answer is "nothing
+            yet - here is the thing that does". */}
+        {isLive && (
+          <NextStepPanel
+            fix={fix} diagnostic={!!diagnostic} busy={busy}
+            onRunTargeted={onRunRecommended} onRunScan={onRunScan}
+          />
+        )}
+
         {/* "Is it actually on my page?" - only once the fix has reached the
             site (or tried to). A draft has nothing live to check yet. */}
         {(isLive || isAttention) && (
@@ -2847,7 +3004,10 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
             </div>
           )}
           {isLive && (<>
-            <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)', fontSize: 11, padding: '6px 12px' }}>✓ {s === 'verified' ? 'VERIFIED' : 'SHIPPED'}</span>
+            {/* A diagnosis publishes nothing, so calling it SHIPPED reads as
+                "this is on my site now" - which is exactly the misreading
+                that sends people looking for a change that was never made. */}
+            <span className="chip" style={{ background: sm.bg, color: sm.color, borderColor: sm.color, fontSize: 11, padding: '6px 12px' }}>{queuedOnConnector ? '⏳' : '✓'} {sm.label}</span>
             <button className="gbtn" onClick={onRecheck} disabled={busy} style={{ padding: '7px 13px' }}>↻ Re-check</button>
             {/* Revise a live title/meta fix: re-opens it for review; the page
                 keeps its shipped copy until the new draft is re-shipped. */}
