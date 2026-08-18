@@ -97,6 +97,41 @@ const sha16 = (s: string) => crypto.createHash('sha256').update(s).digest('hex')
 
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
 
+/**
+ * Resolve whatever the user (or the classifier LLM) gave as "the page" into
+ * an absolute URL on a real site.
+ *
+ * People write pages as paths - "Make /features rank for ..." - and the
+ * assistant passes that through verbatim. Storing a bare path as targetUrl
+ * is a live bug, not just untidiness: the dashboard renders targetUrl as a
+ * link, and a relative href resolves against the DASHBOARD's own origin, so
+ * the user's fix card points at this product's website instead of their own
+ * site. The crawl of the page fails for the same reason, silently degrading
+ * generation. So every path is anchored to the brand's website here, at the
+ * single choke point both the assistant and the targeted API pass through.
+ *
+ * A path with no website to anchor it is a question for the user, not a
+ * guess - the thrown message is user-facing (the assistant surfaces module
+ * errors as its clarifying question).
+ */
+export function resolveTargetUrl(raw: string, website?: string): string {
+  const url = (raw || '').trim();
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith('//')) return `https:${url}`;
+  // "example.com/page" - schemeless, but the segment before the first slash
+  // carries a dot, so it reads as a host rather than a path.
+  const beforeSlash = url.split('/')[0];
+  if (beforeSlash.includes('.') && !/\s/.test(beforeSlash)) {
+    try { return new URL(`https://${url}`).toString(); } catch { /* treat as a path */ }
+  }
+  const origin = originOf('', website);
+  if (!origin) {
+    throw new Error(`“${url}” looks like a page path, but I don’t know which site it’s on. Add your website to the brand, or give the full URL (https://…).`);
+  }
+  return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
 /** Site origin from the page URL (preferred) or the brand website. */
 function originOf(url: string, website?: string): string | null {
   for (const cand of [url, website]) {
@@ -169,6 +204,8 @@ export async function createTargetedFix(args: CreateTargetedArgs): Promise<Creat
   const correctFact = (args.correctFact || '').trim();
 
   if (!getModule(moduleKey)) throw new Error(`Unknown fix type: ${moduleKey}`);
+  // Anchor paths to the brand's site before anything stores or crawls them.
+  url = resolveTargetUrl(url, args.website);
   if (!url && !info.siteLevel) throw new Error('Which page is this about? Add the page URL.');
   if (moduleKey === 'passage-rewrite' && passage.length < 12) {
     throw new Error('Paste the exact paragraph you want rewritten (at least a sentence).');

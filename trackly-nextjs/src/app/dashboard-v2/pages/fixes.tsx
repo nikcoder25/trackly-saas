@@ -2052,10 +2052,15 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
 // fix capabilities (every module that can run on demand), extracts the inputs,
 // and creates + drafts the task — or asks one clarifying question.
 // Modules that also run in a scan can then be swept across the whole site.
+// Examples are seeds for the user's own words, so they must stay generic:
+// a product-specific keyword here reads as the app recommending it, and one
+// click + submit would create that exact (irrelevant) fix on their brand.
+// The two open-ended ones deliberately name no keyword/anchor - the
+// assistant asks for it, which is the right outcome for an unedited click.
 const ASSISTANT_EXAMPLES = [
   'Rewrite the title on /pricing to be punchier',
-  'Add internal links from my blog posts to /pricing with the anchor “AI visibility”',
-  'Make /features rank for “ai visibility tracking for agencies”',
+  'Add internal links from my blog posts to my most important page',
+  'Help one of my pages rank higher for a keyword I care about',
   'Write a meta description for my homepage',
   'Add an FAQ section to /pricing',
   'Optimise /product for AI answers',
@@ -2424,6 +2429,11 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
   const stageable = STAGEABLE_MODULES.has(fix.moduleKey);
   const url = fix.targetUrl || '';
   const host = url.replace(/^https?:\/\//, '');
+  // Link the target only when it's an absolute URL. A relative path (stored
+  // by an older targeted fix before paths were resolved server-side) would
+  // resolve against THIS dashboard's origin - sending the user to our
+  // domain's /whatever instead of their own site.
+  const absoluteUrl = /^https?:\/\//i.test(url) ? url : null;
 
   // Collapsed: one scannable line — severity, what & where, status — that
   // opens the full card on click. Keeps a 50-fix queue navigable.
@@ -2504,7 +2514,8 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
 
         {(url || fix.aiBefore) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            {url && <a href={url} target="_blank" rel="noreferrer" className="chip" style={{ cursor: 'pointer', fontSize: 11 }}>🌐 {host} ↗</a>}
+            {absoluteUrl && <a href={absoluteUrl} target="_blank" rel="noreferrer" className="chip" style={{ cursor: 'pointer', fontSize: 11 }}>🌐 {host} ↗</a>}
+            {url && !absoluteUrl && <span className="chip" title="Stored as a path, not a full URL - regenerate this fix to re-target it" style={{ fontSize: 11 }}>🌐 {host}</span>}
             {(() => {
               const g = fix.generated as { serpQuery?: unknown; serpCompared?: unknown } | null;
               if (!g || typeof g.serpQuery !== 'string' || !g.serpQuery || !Number(g.serpCompared)) return null;
@@ -2650,7 +2661,7 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
             )}
             <button className="gbtn" disabled={busy} title="Not quite right? Have the AI try again — with your guidance, or a fresh take" onClick={() => { setRegenText(String((fix.detected as Record<string, unknown> | null)?.instruction ?? '')); setEditing(false); setRegenning((r) => !r); }}>↻ Regenerate</button>
             <button className="gbtn" onClick={onRequestReview} disabled={busy} title="Ping a teammate (assignee) to review this draft via Linear/Jira/Slack">✋ Request approval</button>
-            {url && <a className="tbtn" href={url} target="_blank" rel="noreferrer">View source</a>}
+            {absoluteUrl && <a className="tbtn" href={absoluteUrl} target="_blank" rel="noreferrer">View source</a>}
             {fix.shipResult && <span className="xlbl" style={{ width: '100%', color: 'var(--text-2)' }}>↩ Revising a live fix — your page keeps the shipped version until you approve &amp; re-ship.</span>}
           </>)}
           {isApproved && !armed && (<>
@@ -2694,7 +2705,7 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
               <button className="gbtn" disabled={busy} title="Not right? Have the AI rewrite it — with your guidance, or a fresh take. Re-ships on approve." onClick={() => { setRegenText(String((fix.detected as Record<string, unknown> | null)?.instruction ?? '')); setEditing(false); setRegenning((r) => !r); }} style={{ padding: '7px 13px' }}>↻ Regenerate</button>
             )}
             {revertable && <button className="gbtn" onClick={onRevert} disabled={busy} style={{ padding: '7px 13px' }}>⤺ Undo</button>}
-            {url && <a className="tbtn" href={url} target="_blank" rel="noreferrer">View on site</a>}
+            {absoluteUrl && <a className="tbtn" href={absoluteUrl} target="_blank" rel="noreferrer">View on site</a>}
           </>)}
           {s === 'reverted' && <span className="chip" style={{ background: 'var(--warn-50)', color: 'var(--warn)', borderColor: 'var(--warn)', fontSize: 11, padding: '6px 12px' }}>⤺ REVERTED</span>}
           {isAttention && (<button className="xbtn" onClick={onRetry} disabled={busy} style={{ background: 'var(--danger)' }}>↻ RETRY</button>)}
