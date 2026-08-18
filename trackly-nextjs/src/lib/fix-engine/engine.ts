@@ -355,6 +355,12 @@ async function finalizeShippedFix(
     after(async () => {
       try { await recheckFix(fix.id, brandId, userId); }
       catch (e) { logger.warn('fix_engine.ship_autorecheck_failed', { fixId: fix.id, err: (e as Error).message }); }
+      // Independently of the module's own recheck, confirm the shipped
+      // value is in the page's HTML. This is what the user actually wants
+      // to know the moment they hit ship, and for the GSC-driven modules
+      // it is the only thing that can answer it this side of a month.
+      try { await verifyFixOnPage(fix.id, brandId, userId); }
+      catch (e) { logger.warn('fix_engine.ship_liveverify_failed', { fixId: fix.id, err: (e as Error).message }); }
     });
   }
 }
@@ -564,6 +570,53 @@ export async function publishStagedFix(fixId: string, brandId: string, userId: s
   });
   await resetConnectorDelivery(fix.id); // re-pull for the publish op
   await logFixEvent(fix.id, brandId, userId, 'publish.requested', { url });
+  return (await getFix(fixId, brandId))!;
+}
+
+// ── live verification ────────────────────────────────────────────
+
+/**
+ * Answer "is the change actually on my page right now?" for one fix, and
+ * remember the answer.
+ *
+ * Deliberately separate from recheckFix. Recheck asks each module its own
+ * success question - which for the GSC-driven modules means "did CTR
+ * improve?", a question that needs weeks of data and can never confirm a
+ * publish. This asks the immediate, checkable one, and it never changes the
+ * fix's status: a page that 404s during a deploy must not demote a fix that
+ * shipped correctly. It only records evidence.
+ */
+export async function verifyFixOnPage(
+  fixId: string,
+  brandId: string,
+  userId: string | null,
+): Promise<FixRow> {
+  const fix = await getFix(fixId, brandId);
+  if (!fix) throw new Error('Fix not found');
+  const mod = getModule(fix.moduleKey);
+  if (!mod) throw new Error(`Unknown module: ${fix.moduleKey}`);
+  if (!['shipped', 'verified', 'failed'].includes(fix.status)) {
+    throw new Error(`Only a shipped fix can be checked against the live page (status: ${fix.status})`);
+  }
+
+  const { verifyFixLive } = await import('./live-check');
+  const verdict = await verifyFixLive({
+    fix: {
+      moduleKey: fix.moduleKey,
+      targetUrl: fix.targetUrl,
+      generated: fix.generated,
+      afterSnapshot: fix.afterSnapshot,
+    },
+    module: mod,
+  });
+
+  await updateFix(fix.id, { liveCheck: verdict as unknown as Record<string, unknown> });
+  await logFixEvent(fix.id, brandId, userId, 'live_checked', {
+    state: verdict.state,
+    source: verdict.source,
+    checks: verdict.checks.length,
+    found: verdict.checks.filter((c) => c.found).length,
+  });
   return (await getFix(fixId, brandId))!;
 }
 

@@ -289,6 +289,12 @@ export interface FixRow {
   generated: Record<string, unknown> | null;
   beforeSnapshot: Record<string, unknown> | null;
   afterSnapshot: Record<string, unknown> | null;
+  /**
+   * Last live-page verification (see live-check.ts): did the value we
+   * shipped actually turn up in the HTML the page serves? Null until the
+   * fix has been verified once.
+   */
+  liveCheck: Record<string, unknown> | null;
   shipResult: Record<string, unknown> | null;
   scoreBefore: number | null;
   scoreAfter: number | null;

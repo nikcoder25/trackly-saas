@@ -37,6 +37,21 @@ interface FixRow {
   gscAfter?: { ctr?: number; impressions?: number; unavailable?: boolean } | null;
   /** Set when the user explicitly moved this live fix to the Archive tab. */
   archivedAt?: string | null;
+  /** Last live-page verification. See LiveCheck / live-check.ts. */
+  liveCheck?: LiveCheck | null;
+}
+
+/** One thing we looked for on the live page, and whether it was there. */
+interface LiveCheckItem { label: string; kind: string; expected: string; found: boolean; actual: string | null; url?: string }
+interface LiveCheck {
+  state: 'confirmed' | 'partial' | 'missing' | 'unreachable' | 'not_applicable' | 'unsupported';
+  checkedAt: string;
+  url: string | null;
+  source: 'html' | 'rendered' | null;
+  status: number | null;
+  cache?: { age: string | null; cacheControl: string | null; cacheStatus: string | null } | null;
+  checks: LiveCheckItem[];
+  note: string;
 }
 interface PreviewBlock { kind: string; label: string; before?: string; after?: string; addNote?: string; language?: string }
 // Result of creating a targeted passage rewrite, returned to the
@@ -785,6 +800,23 @@ export function PageFixes() {
     } catch (e) { setError((e as Error).message); } finally { setBusy((b) => ({ ...b, [fixId]: false })); }
   };
 
+  // Fetch the live page and confirm the shipped value is really on it.
+  // Separate from recheck: recheck runs the module's own success measure
+  // (for the GSC modules, a metric that takes weeks), this answers "did the
+  // publish land" right now.
+  const verifyLive = async (fixId: string) => {
+    if (!brandId) return;
+    setBusy((b) => ({ ...b, [fixId]: true }));
+    try {
+      const d = await api(`/api/brands/${brandId}/fixes/${fixId}/verify`, { method: 'POST' });
+      if (d.fix) setFixes((rows) => rows.map((r) => (r.id === fixId ? { ...r, ...d.fix } : r)));
+      const st = d.fix?.liveCheck?.state;
+      flash(st === 'confirmed' ? 'Confirmed on your live page'
+        : st === 'missing' ? 'Not found on your live page — see the details on the card'
+        : 'Checked your live page');
+    } catch (e) { setError((e as Error).message); } finally { setBusy((b) => ({ ...b, [fixId]: false })); }
+  };
+
   // Regenerate a draft, optionally steered by reviewer guidance ("keep it under
   // 55 chars", "lead with the keyword"). An empty instruction clears any prior
   // guidance and just tries again; the AI won't get it right every time.
@@ -1430,6 +1462,7 @@ export function PageFixes() {
             onArchive={(archived) => archiveFix(f.id, archived)}
             editableField={EDITABLE_FIELD[f.moduleKey]}
             onEditDraft={(patch) => editDraft(f.id, patch)}
+            onVerifyLive={() => verifyLive(f.id)}
             downloadHref={f.channel === 'B' ? `/api/brands/${brandId}/fixes/${f.id}/file` : undefined}
           />
         );
@@ -1958,6 +1991,7 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
     rechecked: 'Re-checked', 'rules.applied': 'Guardrails applied', 'regression.detected': 'Regression detected',
     'outcome.measured': 'Outcome measured', 'trigger.new_pages': 'New pages detected', 'approval.requested': 'Review requested',
     'connector.applied': 'Applied by your site', 'connector.stuck': 'Delivery stuck', 'ticket.created': 'Ticket created',
+    live_checked: 'Checked on your live page',
   };
   const a = automation || {};
   const Toggle = ({ on, onClick, children, dim }: { on: boolean; onClick: () => void; children: React.ReactNode; dim?: boolean }) => (
@@ -2301,6 +2335,118 @@ function BeforeAfter({ before, after, label, addNote }: { before?: string; after
  * working rather than break on a missing field.
  */
 /**
+ * "Is it actually on my page?" panel for a shipped fix.
+ *
+ * The card's SHIPPED chip only means the write was attempted and the CMS
+ * did not report an error - it is not evidence the value reached the live
+ * page. This panel is that evidence, and it is deliberately reproducible:
+ * it names the URL fetched, the exact strings looked for, and what is on
+ * the page instead, so the user can confirm the same thing by hand in
+ * view-source rather than taking the app's word for it.
+ */
+function LiveCheckPanel({ fix, busy, onVerify }: {
+  fix: FixRow;
+  busy: boolean;
+  onVerify: () => void;
+}) {
+  const lc = fix.liveCheck ?? null;
+  const [showHow, setShowHow] = React.useState(false);
+
+  const TONE: Record<string, { color: string; bg: string; icon: string; title: string }> = {
+    confirmed: { color: 'var(--success)', bg: 'var(--success-50)', icon: '✓', title: 'ON YOUR LIVE PAGE' },
+    partial: { color: 'var(--warn)', bg: 'var(--warn-50)', icon: '◐', title: 'PARTLY LIVE' },
+    missing: { color: 'var(--danger)', bg: 'var(--danger-50)', icon: '✕', title: 'NOT FOUND ON THE PAGE' },
+    unreachable: { color: 'var(--warn)', bg: 'var(--warn-50)', icon: '?', title: 'COULD NOT CHECK' },
+    not_applicable: { color: 'var(--text-2)', bg: 'var(--surface-2)', icon: 'ⓘ', title: 'NOTHING WAS WRITTEN' },
+    unsupported: { color: 'var(--text-2)', bg: 'var(--surface-2)', icon: 'ⓘ', title: 'CHECK BY HAND' },
+  };
+  const tone = lc ? (TONE[lc.state] ?? TONE.unsupported) : null;
+  // A diagnosis has nothing on the page to look for, so offering a re-check
+  // would only invite the user to keep pressing a button that can't change.
+  const canRecheckLive = !lc || (lc.state !== 'not_applicable' && lc.state !== 'unsupported');
+
+  return (
+    <div className="nb-sm" style={{ padding: 0, overflow: 'hidden', boxShadow: 'none', background: tone?.bg ?? 'var(--surface-2)', borderColor: tone?.color ?? 'var(--ink)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', padding: '10px 13px', borderBottom: `2px solid ${tone?.color ?? 'var(--ink)'}` }}>
+        <span className="disp" style={{ fontSize: 14, fontWeight: 700, color: tone?.color ?? 'var(--text-2)' }}>{tone?.icon ?? '⌕'}</span>
+        <span className="xlbl" style={{ color: tone?.color ?? 'var(--text-2)' }}>
+          {tone?.title ?? 'VERIFY ON YOUR PAGE'}
+        </span>
+        {lc && <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500 }}>checked {new Date(lc.checkedAt).toLocaleString()}</span>}
+        <span style={{ flex: 1 }} />
+        {canRecheckLive && (
+          <button className="gbtn" onClick={onVerify} disabled={busy} style={{ padding: '5px 11px', fontSize: 11 }}
+            title="Fetch your live page right now and look for the exact text we shipped">
+            {busy ? 'Checking…' : lc ? '↻ Check again' : '⌕ Check my page'}
+          </button>
+        )}
+      </div>
+
+      <div style={{ padding: '11px 13px', display: 'grid', gap: 10 }}>
+        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--text)', fontWeight: 500 }}>
+          {lc ? lc.note : 'We haven’t checked your live page for this change yet. Check my page fetches it now and looks for the exact text that was shipped.'}
+        </div>
+
+        {/* Found only after JS ran: real, but not the same as being in the
+            HTML, and the difference decides which crawlers ever see it. */}
+        {lc?.source === 'rendered' && (
+          <div style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--text-2)', fontWeight: 500 }}>
+            ⚠ Found only in the rendered page, not the HTML your server sends. Crawlers that don’t run JavaScript (most AI crawlers) will not see it.
+          </div>
+        )}
+
+        {/* The evidence: exactly what we looked for, and what's there now. */}
+        {!!lc?.checks?.length && (
+          <div style={{ display: 'grid', gap: 7 }}>
+            {lc.checks.map((c, i) => (
+              <div key={`${c.label}-${i}`} className="nb-sm" style={{ padding: '8px 10px', boxShadow: 'none', background: 'var(--surface)', display: 'grid', gap: 3 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <span style={{ color: c.found ? 'var(--success)' : 'var(--danger)', fontWeight: 700, fontSize: 12 }}>{c.found ? '✓' : '✕'}</span>
+                  <span className="xlbl" style={{ color: 'var(--text-2)' }}>{c.label}</span>
+                </div>
+                <div className="mono" style={{ fontSize: 11.5, lineHeight: 1.45, color: 'var(--text)', wordBreak: 'break-word' }}>
+                  {c.expected}
+                </div>
+                {!c.found && c.actual && (
+                  <div className="mono" style={{ fontSize: 11, lineHeight: 1.45, color: 'var(--text-3)', wordBreak: 'break-word' }}>
+                    on the page now: {c.actual}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Cache evidence only earns space when it might be the explanation. */}
+        {lc && lc.state === 'missing' && lc.cache && (lc.cache.cacheStatus || lc.cache.age) && (
+          <div style={{ fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>
+            Response came from a cache — {lc.cache.cacheStatus ? `x-cache: ${lc.cache.cacheStatus}` : `age: ${lc.cache.age}s`}. Purge your CDN and check again before assuming the write failed.
+          </div>
+        )}
+
+        {/* Manual verification: the whole point is that they don't have to
+            trust us. Only offered when there is something to go look for. */}
+        {!!lc?.checks?.length && lc.url && (
+          <div>
+            <button className="tbtn" onClick={() => setShowHow((v) => !v)} style={{ fontSize: 11.5, color: 'var(--primary)' }}>
+              {showHow ? 'Hide' : 'How do I check this myself?'}
+            </button>
+            {showHow && (
+              <ol style={{ margin: '8px 0 0', paddingLeft: 20, fontSize: 11.5, lineHeight: 1.7, color: 'var(--text-2)', fontWeight: 500 }}>
+                <li>Open <a href={`view-source:${lc.url}`} onClick={(e) => { e.preventDefault(); navigator.clipboard?.writeText(`view-source:${lc.url}`); }} style={{ color: 'var(--primary)' }}>view-source:{lc.url}</a> in your browser (click to copy — browsers block opening it from a link).</li>
+                <li>Press <strong>Ctrl+F</strong> (⌘F on Mac) and paste the text shown above.</li>
+                <li>Found it? The change is live for every crawler. Not there? It’s in your CMS but not on the served page — check your cache/CDN, or whether the page builder overrides that field.</li>
+                <li>For the title and meta description specifically, Google’s <a href="https://search.google.com/test/rich-results" target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>Rich Results Test</a> shows you the same HTML Google fetches.</li>
+              </ol>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Does the shipping text still correspond to this option?
  *
  * Mirrors isSameOption() in the ctr-rescue module, reimplemented here
@@ -2384,7 +2530,7 @@ function CtrOptionPicker({ fix, busy, onEditDraft }: {
   );
 }
 
-function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRegenerate, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, onDismiss, onRestore, onArchive, editableField, onEditDraft, downloadHref, open, onToggleOpen }: {
+function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRegenerate, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, onDismiss, onRestore, onArchive, editableField, onEditDraft, onVerifyLive, downloadHref, open, onToggleOpen }: {
   fix: FixRow; title: string; preview: PreviewBlock | null | undefined; cost: number; revertable: boolean; impact?: 1 | 2 | 3;
   /** Module reports findings instead of editing the site — relabels the ship step. */
   diagnostic?: boolean;
@@ -2397,6 +2543,7 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
   onArchive: (archived: boolean) => void;
   editableField?: string;
   onEditDraft: (patch: Record<string, string>) => void;
+  onVerifyLive: () => void;
   downloadHref?: string;
   open: boolean;
   onToggleOpen: () => void;
@@ -2649,6 +2796,12 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
         )}
         {isAttention && fix.error && (
           <div className="nb-sm" style={{ padding: '14px 16px', background: 'var(--danger-50)', borderColor: 'var(--danger)', boxShadow: 'none', display: 'flex', gap: 11, alignItems: 'flex-start' }}><span className="disp" style={{ color: 'var(--danger)', fontSize: 16, fontWeight: 700 }}>✕</span><span style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--text)', fontWeight: 500 }}><b className="disp" style={{ color: 'var(--danger)' }}>FAILED.</b> {fix.error}</span></div>
+        )}
+
+        {/* "Is it actually on my page?" - only once the fix has reached the
+            site (or tried to). A draft has nothing live to check yet. */}
+        {(isLive || isAttention) && (
+          <LiveCheckPanel fix={fix} busy={busy} onVerify={onVerifyLive} />
         )}
 
         {/* actions */}
