@@ -117,6 +117,10 @@ export async function ensureFixEngineSchema(): Promise<void> {
     `SELECT 1 FROM information_schema.columns WHERE table_name = 'fixes' AND column_name = 'archived_at'`,
   );
   await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`);
+  // Last "is it actually on the page" verification (see live-check.ts): the
+  // whole LiveVerdict, so the card can show what was searched for and when
+  // without re-fetching the site on every page load.
+  await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS live_check JSONB`);
   if ((hadArchivedAt.rowCount || 0) === 0) {
     await pool.query(`UPDATE fixes SET archived_at = updated_at WHERE status IN ('shipped','verified')`);
   }
@@ -212,6 +216,7 @@ export function mapFixRow(r: DbRow): FixRow {
     generated: (r.generated as Record<string, unknown> | null) ?? null,
     beforeSnapshot: (r.before_snapshot as Record<string, unknown> | null) ?? null,
     afterSnapshot: (r.after_snapshot as Record<string, unknown> | null) ?? null,
+    liveCheck: (r.live_check as Record<string, unknown> | null) ?? null,
     shipResult: (r.ship_result as Record<string, unknown> | null) ?? null,
     scoreBefore: r.score_before == null ? null : Number(r.score_before),
     scoreAfter: r.score_after == null ? null : Number(r.score_after),
@@ -395,6 +400,7 @@ export async function updateFix(
     detected?: Record<string, unknown>;
     generated?: Record<string, unknown> | null;
     afterSnapshot?: Record<string, unknown> | null;
+    liveCheck?: Record<string, unknown> | null;
     shipResult?: Record<string, unknown> | null;
     scoreBefore?: number | null;
     scoreAfter?: number | null;
@@ -418,6 +424,7 @@ export async function updateFix(
   if (patch.detected !== undefined) { sets.push(`detected = $${i++}`); values.push(JSON.stringify(patch.detected)); }
   if (patch.generated !== undefined) { sets.push(`generated = $${i++}`); values.push(patch.generated ? JSON.stringify(patch.generated) : null); }
   if (patch.afterSnapshot !== undefined) { sets.push(`after_snapshot = $${i++}`); values.push(patch.afterSnapshot ? JSON.stringify(patch.afterSnapshot) : null); }
+  if (patch.liveCheck !== undefined) { sets.push(`live_check = $${i++}`); values.push(patch.liveCheck ? JSON.stringify(patch.liveCheck) : null); }
   if (patch.shipResult !== undefined) { sets.push(`ship_result = $${i++}`); values.push(patch.shipResult ? JSON.stringify(patch.shipResult) : null); }
   if (patch.scoreBefore !== undefined) { sets.push(`score_before = $${i++}`); values.push(patch.scoreBefore); }
   if (patch.scoreAfter !== undefined) { sets.push(`score_after = $${i++}`); values.push(patch.scoreAfter); }
