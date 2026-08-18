@@ -29,8 +29,10 @@ export const NAV = [
   { label: 'Tools', items: [
     { id: 'geo-audit',  label: 'GEO Audit',       icon: '◉' },
     { id: 'regional',   label: 'Regional Audits', icon: '◐' },
-    { id: 'connect',    label: 'Connect Site',    icon: '⚯', badge: 'NEW' },
-    { id: 'fixes',      label: 'Fix Engine',      icon: '✦', badge: 'NEW' },
+    // Parked: kept in NAV (so the hash routes still resolve) but not rendered
+    // in the sidebar. Drop `hidden` to put them back.
+    { id: 'connect',    label: 'Connect Site',    icon: '⚯', badge: 'NEW', hidden: true },
+    { id: 'fixes',      label: 'Fix Engine',      icon: '✦', badge: 'NEW', hidden: true },
     { id: 'onboarding', label: 'Onboarding',      icon: '◇' },
   ] },
   { label: 'Settings', items: [
@@ -216,7 +218,7 @@ export function Sidebar() {
             {group.label}
             {GROUP_HELP[group.label] && <Info term={null} size={11}>{GROUP_HELP[group.label]}</Info>}
           </div>
-          {group.items.map(it => (
+          {group.items.map(it => (it as any).hidden ? null : (
             <button key={it.id} className={'sb-item ' + (page === it.id ? 'on' : '')} onClick={() => go(it.id)}>
               <span className="sb-i"><NavIcon id={it.id} /></span>
               <span>{it.label}</span>

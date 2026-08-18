@@ -22,6 +22,9 @@ import { describe, expect, it } from 'vitest';
 
 import { allNavItems } from '../dashboard-nav';
 
+/** Pages parked off the sidebar: still in both lists, still live at their URL. */
+const PARKED = ['/dashboard/connect', '/dashboard/fixes'];
+
 const SHELL = path.join(process.cwd(), 'src/components/dashboard/LvxShell.tsx');
 const source = fs.readFileSync(SHELL, 'utf8');
 
@@ -64,6 +67,26 @@ describe('sidebar / command-palette parity', () => {
     for (const href of ['/dashboard/fanout', '/dashboard/volatility']) {
       expect(shell.has(href), `${href} missing from the sidebar`).toBe(true);
       expect(palette.has(href), `${href} missing from the palette`).toBe(true);
+    }
+  });
+
+  it('keeps parked pages in both lists rather than deleting them', () => {
+    // Connect Site and Fix Engine were taken off the sidebar, not removed.
+    // Both lists must still carry the entry - flagged `hidden` - so the pages
+    // stay documented, keep working at their URLs, and can be un-parked by
+    // dropping one flag in each list.
+    const shell = new Set(shellNavHrefs());
+    for (const href of PARKED) {
+      expect(shell.has(href), `${href} dropped from LvxShell's NAV`).toBe(true);
+      const item = allNavItems.find(i => i.href === href);
+      expect(item, `${href} dropped from the palette list`).toBeDefined();
+      expect(item?.hidden, `${href} should be flagged hidden`).toBe(true);
+    }
+    // ...and the shell literal marks them hidden too.
+    const navBlock = source.slice(source.indexOf('const NAV'), source.indexOf('const ALL_ITEMS'));
+    for (const href of PARKED) {
+      const line = navBlock.split('\n').find(l => l.includes(`'${href}'`)) || '';
+      expect(line, `${href} not flagged hidden in LvxShell`).toContain('hidden: true');
     }
   });
 

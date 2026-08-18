@@ -166,6 +166,8 @@ export default function CommandPalette({ open, onOpenChange }: {
   const pageRows = useMemo<Row[]>(() => {
     const q = query.trim();
     return allNavItems
+      // Parked pages stay in the list but are not offered as destinations.
+      .filter((item) => !item.hidden)
       .filter((item) => (item.adminOnly ? isAdmin : true))
       .filter((item) => matchesNavQuery(item.label, q))
       .slice(0, MAX_PAGE_ROWS)

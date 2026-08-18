@@ -20,7 +20,12 @@ import AddBrandModal from '@/components/dashboard/AddBrandModal';
 import CommandPalette from '@/components/dashboard/CommandPalette';
 import '@/app/dashboard-v2/dashboard-v2.css';
 
-interface NavItem { id: string; href: string; label: string; badge?: string; adminOnly?: boolean }
+/**
+ * `hidden` parks an entry: it stays in this list (and in lib/dashboard-nav's
+ * `navGroups`, which the parity test compares against) but is not rendered in
+ * the sidebar. The page itself is untouched and still loads at its URL.
+ */
+interface NavItem { id: string; href: string; label: string; badge?: string; adminOnly?: boolean; hidden?: boolean }
 const NAV: { label: string; items: NavItem[] }[] = [
   { label: 'Dashboard', items: [
     { id: 'overview', href: '/dashboard', label: 'Overview' },
@@ -40,8 +45,8 @@ const NAV: { label: string; items: NavItem[] }[] = [
     { id: 'recommendations', href: '/dashboard/recommendations', label: 'Recommendations' },
   ] },
   { label: 'Tools', items: [
-    { id: 'connect', href: '/dashboard/connect', label: 'Connect Site', badge: 'NEW' },
-    { id: 'fixes', href: '/dashboard/fixes', label: 'Fix Engine', badge: 'NEW' },
+    { id: 'connect', href: '/dashboard/connect', label: 'Connect Site', badge: 'NEW', hidden: true },
+    { id: 'fixes', href: '/dashboard/fixes', label: 'Fix Engine', badge: 'NEW', hidden: true },
     { id: 'reports', href: '/dashboard/reports', label: 'Reports' },
     { id: 'geo-audit', href: '/dashboard/geo-audit', label: 'GEO Audit' },
     { id: 'regional', href: '/dashboard/geo-audits', label: 'Regional Audits' },
@@ -301,10 +306,11 @@ function ProdSidebar({ onNavigate }: { onNavigate?: () => void }) {
           Run all engines
         </>}
       </button>
-      {NAV.map(group => (
+      {NAV.map(group => group.items.some(it => !it.hidden) && (
         <div key={group.label} className="sb-group">
           <div className="sb-group-label">{group.label}</div>
           {group.items.map(it => {
+            if (it.hidden) return null;
             if (it.adminOnly && !isAdmin) return null;
             const active = pathname === it.href || (it.href !== '/dashboard' && pathname?.startsWith(it.href + '/'));
             return (
