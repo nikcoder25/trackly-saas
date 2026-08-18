@@ -38,11 +38,18 @@ vi.mock('@/lib/fix-engine/gsc', async (orig) => {
   };
 });
 
-vi.mock('@/lib/fix-engine/crawl', () => ({
+// Only crawlPage is stubbed - the pure extractors (pageFrictionSignals) are
+// the real ones, since their measurements are what the tests below assert.
+vi.mock('@/lib/fix-engine/crawl', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/fix-engine/crawl')>()),
   crawlPage: vi.fn(async () => ({
     title: 't', metaDescription: 'm', text: 'body', headings: [], h1s: [],
     jsonLd: [], wordCount: 2, hasFaqSchema: false, url: 'u', status: 200,
     lastModified: null,
+    friction: {
+      htmlKb: 40, scriptKb: 2, scriptCount: 1, iframeCount: 0,
+      popupMarkers: 0, adMarkers: 0, wordsBeforeFirstHeading: 40,
+    },
   })),
   jsonLdHasType: (blocks: unknown[], type: string) =>
     JSON.stringify(blocks).includes(`"${type}"`),
@@ -54,6 +61,10 @@ import {
   MIN_PREV_CLICKS, ROUTING,
 } from '@/lib/fix-engine/modules/search-decay';
 import { findCompetingPages } from '@/lib/fix-engine/modules/cannibalization';
+import { listModules } from '@/lib/fix-engine/registry';
+import { isSameOption, normaliseOptions, OPTIONS_PER_FIELD } from '@/lib/fix-engine/modules/ctr-rescue';
+import { countryCode, marketFor, DEFAULT_MARKET } from '@/lib/fix-engine/serp';
+import { pageFrictionSignals } from '@/lib/fix-engine/crawl';
 import {
   isExcludedUrl, isBrandedQuery, scoreCandidate,
 } from '@/lib/fix-engine/modules/content-gap';
@@ -250,10 +261,25 @@ describe('search-decay detect', () => {
     expect(res.detail.recommendedModule).toBe('content-freshness');
   });
 
-  it('routes every possible diagnosis to a module', () => {
+  it('routes every possible diagnosis somewhere the user can act on', () => {
+    const registered = new Set(listModules().map((m) => m.key));
     for (const vector of DECAY_VECTORS) {
-      expect(ROUTING[vector]?.module).toBeTruthy();
+      const route = ROUTING[vector];
+      // Every vector needs a route, and the label is what the card shows -
+      // so it is required even when no module can ship the fix.
+      expect(route?.label).toBeTruthy();
+      // A named module must actually exist, or the card points the user at
+      // a tab that isn't there.
+      if (route.module !== null) expect(registered.has(route.module)).toBe(true);
     }
+  });
+
+  it('says plainly when a diagnosis has no module that can fix it', () => {
+    // On-page friction is template and performance work, not a copy edit.
+    // Routing it to a prose module would read as a fix and quietly not be
+    // one, so it carries a null module and an explanatory label instead.
+    expect(ROUTING.onpage_friction.module).toBeNull();
+    expect(ROUTING.onpage_friction.label).toMatch(/manual/i);
   });
 });
 
@@ -494,5 +520,134 @@ describe('topicTokens', () => {
 
   it('returns nothing for queries made only of stopwords', () => {
     expect(topicTokens(['what is the best'])).toEqual([]);
+  });
+});
+
+describe('ctr-rescue metadata options', () => {
+  const opt = (text: string, lever = 'specificity') => ({ text, lever, strategy: 'because' });
+
+  it('keeps three well-formed options in the order the model ranked them', () => {
+    const out = normaliseOptions([opt('A'), opt('B'), opt('C')]);
+    expect(out.map((o) => o.text)).toEqual(['A', 'B', 'C']);
+    expect(out).toHaveLength(OPTIONS_PER_FIELD);
+  });
+
+  it('accepts bare strings, so a model that skipped the object shape still ships', () => {
+    expect(normaliseOptions(['A', 'B'])).toEqual([
+      { text: 'A', lever: 'unspecified', strategy: '' },
+      { text: 'B', lever: 'unspecified', strategy: '' },
+    ]);
+  });
+
+  it('drops duplicates - the same copy twice is one option, not a choice', () => {
+    const out = normaliseOptions([opt('Same'), opt('  same  ', 'authority'), opt('Other')]);
+    expect(out.map((o) => o.text)).toEqual(['Same', 'Other']);
+  });
+
+  it('drops empty entries rather than shipping a blank title', () => {
+    expect(normaliseOptions([opt(''), { lever: 'speed' }, opt('Real')]).map((o) => o.text))
+      .toEqual(['Real']);
+  });
+
+  it('caps the list even when the model over-delivers', () => {
+    expect(normaliseOptions([opt('A'), opt('B'), opt('C'), opt('D')])).toHaveLength(OPTIONS_PER_FIELD);
+  });
+
+  it('returns nothing for a non-array, so generate() can fall back', () => {
+    expect(normaliseOptions(undefined)).toEqual([]);
+    expect(normaliseOptions('A title')).toEqual([]);
+  });
+});
+
+describe('SERP market pinning', () => {
+  it('maps free-text country names to Google country codes', () => {
+    expect(countryCode('United States')).toBe('us');
+    expect(countryCode('  united kingdom ')).toBe('gb');
+    expect(countryCode('Canada')).toBe('ca');
+  });
+
+  it('passes through a code the user already gave in the right shape', () => {
+    expect(countryCode('au')).toBe('au');
+    expect(countryCode('DE')).toBe('de');
+  });
+
+  it('falls back to the default rather than guessing at unknown input', () => {
+    expect(countryCode('Freedonia')).toBe(DEFAULT_MARKET.gl);
+    expect(countryCode('')).toBe(DEFAULT_MARKET.gl);
+    expect(countryCode(null)).toBe(DEFAULT_MARKET.gl);
+  });
+
+  it('sends the brand city as the search location so local SERPs resolve correctly', () => {
+    expect(marketFor({ country: 'United States', city: 'Boise, Idaho' }))
+      .toEqual({ gl: 'us', hl: 'en', location: 'Boise, Idaho' });
+  });
+
+  it('omits the location when the brand has no city, instead of inventing one', () => {
+    expect(marketFor({ country: 'Canada', city: '   ' }).location).toBeNull();
+    expect(marketFor({}).location).toBeNull();
+  });
+});
+
+describe('page friction signals', () => {
+  it('counts script weight, overlays and ad slots', () => {
+    const html = '<html><head>'
+      + `<script>${'x'.repeat(2048)}</script><script src="a.js"></script>`
+      + '</head><body>'
+      + '<div class="cookie-banner"></div><div id="newsletter-modal"></div>'
+      + '<ins class="adsbygoogle"></ins>'
+      + '<iframe src="https://example.test/embed"></iframe>'
+      + '<p>one two three</p><h2>Finally</h2><p>body</p>'
+      + '</body></html>';
+    const f = pageFrictionSignals(html);
+    expect(f.scriptCount).toBe(2);
+    expect(f.scriptKb).toBeGreaterThanOrEqual(2);
+    expect(f.iframeCount).toBe(1);
+    expect(f.popupMarkers).toBe(2);
+    expect(f.adMarkers).toBeGreaterThanOrEqual(1);
+    expect(f.wordsBeforeFirstHeading).toBe(3);
+  });
+
+  it('reads a clean page as having no friction to report', () => {
+    const f = pageFrictionSignals('<html><body><h2>Answer</h2><p>Here it is.</p></body></html>');
+    expect(f.popupMarkers).toBe(0);
+    expect(f.adMarkers).toBe(0);
+    expect(f.scriptCount).toBe(0);
+    expect(f.iframeCount).toBe(0);
+  });
+
+  it('does not read the words "cookie policy" in prose as a cookie wall', () => {
+    // The check is on class/id attributes, not body text - otherwise every
+    // page that mentions its own privacy terms looks like it has an overlay.
+    const f = pageFrictionSignals('<html><body><p>Read our cookie policy and consent terms.</p></body></html>');
+    expect(f.popupMarkers).toBe(0);
+  });
+
+  it('counts the whole page as lead text when there is no H2 at all', () => {
+    const f = pageFrictionSignals('<html><body><p>one two three four</p></body></html>');
+    expect(f.wordsBeforeFirstHeading).toBe(4);
+  });
+});
+
+describe('ctr-rescue option tracking after brand rules', () => {
+  it('still recognises the option a brand title suffix was appended to', () => {
+    expect(isSameOption('Emergency AC Repair in Boise | Acme', 'Emergency AC Repair in Boise')).toBe(true);
+  });
+
+  it('still recognises an option the length cap truncated', () => {
+    expect(isSameOption('Emergency AC Repair in', 'Emergency AC Repair in Boise Today')).toBe(true);
+  });
+
+  it('ignores punctuation and case differences', () => {
+    expect(isSameOption('emergency ac repair — boise', 'Emergency AC Repair - Boise')).toBe(true);
+  });
+
+  it('treats a hand-written replacement as no longer one of the options', () => {
+    expect(isSameOption('Call Acme now for same-day service', 'Emergency AC Repair in Boise')).toBe(false);
+  });
+
+  it('matches nothing when the field is empty, rather than matching everything', () => {
+    expect(isSameOption('', 'Emergency AC Repair')).toBe(false);
+    expect(isSameOption(null, 'Emergency AC Repair')).toBe(false);
+    expect(isSameOption('Emergency AC Repair', '')).toBe(false);
   });
 });

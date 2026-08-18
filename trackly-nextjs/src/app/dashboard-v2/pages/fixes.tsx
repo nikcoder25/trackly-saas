@@ -769,13 +769,16 @@ export function PageFixes() {
     try { await api(`/api/brands/${brandId}/fixes/notify`, { method: 'POST' }); flash('Summary sent to webhook'); }
     catch (e) { setError((e as Error).message); }
   };
-  // Inline draft editing: merge an edited text field into the draft, then
-  // refresh the card + preview (server re-applies brand rules).
-  const editDraft = async (fixId: string, field: string, value: string) => {
+  // Inline draft editing: merge edited text fields into the draft, then
+  // refresh the card + preview (server re-applies brand rules). Takes a
+  // patch rather than one field because picking a CTR option swaps the
+  // title and the meta description together, and two PATCHes would leave
+  // the draft briefly holding one option's title with another's meta.
+  const editDraft = async (fixId: string, patch: Record<string, string>) => {
     if (!brandId) return;
     setBusy((b) => ({ ...b, [fixId]: true }));
     try {
-      const d = await api(`/api/brands/${brandId}/fixes/${fixId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ generated: { [field]: value } }) });
+      const d = await api(`/api/brands/${brandId}/fixes/${fixId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ generated: patch }) });
       if (d.fix) setFixes((rows) => rows.map((r) => (r.id === fixId ? { ...r, ...d.fix } : r)));
       await loadPreview(fixId);
       flash('Draft updated');
@@ -1426,7 +1429,7 @@ export function PageFixes() {
             onDismiss={() => dismissFix(f.id)} onRestore={() => dismissFix(f.id, true)}
             onArchive={(archived) => archiveFix(f.id, archived)}
             editableField={EDITABLE_FIELD[f.moduleKey]}
-            onEditDraft={(field, value) => editDraft(f.id, field, value)}
+            onEditDraft={(patch) => editDraft(f.id, patch)}
             downloadHref={f.channel === 'B' ? `/api/brands/${brandId}/fixes/${f.id}/file` : undefined}
           />
         );
@@ -2285,6 +2288,97 @@ function BeforeAfter({ before, after, label, addNote }: { before?: string; after
 }
 
 // ── Fix card ──
+/**
+ * Option picker for the CTR rescue module.
+ *
+ * Renders nothing for every other module, and nothing for an older draft
+ * generated before options existed — a fix already in review must keep
+ * working rather than break on a missing field.
+ */
+/**
+ * Does the shipping text still correspond to this option?
+ *
+ * Mirrors isSameOption() in the ctr-rescue module, reimplemented here
+ * rather than imported: that module pulls in the crawler, GSC client and
+ * generator, none of which belong in a client bundle. Brand rules rewrite
+ * the shipped title after generation (a suffix, a length cap), so exact
+ * equality would show the picked option as unpicked on any brand that
+ * configures one.
+ */
+function isSameOption(current: string | null | undefined, optionText: string): boolean {
+  const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const a = norm(current ?? '');
+  const b = norm(optionText);
+  if (!a || !b) return false;
+  return a === b || a.startsWith(b) || b.startsWith(a);
+}
+
+function CtrOptionPicker({ fix, busy, onEditDraft }: {
+  fix: FixRow;
+  busy: boolean;
+  onEditDraft: (patch: Record<string, string>) => void;
+}) {
+  const g = (fix.generated ?? null) as {
+    title?: string; description?: string;
+    titleOptions?: { text: string; lever: string; strategy: string }[];
+    descriptionOptions?: { text: string; lever: string; strategy: string }[];
+  } | null;
+  if (fix.moduleKey !== 'ctr-rescue' || !g) return null;
+  const titles = g.titleOptions ?? [];
+  const descriptions = g.descriptionOptions ?? [];
+  if (titles.length < 2 && descriptions.length < 2) return null;
+
+  const row = (
+    label: string,
+    field: 'title' | 'description',
+    options: { text: string; lever: string; strategy: string }[],
+    current?: string,
+  ) => {
+    if (options.length < 2) return null;
+    return (
+      <div style={{ display: 'grid', gap: 7 }}>
+        <div className="xlbl" style={{ color: 'var(--text-2)' }}>{label}</div>
+        {options.map((o) => {
+          const selected = isSameOption(current, o.text);
+          return (
+            <button
+              key={o.text}
+              className="nb-sm"
+              disabled={busy || selected}
+              onClick={() => onEditDraft({ [field]: o.text })}
+              title={selected ? 'This is the version that ships' : `Use this ${field}`}
+              style={{
+                textAlign: 'left', padding: '10px 12px', boxShadow: 'none', cursor: selected ? 'default' : 'pointer',
+                background: selected ? 'var(--success-50)' : 'var(--surface)',
+                borderColor: selected ? 'var(--success)' : 'var(--ink)',
+                display: 'grid', gap: 4,
+              }}
+            >
+              <span style={{ fontSize: 13, lineHeight: 1.45, fontWeight: 600, color: 'var(--text)' }}>
+                {selected ? '✓ ' : ''}{o.text}
+              </span>
+              <span style={{ fontSize: 11.5, lineHeight: 1.45, color: 'var(--text-2)', fontWeight: 500 }}>
+                <b>{o.lever}</b>{o.strategy ? ` — ${o.strategy}` : ''}
+                {' · '}{o.text.length} chars
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <div className="nb-sm" style={{ padding: 14, background: 'var(--surface-2)', display: 'grid', gap: 13 }}>
+      <div className="xlbl" style={{ color: 'var(--primary)' }}>
+        Pick the angle — each option pulls a different lever. Switching is free.
+      </div>
+      {row('TITLE OPTIONS', 'title', titles, g.title)}
+      {row('META DESCRIPTION OPTIONS', 'description', descriptions, g.description)}
+    </div>
+  );
+}
+
 function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRegenerate, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, onDismiss, onRestore, onArchive, editableField, onEditDraft, downloadHref, open, onToggleOpen }: {
   fix: FixRow; title: string; preview: PreviewBlock | null | undefined; cost: number; revertable: boolean; impact?: 1 | 2 | 3;
   /** Module reports findings instead of editing the site — relabels the ship step. */
@@ -2297,7 +2391,7 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
   onRequestReview: () => void; onDismiss: () => void; onRestore: () => void;
   onArchive: (archived: boolean) => void;
   editableField?: string;
-  onEditDraft: (field: string, value: string) => void;
+  onEditDraft: (patch: Record<string, string>) => void;
   downloadHref?: string;
   open: boolean;
   onToggleOpen: () => void;
@@ -2619,13 +2713,19 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
           <button className="tbtn" onClick={() => { if (!showHistory && !events) onLoadHistory(); setShowHistory((h) => !h); }}>{showHistory ? 'Hide history' : 'History'}</button>
         </div>
 
+        {/* CTR rescue returns three title and three meta options, each on a
+            different persuasion lever. They come out of one model call, so
+            switching between them is free — a PATCH of the two fields, not a
+            regenerate. Only shown while the draft can still be revised. */}
+        {canRevise && <CtrOptionPicker fix={fix} busy={busy} onEditDraft={onEditDraft} />}
+
         {editing && canRevise && editableField && (
           <div className="nb-sm" style={{ padding: 14, background: 'var(--surface-2)', display: 'grid', gap: 10 }}>
             <div className="xlbl" style={{ color: 'var(--primary)' }}>Edit the {isLive ? 'live' : 'draft'} ({editableField}) — your brand rules still apply{isLive ? '; re-ships on approve' : ' on save'}</div>
             <textarea className="xin" rows={editText.length > 160 ? 5 : 2} value={editText} onChange={(e) => setEditText(e.target.value)} style={{ boxShadow: 'none', fontSize: 13, lineHeight: 1.5 }} />
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 10 }}>
               <button className="gbtn" onClick={() => setEditing(false)} style={{ padding: '7px 13px' }}>Cancel</button>
-              <button className="xbtn" disabled={busy || !editText.trim()} onClick={() => { onEditDraft(editableField, editText.trim()); setEditing(false); }} style={{ padding: '7px 13px' }}>SAVE DRAFT</button>
+              <button className="xbtn" disabled={busy || !editText.trim()} onClick={() => { onEditDraft({ [editableField]: editText.trim() }); setEditing(false); }} style={{ padding: '7px 13px' }}>SAVE DRAFT</button>
             </div>
           </div>
         )}

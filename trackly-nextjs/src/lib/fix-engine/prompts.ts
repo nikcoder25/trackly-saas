@@ -316,14 +316,36 @@ Optimise this page to climb for the queries above.`;
 
 export const CTR_SYSTEM = `You are a CTR specialist. A page gets lots of impressions but few clicks, so its title + meta description aren't compelling. Rewrite both to lift click-through while staying accurate.
 
+Give the reviewer a real choice: THREE title options and THREE meta description options, each pulling a DIFFERENT psychological lever, so they can pick the angle that fits the business rather than accept or reject a single guess.
+
+Levers to draw from — use a different one for each option, and name the one you used:
+- "specificity": a concrete number, timeframe or detail that proves the page delivers.
+- "loss aversion": what the searcher risks by choosing wrong.
+- "authority": credentials, track record, or scale that makes this the safe click.
+- "speed": how fast the searcher gets the outcome.
+- "curiosity gap": name the answer's existence without giving it away — only when the page genuinely delivers it.
+- "objection handling": defuse the unspoken worry (price, hassle, commitment).
+- "local proximity": being the nearby option, for queries where that decides the click.
+
 Hard rules:
-- Title 50-60 chars; meta description 140-155 chars.
-- Lead with the searcher's intent + a concrete, specific hook (benefit, number, differentiator) — but never fabricate facts.
+- Title 50-60 chars; meta description 140-155 chars. Every option, not just the first.
+- Lead with the searcher's intent + a concrete, specific hook (benefit, number, differentiator) — but never fabricate facts. A lever you have no evidence for is a lever you must not use; pick another.
+- The three options must be genuinely different approaches, not three rewordings of one idea.
+- Order them best-first: option 1 is your recommendation and is what ships unless the reviewer picks another.
 ${BEAT_THE_SERP}
 - The pair should feel like the obviously-best result for the query.
 
 Return ONLY a JSON object:
-{ "title": "<new title>", "description": "<new meta description>", "rationale": "<one sentence>" }`;
+{
+  "titles": [
+    { "text": "<title option>", "lever": "<lever name from the list>", "strategy": "<one sentence on why this makes the searcher click>" }
+  ],
+  "descriptions": [
+    { "text": "<meta description option>", "lever": "<lever name from the list>", "strategy": "<one sentence on why this makes the searcher click>" }
+  ],
+  "rationale": "<one sentence diagnosing why the current pair is losing the click>"
+}
+Exactly three entries in "titles" and three in "descriptions".`;
 
 export function ctrUserPrompt(args: {
   brand: BrandPromptContext;
@@ -346,7 +368,7 @@ Current meta description: ${args.meta ?? '(none)'}
 High-impression, low-CTR queries for this page:
 ${q}${competitorBlock(args.queries[0]?.query ?? null, args.competitors)}
 
-Rewrite the title and meta description to win more clicks${args.competitors?.length ? ' against the results above' : ''}.`;
+Give three title options and three meta description options to win more clicks${args.competitors?.length ? ' against the results above' : ''}, each on a different lever, best first.`;
 }
 
 // ── Internal linking ─────────────────────────────────────────────
@@ -771,6 +793,7 @@ export const DECAY_VECTORS = [
   'competitor_leapfrog',
   'cannibalization',
   'ai_answer_capture',
+  'onpage_friction',
 ] as const;
 export type DecayVector = (typeof DECAY_VECTORS)[number];
 
@@ -778,18 +801,20 @@ export const DECAY_SYSTEM = `You are an SEO forensics analyst diagnosing why one
 
 Your job is diagnosis, not reassurance. Commit to ONE primary cause.
 
-The five causes you may choose from, and what each looks like in the evidence:
+The six causes you may choose from, and what each looks like in the evidence:
 - "stale_content": the page has not been substantively updated, the topic has moved on, and dated or superseded facts remain. Competitors' equivalents are fresher.
 - "intent_shift": what searchers want from this query changed. The SERP now favours a different format or angle than this page offers.
 - "competitor_leapfrog": one or more competitors published something materially better and took the clicks. Position slipped or the SERP composition changed around a held position.
 - "cannibalization": another page on the SAME site now competes for these queries, splitting or stealing the impressions.
 - "ai_answer_capture": impressions held or grew while clicks fell, ranking is broadly intact, and the click is being absorbed by an answer surface above the results. Strongest when AI-visibility evidence shows the query being answered without this page being cited.
+- "onpage_friction": the page still earns the click but no longer holds the visitor, and the search result has degraded with it. Look for the page-experience signals below - heavy script, pop-up/consent/newsletter overlays, ad slots, or a long run of text before the first heading. Choose this only when those signals are genuinely bad AND the ranking is roughly intact; friction explains a page that got harder to use, not a page that lost its position.
 
 Hard rules:
 - Pick exactly one primary cause, from that list, spelled exactly as written.
 - Give a confidence score from 1 to 10. Be honest and use the low end: if the evidence is thin or two causes fit equally, say 4, not 8. A confident wrong diagnosis costs the user more than an admitted uncertainty.
 - Ground every claim in the supplied evidence. Quote the numbers you relied on. If you did not receive evidence for something, do not assert it.
 - "ai_answer_capture" requires impressions to be roughly flat or up while clicks fell. If impressions fell too, the click loss has a more ordinary explanation and you must choose one.
+- "onpage_friction" requires the page-experience signals to actually be bad. They are proxies counted from the page's HTML, not lab measurements, so a page with light script and no overlays cannot be diagnosed this way no matter how tempting - and if the signals are merely unremarkable, pick another cause and say why in ruledOut.
 - Recommended actions must be specific to this page. No generic SEO advice.
 
 Return ONLY a JSON object:
@@ -822,6 +847,10 @@ export function decayUserPrompt(args: {
   siteTrend: { clicksDelta: number; impressionsDelta: number } | null;
   aiEvidence: string | null;
   competitors?: SerpCompetitor[];
+  friction?: {
+    htmlKb: number; scriptKb: number; scriptCount: number; iframeCount: number;
+    popupMarkers: number; adMarkers: number; wordsBeforeFirstHeading: number;
+  } | null;
 }): string {
   const pct = (before: number, after: number) =>
     before > 0 ? `${(((after - before) / before) * 100).toFixed(0)}%` : 'n/a';
@@ -840,6 +869,15 @@ export function decayUserPrompt(args: {
     ? `\nAI answer-engine evidence for this brand and these queries:\n${args.aiEvidence}\n`
     : `\nAI answer-engine evidence: none available for this brand. Do not infer AI capture without it; judge on the click/impression pattern alone and lower your confidence accordingly.\n`;
 
+  const f = args.friction;
+  const friction = f
+    ? `\nPage-experience signals, counted from this page's own HTML (proxies, not lab measurements):\n`
+      + `- page weight ${f.htmlKb}KB, of which ${f.scriptKb}KB is script across ${f.scriptCount} tags\n`
+      + `- ${f.iframeCount} iframe(s), ${f.adMarkers} ad-network marker(s)\n`
+      + `- ${f.popupMarkers} element(s) named as a pop-up, modal, overlay, consent or newsletter wall\n`
+      + `- ${f.wordsBeforeFirstHeading} words before the first H2\n`
+    : `\nPage-experience signals: unavailable (the page could not be read). Do not diagnose on-page friction without them.\n`;
+
   return `${brandBlock(args.brand)}
 
 Page URL: ${args.url}
@@ -855,7 +893,7 @@ Page totals, comparing the last ${args.windowDays} days against the ${args.windo
 ${site}
 Query-level movement:
 ${q || '- (no query-level detail available)'}
-${ai}${competitorBlock(args.queries[0]?.query ?? null, args.competitors)}
+${ai}${friction}${competitorBlock(args.queries[0]?.query ?? null, args.competitors)}
 Current page content:
 """
 ${args.pageText.slice(0, 3500)}

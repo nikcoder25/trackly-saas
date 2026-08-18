@@ -8,7 +8,7 @@
  * two windows, so it is the only one that can catch a decline while it is
  * still cheap to reverse.
  *
- * Detect: pull query × page for the trailing 28 days and the 28 days before
+ * Detect: pull query × page for the trailing 14 days and the 14 days before
  *   that, aggregate per page, and flag real declines against floors that
  *   suit a local service business rather than a national publisher.
  * Generate: hand the model a full evidence file - both windows, query-level
@@ -31,7 +31,7 @@
  * clicks to 1 is a 67% decline and means nothing.
  */
 
-import { crawlPage } from '../crawl';
+import { crawlPage, type FrictionSignals } from '../crawl';
 import { generateJson } from '../generate';
 import { getAiCaptureEvidence } from '../ai-capture';
 import { DECAY_SYSTEM, DECAY_VECTORS, decayUserPrompt, type DecayVector } from '../prompts';
@@ -40,15 +40,31 @@ import type {
   DetectedIssue, FixContext, FixModule, GeneratedDraft, PreviewBlock, RecheckVerdict, ShipResult,
 } from '../types';
 
-/** Length of each comparison window, in days. See comparisonWindows(). */
-export const WINDOW_DAYS = 28;
+/**
+ * Length of each comparison window, in days. See comparisonWindows().
+ *
+ * 14 days on each side, so a decline surfaces about two weeks earlier than a
+ * monthly comparison would - the whole point of the module is to catch a
+ * page while reversing it is still cheap. 14 is a whole number of weeks, so
+ * the day-of-week cycle still cancels on both sides.
+ *
+ * The floors below are NOT scaled down to match. They are noise suppression,
+ * not a per-window quota: a page that loses 3 clicks is noise over any
+ * window length, and halving the absolute floor to "keep sensitivity" would
+ * simply move that noise into the report. The practical effect is that this
+ * window is a little stricter in absolute terms and much faster to react,
+ * which is the trade the module exists to make.
+ */
+export const WINDOW_DAYS = 14;
 
 /**
  * Floors. A page must clear ALL of these to be considered decayed.
  *
  * The relative test alone fires constantly on small numbers; the absolute
  * test alone misses real declines on mid-sized pages. Requiring both is
- * what makes this usable on a site whose best page gets 40 clicks a month.
+ * what makes this usable on a site whose best page gets a few dozen clicks
+ * a month - roughly 10-20 inside one WINDOW_DAYS window, which is the scale
+ * these numbers are set against.
  */
 export const MIN_PREV_CLICKS = 10;        // the page mattered before
 export const MIN_ABS_CLICK_LOSS = 5;      // the loss is worth someone's time
@@ -72,13 +88,21 @@ export type DecayPattern = 'quiet' | 'drifting' | 'collapsed' | 'impressions_los
  * Which module actually fixes each diagnosis. The decay module deliberately
  * owns none of these: duplicating a fix that already exists elsewhere is
  * how two modules end up writing the same field on the same page.
+ *
+ * `module` is null when the engine has no module that can fix the cause. On-
+ * page friction is the honest case: removing a consent wall, cutting 600KB of
+ * script or deleting an ad slot is a change to the site's templates, not to
+ * one page's copy, and no module here can make it. Pointing the user at a
+ * module that would edit prose instead would read as a fix and quietly not be
+ * one, so the finding says plainly that this one is a human job.
  */
-export const ROUTING: Record<DecayVector, { module: string; label: string }> = {
+export const ROUTING: Record<DecayVector, { module: string | null; label: string }> = {
   stale_content: { module: 'content-freshness', label: 'Content freshness' },
   intent_shift: { module: 'geo-page-rewrite', label: 'GEO page rewrite' },
   competitor_leapfrog: { module: 'content-gap', label: 'Content gap' },
   cannibalization: { module: 'cannibalization', label: 'Cannibalisation' },
   ai_answer_capture: { module: 'citable-passages', label: 'Citable passages' },
+  onpage_friction: { module: null, label: 'Manual page-experience work — no module ships this' },
 };
 
 interface WindowStats { clicks: number; impressions: number; ctr: number; position: number }
@@ -276,11 +300,15 @@ export const searchDecayModule: FixModule = {
     let pageText = '';
     let title: string | null = null;
     let lastModified: string | null = null;
+    let friction: FrictionSignals | null = null;
     try {
       const page = await crawlPage(d.url, ctx.signal);
       pageText = page.text;
       title = page.title;
       lastModified = page.lastModified;
+      // Absent on an unreachable page, and the prompt is told to refuse an
+      // on-page-friction diagnosis when it is missing rather than guess.
+      friction = page.friction ?? null;
     } catch { /* diagnose from the metrics alone if the page is unreachable */ }
 
     // The evidence only this product can supply.
@@ -325,6 +353,7 @@ export const searchDecayModule: FixModule = {
         siteTrend: d.siteTrend,
         aiEvidence,
         competitors,
+        friction,
       }),
       maxTokens: 1400,
     });
@@ -376,7 +405,7 @@ export const searchDecayModule: FixModule = {
    * module, and `diagnostic: true` keeps this out of outcome measurement.
    */
   async ship(_issue: DetectedIssue, draft: GeneratedDraft): Promise<ShipResult> {
-    const g = draft.generated as { primaryCause?: DecayVector; confidence?: number; routeTo?: { module: string; label: string } };
+    const g = draft.generated as { primaryCause?: DecayVector; confidence?: number; routeTo?: { module: string | null; label: string } };
     return {
       ok: true,
       detail: {
