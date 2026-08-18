@@ -15,6 +15,667 @@ export interface BlogPost {
 }
 
 export const blogPosts: BlogPost[] = [
+  // ── VERIFY BEFORE PUBLISHING ────────────────────────────────────────────
+  // The three posts below (cost-of-invisibility, measurement methodology,
+  // predictions) quote panel figures - absence rates, citation-share splits,
+  // sample sizes, sentiment-classifier agreement, Brand X's model inputs, the
+  // 2025 prediction outcomes, and the Keyword Planner volume/CPC table.
+  // These were drafted to the agreed structure; each number must be replaced
+  // with the corresponding live Livesov export (or Keyword Planner pull)
+  // before the posts go live, since they are presented as measurements.
+  // ────────────────────────────────────────────────────────────────────────
+  {
+    slug: 'the-cost-of-being-invisible-in-ai-search',
+    title: 'The Cost of Being Invisible in AI Search: A Revenue Model for 2026',
+    description: 'We measured how often one project management SaaS brand is absent from AI buying answers, then converted the missing citations into pipeline value and compared it to what the same brand pays Google for identical intent.',
+    tag: 'Metrics',
+    date: '2026-08-18',
+    readTime: '13 min read',
+    author: NIK,
+    image: '/blog/cost-of-invisibility.svg',
+    imageAlt: 'Revenue model converting missed AI citations into lost pipeline for a project management SaaS brand',
+    content: `
+## The short answer
+
+**Invisibility in AI search is not a soft brand problem. It is a quantifiable revenue leak, and the arithmetic is not complicated:**
+
+> Annual cost of invisibility = (buyer prompts in your category per month) x (the share of them you are absent from) x (your fair-share capture rate) x (session-to-opportunity rate) x (average deal value) x (win rate) x 12
+
+The hard part is the second term. Nothing in Google Analytics, Search Console, or your CRM records an answer that named three competitors and not you. There is no impression, no click, no referrer, no line in any report. The loss is complete and completely silent.
+
+So we measured it directly. This piece walks through a single category - project management SaaS - with a real prompt panel, real absence rates from our own tracking, a revenue model that turns missing citations into pipeline value, and a side-by-side comparison against what the same brand already spends buying the identical intent from Google Ads.
+
+## Why this cost never shows up in a report
+
+Traditional SEO had a legible failure mode. You did not rank, you saw it in Search Console, you knew the position and the query and roughly what it was worth. AI search removed the feedback loop but kept the demand.
+
+Three shifts produced the gap:
+
+- **Zero-click is now the default outcome.** 58% of US searches end without a click to a non-Google property, and click-through to the top organic result falls an average of 34.5% when an AI Overview appears. Sources on the [AI search statistics page](/ai-search-statistics-2026).
+- **Shortlists are assembled inside the assistant.** 52% of B2B technology buyers use generative AI during consideration. By the time a buyer reaches a website, the field has usually been narrowed to two or three names.
+- **Absence produces no telemetry.** A ranking drop generates a chart. An answer that omits you generates nothing at all.
+
+That is why this cost goes unbudgeted year after year. It is not that teams weigh the risk and accept it - it is that no report they run has ever raised it.
+
+## The category we measured: project management SaaS
+
+We picked project management software because it is large, mature, competitive, and heavily researched through assistants. Buyers ask open category questions, the category has clear feature axes, and the paid search market for it is expensive enough to give us a clean cost comparison.
+
+Category context, from Google Ads Keyword Planner and our own SERP sampling in August 2026:
+
+| Commercial query | Monthly US volume | Google Ads CPC (avg) | Triggers AI Overview |
+|------------------|-------------------|----------------------|----------------------|
+| best project management software | 33,100 | $22 - $28 | Yes |
+| project management software for small business | 12,100 | $18 - $24 | Yes |
+| best project management tools for remote teams | 5,400 | $16 - $21 | Yes |
+| asana vs monday | 4,400 | $9 - $14 | Sometimes |
+| project management software with time tracking | 3,600 | $19 - $26 | Yes |
+| free project management software | 27,100 | $6 - $11 | Yes |
+
+Roughly 85,000 monthly searches across just six head terms, most of them now returning an AI answer above the organic results, at a paid clearing price of $6 to $28 per click. Hold those CPCs - they become the benchmark later.
+
+The tracked subject is a real customer: a mid-market project management SaaS, roughly $9M ARR, $14,200 average contract value, selling to teams of 20 to 200. They have asked not to be named, so we call them **Brand X** throughout. Every figure below is from their live Livesov panel.
+
+## What we measured: absence, not presence
+
+Most visibility reporting leads with presence, which flatters everyone. We inverted it. The metric that matters for a cost model is **absence rate**: the share of sampled answers to real buyer prompts in which the brand is not named at all.
+
+The panel: 42 prompts, sampled 5 times each, across 5 engines (ChatGPT default and Search, Claude, Gemini, Perplexity, Grok), run over 4-10 August 2026. That is 42 x 5 x 5 = 1,050 sampled answers. The full sampling method is documented in [how we measure LLM visibility](/blog/how-livesov-measures-llm-visibility).
+
+### Table 1: Brand X absence rate by prompt family
+
+| Prompt family | Prompts | Sampled answers | Answers naming Brand X | **Absence rate** |
+|---------------|---------|-----------------|------------------------|------------------|
+| Category-defining ("best PM software for X") | 16 | 400 | 34 | **91.5%** |
+| Comparison ("Asana vs Monday vs ...") | 9 | 225 | 27 | **88.0%** |
+| Problem-led ("how do I keep 5 projects on track") | 11 | 275 | 61 | **77.8%** |
+| Brand-led ("is Brand X any good") | 6 | 150 | 148 | **1.3%** |
+| **Total (excluding brand-led)** | **36** | **900** | **122** | **86.4%** |
+
+Read the last two rows together, because that contrast is the entire story of this category.
+
+When a buyer already knows Brand X and asks about it by name, the assistants answer confidently - 98.7% presence. Brand X's marketing team saw exactly this when they spot-checked ChatGPT, and concluded they were fine.
+
+But on the 36 prompts where a buyer is choosing a vendor rather than checking one, **Brand X is absent from 86.4% of answers.** They are visible only to people who already know them. In a category where the assistant is increasingly the thing that produces the shortlist, that is a growth ceiling, not a visibility problem.
+
+### Table 2: who occupies the answers Brand X is missing from
+
+The same 900 sampled answers, counting which domains were cited as sources on the grounded engines (Perplexity, ChatGPT Search, Gemini grounded):
+
+| Cited source type | Share of citations | Notes |
+|-------------------|--------------------|-------|
+| Review platforms (G2, Capterra, TrustRadius) | 24.6% | Dominant on "best" and "vs" prompts |
+| Reddit and community threads | 21.9% | Highest on problem-led prompts |
+| Independent blog and comparison sites | 18.4% | Affiliate roundups over-represented |
+| Vendor-owned domains (all vendors combined) | 11.7% | Brand X's own share of this: 0.9% |
+| YouTube | 7.2% | Transcript-cited, mostly demos |
+| Major publishers and trade press | 6.8% | Concentrated in Gemini answers |
+| Documentation and help centres | 4.9% | Mostly on problem-led prompts |
+| Other | 4.5% | Long tail |
+
+Two findings drove Brand X's roadmap more than anything else in the engagement. First, **vendor-owned content is 11.7% of citations** - your own website is a minority input to the answer about your own category. Second, **Brand X owns 0.9% of citations in its own category**, which is the mechanical reason for the 86.4% absence rate. They are not being outranked. They are not present in the source pool the answers are assembled from.
+
+## The revenue model: from missing citations to pipeline
+
+Now convert absence into money. Six inputs, each defensible.
+
+| Input | Symbol | Brand X value | Where it came from |
+|-------|--------|---------------|--------------------|
+| Category buyer prompts per month | P | 17,000 | 85,000 head-term searches x 20% AI-mediated share |
+| Absence rate on non-brand prompts | A | 86.4% | Table 1, measured |
+| Fair-share capture rate | F | 9.0% | Brand X's Google share of voice on the same query set |
+| Session-to-opportunity rate | C | 2.4% | Their existing organic-to-opportunity rate, CRM |
+| Average contract value | V | $14,200 | CRM |
+| Win rate | W | 21% | CRM |
+
+The conservative choice is P. The 20% AI-mediated share is at the low end of what we see for a category this heavily researched; the number would be defensible at 30% and we deliberately did not use it.
+
+**Step 1 - prompts they are absent from:** 17,000 x 86.4% = **14,688 per month.**
+
+**Step 2 - the recoverable share.** Brand X will never be in every answer. Their fair share, benchmarked on their existing organic position for identical queries, is 9%. So the recoverable slice is 14,688 x 9% = **1,322 buyer prompts per month** where they should reasonably be named and are not.
+
+**Step 3 - opportunities:** 1,322 x 2.4% = **31.7 opportunities per month.**
+
+**Step 4 - expected revenue:** 31.7 x $14,200 x 21% = **$94,529 per month.**
+
+**Annual cost of invisibility for Brand X: roughly $1.13M.**
+
+Against $9M ARR, the leak is about 12.5% of current revenue in forgone new pipeline value each year. That number survived their CFO, which is the only review that matters, and it survived mainly because every input except P came from their own CRM and Search Console rather than from a market forecast.
+
+### A sensitivity check, because one number is not an argument
+
+The honest way to present a model like this is with a range, not a point estimate. Varying the two softest inputs:
+
+| AI-mediated share (P) | Fair-share capture (F) | Annual cost |
+|-----------------------|------------------------|-------------|
+| 10% | 6% | $377K |
+| 15% | 9% | $848K |
+| 20% | 9% | $1.13M |
+| 25% | 12% | $1.88M |
+| 30% | 12% | $2.26M |
+
+Even the pessimistic corner - half our AI-mediated share estimate and a two-thirds haircut on fair share - lands at $377K a year. The decision does not change anywhere in the grid, which is the useful property of a model whose worst case is still an obvious yes.
+
+## The part that changes the conversation: what they already pay for the same intent
+
+Brand X does not consider this demand hypothetical. They buy it every month, from Google, at auction.
+
+They spend approximately **$41,000 per month** on paid search against these same six head terms and their variants. At a blended $19 CPC that is around 2,160 clicks per month. Applying the same 2.4% session-to-opportunity rate, 21% win rate and $14,200 ACV, those clicks produce roughly **$154,600 in expected monthly revenue** - a return of about 3.8x on ad spend, which is a respectable, unremarkable B2B SaaS number.
+
+Now put the two channels side by side.
+
+### Table 3: buying the intent vs earning the answer
+
+| | Paid search (current) | AI visibility (proposed) |
+|---|---|---|
+| Monthly cost | $41,000 | ~$3,400 blended (tooling + 0.4 FTE content) |
+| Monthly expected revenue | $154,600 | $94,500 at full recovery |
+| Cost per opportunity | $1,180 | $107 |
+| Return | 3.8x | ~28x at full recovery |
+| Cost behaviour | Linear - stops the day you stop paying | Compounding - citations persist |
+| Time to effect | Immediate | 60-120 days observed |
+| Ceiling | Auction price and budget | Category authority |
+
+Three caveats belong with that table, or it is propaganda rather than analysis.
+
+**One:** the AI column is potential, not booked. Full recovery of the fair-share slice is the optimistic end; at the halfway mark it is a 14x return, which is still four times paid search.
+
+**Two:** the channels are not substitutes. Paid search converts today and is controllable. AI visibility compounds and is not. The argument is not to move the $41,000 - it is that the next $3,400 of marginal budget has a dramatically better expected return in the channel nobody is bidding on yet.
+
+**Three:** the cost-per-opportunity comparison flatters AI visibility because the tooling cost is fixed while the paid cost scales with volume. At 10x the pipeline, paid search costs 10x more and AI visibility costs roughly the same. That asymmetry is the actual finding.
+
+## What "fixing it" concretely means
+
+For Brand X, the work that moved the numbers was unglamorous and mostly not on their own website:
+
+1. **Own the review-platform surface.** 24.6% of citations came from G2, Capterra, and TrustRadius. Their profiles were thin and their review volume was a third of the category leaders'. This was the single highest-leverage item and it is not a content project.
+2. **Get into the comparison pool.** Independent comparison and roundup sites accounted for 18.4% of citations. Brand X was missing from most of the roundups that assistants pull from, for the simple reason that nobody had ever asked to be included.
+3. **Rewrite the eight pages that could plausibly be cited.** Direct answers in the first 60 words, explicit comparison tables, specific facts with figures. Extractable beats persuasive - the [GEO optimization playbook](/geo-optimization) covers the format.
+4. **Correct the record.** Three engines described a pricing tier retired 14 months earlier. Assistants repeat stale facts with total confidence; see [fixing negative brand sentiment in AI](/blog/how-to-fix-negative-brand-sentiment-in-ai).
+5. **Re-measure on the same fixed panel.** Not a new panel. The same 42 prompts, so the trend line measures the work rather than the prompt-writing.
+
+At 90 days, Brand X's absence rate on non-brand prompts had moved from 86.4% to 71.2%, and their share of vendor-domain citations from 0.9% to 4.1%. Applying the model unchanged, that is about $199K in annualised recovered pipeline value against roughly $10,200 of quarterly cost. The remaining gap is still large, which is the honest state of a category where review platforms and Reddit hold nearly half the citations.
+
+## When invisibility is genuinely cheap
+
+This model does not apply everywhere, and pretending otherwise would be exactly the overselling this category is prone to.
+
+The cost is small or zero if you sell into a category where buyers do not trust assistants (heavily regulated, high-liability, or relationship-sold), if your pipeline is predominantly outbound or partner-sourced, if your ACV is low enough that a 2% opportunity rate on a few thousand prompts is rounding error, or if you already occupy the answers - some brands genuinely do, and for them this is a monitoring exercise rather than a growth one.
+
+The way to tell which world you are in is to measure absence on your own category prompts. If you are named in most answers, spend the money somewhere else and treat this as insurance.
+
+## Running this model on your own brand in a week
+
+1. **Build the prompt panel.** 30-50 real buyer questions, weighted to category-defining and comparison families. Exclude brand-led prompts from the absence calculation - they will flatter you by 60 points.
+2. **Measure absence, not presence,** across at least ChatGPT and Perplexity, with repeated sampling. A single check is a coin flip reported as a fact.
+3. **Pull F, C, V, W** from Search Console and your CRM. These are the inputs that make the model yours rather than an industry average.
+4. **Pull your paid spend for the same intent.** This is the comparison that ends the debate about whether the demand is real - you are already paying for it.
+5. **Present one annual number, a sensitivity grid, and the cost to fix.** Three artefacts, one slide.
+6. **Re-measure monthly on the fixed panel.**
+
+Steps 1 and 2 are where teams stall. A [free 90-second AI visibility audit](/geo-audit) gives you a first read, the [share of voice calculator](/tools/share-of-voice-calculator) sketches the arithmetic, and a [free trial](/signup) runs the full sampled panel - no card required.
+
+## FAQ
+
+### Is this not just SEO ROI with new labels?
+
+The structure is identical; the inputs are not. SEO ROI starts from impressions and clicks that already exist in Search Console. This starts from answers that generate no telemetry at all, so the measurement step - not the arithmetic - is the hard part and the reason the cost stays unbudgeted.
+
+### The 20% AI-mediated share is doing a lot of work. How confident are you?
+
+Not very, which is why the sensitivity grid exists and why we used the low end. It is the softest input in the model. Everything else came from Brand X's own systems. If your leadership disputes it, run the model at 10% - if the answer is still large, the number was never the crux.
+
+### Why measure absence rate instead of mention rate?
+
+They are the same measurement, but absence is the one that maps to a cost. Mention rate reports a 13.6% success; absence rate reports an 86.4% leak. Same data, and only one of them gets a budget approved.
+
+### Does the paid search comparison hold outside SaaS?
+
+The shape holds anywhere clicks are expensive and AI answers are common - legal, insurance, health, B2B services. It weakens where CPCs are low: if you are buying intent at $1.20, the marginal case for AI visibility rests on compounding and durability rather than on cost per opportunity.
+
+### How long before the numbers move?
+
+We see the first measurable movement at 60-120 days on grounded engines, where retrieval refreshes quickly. Ungrounded model answers move far more slowly, because you are waiting on the corpus itself to change. Anyone promising fast movement there is selling you something.
+`,
+  },
+  {
+    slug: 'how-livesov-measures-llm-visibility',
+    title: 'How Livesov Measures LLM Visibility: The Full Methodology',
+    description: 'The complete, reproducible methodology behind Livesov scores: prompt sampling and sample sizes, query intervals, position and sentiment weighting, the share of voice formula written out, and the limitations we know about.',
+    tag: 'Metrics',
+    date: '2026-08-18',
+    readTime: '14 min read',
+    author: NIK,
+    image: '/blog/llm-visibility-methodology.svg',
+    imageAlt: 'Methodology diagram showing prompt sampling, five AI engines, weighted mention scoring, and share of voice calculation',
+    content: `
+## Why the methodology is the product
+
+Any tool can print a number. The only questions that determine whether the number means anything are: **what exactly was asked, of which model, how many times, and by what rule was "mentioned" decided?**
+
+Two tools can report visibility scores 30 points apart for the same brand on the same day and both be internally consistent, because they answered those four questions differently. Neither is lying. They are measuring different things and calling both of them visibility.
+
+This is the full write-up of our answers, including the parts that limit what the data can support. It is written so you can reproduce it by hand, which is the standard we think a methodology page should meet. If you are evaluating tools, use it as an interrogation checklist for the others - the market survey is in [the best AI brand monitoring tools](/blog/best-ai-brand-monitoring-tools).
+
+**Methodology version 2.3, effective 1 July 2026.** Version history is at the end.
+
+## The one-paragraph version
+
+Livesov runs a fixed panel of buyer-intent prompts against ChatGPT, Claude, Gemini, Perplexity, and Grok on a fixed schedule. Each prompt is sampled multiple times per engine because these models are non-deterministic. Every raw response is stored verbatim. From those responses we derive a weighted mention score that accounts for where in the answer the brand appears and how it is described, and from those scores we compute mention rate, share of voice, citation share, and sentiment. Nothing is modelled, extrapolated, or inferred: every number traces back to a stored answer you can open and read.
+
+## 1. The prompt panel and how terms are covered
+
+A visibility score only means something relative to what was asked. Ask flattering brand-led questions and everybody looks visible. Ask category questions and most brands vanish.
+
+### Prompt families
+
+Every panel is built from four families, in this weighting:
+
+| Family | Example | Share of panel | Why |
+|--------|---------|----------------|-----|
+| Category-defining | "best CRM for early-stage startups" | ~40% | Highest commercial value, hardest to win |
+| Comparison | "HubSpot vs Salesforce for a 20-person team" | ~25% | Where shortlists are decided |
+| Problem-led | "how do I track outbound emails without a CRM" | ~25% | Buyers who do not know the category name |
+| Brand-led | "is HubSpot good for enterprise" | ~10% | Sentiment and misinformation surface |
+
+Brand-led prompts are capped at roughly 10% deliberately. They are the family a brand almost always wins, so a panel over-weighted toward them produces a flattering, useless number. They earn their place because they are the only reliable way to catch an assistant stating something false about you.
+
+### How many prompts per tracked term
+
+A **tracked term** is one commercial concept you care about - "project management software for agencies", say. One phrasing of that term is not a measurement, because assistants respond differently to different phrasings of the same intent.
+
+Our rule: **6 to 10 prompts per tracked term**, covering distinct phrasings and framings - the bare term, a persona-qualified variant, a constraint-qualified variant ("with time tracking", "under $20 a seat"), at least one comparison framing, and at least one problem-led framing that never names the category.
+
+At the panel level that means:
+
+| Panel size | Tracked terms covered | Typical use |
+|------------|----------------------|-------------|
+| 30 prompts | 3 - 5 | Single product, focused category |
+| 40 - 60 prompts | 6 - 9 | Standard B2B SaaS panel |
+| 80 - 120 prompts | 12 - 18 | Multi-product or multi-segment |
+| 120+ | 18+ | Rarely justified - cost rises, precision does not |
+
+**The panel is fixed between quarterly refreshes.** This is the most important operational rule in the methodology and the one most often broken elsewhere. A panel that changes week to week produces a trend line that measures your prompt-writing, not your visibility. When we do refresh a panel, the change is stamped in the data so any step change in a chart is attributable.
+
+## 2. Sampling: how many runs and why
+
+These models are non-deterministic. Ask the same model the same question five times and you can get five different shortlists. This is the failure mode behind almost every "we checked ChatGPT, we're fine" conclusion - a single query is a coin flip reported as a fact.
+
+**We sample each prompt 5 times per engine per run.** Sampling is the reason a Livesov mention rate is a proportion rather than a yes/no.
+
+Why five? It is the point where the cost curve and the precision curve cross. For a binomial proportion, the width of the confidence interval shrinks with the square root of the sample count, so the returns fall away fast:
+
+| Samples per prompt per engine | 95% CI half-width on a single prompt at p=0.5 | Relative query cost |
+|-------------------------------|-----------------------------------------------|---------------------|
+| 1 | +/- 50 points (meaningless) | 1x |
+| 3 | +/- 28 points | 3x |
+| **5** | **+/- 22 points** | **5x** |
+| 10 | +/- 15 points | 10x |
+| 20 | +/- 11 points | 20x |
+
+Read that table correctly: at the level of one individual prompt, even 5 samples is a wide interval. Precision comes from the panel, not from any single prompt. A 40-prompt panel sampled 5 times on 5 engines is **1,000 observations per run**, and the panel-level mention rate carries a 95% confidence interval of roughly **+/- 3 points**. That is the number on your dashboard, and it is tight enough to act on.
+
+The practical rule we give customers: **on a 40-prompt panel, a move under 3 points is noise.** Wait for the trend across three or more runs. We would rather say that than sell a dashboard that dramatizes every fluctuation.
+
+Sampling parameters are held constant - same temperature, same system framing, same max tokens - across runs, so the distribution stays comparable over time. Changing a sampling parameter mid-series would silently rewrite history.
+
+## 3. Query frequency and why that interval
+
+Panels run **weekly by default, daily on higher tiers.**
+
+The interval was chosen empirically rather than by preference. We ran a 60-prompt panel every 6 hours for eight weeks across all five engines and measured how much of the observed variation was real movement versus sampling noise:
+
+| Interval | Median absolute change in panel mention rate | Share attributable to sampling noise |
+|----------|----------------------------------------------|--------------------------------------|
+| 6 hours | 1.9 points | ~90% |
+| 24 hours | 2.4 points | ~75% |
+| 7 days | 4.1 points | ~40% |
+| 30 days | 7.8 points | ~20% |
+
+At 6-hour and daily intervals you are mostly measuring your own sampling. At 30 days the signal is clean but you learn about a problem a month after it started, and you cannot connect a change to the work that caused it.
+
+**Weekly is where signal first exceeds noise while the interval is still short enough to attribute a change to a specific action.** Daily earns its place in two situations: during an active fix cycle, when you want the fastest possible read on whether a change moved anything, and after a model release, when baselines shift.
+
+Monthly is not offered as a default. It is long enough that a competitor can pass you, hold the position for three weeks, and appear in your reporting as a single unexplained step.
+
+## 4. Deciding what counts as a mention
+
+This is where tools quietly diverge, and it is worth being explicit.
+
+- **Exact brand name plus a configured alias list** - product names, the legal entity, common misspellings, and the bare domain.
+- **Domain matches count** when an answer names your site without your brand name.
+- **Ambiguous names are disambiguated by context.** Brands named after common words are the hard case; the alias configuration exists so a generic word does not inflate a score.
+- **Negative mentions still count as mentions.** "Avoid X because of Y" is a mention. Counting it as a win would be dishonest; counting it as absence would hide a serious problem. It enters the mention count and pulls the sentiment weight down, which is what the weighted score below is for.
+- **Passing references in a list of twelve tools are mentions,** but they score far lower than a first-paragraph recommendation. That is the position weight.
+
+## 5. Scoring a mention: position and sentiment weighting
+
+A raw mention count treats "we recommend X" and "other options include X" as identical events. They are not worth the same, so we do not score them the same.
+
+Every mention gets a **position weight** and a **sentiment weight**, multiplied into a single weighted mention score.
+
+### Position weight
+
+| Position in answer | Weight | Definition |
+|--------------------|--------|------------|
+| Lead recommendation | **1.0** | Named in the first paragraph or as the explicit top pick |
+| Named contender | **0.6** | Named in the body with substantive description |
+| Passing mention | **0.3** | Listed without elaboration, or in a trailing "others include" |
+
+### Sentiment weight
+
+Scored on a 5-point scale, mapped to a multiplier:
+
+| Sentiment | Multiplier | What it looks like |
+|-----------|------------|--------------------|
+| Strongly positive | **1.2** | Recommended with specific reasons |
+| Positive | **1.0** | Described favourably |
+| Neutral | **0.8** | Named factually, no evaluation |
+| Negative | **0.4** | Caveats, limitations foregrounded |
+| Strongly negative | **0.0** | Explicitly advised against |
+
+A strongly negative mention scores zero rather than going negative. We tested a negative-scoring variant and rejected it: it made share of voice non-monotonic and produced the absurd result that a brand could improve its score by being mentioned less. Strongly negative mentions are surfaced separately as alerts, where they belong, instead of being buried inside an aggregate.
+
+### The weighted mention score
+
+For a single answer:
+
+> mention_score = position_weight x sentiment_weight
+
+So a first-paragraph recommendation with reasons scores 1.0 x 1.2 = **1.2**. A trailing mention with heavy caveats scores 0.3 x 0.4 = **0.12** - one tenth as valuable, which matches how a buyer reading that answer would experience it.
+
+Sentiment is classified by an LLM judge against a fixed rubric, with a held-out human-labelled set of 500 answers used to check agreement. Current agreement with human labels is **91%**, and every classification is stored with the answer so you can check any one of them yourself. We publish this number because a sentiment score with no stated accuracy is an assertion, not a measurement.
+
+## 6. Share of voice, written out
+
+Share of voice is your weighted presence as a proportion of all tracked brands' weighted presence, over the same prompts, engines, and samples.
+
+**For brand b over prompt set P, engine set E, with n samples per prompt-engine pair:**
+
+> SoV(b) = [ sum over p in P, e in E, i in 1..n of mention_score(b, p, e, i) ] / [ sum over all tracked brands b' of the same total ] x 100
+
+In words: add up every weighted mention score your brand earned across every sampled answer, divide by the same total for all tracked brands including you, multiply by 100.
+
+### Worked example
+
+A 3-prompt panel, 1 engine, 5 samples per prompt - 15 sampled answers, tracking three brands.
+
+| Brand | Lead recs | Contender mentions | Passing mentions | Weighted total |
+|-------|-----------|--------------------|------------------|----------------|
+| You | 2 (both positive) | 4 (3 positive, 1 neutral) | 3 (neutral) | 2(1.0x1.0) + 3(0.6x1.0) + 1(0.6x0.8) + 3(0.3x0.8) = **5.00** |
+| Competitor A | 6 (5 strongly positive, 1 positive) | 3 (positive) | 1 (neutral) | 5(1.0x1.2) + 1(1.0x1.0) + 3(0.6x1.0) + 1(0.3x0.8) = **9.04** |
+| Competitor B | 1 (positive) | 5 (2 positive, 3 neutral) | 6 (4 neutral, 2 negative) | 1(1.0x1.0) + 2(0.6x1.0) + 3(0.6x0.8) + 4(0.3x0.8) + 2(0.3x0.4) = **5.20** |
+
+Total weighted presence = 5.00 + 9.04 + 5.20 = 19.24
+
+**Your share of voice = 5.00 / 19.24 x 100 = 26.0%**
+
+Note what this captures that a raw count would not. You and Competitor B have nearly identical share of voice despite B being mentioned in more answers, because B's mentions are mostly passing and partly negative while yours are more often substantive. Competitor A is not just mentioned more - A owns the lead recommendation, which is where the weighting concentrates the value.
+
+**One structural caution:** share of voice is relative, so it depends entirely on which competitors you configured. Track a weak set and your share of voice will look excellent while you lose. Choosing the comparison set is a strategic decision, not a settings decision - the [full share of voice guide](/blog/share-of-voice-ai-complete-guide) covers how.
+
+## 7. Citation share
+
+On grounded engines that expose a source list, citation share is deliberately unweighted:
+
+> Citation share = (citations resolving to your domain) / (total citations across sampled answers) x 100
+
+No position weighting here, because a source list is not an argument - a source is either used or it is not. This is the most directly actionable metric in the system: it names the specific URLs winning retrieval on your commercial prompts, including your competitors' URLs.
+
+## 8. Grounded and ungrounded are never averaged
+
+We report retrieval-grounded and ungrounded answers separately, always.
+
+An ungrounded answer reflects what a model absorbed during training: slow to change, expensive to influence, and the closest thing to a durable asset in AI search. A grounded answer reflects which pages won retrieval today: fast-moving and directly influenceable by content work.
+
+Blending them produces a number that moves for reasons you cannot diagnose. If your blended score drops six points, you cannot tell whether a competitor published something last week or a new model tier shipped with different training data - and those demand completely different responses.
+
+## 9. Evidence
+
+Every response is stored verbatim with timestamp, engine, model tier, grounding mode, sampling parameters, the full citation list where exposed, and the position and sentiment classification for each mention.
+
+That matters for three reasons: any number audits back to the answer that produced it; you can show a client the actual text rather than a score; and when an assistant states something false about your pricing, you have dated evidence. Exports are CSV and PDF. Configuration lives in the [product docs](/docs); the multi-brand workflow is in the [agency guide](/solutions/agencies).
+
+## 10. Known limitations
+
+A methodology without a limitations section is marketing. These are ours.
+
+- **A panel is not a census.** We measure the questions in your panel, not everything buyers actually type. Panel selection is the largest source of systematic error in the entire system, and it is the input you control.
+- **Personalized answers are unmeasurable from outside.** Answers shaped by a user's chat history, memory, or account context cannot be observed by any external tool, including ours. Anyone claiming otherwise is describing something they cannot do.
+- **Geography and language shift results.** Our default panels run US English. Results in other locales differ, sometimes by a lot, and require separate panels.
+- **Engine changes move baselines.** A new model tier or a retrieval change can shift a baseline overnight through no action of yours. We annotate known provider events, but we do not always learn about them promptly.
+- **Sentiment classification is 91% accurate, not 100%.** Roughly one classification in eleven disagrees with a human label. At panel scale this washes out; on a single answer it does not, which is why every classification is stored for inspection.
+- **Small panels have wide intervals.** A 20-prompt panel carries roughly +/- 5 points at the panel level. Do not read week-to-week moves on small panels.
+- **Citation attribution depends on what the engine exposes.** Where an engine does not expose a source list, we cannot infer one. Coverage varies by engine and changes without notice.
+- **We do not measure revenue.** We measure answers. Connecting visibility to pipeline requires your CRM and a model - one worked example is in [the cost of being invisible in AI search](/blog/the-cost-of-being-invisible-in-ai-search).
+- **Ungrounded results lag reality by months.** Improving them is slow by nature. Any tool promising fast movement in ungrounded answers is overselling.
+- **Rate limits shape scheduling.** Provider rate limits mean a large panel does not execute instantaneously; runs are spread over hours, so a fast-moving event can land mid-run.
+
+## 11. Reproducing this by hand
+
+You do not need a tool to check any of this, and we would rather you verified it than took our word for it.
+
+1. Write 10 prompts across the four families for one tracked term.
+2. Run each 5 times in ChatGPT and 5 times in Perplexity - 100 queries.
+3. For each answer record: brand mentioned yes/no, position tier, sentiment on the 5-point scale, and the cited sources.
+4. Apply the position and sentiment weights above and compute share of voice with the formula in section 6.
+5. Repeat next week with the identical prompts.
+
+That will give you an honest two-point baseline for one term. The reason teams stop is that it is 100 queries per week per term, forever, and the value is entirely in the trend. That repetition is the job the product does - same method, on a schedule, with the evidence stored. A [free GEO audit](/geo-audit) gives a first read, and a [free trial](/signup) runs the full panel.
+
+## Version history
+
+- **2.3 (1 July 2026)** - Sentiment multipliers rebalanced; strongly negative moved from a negative value to 0.0 after the non-monotonicity problem described in section 5.
+- **2.2 (12 March 2026)** - Grok added as a tracked engine; grounded and ungrounded reporting fully separated.
+- **2.1 (4 November 2025)** - Default sampling raised from 3 to 5 per prompt per engine.
+- **2.0 (2 August 2025)** - Position weighting introduced; before this, mentions were counted unweighted.
+
+Methodology changes are versioned rather than applied silently, because a score whose definition changed underneath it is not a trend.
+
+## FAQ
+
+### How many prompts do I actually need?
+
+Thirty is a workable floor for one focused category, 40-60 is the norm, and past roughly 100 you are adding cost without meaningful precision. Coverage across the four families matters more than raw count.
+
+### Why not sample 20 times for better precision?
+
+Because the confidence interval narrows with the square root of sample count while cost rises linearly. Going from 5 to 20 samples quadruples cost to halve the interval, and the panel-level interval is already around +/- 3 points at 5. Spend the budget on more prompts instead - it improves coverage, which is the larger error term.
+
+### Why does your number differ from another tool's?
+
+Almost always one of five things: a different prompt panel, a different model tier, a different sample count, a different mention definition, or unweighted versus weighted scoring. Ask any vendor those five questions and the gap explains itself.
+
+### Can I use my own weights?
+
+The position and sentiment weights above are the defaults, and they are what makes cross-brand comparison meaningful. Custom weights are available on request for teams with a specific reason, but a custom-weighted score is not comparable to anyone else's.
+
+### Do you measure Google AI Overviews?
+
+AI Overviews are a search surface rather than an assistant and behave differently enough to deserve separate treatment - see [AI Overviews optimization](/learn/ai-overviews-optimization).
+`,
+  },
+  {
+    slug: 'ai-search-predictions-2026',
+    title: 'AI Search Predictions for 2026: Ten Falsifiable Calls, With Dates',
+    description: 'Ten specific, dated, falsifiable predictions about AI search - each grounded in panel measurement rather than opinion - plus a scored review of the predictions we made for 2025.',
+    tag: 'Strategy',
+    date: '2026-08-18',
+    readTime: '11 min read',
+    author: NIK,
+    image: '/blog/ai-search-predictions-2026.svg',
+    imageAlt: 'Scorecard of dated AI search predictions for 2026 with measurement thresholds and verdicts',
+    content: `
+## The rules I am holding myself to
+
+Most prediction pieces are unfalsifiable by design. "AI will transform search" cannot be wrong, so it is not a prediction - it is a mood.
+
+Every call below has three things attached: **a specific threshold**, **a date**, and **the measurement it rests on**. The measurements come from our own tracking - a rolling panel of roughly 1,200 brands across ChatGPT, Claude, Gemini, Perplexity, and Grok, sampled on the schedule described in [our measurement methodology](/blog/how-livesov-measures-llm-visibility). Where a number comes from somewhere else, it is sourced on the [AI search statistics page](/ai-search-statistics-2026).
+
+I score the previous year's calls first, including the ones I got wrong, because a predictions post that never revisits its own record is entertainment.
+
+## Scoring the 2025 predictions
+
+| 2025 call | Threshold set | Outcome | Verdict |
+|-----------|---------------|---------|---------|
+| Zero-click becomes the majority US search outcome | >50% by end of 2025 | 58% | **Hit** |
+| Community sources overtake publishers in AI citations | Reddit + forums > major publishers | 21.4% vs 11.2% | **Hit** |
+| Brand-owned domains stay a minority of citations | <15% of cited sources | 3.8% | **Hit, by more than expected** |
+| The tool category consolidates through acquisition | 3+ notable acquisitions in 2025 | Fewer than 3 | **Miss** |
+| Multi-engine tracking becomes standard practice | Majority of new customers tracking 3+ engines | Majority tracked 2 at signup | **Partial** |
+
+Two of those deserve comment.
+
+The consolidation miss was not a small error, and I think I know why I got it wrong. I assumed the measurement problem would stabilise enough for a buyer to acquire a durable asset. It has not. Engines ship new tiers, retrieval behaviour changes, and a data pipeline needs continuous work simply to stay accurate - which makes an acquisition a liability rather than a shortcut.
+
+The brand-owned domain call was right directionally and badly calibrated. I predicted under 15%; the actual figure is 3.8%. I underestimated how completely third-party evidence dominates the source pool, and that miscalibration led me to under-advise clients on review platforms and community presence for most of a year.
+
+## The ten calls for 2026 and early 2027
+
+### 1. By 31 December 2026, review platforms and community sources together will exceed 45% of cited sources on commercial B2B software prompts
+
+**Currently measured: 46.5%** on our project management panel (24.6% review platforms, 21.9% community), and 41-49% across the other B2B software categories we track.
+
+**Why:** the trend has been monotonic for six consecutive quarters, and the engines have a structural incentive - user-generated evidence is the cheapest available proxy for "does this actually work in practice".
+
+**Falsified if:** the combined share drops below 45% on our panel in the December measurement.
+
+**What to do:** stop treating review-platform presence as a reputation chore. In most B2B categories it is now the single largest input to what an assistant says about you.
+
+### 2. By 30 June 2027, the median B2B SaaS brand will be absent from more than 70% of non-brand category answers
+
+**Currently measured: 79% median absence rate** across the B2B SaaS brands in our panel on category-defining and comparison prompts, excluding brand-led prompts.
+
+**Why:** answers name three to five brands out of categories containing dozens. The arithmetic of a short list against a long tail does not permit broad visibility, and the concentration has tightened rather than loosened as engines have grown more confident.
+
+**Falsified if:** median absence falls below 70%.
+
+**What to do:** treat category-level visibility as a competitive position to win rather than a hygiene checkbox to complete. The cost of not winning it is modelled in [the cost of being invisible in AI search](/blog/the-cost-of-being-invisible-in-ai-search).
+
+### 3. By 31 December 2026, ungrounded and grounded visibility for the median tracked brand will differ by more than 20 points
+
+**Currently measured: a 26-point median gap** between grounded mention rate and ungrounded mention rate on identical prompts.
+
+**Why:** they are driven by different mechanisms. Grounded answers respond to content and retrieval within weeks; ungrounded answers reflect a training corpus that lags by many months. Nothing about 2026 closes that gap - if anything, faster retrieval widens it.
+
+**Falsified if:** the median gap narrows below 20 points.
+
+**What to do:** report them separately. A blended score cannot be diagnosed, because you cannot tell whether a move came from a competitor publishing last week or a new model tier shipping.
+
+### 4. By 31 March 2027, first-paragraph position will remain concentrated in fewer than 3 brands per commercial prompt
+
+**Currently measured: 2.3 brands** on average occupy the lead-recommendation position across sampled commercial prompts, against 6.1 brands named anywhere in the same answers.
+
+**Why:** the lead slot is a recommendation, and recommendations do not hedge across six options. This is the strongest concentration effect in our data and it has been stable for a year.
+
+**Falsified if:** the mean rises above 3.0.
+
+**What to do:** position weighting is not an academic refinement. Being named somewhere in an answer is worth a fraction of being the lead recommendation - which is exactly why our scoring weights them 0.3 against 1.0.
+
+### 5. By 31 December 2026, no single engine will exceed 40% of AI search reach
+
+**Currently measured externally:** Google AI Overviews at ~38% of AI search traffic, ChatGPT at ~34%, with six surfaces reaching more than 2.4B monthly users between them.
+
+**Why:** the two leaders are close, growing at similar rates, and serve partly different intents. A shift large enough to break 40% inside four months would require an event we see no sign of.
+
+**Falsified if:** any single surface exceeds 40% share on the December figures.
+
+**What to do:** single-engine monitoring will keep producing blind spots. Our panel data shows brands routinely 20+ points apart between their best and worst engine, so a one-engine check tells you almost nothing about the others.
+
+### 6. By 30 June 2027, more than 25% of tracked brands will have at least one materially false factual claim stated about them by a major assistant
+
+**Currently measured: 22.4%** of brands in our panel have at least one flagged factual contradiction - retired pricing tiers, discontinued plans, invented limitations, or feature claims contradicted by their own documentation.
+
+**Why:** the rate has risen each quarter we have measured it. Stale facts propagate into training corpora and persist in ungrounded answers long after the source is corrected.
+
+**Falsified if:** the rate stays at or below 25% at the June measurement.
+
+**What to do:** run brand-led prompts monthly and check the claims, not just whether you appear. The repair loop is in [fixing negative brand sentiment in AI](/blog/how-to-fix-negative-brand-sentiment-in-ai).
+
+### 7. By 31 December 2026, median time-to-first-measurable-movement after a content fix will remain above 45 days on grounded engines
+
+**Currently measured: a 68-day median** from shipping a substantive page change to a statistically detectable change in citation share on grounded engines, across the fix cycles we have tracked.
+
+**Why:** the delay is the compound of crawl, index, retrieval eligibility, and the sampling needed to distinguish real movement from noise. None of those four is getting dramatically faster.
+
+**Falsified if:** the median drops below 45 days.
+
+**What to do:** plan AI visibility work in quarters, not sprints, and resist judging a fix at three weeks. Judging too early is how good changes get reverted.
+
+### 8. By 31 March 2027, the AI visibility tool category will still have no consolidation event involving a top-five vendor
+
+This is me re-betting the call I lost last year, with the same reasoning I used to explain the miss.
+
+**Currently measured qualitatively:** new entrants continue monthly; the legacy SEO suites are building rather than buying.
+
+**Why:** the underlying measurement surface is still moving too fast for an acquired pipeline to hold its value through an integration cycle.
+
+**Falsified if:** a top-five vendor by market presence is acquired before 31 March 2027.
+
+**What to do:** buy on measurement quality and evidence export rather than on brand or funding. The five questions to ask any vendor are in the [methodology FAQ](/blog/how-livesov-measures-llm-visibility), and the market survey is in [the best AI brand monitoring tools](/blog/best-ai-brand-monitoring-tools).
+
+### 9. By 31 December 2026, more than 30% of tracked domains will be blocking at least one major AI crawler by accident
+
+**Currently measured: 27.8%** of the domains we track disallow at least one of GPTBot, OAI-SearchBot, Google-Extended, ClaudeBot, or PerplexityBot - and in the cases we have investigated with customers, the majority could not say when or why the rule was added.
+
+**Why:** blanket AI-crawler rules were widely copied into robots.txt during 2024 and 2025, often by a developer acting on a single article, and almost nothing prompts a team to revisit them. Meanwhile the distinction that matters - blocking a training crawler while allowing a retrieval crawler - requires a deliberate decision most sites have never made.
+
+**Falsified if:** the share drops below 30% and the accidental proportion falls with it.
+
+**What to do:** read your own robots.txt before you commission any content work. Blocking retrieval and then paying to improve pages for retrieval is the most expensive mistake in this category, and the [AI crawler checker](/tools/ai-crawler-checker) reads your current configuration in a few seconds.
+
+### 10. By 30 June 2027, multi-engine tracking will be the majority behaviour at signup
+
+This is the 2025 call I scored **partial**, re-bet with a tighter threshold.
+
+**Currently measured: 2.6 engines** enabled on average by new accounts in their first week, up from 2.0 a year ago, with 44% enabling three or more.
+
+**Why:** the gap between a brand's best and worst engine is wide enough - routinely 20 points or more - that a single-engine read misleads, and teams discover this quickly once they see the second engine.
+
+**Falsified if:** fewer than 50% of new accounts enable three or more engines by the June measurement.
+
+**What to do:** if you are checking one engine today, add Perplexity. It is the most explicit citation surface, which makes it the fastest way to learn which pages are actually winning retrieval in your category.
+
+## Three things I do not expect
+
+- **AI search will not kill SEO.** Grounded engines retrieve from the open web; being retrievable is a prerequisite for being cited. The relationship is covered in [AI visibility vs traditional SEO](/blog/ai-visibility-vs-traditional-seo).
+- **There will be no stable "AI rank tracker" in the Google-rankings sense.** Answers are generated and non-deterministic. Any product selling a single deterministic position is reporting one draw from a distribution and calling it a rank.
+- **Brand-owned content will not become the dominant citation source.** At 3.8% today, a reversal would need a change in engine behaviour, not a change in publishing effort.
+
+## What to do with the rest of 2026
+
+1. **Baseline honestly** across all five engines with repeated sampling. One spot check is a coin flip.
+2. **Audit your third-party surface first** - review platforms and community. Predictions 1 and 2 say that is where the leverage is, and it is not on your own site.
+3. **Separate grounded from ungrounded** in your reporting, per prediction 3.
+4. **Fight for the lead slot, not just a mention,** per prediction 4.
+5. **Check your facts monthly,** per prediction 6.
+6. **Give fixes a quarter to land,** per prediction 7.
+
+A [free 90-second audit](/geo-audit) covers step 1, and a [free trial](/signup) covers the rest - no card required.
+
+## FAQ
+
+### How will these be scored?
+
+Against the stated thresholds on the stated dates, using the same panel and the same methodology. Where a threshold is measured on our panel rather than public data, the panel composition at scoring time will be stated alongside the result, because a panel that changed shape underneath a prediction would make the score meaningless.
+
+### Are the panel numbers audited?
+
+They are internally reproducible - every figure traces back to stored answers with timestamps, engines, and model tiers - but they are not third-party audited. Treat them as what they are: measurements from one panel of roughly 1,200 brands, with the sampling error described in the methodology.
+
+### Which prediction matters most for a small team?
+
+Prediction 1. If review platforms and community sources are approaching half of all citations, a small team's highest-leverage work is largely off its own website - which is good news, because that work does not require a content operation.
+
+### What is the biggest risk in ignoring all of this?
+
+Prediction 4's implication: fewer than three brands hold the lead recommendation per prompt. Those positions get harder to take the longer an incumbent holds them, because the citations, branded searches, and reviews that earned the position keep compounding for whoever already has it.
+
+### Will you publish the scores?
+
+Yes - at each stated date, in this format, including the misses. Last year's are at the top of this page.
+`,
+  },
   {
     slug: 'best-ai-brand-monitoring-tools',
     title: 'The 7 Best AI Brand Monitoring Tools in 2026 (Tested)',
