@@ -20,6 +20,14 @@ export interface NavItem {
   icon: string;
   /** Hidden from non-admin users in both the sidebar and the palette. */
   adminOnly?: boolean;
+  /**
+   * Parked: kept in this list on purpose, but not rendered in the sidebar or
+   * offered by the command palette. The page still exists and still works if
+   * you type its URL - this only takes it off the dashboard navigation until
+   * we decide to surface it again. Delete the entry only if the page itself
+   * is going away.
+   */
+  hidden?: boolean;
 }
 
 export interface NavGroup {
@@ -57,8 +65,10 @@ export const navGroups: NavGroup[] = [
       // Present in LvxShell's sidebar but previously missing here, so the
       // palette could not reach them - the same drift, in the other
       // direction.
-      { href: '/dashboard/connect', label: 'Connect Site', icon: '⚯' },
-      { href: '/dashboard/fixes', label: 'Fix Engine', icon: '✦' },
+      // Parked, not deleted - see NavItem.hidden. Both pages stay reachable
+      // at their URLs, they are just off the sidebar and the palette for now.
+      { href: '/dashboard/connect', label: 'Connect Site', icon: '⚯', hidden: true },
+      { href: '/dashboard/fixes', label: 'Fix Engine', icon: '✦', hidden: true },
       { href: '/dashboard/reports', label: 'Reports', icon: '🗂️' },
       { href: '/dashboard/geo-audit', label: 'GEO Audit', icon: '◉' },
       { href: '/dashboard/geo-audits', label: 'Regional Audits', icon: '🌍' },
@@ -78,7 +88,8 @@ export const navGroups: NavGroup[] = [
   },
 ];
 
-/** Flat list of every page, for the palette's fuzzy page matching. */
+/** Flat list of every page, parked ones included - the parity check compares
+ *  this against LvxShell's NAV, and both lists keep their parked entries. */
 export const allNavItems: NavItem[] = navGroups.flatMap((g) => g.items);
 
 /**

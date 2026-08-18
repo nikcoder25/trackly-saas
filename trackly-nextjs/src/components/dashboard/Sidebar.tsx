@@ -74,6 +74,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             <div key={group.label}>
               <div className="nav-group">{group.label}</div>
               {group.items.map((item) => {
+                if (item.hidden) return null;
                 if ('adminOnly' in item && item.adminOnly && user?.role !== 'admin') return null;
                 const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href + '/'));
                 return (
