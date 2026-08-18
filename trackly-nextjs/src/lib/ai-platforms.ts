@@ -1524,6 +1524,13 @@ interface QueryResult {
    */
   grounded?: boolean;
   cached?: boolean;
+  /**
+   * True when the provider stopped because the output budget ran out, not
+   * because the reply was finished. Callers that parse the reply (JSON
+   * modes) use this to retry with a larger budget instead of blaming the
+   * model's formatting. Absent when the provider didn't say.
+   */
+  truncated?: boolean;
 }
 export interface QueryOptions {
   systemPrompt?: string;
@@ -1673,6 +1680,7 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
         text, model: geminiModel,
         tokensIn: d.usageMetadata?.promptTokenCount || 0,
         tokensOut: d.usageMetadata?.candidatesTokenCount || 0,
+        truncated: finish === 'MAX_TOKENS',
         citations: grounding.citations,
         fanout: grounding.fanout,
         grounded: grounding.grounded,
@@ -2103,6 +2111,7 @@ export async function queryAI(
           model: d.model || chosenModel,
           tokensIn: d.usage?.prompt_tokens || 0,
           tokensOut: d.usage?.completion_tokens || 0,
+          truncated: d.choices?.[0]?.finish_reason === 'length',
           citations: [...new Set(citations)].slice(0, 10) as string[],
         };
         // Count billable web_search tool invocations. OpenAI exposes them
@@ -2162,6 +2171,7 @@ export async function queryAI(
           model: d.model || useModel,
           tokensIn: d.usage?.input_tokens || 0,
           tokensOut: d.usage?.output_tokens || 0,
+          truncated: (d as { stop_reason?: string }).stop_reason === 'max_tokens',
           citations: [],
         };
       } else if (platform === 'Gemini') {

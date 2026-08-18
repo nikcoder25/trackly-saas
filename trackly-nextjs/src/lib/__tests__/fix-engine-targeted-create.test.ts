@@ -36,7 +36,7 @@ vi.mock('@/lib/safe-fetch', () => ({
   safeFetch: vi.fn(async () => ({ ok: robots.status === 200, status: robots.status, text: async () => robots.text })),
 }));
 
-import { createTargetedFix } from '@/lib/fix-engine/targeted';
+import { createTargetedFix, resolveTargetUrl } from '@/lib/fix-engine/targeted';
 
 const base = { brandId: 'b1', ownerId: 'o1', website: 'https://acme.test' };
 const url = 'https://acme.test/p';
@@ -187,5 +187,54 @@ describe('createTargetedFix — validation → clarifying errors', () => {
   });
   it('rejects noindex-removal when the page is not blocked', async () => {
     await expect(createTargetedFix({ ...base, moduleKey: 'noindex-removal', url })).rejects.toThrow(/no noindex/i);
+  });
+});
+
+describe('resolveTargetUrl — anchoring paths to the brand site', () => {
+  it('keeps an absolute URL as-is', () => {
+    expect(resolveTargetUrl('https://acme.test/p', 'https://acme.test')).toBe('https://acme.test/p');
+    expect(resolveTargetUrl('http://other.example/x', 'https://acme.test')).toBe('http://other.example/x');
+  });
+
+  it('resolves a bare path against the brand website', () => {
+    // The exact bug: "/features" stored verbatim rendered as a link that
+    // resolved against the dashboard's own origin, not the customer's site.
+    expect(resolveTargetUrl('/features', 'https://acme.test')).toBe('https://acme.test/features');
+    expect(resolveTargetUrl('features', 'https://acme.test')).toBe('https://acme.test/features');
+  });
+
+  it('resolves against a schemeless brand website too', () => {
+    expect(resolveTargetUrl('/pricing', 'acme.test')).toBe('https://acme.test/pricing');
+  });
+
+  it('upgrades a schemeless host+path to https', () => {
+    expect(resolveTargetUrl('acme.test/pricing', undefined)).toBe('https://acme.test/pricing');
+    expect(resolveTargetUrl('//acme.test/pricing', undefined)).toBe('https://acme.test/pricing');
+  });
+
+  it('asks the user rather than guessing when a path has no site to anchor to', () => {
+    expect(() => resolveTargetUrl('/features', undefined)).toThrow(/which site|website/i);
+    expect(() => resolveTargetUrl('/features', '')).toThrow(/which site|website/i);
+  });
+
+  it('passes empty through for site-level modules', () => {
+    expect(resolveTargetUrl('', 'https://acme.test')).toBe('');
+    expect(resolveTargetUrl('   ', undefined)).toBe('');
+  });
+});
+
+describe('createTargetedFix — target URL resolution', () => {
+  it('stores an absolute targetUrl when the assistant hands over a bare path', async () => {
+    await createTargetedFix({ ...base, moduleKey: 'keyword-opportunities', url: '/features', keyword: 'garden calculator' });
+    expect(store.last!.targetUrl).toBe('https://acme.test/features');
+    expect(store.last!.summary).toContain('https://acme.test/features');
+    const d = store.last!.detected as Record<string, unknown>;
+    expect(d.page).toBe('https://acme.test/features');
+  });
+
+  it('turns an unanchorable path into a clarifying error, not a stored fix', async () => {
+    await expect(createTargetedFix({ brandId: 'b1', ownerId: 'o1', moduleKey: 'keyword-opportunities', url: '/features', keyword: 'kw' }))
+      .rejects.toThrow(/website|full URL/i);
+    expect(store.last).toBeNull();
   });
 });
