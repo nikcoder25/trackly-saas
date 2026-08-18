@@ -1,7 +1,7 @@
 /**
  * Module: Striking distance (GSC-driven, Channel A). The highest-ROI module.
  *
- * Detect: pull Search Analytics (query × page) for the last 28 days, find
+ * Detect: pull Search Analytics (query × page) for the last 30 days, find
  *   pages with queries ranking in positions 6-15 (page-1 edge) that have
  *   real impressions. Group by page; each page with enough striking-distance
  *   opportunity becomes one fix.
@@ -14,7 +14,7 @@
 import { crawlPage } from '../crawl';
 import { generateJson } from '../generate';
 import { STRIKING_SYSTEM, strikingUserPrompt } from '../prompts';
-import { getValidAccessToken, searchAnalytics, trailingDateRange } from '../gsc';
+import { getValidAccessToken, LOOKBACK_DAYS, searchAnalytics, trailingDateRange } from '../gsc';
 import { resolveCmsForBrand } from './_shared';
 import type {
   DetectedIssue, FixContext, FixModule, GeneratedDraft, PreviewBlock, RecheckVerdict, ShipResult,
@@ -45,7 +45,7 @@ export const strikingDistanceModule: FixModule = {
   async detect(ctx: FixContext): Promise<DetectedIssue[]> {
     const token = await getValidAccessToken(ctx.brand.id, ctx.tenantId);
     if (!token || !token.siteUrl) return [];
-    const { startDate, endDate } = trailingDateRange(28);
+    const { startDate, endDate } = trailingDateRange(LOOKBACK_DAYS);
     const rows = await searchAnalytics({
       accessToken: token.accessToken,
       siteUrl: token.siteUrl,

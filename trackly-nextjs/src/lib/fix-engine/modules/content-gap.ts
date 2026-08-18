@@ -34,7 +34,7 @@
 import { generateJson } from '../generate';
 import { profilePage, medianWordCount } from '../depth';
 import { CONTENT_GAP_SYSTEM, contentGapUserPrompt } from '../prompts';
-import { getValidAccessToken, searchAnalytics, trailingDateRange } from '../gsc';
+import { getValidAccessToken, LOOKBACK_DAYS, searchAnalytics, trailingDateRange } from '../gsc';
 import { getSearchIntent, isDataForSeoConfigured, type IntentLabel } from '@/lib/dataforseo';
 import { logger } from '@/lib/logger';
 import type {
@@ -153,7 +153,7 @@ export const contentGapModule: FixModule = {
   async detect(ctx: FixContext): Promise<DetectedIssue[]> {
     const token = await getValidAccessToken(ctx.brand.id, ctx.tenantId);
     if (!token || !token.siteUrl) return [];
-    const { startDate, endDate } = trailingDateRange(28);
+    const { startDate, endDate } = trailingDateRange(LOOKBACK_DAYS);
     const rows = await searchAnalytics({
       accessToken: token.accessToken, siteUrl: token.siteUrl, startDate, endDate,
       dimensions: ['page', 'query'], rowLimit: 5000,
@@ -383,7 +383,7 @@ export const contentGapModule: FixModule = {
     if (!token || !token.siteUrl) return { verified: false, scoreAfter: null, note: 'GSC not connected' };
     const d = issue.detected as { query: string };
     try {
-      const { startDate, endDate } = trailingDateRange(28);
+      const { startDate, endDate } = trailingDateRange(LOOKBACK_DAYS);
       const rows = await searchAnalytics({
         accessToken: token.accessToken, siteUrl: token.siteUrl, startDate, endDate,
         dimensions: ['page', 'query'], rowLimit: 5000,
