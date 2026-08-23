@@ -405,3 +405,260 @@ actually has set.
 Steps 1–2 are config-and-one-line. Step 3 is the one that turns this
 from a guess into a measurement, and it should land before anyone
 concludes the problem is solved.
+
+---
+
+# Addendum — Claude specifically (2026-08-23)
+
+Follow-up after the report above: the operator reports that **Claude**
+spend in particular has gone wild. That is a narrowing signal, and it
+points somewhere the original ranking did not — the report above ranked
+grounded Gemini first on per-call fees. For Claude the mechanism is
+different: it is **output tokens on a reasoning model**, and three
+commits landed within eight days that compound into it.
+
+Claude's default model is `claude-fable-5` at **$3/1M in, $15/1M out**
+(`MODEL_PRICING`, `src/lib/ai-platforms.ts:835`) — the highest output
+price of any default model in the lineup. Everything below multiplies
+against that number.
+
+## A. The output budget on JSON generations went up 7.5×–22× on Aug 18
+
+`#756` (c334954, Aug 18) rewrote `generateJson`
+(`src/lib/fix-engine/generate.ts:212`). Before, it was one call at the
+module's own budget:
+
+```ts
+const out = await generateContent(args);          // before #756
+```
+
+After, it floors the budget and adds a doubled retry:
+
+```ts
+export const JSON_MIN_BUDGET = 3000;
+const budget = Math.max(args.maxTokens ?? 1500, JSON_MIN_BUDGET);
+let out = await generateContent({ ...args, maxTokens: budget });
+if (data === null) {
+  out = await generateContent({ ...args, maxTokens: budget * 2 });
+}
+```
+
+**21 of the 22 Fix Engine modules use `generateJson`.** Their declared
+content budgets are mostly far below the new floor:
+
+| Module | Declared | Floored to | Ceiling change |
+|---|---|---|---|
+| `title-rewrite`, `meta-rewrite`, `og-cards` | 400 | 3,000 | **7.5×** |
+| `content-freshness`, `hallucination-correction` | 500 | 3,000 | **6×** |
+| `internal-linking` | 800 | 3,000 | 3.75× |
+| `image-alt`, `schema-markup`, `external-citations` | 900 | 3,000 | 3.3× |
+| `comparison-pages`, `content-gap` | 2,600 | 3,000 | 1.15× |
+
+Add the parse-failure retry at `budget * 2` and a single `title-rewrite`
+generation can now emit up to **9,000 output tokens** (3,000 + 6,000)
+where it was previously capped at 400. At $15/1M that is a ceiling of
+$0.135 against $0.006 — a **22× worst case**.
+
+The commit's reasoning is sound as far as it goes, and its header states
+it:
+
+> *max_tokens is a CEILING, not a spend: providers bill the tokens
+> actually produced, so a small cap saves nothing - what it does is cut
+> a reasoning model off mid-object once its thinking has eaten the
+> budget.*
+
+That is true of a **non-reasoning** model. It is not true of this one.
+On a reasoning model the thinking tokens are billed as output tokens and
+they expand to fill the headroom they are given. The commit's own
+diagnosis proves the point: the failure it was fixing was thinking
+alone exceeding a 400-token cap. Raising the cap to 3,000 does not just
+*permit* a longer reply — it *licenses* up to 3,000 tokens of billed
+thinking on every generation, on the most expensive output-priced model
+in the product.
+
+This is not an argument that #756 was wrong. The generations genuinely
+were failing, and a floor was the right shape of fix. The problem is
+that it was applied to the model least able to absorb it, with no knob
+to tune it and no cost model updated to match.
+
+## B. Aug 17 turned Claude from "billed and discarded" into "billed and used"
+
+`#754` (76b80e9, Aug 17) fixed `extractAnthropicText`. Its own commit
+message describes the prior state exactly:
+
+> *A reasoning model puts a `thinking` block first … In both cases the
+> request had succeeded, **tokens were spent and billed**, and the
+> caller was handed an empty string.*
+
+Before that fix, `generateContent`
+(`src/lib/fix-engine/generate.ts:86`) saw the empty string, pushed
+`"Claude: empty response"`, and fell through to ChatGPT and then Gemini.
+So Claude was being paid for and then bypassed — the visible work was
+done by the cheaper platforms.
+
+After the fix, Claude succeeds. And Claude is **first in line
+everywhere**:
+
+- `GENERATION_PLATFORMS = ['Claude', 'ChatGPT', 'Gemini']`
+  (`generate.ts:62`) — every Fix Engine generation.
+- `GENERATOR_PLATFORM_ORDER = ['claude', 'openai', …]`
+  (`src/lib/generator-key.ts:24`) — prompt discovery
+  (`prompt-discovery.ts:563`) and prompt map (`prompt-map.ts:235`).
+
+So Claude's *request* count barely moved, but its share of completed,
+full-length generations went from near zero to near everything — one day
+before its output ceiling was raised 7.5×.
+
+## C. `jsonMode` is silently ignored on Claude
+
+`options.jsonMode` is honoured by exactly one platform. The only two
+references in the call layer are both in the Gemini branch
+(`src/lib/ai-platforms.ts:1659`, `1660`). The Claude request body is:
+
+```ts
+body: JSON.stringify({ model: useModel, max_tokens: maxTok,
+                       system: sysPrompt, messages: [...] })
+```
+
+No structured-output enforcement of any kind. ChatGPT, Perplexity and
+Grok ignore it too — no `response_format: {type:'json_object'}`.
+
+The consequence is circular, and it lands on Claude because Claude is
+first: the callers that ask for JSON (`prompt-discovery.ts:583` at
+3,000 tokens, `prompt-map.ts:257` at 4,000, and all 21 `generateJson`
+modules) get no enforcement, so parse failures are more likely, so the
+doubled-budget retry in §A fires more often. Each of those retries is a
+second full-price Claude call.
+
+`prompt-discovery` has its own version of the same loop — two attempts
+at `maxTokens: 3000` (`prompt-discovery.ts:578-597`) — for the same
+reason.
+
+## D. Claude's retry budget is 2.5× what its own comment claims
+
+The Claude branch passes no `retryConfig` to `fetchAI`
+(`ai-platforms.ts:2142-2147`), so it takes the defaults:
+
+```ts
+const MAX_RETRIES = retryConfig?.maxRetries ?? (Number(process.env.AI_MAX_RETRIES) || 5);
+const CALL_MAX_RETRY_SLEEP_MS = retryConfig?.maxSleepMs ?? MAX_RETRY_SLEEP_MS;  // 90000
+```
+
+The `FetchAiRetryConfig` doc-comment immediately above says
+*"Overrides AI_MAX_RETRIES (default 2)"* and *"(default 15000)"*, and
+`MAX_RETRY_SLEEP_MS`'s own comment says *"15s default mirrors the 'two
+short backoffs' intent of MAX_RETRIES=2"* — while the constant is
+actually `90000`. The comments describe an older configuration.
+
+ChatGPT was given explicit per-call retry caps during the cost work
+(1 attempt on the search path, 3 otherwise). Claude never was, so it
+retries up to 5 times with a 90-second sleep budget. Anthropic's 529
+"overloaded" is treated as a 5xx and retried; each retry that reaches
+the model is billed.
+
+## E. Claude tracking calls are probably being paid for and discarded
+
+Separate from the spend spike, and worth checking while you are in here.
+
+Tracking runs pass no `maxTokens`, so they take
+`MAX_OUTPUT_TOKENS = 100` (`ai-platforms.ts:67`). A reasoning model
+given a 100-token ceiling spends the whole ceiling on thinking, returns
+`stop_reason: "max_tokens"`, and produces no text block — so
+`extractAnthropicText` correctly returns `''`.
+
+That empty string is then treated as a successful measurement: the
+Claude branch does not throw on empty text, so the run records "brand
+not mentioned" and `withCacheAndRetry` **caches the empty result for 14
+days**. You would be paying for Claude tracking and storing a false
+negative from it.
+
+`#754` added exactly the log line needed to confirm this — grep for
+`[claude] empty_text_response` and look at `stopReason` and
+`blockTypes`. If `stopReason` is `max_tokens` with no `text` block, this
+is happening.
+
+## How to confirm all of this in one query
+
+The token counts in the ledger are recorded from
+`d.usage.output_tokens` and are trustworthy even where the USD figure is
+not (`MODEL_PRICING` carries an in-code comment that `claude-fable-5`
+pricing is a **placeholder** — `ai-platforms.ts:833`). Look for a step
+change in `avg_out` on Aug 17–18:
+
+```sql
+SELECT date_trunc('day', created_at)::date AS day,
+       COUNT(*)                            AS calls,
+       ROUND(AVG(tokens_out))              AS avg_out,
+       MAX(tokens_out)                     AS max_out,
+       ROUND(SUM(usd_cost)::numeric, 2)    AS usd
+  FROM tenant_cost_events
+ WHERE platform = 'Claude'
+   AND created_at >= NOW() - INTERVAL '30 days'
+ GROUP BY 1 ORDER BY 1;
+```
+
+Caveat carried forward from §2 of the main report: this ledger only
+records **successful** calls, so it is a floor on both call count and
+spend, not the truth. Compare it against the Anthropic console's own
+usage page for the same days — the gap between them is itself a
+measurement of finding §2.
+
+## There is no env knob to turn any of this down
+
+Worth stating plainly, because it changes what "mitigate today" means.
+ChatGPT has a dozen cost knobs — `CHATGPT_SEARCH_BUDGET_DAILY`,
+`CHATGPT_NONSEARCH_MODEL`, `CHATGPT_SEARCH_CONTEXT_SIZE`,
+`CHATGPT_SEARCH_MAX_ATTEMPTS`, `AI_CHATGPT_MAX_RETRIES`,
+`AI_CHATGPT_MIN_DELAY_MS`. Claude has **none**. Its model, its output
+budget and its retry count are all hard-coded, and `JSON_MIN_BUDGET` is
+a plain exported constant. `AI_MAX_OUTPUT_TOKENS` exists but is global —
+turning it down would hit every platform's tracking calls, not Claude's
+generations.
+
+So unlike finding §1 in the main report, this one cannot be mitigated
+from the environment. It needs a deploy.
+
+## Recommended, in order
+
+1. **Move generation off Fable 5.** `claude-haiku-4-5` is
+   $0.80/$4.00 against $3.00/$15.00 — **3.75× cheaper on output**, which
+   is the dimension that is hurting. For title/meta/alt-text rewrites
+   the quality difference is unlikely to be visible. One line in
+   `PLATFORM_MODELS`, or better, an `AI_CLAUDE_MODEL` env knob so this
+   is tunable next time without a deploy.
+2. **Make `JSON_MIN_BUDGET` an env var**, and set the floor per-model
+   rather than globally — a reasoning model needs the headroom, Haiku
+   does not.
+3. **Send `response_format: {type:'json_object'}` on OpenAI and a
+   prefill / tool-schema on Claude** so `jsonMode` stops being a no-op
+   (§C). This cuts the doubled-budget retries at the source rather than
+   paying for them.
+4. **Give Claude an explicit `retryConfig`** the way ChatGPT has one,
+   and fix the three doc-comments that claim defaults of 2 and 15000
+   (§D).
+5. **Reconsider Claude-first ordering** in `GENERATION_PLATFORMS` and
+   `GENERATOR_PLATFORM_ORDER`. Being first on the most expensive model
+   is a deliberate quality choice, but it should be a knob.
+6. **Check §E** against the logs, and if confirmed, either raise
+   `maxTokens` for Claude tracking or drop Claude from tracking
+   defaults. Paying for a measurement that always reads "not mentioned"
+   is worse than not measuring.
+
+Item 1 alone is a ~3.75× cut on the line that is spiking. Items 1–2 are
+small and can ship together.
+
+## How this changes the main ranking
+
+The report above ranked by expected dollar impact across the whole
+product. Given the operator's signal that Claude specifically is the
+problem, §A + §B belong at the top of that list — above grounded Gemini
+— because they are recent (Aug 17–18), they compound, and they land on
+the highest output-priced model in the lineup.
+
+Findings §2 (failure-path ledger) and §7 (uncapped autopilot generation)
+from the main report both amplify this one: autopilot generation is
+uncapped at up to 500 fixes per 15-minute tick, and every one of those
+is a Claude call at the new budget. 500 generations at the new ceiling
+is roughly **$25 of Claude in a single cron tick for one brand**. Check
+`fix_automation` for rows with `autopilot_generate = true` before
+anything else.
