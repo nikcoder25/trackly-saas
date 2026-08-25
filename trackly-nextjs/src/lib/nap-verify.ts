@@ -146,6 +146,34 @@ export function extractUrlsFromText(text: string, max = 50): string[] {
   return out;
 }
 
+/**
+ * Validate + clamp an untrusted request-body canonical NAP. Shared by the
+ * create (POST /api/nap-audits) and edit (PUT /api/nap-audits/[id]) routes so
+ * the accepted shape can't drift between them: every optional field the form
+ * collects - including region/country/website from the Pull-from-Google flow -
+ * survives the round trip instead of being silently dropped.
+ */
+export function parseCanonicalNap(input: unknown): CanonicalNap | null {
+  if (!input || typeof input !== 'object') return null;
+  const o = input as Record<string, unknown>;
+  const name = typeof o.name === 'string' ? o.name.trim() : '';
+  if (!name || name.length > 200) return null;
+  const clamp = (v: unknown, max = 200) =>
+    typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : undefined;
+  const country = clamp(o.country, 3);
+  return {
+    name: name.slice(0, 200),
+    phone: clamp(o.phone),
+    street: clamp(o.street),
+    suite: clamp(o.suite),
+    city: clamp(o.city),
+    region: clamp(o.region, 100),
+    postcode: clamp(o.postcode),
+    country: country ? country.toUpperCase() : undefined,
+    website: clamp(o.website, 500),
+  };
+}
+
 // ── Normalization helpers ────────────────────────────────────────────────────
 
 const COMPANY_SUFFIXES = [

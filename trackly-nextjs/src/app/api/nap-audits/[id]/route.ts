@@ -9,7 +9,7 @@ import { after } from 'next/server';
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { logger } from '@/lib/logger';
-import { extractUrlsFromText, type CanonicalNap } from '@/lib/nap-verify';
+import { extractUrlsFromText, parseCanonicalNap } from '@/lib/nap-verify';
 import { NAP_MAX_URLS } from '@/lib/nap-audit-run';
 import {
   getNapAudit,
@@ -21,15 +21,6 @@ import {
   NAP_SCHEDULES,
   type NapAuditSchedule,
 } from '@/lib/nap-audits';
-
-function parseCanonical(input: unknown): CanonicalNap | null {
-  if (!input || typeof input !== 'object') return null;
-  const o = input as Record<string, unknown>;
-  const name = typeof o.name === 'string' ? o.name.trim() : '';
-  if (!name || name.length > 200) return null;
-  const clamp = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 200) : undefined);
-  return { name: name.slice(0, 200), phone: clamp(o.phone), street: clamp(o.street), suite: clamp(o.suite), city: clamp(o.city), postcode: clamp(o.postcode) };
-}
 
 export async function GET(
   request: Request,
@@ -116,7 +107,7 @@ export async function PUT(
 
   const label = typeof body.label === 'string' ? body.label.trim().slice(0, 120) : '';
   if (!label) return Response.json({ error: 'A client name / label is required' }, { status: 400 });
-  const canonical = parseCanonical(body.canonical);
+  const canonical = parseCanonicalNap(body.canonical);
   if (!canonical) return Response.json({ error: 'A business name is required (max 200 chars)' }, { status: 400 });
   const urlText = Array.isArray(body.urls)
     ? (body.urls as unknown[]).filter((u): u is string => typeof u === 'string').join('\n')
