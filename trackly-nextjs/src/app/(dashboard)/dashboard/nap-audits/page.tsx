@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Card, Badge, PageHead, KPIRail } from '@/app/dashboard-v2/ui';
 import NapAuditForm, { type NapAuditFormValues } from '@/components/dashboard/NapAuditForm';
+import { extractUrlsFromText } from '@/lib/nap-verify';
 import { useBrands } from '@/contexts/BrandContext';
 
 type NapAuditStatus = 'queued' | 'running' | 'done' | 'failed';
@@ -88,24 +89,8 @@ interface NewAuditModalProps {
 // chunker can run without importing the server-only fetcher into the
 // client bundle.
 const NEW_AUDIT_CHUNK_SIZE = 500;
-
-/** Tokenise the form's URL textarea into a clean, deduped, ordered list. */
-function parseUrlList(raw: string): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const line of raw.split(/[\s,;]+/)) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    // Defensive - `url:` schemes other than http(s) shouldn't reach the
-    // server, but the canonical extractUrlsFromText runs there too so
-    // anything malformed gets dropped by the time the audit is created.
-    if (!/^https?:\/\//i.test(trimmed)) continue;
-    if (seen.has(trimmed)) continue;
-    seen.add(trimmed);
-    out.push(trimmed);
-  }
-  return out;
-}
+// Mirrors NAP_PASTE_CAP in NapAuditForm - the ceiling the form itself allows.
+const NEW_AUDIT_PASTE_CAP = 5_000;
 
 function NewAuditModal({ brandId, brandName, brandCity, onClose, onCreated }: NewAuditModalProps) {
   const [submitProgress, setSubmitProgress] = useState<string | undefined>();
@@ -135,7 +120,10 @@ function NewAuditModal({ brandId, brandName, brandCity, onClose, onCreated }: Ne
    * audits that did succeed instead of losing the whole batch.
    */
   async function create(values: NapAuditFormValues) {
-    const urlList = parseUrlList(values.urls);
+    // Same tokenizer the form uses for its count/preview and the server uses
+    // on ingest, so "we'll create N audits" and what actually lands agree -
+    // scheme-less domains and comma-separated CSV cells included.
+    const urlList = extractUrlsFromText(values.urls, NEW_AUDIT_PASTE_CAP);
     if (urlList.length <= NEW_AUDIT_CHUNK_SIZE) {
       await postOne(values);
       onCreated();
