@@ -18,6 +18,7 @@ const ANONYMOUS_TOOL_ENDPOINTS = [
   '/api/tools/chatgpt-mention-checker',
   '/api/tools/citation-finder',
   '/api/tools/competitor-finder',
+  '/api/tools/nap-checker',
   // Pre-existing anonymous endpoints, locked down to the same contract.
   '/api/contact',
   '/api/newsletter',

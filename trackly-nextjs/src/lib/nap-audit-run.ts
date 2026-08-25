@@ -50,6 +50,12 @@ export interface NapRunSummary {
   /** Subset of unreachable that were anti-bot blocked (vs genuinely gone). */
   blocked: number;
   duplicateListings: number;
+  /**
+   * Reachable pages with no link back to the canonical website. Only
+   * populated when the audit's canonical NAP has a website; absent on
+   * runs stored before backlink verification existed.
+   */
+  missingBacklink?: number;
 }
 
 export interface NapRunResult {
@@ -81,6 +87,7 @@ function evaluate(
     extracted: v.extracted,
     ...(rendered ? { rendered: true } : {}),
     ...(archivedAt ? { archivedAt } : {}),
+    ...(v.backlink ? { backlink: v.backlink } : {}),
     fields: v.fields,
     tags: v.tags,
     matchScore: v.matchScore,
@@ -130,7 +137,7 @@ async function tryRender(
   return rendered;
 }
 
-async function checkUrl(url: string, canonical: CanonicalNap): Promise<UrlResult> {
+async function checkUrl(url: string, canonical: CanonicalNap, allowRender = true): Promise<UrlResult> {
   try {
     let res = await fetchOnce(url);
     // Anti-bot blocks are often transient - one retry after a short pause
@@ -144,7 +151,7 @@ async function checkUrl(url: string, canonical: CanonicalNap): Promise<UrlResult
     if (!reachable) {
       // Blocked / error status - the unblocker (paid live fetch or the free
       // Wayback snapshot) may still get through.
-      if (renderServiceEnabled()) {
+      if (allowRender && renderServiceEnabled()) {
         const rendered = await tryRender(url, res.status, canonical, null, true);
         if (rendered) return rendered;
       }
@@ -156,14 +163,14 @@ async function checkUrl(url: string, canonical: CanonicalNap): Promise<UrlResult
     // Only spend a *paid* unblocker call when the static fetch verified little.
     // We deliberately don't fall back to Wayback here: the page already loaded
     // live, so a possibly-stale archive snapshot of it wouldn't be an upgrade.
-    if (paidRenderEnabled() && matchedCount(result) < 2) {
+    if (allowRender && paidRenderEnabled() && matchedCount(result) < 2) {
       const rendered = await tryRender(url, res.status, canonical, result, false);
       if (rendered) return rendered;
     }
     return result;
   } catch (err) {
     // Never render an SSRF-blocked target (it resolved to a private IP).
-    if (renderServiceEnabled() && !(err instanceof SSRFError)) {
+    if (allowRender && renderServiceEnabled() && !(err instanceof SSRFError)) {
       const rendered = await tryRender(url, null, canonical, null, true);
       if (rendered) return rendered;
     }
@@ -205,6 +212,12 @@ async function mapWithConcurrency<T, R>(
 export interface RunNapCheckOptions {
   /** Called after each URL finishes; used to persist live progress. */
   onProgress?: (done: number, total: number) => void;
+  /**
+   * Skip the entire unblocker cascade (paid render services + Wayback).
+   * Used by the anonymous free tool so a signed-out visitor can never
+   * spend paid unblocker credits.
+   */
+  noRender?: boolean;
 }
 
 /** Fetch + extract + compare every URL against the canonical NAP. */
@@ -216,7 +229,7 @@ export async function runNapCheck(
   const results = await mapWithConcurrency(
     urls,
     FETCH_CONCURRENCY,
-    (u) => checkUrl(u, canonical),
+    (u) => checkUrl(u, canonical, !options.noRender),
     options.onProgress,
   );
   const score = consistencyScore(results);
@@ -228,6 +241,9 @@ export async function runNapCheck(
     deadLinks: results.filter((r) => !r.reachable).length,
     blocked: results.filter((r) => r.tags.includes('blocked')).length,
     duplicateListings: duplicates.length,
+    ...(canonical.website
+      ? { missingBacklink: results.filter((r) => r.reachable && r.backlink && !r.backlink.found).length }
+      : {}),
   };
   return { results, score, summary, duplicates };
 }

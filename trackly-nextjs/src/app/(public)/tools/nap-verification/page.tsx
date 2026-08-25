@@ -11,6 +11,7 @@ import ToolPage, {
   ExpertQuote,
   ArticleSchema,
 } from '@/components/tools/ToolPage';
+import NapFreeCheck from '@/components/tools/NapFreeCheck';
 
 export default function NapVerificationPage() {
   return (
@@ -24,9 +25,11 @@ export default function NapVerificationPage() {
       toolName="NAP Verification Tool"
       toolSlug="nap-verification"
     >
-      <div style={{ ...cardStyle, textAlign: 'center' }}>
+      <NapFreeCheck />
+
+      <div style={{ ...cardStyle, textAlign: 'center', marginTop: 24 }}>
         <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1a1a2e', margin: '0 0 10px' }}>
-          Run NAP audits in your Livesov dashboard
+          Run full NAP audits in your Livesov dashboard
         </h2>
         <p style={{ fontSize: 15, color: '#4b5563', lineHeight: 1.6, maxWidth: 540, margin: '0 auto 12px' }}>
           The NAP Verification Tool lives in your dashboard so you can save an audit per client, re-run

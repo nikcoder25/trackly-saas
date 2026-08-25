@@ -7,6 +7,7 @@
 import { after } from 'next/server';
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
+import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 import { extractUrlsFromText, parseCanonicalNap } from '@/lib/nap-verify';
 import { NAP_MAX_URLS } from '@/lib/nap-audit-run';
@@ -51,6 +52,16 @@ export async function GET(request: Request): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   const auth = await requireVerifiedAuth(request, pool);
   if (auth instanceof Response) return auth;
+
+  // Each audit fans out up to NAP_MAX_URLS outbound fetches (plus paid
+  // unblocker calls for blocked pages), so cap creation per user/IP. The
+  // limits comfortably cover the auto-split flow (a 5,000-URL paste is 10
+  // audits) while stopping a runaway client from queuing hundreds.
+  const rl = await checkUserIpRateLimit('nap_audit_create', auth.id, getClientIp(request), {
+    user: { max: 30, windowMs: 60 * 60 * 1000 },
+    ip: { max: 60, windowMs: 60 * 60 * 1000 },
+  });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   let body: Record<string, unknown>;
   try {

@@ -66,6 +66,7 @@ const CSRF_BOOTSTRAP_PATHS = new Set([
   '/api/tools/chatgpt-mention-checker',
   '/api/tools/citation-finder',
   '/api/tools/competitor-finder',
+  '/api/tools/nap-checker',
 ]);
 
 function getAllowedOrigins(request: NextRequest): Set<string> {
