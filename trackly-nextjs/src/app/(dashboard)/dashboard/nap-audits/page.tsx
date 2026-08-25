@@ -24,6 +24,7 @@ interface NapAuditListItem {
     deadLinks: number;
     blocked?: number;
     duplicateListings: number;
+    missingBacklink?: number;
   } | null;
   /** URLs the worker has completed for the in-flight run. */
   progressDone: number;
@@ -286,6 +287,7 @@ export default function NapAuditsPage() {
   const blocked = sum((s) => s.blocked ?? 0);
   const deadOnly = Math.max(0, sum((s) => s.deadLinks) - blocked);
   const dupes = sum((s) => s.duplicateListings);
+  const noLink = sum((s) => s.missingBacklink ?? 0);
 
   return (
     <div className="lvx">
@@ -319,6 +321,7 @@ export default function NapAuditsPage() {
             { k: 'BLOCKED', v: String(blocked) },
             { k: 'DEAD LINKS', v: String(deadOnly) },
             { k: 'DUPLICATE LISTINGS', v: String(dupes) },
+            { k: 'NO SITE LINK', v: String(noLink) },
           ]} />
         )}
 

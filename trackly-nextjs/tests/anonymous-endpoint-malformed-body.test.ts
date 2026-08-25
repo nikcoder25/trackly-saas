@@ -42,6 +42,7 @@ const ANONYMOUS_ROUTES = [
   'src/app/api/tools/chatgpt-mention-checker/route.ts',
   'src/app/api/tools/citation-finder/route.ts',
   'src/app/api/tools/competitor-finder/route.ts',
+  'src/app/api/tools/nap-checker/route.ts',
 ];
 
 describe('anonymous endpoints tolerate malformed JSON bodies', () => {

@@ -43,6 +43,8 @@ export interface NapUrlResult {
   rendered?: boolean;
   /** YYYY-MM-DD when the NAP was read from an Internet Archive snapshot. */
   archivedAt?: string;
+  /** Link-back check against the canonical website (backlink verification). */
+  backlink?: { found: boolean; nofollow?: boolean; anchor?: string; count?: number };
 }
 
 export interface NapDuplicateGroup {
@@ -53,7 +55,7 @@ export interface NapDuplicateGroup {
 
 export interface NapResultsData {
   score: number;
-  summary: { total: number; clean: number; withIssues: number; deadLinks: number; blocked?: number; duplicateListings: number };
+  summary: { total: number; clean: number; withIssues: number; deadLinks: number; blocked?: number; duplicateListings: number; missingBacklink?: number };
   duplicates: NapDuplicateGroup[];
   results: NapUrlResult[];
 }
@@ -251,7 +253,7 @@ function buildCsv(data: NapResultsData, overrides: Record<string, boolean>): str
   const header = [
     'URL', 'HTTP Status', 'NAP Status', 'Match Score', 'Name Status', 'Found Name', 'Phone Status',
     'Found Phone', 'Address Status', 'Found Address', 'Postcode Status', 'Found Postcode',
-    'Suite Status', 'Issues',
+    'Suite Status', 'Backlink', 'Backlink Rel', 'Anchor Text', 'Issues',
   ];
   const napLabel: Record<NapVerdict, string> = { ok: 'OK', verified: 'Verified (manual)', issues: 'Issues', unverified: 'Unverified' };
   const rows = data.results.map((r) =>
@@ -269,6 +271,9 @@ function buildCsv(data: NapResultsData, overrides: Record<string, boolean>): str
       r.fields.postcode.status,
       r.extracted.postcode || '',
       r.fields.suite.status,
+      r.backlink ? (r.backlink.found ? 'found' : 'missing') : '',
+      r.backlink?.found ? (r.backlink.nofollow ? 'nofollow' : 'dofollow') : '',
+      r.backlink?.anchor || '',
       r.tags.join('; '),
     ]
       .map((c) => csvEscape(String(c)))
@@ -393,6 +398,10 @@ function rowFlags(r: NapUrlResult): FlagView[] {
   if (r.reachable && !hasSchema) flags.push({ label: 'no JSON-LD', color: 'var(--primary)', bg: 'var(--primary-50)' });
   if (r.archivedAt) flags.push({ label: `via Web Archive · ${r.archivedAt}`, color: 'var(--info)', bg: 'var(--info-50)' });
   else if (r.rendered) flags.push({ label: 'JS-rendered', color: 'var(--info)', bg: 'var(--info-50)' });
+  if (r.backlink && r.reachable) {
+    if (!r.backlink.found) flags.push({ label: 'no link to site', color: 'var(--danger)', bg: 'var(--danger-50)' });
+    else if (r.backlink.nofollow) flags.push({ label: 'nofollow link', color: 'var(--warn)', bg: 'var(--warn-50)' });
+  }
   return flags;
 }
 
@@ -499,6 +508,30 @@ function CitationRow({
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {r.backlink && r.reachable && (
+                <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)', padding: 14, background: 'var(--surface)' }}>
+                  <div className="mono" style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--mute)' }}>Backlink to your site</div>
+                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    {r.backlink.found ? (
+                      <>
+                        <span className={`badge badge-${r.backlink.nofollow ? 'warn' : 'pos'}`} style={{ fontSize: 11 }}>
+                          {r.backlink.nofollow ? '≈ Nofollow' : '✓ Dofollow'}
+                        </span>
+                        {typeof r.backlink.count === 'number' && r.backlink.count > 1 && (
+                          <span className="mono" style={{ fontSize: 11, color: 'var(--mute)' }}>×{r.backlink.count}</span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="badge badge-neg" style={{ fontSize: 11 }}>✕ No link found</span>
+                    )}
+                  </div>
+                  {r.backlink.anchor && (
+                    <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.backlink.anchor}>
+                      Anchor: <span style={{ fontWeight: 600, color: 'var(--text)' }}>&ldquo;{r.backlink.anchor}&rdquo;</span>
+                    </div>
+                  )}
+                </div>
+              )}
               <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)', padding: 14, background: 'var(--surface)' }}>
                 <div className="mono" style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--mute)' }}>Verdict basis</div>
                 <div style={{ marginTop: 8, fontSize: 13, color: 'var(--text-2)', lineHeight: 1.45 }}>
@@ -728,6 +761,22 @@ export default function NapResults({
           </div>
         </div>
       </section>
+
+      {/* ─── Missing-backlink note ─── */}
+      {(data.summary.missingBacklink ?? 0) > 0 && (
+        <section className="card" style={{ borderColor: 'var(--danger-100)' }}>
+          <div className="card-b" style={{ background: 'var(--danger-50)' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--danger)', marginBottom: 4 }}>
+              {data.summary.missingBacklink} {data.summary.missingBacklink === 1 ? 'page doesn’t' : 'pages don’t'} link to your website
+            </div>
+            <p style={{ fontSize: 12.5, color: 'var(--text-2)', margin: 0, lineHeight: 1.6 }}>
+              These pages were reachable but contain no link to your site, so they pass no link equity.
+              They&apos;re flagged <strong>no link to site</strong> in the table below - expand a row to see the
+              anchor details for the pages that do link.
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* ─── Blocked-citation note ─── */}
       {data.results.some((r) => r.tags.includes('blocked')) && (

@@ -85,12 +85,30 @@ export interface CompareResult {
   matchScore: number;
 }
 
+/**
+ * Result of checking whether a citation page links back to the canonical
+ * website - the thing that makes a backlink a backlink. Only computed when
+ * the canonical NAP has a `website`, so audits without one are unaffected.
+ */
+export interface BacklinkCheck {
+  /** True when at least one anchor on the page points at the website's domain. */
+  found: boolean;
+  /** True when every matching anchor is rel=nofollow/sponsored/ugc (no link equity). */
+  nofollow?: boolean;
+  /** Anchor text of the first matching link (empty for image-only links). */
+  anchor?: string;
+  /** Number of matching anchors on the page. */
+  count?: number;
+}
+
 export interface UrlResult extends CompareResult {
   url: string;
   httpStatus: number | null;
   reachable: boolean;
   error?: string;
   extracted: ExtractedNap;
+  /** Link-back check against canonical.website; absent when no website is set. */
+  backlink?: BacklinkCheck;
   /** True when the page was re-fetched through the headless render service (Layer 3). */
   rendered?: boolean;
   /**
@@ -503,6 +521,39 @@ export function extractName(html: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Scan a page's anchors for a link to the canonical website's registrable
+ * domain. Relative hrefs, mailto:/tel:/javascript: and other non-http links
+ * are skipped - they can't point off-site. Returns null when the website
+ * value can't be reduced to a domain.
+ */
+export function verifyBacklink(html: string, website: string): BacklinkCheck | null {
+  const target = registrableDomain(/^https?:\/\//i.test(website) ? website : `https://${website}`);
+  if (!target) return null;
+  const anchorRe = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null;
+  let count = 0;
+  let anyFollow = false;
+  let anchor: string | undefined;
+  while ((m = anchorRe.exec(html)) !== null) {
+    const attrs = m[1];
+    const hrefM = attrs.match(/href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    if (!hrefM) continue;
+    let href = decodeEntities((hrefM[1] ?? hrefM[2] ?? hrefM[3] ?? '').trim());
+    if (!href) continue;
+    if (href.startsWith('//')) href = 'https:' + href;
+    if (!/^https?:\/\//i.test(href)) continue;
+    if (registrableDomain(href) !== target) continue;
+    count++;
+    const relM = attrs.match(/rel\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+    const rel = (relM?.[1] ?? relM?.[2] ?? '').toLowerCase();
+    if (!/\b(nofollow|sponsored|ugc)\b/.test(rel)) anyFollow = true;
+    if (anchor === undefined) anchor = stripTags(m[2]).slice(0, 200) || undefined;
+  }
+  if (count === 0) return { found: false };
+  return { found: true, nofollow: !anyFollow, anchor, count };
+}
+
 function allUkPostcodes(text: string): string[] {
   return (text.match(new RegExp(UK_POSTCODE_RE.source, 'gi')) || []).map((p) =>
     p.toUpperCase().replace(/\s+/g, ' ').trim(),
@@ -517,7 +568,10 @@ function allUkPostcodes(text: string): string[] {
  * microdata. Candidate values are still extracted for display and to flag a
  * genuine mismatch (a different phone/postcode present on the page).
  */
-export function verifyNap(canonical: CanonicalNap, html: string): CompareResult & { extracted: ExtractedNap } {
+export function verifyNap(
+  canonical: CanonicalNap,
+  html: string,
+): CompareResult & { extracted: ExtractedNap; backlink?: BacklinkCheck } {
   const schema = extractFromSchema(html);
   const regex = extractWithRegex(html);
   const text = stripTags(html);
@@ -644,7 +698,19 @@ export function verifyNap(canonical: CanonicalNap, html: string): CompareResult 
   }
 
   const fields: CompareResult['fields'] = { name, phone, address, postcode, suite };
-  return { fields, ...buildTagsAndScore(canonical, fields), extracted };
+  const base = { fields, ...buildTagsAndScore(canonical, fields), extracted };
+
+  // Backlink check - only when a canonical website is set, so audits without
+  // one keep their exact previous behaviour. A missing link is tagged (it
+  // makes the citation "with issues") but never changes the NAP matchScore.
+  if (canonical.website) {
+    const backlink = verifyBacklink(html, canonical.website);
+    if (backlink) {
+      if (!backlink.found) base.tags.push('no link to website');
+      return { ...base, backlink };
+    }
+  }
+  return base;
 }
 
 // ── Matching & scoring ───────────────────────────────────────────────────────

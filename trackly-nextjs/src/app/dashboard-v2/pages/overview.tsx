@@ -917,6 +917,10 @@ export function PageOverview() {
           <OverviewCompetitors rows={d.competitors} />
           <OverviewSources rows={d.sources} />
         </div>
+
+        <div className="g2">
+          <OverviewNapCard />
+        </div>
       </div>
 
       {drawer && <MentionDrawer item={drawer} onClose={() => setDrawer(null)} />}
@@ -1489,6 +1493,81 @@ function OverviewSources({ rows }: { rows: OverviewData['sources'] }) {
               <span className="mono" style={{ fontSize: 12, color: 'var(--text)', minWidth: 46, textAlign: 'right' }}>{r.n}</span>
             </div>
           ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* ───────────────────────── NAP consistency tile ─────────────────────────
+   Surfaces the brand's saved NAP audits (local citation consistency) on the
+   Overview so the feature is discoverable without opening the NAP Audits tab.
+   Reads the same brand-scoped list endpoint the tab uses; hidden until a
+   brand is selected, and shows a create CTA when the brand has no audits. */
+
+interface NapTileAudit {
+  id: string;
+  label: string;
+  status: 'queued' | 'running' | 'done' | 'failed';
+  score: number | null;
+  lastRunAt: string | null;
+  urlCount: number;
+  summary: { deadLinks: number; withIssues: number; missingBacklink?: number } | null;
+}
+
+function OverviewNapCard() {
+  const { selectedBrand } = useBrands();
+  const brandId = (selectedBrand as any)?.id as string | undefined;
+  const [audits, setAudits] = React.useState<NapTileAudit[] | null>(null);
+
+  React.useEffect(() => {
+    if (!brandId) { setAudits([]); return; }
+    let cancelled = false;
+    setAudits(null);
+    fetch(`/api/nap-audits?brandId=${encodeURIComponent(brandId)}`, { credentials: 'include', cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : { audits: [] }))
+      .then((d) => { if (!cancelled) setAudits(Array.isArray(d?.audits) ? d.audits : []); })
+      .catch(() => { if (!cancelled) setAudits([]); });
+    return () => { cancelled = true; };
+  }, [brandId]);
+
+  if (!brandId || audits === null) return null;
+
+  const scored = audits.filter((a) => a.score != null);
+  const avg = scored.length ? Math.round(scored.reduce((s, a) => s + (a.score ?? 0), 0) / scored.length) : null;
+  const dead = audits.reduce((s, a) => s + (a.summary?.deadLinks ?? 0), 0);
+  const issues = audits.reduce((s, a) => s + (a.summary?.withIssues ?? 0), 0);
+  const noLink = audits.reduce((s, a) => s + (a.summary?.missingBacklink ?? 0), 0);
+  const urls = audits.reduce((s, a) => s + (a.urlCount || 0), 0);
+  const running = audits.some((a) => a.status === 'queued' || a.status === 'running');
+  const avgColor = avg == null ? 'var(--mute)' : avg >= 85 ? 'var(--success)' : avg >= 60 ? 'var(--warn)' : 'var(--danger)';
+
+  return (
+    <Card
+      title="NAP consistency"
+      lede="Local citation & backlink health for this brand - name, address, phone and link-backs verified across your listings."
+      right={<a className="btn-g" href="/dashboard/nap-audits" style={{ textDecoration: 'none' }}>{audits.length > 0 ? 'View audits →' : '+ New audit'}</a>}
+      style={{ gridColumn: 'span 2' }}
+    >
+      {audits.length === 0 ? (
+        <p className="quiet" style={{ fontSize: 13, margin: 0 }}>
+          No NAP audits yet. Add your canonical business details and citation/backlink URLs - we&apos;ll
+          fetch every page, flag mismatches and dead links, and track a consistency score over time.
+        </p>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 28, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+            <span className="mono" style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.02em', color: avgColor }}>{avg ?? '-'}</span>
+            <span className="mono" style={{ fontSize: 13, color: 'var(--mute)' }}>/100</span>
+          </div>
+          <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--text-2)' }}>
+            <span><b style={{ color: 'var(--text)' }}>{audits.length}</b> audit{audits.length === 1 ? '' : 's'}</span>
+            <span><b style={{ color: 'var(--text)' }}>{urls}</b> URLs checked</span>
+            <span><b style={{ color: issues > 0 ? 'var(--warn)' : 'var(--text)' }}>{issues}</b> with issues</span>
+            <span><b style={{ color: dead > 0 ? 'var(--danger)' : 'var(--text)' }}>{dead}</b> dead links</span>
+            {noLink > 0 && <span><b style={{ color: 'var(--danger)' }}>{noLink}</b> missing your link</span>}
+          </div>
+          {running && <Pill tone="acc"><span className="pulse" /> Audit running</Pill>}
         </div>
       )}
     </Card>
