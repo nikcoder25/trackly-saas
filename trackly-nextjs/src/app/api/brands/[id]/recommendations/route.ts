@@ -111,6 +111,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
+  if (access.role === 'viewer') {
+    return Response.json({ error: 'Viewers cannot generate recommendations.' }, { status: 403 });
+  }
 
   // Check plan allows sentiment/recommendations
   const ownerId = access.brand.userId || user.id;
@@ -148,6 +151,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const { id: brandId } = await params;
   const access = await getBrandWithAccess(brandId, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
+  if (access.role === 'viewer') {
+    return Response.json({ error: 'Viewers cannot update recommendations.' }, { status: 403 });
+  }
 
   const body = await request.json();
   const { id: recId, status } = body;

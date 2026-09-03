@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { safeFetch, SSRFError } from '@/lib/safe-fetch';
 import { logError, serverError } from '@/lib/api-error';
 
@@ -97,7 +97,7 @@ function normalizeDomain(input: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const ip = getClientIp(req);
     const { allowed, retryAfter } = await rateLimit(`llms-txt-gen:${ip}`, 60 * 60 * 1000, 10);
     if (!allowed) return rateLimitResponse(retryAfter);
 

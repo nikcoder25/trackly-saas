@@ -171,7 +171,7 @@ export default function RankTrackerPage({ data }: { data: RankTracker }) {
           <Callout title="Rank is a trend, not a snapshot" variant="tip">
             Because AI answers change between runs and across models, one check tells you almost
             nothing. The reliable signal is a rank <em>trend</em> built from many runs over time -
-            which is exactly what Livesov automates on every plan.
+            which is exactly what Livesov automates on every paid plan.
           </Callout>
         </LongForm>
       </Section>
@@ -196,6 +196,11 @@ export default function RankTrackerPage({ data }: { data: RankTracker }) {
         links={[
           { href: data.brandTrackingHref, label: data.brandTrackingLabel, description: data.brandTrackingDescription },
           { href: data.otherHref, label: data.otherLabel, description: data.otherDescription },
+          // Every tracker page links the engine-agnostic hub so /llm-rank-tracker
+          // is never an orphan (it was in the sitemap with zero inbound links).
+          ...(data.slug !== 'llm-rank-tracker' && data.otherHref !== '/llm-rank-tracker'
+            ? [{ href: '/llm-rank-tracker', label: 'LLM rank tracker', description: 'One rank tracker for every AI engine - ChatGPT, Claude, Gemini, Perplexity, and Grok.' }]
+            : []),
           { href: '/geo-audit', label: 'Free GEO audit', description: 'Score any URL for AI citation-readiness in seconds.' },
           { href: '/tools', label: 'Free AI search tools', description: '10 free tools - most need no signup.' },
           { href: '/pricing', label: 'Pricing & plans', description: 'Start free, scale to agency multi-brand tracking.' },

@@ -2,6 +2,7 @@ import { pool, auditLog } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
 import bcrypt from 'bcryptjs';
 import { logError, serverError } from '@/lib/api-error';
+import { getClientIp } from '@/lib/rate-limit';
 
 export async function GET(request: Request) {
   const admin = await requireAdmin(request);
@@ -102,7 +103,7 @@ export async function POST(request: Request) {
       [email.toLowerCase().trim(), hash, name || null, resolvedPlan]
     );
 
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+    const ip = getClientIp(request);
     auditLog(admin.id, 'admin_create_user', 'user', result.rows[0].id, { email }, ip);
 
     return Response.json({ user: result.rows[0] }, { status: 201 });

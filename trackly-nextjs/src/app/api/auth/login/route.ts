@@ -6,13 +6,13 @@ import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, issueSessio
 import { getEffectivePlan } from '@/lib/constants';
 import { verifyTOTP, findBackupCodeIndex } from '@/lib/totp';
 import { decryptValue } from '@/lib/helpers';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 
 const DUMMY_HASH = '$2a$12$000000000000000000000uGiltNn9J1kOXqSqMpNQHCbSZkHm5mZS';
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const ip = getClientIp(request);
   const body = await request.json();
   const { email, password, totpCode } = body;
 

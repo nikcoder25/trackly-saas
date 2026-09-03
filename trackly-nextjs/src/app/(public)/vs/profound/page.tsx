@@ -59,9 +59,9 @@ const livesovStrengths = [
   },
   {
     icon: '⚙',
-    title: 'All 5 LLMs at every price',
+    title: 'All 5 LLMs, no add-ons',
     description:
-      'ChatGPT, Claude, Gemini, Perplexity, and Grok included on every plan - the entry tier is not locked to a single engine.',
+      'ChatGPT, Claude, Gemini, Perplexity, and Grok with no per-platform add-ons - even the entry tier picks two engines, not one.',
   },
   {
     icon: '⚠',
@@ -247,7 +247,7 @@ export default function VsProfoundPage() {
         links={[
           { href: '/profound-alternative', label: 'Profound alternative', description: 'Why self-serve teams switch from Profound to Livesov.' },
           { href: '/vs/otterly', label: 'Livesov vs Otterly', description: 'Two self-serve tools compared surface by surface.' },
-          { href: '/vs/peec-ai', label: 'Livesov vs Peec AI', description: 'Add-on pricing vs all-platforms-included.' },
+          { href: '/vs/peec-ai', label: 'Livesov vs Peec AI', description: 'Add-on pricing vs no-add-ons.' },
           { href: '/pricing', label: 'Pricing & plans', description: 'Start free, scale to agency multi-brand.' },
           { href: '/how-it-works', label: 'How Livesov works', description: 'Methodology and data pipeline explained.' },
           { href: '/case-studies', label: 'Case studies', description: 'How teams move their share of AI answers.' },

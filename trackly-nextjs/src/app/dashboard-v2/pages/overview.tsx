@@ -495,10 +495,27 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   let competitors: OverviewData['competitors'] = [];
   const compEntries = Object.entries(compRaw).sort((a, b) => b[1] - a[1]).slice(0, 7);
   if (compEntries.length > 0) {
-    const total = compEntries.reduce((s, [, c]) => s + c, 0) + Math.max(1, totalM);
+    // Every row in this table is a share of the SAME pool - your mentions
+    // plus each tracked competitor's mentions - so the rank and the
+    // "Competitive" standing below compare like with like. (The headline SOV
+    // above stays mention-rate; mixing the two here ranked a 40%-mention-rate
+    // brand against competitors measured on a different denominator.)
+    const myMentions = Math.max(0, Number(totalM) || 0);
+    const total = compEntries.reduce((s, [, c]) => s + c, 0) + myMentions;
+    const share = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+    const prevCompRaw: Record<string, number> = (prevRun?.competitors as Record<string, number>) || {};
+    const prevMy = Math.max(0, Number(prevRun?.totalM) || 0);
+    const prevTotal = Object.values(prevCompRaw).reduce((s, c) => s + (Number(c) || 0), 0) + prevMy;
+    const prevShare = (n: number) => (prevTotal > 0 ? Math.round((n / prevTotal) * 100) : 0);
+    const mySov = share(myMentions);
     competitors = [
-      { name: brand.name || 'You', sov, d: sov - prevSov, me: true, color: 'var(--accent)' },
-      ...compEntries.map(([name, c], i) => ({ name, sov: Math.round((c / total) * 100), d: 0, color: COMP_COLORS[(i + 1) % COMP_COLORS.length] })),
+      { name: brand.name || 'You', sov: mySov, d: prevRun ? mySov - prevShare(prevMy) : 0, me: true, color: 'var(--accent)' },
+      ...compEntries.map(([name, c], i) => ({
+        name,
+        sov: share(c),
+        d: prevRun && name in prevCompRaw ? share(c) - prevShare(Number(prevCompRaw[name]) || 0) : 0,
+        color: COMP_COLORS[(i + 1) % COMP_COLORS.length],
+      })),
     ].sort((a, b) => b.sov - a.sov);
     // "vs Top 3 competitors" = me + the three highest-SOV non-me brands.
     if (filters.competitorView === 'top3') {
@@ -516,7 +533,8 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   if (competitors.length > 0) {
     const rank = competitors.findIndex(c => c.me) + 1;
     const leaderSov = competitors[0].sov || 0;
-    competitive = leaderSov > 0 ? Math.round(Math.min(100, (sov / leaderSov) * 100)) : 0;
+    const mySov = competitors.find(c => c.me)?.sov ?? 0;
+    competitive = leaderSov > 0 ? Math.round(Math.min(100, (mySov / leaderSov) * 100)) : 0;
     competitiveSub = `#${rank} of ${competitors.length} tracked`;
   }
 

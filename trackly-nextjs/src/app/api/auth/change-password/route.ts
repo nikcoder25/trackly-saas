@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     // Revoke every session for this user so a password change kicks all devices
     // out - existing access tokens still work until their 15-minute TTL expires.
     await revokeAllSessions(pool, user.id);
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+    const ip = getClientIp(request);
     auditLog(user.id, 'change_password', 'user', user.id, {}, ip);
     return Response.json({ message: 'Password updated successfully' });
   } catch {

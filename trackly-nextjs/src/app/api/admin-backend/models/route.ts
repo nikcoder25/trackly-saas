@@ -2,6 +2,7 @@ import { pool, auditLog } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
 import { PLATFORM_MODELS, getDefaultModel } from '@/lib/ai-platforms';
 import { logError, serverError } from '@/lib/api-error';
+import { getClientIp } from '@/lib/rate-limit';
 
 /**
  * GET - Returns available models per platform + current admin selection
@@ -83,7 +84,7 @@ export async function PUT(request: Request) {
       [JSON.stringify(updatedModels)]
     );
 
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+    const ip = getClientIp(request);
     auditLog(admin.id, 'admin_update_models', 'site_config', 'platform_models', models, ip);
 
     return Response.json({ success: true, models: updatedModels });

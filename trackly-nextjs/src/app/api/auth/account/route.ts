@@ -24,7 +24,7 @@ export async function DELETE(request: Request) {
     const ok = await bcrypt.compare(password, result.rows[0].password_hash);
     if (!ok) return Response.json({ error: 'Incorrect password' }, { status: 400 });
 
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+    const ip = getClientIp(request);
     auditLog(user.id, 'delete_account', 'user', user.id, { email: user.email }, ip);
 
     // Cascading delete in a transaction to clean up all related data

@@ -3,12 +3,12 @@ import crypto from 'crypto';
 import { pool } from '@/lib/db';
 import { AUTH } from '@/lib/constants';
 import { sendPasswordResetEmail } from '@/lib/email';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { hashToken } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const ip = getClientIp(request);
   const rl = await rateLimit('forgot_password:' + ip, 60 * 60 * 1000, 5);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 

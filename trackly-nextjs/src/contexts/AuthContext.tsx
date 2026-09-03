@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface User {
@@ -32,7 +32,7 @@ interface AuthContextType {
   // passes nothing, and the server ignores it for an existing account.
   loginWithGoogle: (accessToken: string, attribution?: Record<string, unknown>) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
-  refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,9 +45,25 @@ async function api(method: string, path: string, body?: unknown) {
   };
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(path, opts);
-  const data = await res.json();
-  if (!res.ok && !data.requires2FA) throw new Error(data.error || 'Request failed');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let data: any = {};
+  try { data = await res.json(); } catch { /* non-JSON body (proxy error page) */ }
+  if (!res.ok && !data.requires2FA) {
+    const err = new Error((data.error as string) || 'Request failed') as Error & { status?: number };
+    err.status = res.status;
+    throw err;
+  }
   return data;
+}
+
+// A rate limit, a 5xx, or a dropped connection says nothing about whether
+// the session is valid. Treating those as "signed out" bounced users to
+// /login mid-session, so they keep whatever user state is already loaded.
+function isTransientAuthFailure(e: unknown): boolean {
+  const status = (e as { status?: number } | null)?.status;
+  if (status === 429 || (status !== undefined && status >= 500)) return true;
+  // fetch() rejects with a TypeError on network failure (no status at all).
+  return status === undefined && e instanceof TypeError;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -56,11 +72,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authError, setAuthError] = useState<string | null>(null);
   const router = useRouter();
 
-  const refreshUser = useCallback(async () => {
+  // Bounded retry for a transient failure on the very first check, so a
+  // 429/5xx at mount doesn't leave the session unresolved (user null ->
+  // layout redirects to /login even though the cookie is fine).
+  const transientRetries = useRef(0);
+
+  // Resolves true once the session state is settled (signed in, or
+  // definitively signed out); false when a transient failure scheduled a
+  // retry, so the initial-load spinner keeps showing instead of redirecting.
+  const refreshUser = useCallback(async (): Promise<boolean> => {
     try {
       const data = await api('GET', '/api/auth/me');
       setUser(data.user);
       setAuthError(null);
+      transientRetries.current = 0;
+      return true;
     } catch {
       // Try refresh token
       try {
@@ -68,19 +94,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const data = await api('GET', '/api/auth/me');
         setUser(data.user);
         setAuthError(null);
+        transientRetries.current = 0;
+        return true;
       } catch (e) {
+        if (isTransientAuthFailure(e)) {
+          // Keep the current session state; the next revalidation (tab
+          // focus, navigation) will retry once the limiter window clears.
+          if (transientRetries.current < 3) {
+            transientRetries.current += 1;
+            const status = (e as { status?: number }).status;
+            setTimeout(() => {
+              void refreshUser().then((settled) => { if (settled) setLoading(false); });
+            }, status === 429 ? 5000 : 2000);
+            return false;
+          }
+          return true;
+        }
+        transientRetries.current = 0;
         setUser(null);
         // Only set error if this wasn't a normal "not logged in" scenario
         const msg = (e as Error).message;
         if (msg && msg !== 'Request failed' && msg !== 'No token') {
           setAuthError(msg);
         }
+        return true;
       }
     }
   }, []);
 
   useEffect(() => {
-    refreshUser().finally(() => setLoading(false));
+    refreshUser().then((settled) => { if (settled) setLoading(false); });
   }, [refreshUser]);
 
   // Revalidate the user (and therefore their plan) whenever the tab

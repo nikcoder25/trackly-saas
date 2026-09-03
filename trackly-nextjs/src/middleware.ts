@@ -142,7 +142,31 @@ const rateLimitMap = new Map<string, RateLimitEntry>();
 
 const WINDOW_MS = 60 * 1000; // 1 minute
 const GENERAL_LIMIT = 100;   // 100 req/min for general API routes
-const AUTH_LIMIT = 10;        // 10 req/min for auth routes
+const AUTH_LIMIT = 10;        // 10 req/min for credential auth routes
+
+// Only the endpoints that accept or mint credentials get the tight AUTH_LIMIT.
+// The rest of /api/auth/* (me, refresh, sessions, 2fa/status, username,
+// logout) is read-mostly session plumbing that the dashboard shell calls on
+// every full page load and every tab focus - capping those at 10/min meant
+// a user who opened ten dashboard pages inside a minute got a 429 on
+// /api/auth/me, was treated as signed out, and was bounced to /login.
+const CREDENTIAL_AUTH_PATHS = new Set([
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/google',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+  '/api/auth/verify-email',
+  '/api/auth/resend-verification',
+  '/api/auth/change-password',
+  '/api/auth/2fa/verify',
+  '/api/auth/2fa/setup',
+  '/api/auth/2fa/disable',
+]);
+
+function isCredentialAuthPath(pathname: string): boolean {
+  return CREDENTIAL_AUTH_PATHS.has(pathname);
+}
 
 // Cleanup expired entries every 5 minutes
 let lastCleanup = Date.now();
@@ -280,8 +304,11 @@ function buildCsp(nonce: string): string {
     "base-uri 'self'",
     "object-src 'none'",
     `script-src 'self' 'nonce-${nonce}' https://accounts.google.com https://apis.google.com https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://browser.sentry-cdn.com https://challenges.cloudflare.com https://www.clarity.ms https://*.clarity.ms`,
-    "style-src 'self' 'unsafe-inline'",
-    "font-src 'self'",
+    // Two dashboard pages @import Google Fonts from a <style> block; the
+    // stylesheet and its font files were CSP-blocked, so those pages fell
+    // back to the system font and logged a violation on every load.
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https://lh3.googleusercontent.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://www.google.com",
     "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com https://*.sentry.io https://www.google-analytics.com https://analytics.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://www.google.com https://challenges.cloudflare.com https://*.clarity.ms https://c.bing.com",
     "worker-src 'self' blob:",
@@ -350,7 +377,7 @@ export async function middleware(request: NextRequest) {
       request.cookies.get(ACCESS_COOKIE)?.value ||
       request.cookies.get(LEGACY_ACCESS_COOKIE)?.value;
     const sessionTag = cookieToken ? cookieToken.slice(-16) : 'anon';
-    const isAuth = pathname.startsWith('/api/auth/');
+    const isAuth = isCredentialAuthPath(pathname);
     const key = `${isAuth ? 'auth' : 'api'}:${ip}:${sessionTag}`;
     const { allowed, retryAfter } = checkRateLimit(key, isAuth);
 

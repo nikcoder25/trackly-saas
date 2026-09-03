@@ -55,10 +55,10 @@ export async function GET(request: Request): Promise<Response> {
     // Name the sheet after the brand so it's easy to find in Drive.
     let brandName = 'Livesov';
     try {
-      const brandRow = await pool.query(`SELECT name, data FROM brands WHERE id = $1 LIMIT 1`, [brandId]);
-      brandName = (brandRow.rows[0]?.name as string | undefined)
-        || (brandRow.rows[0]?.data as { name?: string } | undefined)?.name
-        || 'Livesov';
+      const brandRow = await pool.query(`SELECT data FROM brands WHERE id = $1 LIMIT 1`, [brandId]);
+      const raw = brandRow.rows[0]?.data;
+      const data = (typeof raw === 'string' ? JSON.parse(raw) : raw) as { name?: string } | undefined;
+      brandName = data?.name || 'Livesov';
     } catch { /* fall back to default title */ }
 
     const sheet = await createSpreadsheet(tokens.access_token, `Livesov Fixes — ${brandName}`);

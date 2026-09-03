@@ -18,6 +18,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 const safeFetchMock = vi.fn();
 
 vi.mock('../src/lib/rate-limit', () => ({
+  getClientIp: () => '127.0.0.1',
   rateLimit: vi.fn(async () => ({ allowed: true, retryAfter: 0 })),
   rateLimitResponse: () => Response.json({ error: 'rate limited' }, { status: 429 }),
 }));

@@ -29,7 +29,12 @@ const sanitizedDatabaseUrl = process.env.DATABASE_URL
       .replace(/\?$/, '')
   : undefined;
 
-const sslConfig = process.env.DATABASE_URL
+// `sslmode=disable` in DATABASE_URL (a local Postgres without TLS, the
+// README quick-start case) turns SSL off entirely; anything else keeps the
+// explicit config below so a managed provider's CA is honoured.
+const sslDisabled = /[?&]sslmode=disable(&|$)/.test(process.env.DATABASE_URL || '');
+
+const sslConfig = process.env.DATABASE_URL && !sslDisabled
   ? {
       ...(ca ? { ca } : {}),
       rejectUnauthorized:
@@ -73,6 +78,203 @@ function runMigrations(): Promise<void> {
 
   migratePromise = (async () => {
     try {
+      // Base schema. The Express monolith that originally created these
+      // tables was removed when the app was consolidated into Next.js, so
+      // a fresh database (local dev, staging, disaster recovery) had no
+      // users/brands tables at all and every request 500'd with
+      // `relation "users" does not exist`. Every statement is IF NOT
+      // EXISTS so production, where the tables already exist, is a no-op.
+      // The ALTER TABLE block below still owns every column added since.
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id TEXT PRIMARY KEY,
+          email TEXT NOT NULL UNIQUE,
+          username TEXT,
+          name TEXT,
+          password_hash TEXT,
+          plan TEXT NOT NULL DEFAULT 'free',
+          role TEXT NOT NULL DEFAULT 'user',
+          api_keys JSONB DEFAULT '{}',
+          settings JSONB DEFAULT '{}',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS brands (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          data JSONB NOT NULL DEFAULT '{}',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS brands_user_id_idx ON brands(user_id);
+        CREATE TABLE IF NOT EXISTS team_members (
+          id SERIAL PRIMARY KEY,
+          owner_id TEXT NOT NULL,
+          member_id TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'viewer',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE (owner_id, member_id)
+        );
+        CREATE INDEX IF NOT EXISTS team_members_member_id_idx ON team_members(member_id);
+        CREATE TABLE IF NOT EXISTS audit_logs (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT,
+          action TEXT NOT NULL,
+          target_type TEXT,
+          target_id TEXT,
+          details JSONB,
+          ip TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS audit_logs_user_id_idx ON audit_logs(user_id, created_at DESC);
+        CREATE TABLE IF NOT EXISTS notifications (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          type TEXT,
+          title TEXT,
+          message TEXT,
+          data JSONB,
+          read BOOLEAN NOT NULL DEFAULT FALSE,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS notifications_user_id_idx ON notifications(user_id, created_at DESC);
+        CREATE TABLE IF NOT EXISTS api_logs (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT,
+          platform TEXT,
+          query TEXT,
+          status TEXT,
+          model TEXT,
+          error TEXT,
+          response_ms INT,
+          tokens_in INT,
+          tokens_out INT,
+          cost NUMERIC,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS api_logs_created_at_idx ON api_logs(created_at DESC);
+        CREATE TABLE IF NOT EXISTS prompt_runs (
+          id TEXT PRIMARY KEY,
+          brand_id TEXT NOT NULL,
+          prompt TEXT,
+          platform TEXT,
+          model TEXT,
+          mentioned BOOLEAN DEFAULT FALSE,
+          sentiment TEXT,
+          recommended BOOLEAN DEFAULT FALSE,
+          list_position INT,
+          citations JSONB DEFAULT '[]',
+          competitor_mentions JSONB DEFAULT '[]',
+          success BOOLEAN DEFAULT TRUE,
+          error_message TEXT,
+          batch_id TEXT,
+          response_raw TEXT,
+          cache_hit BOOLEAN DEFAULT FALSE,
+          status TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS prompt_runs_brand_id_idx ON prompt_runs(brand_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS prompt_runs_batch_id_idx ON prompt_runs(batch_id);
+        CREATE TABLE IF NOT EXISTS recommendations (
+          id TEXT PRIMARY KEY,
+          brand_id TEXT NOT NULL,
+          prompt TEXT,
+          type TEXT,
+          severity TEXT,
+          title TEXT,
+          description TEXT,
+          playbook_id TEXT,
+          payload JSONB,
+          status TEXT NOT NULL DEFAULT 'open',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS recommendations_brand_id_idx ON recommendations(brand_id);
+        CREATE TABLE IF NOT EXISTS alert_rules (
+          id TEXT PRIMARY KEY,
+          brand_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          name TEXT,
+          condition_type TEXT,
+          condition_params JSONB,
+          action_type TEXT,
+          action_params JSONB,
+          cooldown_hours INT DEFAULT 24,
+          enabled BOOLEAN NOT NULL DEFAULT TRUE,
+          last_triggered_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS alert_rules_brand_id_idx ON alert_rules(brand_id);
+        CREATE TABLE IF NOT EXISTS brand_facts (
+          id SERIAL PRIMARY KEY,
+          brand_id TEXT NOT NULL,
+          fact_key TEXT NOT NULL,
+          fact_value TEXT,
+          category TEXT,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE (brand_id, fact_key)
+        );
+        CREATE TABLE IF NOT EXISTS accuracy_issues (
+          id SERIAL PRIMARY KEY,
+          brand_id TEXT NOT NULL,
+          platform TEXT,
+          model TEXT,
+          fact_key TEXT,
+          expected TEXT,
+          found TEXT,
+          severity TEXT,
+          category TEXT,
+          explanation TEXT,
+          run_id TEXT,
+          source_url TEXT,
+          query TEXT,
+          date TIMESTAMPTZ,
+          fixed BOOLEAN NOT NULL DEFAULT FALSE,
+          fixed_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS accuracy_issues_brand_id_idx ON accuracy_issues(brand_id);
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          token TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          email TEXT,
+          expires_at TIMESTAMPTZ NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS webhook_events (
+          event_id TEXT PRIMARY KEY,
+          event_type TEXT,
+          processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        -- Mirrors ensureActiveRunsTable() in /api/brands/[id]/run. Created
+        -- here too because /api/api-logs, /api/credits/ledger and
+        -- /api/runs/active read it before any run has ever been triggered
+        -- on a fresh database, and the api-logs page 500'd on that.
+        CREATE TABLE IF NOT EXISTS active_runs (
+          id TEXT PRIMARY KEY,
+          brand_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'running',
+          total_expected INT DEFAULT 0,
+          received INT DEFAULT 0,
+          found_count INT DEFAULT 0,
+          error_count INT DEFAULT 0,
+          results JSONB DEFAULT '[]'::jsonb,
+          final_data JSONB,
+          error TEXT,
+          platforms JSONB DEFAULT '[]'::jsonb,
+          queries JSONB DEFAULT '[]'::jsonb,
+          started_at TIMESTAMPTZ DEFAULT NOW(),
+          completed_at TIMESTAMPTZ,
+          updated_at TIMESTAMPTZ DEFAULT NOW(),
+          last_platform_attempted TEXT,
+          last_query_attempted TEXT,
+          last_attempt_at TIMESTAMPTZ,
+          kind TEXT,
+          credits_refunded BOOLEAN NOT NULL DEFAULT FALSE
+        );
+        ALTER TABLE brands ADD COLUMN IF NOT EXISTS first_run_at TIMESTAMPTZ;
+      `);
+
       await pool.query(`
         ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS verify_token TEXT;

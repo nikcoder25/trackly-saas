@@ -10,7 +10,7 @@
  * simply show as unverified with a signup nudge.
  */
 import { NextRequest } from 'next/server';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { extractUrlsFromText, parseCanonicalNap } from '@/lib/nap-verify';
 import { runNapCheck } from '@/lib/nap-audit-run';
 import { logError, serverError } from '@/lib/api-error';
@@ -22,7 +22,7 @@ const FREE_MAX_URLS = 5;
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const ip = getClientIp(req);
     // 3 checks per IP per day - each check is up to 5 outbound fetches on
     // our dime. Anything beyond a tasting menu should sign up (500 URLs,
     // saved audits, schedules, the unblocker).

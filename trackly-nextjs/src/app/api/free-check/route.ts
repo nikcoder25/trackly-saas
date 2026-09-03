@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { queryAI, getDefaultModel, withCacheAndRetry } from '@/lib/ai-platforms';
 import { isSearchEnabled } from '@/lib/response-cache';
 import { logError, serverError } from '@/lib/api-error';
@@ -15,7 +15,7 @@ const PLATFORMS_CONFIG = [
 export async function POST(req: NextRequest) {
   try {
     // Rate limit by IP: 3 checks per hour
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const ip = getClientIp(req);
     const { allowed, retryAfter } = await rateLimit(`free-check:${ip}`, 60 * 60 * 1000, 3);
     if (!allowed) return rateLimitResponse(retryAfter);
 

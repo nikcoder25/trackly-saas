@@ -2,6 +2,7 @@ import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
+import { logError } from '@/lib/api-error';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const authResult = await requireVerifiedAuth(request, pool);
@@ -24,10 +25,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     );
 
     if (tableCheck.rows[0]?.exists) {
+      // The citations table has no is_brand column (see the CREATE TABLE in
+      // src/lib/db.ts) - selecting one threw and this endpoint returned 500
+      // for every brand, which broke the Citations and Competitors pages.
+      // "Own domain" is derived from the brand's website instead.
       const result = await pool.query(
-        `SELECT domain, is_brand, COUNT(*)::int as total
-         FROM citations WHERE brand_id = $1
-         GROUP BY domain, is_brand
+        `SELECT domain, COUNT(*)::int as total
+         FROM citations WHERE brand_id = $1 AND domain IS NOT NULL
+         GROUP BY domain
          ORDER BY total DESC LIMIT 100`, [id]
       );
 
@@ -36,13 +41,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         let totalCitations = 0;
         let ownDomain = 0;
         let ownDomainName = '';
+        const website = String((access.brand as { website?: string }).website || '');
+        let brandHost = '';
+        if (website) {
+          try { brandHost = new URL(website.startsWith('http') ? website : `https://${website}`).hostname.replace(/^www\./, '').toLowerCase(); } catch {}
+        }
 
         for (const row of result.rows) {
-          domains[row.domain] = row.total;
+          const domain = String(row.domain).replace(/^www\./, '').toLowerCase();
+          domains[domain] = (domains[domain] || 0) + row.total;
           totalCitations += row.total;
-          if (row.is_brand) {
+          if (brandHost && (domain === brandHost || domain.endsWith('.' + brandHost))) {
             ownDomain += row.total;
-            if (!ownDomainName) ownDomainName = row.domain;
+            if (!ownDomainName) ownDomainName = domain;
           }
         }
 
@@ -51,18 +62,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     // Fallback: compute from brand runs stored in the brands table
+    // brands has no runs/name/website columns - everything lives in the
+    // `data` JSONB blob (see /api/brands). Read it once and unwrap.
     const brandResult = await pool.query(
-      `SELECT runs FROM brands WHERE id = $1`, [id]
+      `SELECT data FROM brands WHERE id = $1`, [id]
     );
+    const rawData = brandResult.rows[0]?.data;
+    let brandData: { runs?: unknown; website?: string } = {};
+    try {
+      brandData = typeof rawData === 'string' ? JSON.parse(rawData) : (rawData || {});
+    } catch { brandData = {}; }
 
-    const runs = brandResult.rows[0]?.runs;
+    const runs = brandData.runs;
     const domains: Record<string, number> = {};
     let ownDomainName = '';
 
     if (Array.isArray(runs)) {
       // Try to detect own domain from brand data
-      const brandInfo = await pool.query(`SELECT name, website FROM brands WHERE id = $1`, [id]);
-      const website = brandInfo.rows[0]?.website || '';
+      const website = brandData.website || '';
       if (website) {
         try { ownDomainName = new URL(website).hostname.replace(/^www\./, ''); } catch {}
       }
@@ -86,6 +103,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     return Response.json({ domains, totalCitations, ownDomain, ownDomainName });
   } catch (e) {
+    logError('brands.citation_analysis_failed', e);
     return Response.json({ error: 'Failed to load citations' }, { status: 500 });
   }
 }

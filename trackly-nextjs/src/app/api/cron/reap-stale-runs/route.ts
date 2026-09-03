@@ -26,6 +26,7 @@ import { NextResponse } from 'next/server';
 import { acquireCronLock } from '@/lib/cron-lock';
 import { reconcileStaleRuns } from '@/lib/run-reconciler';
 import { reapStaleGeoAudits } from '@/lib/geo-audits';
+import { reapStaleNapAudits } from '@/lib/nap-audits';
 import { reapStaleDiscoveryJobs } from '@/lib/prompt-discovery';
 import { logger } from '@/lib/logger';
 
@@ -96,14 +97,26 @@ export async function GET(request: Request): Promise<Response> {
         error: (e as Error).message,
       });
     }
+    // NAP audits run in-process too (processNapAudit) and had no reaper at
+    // all: a restart between claim and terminal write left the row 'running'
+    // forever, and requeue refused to touch a 'running' row.
+    let napReaped: string[] = [];
+    try {
+      napReaped = (await reapStaleNapAudits()).reaped;
+    } catch (e) {
+      logger.warn('cron.reap_stale_runs.nap_audit_reap_failed', {
+        error: (e as Error).message,
+      });
+    }
     const durationMs = Date.now() - start;
 
-    if (result.count > 0 || geoReaped.length > 0 || discoveryReaped > 0) {
+    if (result.count > 0 || geoReaped.length > 0 || discoveryReaped > 0 || napReaped.length > 0) {
       logger.info('cron.reap_stale_runs.reaped', {
         count: result.count,
         brand_ids: result.brandIds.slice(0, 20),
         run_ids: result.runIds.slice(0, 20),
         geo_audit_ids: geoReaped.slice(0, 20),
+        nap_audit_ids: napReaped.slice(0, 20),
         discovery_jobs_reaped: discoveryReaped,
         duration_ms: durationMs,
       });

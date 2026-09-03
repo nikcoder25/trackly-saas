@@ -47,9 +47,9 @@ export const metadata: Metadata = {
 const livesovStrengths = [
   {
     icon: '⚙',
-    title: 'All 5 LLMs on every plan',
+    title: 'All 5 LLMs, no add-ons',
     description:
-      'ChatGPT, Claude, Gemini, Perplexity, and Grok are all available in Livesov - no per-platform add-on pricing, and the 7-day trial includes all five.',
+      'ChatGPT, Claude, Gemini, Perplexity, and Grok are all available in Livesov with no per-platform add-on pricing (2 engines on Starter, 3 on Pro, all five on Agency), and the 7-day trial includes all five.',
   },
   {
     icon: '⚠',
@@ -139,7 +139,7 @@ const faqs = [
   {
     question: 'Is Livesov a good Otterly.ai alternative?',
     answer:
-      'If your priority is covering all five major LLMs (including Claude and Grok) on every plan, storing full AI responses as evidence, and a lower entry price, yes. If your priority is Google AI Overviews, Google AI Mode, or Microsoft Copilot tracking, Otterly currently covers those surfaces and Livesov does not.',
+      'If your priority is covering all five major LLMs (including Claude and Grok) with no add-ons, storing full AI responses as evidence, and a lower entry price, yes. If your priority is Google AI Overviews, Google AI Mode, or Microsoft Copilot tracking, Otterly currently covers those surfaces and Livesov does not.',
   },
   {
     question: 'How do Livesov and Otterly pricing compare?',
@@ -149,7 +149,7 @@ const faqs = [
   {
     question: 'Which AI platforms does each tool track?',
     answer:
-      'Livesov tracks ChatGPT, Claude, Gemini, Perplexity, and Grok on every plan. Otterly’s public materials list ChatGPT, Perplexity, Google AI Overviews, Google AI Mode, and Microsoft Copilot, with Gemini available as an add-on; Claude and Grok are not listed as of June 2026.',
+      'Livesov tracks ChatGPT, Claude, Gemini, Perplexity, and Grok with no add-ons (all five on Agency and the trial; Starter and Pro pick 2 or 3). Otterly’s public materials list ChatGPT, Perplexity, Google AI Overviews, Google AI Mode, and Microsoft Copilot, with Gemini available as an add-on; Claude and Grok are not listed as of June 2026.',
   },
   {
     question: 'Does either tool have a free option?',
@@ -174,7 +174,7 @@ export default function VsOtterlyPage() {
             Livesov vs <span className="text-[var(--brand)]">Otterly.ai</span>
           </>
         }
-        subtitle="Two dedicated AI search monitoring tools with different centers of gravity: Livesov covers all five major LLMs on every plan with evidence capture and fact-drift detection; Otterly leans into Google AI Overviews, AI Mode, and Copilot."
+        subtitle="Two dedicated AI search monitoring tools with different centers of gravity: Livesov covers all five major LLMs (no add-ons) with evidence capture and fact-drift detection; Otterly leans into Google AI Overviews, AI Mode, and Copilot."
         ctaText="Try Livesov free - no card"
       />
 
@@ -226,7 +226,7 @@ export default function VsOtterlyPage() {
           <ul>
             <li>
               <strong>Your buyers research in ChatGPT, Claude, Perplexity, Gemini, or Grok:</strong>{' '}
-              Livesov tracks all five on every plan, stores the full responses as evidence, and
+              Livesov tracks all five with no add-ons, stores the full responses as evidence, and
               flags hallucinated facts. This is Livesov&rsquo;s home turf.
             </li>
             <li>
@@ -256,7 +256,7 @@ export default function VsOtterlyPage() {
         links={[
           { href: '/otterly-ai-alternative', label: 'Otterly.ai alternative', description: 'Why teams switch from Otterly to Livesov.' },
           { href: '/vs/profound', label: 'Livesov vs Profound', description: 'How Livesov compares to the enterprise leader.' },
-          { href: '/vs/peec-ai', label: 'Livesov vs Peec AI', description: 'Add-on pricing vs all-platforms-included.' },
+          { href: '/vs/peec-ai', label: 'Livesov vs Peec AI', description: 'Add-on pricing vs no-add-ons.' },
           { href: '/pricing', label: 'Pricing & plans', description: 'Start free, scale to agency multi-brand.' },
           { href: '/how-it-works', label: 'How Livesov works', description: 'Methodology and data pipeline explained.' },
           { href: '/geo-audit', label: 'Free GEO audit', description: 'Score any URL for AI citation-readiness.' },

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { sendContactFormEmail } from '@/lib/email';
 import { checkForSpam } from '@/lib/spam-filter';
 import { logError, serverError } from '@/lib/api-error';
@@ -43,7 +43,7 @@ async function verifyTurnstileToken(token: string, ip: string): Promise<boolean>
 }
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const ip = getClientIp(request);
   const rl = await rateLimit('contact:' + ip, 300 * 1000, 3);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 

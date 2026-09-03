@@ -31,9 +31,9 @@ export async function GET(request: Request) {
 
     const authHeader = request.headers.get('authorization') || '';
     const headerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-    const { searchParams } = new URL(request.url);
-    const queryToken = searchParams.get('secret') || '';
-    const candidate = headerToken || queryToken;
+    // Header only - a `?secret=` query string would land in access logs,
+    // proxy logs and Referer headers. Matches every other cron route.
+    const candidate = headerToken;
 
     const ok = !!candidate
       && candidate.length === cronSecret.length
