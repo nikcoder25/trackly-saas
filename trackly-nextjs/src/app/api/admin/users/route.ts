@@ -1,6 +1,6 @@
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
 
 async function requireAdmin(request: Request): Promise<{ id: string; email: string } | Response> {
@@ -15,7 +15,7 @@ async function requireAdmin(request: Request): Promise<{ id: string; email: stri
 }
 
 export async function GET(request: Request) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const ip = getClientIp(request);
   const rl = await rateLimit('admin:' + ip, 15 * 60 * 1000, 30);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 

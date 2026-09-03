@@ -27,6 +27,7 @@ vi.mock('@/lib/db', () => ({
 }));
 
 vi.mock('@/lib/rate-limit', () => ({
+  getClientIp: () => '127.0.0.1',
   rateLimit: vi.fn().mockResolvedValue({ allowed: true }),
   rateLimitResponse: vi.fn(() => new Response('rate-limited', { status: 429 })),
 }));

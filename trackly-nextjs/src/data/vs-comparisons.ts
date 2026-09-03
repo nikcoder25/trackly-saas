@@ -88,7 +88,7 @@ export const vsComparisons: VsComparison[] = [
       { value: '7-day', label: 'Free Livesov trial' },
     ],
     comparisonRows: [
-      ['All 5 major LLMs on every plan', '✓ ChatGPT, Claude, Gemini, Perplexity, Grok', 'Verify on site'],
+      ['All 5 major LLMs, no add-ons', '✓ ChatGPT, Claude, Gemini, Perplexity, Grok', 'Verify on site'],
       ['Self-serve signup (no sales call)', '✓', 'Verify on site'],
       ['Citation capture (ranked sources)', '✓ Perplexity + ChatGPT Search', 'Verify on site'],
       ['Per-platform sentiment', '✓', 'Verify on site'],
@@ -124,7 +124,7 @@ export const vsComparisons: VsComparison[] = [
       {
         question: 'Which AI platforms does each track?',
         answer:
-          'Livesov tracks ChatGPT, Claude, Gemini, Perplexity, and Grok on every plan and stores the full response as evidence. Verify Scrunch AI\'s current platform coverage on scrunchai.com.',
+          'Livesov tracks ChatGPT, Claude, Gemini, Perplexity, and Grok with no add-ons (all five on Agency and the trial; Starter and Pro pick 2 or 3) and stores the full response as evidence. Verify Scrunch AI\'s current platform coverage on scrunchai.com.',
       },
     ],
     alternativeHref: '/scrunch-ai-alternative',
@@ -150,7 +150,7 @@ export const vsComparisons: VsComparison[] = [
       { value: '7-day', label: 'Free Livesov trial' },
     ],
     comparisonRows: [
-      ['All 5 major LLMs on every plan', '✓ ChatGPT, Claude, Gemini, Perplexity, Grok', 'Verify on site'],
+      ['All 5 major LLMs, no add-ons', '✓ ChatGPT, Claude, Gemini, Perplexity, Grok', 'Verify on site'],
       ['Rank-style visibility scoring', '✓ Rank + mention rate', '✓ Core framing'],
       ['Citation capture (ranked sources)', '✓ Perplexity + ChatGPT Search', 'Verify on site'],
       ['Per-platform sentiment', '✓', 'Verify on site'],
@@ -168,7 +168,7 @@ export const vsComparisons: VsComparison[] = [
     chooseBullets: [
       ['You want a familiar rank-style score:', 'Both provide one - Rankscale centers on it, Livesov reports it alongside citations, sentiment, and evidence.'],
       ['You need to act on the score:', 'Livesov stores the full response and the ranked citation list, so you can see which page beat you, not just that you dropped.'],
-      ['You want all five engines and competitor benchmarking:', 'Livesov includes ChatGPT, Claude, Gemini, Perplexity, and Grok plus up to 20 competitors on every plan.'],
+      ['You want all five engines and competitor benchmarking:', 'Livesov includes ChatGPT, Claude, Gemini, Perplexity, and Grok plus up to 20 competitors on Agency (3 on Starter, 8 on Pro).'],
     ],
     calloutBody:
       'Run the same prompts through both for a week and compare not just the scores but what each lets you do next - the citation lists and stored evidence are where a score becomes an action.',
@@ -186,7 +186,7 @@ export const vsComparisons: VsComparison[] = [
       {
         question: 'Do both tools track the same AI platforms?',
         answer:
-          'Livesov tracks ChatGPT, Claude, Gemini, Perplexity, and Grok on every plan. Verify Rankscale\'s current platform coverage on rankscale.ai.',
+          'Livesov tracks ChatGPT, Claude, Gemini, Perplexity, and Grok with no add-ons (all five on Agency and the trial; Starter and Pro pick 2 or 3). Verify Rankscale\'s current platform coverage on rankscale.ai.',
       },
     ],
     alternativeHref: '/rankscale-alternative',
@@ -212,7 +212,7 @@ export const vsComparisons: VsComparison[] = [
       { value: '7-day', label: 'Free Livesov trial' },
     ],
     comparisonRows: [
-      ['All 5 major LLMs on every plan', '✓ ChatGPT, Claude, Gemini, Perplexity, Grok', 'Verify on site'],
+      ['All 5 major LLMs, no add-ons', '✓ ChatGPT, Claude, Gemini, Perplexity, Grok', 'Verify on site'],
       ['Measurement with stored evidence', '✓ Full response saved', 'Verify on site'],
       ['Citation capture (ranked sources)', '✓ Perplexity + ChatGPT Search', 'Verify on site'],
       ['Per-platform sentiment', '✓', 'Verify on site'],
@@ -229,7 +229,7 @@ export const vsComparisons: VsComparison[] = [
     chooseBullets: [
       ['You want accurate measurement you can trust and act on yourself:', 'Livesov stores the full response behind every metric and includes a free GEO audit for recommendations.'],
       ['You want optimization and execution bundled in:', 'AthenaHQ is positioned around agentic GEO workflows - evaluate it directly.'],
-      ['You need all five engines and evidence export:', 'Livesov covers ChatGPT, Claude, Gemini, Perplexity, and Grok on every plan with CSV/PDF export.'],
+      ['You need all five engines and evidence export:', 'Livesov covers ChatGPT, Claude, Gemini, Perplexity, and Grok with no add-ons (all five on Agency and the trial; Starter and Pro pick 2 or 3) with CSV/PDF export.'],
     ],
     calloutBody:
       'If your next action depends on trusting the measurement, start there. Livesov makes every metric checkable against the stored answer; layer optimization on top once you trust the numbers.',
@@ -273,7 +273,7 @@ export const vsComparisons: VsComparison[] = [
       { value: '7-day', label: 'Free Livesov trial' },
     ],
     comparisonRows: [
-      ['All 5 major LLMs on every plan', '✓ ChatGPT, Claude, Gemini, Perplexity, Grok', 'Verify on site'],
+      ['All 5 major LLMs, no add-ons', '✓ ChatGPT, Claude, Gemini, Perplexity, Grok', 'Verify on site'],
       ['Continuous scheduled monitoring', '✓', 'Verify on site'],
       ['Crawler / representation diagnostics', 'Free GEO audit', '✓ Core focus'],
       ['Citation capture (ranked sources)', '✓ Perplexity + ChatGPT Search', 'Verify on site'],
@@ -290,7 +290,7 @@ export const vsComparisons: VsComparison[] = [
     chooseBullets: [
       ['You want to check how AI reads your site:', 'Knowatoa is built around that console-style diagnostic - evaluate it directly.'],
       ['You want continuous, multi-engine monitoring with evidence:', 'Livesov runs all five engines on a schedule and stores every response as proof.'],
-      ['You need competitor benchmarking:', 'Livesov compares share of voice against up to 20 competitors on every plan.'],
+      ['You need competitor benchmarking:', 'Livesov compares share of voice against up to 20 competitors on Agency (3 on Starter, 8 on Pro).'],
     ],
     calloutBody:
       'A one-off representation check and continuous monitoring are complementary. If you need to see week-to-week movement with citations and evidence, that is the job Livesov is built for.',
@@ -334,7 +334,7 @@ export const vsComparisons: VsComparison[] = [
       { value: '7-day', label: 'Free Livesov trial' },
     ],
     comparisonRows: [
-      ['All 5 major LLMs on every plan', '✓ ChatGPT, Claude, Gemini, Perplexity, Grok', 'Verify on site'],
+      ['All 5 major LLMs, no add-ons', '✓ ChatGPT, Claude, Gemini, Perplexity, Grok', 'Verify on site'],
       ['Free tier for first checks', 'Free GEO audit + 10 tools', '✓ Free tier'],
       ['Rank / visibility tracking', '✓ Rank + mention rate', '✓'],
       ['Citation capture (ranked sources)', '✓ Perplexity + ChatGPT Search', 'Verify on site'],
@@ -352,7 +352,7 @@ export const vsComparisons: VsComparison[] = [
     chooseBullets: [
       ['You want a zero-cost first look:', 'LLMrefs\' free tier is a good place to start - so is Livesov\'s free GEO audit and free tools, no signup needed.'],
       ['You need evidence and citations to act on:', 'Livesov stores the full response and ranked citation list behind every metric.'],
-      ['You need all five engines and competitor share of voice:', 'Livesov includes them on every paid plan from $9/mo.'],
+      ['You need all five engines and competitor share of voice:', 'Livesov supports all five with no add-ons from $9/mo (2 engines on Starter, 3 on Pro, all five on Agency).'],
     ],
     calloutBody:
       'Start free on either. When you need the citation lists, stored evidence, and competitor benchmarking that turn a rank number into a decision, that is where Livesov goes further.',
@@ -370,7 +370,7 @@ export const vsComparisons: VsComparison[] = [
       {
         question: 'Does Livesov have a free option like LLMrefs?',
         answer:
-          'Livesov offers a 7-day free trial of paid features with no credit card, plus a free GEO audit and ten free one-off tools that need no signup. Verify LLMrefs\' current free tier on llmrefs.com.',
+          'Livesov offers a 7-day free trial of paid features with no credit card, plus a free GEO audit and ten free one-off tools, most needing no signup. Verify LLMrefs\' current free tier on llmrefs.com.',
       },
     ],
     alternativeHref: '/llmrefs-alternative',
@@ -396,7 +396,7 @@ export const vsComparisons: VsComparison[] = [
       { value: '7-day', label: 'Free Livesov trial' },
     ],
     comparisonRows: [
-      ['All 5 major LLMs on every plan', '✓ ChatGPT, Claude, Gemini, Perplexity, Grok', 'Verify on site'],
+      ['All 5 major LLMs, no add-ons', '✓ ChatGPT, Claude, Gemini, Perplexity, Grok', 'Verify on site'],
       ['Live per-run answer tracking', '✓ Scheduled', 'Verify on site'],
       ['Entity / knowledge analysis', 'Fact-drift vs canonical facts', '✓ Core focus'],
       ['Citation capture (ranked sources)', '✓ Perplexity + ChatGPT Search', 'Verify on site'],

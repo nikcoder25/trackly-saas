@@ -27,6 +27,7 @@
 
 import crypto from 'crypto';
 import { pool } from '@/lib/db';
+import { schemaOnce } from '@/lib/schema-once';
 import { reserveCredits, refundCredits } from '@/lib/credits';
 import { logger } from '@/lib/logger';
 import {
@@ -92,15 +93,13 @@ export interface GeoAuditResultRow {
   createdAt: string;
 }
 
-let schemaEnsured = false;
-
 /**
  * Idempotent schema bootstrap. Called by every entry point that touches
  * the geo_audits tables. Mirrors the pattern used by ensureCreditsSchema,
- * ensureCronLockSchema, etc.
+ * ensureCronLockSchema, etc. Wrapped in schemaOnce so two concurrent first
+ * callers can't both issue the CREATE and have the loser 500.
  */
-export async function ensureGeoAuditsSchema(): Promise<void> {
-  if (schemaEnsured) return;
+export const ensureGeoAuditsSchema: () => Promise<void> = schemaOnce(async () => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS geo_audits (
       id              UUID PRIMARY KEY,
@@ -178,8 +177,7 @@ export async function ensureGeoAuditsSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_geo_audit_results_audit
       ON geo_audit_results (audit_id, created_at)
   `);
-  schemaEnsured = true;
-}
+});
 
 // Build the system-prompt note that "places" the LLM in the given region.
 // Uses the existing queryAI options.systemPrompt slot - every provider

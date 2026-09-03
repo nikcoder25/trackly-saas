@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { verifyRequestAuth } from '@/lib/auth';
 import { getPlanLimits } from '@/lib/constants';
 import { pool } from '@/lib/db';
@@ -349,7 +349,7 @@ function extractMeta(html: string): { title: string; description: string } {
 export async function POST(req: NextRequest) {
   try {
     // Determine auth status and apply rate limiting
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const ip = getClientIp(req);
     const user = verifyRequestAuth(req);
 
     let rateLimitKey: string;

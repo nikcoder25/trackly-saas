@@ -275,7 +275,7 @@ export async function GET(request: Request): Promise<Response> {
   if (brandIds.length) {
     try {
       const brandRes = await pool.query(
-        `SELECT id, name FROM brands WHERE id = ANY($1::text[]) AND user_id = $2`,
+        `SELECT id, data->>'name' AS name FROM brands WHERE id = ANY($1::text[]) AND user_id = $2`,
         [brandIds, user.id],
       );
       for (const b of brandRes.rows as Array<{ id: string; name: string }>) {

@@ -1,13 +1,13 @@
 import { NextRequest } from 'next/server';
 import crypto from 'crypto';
 import { pool, auditLog, ensureColumns } from '@/lib/db';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { TRIAL_DURATION_MS } from '@/lib/constants';
 
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 
 export async function GET(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const ip = getClientIp(request);
   const rl = await rateLimit('verify_email:' + ip, 60 * 60 * 1000, 20);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 

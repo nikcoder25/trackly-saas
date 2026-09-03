@@ -136,7 +136,7 @@ const faqs = [
   {
     question: 'Is Livesov a good Peec AI alternative?',
     answer:
-      'If you want all five major LLMs included at every price point, hallucination detection, and a GEO audit in one product, yes. If Google AI Overviews coverage or UI-scraping methodology are hard requirements, Peec currently has those and Livesov does not.',
+      'If you want all five major LLMs available with no add-ons, hallucination detection, and a GEO audit in one product, yes. If Google AI Overviews coverage or UI-scraping methodology are hard requirements, Peec currently has those and Livesov does not.',
   },
   {
     question: 'How does pricing compare between Livesov and Peec AI?',
@@ -171,14 +171,14 @@ export default function VsPeecAiPage() {
             Livesov vs <span className="text-[var(--brand)]">Peec AI</span>
           </>
         }
-        subtitle="Peec AI is the fastest-growing European player with UI-scraping methodology and add-on platform pricing. Livesov includes all five major LLMs on every plan - starting free - with evidence capture and hallucination detection built in."
+        subtitle="Peec AI is the fastest-growing European player with UI-scraping methodology and add-on platform pricing. Livesov supports all five major LLMs with no add-ons - starting free - with evidence capture and hallucination detection built in."
         ctaText="Try Livesov free - no card"
       />
 
       <Section pad="0 24px 56px" width={1000}>
         <StatsBar
           stats={[
-            { value: '5', label: 'LLMs included (Livesov, every plan)' },
+            { value: '5', label: 'LLMs supported (Livesov, no add-ons)' },
             { value: '2-3', label: 'LLMs in Peec base plan' },
             { value: '$9', label: 'Livesov entry price /mo' },
             { value: '~$100', label: 'Peec entry price /mo' },

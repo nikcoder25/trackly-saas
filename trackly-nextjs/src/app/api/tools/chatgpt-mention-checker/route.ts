@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { queryAI, getDefaultModel, pickBestKey, withCacheAndRetry } from '@/lib/ai-platforms';
 import { isSearchEnabled } from '@/lib/response-cache';
 import { getServerKeys } from '@/lib/server-keys';
@@ -11,7 +11,7 @@ function escapeRegex(s: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const ip = getClientIp(req);
     // Build notes: 1 query per IP per day. Email gate kicks in beyond.
     const { allowed, retryAfter } = await rateLimit(`chatgpt-mention-check:${ip}`, 24 * 60 * 60 * 1000, 1);
     if (!allowed) return rateLimitResponse(retryAfter);

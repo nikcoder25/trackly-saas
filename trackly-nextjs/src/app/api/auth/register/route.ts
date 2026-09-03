@@ -6,7 +6,7 @@ import { uid, safeUser, normaliseEmail } from '@/lib/helpers';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, validatePasswordComplexity, issueSession, sessionContextFromRequest } from '@/lib/auth';
 import { getPlanLimits, AUTH, TRIAL_INITIAL_UNVERIFIED_MS } from '@/lib/constants';
 import { sendVerificationEmail } from '@/lib/email';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { runSignupAbuseChecks, logSuspiciousSignupPattern } from '@/lib/anti-abuse';
 import { recordSignupAttribution } from '@/lib/attribution-server';
 import { logger } from '@/lib/logger';
@@ -66,7 +66,7 @@ async function generateUsername(nameOrEmail: string): Promise<string> {
 }
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const ip = getClientIp(request);
   // Trial-with-AI signups get a tight per-IP cap to limit drive-by abuse.
   const rl = await rateLimit('auth_register:' + ip, 60 * 60 * 1000, 5);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);

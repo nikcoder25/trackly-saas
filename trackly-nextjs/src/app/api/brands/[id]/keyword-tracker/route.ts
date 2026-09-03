@@ -13,13 +13,21 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
 
   try {
-    // Get per-prompt aggregated stats from prompt_run_stats
+    // Per-prompt, per-platform aggregates straight from prompt_runs. This
+    // used to read a `prompt_run_stats` rollup that nothing in this codebase
+    // creates (it belonged to the retired Express app), so the Query Tracker
+    // page 500'd on any database the old app never touched.
     const result = await pool.query(
-      `SELECT prompt, platform, total_runs, mention_count, mention_rate, avg_rank,
-              avg_sentiment_score, last_run_at
-       FROM prompt_run_stats
-       WHERE brand_id = $1
-       ORDER BY mention_rate DESC, total_runs DESC`,
+      `SELECT prompt, platform,
+              COUNT(*)::int AS total_runs,
+              SUM(CASE WHEN mentioned THEN 1 ELSE 0 END)::int AS mention_count,
+              AVG(CASE WHEN mentioned AND list_position IS NOT NULL THEN list_position END) AS avg_rank,
+              MAX(created_at) AS last_run_at
+       FROM prompt_runs
+       WHERE brand_id = $1 AND success = true
+       GROUP BY prompt, platform
+       ORDER BY (SUM(CASE WHEN mentioned THEN 1 ELSE 0 END)::numeric / NULLIF(COUNT(*), 0)) DESC NULLS LAST,
+                COUNT(*) DESC`,
       [id]
     );
 

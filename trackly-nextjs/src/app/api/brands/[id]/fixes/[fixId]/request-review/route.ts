@@ -26,6 +26,9 @@ export async function POST(
     const { id, fixId } = await params;
     const access = await getBrandWithAccess(id, user.id);
     if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
+    if (access.role === 'viewer') {
+      return Response.json({ error: 'Viewers cannot request reviews.' }, { status: 403 });
+    }
 
     const fix = await getFix(fixId, id);
     if (!fix) return Response.json({ error: 'Fix not found' }, { status: 404 });

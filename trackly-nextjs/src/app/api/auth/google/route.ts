@@ -9,6 +9,7 @@ import { runSignupAbuseChecks, logSuspiciousSignupPattern } from '@/lib/anti-abu
 import { recordSignupAttribution } from '@/lib/attribution-server';
 import type { AttributionInput } from '@/lib/attribution';
 import { logger } from '@/lib/logger';
+import { getClientIp } from '@/lib/rate-limit';
 
 async function generateUsername(nameOrEmail: string): Promise<string> {
   let base = (nameOrEmail || '').trim().toLowerCase();
@@ -28,7 +29,7 @@ async function generateUsername(nameOrEmail: string): Promise<string> {
 }
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const ip = getClientIp(request);
 
   let credential: string | undefined, access_token: string | undefined;
   // Only present when the request came from the signup form; the login page

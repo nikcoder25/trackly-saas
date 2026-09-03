@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { queryAI, getDefaultModel, pickBestKey, withCacheAndRetry } from '@/lib/ai-platforms';
 import { isSearchEnabled } from '@/lib/response-cache';
 import { getServerKeys } from '@/lib/server-keys';
@@ -50,7 +50,7 @@ function parseBrands(text: string): Brand[] {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const ip = getClientIp(req);
     // 3 queries per IP per day - calls a paid AI provider per request.
     const { allowed, retryAfter } = await rateLimit(`competitor-finder:${ip}`, 24 * 60 * 60 * 1000, 3);
     if (!allowed) return rateLimitResponse(retryAfter);

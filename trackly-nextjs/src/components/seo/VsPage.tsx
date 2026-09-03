@@ -20,9 +20,9 @@ import { vsComparisons, vsDisclaimer } from '@/data/vs-comparisons';
 const LIVESOV_STRENGTHS = [
   {
     icon: '⚙',
-    title: 'All 5 LLMs on every plan',
+    title: 'All 5 LLMs, no add-ons',
     description:
-      'ChatGPT, Claude, Gemini, Perplexity, and Grok are included on every plan - no per-platform add-ons, and the 7-day trial covers all five.',
+      'ChatGPT, Claude, Gemini, Perplexity, and Grok are all supported with no per-platform add-ons: 2 engines on Starter, 3 on Pro, all five on Agency, and the 7-day trial covers all five.',
   },
   {
     icon: '⚠',
