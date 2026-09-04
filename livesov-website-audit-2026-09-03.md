@@ -116,3 +116,11 @@ Checked and fine: metadata, canonicals and og:image on every page type, JSON-LD 
 1. Confirm the Claude default model id (`claude-fable-5`) against the Anthropic account and add the plan clamp to the geo-audit and worker paths (section 3).
 2. `/dashboard/query-performance` is a live route nothing links to; either add it to the nav or remove it.
 3. The general API limiter is 100 req/min per IP+session; a dashboard page load costs about five calls, so a user with several tabs open during a run could brush against it. Consider raising it or exempting polling endpoints.
+
+## Follow-up (same day)
+
+Fixed after the main PR merged:
+
+- **Hydration mismatch on every public page.** Client-rendered JSON-LD scripts (`JsonLd`, `FaqSection`, `Breadcrumbs`, tool pages) stamped the CSP nonce. Browsers hide nonce attribute values once CSP is active, so React saw `nonce=""` in the DOM against the real value in props and re-rendered the subtree on every load. JSON-LD is a data block that script-src never applies to, so the nonce is gone from those elements. Verified: zero hydration warnings on `/contact`, `/blog`, and the tool pages.
+- **Per-plan model clamp** now applies in the Regional Audit worker (`geo-audits.ts`) and the BullMQ run worker (`run-worker.ts`), matching the `/run` route. Both previously used the raw platform default, so a Starter or Pro brand could run on the premium model.
+- `/dashboard/query-performance` now redirects to `/dashboard/query-tracker` instead of serving an unlinked, simpler copy of the same data.

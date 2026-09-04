@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useNonce } from '@/components/NonceProvider';
 
 /* ───────────────────────── Section wrapper ───────────────────────── */
 
@@ -285,15 +284,19 @@ export function ProcessSteps({
 /* ───────────────────────── Generic JSON-LD emitter ───────────────────────── */
 
 /**
- * Renders an arbitrary schema.org object as a nonce-safe JSON-LD script.
+ * Renders an arbitrary schema.org object as a JSON-LD script.
  * Usage: <JsonLd data={softwareApplicationSchema} />
+ *
+ * No CSP nonce on purpose: `application/ld+json` is a data block the browser
+ * never executes, so script-src does not apply. Stamping the nonce from a
+ * client component also broke hydration on every public page - the browser
+ * hides nonce attribute values once CSP is active, so React saw "" in the
+ * DOM against the real nonce in props and re-rendered the subtree.
  */
 export function JsonLd({ data }: { data: Record<string, unknown> }) {
-  const nonce = useNonce();
   return (
     <script
       type="application/ld+json"
-      nonce={nonce || undefined}
       dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
     />
   );
@@ -315,7 +318,6 @@ export function FaqSection({
   title?: string;
   subtitle?: string;
 }) {
-  const nonce = useNonce();
   const faqSchema = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -333,7 +335,7 @@ export function FaqSection({
     <Section background="var(--bg-section, #f7f5f1)" pad="72px 24px" width={820}>
       <script
         type="application/ld+json"
-        nonce={nonce || undefined}
+       
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
       <SectionHeader title={title} subtitle={subtitle} />

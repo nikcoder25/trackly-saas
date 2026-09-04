@@ -38,6 +38,9 @@ import {
 } from '@/lib/ai-platforms';
 import { resolveKeysForTenant } from '@/lib/tenant-keys';
 import { getServerKeys } from '@/lib/server-keys';
+import { getAdminModel } from '@/lib/site-config';
+import { resolveModelForPlan } from '@/lib/plan-config';
+import { getUserEffectivePlan } from '@/lib/helpers';
 import { buildBrandMatcher, parseResponse } from '@/lib/parser';
 import type { BrandInput } from '@/lib/parser';
 
@@ -394,7 +397,12 @@ const defaultCallProvider: CallProvider = async ({
   if (!rawKey) {
     return { model: null, response: null, mentioned: false, error: `No usable API key for ${platform}` };
   }
-  const model = getDefaultModel(platform);
+  // Same model resolution as /api/brands/[id]/run: admin-selected model,
+  // then clamped to what the owner's plan tier permits. This path used the
+  // raw platform default with no clamp, so a Starter brand's regional audit
+  // could run on the premium model the plan is not priced for.
+  const adminBase = (await getAdminModel(platform)) || getDefaultModel(platform);
+  const model = resolveModelForPlan(platform, await getUserEffectivePlan(userId), adminBase);
   const matcher = buildBrandMatcher(brand);
   // Region context moved into the user message so the system prompt
   // stays byte-identical across regions (required for OpenAI automatic
