@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import SeoLayout, { Breadcrumbs } from '@/components/seo/SeoLayout';
-import { useNonce } from '@/components/NonceProvider';
 
 interface ToolPageProps {
   title: React.ReactNode;
@@ -373,7 +372,6 @@ export function ArticleSchema({
   datePublished: string;
   dateModified: string;
 }) {
-  const nonce = useNonce();
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'Article',
@@ -392,7 +390,6 @@ export function ArticleSchema({
   return (
     <script
       type="application/ld+json"
-      nonce={nonce || undefined}
       dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
     />
   );
@@ -408,7 +405,6 @@ interface Faq {
  * be eligible for rich results.
  */
 export function FaqSection({ heading = 'Frequently asked questions', items }: { heading?: string; items: Faq[] }) {
-  const nonce = useNonce();
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -439,7 +435,7 @@ export function FaqSection({ heading = 'Frequently asked questions', items }: { 
       </div>
       <script
         type="application/ld+json"
-        nonce={nonce || undefined}
+       
         dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
       />
     </section>

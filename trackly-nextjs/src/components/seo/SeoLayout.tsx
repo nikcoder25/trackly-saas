@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { CookiePreferencesButton } from '@/components/CookieConsent';
 import EmailOff from '@/components/EmailOff';
 import FooterNewsletter from '@/components/seo/FooterNewsletter';
-import { useNonce } from '@/components/NonceProvider';
 import { MARKETING_NAV_LINKS } from '@/lib/marketing-nav';
 import { alternatives } from '@/data/alternatives';
 
@@ -227,7 +226,6 @@ export function SeoContent({ children }: { children: React.ReactNode }) {
  * Usage: <Breadcrumbs items={[{ name: 'Pricing', url: '/pricing' }]} />
  */
 export function Breadcrumbs({ items }: { items: Array<{ name: string; url: string }> }) {
-  const nonce = useNonce();
   const breadcrumb = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -242,6 +240,6 @@ export function Breadcrumbs({ items }: { items: Array<{ name: string; url: strin
     ],
   };
   return (
-    <script type="application/ld+json" nonce={nonce || undefined} dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }} />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }} />
   );
 }

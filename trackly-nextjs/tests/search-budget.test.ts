@@ -162,8 +162,8 @@ describe('getSearchBudgetLimit', () => {
 
 describe('getSearchFallbackModel', () => {
   it('returns gpt-5.4 for ChatGPT search-preview models', () => {
-    expect(getSearchFallbackModel('ChatGPT', 'gpt-4o-mini-search-preview')).toBe('gpt-5.4');
-    expect(getSearchFallbackModel('ChatGPT', 'gpt-5-search-api')).toBe('gpt-5.4');
+    expect(getSearchFallbackModel('ChatGPT', 'gpt-4o-mini-search-preview')).toBe('gpt-5.4-nano');
+    expect(getSearchFallbackModel('ChatGPT', 'gpt-5-search-api')).toBe('gpt-5.4-nano');
   });
 
   it('returns null for ChatGPT non-search models', () => {
@@ -330,7 +330,7 @@ describe('resolveSearchModelWithBudget', () => {
       platform: 'ChatGPT', model: 'gpt-4o-mini-search-preview', isSearch: true,
     });
     expect(next.downgraded).toBe(true);
-    expect(next.model).toBe('gpt-5.4');
+    expect(next.model).toBe('gpt-5.4-nano');
     expect(next.searchEnabled).toBe(false);
   });
 

@@ -129,14 +129,20 @@ export function getCacheTtl(searchEnabled: boolean): number {
 // Whether the (platform, model) combo hits the provider's web-search path.
 // Perplexity is search-native; ChatGPT's `*-search-preview` family does
 // retrieval. Other providers don't currently surface a search variant.
-export function isSearchEnabled(platform: string, model: string): boolean {
+export function isSearchEnabled(
+  platform: string,
+  model: string,
+  opts?: { geminiGrounding?: boolean },
+): boolean {
   if (platform === 'Perplexity') return true;
   if (platform === 'ChatGPT' && model.includes('search')) return true;
   // Grounded Gemini genuinely hits Google Search, so it must be keyed and
   // expired like the other retrieval paths. Getting this wrong would let a
   // grounded answer sit in cache for the long non-search TTL and be served
-  // as though it were today's answer.
-  if (platform === 'Gemini' && geminiGroundingEnabled()) return true;
+  // as though it were today's answer. The plan gate matters here too: an
+  // ungrounded Starter answer and a grounded Pro answer must never share a
+  // cache entry, so the caller passes the same flag it hands to queryAI.
+  if (platform === 'Gemini' && geminiGroundingEnabled() && opts?.geminiGrounding !== false) return true;
   return false;
 }
 

@@ -23,7 +23,8 @@ import { logger } from './logger';
 import { getServerKeys } from './server-keys';
 import { resolveKeysForTenant, recordTenantKeyResult } from './tenant-keys';
 import type { BrandRunJobData } from './job-queue';
-import { applyChatGPTCohortOverride } from './plan-config';
+import { applyChatGPTCohortOverride, resolveModelForPlan, geminiGroundingAllowedForPlan } from './plan-config';
+import { getEffectivePlan } from './constants';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
   ChatGPT: 'openai', Perplexity: 'perplexity', Claude: 'claude',
@@ -67,8 +68,10 @@ async function processRun(job: Job<BrandRunJobData>) {
   const serverKeys = getServerKeys();
 
   // Decrypt user keys from the brand owner's record.
-  const ownerRow = await pool.query('SELECT api_keys FROM users WHERE id = $1', [brand.userId]);
+  const ownerRow = await pool.query('SELECT api_keys, plan, trial_ends_at FROM users WHERE id = $1', [brand.userId]);
   const userKeys = decryptApiKeys(ownerRow.rows[0]?.api_keys || {});
+  // Plan tier drives the model clamp below, exactly as in the /run route.
+  const ownerPlan = getEffectivePlan(ownerRow.rows[0]?.plan, ownerRow.rows[0]?.trial_ends_at);
 
   const startTime = Date.now();
   const matcher = buildBrandMatcher(brand);
@@ -232,7 +235,9 @@ async function processRun(job: Job<BrandRunJobData>) {
         // search-preview to gpt-4o when the query has clear non-search
         // intent. Smart routing is ON by default; set
         // CHATGPT_SMART_MODEL_ROUTING=false to disable.
-        const baseModel = adminModels[plat] || getDefaultModel(plat);
+        // Plan-clamp first (same order as the /run route) so a lower tier
+        // never runs the premium model the admin picked for Agency brands.
+        const baseModel = resolveModelForPlan(plat, ownerPlan, adminModels[plat] || getDefaultModel(plat));
         // Premium-tier ChatGPT A/B cohort (CHATGPT_COHORT_MINI_PERCENT).
         // Same plumbing as the /run route - passthrough unless the
         // env var is set and brand is premium ChatGPT.
@@ -262,7 +267,7 @@ async function processRun(job: Job<BrandRunJobData>) {
         const budgetResolved = await resolveSearchModelWithBudget({
           platform: plat,
           model: smartRoutedModel,
-          isSearch: isSearchEnabled(plat, smartRoutedModel),
+          isSearch: isSearchEnabled(plat, smartRoutedModel, { geminiGrounding: geminiGroundingAllowedForPlan(ownerPlan) }),
         });
         const modelForTask = budgetResolved.model;
         const searchEnabledForTask = budgetResolved.searchEnabled;
@@ -311,6 +316,8 @@ async function processRun(job: Job<BrandRunJobData>) {
                   queryId,
                   signal: taskController.signal,
                   tenantId: userId,
+                  // Grounded Gemini is Pro-and-above (per-request fee).
+                  geminiGrounding: geminiGroundingAllowedForPlan(ownerPlan),
                   runId,
                   // BullMQ worker processes background queued tasks
                   // only - never user-blocking - so no-search ChatGPT

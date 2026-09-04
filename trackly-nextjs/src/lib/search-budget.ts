@@ -120,7 +120,9 @@ export function getSearchFallbackModel(
   platform: string,
   model: string,
 ): string | null {
-  if (platform === 'ChatGPT' && model.includes('search')) return 'gpt-5.4';
+  // Cheapest non-search ChatGPT model: the budget fallback exists to save
+  // money, so it must not land on the most expensive tier.
+  if (platform === 'ChatGPT' && model.includes('search')) return 'gpt-5.4-nano';
   return null;
 }
 

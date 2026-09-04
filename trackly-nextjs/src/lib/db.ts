@@ -275,6 +275,28 @@ function runMigrations(): Promise<void> {
         ALTER TABLE brands ADD COLUMN IF NOT EXISTS first_run_at TIMESTAMPTZ;
       `);
 
+      // One-time: the platform defaults moved to the cheapest model on each
+      // engine (gpt-5.4-nano, Claude Haiku 4.5, Gemini 2.5 Flash Lite). An
+      // admin selection that merely re-stated the OLD default was
+      // indistinguishable from "no selection" when it was saved, so drop
+      // those entries and let the new default apply. Anything else the
+      // admin chose deliberately (gpt-5.4, Sonnet, Pro, Grok 4, Sonar Pro)
+      // is left untouched. No-op once run; harmless if site_config is absent.
+      await pool.query(`
+        UPDATE site_config
+           SET value = (value - 'ChatGPT')
+         WHERE key = 'platform_models' AND value->>'ChatGPT' = 'gpt-5.4-mini';
+        UPDATE site_config
+           SET value = (value - 'Claude')
+         WHERE key = 'platform_models' AND value->>'Claude' = 'claude-fable-5';
+        UPDATE site_config
+           SET value = (value - 'Gemini')
+         WHERE key = 'platform_models' AND value->>'Gemini' = 'gemini-2.5-flash';
+      `).catch((e: { code?: string }) => {
+        // 42P01 = site_config not created yet (fresh DB); nothing to migrate.
+        if (e?.code !== '42P01') throw e;
+      });
+
       await pool.query(`
         ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS verify_token TEXT;

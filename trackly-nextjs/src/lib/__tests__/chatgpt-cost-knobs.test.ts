@@ -300,7 +300,7 @@ describe('queryAI(ChatGPT) - no-search auto-downgrade', () => {
       'ChatGPT',
       'What is HTTP?',
       `sk-test-${Math.random().toString(36).slice(2)}`,
-      'gpt-5.4-mini',
+      'gpt-5.4-nano',
     );
     const body = captureFetchBody();
     expect(body!.model).toBe('gpt-5.4-nano');
@@ -382,7 +382,7 @@ describe('queryAI(ChatGPT) - no-search auto-downgrade', () => {
       'ChatGPT',
       'What is HTTP?',
       `sk-test-${Math.random().toString(36).slice(2)}`,
-      'gpt-5.4-mini',
+      'gpt-5.4-nano',
     );
     const body = captureFetchBody();
     expect(body!.model).toBe('gpt-4o-mini');
@@ -401,7 +401,7 @@ describe('queryAI(ChatGPT) - no-search auto-downgrade', () => {
       'ChatGPT',
       'What is HTTP?',
       `sk-test-${Math.random().toString(36).slice(2)}`,
-      'gpt-5.4-mini',
+      'gpt-5.4-nano',
     );
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(captureFetchBody(0)!.model).toBe('gpt-5.4-nano');

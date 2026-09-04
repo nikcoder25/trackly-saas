@@ -116,3 +116,36 @@ Checked and fine: metadata, canonicals and og:image on every page type, JSON-LD 
 1. Confirm the Claude default model id (`claude-fable-5`) against the Anthropic account and add the plan clamp to the geo-audit and worker paths (section 3).
 2. `/dashboard/query-performance` is a live route nothing links to; either add it to the nav or remove it.
 3. The general API limiter is 100 req/min per IP+session; a dashboard page load costs about five calls, so a user with several tabs open during a run could brush against it. Consider raising it or exempting polling endpoints.
+
+## Follow-up (same day)
+
+Fixed after the main PR merged:
+
+- **Hydration mismatch on every public page.** Client-rendered JSON-LD scripts (`JsonLd`, `FaqSection`, `Breadcrumbs`, tool pages) stamped the CSP nonce. Browsers hide nonce attribute values once CSP is active, so React saw `nonce=""` in the DOM against the real value in props and re-rendered the subtree on every load. JSON-LD is a data block that script-src never applies to, so the nonce is gone from those elements. Verified: zero hydration warnings on `/contact`, `/blog`, and the tool pages.
+- **Per-plan model clamp** now applies in the Regional Audit worker (`geo-audits.ts`) and the BullMQ run worker (`run-worker.ts`), matching the `/run` route. Both previously used the raw platform default, so a Starter or Pro brand could run on the premium model.
+- `/dashboard/query-performance` now redirects to `/dashboard/query-tracker` instead of serving an unlinked, simpler copy of the same data.
+
+## Cheaper visibility checks (same day)
+
+Tracking runs now default to the cheapest model on every engine: ChatGPT
+`gpt-5.4-nano` (was `gpt-5.4-mini`), Claude Haiku 4.5 (was Fable 5, which
+costs 10x on input), Gemini 2.5 Flash Lite (was Flash). Grok 3 Mini and Sonar
+were already the cheapest. The economy tier (Free, Trial, Starter, Pro) maps
+to the same models; Agency and Enterprise get them too unless an admin picks
+a premium model in `/admin-backend/models`. A boot-time migration clears
+admin selections that only re-stated the old defaults so the change takes
+effect in production without a manual step. The ChatGPT search-budget
+fallback now lands on Nano instead of full `gpt-5.4`, and the transient-error
+fallback chain (Nano, then Mini, then gpt-4o) still applies to default calls.
+Model pricing for Fable 5 and Haiku 4.5 was corrected to Anthropic's list.
+
+## Gemini grounding gated to Pro and above (same day)
+
+Google bills grounded Gemini about $0.035 per request, roughly 100x the token
+cost and the largest line in the cost model. `geminiGroundingAllowedForPlan`
+now withholds the `google_search` tool from Free, Trial and Starter brands on
+the run route, the queue worker and Regional Audits. The response cache keys
+an ungrounded answer as non-search so it can never be served to a Pro brand
+as a grounded one, and the ledger only bills the grounding fee when Google's
+response carries grounding metadata, so the saving shows up directly in
+`tenant_cost_events`.

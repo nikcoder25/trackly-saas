@@ -272,14 +272,15 @@ export function getPlanCredits(plan: string | undefined | null): PlanCreditConfi
  * between a $200/mo SaaS and a runaway provider bill.
  */
 export const ECONOMY_MODEL_BY_PLATFORM: Record<string, string> = {
-  ChatGPT: 'gpt-5.4-mini',
+  ChatGPT: 'gpt-5.4-nano',
   Claude: 'claude-haiku-4-5-20251001',
   Gemini: 'gemini-2.5-flash-lite',
   Grok: 'grok-3-mini',
   Perplexity: 'sonar',
 };
 
-// ChatGPT economy and premium both point at `gpt-5.4-mini`. The earlier
+// ChatGPT economy is `gpt-5.4-nano` (cheapest) and premium `gpt-5.4-mini`;
+// admins can raise premium tiers to `gpt-5.4` per platform. The earlier
 // `gpt-4o-mini-search-preview` was retired in favour of the gpt-5.4
 // family which removes the web_search surcharge dependency from the
 // default lineup. The premium A/B cohort below is a no-op as a result;
@@ -409,4 +410,18 @@ export const LOW_BALANCE_THRESHOLD = 0.2;
 export function isLowBalance(remaining: number, monthlyCap: number): boolean {
   if (!Number.isFinite(monthlyCap) || monthlyCap <= 0) return false;
   return remaining > 0 && remaining / monthlyCap < LOW_BALANCE_THRESHOLD;
+}
+
+// ── Gemini grounding gate ────────────────────────────
+//
+// Grounded Gemini (the google_search tool) is billed per request on top of
+// tokens - about $0.035 a call, roughly 100x the token cost and the single
+// largest line in the cost model (docs/UNIT-ECONOMICS.md). It is reserved
+// for Pro and above; Free, Trial and Starter get Gemini's ungrounded answer.
+// The plan gate composes with GEMINI_GROUNDING_DISABLED (global kill switch)
+// and JSON mode (never grounded) in `geminiGroundingEnabled`.
+const GEMINI_GROUNDING_PLANS = new Set(['pro', 'agency', 'enterprise', 'owner']);
+
+export function geminiGroundingAllowedForPlan(plan: string | null | undefined): boolean {
+  return GEMINI_GROUNDING_PLANS.has((plan || 'free').toLowerCase());
 }
