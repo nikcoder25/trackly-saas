@@ -1575,6 +1575,12 @@ export interface QueryOptions {
   // suppresses the downgrade so an admin's selection (including the
   // default model picked deliberately) is preserved verbatim.
   adminSelectedModel?: boolean;
+  // Gemini only. `false` withholds the google_search grounding tool for
+  // this call regardless of the global default - the run paths pass
+  // `geminiGroundingAllowedForPlan(ownerPlan)` so Free/Trial/Starter
+  // brands never incur Google's per-request grounding fee. Undefined
+  // keeps the global behaviour (grounded unless GEMINI_GROUNDING_DISABLED).
+  geminiGrounding?: boolean;
   // ChatGPT only: caller asserts this call is background / scheduled
   // (daily-cron tracking tick) and can tolerate up to
   // CHATGPT_BATCH_MAX_WAIT_MS of asynchronous completion. When both
@@ -1662,7 +1668,7 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
       generationConfig: { maxOutputTokens: maxTok },
     };
     if (options?.jsonMode) payload.generationConfig.responseMimeType = 'application/json';
-    if (geminiGroundingEnabled(options?.jsonMode)) {
+    if (geminiGroundingEnabled(options?.jsonMode) && options?.geminiGrounding !== false) {
       payload.tools = [{ google_search: {} }];
     }
     try {

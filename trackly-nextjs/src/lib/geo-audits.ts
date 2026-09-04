@@ -39,7 +39,7 @@ import {
 import { resolveKeysForTenant } from '@/lib/tenant-keys';
 import { getServerKeys } from '@/lib/server-keys';
 import { getAdminModel } from '@/lib/site-config';
-import { resolveModelForPlan } from '@/lib/plan-config';
+import { resolveModelForPlan, geminiGroundingAllowedForPlan } from '@/lib/plan-config';
 import { getUserEffectivePlan } from '@/lib/helpers';
 import { buildBrandMatcher, parseResponse } from '@/lib/parser';
 import type { BrandInput } from '@/lib/parser';
@@ -402,7 +402,8 @@ const defaultCallProvider: CallProvider = async ({
   // raw platform default with no clamp, so a Starter brand's regional audit
   // could run on the premium model the plan is not priced for.
   const adminBase = (await getAdminModel(platform)) || getDefaultModel(platform);
-  const model = resolveModelForPlan(platform, await getUserEffectivePlan(userId), adminBase);
+  const ownerPlan = await getUserEffectivePlan(userId);
+  const model = resolveModelForPlan(platform, ownerPlan, adminBase);
   const matcher = buildBrandMatcher(brand);
   // Region context moved into the user message so the system prompt
   // stays byte-identical across regions (required for OpenAI automatic
@@ -421,6 +422,8 @@ const defaultCallProvider: CallProvider = async ({
     const result = await queryAI(platform, userPrompt, rawKey, model, brandCtx, {
       systemPrompt,
       tenantId: userId,
+      // Grounded Gemini is Pro-and-above (per-request fee).
+      geminiGrounding: geminiGroundingAllowedForPlan(ownerPlan),
     });
     const parsed = parseResponse(result.text || '', brand, promptText, matcher);
     return {

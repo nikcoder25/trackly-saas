@@ -23,7 +23,7 @@ import { logger } from './logger';
 import { getServerKeys } from './server-keys';
 import { resolveKeysForTenant, recordTenantKeyResult } from './tenant-keys';
 import type { BrandRunJobData } from './job-queue';
-import { applyChatGPTCohortOverride, resolveModelForPlan } from './plan-config';
+import { applyChatGPTCohortOverride, resolveModelForPlan, geminiGroundingAllowedForPlan } from './plan-config';
 import { getEffectivePlan } from './constants';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
@@ -267,7 +267,7 @@ async function processRun(job: Job<BrandRunJobData>) {
         const budgetResolved = await resolveSearchModelWithBudget({
           platform: plat,
           model: smartRoutedModel,
-          isSearch: isSearchEnabled(plat, smartRoutedModel),
+          isSearch: isSearchEnabled(plat, smartRoutedModel, { geminiGrounding: geminiGroundingAllowedForPlan(ownerPlan) }),
         });
         const modelForTask = budgetResolved.model;
         const searchEnabledForTask = budgetResolved.searchEnabled;
@@ -316,6 +316,8 @@ async function processRun(job: Job<BrandRunJobData>) {
                   queryId,
                   signal: taskController.signal,
                   tenantId: userId,
+                  // Grounded Gemini is Pro-and-above (per-request fee).
+                  geminiGrounding: geminiGroundingAllowedForPlan(ownerPlan),
                   runId,
                   // BullMQ worker processes background queued tasks
                   // only - never user-blocking - so no-search ChatGPT

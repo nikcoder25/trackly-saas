@@ -101,7 +101,10 @@ their price went up.
 **Now, without changing any price:**
 
 1. Set Pro and Agency to weekly (`minScheduleHours: 168`).
-2. Gate grounded Gemini to Pro and above. Starter then runs
+2. Gate grounded Gemini to Pro and above. **Done (September 2026):**
+   `geminiGroundingAllowedForPlan` in `plan-config.ts` withholds the
+   `google_search` tool from Free, Trial and Starter on every run path.
+   Starter then runs
    ChatGPT + Perplexity at ~$1.05/mo on $9 — an 88% margin and a genuinely
    cheap acquisition tier.
 3. Sell daily refresh as an upgrade rather than shipping it as the default.

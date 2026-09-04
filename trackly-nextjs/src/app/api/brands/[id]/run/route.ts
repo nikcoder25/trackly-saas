@@ -29,7 +29,7 @@ import {
   tryClaimLowBalanceNotify,
   tryClaimMonthlyResetNotify,
 } from '@/lib/credits';
-import { getPlanCredits, isLowBalance, resolveModelForPlan, applyChatGPTCohortOverride } from '@/lib/plan-config';
+import { getPlanCredits, isLowBalance, resolveModelForPlan, applyChatGPTCohortOverride, geminiGroundingAllowedForPlan } from '@/lib/plan-config';
 import { sendLowCreditsEmail, sendAutoSkipEmail, sendMonthlyResetEmail } from '@/lib/email';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
@@ -1088,7 +1088,7 @@ async function executeRunBackgroundInner(
         const budgetResolved = await resolveSearchModelWithBudget({
           platform: plat,
           model: smartRoutedModel,
-          isSearch: isSearchEnabled(plat, smartRoutedModel),
+          isSearch: isSearchEnabled(plat, smartRoutedModel, { geminiGrounding: geminiGroundingAllowedForPlan(ownerPlan) }),
         });
         const effectiveModel = budgetResolved.model;
         const singleAttempt = async () => {
@@ -1145,6 +1145,8 @@ async function executeRunBackgroundInner(
                 brandId,
                 runId,
                 requestId,
+                // Grounded Gemini is Pro-and-above (per-request fee).
+                geminiGrounding: geminiGroundingAllowedForPlan(ownerPlan),
                 // ChatGPT batch path (CHATGPT_BATCH_ENABLED) opts in
                 // only for cron-scheduled ticks. Manual user-clicked
                 // runs stay synchronous so the dashboard isn't waiting

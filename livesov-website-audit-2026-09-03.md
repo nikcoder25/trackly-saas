@@ -138,3 +138,14 @@ effect in production without a manual step. The ChatGPT search-budget
 fallback now lands on Nano instead of full `gpt-5.4`, and the transient-error
 fallback chain (Nano, then Mini, then gpt-4o) still applies to default calls.
 Model pricing for Fable 5 and Haiku 4.5 was corrected to Anthropic's list.
+
+## Gemini grounding gated to Pro and above (same day)
+
+Google bills grounded Gemini about $0.035 per request, roughly 100x the token
+cost and the largest line in the cost model. `geminiGroundingAllowedForPlan`
+now withholds the `google_search` tool from Free, Trial and Starter brands on
+the run route, the queue worker and Regional Audits. The response cache keys
+an ungrounded answer as non-search so it can never be served to a Pro brand
+as a grounded one, and the ledger only bills the grounding fee when Google's
+response carries grounding metadata, so the saving shows up directly in
+`tenant_cost_events`.

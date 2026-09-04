@@ -124,6 +124,24 @@ describe('queryAI(Gemini) grounding', () => {
     expect(capturedBody()).not.toHaveProperty('tools');
   });
 
+  it('omits the tool when the caller withholds grounding for the plan (geminiGrounding: false)', async () => {
+    delete process.env.GEMINI_GROUNDING_DISABLED;
+    await queryAI(
+      'Gemini', 'best hvac in auburn', 'test-key', 'gemini-2.5-flash-lite',
+      undefined, { geminiGrounding: false },
+    );
+    expect(capturedBody()).not.toHaveProperty('tools');
+  });
+
+  it('keeps the tool when geminiGrounding is true or unset', async () => {
+    delete process.env.GEMINI_GROUNDING_DISABLED;
+    await queryAI(
+      'Gemini', 'best hvac in auburn', 'test-key', 'gemini-2.5-flash-lite',
+      undefined, { geminiGrounding: true },
+    );
+    expect(capturedBody().tools).toEqual([{ google_search: {} }]);
+  });
+
   it('omits the tool in JSON mode, which the API rejects alongside a tool', async () => {
     delete process.env.GEMINI_GROUNDING_DISABLED;
     await queryAI(
