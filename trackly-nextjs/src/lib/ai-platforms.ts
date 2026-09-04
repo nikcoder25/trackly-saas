@@ -797,20 +797,25 @@ function _runProviderBootProbes(): void {
 _runProviderBootProbes();
 
 export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; search?: boolean; default?: boolean }>> = {
+  // Defaults are the cheapest model on each platform. Visibility tracking
+  // only needs to know whether a brand is mentioned, where it ranks and what
+  // is cited; the economy models answer that as reliably as the premium ones
+  // at a fraction of the per-call cost. Admins can still pick a premium
+  // model per platform in /admin-backend/models (plan tier permitting).
   ChatGPT: [
-    { id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini', default: true },
+    { id: 'gpt-5.4-nano', label: 'GPT-5.4 Nano', default: true },
+    { id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini' },
     { id: 'gpt-5.4', label: 'GPT-5.4' },
-    { id: 'gpt-5.4-nano', label: 'GPT-5.4 Nano' },
   ],
   Claude: [
-    { id: 'claude-fable-5', label: 'Fable 5', default: true },
-    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
+    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', default: true },
     { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
+    { id: 'claude-fable-5', label: 'Fable 5 (premium)' },
   ],
   Gemini: [
-    { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', default: true },
+    { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite', default: true },
+    { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
     { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-    { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (Fallback)' },
   ],
   Grok: [
     { id: 'grok-3-mini', label: 'Grok 3 Mini', default: true },
@@ -830,11 +835,11 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
   // historical record_call rows. The new lineup is gpt-5.4-{mini,,nano}.
   'gpt-4o-mini-search-preview': { input: 0.15, output: 0.60 },
   'gpt-4o': { input: 2.50, output: 10.00 },
-  // NOTE: Fable 5 per-token pricing is a placeholder — confirm against the
-  // current Anthropic price list and update before relying on cost tracking.
-  'claude-fable-5': { input: 3.00, output: 15.00 },
+  // Anthropic list prices ($/1M tokens). Fable 5 sits in the top tier at
+  // 10x Haiku 4.5 on input - which is why it is no longer the default.
+  'claude-fable-5': { input: 10.00, output: 50.00 },
   'claude-sonnet-4-20250514': { input: 3.00, output: 15.00 },
-  'claude-haiku-4-5-20251001': { input: 0.80, output: 4.00 },
+  'claude-haiku-4-5-20251001': { input: 1.00, output: 5.00 },
   'gemini-2.5-flash': { input: 0.10, output: 0.40 },
   'gemini-2.5-pro': { input: 1.25, output: 10.00 },
   'gemini-2.5-flash-lite': { input: 0.075, output: 0.30 },
@@ -1911,8 +1916,8 @@ export async function queryAI(
         // Auto-downgrade for no-search default calls. Conditions:
         //   - Caller did not explicitly select a model
         //     (options.adminSelectedModel !== true).
-        //   - useModel is the platform default (gpt-5.4-mini today).
-        //     Any non-default selection (gpt-5.4 full, gpt-5.4-nano,
+        //   - useModel is the platform default (gpt-5.4-nano today).
+        //     Any non-default selection (gpt-5.4 full, gpt-5.4-mini,
         //     gpt-4o, *-search-preview, …) is honored verbatim.
         //   - web_search is NOT going to be attached. Search-preview
         //     model selection is owned by `resolveChatGPTModel` /
@@ -1921,17 +1926,18 @@ export async function queryAI(
         //   - CHATGPT_NONSEARCH_MODEL is enabled (default
         //     'gpt-5.4-nano'; unset/'off' disables).
         const nonSearchDowngrade = getChatGPTNonSearchModel();
-        const shouldDowngrade =
+        const isDefaultNonSearch =
           !isSearch
           && !options?.adminSelectedModel
           && useModel === getDefaultModel('ChatGPT')
-          && nonSearchDowngrade !== null
-          && nonSearchDowngrade !== useModel;
-        const modelChain = shouldDowngrade
-          ? [
-              nonSearchDowngrade!,
-              ...NONSEARCH_DOWNGRADE_FALLBACKS.filter(m => m !== nonSearchDowngrade),
-            ]
+          && nonSearchDowngrade !== null;
+        // The platform default is now the cheapest model, so the
+        // "downgrade" is usually a no-op - but the transient-error fallback
+        // chain (nano → mini → gpt-4o) must still apply to default calls,
+        // otherwise a nano-side 5xx fails the query outright.
+        const chainHead = isDefaultNonSearch ? nonSearchDowngrade! : useModel;
+        const modelChain = isDefaultNonSearch
+          ? [chainHead, ...NONSEARCH_DOWNGRADE_FALLBACKS.filter(m => m !== chainHead)]
           : [useModel];
         // OpenAI deprecated `max_tokens` in favour of `max_completion_tokens`
         // for the gpt-5 family (and o1/o3 reasoning models) - passing the old
@@ -2088,7 +2094,7 @@ export async function queryAI(
             // actually applied (modelChain.length > 1) and (b) the
             // failure is transient. Auth / cost-cap / bad-request
             // errors should NOT trigger a quiet model swap.
-            if (shouldDowngrade && mi < modelChain.length - 1 && isTransientError(e)) {
+            if (isDefaultNonSearch && mi < modelChain.length - 1 && isTransientError(e)) {
               logger.warn('[chatgpt.nonsearch_fallback]', {
                 event: 'fallback',
                 platform: 'ChatGPT',

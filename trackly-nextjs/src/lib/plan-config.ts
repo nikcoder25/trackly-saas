@@ -272,14 +272,15 @@ export function getPlanCredits(plan: string | undefined | null): PlanCreditConfi
  * between a $200/mo SaaS and a runaway provider bill.
  */
 export const ECONOMY_MODEL_BY_PLATFORM: Record<string, string> = {
-  ChatGPT: 'gpt-5.4-mini',
+  ChatGPT: 'gpt-5.4-nano',
   Claude: 'claude-haiku-4-5-20251001',
   Gemini: 'gemini-2.5-flash-lite',
   Grok: 'grok-3-mini',
   Perplexity: 'sonar',
 };
 
-// ChatGPT economy and premium both point at `gpt-5.4-mini`. The earlier
+// ChatGPT economy is `gpt-5.4-nano` (cheapest) and premium `gpt-5.4-mini`;
+// admins can raise premium tiers to `gpt-5.4` per platform. The earlier
 // `gpt-4o-mini-search-preview` was retired in favour of the gpt-5.4
 // family which removes the web_search surcharge dependency from the
 // default lineup. The premium A/B cohort below is a no-op as a result;

@@ -39,9 +39,15 @@ tables record what was actually billed; this document is a model.
 |---|---|---|---|---|
 | Grok | grok-3-mini | $0.00045 | — | **$0.00045** |
 | Perplexity | sonar | $0.00095 | see caveat | **$0.00095** |
-| ChatGPT | gpt-5.4-mini | $0.0037 | none today | **$0.0037** |
-| Claude | Fable 5 | $0.0125 | — | **$0.0125** |
-| Gemini | gemini-2.5-flash | $0.00034 | $0.035 grounding | **$0.0353** |
+| ChatGPT | gpt-5.4-nano | ≈$0.0010 | none today | **≈$0.0010** |
+| Claude | Claude Haiku 4.5 | ≈$0.0042 | — | **≈$0.0042** |
+| Gemini | gemini-2.5-flash-lite | ≈$0.00026 | $0.035 grounding | **≈$0.0353** |
+
+The ChatGPT, Claude and Gemini rows were re-derived from the same token
+counts as the previous defaults (gpt-5.4-mini $0.0037, Fable 5 at the old
+placeholder price $0.0125, gemini-2.5-flash $0.00034) after the defaults moved
+to the cheapest model on each engine in September 2026. Re-measure from
+`tenant_cost_events` once a week of runs has landed.
 
 Grounded Gemini is **78× Grok** and **9.5× ChatGPT**. It is the single
 dominant cost in the product, and for a grounded Gemini call the fee is ~99%
@@ -114,7 +120,7 @@ Target 75–95% gross margin.
 ## Known gaps in these numbers
 
 - **ChatGPT is not grounded.** `isSearch = useModel.includes('search')` and the
-  default model is `gpt-5.4-mini`, so `web_search` never attaches
+  default model is `gpt-5.4-nano`, so `web_search` never attaches
   (`ai-platforms.ts`, ChatGPT branch). ChatGPT answers from training memory —
   the same correctness problem that was fixed for Gemini. Fixing it adds
   **$0.030/call**, which roughly doubles every figure above. Price with that
@@ -123,9 +129,9 @@ Target 75–95% gross margin.
   tokens on some tiers, and nothing in `cost-tracker.ts` accounts for it — the
   same blind spot Gemini had before `GEMINI_GROUNDING_CALL_USD`. Confirm
   against an invoice and add a constant if it applies.
-- **Claude's Fable 5 pricing is a placeholder.** `MODEL_PRICING` carries a
-  comment saying so. Claude is the second most expensive engine at $0.0125/call,
-  so confirm it.
+- **Claude is no longer on Fable 5 by default.** `MODEL_PRICING` now carries
+  Anthropic's list price for Fable 5 ($10 / $50 per 1M tokens, 10x Haiku 4.5
+  on input); it stays selectable for premium tiers in the admin Models page.
 - **Infrastructure is excluded**, as noted in Assumptions.
 
 ## Guardrails already in place
