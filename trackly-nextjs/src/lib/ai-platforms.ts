@@ -1297,7 +1297,7 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
       if (resp.status === 401 || resp.status === 403) {
         if (apiKey) recordApiKeyFailure(apiKey);
         const data = await resp.json().catch(() => ({}));
-        throw new Error(data.error?.message || `Auth error ${resp.status}`);
+        throw new Error((typeof data.error === 'string' ? data.error : data.error?.message) || `Auth error ${resp.status}`);
       }
 
       if (resp.status === 429 || resp.status === 529) {
@@ -1418,7 +1418,7 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
       }
 
       const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error?.message || `API error ${resp.status}`);
+      if (!resp.ok) throw new Error((typeof data.error === 'string' ? data.error : data.error?.message) || `API error ${resp.status}`);
       return data;
     } catch (e) {
       // If the per-attempt timer fired while we were reading the body,
