@@ -2582,11 +2582,7 @@ The important thing to understand before you compare prices: **Perplexity is the
 
 Three different measurements get sold under the same name. Know which one you are buying.
 
-| Measurement | What it answers | How it is captured |
-|-------------|-----------------|--------------------|
-| **Answer rank** | When Perplexity lists options, what position is your brand named in? | Parse the answer text, find the ordered list of brands |
-| **Citation rank** | Where does your domain sit in the numbered source list? | Parse the citation array returned with the answer |
-| **Mention rate / presence** | What share of runs name you at all? | Count runs containing the brand, divided by total runs |
+![Answer rank, citation rank and mention rate measure different things, and a tool that reports only one will never show you the gap between them.](/blog/pplx-three-measurements.svg)
 
 They diverge constantly. A brand can be cited as source #2 and never named in the answer text - Perplexity read your page and credited someone else's framing. That gap is the single most actionable finding in Perplexity tracking, and a tool that reports only one of the three will never show it to you.
 
@@ -2600,6 +2596,8 @@ Most of what markets itself as a Perplexity SEO tracking tool is a checker: you 
 - **Stored raw responses.** When a client asks why their rank dropped, "the dashboard says so" is not an answer. The stored answer text is.
 - **Competitor benchmarking on the same prompt.** Your rank means nothing without the field. Being #4 in a three-name answer is impossible; being #4 in a seven-name answer is a different problem than being absent.
 - **Citation URL capture, not just domain.** Knowing perplexity cited yourdomain.com is trivia. Knowing it cited /pricing rather than your comparison page is a content decision.
+
+![The six criteria that separate a Perplexity rank tracker from a one-off checker.](/blog/pplx-tracker-criteria.svg)
 
 ## The tools worth comparing
 
@@ -2699,6 +2697,8 @@ Every other engine in this category is search-grounded by default. Claude, on mo
 
 The practical consequence: **you cannot fix a Claude ranking with a landing page.** You fix it by changing what the wider web says about your category and where you sit in it - review platforms, comparison articles, documentation, community threads. That is a two-quarter project, which is exactly why measuring it from day one matters. If you only start tracking when you notice the problem, you have already lost the baseline.
 
+![The chain that actually moves a Claude ranking: third-party coverage, absorbed slowly, surfaced from model knowledge.](/blog/claude-what-moves-rank.svg)
+
 ## What a Claude rank tracker has to do
 
 - **Cover the model spread.** Claude Haiku, Sonnet, and the larger Fable-class models produce different shortlists for the same prompt. The cheap model is not a proxy for the expensive one; in our sampling they disagree on the top three more often than they agree.
@@ -2706,6 +2706,8 @@ The practical consequence: **you cannot fix a Claude ranking with a landing page
 - **Read position out of prose.** Claude often answers in paragraphs rather than a numbered list. A tracker that only parses numbered lists will score you absent from answers that named you.
 - **Track sentiment, not just presence.** Claude qualifies its recommendations heavily ("good if you need X, but consider Y"). Being named third with a warm qualifier beats being named first with a caveat, and only sentiment capture shows that.
 - **Store the raw answer.** Especially here, where the answer text is the only evidence - there is usually no citation list to fall back on.
+
+![Illustrative model spread: Haiku, Sonnet and the larger models produce different shortlists for the same prompt.](/blog/claude-model-spread.svg)
 
 ## The tools
 
@@ -2806,6 +2808,8 @@ An automated [Perplexity rank tracker](/perplexity-rank-tracker) queries the pro
 
 Our [free citation finder](/tools/citation-finder) will show you the current picture for a single prompt with no signup, if you want to see the shape of the data before committing to anything.
 
+![Capturing source URLs on a schedule is what turns a sources panel into a trend you can act on.](/blog/citation-capture-flow.svg)
+
 ## Turn URLs into a metric: citation share
 
 A list of URLs is not a KPI. Convert it.
@@ -2814,16 +2818,9 @@ A list of URLs is not a KPI. Convert it.
 
 Worked example. Ten prompts, five runs each, so 50 sampled answers. Perplexity cites an average of eight sources per answer, so roughly 400 citation slots.
 
-| Domain | Citations | Citation share |
-|--------|-----------|----------------|
-| g2.com | 72 | 18.0% |
-| competitor-a.com | 58 | 14.5% |
-| reddit.com | 44 | 11.0% |
-| competitor-b.com | 39 | 9.8% |
-| **yourbrand.com** | **21** | **5.3%** |
-| everything else | 166 | 41.5% |
+![Citation share by domain across 50 sampled answers: review platforms and competitors hold the slots, and your own share is the number the exercise exists to move.](/blog/citation-share-bars.svg)
 
-Now you have something to move. Three things are immediately readable in a table like this: whether you are behind a competitor or behind a review platform (a completely different problem), how concentrated the citation pool is, and what a realistic target looks like next quarter.
+Now you have something to move. Three things are immediately readable: whether you are behind a competitor or behind a review platform (a completely different problem), how concentrated the citation pool is, and what a realistic target looks like next quarter.
 
 Segment it further by URL rather than domain and the content plan writes itself:
 
@@ -2935,6 +2932,8 @@ This is the decision most teams make by accident.
 
 Both are legitimate measurements. What is not legitimate is mixing them in the same trend line and wondering why it jumps. Pick one as your reported metric and keep it constant.
 
+![Grounded and ungrounded Gemini are two legitimate measurements. Mixing them in one trend line is not.](/blog/gemini-grounded-vs-ungrounded.svg)
+
 ## Step 4: sample repeatedly, on a schedule
 
 Gemini answers are non-deterministic. Ask the same question three times and you can get three different brand orders. One run is not a measurement.
@@ -2957,6 +2956,8 @@ The single most useful cut is mention rate by prompt family:
 A shape like this - near-perfect on branded, weak everywhere else - is the standard result of a first measurement, and it is why spot-checking your own brand name gives teams false confidence. You are visible to people who already know you.
 
 Then cross-reference the grounded sources against your Google rankings. Pages that rank well but are never cited are the highest-leverage fix on the list: the retrieval is finding them and the synthesiser is choosing something else, which is a structure and clarity problem, not a rankings problem. [Run a GEO audit](/geo-audit) on those URLs specifically.
+
+![Gemini is the assistant; AI Overviews is the summary block inside Google Search. They share infrastructure and frequently disagree.](/blog/gemini-vs-ai-overviews.svg)
 
 ## Gemini is not AI Overviews
 
@@ -3015,6 +3016,8 @@ What is observable, and what we see in tracking data:
 
 The practical conclusion: treat X presence as a real but **volatile and unownable** input. It can move your Grok position. It cannot be relied on to hold it. That is precisely why Grok needs to be tracked as a trend rather than checked, and why a single spot-check here is more misleading than on any other engine.
 
+![How live X conversation reaches a Grok answer, and why the effect decays.](/blog/grok-x-loop.svg)
+
 ## What makes Grok hard to track
 
 Volatility is the whole story. Because live posts can enter the answer, variance between runs is higher than any other engine we measure.
@@ -3028,6 +3031,8 @@ Volatility is the whole story. Because live posts can enter the answer, variance
 | **Grok** | **High** | **Daily, more runs per check** |
 
 Two consequences follow. First, sample size matters more here: three runs per check is not enough, and five is a floor rather than a target. Second, you need a longer smoothing window before calling any movement real. A one-day Grok spike is usually a thread, not a trend.
+
+![A Grok daily series swings on live conversation. The seven-day rolling average is the number worth putting in a report.](/blog/grok-smoothing.svg)
 
 ## The tools
 
@@ -3106,6 +3111,8 @@ Traditional SEO tools measure a channel that reports back. You rank, someone cli
 
 A ChatGPT SEO tracking tool closes that loop artificially: it asks the questions your buyers ask, on a schedule, and records what comes back. That is the whole category. Everything else - scoring, recommendations, dashboards - is built on top of that one primitive, and a tool that gets the primitive wrong cannot be rescued by the dashboard.
 
+![Traditional SEO reports back through analytics. ChatGPT keeps the demand and removes the feedback loop.](/blog/chatgpt-broken-loop.svg)
+
 ## The five things that separate real tools from demos
 
 - **Multi-run sampling.** ChatGPT is non-deterministic. Same prompt, different answers. Any tool reporting a position from one run is reporting noise with a decimal point on it.
@@ -3113,6 +3120,8 @@ A ChatGPT SEO tracking tool closes that loop artificially: it asks the questions
 - **Competitor benchmarking on the same prompt.** Your position is meaningless without the field it sits in.
 - **Stored raw responses.** The evidence is the answer text. Without it you have a chart nobody can interrogate.
 - **Citation capture where it exists.** ChatGPT Search returns sources. Those URLs are the most actionable data the engine produces, and plenty of tools discard them.
+
+![Illustrative surface spread: tracking the flagship model alone measures the surface fewest people touch.](/blog/chatgpt-model-spread.svg)
 
 ## The tools
 
@@ -3196,6 +3205,8 @@ That arithmetic is why **no product offers free continuous AI rank tracking**, a
 
 What free genuinely gets you falls into three buckets.
 
+![The arithmetic behind every pricing page in the category, and the reason free continuous tracking does not exist.](/blog/free-run-cost-math.svg)
+
 ## Bucket 1: free one-off checkers
 
 Run a prompt, see an answer, done. No history, no schedule, no competitors.
@@ -3234,6 +3245,8 @@ Rough API costs at thirty prompts, five runs, daily, are in the tens of dollars 
 **Step 5 is the hard part.** Parsing a brand's position out of prose is genuinely difficult. Models answer in numbered lists, in paragraphs, in tables, with hedges, with the same brand named twice, with near-miss spellings. A naive string match will report you absent from answers that recommended you and present in answers that dismissed you. Getting that parser to a level you would show a client is the work, and it never really finishes.
 
 Build it if you want to learn how the engines behave. Buy it if you need a number someone else will rely on.
+
+![What free actually buys you: three buckets, each useful for a different question.](/blog/free-tracking-buckets.svg)
 
 ## Free coverage by engine, honestly
 
@@ -3305,6 +3318,8 @@ It sounds trivial. It is not, because businesses accumulate variants without not
 
 Each one is small. Collectively they are the reason a business with strong local SEO fundamentals still cannot rank, and now the reason an AI assistant gives out the wrong phone number.
 
+![A canonical NAP against what the listings actually show: harmless formatting variants, and one dead phone number.](/blog/nap-canonical-vs-listings.svg)
+
 ## Why this matters more now than it did in 2020
 
 Local SEO people have run NAP audits for a decade because search engines use citation consistency as a corroboration signal: the more independent sources agree on your details, the more confident the engine is that the entity is real and the data is right.
@@ -3353,6 +3368,8 @@ Not all citations carry equal weight:
 ### Step 5: re-check quarterly
 
 Citations rot. Aggregators re-import stale data, directories get bought and merged, and someone eventually adds a new listing with a variant. A NAP check is maintenance, not a project.
+
+![Fix citations in this order - repairing the upstream aggregators repairs many downstream listings at once.](/blog/nap-fix-priority.svg)
 
 ## What counts as a mismatch
 
@@ -3464,6 +3481,8 @@ Most tools report a composite "visibility score" built from mentions, position, 
 
 Different prompts measure different things, obviously. Less obviously, **when** you sample matters: engines update, the web changes, and on Grok a live conversation can shift answers within hours. Two tools sampling twelve hours apart are sampling different worlds.
 
+![The relative weight of each cause of divergence. Neither tool has to be broken for two visibility scores to disagree.](/blog/accuracy-variables.svg)
+
 ## How to test a tool's accuracy yourself
 
 Do not take a vendor's word for it, and do not assume the expensive tool is the accurate one. This takes an afternoon.
@@ -3492,6 +3511,8 @@ Six questions. The answers, or the reluctance to give them, tell you what you ne
 6. How is position parsed out of prose, and what happens on a table-formatted answer?
 
 A tool that answers all six plainly is a tool whose numbers you can defend to someone else. That is the actual product in this category - not the dashboard, the defensibility.
+
+![Six questions to put to any vendor. The reluctance to answer tells you as much as the answer.](/blog/accuracy-vendor-questions.svg)
 
 ## What we do, since it is only fair to answer our own questions
 
@@ -3537,10 +3558,7 @@ Only if you can afford it and enjoy reconciling methodologies. A better use of t
 
 **Share of voice** in AI search is your share of all brand mentions across a fixed set of prompts. In AI Overviews specifically it splits into two related metrics that behave differently and should be reported separately.
 
-| Metric | Definition | What it tells you |
-|--------|-----------|-------------------|
-| **Mention share of voice** | Your brand mentions / all brand mentions in the Overview text | Whether the summary names you |
-| **Citation share of voice** | Your cited URLs / all cited URLs in the Overview | Whether Google's summariser read you |
+![Mention share and citation share diverge, and the direction of the gap tells you whether the fix is on your pages or off them.](/blog/sov-two-metrics.svg)
 
 They diverge, and the divergence is the useful part. Being cited without being named means the summary was built partly from your page and credited the framing to somebody else. Being named without being cited means the web talks about you and your own pages are not what is being read.
 
@@ -3600,6 +3618,8 @@ Mention share ahead of citation share, as here, is the common shape: the web say
 
 The absolute figure means little without a baseline - it depends entirely on how many brands your category's Overviews typically name. What matters is your share relative to your closest competitor, moving over time. Re-measure on a fixed cadence with the same query set and the same locale.
 
+![Record four things per query on every check. The organic-position column is what makes the dataset actionable.](/blog/overviews-record-four.svg)
+
 ## Turning the number into work
 
 **Rank well but not cited.** Your highest-value fix. The page is being retrieved and passed over. Usually it buries the answer: no direct response near the top, headings that do not match the question, the key fact sitting in paragraph nine. [Run a GEO audit](/geo-audit) on those specific URLs.
@@ -3634,6 +3654,23 @@ Livesov tracks the five major AI assistants - ChatGPT, Claude, Gemini, Perplexit
 `,
   },
 ];
+
+/**
+ * The absolute URL a social scraper should fetch for this post.
+ *
+ * Blog covers are authored as SVG - crisp at any width and a few KB on the
+ * page - but X, LinkedIn, Facebook, Slack and iMessage all refuse to render
+ * SVG in a link preview, so an SVG og:image ships every share as a bare text
+ * card. scripts/build-blog-og-images.mjs rasterises each 1200x630 cover to a
+ * PNG beside it; this points the metadata at that file.
+ *
+ * tests/blog-og-images.test.ts fails if a post's PNG is missing, so a new post
+ * cannot ship with a preview that silently does not render.
+ */
+export function ogImageFor(post: BlogPost): string {
+  const path = post.image.replace(/\.svg$/i, '.png');
+  return `https://livesov.com${path}`;
+}
 
 export function getPostBySlug(slug: string): BlogPost | undefined {
   return blogPosts.find(p => p.slug === slug);

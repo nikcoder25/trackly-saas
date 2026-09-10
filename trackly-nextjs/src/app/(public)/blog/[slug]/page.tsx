@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import SeoLayout from '@/components/seo/SeoLayout';
 import { escapeHtml } from '@/lib/sanitize';
-import { blogPosts, getPostBySlug, formatDate } from '@/data/blog-posts';
+import { blogPosts, getPostBySlug, formatDate, ogImageFor } from '@/data/blog-posts';
 import { authorPersonSchema } from '@/data/authors';
 
 export async function generateStaticParams() {
@@ -25,6 +25,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   // this page, a body-only notFound() would stream a 200 shell (soft-404).
   if (!post) notFound();
 
+  // Link previews get the rasterised PNG, not the on-page SVG: no major social
+  // platform renders SVG in a card, so an SVG here ships every share as plain
+  // text. See ogImageFor() in the data module.
+  const ogImage = ogImageFor(post);
+
   return {
     title: `${post.title} | Livesov Blog`,
     description: post.description,
@@ -35,15 +40,36 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       type: 'article',
       publishedTime: post.date,
       authors: [post.author.name],
-      images: [{ url: post.image, alt: post.imageAlt }],
+      images: [{ url: ogImage, width: 1200, height: 630, alt: post.imageAlt }],
     },
     twitter: {
       card: 'summary_large_image',
       title: post.title,
       description: post.description,
+      images: [ogImage],
     },
     alternates: { canonical: `/blog/${post.slug}` },
   };
+}
+
+/* Heading slug used both by renderContent and the table of contents, so a
+   TOC link can never point at an id the body did not emit. */
+const headingId = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+/* Pull the H2s out of the article body for the on-page table of contents.
+   Code fences are skipped so a "## " inside a snippet never becomes a link. */
+function extractHeadings(content: string): { id: string; text: string }[] {
+  const out: { id: string; text: string }[] = [];
+  let inCode = false;
+  for (const line of content.trim().split('\n')) {
+    if (line.trim().startsWith('```')) { inCode = !inCode; continue; }
+    if (inCode) continue;
+    if (line.startsWith('## ')) {
+      const text = line.slice(3).trim();
+      out.push({ id: headingId(text), text });
+    }
+  }
+  return out;
 }
 
 /* Simple markdown-ish renderer */
@@ -126,13 +152,31 @@ function renderContent(content: string) {
     // Empty line
     if (!line.trim()) { i++; continue; }
 
+    // Standalone figure: ![alt text](/blog/diagram.svg)
+    // Only a line that is ENTIRELY an image becomes a figure; an inline image
+    // inside a sentence falls through to the paragraph branch untouched.
+    const figure = line.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    if (figure) {
+      const [, alt, src] = figure;
+      const safeSrc = sanitizeUrl(src);
+      if (safeSrc !== '#') {
+        elements.push(
+          <figure key={i} className="blog-figure">
+            <img src={safeSrc} alt={alt} className="blog-figure-img" loading="lazy" decoding="async" />
+            {alt ? <figcaption className="blog-figure-cap">{alt}</figcaption> : null}
+          </figure>
+        );
+        i++; continue;
+      }
+    }
+
     // Headings
     if (line.startsWith('### ')) {
       elements.push(<h3 key={i} className="blog-h3">{line.slice(4)}</h3>);
       i++; continue;
     }
     if (line.startsWith('## ')) {
-      elements.push(<h2 key={i} className="blog-h2" id={line.slice(3).toLowerCase().replace(/[^a-z0-9]+/g, '-')}>{line.slice(3)}</h2>);
+      elements.push(<h2 key={i} className="blog-h2" id={headingId(line.slice(3).trim())}>{line.slice(3)}</h2>);
       i++; continue;
     }
 
@@ -191,13 +235,14 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   if (!post) notFound();
 
   const nonce = (await headers()).get('x-nonce') ?? undefined;
+  const headings = extractHeadings(post.content);
 
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
     headline: post.title,
     description: post.description,
-    image: post.image,
+    image: ogImageFor(post),
     datePublished: post.date,
     // A full Person node (not just a name string) so the byline resolves to a
     // real, linkable identity with its own bio page and sameAs profiles.
@@ -247,6 +292,16 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
         {/* Content */}
         <div className="blog-post-body">
+          {headings.length >= 4 && (
+            <nav className="blog-toc" aria-labelledby="toc-heading">
+              <p className="blog-toc-title" id="toc-heading">What&rsquo;s in this article</p>
+              <ol className="blog-toc-list">
+                {headings.map((h) => (
+                  <li key={h.id}><a href={`#${h.id}`}>{h.text}</a></li>
+                ))}
+              </ol>
+            </nav>
+          )}
           {renderContent(post.content)}
         </div>
 

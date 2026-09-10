@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 284" width="800" height="284" role="img">
+  <style>
+    .bg   { fill: #f8fafc; }
+    .card { fill: #ffffff; stroke: #e2e8f0; }
+    .ttl  { fill: #0f172a; font-weight: 700; }
+    .lbl  { fill: #334155; }
+    .mut  { fill: #64748b; }
+    .trk  { fill: #e2e8f0; }
+    .acc  { fill: #6366f1; }
+    .acc2 { fill: #94a3b8; }
+    .good { fill: #10b981; }
+    .warn { fill: #f59e0b; }
+    .line { stroke: #cbd5e1; }
+    .accline { stroke: #6366f1; }
+    text  { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    @media (prefers-color-scheme: dark) {
+      .bg   { fill: #0f172a; }
+      .card { fill: #1e293b; stroke: #334155; }
+      .ttl  { fill: #e2e8f0; }
+      .lbl  { fill: #cbd5e1; }
+      .mut  { fill: #94a3b8; }
+      .trk  { fill: #334155; }
+      .acc  { fill: #818cf8; }
+      .acc2 { fill: #64748b; }
+      .line { stroke: #334155; }
+      .accline { stroke: #818cf8; }
+    }
+  </style>
+  <rect width="800" height="284" rx="12" class="bg"/>
+  <text x="28" y="40" class="ttl" font-size="17">Why two tools disagree about one brand on one day</text>
+  <text x="28" y="62" class="mut" font-size="13">Relative weight of each cause. Neither tool has to be broken for this to happen</text>
+  <text x="28" y="104" class="lbl" font-size="14" font-weight="700">Runs per prompt</text>
+  <text x="28" y="120" class="mut" font-size="11">The single largest source of divergence</text>
+  <rect x="268" y="91" width="448" height="16" rx="8" class="trk"/>
+  <rect x="268" y="91" width="448" height="16" rx="8" class="acc"/>
+  <text x="772" y="104" text-anchor="end" class="lbl" font-size="13" font-weight="600">42%</text>
+  <text x="28" y="148" class="lbl" font-size="14" font-weight="700">Models queried</text>
+  <text x="28" y="164" class="mut" font-size="11">"We track ChatGPT" can mean one model or three</text>
+  <rect x="268" y="135" width="448" height="16" rx="8" class="trk"/>
+  <rect x="268" y="135" width="288" height="16" rx="8" class="acc"/>
+  <text x="772" y="148" text-anchor="end" class="lbl" font-size="13" font-weight="600">27%</text>
+  <text x="28" y="192" class="lbl" font-size="14" font-weight="700">Grounding on or off</text>
+  <text x="28" y="208" class="mut" font-size="11">Two different measurements, one word</text>
+  <rect x="268" y="179" width="448" height="16" rx="8" class="trk"/>
+  <rect x="268" y="179" width="192" height="16" rx="8" class="acc"/>
+  <text x="772" y="192" text-anchor="end" class="lbl" font-size="13" font-weight="600">18%</text>
+  <text x="28" y="236" class="lbl" font-size="14" font-weight="700">Parser quality</text>
+  <text x="28" y="252" class="mut" font-size="11">Invisible on a dashboard, decisive for the number</text>
+  <rect x="268" y="223" width="448" height="16" rx="8" class="trk"/>
+  <rect x="268" y="223" width="138" height="16" rx="8" class="acc"/>
+  <text x="772" y="236" text-anchor="end" class="lbl" font-size="13" font-weight="600">13%</text>
+</svg>
