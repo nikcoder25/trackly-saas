@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   description:
     'How to track brand mentions in Google Gemini and AI Overviews - the Gemini brand tracker for share of voice, citations, and sentiment. 7-day free trial.',
   keywords:
-    'how to track brand mentions in gemini, gemini brand tracker, track brand mentions in gemini, gemini rank tracker, gemini brand tracking, google ai monitoring, gemini visibility, google ai brand mentions, ai overviews tracking, gemini pro tracking, gemini flash tracking, google sge tracking',
+    'how to track brand mentions in gemini, gemini brand tracker, track brand mentions in gemini, gemini brand tracking, gemini brand monitoring, google ai monitoring, gemini visibility, google ai brand mentions, ai overviews tracking, gemini sentiment tracking, gemini share of voice',
   alternates: { canonical: '/gemini-brand-tracking' },
   openGraph: {
     title: 'Gemini Brand Tracker | Track Mentions & AI Overviews',
@@ -349,6 +349,12 @@ export default function GeminiBrandTrackingPage() {
             actually cites. Improve them. Re-measure in the next monitoring cycle. The full
             framework lives in our <a href="/geo-optimization">GEO optimization guide</a> - but
             the core loop is measure → fix → re-measure, weekly.
+          </p>
+          <p>
+            If the number you report on is position rather than mentions, that job belongs to the{' '}
+            <a href="/gemini-rank-tracker">Gemini rank tracker</a>: this page covers whether and
+            how Gemini talks about you, while the rank tracker covers where you place for a given
+            prompt and how that placement trends. Most teams run both.
           </p>
         </LongForm>
       </Section>

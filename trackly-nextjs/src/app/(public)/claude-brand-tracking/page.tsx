@@ -14,16 +14,16 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Claude Brand Tracker | Track Mentions & Rank in Claude',
+  title: 'Claude Brand Tracker | Track Mentions & Sentiment',
   description:
-    'How to track brand mentions in Claude and rank when it recommends brands. The Claude brand tracker and rank tracker for share of voice, sentiment, and hallucinations.',
+    'How to track brand mentions in Claude - share of voice, sentiment, and hallucinations - across every Claude model. For position over time, see the Claude rank tracker.',
   keywords:
-    'claude brand tracker, claude rank tracker, how to track brand mentions in claude, track brand mentions in claude, claude brand tracking, anthropic ai monitoring, claude visibility, claude brand mentions, claude opus tracking, claude sonnet tracking, claude haiku tracking, claude rank tracking',
+    'claude brand tracker, how to track brand mentions in claude, track brand mentions in claude, claude brand tracking, claude brand monitoring, anthropic ai monitoring, claude visibility, claude brand mentions, claude sentiment tracking, claude share of voice, claude hallucination monitoring',
   alternates: { canonical: '/claude-brand-tracking' },
   openGraph: {
-    title: 'Claude Brand Tracker | Track Mentions & Rank in Claude',
+    title: 'Claude Brand Tracker | Track Mentions & Sentiment',
     description:
-      'How to track brand mentions in Claude and rank when it recommends brands. The Claude brand tracker and rank tracker for share of voice, sentiment, and hallucinations.',
+      'How to track brand mentions in Claude - share of voice, sentiment, and hallucinations - across every Claude model. For position over time, see the Claude rank tracker.',
     url: 'https://livesov.com/claude-brand-tracking',
     siteName: 'Livesov',
     type: 'website',
@@ -38,9 +38,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Claude Brand Tracker | Track Mentions & Rank in Claude',
+    title: 'Claude Brand Tracker | Track Mentions & Sentiment',
     description:
-      'How to track brand mentions in Claude and rank when it recommends brands. The Claude brand tracker and rank tracker for share of voice, sentiment, and hallucinations.',
+      'How to track brand mentions in Claude - share of voice, sentiment, and hallucinations - across every Claude model. For position over time, see the Claude rank tracker.',
     images: ['https://livesov.com/og-image.png'],
   },
 };
@@ -369,6 +369,12 @@ export default function ClaudeBrandTrackingPage() {
             For the complete playbook, read our{' '}
             <a href="/geo-optimization">GEO optimization guide</a> and run a{' '}
             <a href="/geo-audit">free GEO audit</a> on the pages Claude is referencing.
+          </p>
+          <p>
+            If the number you report on is position rather than mentions, that job belongs to the{' '}
+            <a href="/claude-rank-tracker">Claude rank tracker</a>: this page covers whether and
+            how Claude talks about you, while the rank tracker covers where you place for a given
+            prompt and how that placement trends. Most teams run both.
           </p>
         </LongForm>
       </Section>

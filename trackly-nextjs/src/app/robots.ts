@@ -9,7 +9,12 @@ const DISALLOW = [
   '/login',
   '/signup',
   '/reset-password',
-  '/home',       // duplicate of /, prevent indexing
+  // NOTE: /home is deliberately NOT disallowed. It is a permanent 301 to /
+  // (see the redirects block in next.config.ts). Blocking it in robots.txt
+  // stopped crawlers from ever fetching the URL, so they never saw the 301 -
+  // Search Console kept serving /home as a URL-only result (216 impressions,
+  // no title, no snippet) instead of consolidating it into /. Letting them
+  // crawl it is what makes the redirect do its job.
   '/cdn-cgi/',   // Cloudflare internal paths (email-protection links 404 for crawlers)
 ];
 

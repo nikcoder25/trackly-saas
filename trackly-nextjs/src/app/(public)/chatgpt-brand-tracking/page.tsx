@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   description:
     'The ChatGPT brand tracker built to monitor brand mentions in ChatGPT - how it mentions, ranks, and recommends your brand. Track share of voice, sentiment, and citations. Free.',
   keywords:
-    'chatgpt brand tracker, monitor brand mentions in chatgpt, how to track brand mentions in chatgpt, chatgpt brand tracking, chatgpt brand monitoring, chatgpt seo, ai visibility chatgpt, openai brand mentions, chatgpt rank tracking, chatgpt share of voice, gpt-5 brand tracking',
+    'chatgpt brand tracker, monitor brand mentions in chatgpt, how to track brand mentions in chatgpt, chatgpt brand tracking, chatgpt brand monitoring, chatgpt seo, ai visibility chatgpt, openai brand mentions, chatgpt sentiment tracking, chatgpt share of voice, gpt-5 brand tracking',
   alternates: { canonical: '/chatgpt-brand-tracking' },
   openGraph: {
     title: 'ChatGPT Brand Tracker | Monitor Mentions | Livesov',

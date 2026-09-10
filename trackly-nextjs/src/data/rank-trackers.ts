@@ -289,6 +289,221 @@ export const rankTrackers: RankTracker[] = [
     otherLabel: 'ChatGPT rank tracker',
     otherDescription: 'Drill into rank for ChatGPT specifically.',
   },
+  // ── Claude (3.6K cluster) ─────────────────────────────────────────────────
+  // Search Console shows 3.6K impressions on "claude rank tracking" / "best
+  // claude rank tracker tool" landing on /claude-brand-tracking at ~position
+  // 53 - the wrong page for a rank-tracker query. This is the matching page.
+  {
+    slug: 'claude-rank-tracker',
+    engine: 'Claude',
+    engineFull: 'Claude (Anthropic)',
+    gradientFrom: '#d97757',
+    gradientTo: '#b45309',
+    metaTitle: 'Claude Rank Tracker | Track Your Rank in Claude | Livesov',
+    metaDescription:
+      'The Claude rank tracker that records where your brand ranks in Claude answers over time. Track rankings across Claude models, benchmark competitors, and start free.',
+    keywords:
+      'claude rank tracker, claude rank tracking, best claude rank tracker tool, claude rank tracker tool, free claude rank tracking, free claude rank tracker, track claude rankings, claude ai rank tracking, claude seo rank tracking, anthropic claude rank tracker, claude visibility tracker',
+    heroSubtitle:
+      'Livesov is the Claude rank tracker that records where your brand lands when Claude recommends options for your target prompts - then tracks how that rank moves over time. Sample every Claude model, benchmark competitors, and start free with no credit card.',
+    stats: [
+      { value: '3+', label: 'Claude models tracked' },
+      { value: '20', label: 'Competitors benchmarked' },
+      { value: '24/7', label: 'Automated rank tracking' },
+      { value: '7-day', label: 'Free trial, no card' },
+    ],
+    models: ['Claude Haiku 4.5', 'Claude Sonnet 4', 'Fable 5'],
+    engineFeatureNote:
+      'Claude answers lean on model knowledge rather than a live citation list on most prompts, so rank tracking here means sampling the same prompt repeatedly across Haiku, Sonnet, and Fable and reading your position out of the recommendation order.',
+    whyHeading: 'Why track your Claude rankings?',
+    whyParagraphs: [
+      'Claude is the assistant of choice inside a lot of technical and enterprise teams - the people who write the evaluation shortlist rather than sign the invoice. When Claude names three tools in your category and you are not one of them, you never enter the evaluation, and nothing in your analytics records that it happened.',
+      'Claude also behaves differently from the search-grounded engines. It answers many category questions from model knowledge, which means your rank is driven less by a page you published last week and more by how consistently your brand is described across the sources the model already absorbed. A Google rank tracker cannot see any part of that.',
+      'Livesov runs your target prompts against Claude on a schedule, repeats each prompt several times to average out variance, records your position and any cited sources, benchmarks up to 20 competitors on the same prompts, and charts the trend so you can see whether the work you are doing is moving your Claude rank at all.',
+    ],
+    faqs: [
+      {
+        question: 'What is a Claude rank tracker?',
+        answer:
+          'A Claude rank tracker measures where your brand or pages appear when Claude lists or recommends options for a set of target prompts, and how that position changes over time. Because Claude answers are non-deterministic and differ between models, it runs each prompt multiple times and aggregates the results into a stable rank instead of reporting a single snapshot.',
+      },
+      {
+        question: 'Is there a free Claude rank tracker?',
+        answer:
+          'Livesov offers a 7-day free trial with no credit card, plus a free GEO audit and a set of free one-off tools that need no signup at all. That is enough to see your Claude rankings before paying anything. Paid plans start at $9/mo.',
+      },
+      {
+        question: 'How does Livesov track Claude rankings?',
+        answer:
+          'Add your brand, competitors, and target prompts. Livesov queries Claude (Haiku 4.5, Sonnet 4, and Fable 5) on a schedule, runs each prompt several times to average out variance, and records your position, sentiment, any cited sources, and where competitors placed - then charts the trend and emails you when your rank moves.',
+      },
+      {
+        question: 'Which Claude models does Livesov track?',
+        answer:
+          'Claude Haiku 4.5, Claude Sonnet 4, and Fable 5, depending on your plan. Model choice matters more than most teams expect: the smaller and larger models often produce different shortlists for the same prompt, so a win on one is not a win on Claude.',
+      },
+      {
+        question: 'How is this different from Claude brand tracking?',
+        answer:
+          'They overlap. Rank tracking focuses on your position and how it trends over time for specific prompts and keywords; brand tracking focuses on whether and how Claude mentions, describes, and recommends your brand. Livesov does both - see the Claude brand tracking page for the mention-and-sentiment angle.',
+      },
+      {
+        question: 'Can I track competitor rankings in Claude?',
+        answer:
+          'Yes. Livesov benchmarks up to 20 competitors on the same prompts, so you can see who Claude ranks above you, on which queries, and how the gap changes over time.',
+      },
+    ],
+    brandTrackingHref: '/claude-brand-tracking',
+    brandTrackingLabel: 'Claude brand tracking',
+    brandTrackingDescription: 'Track mentions, sentiment, and recommendations.',
+    otherHref: '/gemini-rank-tracker',
+    otherLabel: 'Gemini rank tracker',
+    otherDescription: 'Track your rankings in Gemini answers too.',
+  },
+
+  // ── Gemini (2.5K cluster) ─────────────────────────────────────────────────
+  // "gemini visibility tracker" / "gemini tracking" / "brand mentions in
+  // gemini" currently land on /gemini-brand-tracking at positions 21-42. That
+  // page owns the mention angle; this one owns rank.
+  {
+    slug: 'gemini-rank-tracker',
+    engine: 'Gemini',
+    engineFull: 'Google Gemini',
+    gradientFrom: '#4285f4',
+    gradientTo: '#9b72cb',
+    metaTitle: 'Gemini Rank Tracker | Track Your Rank in Gemini | Livesov',
+    metaDescription:
+      'The Gemini rank tracker that records where your brand ranks in Google Gemini answers over time. Track rankings across Gemini models, benchmark competitors, and start free.',
+    keywords:
+      'gemini rank tracker, gemini rank tracking, gemini rank tracker tool, free gemini rank tracker, best gemini rank tracker, track gemini rankings, google gemini rank tracker, gemini ai rank tracking, gemini seo rank tracking, gemini keyword rank tracker',
+    heroSubtitle:
+      'Livesov is the Gemini rank tracker that records where your brand lands when Google Gemini recommends options for your target prompts - then tracks how that rank moves over time. Sample every Gemini model, capture grounded sources, and start free with no credit card.',
+    stats: [
+      { value: '3+', label: 'Gemini models tracked' },
+      { value: '20', label: 'Competitors benchmarked' },
+      { value: '24/7', label: 'Automated rank tracking' },
+      { value: '7-day', label: 'Free trial, no card' },
+    ],
+    models: ['Gemini 2.5 Flash Lite', 'Gemini 2.5 Flash', 'Gemini 2.5 Pro'],
+    engineFeatureNote:
+      'Gemini sits closest to Google’s own index, and grounded answers return the web sources behind them, so rank tracking here means recording both your position in the answer and the grounded URLs that produced it.',
+    whyHeading: 'Why track your Gemini rankings?',
+    whyParagraphs: [
+      'Gemini is the assistant with the shortest path to Google itself. It ships inside Search, Workspace, and Android, which means a Gemini answer is not a side channel - for a lot of people it is the first and only answer they see. Your position in it is the closest thing the AI era has to a page-one ranking.',
+      'It is also the engine where AI and classic SEO overlap most. Grounded Gemini answers pull live web sources, so the pages you rank with in Google feed the answers Gemini gives - but not reliably, and not in the same order. Teams routinely find they rank third in Google and are absent from the Gemini answer for the identical query. You cannot spot that gap without measuring both.',
+      'Livesov runs your target prompts against Gemini on a schedule, repeats each prompt to average out variance, records your position and the grounded sources behind the answer, benchmarks competitors on the same prompts, and charts the trend so a Gemini rank drop shows up as a line on a chart instead of a quiet quarter.',
+    ],
+    faqs: [
+      {
+        question: 'What is a Gemini rank tracker?',
+        answer:
+          'A Gemini rank tracker measures where your brand or pages appear when Google Gemini lists or recommends options for a set of target prompts, and how that position changes over time. Because Gemini answers are generated and non-deterministic, it runs each prompt multiple times across models and aggregates the results into a stable rank.',
+      },
+      {
+        question: 'Is there a free Gemini rank tracker?',
+        answer:
+          'Livesov offers a 7-day free trial with no credit card, plus a free GEO audit and free one-off tools that need no signup. That lets you see your Gemini rankings before paying anything. Paid plans start at $9/mo.',
+      },
+      {
+        question: 'How does Livesov track Gemini rankings?',
+        answer:
+          'Add your brand, competitors, and target prompts. Livesov queries Gemini (2.5 Flash Lite, 2.5 Flash, and 2.5 Pro) on a schedule, runs each prompt several times, and records your position, the grounded sources, sentiment, and competitor placement - then charts the trend and alerts you when rank moves.',
+      },
+      {
+        question: 'Does Livesov capture the sources Gemini grounds its answers in?',
+        answer:
+          'Yes, on grounded runs. Google Search grounding is available on the Pro plan and above; when it is enabled, every tracked answer stores the web sources Gemini used, so you can see which pages produced your ranking and which competitor pages produced theirs.',
+      },
+      {
+        question: 'Is a Gemini rank the same as a Google AI Overviews rank?',
+        answer:
+          'No, and they should be tracked separately. Gemini is the assistant; AI Overviews is the summary block inside Google Search. They draw on overlapping data and often disagree, so a strong Gemini position is not proof you are cited in AI Overviews for the same query.',
+      },
+      {
+        question: 'Can I track competitor rankings in Gemini?',
+        answer:
+          'Yes. Livesov benchmarks up to 20 competitors on the same prompts, so you can see who Gemini ranks above you, on which queries, and how the gap changes over time.',
+      },
+    ],
+    brandTrackingHref: '/gemini-brand-tracking',
+    brandTrackingLabel: 'Gemini brand tracking',
+    brandTrackingDescription: 'Track mentions, sentiment, and grounded citations.',
+    otherHref: '/grok-rank-tracker',
+    otherLabel: 'Grok rank tracker',
+    otherDescription: 'Track your rankings in Grok answers too.',
+  },
+
+  // ── Grok (2.4K cluster) ───────────────────────────────────────────────────
+  // "grok rank tracker tool" plus the adjacent "does grok use x data" question
+  // (already position 7). The X/Twitter retrieval angle is the differentiator
+  // and is answered on-page rather than left to the blog alone.
+  {
+    slug: 'grok-rank-tracker',
+    engine: 'Grok',
+    engineFull: 'Grok (xAI)',
+    gradientFrom: '#64748b',
+    gradientTo: '#0f172a',
+    metaTitle: 'Grok Rank Tracker | Track Your Rank in Grok | Livesov',
+    metaDescription:
+      'The Grok rank tracker that records where your brand ranks in Grok answers over time. Track rankings across Grok models, see the X posts behind them, and start free.',
+    keywords:
+      'grok rank tracker, grok rank tracker tool, grok rank tracking, free grok rank tracker, best grok rank tracker, track grok rankings, xai grok rank tracker, grok ai rank tracking, grok seo rank tracking, grok visibility tracker',
+    heroSubtitle:
+      'Livesov is the Grok rank tracker that records where your brand lands when Grok recommends options for your target prompts - then tracks how that rank moves over time. Sample every Grok model, capture what it draws on, and start free with no credit card.',
+    stats: [
+      { value: '2+', label: 'Grok models tracked' },
+      { value: '20', label: 'Competitors benchmarked' },
+      { value: '24/7', label: 'Automated rank tracking' },
+      { value: '7-day', label: 'Free trial, no card' },
+    ],
+    models: ['Grok 3 Mini', 'Grok 4'],
+    engineFeatureNote:
+      'Grok is the one major assistant with live access to X, so its answers move with social conversation as well as the open web - which makes rank here more volatile, and multi-run sampling more necessary, than on any other engine.',
+    whyHeading: 'Why track your Grok rankings?',
+    whyParagraphs: [
+      'Grok is built into X and answers questions for an audience that skews founder, developer, trader, and journalist - people who publish. A recommendation there does not just reach a buyer; it reaches somebody who may repeat it in public, which is how a Grok mention turns into the kind of source the other engines later read.',
+      'Grok is also the most volatile engine to rank in, because it can pull on live posts as well as the open web. A discussion thread from this morning can change the answer this afternoon. That is exactly the condition under which a single manual check is worthless and a tracked trend is the only honest measurement.',
+      'Livesov runs your target prompts against Grok on a schedule, repeats each prompt to average out the volatility, records your position, sentiment, and whatever sources come back with the answer, benchmarks competitors on the same prompts, and charts the trend so you can tell a real move from noise.',
+    ],
+    faqs: [
+      {
+        question: 'What is a Grok rank tracker?',
+        answer:
+          'A Grok rank tracker measures where your brand or pages appear when Grok lists or recommends options for a set of target prompts, and how that position changes over time. Because Grok answers are non-deterministic and can shift with live conversation on X, it runs each prompt multiple times and aggregates the results into a stable rank.',
+      },
+      {
+        question: 'Does Grok use X data to rank brands?',
+        answer:
+          'Grok has live access to X, and xAI has said so plainly: it can read posts and threads in real time as well as the open web. That does not make X a ranking factor in the Google sense - there is no published weighting - but it does mean the volume, recency, and sentiment of what is said about your brand on X can change the answer Grok gives, in a way it cannot on ChatGPT or Claude. Track it rather than assume it.',
+      },
+      {
+        question: 'Is there a free Grok rank tracker?',
+        answer:
+          'Livesov offers a 7-day free trial with no credit card, plus a free GEO audit and free one-off tools that need no signup. That is enough to see your Grok rankings before paying anything. Paid plans start at $9/mo.',
+      },
+      {
+        question: 'How does Livesov track Grok rankings?',
+        answer:
+          'Add your brand, competitors, and target prompts. Livesov queries Grok (Grok 3 Mini and Grok 4) on a schedule, runs each prompt several times because Grok is the most volatile engine we track, and records your position, sentiment, any sources returned, and competitor placement - then charts the trend and alerts you when rank moves.',
+      },
+      {
+        question: 'How often should Grok rank be checked?',
+        answer:
+          'More often than the other engines. Because Grok can draw on live posts, its answers move faster, so daily tracking with several runs per check is the setting that produces a usable trend line rather than a jagged one.',
+      },
+      {
+        question: 'How is this different from Grok brand tracking?',
+        answer:
+          'They overlap. Rank tracking focuses on your position and how it trends over time for specific prompts and keywords; brand tracking focuses on whether and how Grok mentions, describes, and recommends your brand. Livesov does both - see the Grok brand tracking page for the mention-and-sentiment angle.',
+      },
+    ],
+    brandTrackingHref: '/grok-brand-tracking',
+    brandTrackingLabel: 'Grok brand tracking',
+    brandTrackingDescription: 'Track mentions, sentiment, and X-driven swings.',
+    otherHref: '/claude-rank-tracker',
+    otherLabel: 'Claude rank tracker',
+    otherDescription: 'Track your rankings in Claude answers too.',
+  },
 ];
 
 export function getRankTracker(slug: string): RankTracker | undefined {

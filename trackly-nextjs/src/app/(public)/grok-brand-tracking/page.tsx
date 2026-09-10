@@ -14,14 +14,14 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Grok Brand Tracker | Track Mentions & Rank in Grok',
+  title: 'Grok Brand Tracker | Track Mentions & Sentiment',
   description:
     'How to track brand mentions in Grok and rank in xAI\'s real-time answers. The Grok brand tracker and rank tracker for share of voice, sentiment, and competitors.',
   keywords:
-    'how to track brand mentions in grok, grok brand tracker, grok rank tracker, track brand mentions in grok, grok brand tracking, xai monitoring, grok visibility, x ai brand mentions, twitter ai tracking, grok-4 monitoring, real-time ai tracking',
+    'how to track brand mentions in grok, grok brand tracker, track brand mentions in grok, grok brand tracking, grok brand monitoring, xai monitoring, grok visibility, x ai brand mentions, twitter ai tracking, grok sentiment tracking, real-time ai tracking',
   alternates: { canonical: '/grok-brand-tracking' },
   openGraph: {
-    title: 'Grok Brand Tracker | Track Mentions & Rank in Grok',
+    title: 'Grok Brand Tracker | Track Mentions & Sentiment',
     description:
       'How to track brand mentions in Grok and rank in xAI\'s real-time answers. The Grok brand tracker and rank tracker for share of voice, sentiment, and competitors.',
     url: 'https://livesov.com/grok-brand-tracking',
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Grok Brand Tracker | Track Mentions & Rank in Grok',
+    title: 'Grok Brand Tracker | Track Mentions & Sentiment',
     description:
       'How to track brand mentions in Grok and rank in xAI\'s real-time answers. The Grok brand tracker and rank tracker for share of voice, sentiment, and competitors.',
     images: ['https://livesov.com/og-image.png'],
@@ -360,6 +360,12 @@ export default function GrokBrandTrackingPage() {
             <a href="/geo-optimization">GEO optimization guide</a> and run a{' '}
             <a href="/geo-audit">free GEO audit</a> on the pages Grok references in your
             category.
+          </p>
+          <p>
+            If the number you report on is position rather than mentions, that job belongs to the{' '}
+            <a href="/grok-rank-tracker">Grok rank tracker</a>: this page covers whether and how
+            Grok talks about you, while the rank tracker covers where you place for a given prompt
+            and how that placement trends through the volatility. Most teams run both.
           </p>
         </LongForm>
       </Section>
