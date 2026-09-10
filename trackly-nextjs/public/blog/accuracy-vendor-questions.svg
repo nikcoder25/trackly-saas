@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 352" width="800" height="352" role="img">
+  <style>
+    .bg   { fill: #f8fafc; }
+    .card { fill: #ffffff; stroke: #e2e8f0; }
+    .ttl  { fill: #0f172a; font-weight: 700; }
+    .lbl  { fill: #334155; }
+    .mut  { fill: #64748b; }
+    .trk  { fill: #e2e8f0; }
+    .acc  { fill: #6366f1; }
+    .acc2 { fill: #94a3b8; }
+    .good { fill: #10b981; }
+    .warn { fill: #f59e0b; }
+    .line { stroke: #cbd5e1; }
+    .accline { stroke: #6366f1; }
+    text  { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    @media (prefers-color-scheme: dark) {
+      .bg   { fill: #0f172a; }
+      .card { fill: #1e293b; stroke: #334155; }
+      .ttl  { fill: #e2e8f0; }
+      .lbl  { fill: #cbd5e1; }
+      .mut  { fill: #94a3b8; }
+      .trk  { fill: #334155; }
+      .acc  { fill: #818cf8; }
+      .acc2 { fill: #64748b; }
+      .line { stroke: #334155; }
+      .accline { stroke: #818cf8; }
+    }
+  </style>
+  <rect width="800" height="352" rx="12" class="bg"/>
+  <text x="28" y="40" class="ttl" font-size="17">Six questions to ask any vendor</text>
+  <text x="28" y="62" class="mut" font-size="13">The reluctance to answer tells you as much as the answer</text>
+  <rect x="28" y="80" width="744" height="256" rx="10" class="card" stroke-width="1"/>
+  <circle cx="55" cy="103" r="4" class="acc"/>
+  <text x="80" y="102" class="lbl" font-size="13.5" font-weight="600">How many runs per prompt, per check?</text>
+  <text x="80" y="118" class="mut" font-size="11.5">Five is the floor for a number you would report</text>
+  <line x1="44" y1="126" x2="756" y2="126" class="line" stroke-width="1"/>
+  <circle cx="55" cy="143" r="4" class="acc"/>
+  <text x="80" y="142" class="lbl" font-size="13.5" font-weight="600">Which specific models, per engine?</text>
+  <text x="80" y="158" class="mut" font-size="11.5">The cheap models serve the most traffic</text>
+  <line x1="44" y1="166" x2="756" y2="166" class="line" stroke-width="1"/>
+  <circle cx="55" cy="183" r="4" class="acc"/>
+  <text x="80" y="182" class="lbl" font-size="13.5" font-weight="600">Grounded, ungrounded, or both?</text>
+  <text x="80" y="198" class="mut" font-size="11.5">And which one is the number on the dashboard</text>
+  <line x1="44" y1="206" x2="756" y2="206" class="line" stroke-width="1"/>
+  <circle cx="55" cy="223" r="4" class="acc"/>
+  <text x="80" y="222" class="lbl" font-size="13.5" font-weight="600">Is the raw response stored and exportable?</text>
+  <text x="80" y="238" class="mut" font-size="11.5">Without it you cannot defend the chart</text>
+  <line x1="44" y1="246" x2="756" y2="246" class="line" stroke-width="1"/>
+  <circle cx="55" cy="263" r="4" class="acc"/>
+  <text x="80" y="262" class="lbl" font-size="13.5" font-weight="600">Full citation list, or the top few?</text>
+  <text x="80" y="278" class="mut" font-size="11.5">Truncation skews every share metric downstream</text>
+  <line x1="44" y1="286" x2="756" y2="286" class="line" stroke-width="1"/>
+  <circle cx="55" cy="303" r="4" class="acc"/>
+  <text x="80" y="302" class="lbl" font-size="13.5" font-weight="600">How is position parsed out of prose?</text>
+  <text x="80" y="318" class="mut" font-size="11.5">Ask what happens on a table-formatted answer</text>
+</svg>

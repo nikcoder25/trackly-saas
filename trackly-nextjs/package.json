@@ -8,7 +8,8 @@
     "start": "next start",
     "worker": "tsx --tsconfig tsconfig.worker.json src/lib/run-worker.ts",
     "lint": "echo 'lint: no-op (eslint config pending) - see docs/LINT-TODO.md'",
-    "test": "vitest run"
+    "test": "vitest run",
+    "blog:og": "node scripts/build-blog-og-images.mjs"
   },
   "keywords": [
     "ai-visibility",

@@ -653,6 +653,76 @@
   color: #475569;
 }
 
+/* In-body figures - explanatory diagrams inside the article. Full body width,
+   captioned, lazy-loaded, and allowed to breathe so a diagram reads as a
+   deliberate exhibit rather than a decorative break. */
+.blog-figure {
+  margin: 36px 0;
+}
+
+.blog-figure-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.blog-figure-cap {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #64748b;
+  text-align: center;
+}
+
+/* Table of contents - jump links built from the article's own H2s. Long
+   guides are scanned before they are read; this is the scan surface. */
+.blog-toc {
+  margin: 0 0 40px;
+  padding: 20px 24px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.blog-toc-title {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.blog-toc-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.blog-toc-list li {
+  margin-bottom: 7px;
+  line-height: 1.5;
+  color: #94a3b8;
+  font-size: 15px;
+}
+
+.blog-toc-list li:last-child {
+  margin-bottom: 0;
+}
+
+.blog-toc-list a {
+  color: #334155;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.blog-toc-list a:hover {
+  color: #4f46e5;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 /* Tables */
 .blog-table-wrap {
   overflow-x: auto;
@@ -775,8 +845,25 @@
 
   .blog-post-body table,
   .blog-table-wrap,
-  .blog-post-image {
+  .blog-post-image,
+  .blog-figure-img,
+  .blog-toc {
     border-color: var(--border, #334155);
+  }
+
+  /* The diagrams themselves carry a prefers-color-scheme block inside the SVG,
+     so only the surrounding chrome needs a dark variant here. */
+  .blog-toc {
+    background: var(--bg2, #1e293b);
+  }
+
+  .blog-toc-list a {
+    color: var(--text, #e2e8f0);
+  }
+
+  .blog-figure-cap,
+  .blog-toc-title {
+    color: var(--muted, #94a3b8);
   }
 
   .blog-table th,

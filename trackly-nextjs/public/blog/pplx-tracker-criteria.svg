@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 352" width="800" height="352" role="img">
+  <style>
+    .bg   { fill: #f8fafc; }
+    .card { fill: #ffffff; stroke: #e2e8f0; }
+    .ttl  { fill: #0f172a; font-weight: 700; }
+    .lbl  { fill: #334155; }
+    .mut  { fill: #64748b; }
+    .trk  { fill: #e2e8f0; }
+    .acc  { fill: #6366f1; }
+    .acc2 { fill: #94a3b8; }
+    .good { fill: #10b981; }
+    .warn { fill: #f59e0b; }
+    .line { stroke: #cbd5e1; }
+    .accline { stroke: #6366f1; }
+    text  { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    @media (prefers-color-scheme: dark) {
+      .bg   { fill: #0f172a; }
+      .card { fill: #1e293b; stroke: #334155; }
+      .ttl  { fill: #e2e8f0; }
+      .lbl  { fill: #cbd5e1; }
+      .mut  { fill: #94a3b8; }
+      .trk  { fill: #334155; }
+      .acc  { fill: #818cf8; }
+      .acc2 { fill: #64748b; }
+      .line { stroke: #334155; }
+      .accline { stroke: #818cf8; }
+    }
+  </style>
+  <rect width="800" height="352" rx="12" class="bg"/>
+  <text x="28" y="40" class="ttl" font-size="17">Checker or tracker? Six questions that separate them</text>
+  <text x="28" y="62" class="mut" font-size="13">A tool that fails any of these is a spot-check with a dashboard on top</text>
+  <rect x="28" y="80" width="744" height="256" rx="10" class="card" stroke-width="1"/>
+  <path d="M48 103 l5 5 9 -11" fill="none" stroke="#10b981" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="80" y="102" class="lbl" font-size="13.5" font-weight="600">Multi-run sampling</text>
+  <text x="80" y="118" class="mut" font-size="11.5">One run per prompt is a coin flip, not a position</text>
+  <line x1="44" y1="126" x2="756" y2="126" class="line" stroke-width="1"/>
+  <path d="M48 143 l5 5 9 -11" fill="none" stroke="#10b981" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="80" y="142" class="lbl" font-size="13.5" font-weight="600">Scheduled re-runs</text>
+  <text x="80" y="158" class="mut" font-size="11.5">Rank is a trend; a manual checker has no trend</text>
+  <line x1="44" y1="166" x2="756" y2="166" class="line" stroke-width="1"/>
+  <path d="M48 183 l5 5 9 -11" fill="none" stroke="#10b981" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="80" y="182" class="lbl" font-size="13.5" font-weight="600">All three Sonar models</text>
+  <text x="80" y="198" class="mut" font-size="11.5">Sonar, Sonar Pro and Sonar Reasoning disagree</text>
+  <line x1="44" y1="206" x2="756" y2="206" class="line" stroke-width="1"/>
+  <path d="M48 223 l5 5 9 -11" fill="none" stroke="#10b981" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="80" y="222" class="lbl" font-size="13.5" font-weight="600">Stored raw responses</text>
+  <text x="80" y="238" class="mut" font-size="11.5">"The dashboard says so" is not evidence</text>
+  <line x1="44" y1="246" x2="756" y2="246" class="line" stroke-width="1"/>
+  <path d="M48 263 l5 5 9 -11" fill="none" stroke="#10b981" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="80" y="262" class="lbl" font-size="13.5" font-weight="600">Competitor benchmark</text>
+  <text x="80" y="278" class="mut" font-size="11.5">Position 4 of 3 names vs 4 of 7 is a different problem</text>
+  <line x1="44" y1="286" x2="756" y2="286" class="line" stroke-width="1"/>
+  <path d="M48 303 l5 5 9 -11" fill="none" stroke="#10b981" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="80" y="302" class="lbl" font-size="13.5" font-weight="600">Full citation URLs</text>
+  <text x="80" y="318" class="mut" font-size="11.5">Domain-level data is trivia; URL-level is a content plan</text>
+</svg>

@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 328" width="800" height="328" role="img">
+  <style>
+    .bg   { fill: #f8fafc; }
+    .card { fill: #ffffff; stroke: #e2e8f0; }
+    .ttl  { fill: #0f172a; font-weight: 700; }
+    .lbl  { fill: #334155; }
+    .mut  { fill: #64748b; }
+    .trk  { fill: #e2e8f0; }
+    .acc  { fill: #6366f1; }
+    .acc2 { fill: #94a3b8; }
+    .good { fill: #10b981; }
+    .warn { fill: #f59e0b; }
+    .line { stroke: #cbd5e1; }
+    .accline { stroke: #6366f1; }
+    text  { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    @media (prefers-color-scheme: dark) {
+      .bg   { fill: #0f172a; }
+      .card { fill: #1e293b; stroke: #334155; }
+      .ttl  { fill: #e2e8f0; }
+      .lbl  { fill: #cbd5e1; }
+      .mut  { fill: #94a3b8; }
+      .trk  { fill: #334155; }
+      .acc  { fill: #818cf8; }
+      .acc2 { fill: #64748b; }
+      .line { stroke: #334155; }
+      .accline { stroke: #818cf8; }
+    }
+  </style>
+  <rect width="800" height="328" rx="12" class="bg"/>
+  <text x="28" y="40" class="ttl" font-size="17">Citation share across 50 sampled answers</text>
+  <text x="28" y="62" class="mut" font-size="13">Who you are behind matters more than how far behind you are</text>
+  <text x="28" y="104" class="lbl" font-size="14" font-weight="500">g2.com</text>
+  <text x="28" y="120" class="mut" font-size="11">Review platform - work on the profile, not the ranking</text>
+  <rect x="278" y="91" width="438" height="16" rx="8" class="trk"/>
+  <rect x="278" y="91" width="438" height="16" rx="8" class="acc2"/>
+  <text x="772" y="104" text-anchor="end" class="lbl" font-size="13" font-weight="600">18%</text>
+  <text x="28" y="148" class="lbl" font-size="14" font-weight="500">competitor-a.com</text>
+  <text x="28" y="164" class="mut" font-size="11">A page you can audit and match</text>
+  <rect x="278" y="135" width="438" height="16" rx="8" class="trk"/>
+  <rect x="278" y="135" width="365" height="16" rx="8" class="acc2"/>
+  <text x="772" y="148" text-anchor="end" class="lbl" font-size="13" font-weight="600">15%</text>
+  <text x="28" y="192" class="lbl" font-size="14" font-weight="500">reddit.com</text>
+  <text x="28" y="208" class="mut" font-size="11">Community presence, not a content fix</text>
+  <rect x="278" y="179" width="438" height="16" rx="8" class="trk"/>
+  <rect x="278" y="179" width="267" height="16" rx="8" class="acc2"/>
+  <text x="772" y="192" text-anchor="end" class="lbl" font-size="13" font-weight="600">11%</text>
+  <text x="28" y="236" class="lbl" font-size="14" font-weight="500">competitor-b.com</text>
+  <rect x="278" y="223" width="438" height="16" rx="8" class="trk"/>
+  <rect x="278" y="223" width="243" height="16" rx="8" class="acc2"/>
+  <text x="772" y="236" text-anchor="end" class="lbl" font-size="13" font-weight="600">10%</text>
+  <text x="28" y="280" class="lbl" font-size="14" font-weight="700">yourbrand.com</text>
+  <text x="28" y="296" class="mut" font-size="11">The number the whole exercise exists to move</text>
+  <rect x="278" y="267" width="438" height="16" rx="8" class="trk"/>
+  <rect x="278" y="267" width="121" height="16" rx="8" class="acc"/>
+  <text x="772" y="280" text-anchor="end" class="lbl" font-size="13" font-weight="600">5%</text>
+</svg>

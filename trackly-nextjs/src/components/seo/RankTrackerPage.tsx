@@ -23,6 +23,12 @@ const HERO_GRADIENTS: Record<string, string> = {
     'text-transparent bg-clip-text bg-gradient-to-r from-[#19c37d] to-[#10a37f]',
   'llm-rank-tracker':
     'text-transparent bg-clip-text bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]',
+  'claude-rank-tracker':
+    'text-transparent bg-clip-text bg-gradient-to-r from-[#d97757] to-[#b45309]',
+  'gemini-rank-tracker':
+    'text-transparent bg-clip-text bg-gradient-to-r from-[#4285f4] to-[#9b72cb]',
+  'grok-rank-tracker':
+    'text-transparent bg-clip-text bg-gradient-to-r from-[#64748b] to-[#0f172a]',
 };
 const FALLBACK_GRADIENT = 'text-[var(--brand)]';
 

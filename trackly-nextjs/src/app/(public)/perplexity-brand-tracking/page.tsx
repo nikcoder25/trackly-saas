@@ -343,6 +343,13 @@ export default function PerplexityBrandTrackingPage() {
             prominently, and the brand a reader scrolls back to verify. Livesov tracks your
             citation rank for every monitored prompt so you can prioritise which pages to improve.
           </p>
+          <p>
+            If position over time is the number you actually report on, that job belongs to the{' '}
+            <a href="/perplexity-rank-tracker">Perplexity rank tracker</a>: this page is about
+            whether Perplexity mentions and cites you at all, while the rank tracker is about
+            where you place for a given prompt and how that placement trends week to week. Most
+            teams run both - the mention data tells you why the rank moved.
+          </p>
 
           <h2>Mention share vs. citation share</h2>
           <p>

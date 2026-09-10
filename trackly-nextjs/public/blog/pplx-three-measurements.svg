@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 240" width="800" height="240" role="img">
+  <style>
+    .bg   { fill: #f8fafc; }
+    .card { fill: #ffffff; stroke: #e2e8f0; }
+    .ttl  { fill: #0f172a; font-weight: 700; }
+    .lbl  { fill: #334155; }
+    .mut  { fill: #64748b; }
+    .trk  { fill: #e2e8f0; }
+    .acc  { fill: #6366f1; }
+    .acc2 { fill: #94a3b8; }
+    .good { fill: #10b981; }
+    .warn { fill: #f59e0b; }
+    .line { stroke: #cbd5e1; }
+    .accline { stroke: #6366f1; }
+    text  { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    @media (prefers-color-scheme: dark) {
+      .bg   { fill: #0f172a; }
+      .card { fill: #1e293b; stroke: #334155; }
+      .ttl  { fill: #e2e8f0; }
+      .lbl  { fill: #cbd5e1; }
+      .mut  { fill: #94a3b8; }
+      .trk  { fill: #334155; }
+      .acc  { fill: #818cf8; }
+      .acc2 { fill: #64748b; }
+      .line { stroke: #334155; }
+      .accline { stroke: #818cf8; }
+    }
+  </style>
+  <rect width="800" height="240" rx="12" class="bg"/>
+  <text x="28" y="40" class="ttl" font-size="17">Three things sold as "Perplexity rank tracking"</text>
+  <text x="28" y="62" class="mut" font-size="13">They diverge constantly - know which number a tool is actually giving you</text>
+  <rect x="28" y="88" width="238" height="128" rx="10" class="card" stroke-width="1"/>
+  <rect x="28" y="88" width="238" height="4" rx="2" class="acc"/>
+  <text x="44" y="120" class="ttl" font-size="13.5">Answer rank</text>
+  <text x="44" y="144" class="lbl" font-size="12">Where is your brand named</text>
+  <text x="44" y="160" class="lbl" font-size="12">in the answer text?</text>
+  <text x="44" y="186" class="mut" font-size="11">Parse the ordered</text>
+  <text x="44" y="201" class="mut" font-size="11">list of brands</text>
+  <rect x="280" y="88" width="238" height="128" rx="10" class="card" stroke-width="1"/>
+  <rect x="280" y="88" width="238" height="4" rx="2" class="acc"/>
+  <text x="296" y="120" class="ttl" font-size="13.5">Citation rank</text>
+  <text x="296" y="144" class="lbl" font-size="12">Where does your domain sit</text>
+  <text x="296" y="160" class="lbl" font-size="12">in the numbered sources?</text>
+  <text x="296" y="186" class="mut" font-size="11">Parse the citation</text>
+  <text x="296" y="201" class="mut" font-size="11">array on the answer</text>
+  <rect x="532" y="88" width="238" height="128" rx="10" class="card" stroke-width="1"/>
+  <rect x="532" y="88" width="238" height="4" rx="2" class="acc"/>
+  <text x="548" y="120" class="ttl" font-size="13.5">Mention rate</text>
+  <text x="548" y="144" class="lbl" font-size="12">What share of runs</text>
+  <text x="548" y="160" class="lbl" font-size="12">name you at all?</text>
+  <text x="548" y="186" class="mut" font-size="11">Runs containing brand</text>
+  <text x="548" y="201" class="mut" font-size="11">divided by total runs</text>
+</svg>
