@@ -14,13 +14,7 @@
  */
 import { requireAdmin } from '@/lib/admin-auth';
 import { logError, serverError } from '@/lib/api-error';
-import {
-  enforcePlatformDailyCap,
-  estimateAnthropicCostUsd,
-  PlatformDailyCapExceededError,
-  recordCall,
-} from '@/lib/cost-tracker';
-import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
+import { estimateAnthropicCostUsd, recordCall } from '@/lib/cost-tracker';
 import { getServerKeys } from '@/lib/server-keys';
 
 export const maxDuration = 60;
@@ -51,10 +45,17 @@ function modelAllowed(provider: 'claude' | 'openai', model: string): boolean {
   return extra.includes(model);
 }
 
-// Bulk generation runs with client-side concurrency, so this is sized
-// for a real batch (a few hundred articles an hour) while still bounding
-// a runaway tab or script.
-const PER_ADMIN_HOURLY_LIMIT = 300;
+// Spend from this tool is ledgered under its own platform label so it
+// shows separately on the admin cost widget and does NOT count toward
+// the per-platform daily cap that guards the app's automatic paths
+// (tracking runs, Fix Engine, discovery, public tools). Writing a lot of
+// content here is a deliberate, attended decision; the cap exists for
+// spend nobody is watching. This route is therefore intentionally not
+// subject to enforcePlatformDailyCap.
+const LEDGER_PLATFORM: Record<'claude' | 'openai', string> = {
+  claude: 'Claude (backlink tool)',
+  openai: 'ChatGPT (backlink tool)',
+};
 
 export async function POST(request: Request) {
   const admin = await requireAdmin(request);
@@ -88,21 +89,10 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Prompt too long (max 20000 chars)' }, { status: 400 });
   }
 
-  const rl = await checkUserIpRateLimit('admin_backlink_generate', admin.id, getClientIp(request), {
-    user: { max: PER_ADMIN_HOURLY_LIMIT, windowMs: 60 * 60 * 1000 },
-  });
-  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
-
   try {
-    // Same global daily brake every other AI path gets. This route calls
-    // the providers directly, so it has to opt in explicitly.
-    await enforcePlatformDailyCap(provider === 'claude' ? 'Claude' : 'ChatGPT');
     if (provider === 'claude') return await callClaude(model, prompt, maxTokens);
     return await callOpenAI(model, prompt, maxTokens);
   } catch (e) {
-    if (e instanceof PlatformDailyCapExceededError) {
-      return Response.json({ error: e.message, code: 'platform_daily_cap' }, { status: 429 });
-    }
     logError('admin.backlink_generate.failed', e);
     return serverError({ message: 'Generation failed' });
   }
@@ -152,7 +142,7 @@ async function callClaude(model: string, prompt: string, maxTokens: number) {
       const usage = (data as { usage?: { input_tokens?: number; output_tokens?: number } }).usage;
       const served = (data as { model?: string }).model || model;
       await recordCall({
-        platform: 'Claude',
+        platform: LEDGER_PLATFORM.claude,
         model: served,
         tokensIn: usage?.input_tokens || 0,
         tokensOut: usage?.output_tokens || 0,
@@ -202,7 +192,7 @@ async function callOpenAI(model: string, prompt: string, maxTokens: number) {
         (data as { choices?: Array<{ message?: { content?: string } }> })?.choices?.[0]?.message?.content || '';
       const usage = (data as { usage?: { prompt_tokens?: number; completion_tokens?: number } }).usage;
       await recordCall({
-        platform: 'ChatGPT',
+        platform: LEDGER_PLATFORM.openai,
         model: (data as { model?: string }).model || model,
         tokensIn: usage?.prompt_tokens || 0,
         tokensOut: usage?.completion_tokens || 0,

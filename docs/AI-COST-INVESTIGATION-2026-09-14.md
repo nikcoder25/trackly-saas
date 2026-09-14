@@ -62,25 +62,30 @@ usage is attributable, and set a monthly spend limit on the org
 Ranked by expected effect on the invoice.
 
 1. **Global per-platform daily USD cap** (`src/lib/cost-tracker.ts`,
-   enforced inside `queryAI` and the two paths that bypass it). Claude
-   defaults to $5/day; every other platform is uncapped until
+   enforced inside `queryAI` and in the fact-checker). Claude defaults to
+   $5/day; every other platform is uncapped until
    `AI_DAILY_USD_CAP_<PLATFORM>` is set. Once today's recorded spend on a
    platform reaches the cap, further calls to it are refused until the
    UTC day rolls over. Tracking runs mark that platform failed for the
    run and the other four keep working. This is the brake the account
    never had: the per-tenant caps only saw tenant-attributed spend and
-   the $3 alarm only logged.
+   the $3 alarm only logged. The admin backlink/content generator is
+   **exempt**: bulk content writing is attended, deliberate work, so it
+   is never blocked, and its spend is ledgered under a separate
+   "(backlink tool)" label so it does not consume the automatic paths'
+   budget either.
 2. **Cost recorded on the two direct-fetch paths.** The fact-checker
    (`PUT /api/brands/[id]/accuracy`) and the admin backlink generator
    called the providers directly and were invisible to the ledger, the
    alarm and the caps. Both now record every call and check the cap
    first.
-3. **Admin backlink generator locked down.** The model id came verbatim
-   from the browser; an old saved preference or a hand-edited request
-   could point bulk article generation (4,000-8,000 output tokens each)
-   at a premium model. Server-side allowlist now (Haiku 4.5 recommended,
-   Sonnet 4.6, Opus 4.7, GPT-4o family; extend with
-   `BACKLINK_GENERATE_EXTRA_MODELS`), plus 300 requests/hour per admin.
+3. **Admin backlink generator model allowlist.** The model id came
+   verbatim from the browser; an old saved preference or a hand-edited
+   request could point bulk article generation (4,000-8,000 output
+   tokens each) at a premium model. Server-side allowlist now (Haiku 4.5
+   recommended, Sonnet 4.6, Opus 4.7, GPT-4o family; extend with
+   `BACKLINK_GENERATE_EXTRA_MODELS`). No volume limit: write as much as
+   you need.
 4. **Deferred retry queue deleted.** It re-issued up to four billed calls
    per transient failure from a background timer, bypassed the response
    cache, and discarded every result. During the Claude incidents on
