@@ -81,6 +81,7 @@ beforeEach(() => {
   delete process.env.AI_SEARCH_BUDGET_CHATGPT;
   delete process.env.CHATGPT_SEARCH_BUDGET_DAILY;
   delete process.env.AI_SEARCH_BUDGET_PERPLEXITY;
+  delete process.env.AI_SEARCH_BUDGET_GEMINI;
 });
 
 afterEach(() => {
@@ -112,11 +113,23 @@ describe('getSearchBudgetLimit', () => {
     expect(getSearchBudgetLimit('ChatGPT')).toBe(50);
   });
 
-  it('has no default cap for non-ChatGPT platforms', () => {
+  it('returns the Gemini grounding default cap of 300 when no env vars are set', () => {
+    // Grounded Gemini bills ~$0.035 per grounded prompt, so 300/day is a
+    // ~$10.50/day ceiling. Until September 2026 the dominant per-call fee
+    // in the product had no daily brake at all.
+    expect(getSearchBudgetLimit('Gemini')).toBe(300);
+  });
+
+  it('has no default cap for platforms without a billable retrieval tool', () => {
     expect(getSearchBudgetLimit('Perplexity')).toBe(0);
     expect(getSearchBudgetLimit('Claude')).toBe(0);
-    expect(getSearchBudgetLimit('Gemini')).toBe(0);
     expect(getSearchBudgetLimit('Grok')).toBe(0);
+  });
+
+  it('AI_SEARCH_BUDGET_GEMINI=0 opts Gemini out of the grounding cap', () => {
+    process.env.AI_SEARCH_BUDGET_GEMINI = '0';
+    expect(getSearchBudgetLimit('Gemini')).toBe(0);
+    expect(getSearchBudgetLimit('ChatGPT')).toBe(50);
   });
 
   it('AI_SEARCH_BUDGET_DEFAULT overrides the ChatGPT platform default', () => {
@@ -177,7 +190,15 @@ describe('getSearchFallbackModel', () => {
 
   it('returns null for non-search-capable platforms', () => {
     expect(getSearchFallbackModel('Claude', 'claude-3-5-sonnet')).toBeNull();
-    expect(getSearchFallbackModel('Gemini', 'gemini-2.5-pro')).toBeNull();
+    expect(getSearchFallbackModel('Grok', 'grok-3-mini')).toBeNull();
+  });
+
+  it('returns the same Gemini model, to be called without grounding', () => {
+    // Gemini's "search" is the google_search tool on the same model, so
+    // the budget fallback is that model ungrounded: resolveSearchModelWithBudget
+    // reports searchEnabled=false and the run paths withhold grounding.
+    expect(getSearchFallbackModel('Gemini', 'gemini-2.5-pro')).toBe('gemini-2.5-pro');
+    expect(getSearchFallbackModel('Gemini', 'gemini-2.5-flash-lite')).toBe('gemini-2.5-flash-lite');
   });
 });
 

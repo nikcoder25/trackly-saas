@@ -51,6 +51,8 @@ const { recordCostEventMock, recordCallMock } = vi.hoisted(() => ({
 
 vi.mock('../cost-tracker', () => ({
   enforceCostCap: vi.fn().mockResolvedValue(undefined),
+  enforcePlatformDailyCap: vi.fn().mockResolvedValue(undefined),
+  estimateAnthropicCostUsd: vi.fn().mockReturnValue(null),
   recordCostEvent: recordCostEventMock,
   recordCall: recordCallMock,
   CHATGPT_WEB_SEARCH_CALL_USD: 0.030,

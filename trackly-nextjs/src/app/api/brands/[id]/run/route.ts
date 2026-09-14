@@ -1145,8 +1145,11 @@ async function executeRunBackgroundInner(
                 brandId,
                 runId,
                 requestId,
-                // Grounded Gemini is Pro-and-above (per-request fee).
-                geminiGrounding: geminiGroundingAllowedForPlan(ownerPlan),
+                // Grounded Gemini is Pro-and-above (per-request fee) AND
+                // subject to the daily search budget: once the Gemini
+                // grounding budget is spent, budgetResolved.searchEnabled
+                // is false and the call goes out ungrounded.
+                geminiGrounding: geminiGroundingAllowedForPlan(ownerPlan) && budgetResolved.searchEnabled,
                 // ChatGPT batch path (CHATGPT_BATCH_ENABLED) opts in
                 // only for cron-scheduled ticks. Manual user-clicked
                 // runs stay synchronous so the dashboard isn't waiting

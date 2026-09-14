@@ -2,6 +2,7 @@ import { pool, safeConnect } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, decryptApiKeys } from '@/lib/helpers';
 import { runFactCheck, autoDiscoverFacts } from '@/lib/fact-checker';
+import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 interface FactRow {
   id: string;
@@ -180,6 +181,18 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const authResult = await requireVerifiedAuth(request, pool);
   if (authResult instanceof Response) return authResult;
   const user = authResult;
+
+  // Both PUT actions re-prompt AI providers: 'check' is up to 15 calls
+  // (3 runs x 5 platforms) and 'auto-discover' sends ~8k characters of
+  // site content. The sibling reverify route was already limited; this
+  // one was not, so one user clicking "Check Accuracy" repeatedly was an
+  // unbounded, unattributed spend loop.
+  const rl = await checkUserIpRateLimit('accuracy_check', user.id, getClientIp(request), {
+    user: { max: 10, windowMs: 60 * 60 * 1000 },
+    ip: { max: 30, windowMs: 60 * 60 * 1000 },
+  });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
+
   const { id } = await params;
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });

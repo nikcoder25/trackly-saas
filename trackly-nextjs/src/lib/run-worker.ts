@@ -317,7 +317,7 @@ async function processRun(job: Job<BrandRunJobData>) {
                   signal: taskController.signal,
                   tenantId: userId,
                   // Grounded Gemini is Pro-and-above (per-request fee).
-                  geminiGrounding: geminiGroundingAllowedForPlan(ownerPlan),
+                  geminiGrounding: geminiGroundingAllowedForPlan(ownerPlan) && searchEnabledForTask,
                   runId,
                   // BullMQ worker processes background queued tasks
                   // only - never user-blocking - so no-search ChatGPT

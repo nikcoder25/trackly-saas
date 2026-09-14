@@ -58,10 +58,137 @@ export const GEMINI_GROUNDING_CALL_USD = 0.035;
 // for any single platform crosses this number, we WARN once per UTC day per
 // platform. Default $3.00 keeps alarm noise low for the dev workload while
 // still flaring well below the per-tenant daily cap.
+// Module-scoped alarm de-dup key set: "<UTC-day>|<platform>". Reset on
+// process restart, which is acceptable - a redeploy at most re-fires one
+// warning per platform that's already over threshold today.
+const _alarmFiredKeys = new Set<string>();
+
 export const COST_DAILY_ALARM_USD = (() => {
   const raw = parseFloat(process.env.COST_DAILY_ALARM_USD || '');
   return Number.isFinite(raw) && raw > 0 ? raw : 3.00;
 })();
+
+// ── Per-platform daily USD hard cap (global, every tenant and every
+// feature) ───────────────────────────────────────────────────────
+//
+// The per-tenant caps above only see spend that carries a tenantId, and the
+// $3 alarm above only warns. Neither stops a provider account from being
+// drained: on 2026-09-10 the Anthropic org was topped up with $32 of
+// credits and was out of credits by 2026-09-14 while the app's own ledger
+// showed a fraction of that. This is the brake: once TODAY's recorded spend
+// on a platform reaches the cap, every further call to that platform is
+// refused until the UTC day rolls over. Tracking runs mark the platform as
+// failed for the run (they already handle rate-limit style errors) and the
+// other four platforms keep working.
+//
+// Resolution order, per platform:
+//   1. AI_DAILY_USD_CAP_<PLATFORM>  (e.g. AI_DAILY_USD_CAP_CLAUDE=5)
+//   2. AI_DAILY_USD_CAP_DEFAULT
+//   3. PLATFORM_DAILY_CAP_DEFAULT_USD below
+//   4. 0 = no cap
+// 0 on any level disables the cap for that platform.
+//
+// Claude ships with a $5/day default because it is the account that ran
+// dry and because its legitimate tracking workload is tiny: a Haiku 4.5
+// tracking call is ~100 tokens in and ~100 out (about $0.0006), so $5 is
+// roughly 8,000 calls a day. The other platforms default to uncapped so a
+// deploy of this change cannot silently change their behaviour; set the
+// env vars above to cap them too.
+export const PLATFORM_DAILY_CAP_DEFAULT_USD: Record<string, number> = {
+  Claude: 5,
+};
+
+export function getPlatformDailyCapUsd(platform: string): number {
+  if (!platform) return 0;
+  const specific = parseFloat(process.env[`AI_DAILY_USD_CAP_${platform.toUpperCase()}`] || '');
+  if (Number.isFinite(specific) && specific >= 0) return specific;
+  const fallback = parseFloat(process.env.AI_DAILY_USD_CAP_DEFAULT || '');
+  if (Number.isFinite(fallback) && fallback >= 0) return fallback;
+  return PLATFORM_DAILY_CAP_DEFAULT_USD[platform] ?? 0;
+}
+
+export class PlatformDailyCapExceededError extends Error {
+  readonly platform: string;
+  readonly capUsd: number;
+  readonly spentUsd: number;
+  readonly resetAt: string;
+  // Shaped like a rate-limit error so every caller that already routes
+  // 429-style failures (run route, worker, fix engine) treats it as
+  // "skip this platform for now" rather than as a retryable blip.
+  readonly isRateLimit = true;
+  readonly budgetExhausted = true;
+  readonly isTransient = false;
+
+  constructor(params: { platform: string; capUsd: number; spentUsd: number; resetAt: Date }) {
+    super(
+      `${params.platform}: daily spend cap reached ` +
+      `($${params.spentUsd.toFixed(4)} of $${params.capUsd.toFixed(2)} today). ` +
+      `Resets ${params.resetAt.toISOString()}. ` +
+      `Raise AI_DAILY_USD_CAP_${params.platform.toUpperCase()} to allow more.`,
+    );
+    this.name = 'PlatformDailyCapExceededError';
+    this.platform = params.platform;
+    this.capUsd = params.capUsd;
+    this.spentUsd = params.spentUsd;
+    this.resetAt = params.resetAt.toISOString();
+  }
+}
+
+// Today's per-platform spend, cached briefly so the cap check costs one
+// small query per platform per PLATFORM_SPEND_CACHE_MS rather than one per
+// provider call. recordCall() bumps the cached number on every success so
+// a burst inside the cache window is still counted.
+const PLATFORM_SPEND_CACHE_MS = 30_000;
+const _platformSpendCache = new Map<string, { day: string; totalUsd: number; fetchedAt: number }>();
+
+/** Test-only: forget cached per-platform spend. */
+export function __resetPlatformSpendCacheForTests(): void {
+  _platformSpendCache.clear();
+}
+
+export async function getPlatformSpentTodayUsd(platform: string, now: Date = new Date()): Promise<number> {
+  const day = currentDayBoundaryUtc(now).toISOString().slice(0, 10);
+  const cached = _platformSpendCache.get(platform);
+  if (cached && cached.day === day && now.getTime() - cached.fetchedAt < PLATFORM_SPEND_CACHE_MS) {
+    return cached.totalUsd;
+  }
+  try {
+    await ensureCostEventsTable();
+    const res = await pool.query(
+      `SELECT COALESCE(SUM(cost_usd_total), 0)::numeric AS total
+         FROM daily_cost_tracker
+        WHERE day = $1 AND platform = $2`,
+      [day, platform],
+    );
+    const totalUsd = parseFloat(res.rows[0]?.total) || 0;
+    _platformSpendCache.set(platform, { day, totalUsd, fetchedAt: now.getTime() });
+    return totalUsd;
+  } catch {
+    // Fail-open on a DB hiccup: the last number we saw today, else 0.
+    return cached && cached.day === day ? cached.totalUsd : 0;
+  }
+}
+
+/**
+ * Pre-flight gate for the per-platform daily cap. Throws
+ * PlatformDailyCapExceededError once today's recorded spend on `platform`
+ * is at or above its cap. No-op when the platform is uncapped.
+ */
+export async function enforcePlatformDailyCap(platform: string, now: Date = new Date()): Promise<void> {
+  const capUsd = getPlatformDailyCapUsd(platform);
+  if (!(capUsd > 0)) return;
+  const spentUsd = await getPlatformSpentTodayUsd(platform, now);
+  if (spentUsd < capUsd) return;
+  const key = `${currentDayBoundaryUtc(now).toISOString().slice(0, 10)}|cap|${platform}`;
+  if (!_alarmFiredKeys.has(key)) {
+    _alarmFiredKeys.add(key);
+    logger.error('cost.platform_daily_cap_reached', {
+      platform, capUsd, spentUsd: Number(spentUsd.toFixed(4)),
+      hint: `Set AI_DAILY_USD_CAP_${platform.toUpperCase()} to raise or 0 to disable.`,
+    });
+  }
+  throw new PlatformDailyCapExceededError({ platform, capUsd, spentUsd, resetAt: nextDayBoundaryUtc(now) });
+}
 
 export interface CostCaps {
   dailyUsd: number;
@@ -118,13 +245,60 @@ export function estimateCostUsd(
   tokensOut: number,
 ): number {
   if (!model) return 0;
-  const pricing =
-    MODEL_PRICING[model] ||
-    Object.entries(MODEL_PRICING).find(([k]) => model.startsWith(k))?.[1];
+  const pricing = lookupModelPricing(model);
   if (!pricing) return 0;
   const inTok = Number.isFinite(tokensIn) && tokensIn > 0 ? tokensIn : 0;
   const outTok = Number.isFinite(tokensOut) && tokensOut > 0 ? tokensOut : 0;
   return (inTok * pricing.input + outTok * pricing.output) / 1_000_000;
+}
+
+/**
+ * Exact match first, then the LONGEST key that prefixes the model id.
+ * Insertion order used to decide the prefix match, so a dated id like
+ * `gpt-5.4-nano-2026-01-01` matched `gpt-5.4` (inserted first) and was
+ * priced 12.5x too high. Longest-prefix is the only order that cannot
+ * confuse a model with its cheaper or dearer sibling.
+ */
+export function lookupModelPricing(model: string): { input: number; output: number } | null {
+  if (!model) return null;
+  if (MODEL_PRICING[model]) return MODEL_PRICING[model];
+  const candidates = Object.entries(MODEL_PRICING)
+    .filter(([k]) => model.startsWith(k))
+    .sort((a, b) => b[0].length - a[0].length);
+  return candidates[0]?.[1] ?? null;
+}
+
+// Anthropic prompt-caching multipliers on the input price: a cache write
+// costs 1.25x, a cache read 0.1x. Public rates at time of writing; kept in
+// source (not env) for the same auditability reason as the constants above.
+export const ANTHROPIC_CACHE_WRITE_MULTIPLIER = 1.25;
+export const ANTHROPIC_CACHE_READ_MULTIPLIER = 0.1;
+
+/**
+ * USD cost of one Anthropic Messages call from its `usage` block. Anthropic
+ * reports `input_tokens` EXCLUDING the cached prefix, and bills the cached
+ * prefix separately (write 1.25x, read 0.1x), so pricing only
+ * `input_tokens` under-counts a cache write and over-counts a cache read.
+ * Returns null when the model is unknown so the caller falls back to the
+ * plain estimate rather than recording $0.
+ */
+export function estimateAnthropicCostUsd(
+  model: string,
+  usage: { input_tokens?: number; output_tokens?: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number } | null | undefined,
+): number | null {
+  const pricing = lookupModelPricing(model);
+  if (!pricing || !usage) return null;
+  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);
+  const input = n(usage.input_tokens);
+  const output = n(usage.output_tokens);
+  const cacheWrite = n(usage.cache_creation_input_tokens);
+  const cacheRead = n(usage.cache_read_input_tokens);
+  return (
+    input * pricing.input
+    + cacheWrite * pricing.input * ANTHROPIC_CACHE_WRITE_MULTIPLIER
+    + cacheRead * pricing.input * ANTHROPIC_CACHE_READ_MULTIPLIER
+    + output * pricing.output
+  ) / 1_000_000;
 }
 
 /** Start of the current UTC day, as a Date. */
@@ -420,10 +594,6 @@ export interface RecordCallInput {
   at?: Date;
 }
 
-// Module-scoped alarm de-dup key set: "<UTC-day>|<platform>". Reset on
-// process restart, which is acceptable - a redeploy at most re-fires one
-// warning per platform that's already over threshold today.
-const _alarmFiredKeys = new Set<string>();
 
 /** Test-only: clear the in-process alarm de-dup set. */
 export function __resetAlarmStateForTests(): void {
@@ -480,6 +650,10 @@ export async function recordCall(input: RecordCallInput): Promise<void> {
       ],
     );
     costToday = parseFloat(res.rows[0]?.cost_usd_total) || costUsd;
+    // Keep the per-platform cap honest inside its cache window.
+    const dayKey = day.toISOString().slice(0, 10);
+    const cached = _platformSpendCache.get(input.platform);
+    if (cached && cached.day === dayKey) cached.totalUsd += costUsd;
   } catch (e) {
     // Best-effort. Log once at warn so we still see migration / DB
     // problems in Sentry without breaking the LLM call success path.

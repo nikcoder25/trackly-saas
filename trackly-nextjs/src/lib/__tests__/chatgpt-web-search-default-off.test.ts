@@ -48,6 +48,8 @@ vi.mock('../metrics', () => ({
 
 vi.mock('../cost-tracker', () => ({
   enforceCostCap: vi.fn().mockResolvedValue(undefined),
+  enforcePlatformDailyCap: vi.fn().mockResolvedValue(undefined),
+  estimateAnthropicCostUsd: vi.fn().mockReturnValue(null),
   recordCostEvent: vi.fn().mockResolvedValue(undefined),
   recordCall: vi.fn().mockResolvedValue(undefined),
   CHATGPT_WEB_SEARCH_CALL_USD: 0.030,
