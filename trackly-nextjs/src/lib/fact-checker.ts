@@ -1,3 +1,4 @@
+import { enforcePlatformDailyCap, PlatformDailyCapExceededError, recordCall } from './cost-tracker';
 /**
  * AI-powered fact-checking utility
  * Analyzes AI platform responses against canonical brand facts
@@ -178,11 +179,52 @@ Example response:
 Return ONLY the JSON array, no markdown, no extra text.`;
 }
 
+// Ledger platform names for the three checker types, matching what the
+// rest of the app records in daily_cost_tracker.
+const CHECKER_PLATFORM: Record<'gemini' | 'openai' | 'claude', string> = {
+  gemini: 'Gemini',
+  openai: 'ChatGPT',
+  claude: 'Claude',
+};
+
+// The verdict is a JSON array with one ~60-token object per canonical
+// fact; 2048 covers 30 facts with room to spare. The old 4096 ceiling
+// was never reached by a well-formed reply and only made runaway output
+// (a model that ignored "JSON only") twice as expensive.
+const CHECKER_MAX_TOKENS = 2048;
+
+/**
+ * Record a checker call in the shared ledger. This path does not go
+ * through queryAI, so without this the accuracy feature was invisible
+ * to daily_cost_tracker, the $3 alarm and the per-platform daily cap.
+ * Best-effort: recordCall swallows DB errors.
+ */
+function ledgerChecker(
+  checker: { type: 'gemini' | 'openai' | 'claude'; model: string },
+  tokensIn: number,
+  tokensOut: number,
+): Promise<void> {
+  return recordCall({
+    platform: CHECKER_PLATFORM[checker.type],
+    model: checker.model,
+    tokensIn: Number(tokensIn) || 0,
+    tokensOut: Number(tokensOut) || 0,
+  });
+}
+
+/** A failure worth trying the next provider for. */
+function shouldTryNextChecker(e: Error): boolean {
+  return e instanceof PlatformDailyCapExceededError || isTransientError(e);
+}
+
 async function callChecker(
   checker: { type: 'gemini' | 'openai' | 'claude'; key: string; model: string },
   prompt: string
 ): Promise<string> {
   const MAX_RETRIES = 2;
+  // Same global brake every queryAI call gets. Thrown before any request
+  // so a capped provider costs nothing and the caller moves on.
+  await enforcePlatformDailyCap(CHECKER_PLATFORM[checker.type]);
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     const controller = new AbortController();
@@ -195,7 +237,7 @@ async function callChecker(
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${checker.key}` },
           body: JSON.stringify({
             model: checker.model,
-            max_tokens: 4096,
+            max_tokens: CHECKER_MAX_TOKENS,
             temperature: 0,
             messages: [{ role: 'user', content: prompt }],
           }),
@@ -211,6 +253,7 @@ async function callChecker(
           }
           throw new Error(msg);
         }
+        await ledgerChecker(checker, d.usage?.prompt_tokens, d.usage?.completion_tokens);
         return d.choices?.[0]?.message?.content || '';
       }
 
@@ -224,7 +267,7 @@ async function callChecker(
           },
           body: JSON.stringify({
             model: checker.model,
-            max_tokens: 4096,
+            max_tokens: CHECKER_MAX_TOKENS,
             temperature: 0,
             messages: [{ role: 'user', content: prompt }],
           }),
@@ -240,6 +283,7 @@ async function callChecker(
           }
           throw new Error(msg);
         }
+        await ledgerChecker(checker, d.usage?.input_tokens, d.usage?.output_tokens);
         return d.content?.[0]?.text || '';
       }
 
@@ -250,7 +294,7 @@ async function callChecker(
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': checker.key },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 4096, temperature: 0 },
+            generationConfig: { maxOutputTokens: CHECKER_MAX_TOKENS, temperature: 0 },
           }),
           signal: controller.signal,
         });
@@ -280,6 +324,7 @@ async function callChecker(
         if (d.promptFeedback?.blockReason) throw new Error(`Gemini blocked the request: ${d.promptFeedback.blockReason}`);
         const candidate = d.candidates?.[0];
         if (candidate && candidate.finishReason === 'SAFETY') throw new Error('Gemini blocked the response due to safety filters');
+        await ledgerChecker(checker, d.usageMetadata?.promptTokenCount, d.usageMetadata?.candidatesTokenCount);
         return candidate?.content?.parts?.[0]?.text || '';
       }
 
@@ -414,7 +459,7 @@ export async function runFactCheck(
             responseText = await callChecker(checkers[ci], prompt);
             break;
           } catch (e) {
-            if (isTransientError(e as Error) && ci < checkers.length - 1) {
+            if (shouldTryNextChecker(e as Error) && ci < checkers.length - 1) {
               console.warn(`[FactCheck] ${checkers[ci].type} failed, trying next checker...`);
               continue;
             }
@@ -702,7 +747,7 @@ export async function autoDiscoverFacts(
       const msg = (e as Error).message || '';
 
       // On transient errors, try next checker if available
-      if (isTransientError(e as Error) && ci < checkers.length - 1) {
+      if (shouldTryNextChecker(e as Error) && ci < checkers.length - 1) {
         console.warn(`[AutoDiscover] ${checker.type} failed (${msg.slice(0, 80)}), falling back to next checker...`);
         continue;
       }

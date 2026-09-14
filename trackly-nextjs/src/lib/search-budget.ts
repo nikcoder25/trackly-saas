@@ -39,13 +39,20 @@ import { logger } from './logger';
 
 const KEY_TTL_SECONDS = 90_000;
 
-// Per-platform default daily caps. Only ChatGPT has a default - it's
-// the platform with billable web_search tool calls AND a useful
-// non-search fallback. Perplexity charges per query, not per tool
-// invocation, and Claude/Gemini/Grok don't have a billable tool. An
-// env override (AI_SEARCH_BUDGET_<PLATFORM>) always takes precedence.
+// Per-platform default daily caps for the platforms with a billable
+// retrieval tool AND a useful non-search fallback: ChatGPT's hosted
+// web_search and Gemini's google_search grounding. Perplexity charges
+// per query, not per tool invocation, and Claude/Grok have no billable
+// tool here. An env override (AI_SEARCH_BUDGET_<PLATFORM>) always takes
+// precedence.
 const PLATFORM_DEFAULT_DAILY_CAP: Record<string, number> = {
   ChatGPT: 50,
+  // Grounded Gemini bills a flat ~$0.035 per grounded prompt (see
+  // GEMINI_GROUNDING_CALL_USD), which is the single largest per-call fee
+  // in the product, and until September 2026 it had no brake at all while
+  // the cheaper ChatGPT web_search did. 300 grounded calls/day is a
+  // ~$10.50/day ceiling; past it Gemini keeps answering, ungrounded.
+  Gemini: 300,
 };
 
 export type SearchBudgetReason =
@@ -87,7 +94,7 @@ function envInt(name: string): number | undefined {
  *   1. CHATGPT_SEARCH_BUDGET_DAILY env var (ChatGPT-only, documented name)
  *   2. AI_SEARCH_BUDGET_<PLATFORM> env override (legacy alias, all platforms)
  *   3. AI_SEARCH_BUDGET_DEFAULT env override
- *   4. PLATFORM_DEFAULT_DAILY_CAP (ChatGPT: 50)
+ *   4. PLATFORM_DEFAULT_DAILY_CAP (ChatGPT: 50, Gemini: 300)
  *   5. 0 (no limit)
  * Set the platform-specific env var to 0 to opt that platform out
  * without disabling the feature globally.
@@ -123,6 +130,11 @@ export function getSearchFallbackModel(
   // Cheapest non-search ChatGPT model: the budget fallback exists to save
   // money, so it must not land on the most expensive tier.
   if (platform === 'ChatGPT' && model.includes('search')) return 'gpt-5.4-nano';
+  // Gemini's "search" is the google_search grounding tool, not a separate
+  // model, so the fallback is the same model with grounding withheld. The
+  // run route and worker read `searchEnabled` off the resolved budget and
+  // pass it into queryAI's geminiGrounding option.
+  if (platform === 'Gemini') return model;
   return null;
 }
 

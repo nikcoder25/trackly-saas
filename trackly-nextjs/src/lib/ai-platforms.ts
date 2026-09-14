@@ -28,12 +28,13 @@ import {
 } from './fairness-scheduler';
 import {
   enforceCostCap,
+  enforcePlatformDailyCap,
+  estimateAnthropicCostUsd,
   recordCostEvent,
   recordCall,
   CHATGPT_WEB_SEARCH_CALL_USD,
   GEMINI_GROUNDING_CALL_USD,
   estimateCostUsd,
-  CostCapExceededError,
 } from './cost-tracker';
 import {
   buildCacheKey,
@@ -716,6 +717,25 @@ const API_ENDPOINTS = {
   grok: { chat: 'https://api.x.ai/v1/chat/completions' },
   claude: { messages: 'https://api.anthropic.com/v1/messages' },
 };
+
+// ── Anthropic prompt caching ─────────────────────────────
+// Long, repeated system prompts (the Fix Engine's SEO brain plus a module
+// prompt, Regional Audit instructions) are re-sent in full on every call.
+// Anthropic flagged this account's cache hit rate as low ("could save up
+// to 44%"). Marking the system block `ephemeral` makes Anthropic cache it
+// for 5 minutes: the first call pays 1.25x on the prefix, every call in
+// the window pays 0.1x. Below the model's minimum cacheable length the
+// marker is ignored server-side, so the threshold here only avoids
+// sending a pointless block on the 150-character tracking prompt.
+export const ANTHROPIC_CACHE_MIN_SYSTEM_CHARS = 4000;
+
+export function buildAnthropicSystem(
+  sysPrompt: string,
+): string | Array<{ type: 'text'; text: string; cache_control: { type: 'ephemeral' } }> {
+  if (process.env.ANTHROPIC_PROMPT_CACHE_DISABLED === 'true') return sysPrompt;
+  if (!sysPrompt || sysPrompt.length < ANTHROPIC_CACHE_MIN_SYSTEM_CHARS) return sysPrompt;
+  return [{ type: 'text', text: sysPrompt, cache_control: { type: 'ephemeral' } }];
+}
 
 // Boot-time TLS/DNS warm-up probe per provider. Fires once on module
 // load for each configured API key env var. Logs status + latency
@@ -1437,72 +1457,14 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
   throw lastErr || new Error('fetchAI: retries exhausted');
 }
 
-// ── Deferred retry queue ────────────────────────────────
-// When a query exhausts its deep-retry budget, enqueue it for a later
-// background retry. On success, the response cache (DB layer) is warmed
-// so the next cron tick / manual re-run returns instantly.
-interface DeferredItem {
-  platform: string;
-  query: string;
-  apiKey: string;
-  model?: string;
-  brand?: BrandContext;
-  options?: QueryOptions;
-  attempts: number;
-  scheduledAt: number;
-}
-const _deferredQueue: DeferredItem[] = [];
-const DEFERRED_MAX_ATTEMPTS = 4;
-const DEFERRED_BASE_DELAY_MS = 5 * 60 * 1000;
-const DEFERRED_QUEUE_MAX = 500;
-
-export function enqueueDeferredRetry(item: Omit<DeferredItem, 'scheduledAt' | 'attempts'> & { attempts?: number; delayMs?: number }): boolean {
-  if (_deferredQueue.length >= DEFERRED_QUEUE_MAX) return false;
-  const attempts = (item.attempts || 0) + 1;
-  if (attempts > DEFERRED_MAX_ATTEMPTS) return false;
-  // Caller may supply delayMs (e.g. the Retry-After hint from a ChatGPT
-  // 429) to park the query just past the window reset. Clamp at 15min so
-  // a malicious/garbage header can't park a query for hours.
-  const delay = item.delayMs && item.delayMs > 0
-    ? Math.min(item.delayMs + 1000, 15 * 60 * 1000)
-    : DEFERRED_BASE_DELAY_MS * Math.pow(2, attempts - 1);
-  _deferredQueue.push({ ...item, attempts, scheduledAt: Date.now() + delay });
-  return true;
-}
-
-let _deferredDraining = false;
-async function _drainDeferredQueue(): Promise<void> {
-  if (_deferredDraining || _deferredQueue.length === 0) return;
-  _deferredDraining = true;
-  try {
-    const now = Date.now();
-    const ready: DeferredItem[] = [];
-    for (let i = _deferredQueue.length - 1; i >= 0; i--) {
-      if (_deferredQueue[i].scheduledAt <= now) ready.push(_deferredQueue.splice(i, 1)[0]);
-    }
-    for (const item of ready) {
-      try {
-        await queryAI(item.platform, item.query, item.apiKey, item.model, item.brand, { ...item.options, silent: true });
-      } catch (e) {
-        const ok = enqueueDeferredRetry(item);
-        if (!ok) {
-          logger.warn(`[deferred.gave_up] ${item.platform}`, {
-            platform: item.platform,
-            attempts: item.attempts,
-            errorClass: (e as Error).name || 'Error',
-            errorMessage: ((e as Error).message || '').slice(0, 240),
-          });
-        }
-      }
-    }
-  } finally {
-    _deferredDraining = false;
-  }
-}
-// Sweep every 60s; cheap no-op when empty.
-if (typeof setInterval !== 'undefined') {
-  setInterval(() => { _drainDeferredQueue().catch(() => {}); }, 60 * 1000);
-}
+// The in-memory "deferred retry queue" that used to live here was removed
+// in the September 2026 cost pass. It re-issued up to four billed provider
+// calls per transient failure from a background timer, bypassed the
+// response cache on both read and write, and discarded every result. Pure
+// spend with no product effect, amplified precisely during provider
+// incidents (a 429/529 storm enqueued four more attempts per failure).
+// withCacheAndRetry + withDeepRetry already cover the bounded, cached
+// retry a run actually needs.
 
 // ── queryAI ────────────────────────────────────────
 interface QueryResult {
@@ -1844,6 +1806,10 @@ export async function queryAI(
   if (options?.tenantId) {
     await enforceCostCap(options.tenantId);
   }
+  // Global per-platform daily USD cap (see cost-tracker.ts). Runs for
+  // every caller, tenant-attributed or not, so public tools, the Fix
+  // Engine and prompt discovery cannot drain a provider account either.
+  await enforcePlatformDailyCap(platform);
   // Distributed breaker check: a sibling pod that absorbed the 8th 429
   // already opened the breaker in Redis. Honour it here so this pod
   // short-circuits the same way without first having to hit its own
@@ -2154,10 +2120,22 @@ export async function queryAI(
         const d = await fetchAI(API_ENDPOINTS.claude.messages, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-          body: JSON.stringify({ model: useModel, max_tokens: maxTok, system: sysPrompt, messages: [{ role: 'user', content: query }] }),
+          body: JSON.stringify({ model: useModel, max_tokens: maxTok, system: buildAnthropicSystem(sysPrompt), messages: [{ role: 'user', content: query }] }),
           signal,
         }, AI_CLAUDE_REQUEST_TIMEOUT_MS, apiKey, 'Claude');
         const claudeText = extractAnthropicText(d.content);
+        const claudeUsage = (d.usage || {}) as {
+          input_tokens?: number; output_tokens?: number;
+          cache_creation_input_tokens?: number; cache_read_input_tokens?: number;
+        };
+        // Anthropic's input_tokens EXCLUDES the cached prefix; fold the
+        // cache write/read counts back in so the ledger's token totals
+        // reflect what was actually sent, and price the call with the
+        // cache multipliers so cost_usd_total matches the invoice.
+        const claudeTokensIn = (claudeUsage.input_tokens || 0)
+          + (claudeUsage.cache_creation_input_tokens || 0)
+          + (claudeUsage.cache_read_input_tokens || 0);
+        retrievalCostUsd = estimateAnthropicCostUsd(d.model || useModel, claudeUsage);
         if (!claudeText) {
           // A 200 with no readable text. fetchAI throws on every non-2xx,
           // so reaching here means the call succeeded and we still have
@@ -2181,8 +2159,8 @@ export async function queryAI(
         result = {
           text: claudeText,
           model: d.model || useModel,
-          tokensIn: d.usage?.input_tokens || 0,
-          tokensOut: d.usage?.output_tokens || 0,
+          tokensIn: claudeTokensIn,
+          tokensOut: claudeUsage.output_tokens || 0,
           truncated: (d as { stop_reason?: string }).stop_reason === 'max_tokens',
           citations: [],
         };
@@ -2306,18 +2284,6 @@ export async function queryAI(
         isRateLimit: !!err.isRateLimit,
         budgetExhausted: !!err.budgetExhausted,
       });
-      // Cost-cap rejections are user-actionable, not transient - never
-      // park them on the deferred retry queue. The tenant won't pay for
-      // the next minute either; replaying just adds noise.
-      if (e instanceof CostCapExceededError) throw e;
-      if (!options?.silent && (isTransientError(e) || (e as AiError).budgetExhausted)) {
-        // When fetchAI surfaces `needsDeferral: true` (ChatGPT only, when
-        // Retry-After > per-call sleep cap) we park the query just past
-        // the window reset instead of the generic 5-min backoff.
-        const aiErr = e as AiError;
-        const delayMs = aiErr.needsDeferral && aiErr.deferralMs ? aiErr.deferralMs : undefined;
-        enqueueDeferredRetry({ platform, query, apiKey, model: useModel, brand, options, delayMs });
-      }
       throw e;
     }
   }, platform, options?.signal);

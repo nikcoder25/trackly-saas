@@ -237,9 +237,18 @@ export async function applyAutopilot(brandId: string, auto: Automation): Promise
   let generated = 0, staged = 0;
 
   // 1) Generate detected fixes (respects credits inside generateFix).
+  // Throttled per run like staging below: listFixes returns up to 500
+  // rows and every generation is a billed LLM call that starts on Claude
+  // with the full SEO brain as its system prompt, so an unthrottled loop
+  // could spend a brand's month of credits (and real provider dollars)
+  // in one 15-minute cron tick.
   if (auto.autopilotGenerate) {
     const detected = await listFixes(brandId, { status: 'detected' });
     for (const f of detected) {
+      if (generated >= MAX_AUTOPILOT_GENERATES_PER_RUN) {
+        logger.info('fix_engine.autopilot_generate_throttled', { brandId, cap: MAX_AUTOPILOT_GENERATES_PER_RUN, pending: detected.length - generated });
+        break;
+      }
       try { await generateFix(f.id, brandId); generated++; }
       catch (e) { logger.warn('fix_engine.autopilot_generate_skip', { fixId: f.id, err: (e as Error).message }); }
     }
@@ -269,6 +278,9 @@ export async function applyAutopilot(brandId: string, auto: Automation): Promise
 
 /** Max previews autopilot stages in a single scheduled run. */
 export const MAX_AUTOPILOT_STAGES_PER_RUN = 10;
+
+/** Max fixes autopilot generates (billed LLM calls) in a single scheduled run. */
+export const MAX_AUTOPILOT_GENERATES_PER_RUN = 10;
 
 /**
  * Diff the brand's current crawl targets against pages we've seen before;

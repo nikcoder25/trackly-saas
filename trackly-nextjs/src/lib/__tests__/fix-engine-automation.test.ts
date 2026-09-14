@@ -41,7 +41,7 @@ vi.mock('@/lib/fix-engine/connections', () => ({
   getConnection: vi.fn(async (_b: string, provider: string) => (provider === 'cms' && state.canShip ? { status: 'active' } : null)),
 }));
 
-import { applyAutopilot } from '@/lib/fix-engine/automation';
+import { applyAutopilot, MAX_AUTOPILOT_GENERATES_PER_RUN } from '@/lib/fix-engine/automation';
 
 const baseAuto = {
   brandId: 'b1', scanEnabled: true, scanFrequency: 'weekly' as const, scanModules: [],
@@ -59,6 +59,15 @@ describe('auto-pilot', () => {
   it('auto-generates all detected fixes when enabled', async () => {
     await applyAutopilot('b1', { ...baseAuto, autopilotGenerate: true });
     expect(state.generatedCalls).toEqual(['d1', 'd2']);
+  });
+
+  it('throttles generation per run so a 500-row backlog cannot spend a month of credits in one tick', async () => {
+    state.detected = Array.from({ length: MAX_AUTOPILOT_GENERATES_PER_RUN + 5 }, (_, i) => ({ id: `d${i}`, moduleKey: 'paid-b' }));
+    const r = await applyAutopilot('b1', { ...baseAuto, autopilotGenerate: true });
+    expect(r.generated).toBe(MAX_AUTOPILOT_GENERATES_PER_RUN);
+    expect(state.generatedCalls).toHaveLength(MAX_AUTOPILOT_GENERATES_PER_RUN);
+    // The rest wait for the next scheduled tick; nothing was dropped.
+    expect(state.generatedCalls[0]).toBe('d0');
   });
 
   it('stages generated fixes as previews and ships nothing', async () => {
