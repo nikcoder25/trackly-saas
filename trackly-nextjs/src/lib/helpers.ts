@@ -208,7 +208,8 @@ export async function getBrandWithAccess(brandId: string, userId: string) {
   const ownResult = await pool.query('SELECT * FROM brands WHERE id = $1 AND user_id = $2', [brandId, userId]);
   if (ownResult.rows.length) {
     const row = ownResult.rows[0];
-    return { brand: { id: row.id, userId: row.user_id, ...row.data, createdAt: row.created_at, updatedAt: row.updated_at }, role: 'owner' };
+    const { shared: _sh, teamRole: _tr, ...ownData } = (row.data || {}) as Record<string, unknown>;
+    return { brand: { id: row.id, userId: row.user_id, ...ownData, createdAt: row.created_at, updatedAt: row.updated_at }, role: 'owner' };
   }
   const teamResult = await pool.query(
     `SELECT b.*, tm.role AS team_role FROM brands b

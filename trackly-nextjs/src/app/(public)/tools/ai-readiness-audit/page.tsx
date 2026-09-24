@@ -134,7 +134,7 @@ function AiReadinessAuditInner() {
       const res = await fetch('/api/newsletter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), source: 'ai-readiness-audit' }),
+        body: JSON.stringify({ email: email.trim(), source: 'tool:ai-readiness-audit' }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -373,7 +373,7 @@ function AiReadinessAuditInner() {
             },
             {
               q: 'What is the rate limit?',
-              a: '2 audits per hour for unauthenticated users; 10 per hour and a monthly plan-based cap for signed-in users. Heavy users should sign up - free accounts unlock continuous tracking and a higher per-month allowance.',
+              a: 'Without an account: 2 audits per hour and 3 per month, shared across all GEO audit tools. Signed-in users get 10 per hour and a monthly plan-based cap (20 during the free trial). Heavy users should start a trial - it unlocks continuous tracking and a higher monthly allowance.',
             },
             {
               q: 'Can I share the result with my team?',

@@ -204,9 +204,11 @@ const buildCreditMath = (t: Tier): CreditMath => {
   const cfg = PLAN_CREDITS[t];
   const plan = TIER_TO_PLAN[t];
   const fullScanCost = cfg.trackedPromptsPerAccount * cfg.maxPlatforms;
-  const scheduledRuns = RUNS_PER_MONTH[cfg.autoRunFrequency];
   // A daily cadence on a large prompt set can exceed the monthly budget -
-  // clamp so we never advertise more scheduled spend than credits exist.
+  // clamp so we never advertise more scheduled scans (or spend) than the
+  // credits actually cover.
+  const cadenceRuns = RUNS_PER_MONTH[cfg.autoRunFrequency];
+  const scheduledRuns = Math.min(cadenceRuns, Math.floor(cfg.monthlyCredits / fullScanCost));
   const scheduledSpend = Math.min(cfg.monthlyCredits, scheduledRuns * fullScanCost);
   const monthlyPrice = priceNum(plan?.price ?? cfg.price);
   return {
@@ -747,7 +749,7 @@ export default function PricingPage() {
                     {[
                       ['One full scan costs', `${m.prompts} x ${m.platforms} = ${m.fullScanCost.toLocaleString()} credits`],
                       ['Full scans per month', `${m.fullScansPerMonth}`],
-                      ['Scheduled scans included', `${m.scheduledRuns} (${autoRunLabel(PLAN_CREDITS[t].autoRunFrequency).toLowerCase()})`],
+                      ['Scheduled scans included', `${m.scheduledRuns} (${autoRunLabel(PLAN_CREDITS[t].autoRunFrequency).toLowerCase()}${RUNS_PER_MONTH[PLAN_CREDITS[t].autoRunFrequency] > m.scheduledRuns ? ', credit-capped' : ''})`],
                       ['Cost per full scan', money(m.costPerScan)],
                     ].map(([k, v]) => (
                       <div key={k} style={{

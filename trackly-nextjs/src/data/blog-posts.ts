@@ -2649,7 +2649,7 @@ The fix is not complicated: track it alongside the others and look at the spread
 
 ### What is the best Perplexity rank tracker?
 
-The one that samples each prompt multiple times across Sonar models, stores the full citation list, benchmarks competitors on identical prompts, and re-runs on a schedule. Livesov does this across all five engines from $9/mo; Profound and Peec AI do it at enterprise price points; Otterly adds Google AI surfaces. Match the tool to which engines you actually need.
+The one that samples each prompt multiple times across Sonar models, stores the full citation list, benchmarks competitors on identical prompts, and re-runs on a schedule. Livesov does this from $9/mo (all five engines on Agency); Profound and Peec AI do it at enterprise price points; Otterly adds Google AI surfaces. Match the tool to which engines you actually need.
 
 ### Is there a free Perplexity SEO tracking tool?
 
@@ -3167,7 +3167,7 @@ The work that moves that number is mostly off your own site. Get accurate curren
 
 ### What is the best ChatGPT SEO tracking tool?
 
-The one that samples every model repeatedly on a schedule, benchmarks competitors on identical prompts, captures ChatGPT Search citations, and stores raw answers. Livesov does this across all five engines from $9/mo; Profound and Peec AI do it at enterprise pricing; Otterly adds Google's AI surfaces. Pick on engine coverage and sampling depth, not dashboard design.
+The one that samples every model repeatedly on a schedule, benchmarks competitors on identical prompts, captures ChatGPT Search citations, and stores raw answers. Livesov does this from $9/mo (all five engines on Agency); Profound and Peec AI do it at enterprise pricing; Otterly adds Google's AI surfaces. Pick on engine coverage and sampling depth, not dashboard design.
 
 ### Can I track ChatGPT visibility for free?
 
@@ -3286,7 +3286,7 @@ You can, and for ten prompts checked monthly it is defensible. It stops scaling 
 
 ### What is the cheapest paid AI rank tracker?
 
-Livesov starts at $9/mo with all five engines included. Otterly's entry plan is around $29/mo for a smaller prompt allowance but adds Google AI Overviews coverage. Most enterprise platforms start near $99/mo. Compare on engines-per-dollar rather than headline price - engine add-ons are where these comparisons usually turn.
+Livesov starts at $9/mo (2 engines on Starter, all five on Agency). Otterly's entry plan is around $29/mo for a smaller prompt allowance but adds Google AI Overviews coverage. Most enterprise platforms start near $99/mo. Compare on engines-per-dollar rather than headline price - engine add-ons are where these comparisons usually turn.
 
 ### Do free AI visibility tools give accurate data?
 

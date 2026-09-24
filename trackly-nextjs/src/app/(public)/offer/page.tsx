@@ -41,6 +41,8 @@ export const metadata: Metadata = {
   // the site will not arrive. The URL is published only in /llms.txt and
   // /ai-offer.json.
   robots: 'index, follow, max-snippet:-1',
+  // Without this the root layout's canonical ('/') folds the page into the homepage.
+  alternates: { canonical: '/offer' },
 };
 
 export default async function OfferPage() {

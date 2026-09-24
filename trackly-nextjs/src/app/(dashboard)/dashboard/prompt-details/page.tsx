@@ -39,7 +39,13 @@ function PromptDetailsInner() {
     }
   }, [qParam]);
 
-  useEffect(() => { if (queries.length && !selectedQuery) setSelectedQuery(queries[0]); }, [queries, selectedQuery]);
+  // Also reset when the selection isn't one of this brand's prompts (brand
+  // switched in the Topbar), except for a deep-linked ?q=.
+  useEffect(() => {
+    if (queries.length && (!selectedQuery || (!queries.includes(selectedQuery) && selectedQuery !== qParam))) {
+      setSelectedQuery(queries[0]);
+    }
+  }, [queries, selectedQuery, qParam]);
 
   // Live run state for the selected query, read from the shared RunContext.
   // useBrandData already merges these live results into brand.runs as a

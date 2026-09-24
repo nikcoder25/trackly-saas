@@ -149,7 +149,9 @@ export default function AccountPage() {
 
   async function saveUsername() {
     try {
-      await fetch('/api/auth/username', { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: usernameVal }) });
+      const res = await fetch('/api/auth/username', { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: usernameVal }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { toast(d.error || 'Failed to update username', 'error'); return; }
       refreshUser();
       setUsernameEdit(false);
       toast('Username updated');
@@ -159,12 +161,26 @@ export default function AccountPage() {
   async function deleteAccount() {
     if (!confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
     if (!confirm('This will permanently delete ALL your data. Are you absolutely sure?')) return;
-    try { await fetch('/api/auth/account', { method: 'DELETE', credentials: 'include' }); toast('Account deleted'); router.push('/'); } catch { toast('Failed to delete account', 'error'); }
+    const password = prompt('Enter your password to confirm (Google sign-in accounts: enter your account email).');
+    if (!password) return;
+    try {
+      const res = await fetch('/api/auth/account', { method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { toast(d.error || 'Failed to delete account', 'error'); return; }
+      toast('Account deleted');
+      router.push('/');
+    } catch { toast('Failed to delete account', 'error'); }
   }
 
   async function cancelSubscription() {
     if (!confirm('Cancel your subscription? You will lose access to paid features at the end of your billing period.')) return;
-    try { await fetch('/api/payments/cancel', { method: 'POST', credentials: 'include' }); refreshUser(); toast('Subscription cancelled'); } catch { toast('Failed to cancel subscription', 'error'); }
+    try {
+      const res = await fetch('/api/payments/cancel', { method: 'POST', credentials: 'include' });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { toast(d.error || 'Failed to cancel subscription', 'error'); return; }
+      refreshUser();
+      toast('Subscription cancelled');
+    } catch { toast('Failed to cancel subscription', 'error'); }
   }
 
   const rawPlan = user?.plan || 'free';

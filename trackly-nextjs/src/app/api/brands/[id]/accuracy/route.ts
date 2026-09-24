@@ -196,8 +196,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
+  if (access.role === 'viewer') return Response.json({ error: 'Viewers cannot run accuracy checks' }, { status: 403 });
 
-  const body = await request.json();
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== 'object') return Response.json({ error: 'Invalid body' }, { status: 400 });
 
   // ── Auto-Discover Facts ──────────────────────────────────────
   if (body.action === 'auto-discover') {

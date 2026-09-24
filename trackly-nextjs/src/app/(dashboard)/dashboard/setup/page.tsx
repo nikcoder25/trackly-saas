@@ -136,7 +136,7 @@ export default function SetupPage() {
 
       <div className="page-body">
         {selectedBrand ? (
-          <EditBrandForm brand={selectedBrand} accountPromptCap={accountPromptCap} allBrands={brands}
+          <EditBrandForm key={selectedBrand.id} brand={selectedBrand} accountPromptCap={accountPromptCap} allBrands={brands}
             onUpdated={updated => { setBrands(brands.map(b => b.id === updated.id ? updated : b)); setSelectedBrand(updated); setCtxSelectedBrand(updated); refreshBrands(); }}
             onDeleted={() => { const remaining = brands.filter(b => b.id !== selectedBrand.id); setBrands(remaining); setSelectedBrand(remaining[0] || null); refreshBrands(); }} />
         ) : null}

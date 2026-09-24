@@ -10,8 +10,10 @@ export async function PUT(request: Request) {
   const rl = await rateLimit('username_change:' + user.id, 24 * 60 * 60 * 1000, 5);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const { username } = await request.json();
-  const trimmed = username ? username.trim().toLowerCase() : null;
+  const body = await request.json().catch(() => null);
+  const username = body?.username;
+  if (username != null && typeof username !== 'string') return Response.json({ error: 'Invalid username' }, { status: 400 });
+  const trimmed = username && username.trim() ? username.trim().toLowerCase() : null;
 
   if (trimmed) {
     if (trimmed.length < 3) return Response.json({ error: 'Username must be at least 3 characters' }, { status: 400 });

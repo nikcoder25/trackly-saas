@@ -12,6 +12,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
 
+  // ?period=day|week|month scopes the aggregates. Anything else (or none) keeps the previous all-time view.
+  const period = new URL(request.url).searchParams.get('period');
+  const windowDays = period === 'day' ? 1 : period === 'week' ? 7 : period === 'month' ? 30 : null;
+
   try {
     // Per-prompt, per-platform aggregates straight from prompt_runs. This
     // used to read a `prompt_run_stats` rollup that nothing in this codebase
@@ -25,10 +29,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
               MAX(created_at) AS last_run_at
        FROM prompt_runs
        WHERE brand_id = $1 AND success = true
+         AND ($2::int IS NULL OR created_at >= NOW() - make_interval(days => $2::int))
        GROUP BY prompt, platform
        ORDER BY (SUM(CASE WHEN mentioned THEN 1 ELSE 0 END)::numeric / NULLIF(COUNT(*), 0)) DESC NULLS LAST,
                 COUNT(*) DESC`,
-      [id]
+      [id, windowDays]
     );
 
     // Get historical mention rates per prompt per batch (for sparkline/change)
@@ -38,10 +43,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
               SUM(CASE WHEN mentioned THEN 1 ELSE 0 END)::int AS mentions,
               MIN(created_at) AS run_date
        FROM prompt_runs
-       WHERE brand_id = $1 AND success = true AND created_at >= NOW() - INTERVAL '30 days'
+       WHERE brand_id = $1 AND success = true
+         AND created_at >= NOW() - make_interval(days => $2::int)
        GROUP BY prompt, batch_id
        ORDER BY prompt, MIN(created_at)`,
-      [id]
+      // Sparklines need several batches, so never narrower than 30 days.
+      [id, Math.max(windowDays ?? 30, 30)]
     );
 
     // Build sparkline data per keyword

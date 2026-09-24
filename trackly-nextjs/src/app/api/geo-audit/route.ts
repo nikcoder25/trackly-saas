@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { verifyRequestAuth } from '@/lib/auth';
-import { getPlanLimits } from '@/lib/constants';
+import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 import { pool } from '@/lib/db';
 import { safeFetch, SSRFError, ssrfErrorToCopy } from '@/lib/safe-fetch';
 import { logError, serverError } from '@/lib/api-error';
@@ -389,8 +389,8 @@ export async function POST(req: NextRequest) {
     // the hourly anti-spam limiter above already gates raw request volume.
     let userPlan = 'free';
     if (user) {
-      const planResult = await pool.query('SELECT plan FROM users WHERE id = $1', [user.id]);
-      userPlan = planResult.rows[0]?.plan || 'free';
+      const planResult = await pool.query('SELECT plan, trial_ends_at FROM users WHERE id = $1', [user.id]);
+      userPlan = getEffectivePlan(planResult.rows[0]?.plan || 'free', planResult.rows[0]?.trial_ends_at);
     }
     const limits = getPlanLimits(userPlan);
     const monthlyKey = user ? `geo-audit-monthly:${user.id}` : `geo-audit-monthly:ip:${ip}`;

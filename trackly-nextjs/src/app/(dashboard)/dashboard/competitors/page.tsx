@@ -61,7 +61,12 @@ export default function CompetitorsPage() {
       const res = await fetch(`/api/brands/${brandId}/citation-analysis`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
-        setCitations(data.citations || []);
+        // The route returns a { domain: count } map, not rows.
+        const own = String(data.ownDomainName || '');
+        setCitations(Object.entries((data.domains || {}) as Record<string, number>).map(([domain, total]) => ({
+          domain, total: String(total), is_brand: !!own && domain === own, is_competitor: false,
+          domain_type: '', avg_position: '', last_seen: '',
+        })));
       }
     } catch { /* fetch failed */ }
     setCitLoading(false);
@@ -124,11 +129,21 @@ export default function CompetitorsPage() {
   // Platform breakdown from API
   const platBreakdown = compStatsData?.platforms || {};
 
+  // Returns false (and shows the server's reason) when the save is rejected,
+  // e.g. the plan's competitor limit.
+  async function saveCompetitors(brandId: string, updated: string[]): Promise<boolean> {
+    const res = await fetch(`/api/brands/${brandId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ competitors: updated }) });
+    if (res.ok) return true;
+    const d = await res.json().catch(() => ({}));
+    setReprocessMsg(d.error || 'Could not save competitors');
+    return false;
+  }
+
   async function addComp() {
     if (!newComp.trim() || !brand) return;
     const updated = [...competitors, newComp.trim()];
     try {
-      await fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ competitors: updated }) });
+      if (!(await saveCompetitors(brand.id, updated))) return;
       setNewComp('');
       await reload();
       // Auto-reprocess existing data for the new competitor
@@ -141,7 +156,7 @@ export default function CompetitorsPage() {
     if (competitors.some(c => c.toLowerCase() === domain.toLowerCase())) return;
     const updated = [...competitors, domain];
     try {
-      await fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ competitors: updated }) });
+      if (!(await saveCompetitors(brand.id, updated))) return;
       await reload();
       await triggerReprocess(brand.id);
     } catch { /* failed to add */ }
@@ -175,11 +190,13 @@ export default function CompetitorsPage() {
   function removeComp(idx: number) {
     if (!brand) return;
     const updated = competitors.filter((_, i) => i !== idx);
-    fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ competitors: updated }) })
-      .then(async () => {
+    saveCompetitors(brand.id, updated)
+      .then(async (ok) => {
+        if (!ok) return;
         await reload();
         await fetchCompetitorStats(brand.id);
-      });
+      })
+      .catch(() => setReprocessMsg('Could not save competitors'));
   }
 
   // Discovered competitors from citations

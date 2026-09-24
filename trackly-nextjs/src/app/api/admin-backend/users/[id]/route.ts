@@ -14,7 +14,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   try {
     const result = await pool.query(`
       SELECT u.id, u.email, u.username, u.name, u.plan, u.role, u.email_verified, u.created_at,
-        u.settings->>'dodo_subscription_id' AS subscription_id,
+        u.settings->>'subscription_id' AS subscription_id,
         u.settings->>'totp_secret' IS NOT NULL AS totp_enabled,
         u.google_id IS NOT NULL AS has_google,
         (SELECT COUNT(*)::int FROM brands WHERE user_id = u.id) AS brand_count,

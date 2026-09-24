@@ -28,7 +28,7 @@ export async function countTrackedPromptsForOwner(
 ): Promise<number> {
   const p = opts.pool || defaultPool;
   const r = await p.query(
-    `SELECT COALESCE(SUM(jsonb_array_length(COALESCE(data->'queries', '[]'::jsonb))), 0)::int AS n
+    `SELECT COALESCE(SUM(CASE WHEN jsonb_typeof(data->'queries') = 'array' THEN jsonb_array_length(data->'queries') ELSE 0 END), 0)::int AS n
        FROM brands WHERE user_id = $1`,
     [ownerId],
   );
@@ -42,7 +42,7 @@ export async function countTrackedPromptsForOwnerExcluding(
 ): Promise<number> {
   const p = opts.pool || defaultPool;
   const r = await p.query(
-    `SELECT COALESCE(SUM(jsonb_array_length(COALESCE(data->'queries', '[]'::jsonb))), 0)::int AS n
+    `SELECT COALESCE(SUM(CASE WHEN jsonb_typeof(data->'queries') = 'array' THEN jsonb_array_length(data->'queries') ELSE 0 END), 0)::int AS n
        FROM brands WHERE user_id = $1 AND id <> $2`,
     [ownerId, excludeBrandId],
   );
