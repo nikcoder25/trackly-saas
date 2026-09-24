@@ -70,7 +70,7 @@ describe('homepage pricing cannot drift from /pricing', () => {
   it('derives its plan cards from PRICING_PLANS rather than a hardcoded copy', () => {
     const home = readFileSync(join(SRC, 'app/(public)/home/page.tsx'), 'utf8');
     expect(home).toContain("import { PRICING_PLANS } from '@/lib/constants'");
-    expect(home).toMatch(/const tiers = PRICING_PLANS\.map/);
+    expect(home).toMatch(/const tiers = PRICING_PLANS(\.filter\(.*?\))?\.map/);
   });
 
   it('keeps every plan self-serve - no "Contact sales" dead end on a listed price', () => {

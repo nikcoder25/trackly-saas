@@ -84,6 +84,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       if (body[key] !== undefined) safeBody[key] = body[key];
     }
 
+    if (safeBody.name !== undefined && typeof safeBody.name !== 'string') {
+      return Response.json({ error: 'Brand name must be a string' }, { status: 400 });
+    }
     if (safeBody.name !== undefined && !(safeBody.name as string).trim()) {
       return Response.json({ error: 'Brand name cannot be empty' }, { status: 400 });
     }
@@ -157,6 +160,15 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       safeBody.platforms = [...new Set(cleaned)];
     }
 
+    // Stored as JSON arrays and read with jsonb_array_length / .map across the
+    // app; a scalar here would break every prompt-quota query for the owner.
+    for (const field of ['queries', 'competitors', 'nearbyAreas'] as const) {
+      const v = safeBody[field];
+      if (v !== undefined && (!Array.isArray(v) || v.some((x: unknown) => typeof x !== 'string'))) {
+        return Response.json({ error: `${field} must be an array of strings` }, { status: 400 });
+      }
+    }
+
     // Deduplicate queries
     if (safeBody.queries && Array.isArray(safeBody.queries)) {
       const seen = new Set<string>();
@@ -206,7 +218,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 
     const updated = { ...brand, ...safeBody, id: brand.id, userId: brand.userId };
-    const { id: _id, userId: _uid, createdAt: _ca, updatedAt: _ua, ...dataOnly } = updated;
+    // shared/teamRole are per-viewer access flags added by getBrandWithAccess;
+    // persisting them would make the owner's own brand read as "shared".
+    const { id: _id, userId: _uid, createdAt: _ca, updatedAt: _ua, shared: _sh, teamRole: _tr, ...dataOnly } = updated as Record<string, unknown>;
     await pool.query('UPDATE brands SET data = $1, updated_at = NOW() WHERE id = $2', [JSON.stringify(dataOnly), id]);
 
     // Keep the prompt map in step with the prompt list. Pruning is cheap

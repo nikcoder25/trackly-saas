@@ -58,6 +58,8 @@ export async function GET(request: Request) {
     const result = await pool.query('SELECT * FROM brands WHERE user_id = $1 ORDER BY created_at, id', [user.id]);
     const brands = result.rows.map((row: Record<string, unknown>) => {
       const data = trimBrandData({ ...((row.data as Record<string, unknown>) || {}) });
+      // Older team-member saves persisted the viewer-only access flags.
+      delete data.shared; delete data.teamRole; delete data.ownerName;
       return { id: row.id, userId: row.user_id, ...data, createdAt: row.created_at, updatedAt: row.updated_at };
     });
 

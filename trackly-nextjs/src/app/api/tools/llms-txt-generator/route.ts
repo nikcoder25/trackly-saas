@@ -102,6 +102,10 @@ export async function POST(req: NextRequest) {
     if (!allowed) return rateLimitResponse(retryAfter);
 
     const body = await req.json().catch(() => ({}));
+    // Honeypot: the page sends a hidden `website` field that humans leave empty.
+    if (typeof body?.website === 'string' && body.website) {
+      return Response.json({ error: 'Invalid request.' }, { status: 400 });
+    }
     const rawDomain = typeof body?.domain === 'string' ? body.domain : '';
     if (!rawDomain || rawDomain.length > 500) {
       return Response.json({ error: 'Domain is required (max 500 chars).' }, { status: 400 });

@@ -621,7 +621,9 @@ function Pricing() {
   // the same plan self-serve with a free trial. Two different stories about
   // the top tier on the two highest-traffic pages. Deriving it means the
   // homepage can never disagree with /pricing again.
-  const tiers = PRICING_PLANS.map((p) => ({
+  // Free is hidden here as on /pricing: the copy below promises three
+  // trial-backed plans.
+  const tiers = PRICING_PLANS.filter((p) => p.name !== 'Free').map((p) => ({
     k: p.name,
     price: p.price,
     // headline is "8,000 AI credits/month" - the card renders the unit itself.

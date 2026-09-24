@@ -51,7 +51,11 @@ export default function ActivityPage() {
       setActivityLogs((actData.logs || []).map((l: Record<string, unknown>) => ({ ...l, timestamp: l.timestamp || l.created_at || '' })));
       setApiLogs(apiData.logs || []);
       setApiTotals(apiData.totals || { count: 0, ok: 0, errors: 0, tokens: 0 });
-      setKeyStatus(apiData.keyStatus || []);
+      // /api/api-logs has no keyStatus field; derive per-platform call counts
+      // from the logs so this tab isn't permanently empty.
+      const byPlatform: Record<string, number> = {};
+      for (const l of (apiData.logs || []) as ApiLog[]) if (l.platform) byPlatform[l.platform] = (byPlatform[l.platform] || 0) + 1;
+      setKeyStatus(Object.entries(byPlatform).map(([platform, count]) => ({ platform, count })));
       setLoading(false);
     });
     return () => { cancelled = true; };
@@ -165,7 +169,7 @@ export default function ActivityPage() {
               {keyStatus.map(k => (
                 <div key={k.platform} style={{ padding: '16px 24px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', textAlign: 'center', minWidth: 120 }}>
                   <div style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--mono)', color: k.count > 0 ? 'var(--green)' : 'var(--muted)' }}>{k.count}</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{k.platform} keys</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{k.platform} calls</div>
                 </div>
               ))}
             </div>

@@ -1,7 +1,7 @@
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid } from '@/lib/helpers';
-import { getPlanLimits } from '@/lib/constants';
+import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 
 const VALID_STATUSES = ['open', 'in_progress', 'done', 'ignored'] as const;
@@ -37,8 +37,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
 
     const ownerId = access.brand.userId || user.id;
-    const planResult = await pool.query('SELECT plan FROM users WHERE id = $1', [ownerId]);
-    const plan = planResult.rows[0]?.plan || 'free';
+    const planResult = await pool.query('SELECT plan, trial_ends_at FROM users WHERE id = $1', [ownerId]);
+    const plan = getEffectivePlan(planResult.rows[0]?.plan || 'free', planResult.rows[0]?.trial_ends_at);
     const limits = getPlanLimits(plan);
     if (!limits.sentiment) {
       return Response.json({ error: 'Recommendations are available on Starter plans and above. Upgrade to access.', planLimit: true }, { status: 403 });
@@ -117,8 +117,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   // Check plan allows sentiment/recommendations
   const ownerId = access.brand.userId || user.id;
-  const planResult = await pool.query('SELECT plan FROM users WHERE id = $1', [ownerId]);
-  const plan = planResult.rows[0]?.plan || 'free';
+  const planResult = await pool.query('SELECT plan, trial_ends_at FROM users WHERE id = $1', [ownerId]);
+  const plan = getEffectivePlan(planResult.rows[0]?.plan || 'free', planResult.rows[0]?.trial_ends_at);
   const limits = getPlanLimits(plan);
   if (!limits.sentiment) {
     return Response.json({ error: 'Recommendations are available on Starter plans and above. Upgrade to access.', planLimit: true }, { status: 403 });

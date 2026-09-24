@@ -141,7 +141,10 @@ interface RateLimitEntry {
 const rateLimitMap = new Map<string, RateLimitEntry>();
 
 const WINDOW_MS = 60 * 1000; // 1 minute
-const GENERAL_LIMIT = 100;   // 100 req/min for general API routes
+const GENERAL_LIMIT = 100;   // 100 req/min for general API routes (anonymous)
+// Signed-in sessions: one dashboard page load is ~5 calls plus run-status
+// polling, so several open tabs during a run could brush against 100/min.
+const SESSION_LIMIT = 300;
 const AUTH_LIMIT = 10;        // 10 req/min for credential auth routes
 
 // Only the endpoints that accept or mint credentials get the tight AUTH_LIMIT.
@@ -180,10 +183,10 @@ function cleanupExpired() {
   }
 }
 
-function checkRateLimit(key: string, isAuth: boolean): { allowed: boolean; retryAfter: number } {
+function checkRateLimit(key: string, isAuth: boolean, hasSession = false): { allowed: boolean; retryAfter: number } {
   cleanupExpired();
 
-  const limit = isAuth ? AUTH_LIMIT : GENERAL_LIMIT;
+  const limit = isAuth ? AUTH_LIMIT : hasSession ? SESSION_LIMIT : GENERAL_LIMIT;
   const now = Date.now();
 
   const entry = rateLimitMap.get(key);
@@ -379,7 +382,7 @@ export async function middleware(request: NextRequest) {
     const sessionTag = cookieToken ? cookieToken.slice(-16) : 'anon';
     const isAuth = isCredentialAuthPath(pathname);
     const key = `${isAuth ? 'auth' : 'api'}:${ip}:${sessionTag}`;
-    const { allowed, retryAfter } = checkRateLimit(key, isAuth);
+    const { allowed, retryAfter } = checkRateLimit(key, isAuth, !!cookieToken);
 
     if (!allowed) {
       const limited = NextResponse.json(

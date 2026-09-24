@@ -40,9 +40,18 @@ export default function AlertsPage() {
     if (!brand?.id) return;
     const load = () => fetch(`/api/brands/${brand.id}/alerts`, { credentials: 'include' })
       .then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); })
-      .then(d => { setRules(d.rules || []); setNotifications(d.notifications || []); setWebhookUrl(d.webhookUrl || ''); setReportFreq(d.reportFreq || 'off'); })
+      .then(d => { setRules(d.rules || []); setNotifications(d.notifications || []); })
       .catch(() => {});
     load();
+    // Webhook lives on the brand record; the report schedule has its own route.
+    fetch(`/api/brands/${brand.id}`, { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { const b = d?.brand ?? d; setWebhookUrl(typeof b?.webhookUrl === 'string' ? b.webhookUrl : ''); })
+      .catch(() => {});
+    fetch(`/api/brands/${brand.id}/report/schedule`, { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d?.frequency) setReportFreq(d.frequency); })
+      .catch(() => {});
     const handler = () => load();
     window.addEventListener('livesov:run-complete', handler);
     return () => window.removeEventListener('livesov:run-complete', handler);
@@ -76,20 +85,33 @@ export default function AlertsPage() {
     }
   }
 
-  function saveWebhook() {
+  async function saveWebhook() {
     if (!brand) return;
-    fetch(`/api/brands/${brand.id}/alerts`, {
-      method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ webhookUrl }),
-    }).then(() => { setWebhookStatus('Saved!'); toast('Webhook saved successfully'); }).catch(() => { setWebhookStatus('Failed'); toast('Failed to save webhook', 'error'); });
+    try {
+      const res = await fetch(`/api/brands/${brand.id}`, {
+        method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ webhookUrl: webhookUrl.trim() }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { setWebhookStatus('Failed'); toast(d.error || 'Failed to save webhook', 'error'); return; }
+      setWebhookStatus('Saved!');
+      toast('Webhook saved successfully');
+    } catch { setWebhookStatus('Failed'); toast('Failed to save webhook', 'error'); }
   }
 
-  function saveReport() {
+  async function saveReport() {
     if (!brand) return;
-    fetch(`/api/brands/${brand.id}/alerts`, {
-      method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reportFreq }),
-    }).then(() => { setReportSaved(true); setTimeout(() => setReportSaved(false), 3000); toast('Report schedule saved'); }).catch(() => { toast('Failed to save report schedule', 'error'); });
+    try {
+      const res = await fetch(`/api/brands/${brand.id}/report/schedule`, {
+        method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frequency: reportFreq }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { toast(d.error || 'Failed to save report schedule', 'error'); return; }
+      setReportSaved(true);
+      setTimeout(() => setReportSaved(false), 3000);
+      toast('Report schedule saved');
+    } catch { toast('Failed to save report schedule', 'error'); }
   }
 
   const notifTypes = [

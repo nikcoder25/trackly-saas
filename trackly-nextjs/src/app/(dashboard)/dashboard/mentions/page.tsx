@@ -56,7 +56,19 @@ export default function MentionsPage() {
   const [perPage, setPerPage] = useState(15);
 
   const runs = useMemo(() => (selectedBrand?.runs || []).slice().reverse(), [selectedBrand]);
-  useEffect(() => { if (runs.length && !selectedRunId) setSelectedRunId(runs[0].id || '0'); }, [runs, selectedRunId]);
+  // ?run=<id> (command palette) picks that run; otherwise default to the
+  // latest, and reset when the selection isn't one of this brand's runs
+  // (brand switched in the Topbar).
+  const runParamRef = useRef<string | null>(typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('run') : null);
+  useEffect(() => {
+    if (!runs.length) return;
+    const wanted = runParamRef.current;
+    if (wanted && runs.some(r => r.id === wanted)) { runParamRef.current = null; setSelectedRunId(wanted); return; }
+    const latestId = runs[0].id || '0';
+    if (!selectedRunId || (selectedRunId !== latestId && !runs.some(r => r.id === selectedRunId))) {
+      setSelectedRunId(runs[0].id || '0');
+    }
+  }, [runs, selectedRunId]);
 
   const currentRun = useMemo(() => {
     if (!selectedRunId) return runs[0] || null;

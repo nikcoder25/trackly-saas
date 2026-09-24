@@ -18,7 +18,8 @@ export default function QueryTrackerPage() {
   const { brand: rawBrand, loading } = useBrandData({ fullData: true });
   const brand = rawBrand as Brand | null;
   const [keywords, setKeywords] = useState<KTKeyword[]>([]);
-  const [period, setPeriod] = useState('day');
+  // Month by default: Starter scans every 2 days, so a 1-day window is often empty.
+  const [period, setPeriod] = useState('month');
   const [filterText, setFilterText] = useState('');
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');

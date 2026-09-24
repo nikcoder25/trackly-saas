@@ -88,7 +88,8 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     trackedPromptsPerAccount: 5,
     maxPromptsPerBrand: 5,
     modelTier: 'economy',
-    scheduledRuns: true,
+    // Matches PLAN_LIMITS.free.scheduledRuns: the cron skips Free accounts.
+    scheduledRuns: false,
     autoRunFrequency: 'weekly',
     brandsCap: 1,
     label: 'Free',

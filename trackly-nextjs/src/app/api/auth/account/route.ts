@@ -15,13 +15,18 @@ export async function DELETE(request: Request) {
   });
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const { password } = await request.json();
+  const body = await request.json().catch(() => null);
+  const password = typeof body?.password === 'string' ? body.password : '';
   if (!password) return Response.json({ error: 'Password required to delete account' }, { status: 400 });
 
   try {
-    const result = await pool.query('SELECT password_hash, role FROM users WHERE id = $1', [user.id]);
+    const result = await pool.query('SELECT email, password_hash, role, google_id FROM users WHERE id = $1', [user.id]);
     if (!result.rows.length) return Response.json({ error: 'User not found' }, { status: 404 });
-    const ok = await bcrypt.compare(password, result.rows[0].password_hash);
+    const row = result.rows[0];
+    // Google sign-up accounts carry a random password hash they can never
+    // match, so they confirm by typing their account email instead.
+    const ok = (await bcrypt.compare(password, row.password_hash)) ||
+      (!!row.google_id && password.trim().toLowerCase() === String(row.email).toLowerCase());
     if (!ok) return Response.json({ error: 'Incorrect password' }, { status: 400 });
 
     const ip = getClientIp(request);

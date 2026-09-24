@@ -59,6 +59,10 @@ export async function POST(req: NextRequest) {
     if (!allowed) return rateLimitResponse(retryAfter);
 
     const body = await req.json().catch(() => ({}));
+    // Honeypot: the page sends a hidden `website` field that humans leave empty.
+    if (typeof body?.website === 'string' && body.website) {
+      return Response.json({ error: 'Invalid request.' }, { status: 400 });
+    }
     const query: string = typeof body?.query === 'string' ? body.query.trim() : '';
     const brand: string = typeof body?.brand === 'string' ? body.brand.trim() : '';
     const platformChoice: string = typeof body?.platform === 'string' ? body.platform : 'Perplexity';
@@ -97,6 +101,13 @@ export async function POST(req: NextRequest) {
     const text = result.text || '';
 
     const citations = extractCitations(text);
+    // Perplexity answers use [1]-style markers; the real sources (and
+    // ChatGPT's link annotations) arrive on result.citations.
+    const structured = (result as { citations?: unknown }).citations;
+    for (const u of Array.isArray(structured) ? structured : []) {
+      if (typeof u !== 'string' || citations.length >= 25 || citations.some((c) => c.url === u)) continue;
+      try { citations.push({ url: u, domain: new URL(u).host }); } catch {}
+    }
 
     let brandCited = false;
     if (brand) {

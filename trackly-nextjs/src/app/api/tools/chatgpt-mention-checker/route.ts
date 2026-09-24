@@ -17,6 +17,10 @@ export async function POST(req: NextRequest) {
     if (!allowed) return rateLimitResponse(retryAfter);
 
     const body = await req.json().catch(() => ({}));
+    // Honeypot: the page sends a hidden `website` field that humans leave empty.
+    if (typeof body?.website === 'string' && body.website) {
+      return Response.json({ error: 'Invalid request.' }, { status: 400 });
+    }
     const brandName: string = typeof body?.brandName === 'string' ? body.brandName.trim() : '';
     const query: string = typeof body?.query === 'string' ? body.query.trim() : '';
 

@@ -80,7 +80,7 @@ function makeRealisticResponder(opts: {
     if (/SELECT email_verified FROM users/.test(sql)) {
       return { rows: [{ email_verified: true }] };
     }
-    if (/SELECT plan FROM users/.test(sql)) {
+    if (/SELECT plan(, trial_ends_at)? FROM users/.test(sql)) {
       // 'pro' has sentiment:true, which is the gate the recommendations
       // endpoint enforces. starter has sentiment:false and would 403.
       return { rows: [{ plan: 'pro' }] };

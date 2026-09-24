@@ -45,15 +45,26 @@ export default function CitationsPage() {
     return () => window.removeEventListener('livesov:run-complete', handler);
   }, [brand?.id, loadCitations]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const sortedDomains = useMemo(() => {
+  // ?domain=<d> (command palette) narrows the list to matching sources.
+  const [domainFilter, setDomainFilter] = useState('');
+  useEffect(() => {
+    const d = new URLSearchParams(window.location.search).get('domain');
+    if (d) setDomainFilter(d.toLowerCase());
+  }, []);
+
+  const allDomains = useMemo(() => {
     if (!citData?.domains) return [];
     return Object.entries(citData.domains ?? {}).sort((a, b) => b[1] - a[1]);
   }, [citData]);
+  const sortedDomains = useMemo(
+    () => (domainFilter ? allDomains.filter(([d]) => d.toLowerCase().includes(domainFilter)) : allDomains),
+    [allDomains, domainFilter],
+  );
 
-  const domainCount = sortedDomains.length;
-  const totalCitations = citData?.totalCitations || sortedDomains.reduce((s, [, n]) => s + n, 0);
+  const domainCount = allDomains.length;
+  const totalCitations = citData?.totalCitations || allDomains.reduce((s, [, n]) => s + n, 0);
   const ownDomainCount = citData?.ownDomain || 0;
-  const maxCount = sortedDomains.length > 0 ? sortedDomains[0][1] : 1;
+  const maxCount = allDomains.length > 0 ? allDomains[0][1] : 1;
 
   // Detect own domain (brand website)
   const ownDomainName = citData?.ownDomainName || '';
@@ -76,7 +87,9 @@ export default function CitationsPage() {
           { k: 'YOUR DOMAIN CITED', v: ownDomainCount },
         ]} />
 
-        <Card title="All cited sources" right={<Pill>{domainCount} unique</Pill>} padding={false}>
+        <Card title="All cited sources" right={domainFilter
+          ? <button className="btn-g" onClick={() => setDomainFilter('')}>Filter: {domainFilter} ✕</button>
+          : <Pill>{domainCount} unique</Pill>} padding={false}>
           {sortedDomains.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 32, color: 'var(--mute)', fontSize: 12 }}>
               No citations captured yet. Citations will appear after your next run.

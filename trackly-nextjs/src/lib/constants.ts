@@ -143,7 +143,7 @@ export const PRICING_PLANS: PricingPlan[] = [
       '1 brand',
       '5 tracked prompts',
       '2 AI platforms',
-      'Weekly auto-runs',
+      'Manual runs only',
       '3 GEO audits/month',
     ],
   },

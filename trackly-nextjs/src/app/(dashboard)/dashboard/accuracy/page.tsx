@@ -306,18 +306,31 @@ export default function AccuracyPage() {
     return () => window.removeEventListener('livesov:run-complete', handler);
   }, [brand?.id, loadAccuracy]);
 
+  // Resolves only when the facts save succeeded; surfaces the server's reason otherwise.
+  function saveFacts(brandId: string, updated: Fact[]) {
+    return brandApi(brandId, '', 'POST', { facts: updated }).then(async r => {
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d.error || 'Failed to save facts');
+      }
+    });
+  }
+  const onFactsError = (e: unknown) => toast((e as Error).message || 'Failed to save facts', 'error');
+
   function addFact() {
     if (!factKey.trim() || !factValue.trim() || !brand) return;
     const updated = [...facts, { key: factKey.trim(), value: factValue.trim(), category: factCategory }];
-    brandApi(brand.id, '', 'POST', { facts: updated })
-      .then(() => { setFacts(updated); setFactKey(''); setFactValue(''); });
+    saveFacts(brand.id, updated)
+      .then(() => { setFacts(updated); setFactKey(''); setFactValue(''); })
+      .catch(onFactsError);
   }
 
   function removeFact(idx: number) {
     if (!brand) return;
     const updated = facts.filter((_, i) => i !== idx);
-    brandApi(brand.id, '', 'POST', { facts: updated })
-      .then(() => setFacts(updated));
+    saveFacts(brand.id, updated)
+      .then(() => setFacts(updated))
+      .catch(onFactsError);
   }
 
   function checkNow() {
@@ -395,21 +408,23 @@ export default function AccuracyPage() {
   function acceptFact(sf: SuggestedFact) {
     if (!brand) return;
     const updated = [...facts, { key: sf.key, value: sf.value, category: sf.category }];
-    brandApi(brand.id, '', 'POST', { facts: updated })
+    saveFacts(brand.id, updated)
       .then(() => {
         setFacts(updated);
         setSuggestedFacts(prev => prev.filter(f => f.key !== sf.key));
-      });
+      })
+      .catch(onFactsError);
   }
 
   function acceptAllFacts() {
     if (!brand || suggestedFacts.length === 0) return;
     const updated = [...facts, ...suggestedFacts.map(sf => ({ key: sf.key, value: sf.value, category: sf.category }))];
-    brandApi(brand.id, '', 'POST', { facts: updated })
+    saveFacts(brand.id, updated)
       .then(() => {
         setFacts(updated);
         setSuggestedFacts([]);
-      });
+      })
+      .catch(onFactsError);
   }
 
   function dismissFact(key: string) {

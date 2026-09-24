@@ -110,7 +110,7 @@ const faqs = [
   {
     question: 'What are the best AI search optimization tools for content creators?',
     answer:
-      'Content creators need accurate, affordable, multi-engine tracking plus a citation view that shows which pages AI quotes. Livesov starts at $9/mo, covers all five engines, retains daily history, and includes a free GEO audit - which is why it fits creators and small teams better than enterprise-priced suites.',
+      'Content creators need accurate, affordable, multi-engine tracking plus a citation view that shows which pages AI quotes. Livesov starts at $9/mo, tracks all five engines (2 on Starter, 3 on Pro, all 5 on Agency), retains daily history, and includes a free GEO audit - which is why it fits creators and small teams better than enterprise-priced suites.',
   },
   {
     question: 'Do these tools measure real AI answers?',
@@ -244,7 +244,7 @@ export default function BestAiSearchOptimizationToolsPage() {
           { href: '/vs/semrush', label: 'Livesov vs Semrush', description: 'Purpose-built vs bolt-on AI toolkit.' },
           { href: '/learn/ai-search-optimization', label: 'AI search optimization guide', description: 'The complete 2026 framework.' },
           { href: '/geo-audit', label: 'Free GEO audit', description: 'Score any page’s AI-citation readiness.' },
-          { href: '/pricing', label: 'Pricing & plans', description: 'All five engines from $9/mo.' },
+          { href: '/pricing', label: 'Pricing & plans', description: 'Plans from $9/mo; all five engines on Agency.' },
         ]}
       />
     </SeoLayout>
