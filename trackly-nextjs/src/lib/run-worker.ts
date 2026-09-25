@@ -20,6 +20,7 @@ import { uid, decryptApiKeys, loadTenantFairnessSettings } from './helpers';
 import { circuitBreakerCheck, recordApiKeyFailure, resetApiKeyFailures, acquirePlatformSlot } from './ai-platforms';
 import { setTenantFairness } from './fairness-scheduler';
 import { logger } from './logger';
+import { isRedirectCitationHost } from './citation-hosts';
 import { getServerKeys } from './server-keys';
 import { resolveKeysForTenant, recordTenantKeyResult } from './tenant-keys';
 import type { BrandRunJobData } from './job-queue';
@@ -472,6 +473,7 @@ async function processRun(job: Job<BrandRunJobData>) {
       for (const url of cites) {
         try {
           const domain = new URL(url).hostname.replace(/^www\./, '');
+          if (isRedirectCitationHost(domain)) continue;
           citationCounts[domain] = (citationCounts[domain] || 0) + 1;
         } catch { /* skip invalid URLs */ }
       }

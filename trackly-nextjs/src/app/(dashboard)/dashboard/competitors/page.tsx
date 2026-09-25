@@ -8,7 +8,26 @@ import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { useBrandData } from '@/hooks/useBrandData';
 import { friendlyCompetitorName as friendlyName } from '@/lib/parser';
+import { isRedirectCitationHost } from '@/lib/citation-hosts';
 import { Card, PageHead, Badge, Bar, StackBar, Spark } from '@/app/dashboard-v2/ui';
+
+// Review sites, directories, social and media hosts AI engines cite a lot.
+// They are sources, not rivals, so they never show as discovered competitors.
+const NON_COMPETITOR_HOSTS = [
+  'tripadvisor', 'yelp', 'bbb.org', 'google', 'facebook', 'instagram', 'linkedin', 'x', 'twitter',
+  'youtube', 'reddit', 'quora', 'wikipedia', 'yellowpages', 'angi', 'thumbtack', 'homeadvisor',
+  'houzz', 'nextdoor', 'mapquest', 'foursquare', 'manta', 'chamberofcommerce', 'birdeye',
+  'trustpilot', 'indeed', 'glassdoor', 'apple', 'bing', 'medium', 'forbes', 'grdd.net',
+  'expertise.com', 'threebestrated', 'porch', 'superpages', 'citysearch',
+];
+
+function isNonCompetitorHost(host: string): boolean {
+  const labels = host.split('.');
+  const nonTld = labels.slice(0, -1);
+  return NON_COMPETITOR_HOSTS.some(h => (h.includes('.')
+    ? host === h || host.endsWith('.' + h)
+    : nonTld.includes(h)));
+}
 
 const COMP_COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899', '#14b8a6', '#6366f1', '#ef4444'];
 
@@ -205,12 +224,18 @@ export default function CompetitorsPage() {
     const brandDomain = brand?.website
       ? brand.website.replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '').toLowerCase()
       : '';
+    // Sister domains share the brand site's first label (acme.com / acme.net).
+    const brandLabel = brandDomain.split('.')[0] || '';
     const competitorLower = new Set(competitors.map(c => c.toLowerCase()));
     return citations
       .filter((c: CitationRow) => {
         if (c.is_brand) return false;
-        const domLower = c.domain.toLowerCase();
+        const domLower = c.domain.toLowerCase().replace(/^www\./, '');
         if (brandDomain && domLower.includes(brandDomain)) return false;
+        if (isRedirectCitationHost(domLower)) return false;
+        if (brandLabel.length >= 6 && domLower.split('.')[0] === brandLabel) return false;
+        if (/^visit[a-z0-9-]*\.(com|org)$/.test(domLower)) return false;
+        if (isNonCompetitorHost(domLower)) return false;
         if (competitorLower.has(domLower)) return false;
         if (['social', 'encyclopedia', 'government', 'academic'].includes(c.domain_type)) return false;
         return true;
@@ -313,7 +338,7 @@ export default function CompetitorsPage() {
 
         {/* Discovered in AI Responses */}
         {discoveredCompetitors.length > 0 && (
-          <Card title="Discovered in AI responses" lede="Domains that AI platforms cite alongside your brand. These may be competitors worth tracking.">
+          <Card title="Discovered in AI responses" lede="Business websites AI engines cite for your prompts (review sites and directories are hidden). Track the real rivals to compare against them.">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {discoveredCompetitors.map((c: CitationRow) => {
                 const maxTotal = Math.max(...discoveredCompetitors.map((d: CitationRow) => Number(d.total)), 1);

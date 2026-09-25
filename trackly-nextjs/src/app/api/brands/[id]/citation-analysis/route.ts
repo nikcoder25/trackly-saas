@@ -1,4 +1,5 @@
 import { pool } from '@/lib/db';
+import { isRedirectCitationHost } from '@/lib/citation-hosts';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
@@ -49,6 +50,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
         for (const row of result.rows) {
           const domain = String(row.domain).replace(/^www\./, '').toLowerCase();
+          if (isRedirectCitationHost(domain)) continue;
           domains[domain] = (domains[domain] || 0) + row.total;
           totalCitations += row.total;
           if (brandHost && (domain === brandHost || domain.endsWith('.' + brandHost))) {
@@ -91,6 +93,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           for (const citation of citations) {
             try {
               const d = new URL(citation).hostname.replace(/^www\./, '');
+              if (isRedirectCitationHost(d)) continue;
               domains[d] = (domains[d] || 0) + 1;
             } catch {}
           }

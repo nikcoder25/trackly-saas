@@ -21,6 +21,7 @@ import {
 } from './redis-platform-state';
 import { PROVIDER_SPECS } from './provider-specs';
 import { logger } from './logger';
+import { isRedirectCitationHost, looksLikeDomain } from './citation-hosts';
 import { recordAiCall, classifyOutcome, type Outcome } from './metrics';
 import {
   acquirePlatformSlotFair,
@@ -1580,12 +1581,12 @@ interface GeminiPayload {
  * available from any provider we call, and it costs nothing extra once
  * grounding is on.
  */
-function extractGeminiGrounding(
+export function extractGeminiGrounding(
   cand: unknown,
 ): { citations: string[]; fanout: string[]; grounded: boolean } {
   const meta = (cand as { groundingMetadata?: {
     webSearchQueries?: unknown;
-    groundingChunks?: Array<{ web?: { uri?: string } }>;
+    groundingChunks?: Array<{ web?: { uri?: string; title?: string } }>;
   } })?.groundingMetadata;
   // No groundingMetadata at all means the model answered without
   // searching, so Google has nothing to charge a grounding fee for.
@@ -1599,14 +1600,19 @@ function extractGeminiGrounding(
       )].slice(0, 20)
     : [];
 
-  // groundingChunks carry Google's redirect URLs rather than the publisher
-  // domain. They are still the authoritative retrieved-source list, and the
-  // citations pipeline normalizes whatever it is handed, so pass them
-  // through rather than trying to unwrap the redirect here.
+  // groundingChunks carry Google's redirect URLs (vertexaisearch...) rather
+  // than the publisher URL, but web.title holds the publisher domain. Unwrap
+  // to https://<title>/ when possible so the real site is what gets counted.
   const citations = Array.isArray(meta.groundingChunks)
     ? [...new Set(
         meta.groundingChunks
-          .map(c => c?.web?.uri)
+          .map(c => {
+            const uri = c?.web?.uri;
+            if (typeof uri !== 'string' || !uri) return undefined;
+            const title = typeof c?.web?.title === 'string' ? c.web.title.trim().toLowerCase() : '';
+            if (isRedirectCitationHost(uri) && looksLikeDomain(title)) return `https://${title}/`;
+            return uri;
+          })
           .filter((u): u is string => typeof u === 'string' && !!u),
       )].slice(0, 10)
     : [];

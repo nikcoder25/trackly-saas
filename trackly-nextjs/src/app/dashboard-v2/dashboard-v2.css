@@ -419,6 +419,7 @@
 .lvx .delta { font-family: var(--mono); font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; flex-shrink: 0; }
 .lvx .delta.up   { color: var(--success); background: var(--success-50); }
 .lvx .delta.down { color: var(--danger);  background: var(--danger-50); }
+.lvx .delta.flat { color: var(--text-3); background: var(--bg-2); }
 
 /* Platform tile */
 .lvx .ptile {
@@ -622,6 +623,7 @@ a.cit, .lvx a.cit { text-decoration: none; }
 .lvx .hb-grade { font-size: 34px; font-weight: 700; letter-spacing: -0.025em; line-height: 1; margin-top: 8px; color: #fff; }
 .lvx .hb-d { margin-top: 8px; font-size: 12px; display: flex; gap: 8px; align-items: center; }
 .lvx .hb .delta.up { background: rgba(255,255,255,.22); color: #fff; }
+.lvx .hb .delta.flat { background: rgba(255,255,255,.14); color: rgba(255,255,255,.8); }
 .lvx .hb-bars { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 28px; position: relative; z-index: 1; }
 .lvx .hbar-l { font-size: 12px; color: rgba(255,255,255,.85); font-weight: 500; }
 .lvx .hbar-v { font-size: 14px; font-weight: 600; color: #fff; }
@@ -1071,10 +1073,12 @@ a.cit, .lvx a.cit { text-decoration: none; }
 .lvx .pd-hero-v i { color: rgba(255,255,255,.6); font-style: normal; font-size: 14px; font-weight: 400; margin-left: 6px; }
 .lvx .pd-hero-d { color: rgba(255,255,255,.78); font-size: 12.5px; margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .lvx .pd-hero-d .delta { background: rgba(255,255,255,.18); color: #fff; }
+.lvx .pd-hero-d .delta.flat { background: rgba(255,255,255,.1); color: rgba(255,255,255,.75); }
 .lvx .pd-hero-mini { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; position: relative; z-index: 1; }
 .lvx .pd-mini { padding: 14px 16px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 8px; }
 .lvx .pd-mini-v { font-size: 22px; font-weight: 600; margin-top: 4px; }
 .lvx .pd-mini .delta { background: rgba(255,255,255,.18); color: #fff; margin-top: 6px; }
+.lvx .pd-mini .delta.flat { background: rgba(255,255,255,.1); color: rgba(255,255,255,.75); }
 .lvx .ic-row { display: grid; grid-template-columns: 140px 1fr 36px 70px; gap: 12px; align-items: center; padding: 6px 0; }
 .lvx .ic-row:not(:last-child) { border-bottom: 1px dashed var(--line); padding-bottom: 12px; margin-bottom: 6px; }
 .lvx .bg-stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 6px; }
@@ -1114,6 +1118,8 @@ a.cit, .lvx a.cit { text-decoration: none; }
 /* ── Responsive ── */
 @media (max-width: 1300px) {
   .lvx .eg-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lvx .eg-grid > :last-child:nth-child(3n+2) { grid-column: span 2; }
+  .lvx .eg-grid > :last-child:nth-child(3n+1) { grid-column: span 3; }
   .lvx .reg-grid { grid-template-columns: 1fr 1fr 1fr; }
   .lvx .reg-card:nth-child(5n) { border-right: 1px solid var(--line); }
   .lvx .reg-card:nth-child(3n) { border-right: 0; }
@@ -1125,6 +1131,8 @@ a.cit, .lvx a.cit { text-decoration: none; }
   .lvx .kpi-rail { grid-template-columns: repeat(3, 1fr) !important; }
   .lvx .kpi { border-bottom: 1px solid var(--line); }
   .lvx .kpi:nth-child(3n) { border-right: 0; }
+  .lvx .kpi:last-child:nth-child(3n+1) { grid-column: span 3; border-right: 0; }
+  .lvx .kpi:last-child:nth-child(3n+2) { grid-column: span 2; }
 }
 @media (max-width: 1100px) { .lvx .hb { grid-template-columns: 1fr; } .lvx .ins-strip { grid-template-columns: 1fr; } }
 @media (max-width: 880px) {
@@ -1136,6 +1144,8 @@ a.cit, .lvx a.cit { text-decoration: none; }
   .lvx .kpi-rail { grid-template-columns: 1fr 1fr !important; }
   .lvx .kpi { border-right: 1px solid var(--line) !important; border-bottom: 1px solid var(--line); }
   .lvx .kpi:nth-child(2n) { border-right: 0 !important; }
+  .lvx .kpi:last-child:nth-child(n) { grid-column: auto; }
+  .lvx .kpi:last-child:nth-child(2n+1) { grid-column: span 2; border-right: 0 !important; }
   .lvx .bill-head { grid-template-columns: 1fr; }
   .lvx .bh-spend { border-left: 0; border-top: 1px solid var(--line); }
   .lvx .pd-hero-mini { grid-template-columns: 1fr 1fr; }
@@ -1144,9 +1154,9 @@ a.cit, .lvx a.cit { text-decoration: none; }
   .lvx .span-2, .lvx .span-3 { grid-column: auto; }
 }
 @media (max-width: 760px) { .lvx .bill-usage { grid-template-columns: 1fr; gap: 22px; } .lvx .bu-meters { grid-template-columns: 1fr; } }
-@media (max-width: 720px) { .lvx .eg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .lvx .eg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .lvx .eg-grid > :last-child:nth-child(n) { grid-column: auto; } .lvx .eg-grid > :last-child:nth-child(2n+1) { grid-column: span 2; } }
 @media (max-width: 640px) { .lvx .bill-engines { grid-template-columns: 1fr; } }
-@media (max-width: 440px) { .lvx .eg-grid { grid-template-columns: 1fr; } }
+@media (max-width: 440px) { .lvx .eg-grid { grid-template-columns: 1fr; } .lvx .eg-grid > :last-child:nth-child(n) { grid-column: auto; } }
 
 /* ============================================================================
    Production shell host (used by the live /dashboard layout). The grid root is

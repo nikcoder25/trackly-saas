@@ -91,7 +91,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
        created_at DESC LIMIT 100`;
 
     const result = await pool.query(query, values);
-    return Response.json({ recommendations: result.rows });
+    // Hide platform-gap rows for engines the brand doesn't track (e.g. an
+    // old "Google AI Overviews" row from before the engine list changed).
+    const trackedPlatforms = trackedSet((access.brand as { platforms?: unknown }).platforms);
+    const recommendations = trackedPlatforms
+      ? result.rows.filter((row: { type?: string; prompt?: string | null }) =>
+          row.type !== 'platform_gap' || trackedPlatforms.has(String(row.prompt || '').toLowerCase()))
+      : result.rows;
+    return Response.json({ recommendations });
   } catch (err) {
     // Backstop: log the real error so future schema drifts (or any
     // other unexpected throw) are visible in Sentry/server logs
@@ -126,7 +133,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   try {
     // Gather analytics data from prompt_runs for this brand
-    const analytics = await gatherAnalytics(id);
+    const analytics = await gatherAnalytics(id, access.brand);
 
     // Generate recommendations based on rules
     const newRecs = await generateRecommendations(id, analytics);
@@ -192,7 +199,19 @@ interface AnalyticsData {
   trend: { direction: string; changePercent: number } | null;
 }
 
-async function gatherAnalytics(brandId: string): Promise<AnalyticsData> {
+/** Lower-cased set of a brand's tracked strings, or null when none are set. */
+function trackedSet(list: unknown): Set<string> | null {
+  if (!Array.isArray(list)) return null;
+  const set = new Set(list.filter((v): v is string => typeof v === 'string' && !!v.trim()).map(v => v.trim().toLowerCase()));
+  return set.size > 0 ? set : null;
+}
+
+async function gatherAnalytics(brandId: string, brand?: { platforms?: unknown; queries?: unknown }): Promise<AnalyticsData> {
+  // Only engines and prompts the brand still tracks count; old runs for
+  // removed prompts or untracked engines must not produce recommendations.
+  const trackedPlatforms = trackedSet(brand?.platforms);
+  const trackedQueries = trackedSet(brand?.queries);
+
   // Overall mention rate from recent runs (last 30 days)
   const statsResult = await pool.query(
     `SELECT
@@ -249,6 +268,7 @@ async function gatherAnalytics(brandId: string): Promise<AnalyticsData> {
   );
   const platformBreakdown: Record<string, { mentionRate: number; runs: number; mentions: number }> = {};
   for (const row of platResult.rows) {
+    if (trackedPlatforms && !trackedPlatforms.has(String(row.platform || '').toLowerCase())) continue;
     platformBreakdown[row.platform] = {
       runs: row.runs,
       mentions: row.mentions,
@@ -266,6 +286,7 @@ async function gatherAnalytics(brandId: string): Promise<AnalyticsData> {
   );
   const queryBreakdown: Record<string, { runs: number; mentions: number }> = {};
   for (const row of queryResult.rows) {
+    if (trackedQueries && !trackedQueries.has(String(row.prompt || '').trim().toLowerCase())) continue;
     queryBreakdown[row.prompt] = { runs: row.runs, mentions: row.mentions };
   }
 

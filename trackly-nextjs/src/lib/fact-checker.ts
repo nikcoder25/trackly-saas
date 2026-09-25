@@ -56,6 +56,30 @@ export interface FactCheckResult {
   platformStats: Record<string, { total: number; accurate: number }>;
   categoryStats: Record<string, { total: number; accurate: number }>;
   error?: string;
+  message?: string;
+}
+
+export const NO_BRAND_MENTIONS_MESSAGE = 'No AI answers mention this brand yet, so there are no claims to check.';
+
+function normalizeForMatch(s: string): string {
+  return ` ${String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `;
+}
+
+/**
+ * True when the response names the brand: the full normalized name, or its
+ * first two words (so "Acme Paving LLC" matches "Acme Paving").
+ */
+export function responseMentionsBrand(text: string, brandName: string): boolean {
+  const name = normalizeForMatch(brandName).trim();
+  if (!name) return true;
+  const hay = normalizeForMatch(text);
+  if (hay.includes(` ${name} `)) return true;
+  const words = name.split(' ');
+  if (words.length >= 2) {
+    const firstTwo = words.slice(0, 2).join(' ');
+    if (hay.includes(` ${firstTwo} `)) return true;
+  }
+  return false;
 }
 
 interface PromptRun {
@@ -137,8 +161,16 @@ function isTransientError(e: Error): boolean {
     || msg.includes('api error 5') || msg.includes('max retries exhausted');
 }
 
-function buildFactCheckPrompt(facts: CanonicalFact[], responseText: string, platform: string): string {
+function buildFactCheckPrompt(facts: CanonicalFact[], responseText: string, platform: string, brandName?: string): string {
   const factsList = facts.map(f => `- ${f.key} (${f.category}): "${f.value}"`).join('\n');
+  const brandRule = brandName
+    ? `
+BRAND SCOPE - read carefully:
+- These canonical facts describe "${brandName}". Only judge statements the response makes about "${brandName}".
+- Facts about other businesses (competitors, other companies in a list) are NEVER inaccuracies. For them mark the fact "not_mentioned".
+- If the response does not name "${brandName}" at all, mark every fact "not_mentioned".
+`
+    : '';
 
   return `You are a strict fact-checking assistant. Analyze the following AI-generated response and check it against the canonical facts provided.
 
@@ -154,7 +186,7 @@ For each canonical fact, determine if the AI response:
 1. Mentions the topic and gets it RIGHT → mark as "accurate"
 2. Mentions the topic but gets it WRONG → mark as "inaccurate" with what was found
 3. Does NOT mention the topic at all → mark as "not_mentioned"
-
+${brandRule}
 IMPORTANT - Avoid false positives. These are NOT inaccuracies:
 - Minor punctuation differences (periods, commas, hyphens): "C Brooks" vs "C. Brooks" → accurate
 - Case differences: "c brooks paving" vs "C. Brooks Paving" → accurate
@@ -401,7 +433,8 @@ function parseCheckerResponse(raw: string): Array<{
  */
 export async function runFactCheck(
   facts: CanonicalFact[],
-  runs: PromptRun[]
+  runs: PromptRun[],
+  brandName?: string,
 ): Promise<FactCheckResult> {
   const checkers = getAllAvailableCheckers();
 
@@ -426,8 +459,21 @@ export async function runFactCheck(
     };
   }
 
-  // Only check runs that have response text, limit to recent runs per platform
-  const runsWithResponse = runs.filter(r => r.response_raw && r.response_raw.length > 20);
+  // Only check runs that have response text, limit to recent runs per platform.
+  // With a brand name, only answers that actually name the brand carry
+  // claims about it; generic answers about other companies are skipped.
+  const runsWithResponse = runs.filter(r => r.response_raw && r.response_raw.length > 20
+    && (!brandName || responseMentionsBrand(r.response_raw, brandName)));
+  if (brandName && runsWithResponse.length === 0) {
+    return {
+      issues: [],
+      checkedRuns: 0,
+      accuracyRate: 100,
+      platformStats: {},
+      categoryStats: {},
+      message: NO_BRAND_MENTIONS_MESSAGE,
+    };
+  }
   const platformGroups: Record<string, PromptRun[]> = {};
   for (const run of runsWithResponse) {
     const p = run.platform || 'unknown';
@@ -451,7 +497,7 @@ export async function runFactCheck(
     const batch = runsToCheck.slice(i, i + batchSize);
     const results = await Promise.allSettled(
       batch.map(async (run) => {
-        const prompt = buildFactCheckPrompt(facts, run.response_raw, run.platform);
+        const prompt = buildFactCheckPrompt(facts, run.response_raw, run.platform, brandName);
         // Try each checker in order until one succeeds
         let responseText = '';
         for (let ci = 0; ci < checkers.length; ci++) {

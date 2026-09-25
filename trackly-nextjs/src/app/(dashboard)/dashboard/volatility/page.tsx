@@ -126,6 +126,10 @@ export default function VolatilityPage() {
               k: s.platform.toUpperCase(),
               v: s.latest ?? '—',
               danger: (s.latest ?? 0) >= 70,
+              info: s.latest === null ? 'needs 2 days of runs'
+                : s.latest >= 70 ? 'high churn'
+                : s.latest >= 40 ? 'moderate churn'
+                : 'stable',
             }))} />
 
             <Filter>

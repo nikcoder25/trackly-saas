@@ -582,10 +582,10 @@ export default function AccuracyPage() {
       <div className="page-body">
         {/* KPI rail - real metrics */}
         <KPIRail items={[
-          { k: 'OPEN', v: issues.length - issueSummary.fixed, danger: (issues.length - issueSummary.fixed) > 0 },
+          { k: 'WRONG CLAIMS OPEN', v: issues.length - issueSummary.fixed, danger: (issues.length - issueSummary.fixed) > 0 },
           { k: 'FIXED', v: issueSummary.fixed },
-          { k: 'ACCURACY RATE', v: accuracyRate != null ? accuracyRate : '-', suffix: accuracyRate != null ? '%' : '' },
-          { k: 'CLAIMS VERIFIED', v: facts.length },
+          { k: 'ACCURACY RATE', v: accuracyRate != null ? accuracyRate : '-', suffix: accuracyRate != null ? '%' : '', info: 'of claims AI made about you' },
+          { k: 'BRAND FACTS', v: facts.length, info: 'the truth AI is checked against' },
           { k: 'LAST CHECKED', v: lastChecked ? new Date(lastChecked).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Never', info: lastChecked ? new Date(lastChecked).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : undefined },
         ]} />
 
