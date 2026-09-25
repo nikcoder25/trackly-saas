@@ -16,6 +16,7 @@ import { useBrandData } from '@/hooks/useBrandData';
 import { useRun } from '@/contexts/RunContext';
 import { useToast } from '@/components/dashboard/Toast';
 import { useBrands } from '@/contexts/BrandContext';
+import { cleanCitationCounts } from '@/lib/citation-hosts';
 import { useAuth } from '@/contexts/AuthContext';
 import { KpiCardsSkeleton, CardsSkeleton, ChartSkeleton } from '@/components/dashboard/Skeleton';
 import { highlightBrand as highlightBrandText, sanitizeHtml } from '@/lib/sanitize';
@@ -62,6 +63,10 @@ interface OverviewData {
   totalM: number;
   mentionsDelta: number;
   totalQ: number;
+  /** Distinct tracked prompts in the latest run (totalQ is prompts x engines). */
+  promptCount: number;
+  /** Distinct engines represented in the latest run. */
+  engineCount?: number;
   health: number;
   sentiment: number;
   platforms: Platform[];
@@ -269,7 +274,7 @@ function buildFallback(): OverviewData {
     runCount: 0,
     brandName: 'Acme PM',
     industry: 'Project management software', city: 'San Francisco',
-    sov: 27.4, sovDelta: +4.2, totalM: 1284, mentionsDelta: +218, totalQ: 142, health: 78, sentiment: 74,
+    sov: 27.4, sovDelta: +4.2, totalM: 1284, mentionsDelta: +218, totalQ: 142, promptCount: 142, health: 78, sentiment: 74,
     platforms: PLATFORMS,
     competitors: [
       { name: 'Acme', sov: 27.4, d: +4.2, me: true, color: 'var(--accent)' },
@@ -345,7 +350,7 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
       brandName: brand.name || fb.brandName, industry: brand.industry, city: brand.city,
       website: brand.website,
       sov: 0, sovDelta: 0, totalM: 0, mentionsDelta: 0,
-      totalQ: brandQueries.length, health: 0, sentiment: 0,
+      totalQ: brandQueries.length, promptCount: brandQueries.length, health: 0, sentiment: 0,
       competitors: [], sources: [], trend: [],
       accuracyRate, openIssues, fixedIssues,
       healthDelta: null, sentimentDelta: null, coverageDelta: null,
@@ -374,6 +379,9 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   const totalQ = filtersActive
     ? distinctQ
     : (Number(lastRun.totalQ) || distinctQ || brandQueries.length);
+  // totalQ is prompts x engines; promptCount is what users mean by "prompts".
+  const promptCount = distinctQ || brandQueries.length;
+  const engineCount = new Set(results.map(r => r.platform).filter(Boolean)).size || PLATFORMS.length;
 
   // Share of Voice is mention-rate across the (filtered) result set. With no
   // filter, prefer the precomputed lastRun.sov for parity with other pages.
@@ -416,6 +424,7 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   let prevSentiment: number | null = null;
   let prevHealth: number | null = null;
   let prevTotalQ: number | null = null;
+  let prevPromptCount: number | null = null;
   if (prevRun) {
     const pTotalM = filtersActive
       ? prevFiltered.filter(r => r.mentioned).length
@@ -424,6 +433,7 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
     prevTotalQ = filtersActive
       ? pDistinctQ
       : (Number(prevRun.totalQ) || pDistinctQ || brandQueries.length);
+    prevPromptCount = pDistinctQ || brandQueries.length;
     const pPos = prevFiltered.filter(r => r.sentiment === 'positive').length;
     const pNeu = prevFiltered.filter(r => r.sentiment === 'neutral').length;
     const pNeg = prevFiltered.filter(r => r.sentiment === 'negative').length;
@@ -436,7 +446,7 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   }
   const healthDelta = prevHealth !== null ? health - prevHealth : null;
   const sentimentDelta = prevSentiment !== null ? sentiment - prevSentiment : null;
-  const coverageDelta = prevTotalQ !== null ? totalQ - prevTotalQ : null;
+  const coverageDelta = prevPromptCount !== null ? promptCount - prevPromptCount : null;
 
   // platforms: override design tiles with real SOV/mentions where present.
   // When an engine filter is active, narrow the grid to just that engine and
@@ -539,7 +549,7 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   }
 
   // sources / citations
-  const citeRaw: Record<string, number> = lastRun.citations || {};
+  const citeRaw: Record<string, number> = cleanCitationCounts(lastRun.citations);
   let sources: OverviewData['sources'] = [];
   const citeEntries = Object.entries(citeRaw).sort((a, b) => b[1] - a[1]).slice(0, 6);
   if (citeEntries.length > 0) {
@@ -553,10 +563,14 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   // recent mentions - newest results from the latest run (already engine/intent
   // filtered because `results` is the filtered set)
   const runDate = lastRun.date || lastRun.time || lastRun.created_at;
-  const recent: RecentItem[] = results
-    .filter(r => r.query && !r.error)
-    .slice(-8)
-    .reverse()
+  // Mentions first (newest first), backfilled with misses only when there
+  // are fewer than 8 mentions.
+  const recentPool = results.filter(r => r.query && !r.error).reverse();
+  const recentHits = recentPool.filter(r => r.mentioned);
+  const recentPicked = recentHits.length >= 8
+    ? recentHits.slice(0, 8)
+    : [...recentHits, ...recentPool.filter(r => !r.mentioned).slice(0, 8 - recentHits.length)];
+  const recent: RecentItem[] = recentPicked
     .map(r => {
       const mentioned = !!r.mentioned;
       const pos = r.position ?? r.listPosition;
@@ -674,7 +688,7 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
     industry: brand.industry, city: brand.city,
     sov, sovDelta: prevRun ? sov - prevSov : 0,
     totalM, mentionsDelta: prevRun ? totalM - prevTotalM : 0,
-    totalQ, health, sentiment,
+    totalQ, promptCount, engineCount, health, sentiment,
     platforms, competitors, sources,
     // Never substitute the demo trend for a real brand: with a single run,
     // draw a flat line at the real value instead of fabricated history.
@@ -800,6 +814,7 @@ export function PageOverview() {
   const { live } = useRun();
   const scanning = live.running;
   const { user } = useAuth();
+  const { selectedBrand, refreshBrands } = useBrands();
   // First name only, and never an email fragment - fall back to a plain
   // greeting when the account has no display name.
   const firstName = (user?.name || '').trim().split(/\s+/)[0] || null;
@@ -854,7 +869,7 @@ export function PageOverview() {
                   title="Add a website to your brand to open it from here"
                   style={{ opacity: 0.55, cursor: 'not-allowed' }}
                 >
-                  ↗ View live
+                  ↗ Open website
                 </button>
               );
             }
@@ -867,7 +882,7 @@ export function PageOverview() {
                 title={`Open ${href} in a new tab`}
                 style={{ textDecoration: 'none' }}
               >
-                ↗ View live
+                ↗ Open website
               </a>
             );
           })()}
@@ -877,8 +892,8 @@ export function PageOverview() {
         {d.noData && !scanning && <OverviewEmptyState totalQ={d.totalQ} />}
         {scanning
           ? <HealthBannerSkeleton />
-          : <HealthBanner health={d.health} healthDelta={d.healthDelta} sentiment={d.sentiment} sentimentSub={d.sentimentSub} sov={d.sov} totalQ={d.totalQ} accuracyRate={d.accuracyRate} openIssues={d.openIssues} fixedIssues={d.fixedIssues} competitive={d.competitive} competitiveSub={d.competitiveSub} />}
-        {!scanning && <GoalCard current={d.sov} />}
+          : <HealthBanner health={d.health} healthDelta={d.healthDelta} sentiment={d.sentiment} sentimentSub={d.sentimentSub} sov={d.sov} totalQ={d.promptCount} accuracyRate={d.accuracyRate} openIssues={d.openIssues} fixedIssues={d.fixedIssues} competitive={d.competitive} competitiveSub={d.competitiveSub} />}
+        {!scanning && <GoalCard current={d.sov} brandId={selectedBrand?.id} brandGoal={Number(selectedBrand?.goal) || 0} onSaved={refreshBrands} />}
         {!scanning && <InsightsStrip items={d.insights} />}
 
         <Filter>
@@ -913,7 +928,7 @@ export function PageOverview() {
               { k: 'MENTIONS', term: 'mention', v: fmt(d.totalM), d: d.mentionsDelta, info: '5 engines' },
               { k: 'SENTIMENT', term: 'sentiment', v: String(d.sentiment), suffix: '%', d: d.sentimentDelta ?? undefined, info: d.sentimentDelta != null ? 'vs prev. run' : undefined },
               { k: 'FALSE CLAIMS', term: 'hallucination', v: d.accuracyRate !== null ? String(d.openIssues) : '-', danger: d.accuracyRate !== null && d.openIssues > 0, info: d.accuracyRate !== null ? (d.fixedIssues > 0 ? `${d.fixedIssues} fixed` : 'none fixed') : 'not set up' },
-              { k: 'COVERAGE', term: 'coverage', v: String(d.totalQ), d: d.coverageDelta ?? undefined, info: 'prompts' },
+              { k: 'COVERAGE', term: 'coverage', v: String(d.promptCount), d: d.coverageDelta ?? undefined, info: `prompts × ${d.engineCount ?? 5} engines` },
             ]} />}
 
         <div className="g2">
@@ -928,7 +943,7 @@ export function PageOverview() {
 
         <div className="g2">
           <OverviewRecentMentions onOpen={setDrawer} total={d.totalM} items={d.recent} />
-          <OverviewQueriesTable rows={d.queries} totalQ={d.totalQ} />
+          <OverviewQueriesTable rows={d.queries} totalQ={d.promptCount} />
         </div>
 
         <div className="g2">
@@ -1355,7 +1370,7 @@ function OverviewEngineGrid({ platforms, hasReal, lastRunAt }: { platforms: Plat
                       : <span className="neg">⚠ ERRORS IN LAST RUN</span>}
                 </div>
               </div>
-              {!p.noData && <Badge tone={p.delta >= 0 ? 'pos' : 'neg'}>{p.delta >= 0 ? '▲' : '▼'} {Math.abs(p.delta)}</Badge>}
+              {!p.noData && <Delta v={p.delta} />}
             </div>
             <div className="eg-v mono">{p.noData ? <span className="dim">—</span> : <>{p.sov}<i>%</i></>}</div>
             <Bar value={p.noData ? 0 : p.sov} />
@@ -1375,7 +1390,7 @@ function OverviewEngineGrid({ platforms, hasReal, lastRunAt }: { platforms: Plat
 function OverviewRecentMentions({ onOpen, total, items }: { onOpen: (it: RecentItem) => void; total: number; items: RecentItem[] }) {
   return (
     <Card title="Recent mentions" info="mention"
-      lede="The newest AI answers that named you - click any row to read the exact wording."
+      lede="The newest AI answers for your prompts, mentions first. Click any row to read the exact wording."
       right={<Pill tone="acc"><span className="pulse" /> Live</Pill>} padding={false}
       foot={<><span>{total.toLocaleString()} total · 7 days</span><a className="dim" href="/dashboard/mentions">Open mentions →</a></>}>
       {items.length === 0 ? (
@@ -1437,14 +1452,17 @@ function OverviewQueriesTable({ rows, totalQ }: { rows: QueryRow[]; totalQ: numb
       ) : (
       <div className="tbl-wrap">
         <table className="tbl">
-          <thead><tr><th>QUERY</th><th className="right">SOV</th><th className="right">Δ</th><th className="right">MENTIONS</th><th className="right">ENGINES</th><th /></tr></thead>
+          <thead><tr><th>QUERY</th><th className="right">VISIBILITY</th><th className="right">ENGINES</th><th /></tr></thead>
           <tbody>
             {rows.map((r, i) => (
               <tr key={i}>
-                <td><b>{r.q}</b></td>
-                <td className="right num">{r.sov}%</td>
-                <td className="right"><Delta v={r.d} suffix="%" /></td>
-                <td className="right num">{r.mentions}</td>
+                <td style={{ minWidth: 0, whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                  <b>{r.q}</b>
+                  <div className="mono dim" style={{ fontSize: 10.5, marginTop: 2 }}>{r.mentions} mention{r.mentions === 1 ? '' : 's'}</div>
+                </td>
+                <td className="right" style={{ whiteSpace: 'nowrap' }}>
+                  <span className="num">{r.sov}%</span>{' '}<Delta v={r.d} suffix="%" />
+                </td>
                 <td className="right num">{r.eng}/5</td>
                 <td className="right">
                   <button className="btn-d" style={{ padding: '3px 8px', fontSize: 10.5, whiteSpace: 'nowrap' }}
@@ -1465,8 +1483,8 @@ function OverviewQueriesTable({ rows, totalQ }: { rows: QueryRow[]; totalQ: numb
 function OverviewCompetitors({ rows }: { rows: OverviewData['competitors'] }) {
   const max = Math.max(30, ...rows.map(r => r.sov));
   return (
-    <Card title="Competitor SOV" info="sov"
-      lede="Who's winning the AI conversation in your category right now."
+    <Card title="You vs competitors" info="sov"
+      lede="Of all brand mentions in AI answers (you + tracked rivals), the share each one gets."
       right={<a href="/dashboard/competitors" className="mono dim" style={{ fontSize: 11 }}>COMPETITORS →</a>}>
       {rows.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--muted)', fontSize: 12.5 }}>
@@ -1496,7 +1514,7 @@ function OverviewSources({ rows }: { rows: OverviewData['sources'] }) {
   const max = Math.max(20, ...rows.map(r => r.share));
   return (
     <Card title="Most cited sources" info="citation"
-      lede="The web pages AI leans on when it describes you. Strengthen the helpful ones."
+      lede="The websites AI engines use as sources for your prompts. Get listed or mentioned on the top ones."
       right={<a href="/dashboard/citations" className="mono dim" style={{ fontSize: 11 }}>CITATIONS →</a>}>
       {rows.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--muted)', fontSize: 12.5 }}>

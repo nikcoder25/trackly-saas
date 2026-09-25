@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { pool, auditLog, ensureColumns } from '@/lib/db';
+import { isRedirectCitationHost } from '@/lib/citation-hosts';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid, decryptApiKeys, loadTenantFairnessSettings } from '@/lib/helpers';
 import { setTenantFairness } from '@/lib/fairness-scheduler';
@@ -1351,6 +1352,7 @@ async function executeRunBackgroundInner(
       for (const url of cites) {
         try {
           const domain = new URL(url).hostname.replace(/^www\./, '');
+          if (isRedirectCitationHost(domain)) continue;
           citationCounts[domain] = (citationCounts[domain] || 0) + 1;
         } catch { /* skip invalid URLs */ }
       }

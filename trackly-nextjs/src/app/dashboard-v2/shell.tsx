@@ -400,22 +400,50 @@ export function WhatChangedRecap() {
   );
 }
 
-export function GoalCard({ current = 27.4 }: { current?: number }) {
+export function GoalCard({ current = 27.4, brandId, brandGoal, onSaved }: {
+  current?: number; brandId?: string; brandGoal?: number; onSaved?: () => void | Promise<void>;
+}) {
   const ex = useExtras();
   // When ExtrasProvider isn't mounted (e.g. production /dashboard), fall back to
   // the same localStorage key it uses so Save actually persists and reads back
   // instead of silently snapping to the hardcoded default on every render.
   const [lsGoal, setLsGoal] = useLS('lvx_goal', { target: 30, by: 'Jun 30' });
-  const goal = ex?.goal || lsGoal;
+  const localGoal = ex?.goal || lsGoal;
   const persistGoal = ex?.setGoal || setLsGoal;
+  // The brand's saved goal (Brand Setup) wins over the local fallback.
+  const target = brandGoal && brandGoal > 0 ? brandGoal : localGoal.target;
   const [editing, setEditing] = React.useState(false);
-  const [draft, setDraft] = React.useState<number | string>(goal.target);
-  const pct = Math.max(0, Math.min(100, Math.round((current / goal.target) * 100)));
-  const gap = (goal.target - current).toFixed(1);
-  const hit = current >= goal.target;
-  const save = () => {
-    const n = Math.max(1, Math.min(100, Number(draft) || goal.target));
-    persistGoal({ ...goal, target: n });
+  const [saving, setSaving] = React.useState(false);
+  const [err, setErr] = React.useState<string | null>(null);
+  const [draft, setDraft] = React.useState<number | string>(target);
+  const pct = Math.max(0, Math.min(100, Math.round((current / target) * 100)));
+  const gap = Math.max(0, target - current).toFixed(1);
+  const hit = current >= target;
+  const cancel = () => { setEditing(false); setErr(null); };
+  const save = async () => {
+    const n = Math.max(1, Math.min(100, Number(draft) || target));
+    setErr(null);
+    if (brandId) {
+      setSaving(true);
+      try {
+        const res = await fetch(`/api/brands/${brandId}`, {
+          method: 'PUT', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ goal: n }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || `HTTP ${res.status}`);
+        }
+        await onSaved?.();
+      } catch (e: any) {
+        setErr(e?.message || 'Could not save goal');
+        setSaving(false);
+        return;
+      }
+      setSaving(false);
+    }
+    persistGoal({ ...localGoal, target: n });
     setEditing(false);
   };
   return (
@@ -426,14 +454,17 @@ export function GoalCard({ current = 27.4 }: { current?: number }) {
           {editing ? (
             <div className="goal-edit">
               <span>Reach</span>
-              <input className="aud-input goal-input" type="number" min={1} max={100} value={draft} onChange={e => setDraft(e.target.value)} autoFocus />
+              <input className="aud-input goal-input" type="number" min={1} max={100} value={draft} onChange={e => setDraft(e.target.value)} autoFocus
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); save(); } else if (e.key === 'Escape') { e.preventDefault(); cancel(); } }} />
               <span>% Share of Voice</span>
-              <button className="btn-p" style={{ padding: '5px 10px', fontSize: 11 }} onClick={save}>Save</button>
+              <button className="btn-p" style={{ padding: '5px 10px', fontSize: 11 }} onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+              <button className="btn-g" style={{ padding: '5px 10px', fontSize: 11 }} onClick={cancel} disabled={saving}>Cancel</button>
+              {err && <span className="neg" style={{ fontSize: 11 }}>{err}</span>}
             </div>
           ) : (
             <div className="goal-line">
-              Reach <b>{goal.target}% Share of Voice</b> by {goal.by}
-              <button className="goal-edit-btn" onClick={() => { setDraft(goal.target); setEditing(true); }}>Edit</button>
+              Reach <b>{target}% Share of Voice</b> across AI engines
+              <button className="goal-edit-btn" onClick={() => { setDraft(target); setErr(null); setEditing(true); }}>Edit</button>
             </div>
           )}
         </div>
@@ -444,12 +475,12 @@ export function GoalCard({ current = 27.4 }: { current?: number }) {
       </div>
       <div className="goal-track">
         <i style={{ width: pct + '%' }} />
-        <span className="goal-marker" style={{ left: '100%' }} title={`Target ${goal.target}%`} />
+        <span className="goal-marker" style={{ left: '100%' }} title={`Target ${target}%`} />
       </div>
       <div className="goal-foot">
         {hit
           ? <span className="pos" style={{ fontWeight: 600 }}>🎉 Goal reached - set a bolder target!</span>
-          : <span><b className="mono" style={{ color: 'var(--text)' }}>{gap} points</b> to go.</span>}
+          : <span><b className="mono" style={{ color: 'var(--text)' }}>{gap} points</b> to go ({pct}% of the way there).</span>}
         <span className="goal-pct mono">{pct}%</span>
       </div>
     </section>

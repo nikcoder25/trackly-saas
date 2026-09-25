@@ -24,6 +24,7 @@
  */
 import { pool } from './db';
 import { logger } from './logger';
+import { isRedirectCitationHost } from './citation-hosts';
 import { computeSovFromResults } from './run-sov';
 import { aggregateCompetitorCounts } from './parser';
 import { refundCredits } from './credits';
@@ -361,6 +362,7 @@ async function finalizeStaleRow(
       for (const url of cites) {
         try {
           const domain = new URL(url).hostname.replace(/^www\./, '');
+          if (isRedirectCitationHost(domain)) continue;
           citationCounts[domain] = (citationCounts[domain] || 0) + 1;
         } catch { /* skip invalid URLs */ }
       }

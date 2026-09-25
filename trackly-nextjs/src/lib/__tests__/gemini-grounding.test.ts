@@ -170,6 +170,21 @@ describe('queryAI(Gemini) grounding', () => {
     expect(result.citations).toHaveLength(2);
   });
 
+  it('unwraps vertexaisearch redirect URLs to the publisher domain in web.title', async () => {
+    fetchMock.mockResolvedValue(geminiResponse({
+      webSearchQueries: ['hvac auburn'],
+      groundingChunks: [
+        { web: { uri: 'https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc', title: 'Yelp.com' } },
+        { web: { uri: 'https://vertexaisearch.cloud.google.com/grounding-api-redirect/def', title: 'Best HVAC in Auburn' } },
+        { web: { uri: 'https://example.com/page', title: 'other.com' } },
+      ],
+    }));
+    const result = await queryAI('Gemini', 'best hvac in auburn', 'test-key', 'gemini-2.5-flash');
+    expect(result.citations).toContain('https://yelp.com/');
+    expect(result.citations).toContain('https://example.com/page');
+    expect(result.citations).not.toContain('https://other.com/');
+  });
+
   it('deduplicates repeated fan-out queries', async () => {
     fetchMock.mockResolvedValue(geminiResponse({
       webSearchQueries: ['hvac auburn', 'hvac auburn', 'ac repair auburn'],

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useBrandData } from '@/hooks/useBrandData';
 import { Card, KPIRail, Badge, Bar, Pill, Cit, PageHead } from '@/app/dashboard-v2/ui';
+import { isRedirectCitationHost } from '@/lib/citation-hosts';
 
 interface Brand { id: string; name: string; runs?: Array<{ allResults?: Array<{ citations?: string[] }> }>; }
 interface CitationData { domains: Record<string, number>; totalCitations: number; ownDomain?: number; ownDomainName?: string; }
@@ -22,7 +23,7 @@ export default function CitationsPage() {
         (b.runs || []).forEach(run => {
           (run.allResults || []).forEach(r => {
             (r.citations || []).forEach(url => {
-              try { const dn = new URL(url).hostname.replace(/^www\./, ''); domains[dn] = (domains[dn] || 0) + 1; } catch {}
+              try { const dn = new URL(url).hostname.replace(/^www\./, ''); if (isRedirectCitationHost(dn)) return; domains[dn] = (domains[dn] || 0) + 1; } catch {}
             });
           });
         });
@@ -79,17 +80,17 @@ export default function CitationsPage() {
 
   return (
     <div className="lvx">
-      <PageHead title="Citation Analysis" sub="Which domains AI platforms cite when answering queries about your industry." />
+      <PageHead title="Citation Analysis" sub="The websites AI engines use as sources when they answer your tracked prompts. Getting listed on the top ones is the fastest way to be recommended more." />
       <div className="page-body">
         <KPIRail items={[
-          { k: 'DOMAINS CITED', v: domainCount },
-          { k: 'TOTAL CITATIONS', v: totalCitations },
-          { k: 'YOUR DOMAIN CITED', v: ownDomainCount },
+          { k: 'DOMAINS CITED', v: domainCount.toLocaleString() },
+          { k: 'TOTAL CITATIONS', v: totalCitations.toLocaleString() },
+          { k: 'YOUR SITE CITED', v: ownDomainCount.toLocaleString(), info: `${totalCitations > 0 ? ((ownDomainCount / totalCitations) * 100).toFixed(1) : '0'}% of all citations` },
         ]} />
 
         <Card title="All cited sources" right={domainFilter
           ? <button className="btn-g" onClick={() => setDomainFilter('')}>Filter: {domainFilter} ✕</button>
-          : <Pill>{domainCount} unique</Pill>} padding={false}>
+          : <Pill>{domainCount.toLocaleString()} unique</Pill>} padding={false}>
           {sortedDomains.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 32, color: 'var(--mute)', fontSize: 12 }}>
               No citations captured yet. Citations will appear after your next run.
@@ -112,7 +113,7 @@ export default function CitationsPage() {
                             {isOwn && <Badge tone="acc">YOU</Badge>}
                           </span>
                         </td>
-                        <td className="num"><b>{count}</b></td>
+                        <td className="num"><b>{count.toLocaleString()}</b></td>
                         <td className="num">{share.toFixed(1)}%</td>
                         <td><Bar value={count} max={maxCount} color={isOwn ? 'var(--success)' : undefined} /></td>
                       </tr>

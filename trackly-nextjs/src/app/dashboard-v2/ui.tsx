@@ -65,7 +65,8 @@ export function Badge({ tone = 'neu', children, ...rest }: { tone?: string; chil
 
 export function Delta({ v, suffix = '' }: { v?: number | null; suffix?: string }) {
   if (v == null) return null;
-  const up = v >= 0;
+  if (Math.round(v) === 0) return <span className="delta mono flat" title="No change vs previous run">= 0{suffix}</span>;
+  const up = v > 0;
   return (
     <span className={'delta mono ' + (up ? 'up' : 'down')}>
       {up ? '▲' : '▼'} {Math.abs(v)}{suffix}
