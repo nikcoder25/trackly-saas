@@ -9,25 +9,8 @@ import { PLATFORM_COLORS } from '@/lib/constants';
 import { useBrandData } from '@/hooks/useBrandData';
 import { friendlyCompetitorName as friendlyName } from '@/lib/parser';
 import { isRedirectCitationHost } from '@/lib/citation-hosts';
+import { isNonCompetitorHost, normalizeCompetitorHost } from '@/lib/non-competitor-hosts';
 import { Card, PageHead, Badge, Bar, StackBar, Spark } from '@/app/dashboard-v2/ui';
-
-// Review sites, directories, social and media hosts AI engines cite a lot.
-// They are sources, not rivals, so they never show as discovered competitors.
-const NON_COMPETITOR_HOSTS = [
-  'tripadvisor', 'yelp', 'bbb.org', 'google', 'facebook', 'instagram', 'linkedin', 'x', 'twitter',
-  'youtube', 'reddit', 'quora', 'wikipedia', 'yellowpages', 'angi', 'thumbtack', 'homeadvisor',
-  'houzz', 'nextdoor', 'mapquest', 'foursquare', 'manta', 'chamberofcommerce', 'birdeye',
-  'trustpilot', 'indeed', 'glassdoor', 'apple', 'bing', 'medium', 'forbes', 'grdd.net',
-  'expertise.com', 'threebestrated', 'porch', 'superpages', 'citysearch',
-];
-
-function isNonCompetitorHost(host: string): boolean {
-  const labels = host.split('.');
-  const nonTld = labels.slice(0, -1);
-  return NON_COMPETITOR_HOSTS.some(h => (h.includes('.')
-    ? host === h || host.endsWith('.' + h)
-    : nonTld.includes(h)));
-}
 
 const COMP_COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899', '#14b8a6', '#6366f1', '#ef4444'];
 
@@ -226,7 +209,7 @@ export default function CompetitorsPage() {
       : '';
     // Sister domains share the brand site's first label (acme.com / acme.net).
     const brandLabel = brandDomain.split('.')[0] || '';
-    const competitorLower = new Set(competitors.map(c => c.toLowerCase()));
+    const competitorLower = new Set(competitors.map(normalizeCompetitorHost));
     return citations
       .filter((c: CitationRow) => {
         if (c.is_brand) return false;
