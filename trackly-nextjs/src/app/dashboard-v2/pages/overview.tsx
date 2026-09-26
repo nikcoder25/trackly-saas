@@ -666,8 +666,8 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   const insights: InsightItem[] = [];
   if (trend.length >= 2) {
     const momentum = Math.round((sov - prevSov) * 10) / 10;
-    if (momentum >= 1) insights.push({ icon: '▲', tone: 'pos', t: `Share of Voice up ${momentum} pts`, d: `now ${sov}% across the AI engines`, cta: 'See trends', href: '/dashboard/trends' });
-    else if (momentum <= -1) insights.push({ icon: '▼', tone: 'warn', t: `Share of Voice down ${Math.abs(momentum)} pts`, d: `now ${sov}% - see what changed`, cta: 'Investigate', href: '/dashboard/competitors' });
+    if (momentum >= 1) insights.push({ icon: '▲', tone: 'pos', t: `Share of Voice up ${momentum} ${momentum === 1 ? 'pt' : 'pts'}`, d: `now ${sov}% across the AI engines`, cta: 'See trends', href: '/dashboard/trends' });
+    else if (momentum <= -1) insights.push({ icon: '▼', tone: 'warn', t: `Share of Voice down ${Math.abs(momentum)} ${Math.abs(momentum) === 1 ? 'pt' : 'pts'}`, d: `now ${sov}% - see what changed`, cta: 'Investigate', href: '/dashboard/competitors' });
   }
   if (realComp) {
     const top = competitors[0];
