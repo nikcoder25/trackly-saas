@@ -161,7 +161,7 @@ function ScanCard({ onNavigate }: { onNavigate?: () => void }) {
         title={selectedBrandLocked ? 'This brand is locked - upgrade to run' : undefined}>
         {live.running
           ? <><span className="v3-pulse" /> Scanning… {pct}%</>
-          : selectedBrandLocked ? 'Brand locked' : <><V3Icon name="play" size={16} /> Scan all engines now</>}
+          : selectedBrandLocked ? 'Brand locked' : 'Scan all engines now'}
       </button>
     </div>
   );

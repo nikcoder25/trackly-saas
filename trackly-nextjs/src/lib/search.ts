@@ -105,6 +105,28 @@ function collapse(text: string | null | undefined): string {
 }
 
 /**
+ * Engine answers are Markdown with numbered citation markers. A search
+ * snippet is plain text, so drop the syntax: `**bold**`, `_em_`, inline
+ * code, headings, list bullets, `[text](url)` links and `[3]` / `[1, 2]`
+ * citation markers.
+ */
+export function stripMarkdown(text: string): string {
+  return text
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]+)\]\((?:[^)\s]+)(?:\s+"[^"]*")?\)/g, '$1')
+    .replace(/\[\d+(?:\s*[,\-–]\s*\d+)*\]/g, '')
+    .replace(/(\*\*|__)(.+?)\1/g, '$2')
+    .replace(/(^|[\s(])[*_](\S(?:.*?\S)?)[*_](?=[\s).,;:!?]|$)/g, '$1$2')
+    .replace(/`+([^`]*)`+/g, '$1')
+    .replace(/^\s*#{1,6}\s+/gm, '')
+    .replace(/^\s*(?:[-*+]|\d+\.)\s+(?=\S)/gm, '')
+    .replace(/\*\*|__/g, '')
+    .replace(/\s+([.,;:!?])/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Tidies a snippet cut at a fixed character offset.
  *
  * The SQL window starts ~70 characters before the match, which lands
@@ -113,7 +135,10 @@ function collapse(text: string | null | undefined): string {
  * mark the elisions, so the result reads as a quote rather than as damage.
  */
 function tidySnippet(raw: string | null, startedAt: number, fullLength: number): string {
-  let text = collapse(raw);
+  const rawLength = collapse(raw).length;
+  // Strip before collapsing whitespace: list and heading syntax is only
+  // recognisable at the start of a line.
+  let text = stripMarkdown(raw || '');
   if (!text) return '';
 
   if (startedAt > 1) {
@@ -123,7 +148,7 @@ function tidySnippet(raw: string | null, startedAt: number, fullLength: number):
     if (firstSpace > 0 && firstSpace < 25) text = text.slice(firstSpace + 1);
     text = '…' + text;
   }
-  if (startedAt - 1 + collapse(raw).length < fullLength) {
+  if (startedAt - 1 + rawLength < fullLength) {
     const lastSpace = text.lastIndexOf(' ');
     if (lastSpace > text.length - 25) text = text.slice(0, lastSpace);
     text = text + '…';
