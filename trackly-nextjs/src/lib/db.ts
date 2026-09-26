@@ -443,6 +443,13 @@ function runMigrations(): Promise<void> {
         -- and the UI derives it from success/mentioned so old reads still work.
         ALTER TABLE prompt_runs
           ADD COLUMN IF NOT EXISTS status TEXT;
+        -- Columns global search reads (src/lib/search.ts), for prompt_runs
+        -- tables that predate them.
+        ALTER TABLE prompt_runs ADD COLUMN IF NOT EXISTS prompt TEXT;
+        ALTER TABLE prompt_runs ADD COLUMN IF NOT EXISTS platform TEXT;
+        ALTER TABLE prompt_runs ADD COLUMN IF NOT EXISTS mentioned BOOLEAN DEFAULT FALSE;
+        ALTER TABLE prompt_runs ADD COLUMN IF NOT EXISTS response_raw TEXT;
+        ALTER TABLE prompt_runs ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
         -- Citation Decoder (Phase 1): one row per cited URL per prompt per
         -- engine. Normalized out of prompt_runs.citations (JSONB array) so
         -- the pattern engine can group/aggregate by url, domain, platform
@@ -459,6 +466,14 @@ function runMigrations(): Promise<void> {
           position INT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        -- A citations table created by an older migration can predate some
+        -- of these columns; global search (src/lib/search.ts) reads all of
+        -- them. Added nullable so the ALTER succeeds on existing rows.
+        ALTER TABLE citations ADD COLUMN IF NOT EXISTS brand_id TEXT;
+        ALTER TABLE citations ADD COLUMN IF NOT EXISTS platform TEXT;
+        ALTER TABLE citations ADD COLUMN IF NOT EXISTS url TEXT;
+        ALTER TABLE citations ADD COLUMN IF NOT EXISTS domain TEXT;
+        ALTER TABLE citations ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
         CREATE UNIQUE INDEX IF NOT EXISTS citations_run_url_uniq
           ON citations (prompt_run_id, url);
         CREATE INDEX IF NOT EXISTS citations_brand_created_idx

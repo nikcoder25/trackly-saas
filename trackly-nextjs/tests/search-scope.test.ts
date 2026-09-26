@@ -186,3 +186,60 @@ describe('GET /api/search', () => {
     expect(body.results.prompts[0].href).toBe('/dashboard/prompt-details?q=best%20crm');
   });
 });
+
+describe('partial failure', () => {
+  function failingKind(pattern: RegExp) {
+    queryFn.mockImplementation((sql: string) => {
+      if (/FROM brands WHERE user_id/i.test(sql)) return Promise.resolve({ rows: [{ id: 'brand-a1' }] });
+      if (/FROM users WHERE id/i.test(sql)) {
+        return Promise.resolve({ rows: [{ id: USER_A, email_verified: true, role: 'user', plan: 'pro' }] });
+      }
+      if (pattern.test(sql)) {
+        const err = Object.assign(new Error('column "platform" does not exist'), { code: '42703' });
+        return Promise.reject(err);
+      }
+      if (/GROUP BY prompt, brand_id/i.test(sql)) {
+        return Promise.resolve({ rows: [{ prompt: 'best crm', brand_id: 'brand-a1', runs: 3, mentions: 1, last_seen: new Date() }] });
+      }
+      if (/snippet_start/i.test(sql)) {
+        return Promise.resolve({ rows: [{ id: 'r1', brand_id: 'brand-a1', prompt: 'best crm', platform: 'chatgpt', created_at: new Date(), snippet: 'try crm', snippet_start: 1, full_length: 7 }] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+  }
+
+  it('returns the other kinds when one kind throws', async () => {
+    failingKind(/FROM citations/i);
+    const out = await runSearch(USER_A, 'crm');
+    expect(out.prompts).toHaveLength(1);
+    expect(out.mentions).toHaveLength(1);
+    expect(out.sources).toEqual([]);
+    expect(out.failed).toEqual(['source']);
+  });
+
+  it('answers 200 with partial results instead of 500', async () => {
+    failingKind(/GROUP BY prompt, brand_id/i);
+    const res = await searchGet(authedRequest('https://livesov.com/api/search?q=crm'));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.failed).toEqual(['prompt']);
+    expect(body.results.prompts).toEqual([]);
+    expect(body.results.mentions).toHaveLength(1);
+    expect(body.total).toBe(1);
+  });
+
+  it('still answers 500 when every kind fails', async () => {
+    failingKind(/FROM (prompt_runs|citations)/i);
+    const res = await searchGet(authedRequest('https://livesov.com/api/search?q=crm'));
+    expect(res.status).toBe(500);
+  });
+
+  it('casts every bound parameter explicitly', async () => {
+    mockDb();
+    await runSearch(USER_A, 'crm');
+    const dataQueries = queryFn.mock.calls.filter(([sql]: [string]) => /FROM (prompt_runs|citations)/i.test(sql));
+    for (const [sql] of dataQueries) {
+      expect(sql).not.toMatch(/\$[2-5](?!::)/);
+    }
+  });
+});

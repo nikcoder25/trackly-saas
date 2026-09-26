@@ -400,10 +400,10 @@ export default function ResultsPage() {
               )}
               <span style={{ flex: 1 }} />
               {!isAll && totalPages > 1 && (
-                <>
+                <span className="filter-pager">
                   <button type="button" className="btn-d" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>◀ Prev</button>
                   <button type="button" className="btn-d" disabled={currentPage >= totalPages - 1} onClick={() => setPage(currentPage + 1)}>Next ▶</button>
-                </>
+                </span>
               )}
             </Filter>
 
@@ -425,6 +425,7 @@ export default function ResultsPage() {
                     {/* Collapsed one-line row: platform + status + query + timestamp */}
                     <div
                       role="button" tabIndex={0} aria-expanded={expanded}
+                      className="res-row"
                       onClick={toggle}
                       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }}
                       style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer' }}
@@ -433,7 +434,7 @@ export default function ResultsPage() {
                       <PlatformTile p={p} size={22} />
                       <span style={{ fontSize: 12, fontWeight: 700, color: PLATFORM_COLORS[r.model] || 'var(--text)', minWidth: 84, flexShrink: 0 }}>{p.name}</span>
                       <StatusBadge status={r.status} />
-                      <span className="mono" style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span className="mono res-q" style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         <span className="dim">QUERY ›</span> &ldquo;{r.prompt}&rdquo;
                       </span>
                       {r.status === 'failed' && (
@@ -447,7 +448,7 @@ export default function ResultsPage() {
                           ↻ Retry
                         </button>
                       )}
-                      <span className="mono dim" style={{ fontSize: 11, flexShrink: 0 }}>{formatTimestamp(r.timestamp)}</span>
+                      <span className="mono dim res-ts" style={{ fontSize: 11, flexShrink: 0 }}>{formatTimestamp(r.timestamp)}</span>
                     </div>
                     {/* Expanded: full response + MODEL/RESULT footer */}
                     {expanded && (

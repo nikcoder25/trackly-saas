@@ -40,8 +40,11 @@ export async function GET(request: Request) {
 
   try {
     const results = await runSearch(user.id, query, { brandId });
-    const total = results.prompts.length + results.mentions.length + results.sources.length;
-    return Response.json({ query, results, total });
+    const { failed, ...grouped } = results;
+    const total = grouped.prompts.length + grouped.mentions.length + grouped.sources.length;
+    // `failed` names kinds that errored (already logged in runSearch); the
+    // rest are real results, so this stays a 200.
+    return Response.json(failed ? { query, results: grouped, total, failed } : { query, results: grouped, total });
   } catch (e) {
     logError('search.failed', e);
     return serverError({ message: 'Search failed' });
