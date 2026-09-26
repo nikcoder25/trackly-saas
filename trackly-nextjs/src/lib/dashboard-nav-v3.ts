@@ -147,3 +147,27 @@ export const V3_PAGE_BLURBS: Record<string, string> = {
   '/dashboard/alerts': 'Get an email when something important changes.',
   '/dashboard/admin': 'Owner tools for users, runs and system health.',
 };
+
+/** Blurbs for pages that are not in the sidebar or are detail views. */
+const V3_EXTRA_BLURBS: Record<string, { eyebrow: string; blurb: string }> = {
+  '/dashboard/activity': { eyebrow: 'Activity', blurb: 'Everything that happened on your account, newest first.' },
+  '/dashboard/connect': { eyebrow: 'Tools', blurb: 'Connect your website so fixes can be applied for you.' },
+  '/dashboard/fixes': { eyebrow: 'Tools', blurb: 'Changes we can make to your site to help AI engines quote it.' },
+  '/dashboard/billing/ledger': { eyebrow: 'Settings · Billing & Usage', blurb: 'Every credit added to or taken from your account.' },
+  '/dashboard/admin/runs': { eyebrow: 'Settings · Admin Panel', blurb: 'Every scan running or recently finished, across all users.' },
+  '/dashboard/geo-audits/': { eyebrow: 'Audits · Regional Audits', blurb: 'One regional audit, question by question.' },
+  '/dashboard/nap-audits/': { eyebrow: 'Audits · NAP Audits', blurb: 'Where your name, address and phone match, and where they do not.' },
+};
+
+/** Eyebrow (section label) and one-sentence blurb for a page header. */
+export function v3PageMeta(path: string | null | undefined): { eyebrow: string; blurb: string | null } {
+  const p = path || '';
+  if (V3_EXTRA_BLURBS[p]) return V3_EXTRA_BLURBS[p];
+  for (const [k, v] of Object.entries(V3_EXTRA_BLURBS)) {
+    if (k.endsWith('/') && p.startsWith(k) && p.length > k.length) return v;
+  }
+  const match = v3TabForPath(p);
+  if (!match) return { eyebrow: 'Dashboard', blurb: V3_PAGE_BLURBS[p] ?? null };
+  const eyebrow = match.section.tabs.length > 1 ? `${match.section.label} · ${match.tab.label}` : match.section.label;
+  return { eyebrow, blurb: V3_PAGE_BLURBS[p] ?? V3_PAGE_BLURBS[match.tab.href] ?? null };
+}

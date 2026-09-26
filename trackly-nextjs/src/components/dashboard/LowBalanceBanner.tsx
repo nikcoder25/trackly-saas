@@ -37,7 +37,7 @@ export default function LowBalanceBanner() {
       marginBottom: 10, background: bg, border: `1px solid ${borderColor}`,
       borderRadius: 'var(--radius-xs)', fontSize: 12, color: 'var(--text)',
     }}>
-      <span style={{ fontSize: 14, color: accent }}>{empty ? '◯' : '⚠'}</span>
+      <span className="lvx-banner-ico" style={{ fontSize: 14, color: accent }}>{empty ? '◯' : '⚠'}</span>
       <div style={{ flex: 1 }}>
         <strong style={{ color: accent }}>
           {empty ? 'Out of AI credits' : 'AI credits running low'}

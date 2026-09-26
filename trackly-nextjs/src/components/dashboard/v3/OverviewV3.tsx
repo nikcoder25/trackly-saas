@@ -295,13 +295,19 @@ function BuyerQuestions({ grid }: { grid: { q: string; engines: Record<string, b
               <tr>
                 <th>Question</th>
                 {PLATFORMS.map(p => <th key={p.id} className="c" title={p.name}>{p.short}</th>)}
-                <th className="r"><span className="v3-sr">Action</span></th>
               </tr>
             </thead>
             <tbody>
               {shown.map(r => (
                 <tr key={r.q}>
-                  <td className="v3-q">{r.q}</td>
+                  <td className="v3-q">
+                    {/* Link sits under the question so it can never be pushed
+                        past the card edge by a long question. */}
+                    <span className="v3-q-text">{r.q}</span>
+                    <Link className="v3-link v3-q-link" href={`/dashboard/prompt-details?q=${encodeURIComponent(r.q)}`}>
+                      {mode === 'win' ? 'See answers' : 'How to win'} <V3Icon name="arrow-right" size={14} />
+                    </Link>
+                  </td>
                   {PLATFORMS.map(p => {
                     const v = r.engines[p.name];
                     return (
@@ -311,11 +317,6 @@ function BuyerQuestions({ grid }: { grid: { q: string; engines: Record<string, b
                       </td>
                     );
                   })}
-                  <td className="r">
-                    <Link className="v3-link" href={`/dashboard/prompt-details?q=${encodeURIComponent(r.q)}`}>
-                      {mode === 'win' ? 'See answers' : 'How to win'} <V3Icon name="arrow-right" size={14} />
-                    </Link>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -354,8 +355,11 @@ function TrustedSites({ sources, ownHost }: { sources: { d: string; n: number; s
                 <span className="v3-sites-n v3-mono">{i + 1}</span>
                 <span className="v3-sites-body">
                   <span className="v3-sites-top">
-                    <span className="v3-sites-d">{s.d}{own && <span className="v3-pill accent">You</span>}</span>
-                    <span className="v3-mono v3-dim">{s.n} cite{s.n === 1 ? '' : 's'}</span>
+                    <span className="v3-sites-dwrap">
+                      <span className="v3-sites-d" title={s.d}>{s.d}</span>
+                      {own && <span className="v3-pill accent">You</span>}
+                    </span>
+                    <span className="v3-sites-count v3-mono v3-dim">{s.n} cite{s.n === 1 ? '' : 's'}</span>
                   </span>
                   <span className="v3-bar"><i style={{ width: `${(s.n / max) * 100}%`, background: own ? 'var(--v3-accent)' : 'var(--v3-ink)' }} /></span>
                 </span>

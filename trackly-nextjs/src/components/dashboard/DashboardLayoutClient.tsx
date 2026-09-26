@@ -10,7 +10,7 @@ import { PLAN_LIMITS } from '@/lib/constants';
 import LvxShell from '@/components/dashboard/LvxShell';
 import ShellV3 from '@/components/dashboard/v3/ShellV3';
 import { UiFlagProvider, useUiFlag } from '@/contexts/UiFlagContext';
-import type { UiVersion } from '@/lib/ui-flag';
+import { DEFAULT_UI, type UiVersion } from '@/lib/ui-flag';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import PaymentSuccessBanner from '@/components/dashboard/PaymentSuccessBanner';
 import GlobalRunProgress from '@/components/dashboard/GlobalRunProgress';
@@ -137,7 +137,7 @@ function TrialBanner() {
       background: 'rgba(16,185,129,.06)', border: '1px solid rgba(16,185,129,.25)',
       borderRadius: 'var(--radius-xs)', fontSize: 12, color: 'var(--text)',
     }}>
-      <span style={{ fontSize: 14, color: 'var(--green)' }}>★</span>
+      <span className="lvx-banner-ico" style={{ fontSize: 14, color: 'var(--green)' }}>★</span>
       <div style={{ flex: 1 }}>
         <strong>Trial</strong>
         <span style={{ margin: '0 6px', opacity: 0.5 }}>-</span>
@@ -188,7 +188,7 @@ function TrialEndedBanner() {
       background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.25)',
       borderRadius: 'var(--radius-xs)', fontSize: 12, color: 'var(--text)',
     }}>
-      <span style={{ fontSize: 14, color: '#f59e0b' }}>⏱</span>
+      <span className="lvx-banner-ico" style={{ fontSize: 14, color: '#f59e0b' }}>⏱</span>
       <div style={{ flex: 1 }}>
         <strong>Your free trial has ended.</strong>
         <span style={{ margin: '0 6px', opacity: 0.5 }}>-</span>
@@ -267,7 +267,7 @@ function EmailVerificationBanner() {
       background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.2)',
       borderRadius: 'var(--radius-xs)', fontSize: 12, color: '#ef4444',
     }}>
-      <span style={{ fontSize: 16 }}>&#9993;</span>
+      <span className="lvx-banner-ico" style={{ fontSize: 16 }}>&#9993;</span>
       <div style={{ flex: 1 }}>
         <strong>Email not verified.</strong> Please check your inbox for a verification link.
         {sent && !error
@@ -523,7 +523,7 @@ function BackgroundRunPoller() {
   return null;
 }
 
-export default function DashboardLayoutClient({ children, initialUi = 'classic' }: { children: React.ReactNode; initialUi?: UiVersion }) {
+export default function DashboardLayoutClient({ children, initialUi = DEFAULT_UI }: { children: React.ReactNode; initialUi?: UiVersion }) {
   return <UiFlagProvider initial={initialUi}><DashboardLayoutInner>{children}</DashboardLayoutInner></UiFlagProvider>;
 }
 

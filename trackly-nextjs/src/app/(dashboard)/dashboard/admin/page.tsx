@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/dashboard/Toast';
+import { useUiFlag } from '@/contexts/UiFlagContext';
+import { PageHead } from '@/app/dashboard-v2/ui';
 
 interface AdminUser {
   id: string;
@@ -104,6 +106,7 @@ function RoleBadge({ role }: { role?: string }) {
 const STAT_PLANS = ['free', 'trial', 'starter', 'pro', 'agency', 'owner'] as const;
 
 export default function AdminPage() {
+  const { isV3 } = useUiFlag();
   const { user, loading: authLoading } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
@@ -144,7 +147,7 @@ export default function AdminPage() {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: '48px 40px', textAlign: 'center', maxWidth: 400 }}>
-          <div style={{ fontSize: 40, marginBottom: 16 }}>🔒</div>
+          <div className="lvx-emoji" style={{ fontSize: 40, marginBottom: 16 }}>🔒</div>
           <p style={{ fontSize: 18, fontWeight: 700, color: '#e11d48', marginBottom: 8 }}>Access Denied</p>
           <p style={{ fontSize: 14, color: 'var(--muted)', margin: 0 }}>Admin panel is only accessible to administrators.</p>
         </div>
@@ -186,6 +189,10 @@ export default function AdminPage() {
   return (
     <div>
 
+      {isV3 ? (
+        // v3: standard page header; the gradient hero card is folded into it.
+        <PageHead title="Admin Panel" sub={<span className="v3-mono">{total} {total === 1 ? 'user' : 'users'} in total</span>} />
+      ) : (<>
       {/* ── Header ── */}
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
@@ -232,6 +239,8 @@ export default function AdminPage() {
         </div>
       </div>
 
+      </>)}
+
       {/* ── Plan stat cards: 1-col → 2-col → 3-col → 6-col ── */}
       <div style={{ width: '100%', maxWidth: '100%', overflow: 'hidden', marginBottom: 28 }}>
         <div className="ap-plans-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
@@ -240,7 +249,7 @@ export default function AdminPage() {
             const count = planCounts[plan] ?? 0;
             const pct = total > 0 ? Math.round((count / total) * 100) : 0;
             return (
-              <div key={plan} style={{
+              <div key={plan} className="ap-plan-card" style={{
                 background: 'var(--bg2)',
                 border: '1px solid var(--border)',
                 borderLeft: `3px solid ${cfg.color}`,
@@ -251,9 +260,9 @@ export default function AdminPage() {
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.09)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
               >
-                <div style={{ position: 'absolute', top: -18, right: -18, width: 56, height: 56, borderRadius: '50%', background: cfg.bg, pointerEvents: 'none' }} />
+                <div className="ap-deco" style={{ position: 'absolute', top: -18, right: -18, width: 56, height: 56, borderRadius: '50%', background: cfg.bg, pointerEvents: 'none' }} />
                 <p style={{ fontSize: 10, fontWeight: 700, color: cfg.color, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 5, position: 'relative' }}>
-                  <span>{cfg.icon}</span>{cfg.label}
+                  <span className="lvx-banner-ico">{cfg.icon}</span>{cfg.label}
                 </p>
                 <p style={{ fontSize: 30, fontWeight: 900, color: cfg.color, fontFamily: 'var(--mono)', margin: 0, lineHeight: 1, position: 'relative' }}>
                   {count}
@@ -317,7 +326,7 @@ export default function AdminPage() {
         </div>
       ) : users.length === 0 ? (
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: '56px 24px', textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.45 }}>{search ? '🔍' : '👤'}</div>
+          <div className="lvx-emoji" style={{ fontSize: 40, marginBottom: 12, opacity: 0.45 }}>{search ? '🔍' : '👤'}</div>
           <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px' }}>{search ? 'No users found' : 'No users yet'}</p>
           <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>{search ? `No results match "${search}"` : 'Users will appear here once they sign up.'}</p>
         </div>

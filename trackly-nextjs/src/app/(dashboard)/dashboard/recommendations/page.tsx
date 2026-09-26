@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useBrandData } from '@/hooks/useBrandData';
 import { useToast } from '@/components/dashboard/Toast';
 import { logger } from '@/lib/logger';
+import { RECS_UPDATED_EVENT } from '@/components/dashboard/v3/hooks';
 import { loadRecsWithRetry, defaultRefresh, type RecommendationRow } from './load-recs';
 import {
   PageHead,
@@ -97,6 +98,7 @@ export default function RecommendationsPage() {
       // Always refresh the list after a successful POST so the new
       // recommendations show up without a page reload.
       await loadRecs();
+      window.dispatchEvent(new CustomEvent(RECS_UPDATED_EVENT));
       if (!opts.silent) {
         const n = typeof data?.generated === 'number' ? data.generated : 0;
         toast(
@@ -145,6 +147,8 @@ export default function RecommendationsPage() {
         body: JSON.stringify({ id, status }),
       });
       await loadRecs();
+      // Sidebar badge and the Overview's "Do these next" list follow along.
+      window.dispatchEvent(new CustomEvent(RECS_UPDATED_EVENT));
     } catch {}
   };
 
@@ -246,7 +250,7 @@ export default function RecommendationsPage() {
         {sessionExpired ? (
           <Card>
             <div role="alert" style={{ textAlign: 'center', padding: '24px 0' }}>
-              <div style={{ fontSize: 28, marginBottom: 8, color: 'var(--warn)' }}>&#128274;</div>
+              <div className="lvx-emoji" style={{ fontSize: 28, marginBottom: 8, color: 'var(--warn)' }}>&#128274;</div>
               <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Session expired</div>
               <div className="dim" style={{ fontSize: 12, marginBottom: 14 }}>Please sign in to continue.</div>
               <Link href="/login" className="btn-p" style={{ textDecoration: 'none' }}>Sign in</Link>
@@ -255,7 +259,7 @@ export default function RecommendationsPage() {
         ) : loadError ? (
           <Card>
             <div role="alert" style={{ textAlign: 'center', padding: '24px 0' }}>
-              <div style={{ fontSize: 28, marginBottom: 8, color: 'var(--danger)' }}>&#9888;</div>
+              <div className="lvx-emoji" style={{ fontSize: 28, marginBottom: 8, color: 'var(--danger)' }}>&#9888;</div>
               <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Couldn&apos;t load recommendations</div>
               <div className="dim" style={{ fontSize: 12, marginBottom: 14 }}>{loadError}</div>
               <button onClick={loadRecs} className="btn-p">Try again</button>
@@ -272,7 +276,7 @@ export default function RecommendationsPage() {
                 </>
               ) : (
                 <>
-                  <div style={{ fontSize: 28, marginBottom: 8 }}>&#9733;</div>
+                  <div className="lvx-emoji" style={{ fontSize: 28, marginBottom: 8 }}>&#9733;</div>
                   <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>No recommendations yet</div>
                   <div className="dim" style={{ fontSize: 12 }}>Run your first query scan to get AI recommendations.</div>
                 </>
@@ -286,7 +290,7 @@ export default function RecommendationsPage() {
               const isIgnored = r.status === 'ignored';
               const p = platformFor(r.platform);
               return (
-                <article key={r.id || idx} className={'rec-card' + (isDone ? ' rec-done' : '')} style={{ opacity: isIgnored ? 0.5 : undefined }}>
+                <article key={r.id || idx} id={r.id ? `rec-${r.id}` : undefined} className={'rec-card' + (isDone ? ' rec-done' : '')} style={{ opacity: isIgnored ? 0.5 : undefined }}>
                   <span className={'rec-prio ' + prioClass(r.severity)}>{isDone ? '✓' : isIgnored ? 'IGNORED' : prioLabel(r.severity)}</span>
                   <div className="rec-body">
                     <div className="rec-top">

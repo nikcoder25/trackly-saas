@@ -1,16 +1,19 @@
 /**
- * Dashboard design switch ("v3" Livesov redesign vs the current UI).
+ * Dashboard design switch ("v3" Livesov redesign vs the classic UI).
  *
- * The classic UI stays the default for everyone. A user opts in from the
- * avatar menu ("Try the new design"), which writes the choice to a cookie
- * (so the server layout renders the right shell on the first paint) and to
- * localStorage (so the choice survives a cleared cookie). `?ui=v3` or
- * `?ui=classic` on any dashboard URL forces the choice and persists it.
+ * v3 is the default for everyone. A user can fall back from the avatar menu
+ * ("Back to classic design"), which writes lvx_ui=classic to a cookie (so
+ * the server layout renders the right shell on the first paint) and to
+ * localStorage (so the choice survives a cleared cookie). `?ui=classic` or
+ * `?ui=v3` on any dashboard URL forces the choice and persists it.
  *
  * Pure helpers only: no React, no DOM access, so they unit-test in node.
  */
 
 export type UiVersion = 'classic' | 'v3';
+
+/** What a user sees until they pick otherwise. */
+export const DEFAULT_UI: UiVersion = 'v3';
 
 /** Cookie and localStorage key. */
 export const UI_FLAG_KEY = 'lvx_ui';
@@ -29,7 +32,7 @@ export function parseUiVersion(raw: unknown): UiVersion | null {
 
 /**
  * Precedence: explicit URL param, then cookie, then localStorage, then the
- * classic default. The cookie outranks localStorage because it is what the
+ * default (v3). The cookie outranks localStorage because it is what the
  * server rendered with; localStorage only fills in when the cookie is gone.
  */
 export function resolveUiVersion(sources: {
@@ -41,7 +44,7 @@ export function resolveUiVersion(sources: {
     parseUiVersion(sources.param) ??
     parseUiVersion(sources.cookie) ??
     parseUiVersion(sources.stored) ??
-    'classic'
+    DEFAULT_UI
   );
 }
 

@@ -49,7 +49,7 @@ export default function GlobalRunProgress() {
             {live.running && (
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
             )}
-            {isError ? '⚠ SCAN FAILED' : live.running ? 'RUNNING QUERIES' : 'RUN COMPLETE'}
+            {isError ? <><span className="lvx-banner-ico">⚠ </span>SCAN FAILED</> : live.running ? 'RUNNING QUERIES' : 'RUN COMPLETE'}
           </span>
           {runningBrandName && (
             <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text)', fontWeight: 700 }}>

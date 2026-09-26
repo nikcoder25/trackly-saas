@@ -344,7 +344,7 @@ export default function NapAuditsPage() {
         ) : all.length === 0 ? (
           <Card title="Audits">
             <div style={{ textAlign: 'center', padding: 48 }}>
-              <div style={{ fontSize: 36, opacity: 0.4, marginBottom: 12 }}>📍</div>
+              <div className="lvx-emoji" style={{ fontSize: 36, opacity: 0.4, marginBottom: 12 }}>📍</div>
               <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
                 {brandId ? `No saved audits for ${brandName ?? 'this brand'} yet` : 'No saved audits yet'}
               </div>

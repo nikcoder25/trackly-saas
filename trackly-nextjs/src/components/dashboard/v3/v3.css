@@ -1,10 +1,11 @@
 /* ============================================================================
    Livesov v3 dashboard - tokens, shell, shared components.
    Everything is scoped under `.v3` (the shell root) or `html[data-ui="v3"]`
-   (for things portalled outside it), so the classic UI is untouched.
+   (for toasts and modals rendered outside it), so the classic UI is untouched.
    ========================================================================== */
 
-.v3 {
+.v3,
+html[data-ui="v3"] body {
   --v3-bg: #F6F5F1;
   --v3-surface: #FFFFFF;
   --v3-subtle: #FBFAF7;
@@ -410,7 +411,9 @@
 .v3 .v3-table th:last-child, .v3 .v3-table td:last-child { padding-right: var(--v3-pad-card); }
 .v3 .v3-table .c { text-align: center; width: 52px; }
 .v3 .v3-table .r { text-align: right; }
-.v3 .v3-q { min-width: 200px; font-weight: 500; }
+.v3 .v3-q { min-width: 160px; width: 100%; font-weight: 500; }
+.v3 .v3-q-text { display: block; overflow-wrap: anywhere; }
+.v3 .v3-q-link { min-height: 0; margin-top: 4px; font-size: 12px; }
 .v3 .v3-edot { display: inline-block; width: 12px; height: 12px; border-radius: 99px; vertical-align: middle; }
 .v3 .v3-edot.yes { background: var(--v3-accent); }
 .v3 .v3-edot.no { background: transparent; box-shadow: inset 0 0 0 1.5px var(--v3-line-btn); }
@@ -421,8 +424,11 @@
 .v3 .v3-sites li { display: flex; gap: 12px; align-items: flex-start; }
 .v3 .v3-sites-n { width: 24px; flex-shrink: 0; font-size: 12px; color: var(--v3-text-3); padding-top: 2px; }
 .v3 .v3-sites-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.v3 .v3-sites-top { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
-.v3 .v3-sites-d { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v3 .v3-sites-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; font-size: 14px; }
+.v3 .v3-sites-dwrap { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.v3 .v3-sites-d { display: block; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v3 .v3-sites-dwrap .v3-pill { flex-shrink: 0; }
+.v3 .v3-sites-count { text-align: right; white-space: nowrap; }
 .v3 .v3-sites .v3-mono { font-size: 12px; white-space: nowrap; }
 
 .v3 .v3-skel-grid { display: grid; grid-template-columns: 1.55fr 1fr; gap: 20px; }
@@ -451,3 +457,269 @@
   .v3 .v3-card-head .v3-seg { width: 100%; }
   .v3 .v3-card-head .v3-seg button { flex: 1; }
 }
+
+/* ============================================================================
+   Pages (v3): re-skin of the shared page primitives
+   The routed pages keep their markup and logic; inside the v3 shell their
+   design-system tokens are remapped to v3 and the shared classes (page head,
+   cards, KPI rail, tables, filters, buttons) take the v3 shape.
+   ========================================================================== */
+
+/* Token remap for pages built on dashboard-v2 (.lvx) and on the legacy app
+   tokens (admin, activity, prompt details, ledger, drill-downs, banners). */
+html[data-ui="v3"] body,
+html[data-ui="v3"] .lvx {
+  --bg: var(--v3-bg);
+  --bg-2: var(--v3-track);
+  --surface: var(--v3-surface);
+  --surface-2: var(--v3-subtle);
+  --surface-3: var(--v3-track);
+  --line: var(--v3-line);
+  --line-2: var(--v3-line-btn);
+  --line-3: #C9C4B8;
+  --text: var(--v3-ink);
+  --text-2: var(--v3-text-2);
+  --text-3: var(--v3-text-3);
+  --mute: #8F8A98;
+  --mute-2: #C9C4B8;
+  --primary: var(--v3-accent);
+  --primary-600: var(--v3-accent-hover);
+  --primary-50: var(--v3-accent-50);
+  --primary-100: #E2E0F8;
+  --primary-200: var(--v3-accent-ring);
+  --accent: var(--v3-accent);
+  --accent-soft: var(--v3-accent-50);
+  --success: var(--v3-good);
+  --success-50: var(--v3-good-50);
+  --success-100: #D3EADD;
+  --warn: var(--v3-warn);
+  --warn-50: var(--v3-warn-bg);
+  --warn-100: var(--v3-warn-line);
+  --danger: var(--v3-bad);
+  --danger-50: var(--v3-bad-50);
+  --danger-100: #F4D3CF;
+  --shadow-1: none;
+  --shadow-2: none;
+  --radius-xs: 8px;
+  --radius: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 20px;
+  --pad: 24px;
+  --sans: var(--v3-sans);
+  --mono: var(--v3-mono);
+  /* legacy app tokens */
+  --bg2: var(--v3-surface);
+  --bg3: var(--v3-track);
+  --bg4: var(--v3-line-soft);
+  --border: var(--v3-line);
+  --muted: var(--v3-text-3);
+  --primary-hover: var(--v3-accent-hover);
+  --primary-light: var(--v3-accent-50);
+  --primary-border: var(--v3-accent-ring);
+  --green: var(--v3-good);
+  --red: var(--v3-bad);
+  --amber: var(--v3-warn);
+  --font: var(--v3-sans);
+  --font-display: var(--v3-sans);
+  --card-bg: var(--v3-surface);
+  --card-border: var(--v3-line);
+  --text-primary: var(--v3-ink);
+  --text-secondary: var(--v3-text-2);
+  --text-muted: var(--v3-text-3);
+}
+.v3 .v3-content .lvx { background: transparent; font-family: var(--v3-sans); letter-spacing: -0.005em; }
+.v3 .v3-content { font-family: var(--v3-sans); }
+
+/* Pages that pad themselves: the v3 content box already carries the gutter. */
+.v3 .v3-content .lvx .page-head { padding: 0 0 24px; gap: 20px; flex-wrap: wrap; align-items: flex-end; }
+.v3 .v3-content .lvx .page-body { padding: 0 0 24px; gap: 20px; }
+.v3 .v3-content .lvx-shell-content { padding: 0; }
+
+/* Page header: mono eyebrow + Geist title + one plain sentence. */
+.v3 .v3-page-eyebrow { font: 500 11px/1.2 var(--v3-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--v3-text-3); margin-bottom: 10px; }
+.v3 .v3-content .page-t { font: 600 32px/1.15 var(--v3-sans); letter-spacing: -0.025em; color: var(--v3-ink); }
+.v3 .v3-content .page-s { font-size: 15px; line-height: 1.55; color: var(--v3-text-2); max-width: 70ch; margin-top: 8px; }
+.v3 .v3-content .page-s + .page-s { font-size: 13px; color: var(--v3-text-3); margin-top: 4px; }
+.v3 .v3-content .page-a { gap: 10px; }
+
+/* Cards */
+.v3 .v3-content .card { border-radius: var(--v3-r-card); border: 1px solid var(--v3-line); box-shadow: none; background: var(--v3-surface); }
+.v3 .v3-content .card-h { padding: 20px 24px 14px; border-bottom: 0; }
+.v3 .v3-content .card-t { font: 600 16px/1.3 var(--v3-sans); letter-spacing: -0.01em; }
+.v3 .v3-content .card-lede { font-size: 13px; color: var(--v3-text-3); }
+.v3 .v3-content .card-b { padding: 4px 24px 24px; }
+.v3 .v3-content .card-b.no-pad { padding: 0; }
+.v3 .v3-content .card-f { border-top: 1px solid var(--v3-line-soft); background: var(--v3-subtle); padding: 12px 24px; }
+.v3 .v3-content .eyebrow { font-family: var(--v3-mono); font-size: 11px; letter-spacing: .08em; }
+
+/* KPI rail -> stat tiles */
+.v3 .v3-content .kpi-rail { gap: 12px; border: 0; background: transparent; box-shadow: none; overflow: visible; border-radius: 0; }
+.v3 .v3-content .kpi { background: var(--v3-surface); border: 1px solid var(--v3-line); border-radius: var(--v3-r-tile); padding: 16px 18px; min-width: 0; }
+.v3 .v3-content .kpi:last-child { border-right: 1px solid var(--v3-line); }
+.v3 .v3-content .kpi-k { font: 500 11px/1.3 var(--v3-mono); letter-spacing: .08em; color: var(--v3-text-3); }
+.v3 .v3-content .kpi-v { font: 600 26px/1.1 var(--v3-sans); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+
+/* Tables: 14px rows, mono headers, soft lines, sticky header, scroll on phones */
+.v3 .v3-content .tbl-wrap, .v3 .v3-content .table-wrap, .v3 .v3-content .table-container { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
+.v3 .v3-content .tbl, .v3 .v3-content table { font-size: 14px; }
+.v3 .v3-content .tbl th, .v3 .v3-content table th {
+  position: sticky; top: 0; z-index: 1;
+  font: 500 11px/1.2 var(--v3-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--v3-text-3);
+  background: var(--v3-subtle); border-bottom: 1px solid var(--v3-line-soft); padding: 11px 16px;
+}
+.v3 .v3-content .tbl td, .v3 .v3-content table td { font-size: 14px; border-bottom: 1px solid var(--v3-line-soft); padding: 13px 16px; color: var(--v3-text-2); }
+.v3 .v3-content .tbl td b, .v3 .v3-content table td b { color: var(--v3-ink); }
+.v3 .v3-content .tbl tr:hover td { background: var(--v3-subtle); }
+.v3 .v3-content .tbl th:first-child, .v3 .v3-content .tbl td:first-child { padding-left: 24px; }
+.v3 .v3-content .tbl th:last-child, .v3 .v3-content .tbl td:last-child { padding-right: 24px; }
+
+/* Filters: segmented controls and selects that wrap */
+.v3 .v3-content .filter { gap: 10px; padding: 0 0 4px; }
+.v3 .v3-content .filter > * { font-size: 13px; }
+.v3 .v3-content .seg { background: var(--v3-track); border: 0; border-radius: 12px; padding: 3px; box-shadow: none; gap: 2px; }
+.v3 .v3-content .seg-i { font: 500 12px/1 var(--v3-sans); letter-spacing: 0; text-transform: none; min-height: 38px; padding: 0 14px; border-radius: 9px; color: var(--v3-text-2); }
+.v3 .v3-content .seg-i.on { background: var(--v3-surface); color: var(--v3-ink); box-shadow: var(--v3-shadow-pill); }
+.v3 .v3-content .sel, .v3 .v3-content select.sel {
+  min-height: 44px; padding: 0 36px 0 14px; border-radius: 12px; border: 1px solid var(--v3-line-btn); background-color: var(--v3-surface);
+  font: 500 13px/1 var(--v3-sans); color: var(--v3-ink); box-shadow: none;
+}
+.v3 .v3-content input.sel { padding: 0 14px; }
+.v3 .v3-content .search-box { min-height: 44px; border-radius: 12px; border: 1px solid var(--v3-line); box-shadow: none; padding: 0 14px; }
+.v3 .v3-content .search-box input { font: 400 14px var(--v3-sans); }
+.v3 .v3-content .fld-in, .v3 .v3-content .finp, .v3 .v3-content .aud-input {
+  min-height: 44px; border-radius: 12px; border: 1px solid var(--v3-line-btn); background: var(--v3-surface); font-size: 14px; font-family: var(--v3-sans);
+}
+.v3 .v3-content .fld-in:focus, .v3 .v3-content .finp:focus, .v3 .v3-content .aud-input:focus, .v3 .v3-content .sel:focus {
+  outline: 2px solid var(--v3-accent-ring); border-color: var(--v3-accent);
+}
+.v3 .v3-content textarea.fld-in { min-height: 96px; padding: 12px 14px; }
+
+/* Buttons */
+.v3 .v3-content .btn-p, .v3 .v3-content .btn-g, .v3 .v3-content .btn-d {
+  min-height: 44px; padding: 0 18px; border-radius: var(--v3-r-btn); font: 600 14px/1 var(--v3-sans); letter-spacing: -0.005em; box-shadow: none; justify-content: center;
+}
+.v3 .v3-content .btn-p { background: var(--v3-accent); color: #fff; border: 1px solid var(--v3-accent); }
+.v3 .v3-content .btn-p:hover:not(:disabled) { background: var(--v3-accent-hover); }
+.v3 .v3-content .btn-g { background: var(--v3-surface); border: 1px solid var(--v3-line-btn); color: var(--v3-ink); }
+.v3 .v3-content .btn-d { background: var(--v3-surface); border: 1px solid var(--v3-line-btn); color: var(--v3-ink); font-weight: 500; }
+.v3 .v3-content .btn-d:hover:not(:disabled), .v3 .v3-content .btn-g:hover:not(:disabled) { border-color: var(--v3-text-3); background: var(--v3-surface); }
+.v3 .v3-content .btn-danger { color: var(--v3-bad); }
+.v3 .v3-content button:disabled { cursor: not-allowed; }
+
+/* Pills, badges, bars */
+.v3 .v3-content .badge { border-radius: 99px; font-family: var(--v3-mono); letter-spacing: .06em; }
+.v3 .v3-content .pill { border-radius: 99px; }
+.v3 .v3-content .bar { height: 8px; background: var(--v3-line-soft); }
+
+/* Side drawers opened from pages (result details etc.) */
+.v3 .v3-content .drawer { border-radius: 20px 0 0 20px; border-left: 1px solid var(--v3-line); }
+.v3 .v3-content .drawer-h { background: var(--v3-surface); border-bottom: 1px solid var(--v3-line-soft); }
+
+/* Empty states: short sentence + one primary action */
+.v3 .v3-empty-state { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 28px; border: 1px dashed var(--v3-line-btn); border-radius: var(--v3-r-card); background: var(--v3-subtle); }
+.v3 .v3-empty-state p { margin: 0; color: var(--v3-text-2); max-width: 60ch; }
+
+/* Shell banners (trial, locked brand, low balance, run progress, onboarding) */
+.v3 .v3-banners > * { border-radius: 14px !important; font-size: 13px !important; font-family: var(--v3-sans); }
+.v3 .v3-banners a { font-weight: 600; }
+
+/* Legacy (non-.lvx) pages: admin, activity, prompt details, ledger, drill-downs */
+.v3 .v3-content h1:not(.v3-serif) { font-family: var(--v3-sans); letter-spacing: -0.02em; }
+.v3 .v3-content .card:not(.lvx *) { padding: 20px; }
+.v3 .v3-content .card-header { border-bottom: 1px solid var(--v3-line-soft); }
+
+/* Phones */
+@media (max-width: 639px) {
+  .v3 .v3-content .page-t { font-size: 28px; }
+  .v3 .v3-content .page-head { padding-bottom: 18px; }
+  .v3 .v3-content .page-a { width: 100%; justify-content: flex-start; }
+  .v3 .v3-content .page-a > * { flex: 1 1 auto; }
+  .v3 .v3-content .kpi-rail { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px; }
+  .v3 .v3-content .kpi { padding: 14px; }
+  .v3 .v3-content .kpi-v { font-size: 22px; }
+  .v3 .v3-content .card-h { padding: 18px 20px 12px; }
+  .v3 .v3-content .card-b { padding: 4px 20px 20px; }
+  .v3 .v3-content .card-b.no-pad { padding: 0; }
+  .v3 .v3-content .tbl th:first-child, .v3 .v3-content .tbl td:first-child { padding-left: 20px; }
+  .v3 .v3-content .filter .seg { max-width: 100%; overflow-x: auto; }
+}
+
+/* ─── Toasts, modals and palette (they use the legacy tokens remapped above;
+   these rules only reshape them) ─── */
+html[data-ui="v3"] body { background: #F6F5F1; font-family: var(--v3-font-sans), "Geist", system-ui, sans-serif; }
+html[data-ui="v3"] [role="dialog"][aria-label="Confirm run"] > div,
+html[data-ui="v3"] [role="dialog"][aria-label="Search"],
+html[data-ui="v3"] .add-brand-box { background: #FFFFFF !important; border-radius: 20px !important; border: 1px solid #E7E4DC !important; box-shadow: 0 24px 64px rgba(23, 22, 28, .18) !important; }
+html[data-ui="v3"] [role="dialog"][aria-label="Confirm run"] button,
+html[data-ui="v3"] [role="dialog"][aria-label="Confirm run"] a { min-height: 44px; border-radius: 12px !important; padding: 0 18px !important; display: inline-flex; align-items: center; }
+html[data-ui="v3"] .add-brand-box .finp { min-height: 44px; border-radius: 12px; }
+html[data-ui="v3"] .add-brand-box .setup-add-btn, html[data-ui="v3"] .add-brand-box button[type="submit"] { min-height: 44px; border-radius: 12px; }
+html[data-ui="v3"] [role="alert"][aria-live="assertive"] > div { border-radius: 14px !important; border-color: #E7E4DC !important; box-shadow: 0 12px 32px rgba(23, 22, 28, .12) !important; }
+html[data-ui="v3"] .glt-card { border-radius: 16px !important; }
+@media (max-width: 639px) {
+  /* Keep toasts clear of the bottom tab bar and inside the screen. */
+  html[data-ui="v3"] [role="alert"][aria-live="assertive"] { left: 12px; right: 12px !important; }
+  html[data-ui="v3"] [role="alert"][aria-live="assertive"] > div { min-width: 0 !important; max-width: none !important; }
+}
+
+/* Emoji/glyph icons in the shared banners are hidden in v3 (no emoji). */
+.v3 .lvx-banner-ico { display: none !important; }
+
+/* v3 page head also works on pages that are not wrapped in .lvx */
+.v3 .v3-page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; padding: 0 0 24px; }
+.v3 .v3-page-head .page-a { display: flex; gap: 10px; flex-wrap: wrap; }
+.v3 .v3-page-head .page-s { margin: 8px 0 0; }
+
+/* Admin: flat stat tiles instead of coloured cards */
+.v3 .ap-plan-card { border: 1px solid var(--v3-line) !important; border-radius: 14px !important; background: var(--v3-surface) !important; }
+.v3 .ap-plan-card:hover { transform: none !important; box-shadow: none !important; }
+.v3 .ap-plan-card p:first-child { color: var(--v3-text-3) !important; font-family: var(--v3-mono); font-weight: 500 !important; font-size: 11px !important; }
+.v3 .ap-plan-card p:nth-child(3) { color: var(--v3-ink) !important; font-family: var(--v3-sans) !important; font-weight: 600 !important; font-size: 26px !important; }
+.v3 .ap-deco { display: none; }
+@media (max-width: 639px) { .v3 .ap-plans-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+
+/* Phone tables scroll sideways inside their wrapper instead of squashing. */
+@media (max-width: 639px) {
+  .v3 .v3-content .tbl-wrap > table, .v3 .v3-content .tbl-wrap .tbl { min-width: 640px; }
+  .v3 .v3-content .card-h { flex-wrap: wrap; }
+  .v3 .v3-content .card-r { flex-wrap: wrap; max-width: 100%; }
+}
+
+/* Legacy page headers (.view-title / .view-sub) take the v3 page-head shape */
+.v3 .v3-content .view-title { font: 600 32px/1.15 var(--v3-sans) !important; letter-spacing: -0.025em !important; color: var(--v3-ink) !important; margin: 0 0 8px; }
+.v3 .v3-content .view-sub { font-size: 15px !important; line-height: 1.55; color: var(--v3-text-2) !important; max-width: 70ch; }
+.v3 .v3-content .rec-card { border-radius: var(--v3-r-card); overflow: hidden; border-color: var(--v3-line); }
+@media (max-width: 639px) { .v3 .v3-content .view-title { font-size: 28px !important; } }
+
+@media (max-width: 639px) { .v3 .v3-banners > div { flex-wrap: wrap; row-gap: 6px; } }
+@media (max-width: 639px) {
+  .v3 .v3-content .card-h:has(.card-r > :nth-child(2)) .card-r { width: 100%; }
+  .v3 .v3-content .card-r > .btn-d, .v3 .v3-content .card-r > .btn-g, .v3 .v3-content .card-r > .btn-p { flex: 1 1 auto; padding: 0 12px; }
+}
+.v3 .lvx-emoji { display: none !important; }
+.v3 .v3-tabs-wrap { position: relative; }
+
+/* Fix Engine / Connect (.mx): same components, v3 shape - no hard shadows,
+   1px lines, Geist type. */
+.v3 .v3-content .mx { --ink: var(--v3-line-btn); --xr: 20px; }
+.v3 .v3-content .mx, .v3 .v3-content .mx button, .v3 .v3-content .mx input, .v3 .v3-content .mx textarea,
+.v3 .v3-content .mx select, .v3 .v3-content .mx .disp { font-family: var(--v3-sans) !important; }
+.v3 .v3-content .mx .xlbl, .v3 .v3-content .mx .chip, .v3 .v3-content .mx .xin { font-family: var(--v3-mono) !important; }
+.v3 .v3-content .mx .nb { border-width: 1px !important; border-color: var(--v3-line) !important; box-shadow: none !important; border-radius: 20px !important; }
+.v3 .v3-content .mx .nb-sm { border-width: 1px !important; border-color: var(--v3-line) !important; box-shadow: none !important; border-radius: 14px !important; }
+.v3 .v3-content .mx .xbtn, .v3 .v3-content .mx .gbtn {
+  min-height: 44px; border-width: 1px !important; box-shadow: none !important; border-radius: 12px !important; font-weight: 600 !important; transform: none !important;
+}
+.v3 .v3-content .mx .xbtn { border-color: var(--v3-accent) !important; }
+.v3 .v3-content .mx .gbtn { border-color: var(--v3-line-btn) !important; }
+.v3 .v3-content .mx .chip { border-width: 1px !important; border-color: var(--v3-line-btn); }
+.v3 .v3-content .mx .xin { border-width: 1px !important; border-color: var(--v3-line-btn) !important; box-shadow: none !important; border-radius: 12px !important; min-height: 44px; }
+.v3 .v3-content .mx .stripes { background-image: none; }
+@media (max-width: 639px) {
+  .v3 .v3-content .card-r > span { display: flex !important; flex-wrap: wrap; max-width: 100%; width: 100%; }
+  .v3 .v3-content .card-r > span > .btn-d, .v3 .v3-content .card-r > span > .btn-g, .v3 .v3-content .card-r > span > a { flex: 1 1 auto; padding: 0 12px; }
+}
+/* Toasts sit under the topbar instead of on top of the avatar. */
+html[data-ui="v3"] [role="alert"][aria-live="assertive"] { top: 80px !important; }
+@media (max-width: 639px) { html[data-ui="v3"] [role="alert"][aria-live="assertive"] { top: 70px !important; } }
+.v3 .v3-table th.c, .v3 .v3-table td.c { width: 44px; padding-left: 4px; padding-right: 4px; }

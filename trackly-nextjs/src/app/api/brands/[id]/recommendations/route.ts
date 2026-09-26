@@ -347,7 +347,11 @@ async function generateRecommendations(brandId: string, analytics: AnalyticsData
     "SELECT type, prompt FROM recommendations WHERE brand_id = $1 AND status = 'open'",
     [brandId]
   );
-  const existingTypes = new Set(existing.rows.map((r: { type: string; prompt: string | null }) => `${r.type}:${r.prompt || ''}`));
+  const existingKeys = new Set(existing.rows.map((r: { type: string; prompt: string | null }) => `${r.type}:${r.prompt || ''}`));
+  // Every rule records the key it still stands behind, whether or not it
+  // inserts a new row, so stale open rows can be retired below.
+  const currentKeys = new Set<string>();
+  const existingTypes = { has(key: string) { currentKeys.add(key); return existingKeys.has(key); } };
 
   // Rule 1: Low visibility
   if (analytics.overallMentionRate < THRESHOLDS.lowVisibility) {
@@ -366,10 +370,13 @@ async function generateRecommendations(brandId: string, analytics: AnalyticsData
 
   // Rule 2: Competitor domination
   if (analytics.topCompetitors.length > 0) {
+    // One new competitor row per run, but every qualifying rival is checked
+    // so its existing row counts as current.
+    let addedCompetitor = false;
     for (const comp of analytics.topCompetitors) {
       if (comp.mentionRate > analytics.overallMentionRate * THRESHOLDS.competitorMultiplier && comp.mentionRate > THRESHOLDS.competitorDomination) {
         const key = `competitor_domination:${comp.name}`;
-        if (!existingTypes.has(key)) {
+        if (!existingTypes.has(key) && !addedCompetitor) {
           recommendations.push({
             type: 'competitor_domination',
             prompt: comp.name,
@@ -379,7 +386,7 @@ async function generateRecommendations(brandId: string, analytics: AnalyticsData
             playbook_id: 'competitor_domination',
             payload: { competitor: comp.name, competitorRate: comp.mentionRate, ownRate: analytics.overallMentionRate },
           });
-          break;
+          addedCompetitor = true;
         }
       }
     }
@@ -438,10 +445,11 @@ async function generateRecommendations(brandId: string, analytics: AnalyticsData
   const platforms = Object.entries(analytics.platformBreakdown);
   if (platforms.length >= 2) {
     const avgRate = platforms.reduce((s, [, d]) => s + d.mentionRate, 0) / platforms.length;
+    let addedGap = false;
     for (const [platform, data] of platforms) {
       if (data.mentionRate < avgRate * THRESHOLDS.platformGapMultiplier && avgRate > THRESHOLDS.missingCitationMinRate) {
         const key = `platform_gap:${platform}`;
-        if (!existingTypes.has(key)) {
+        if (!existingTypes.has(key) && !addedGap) {
           recommendations.push({
             type: 'platform_gap',
             prompt: platform,
@@ -451,7 +459,7 @@ async function generateRecommendations(brandId: string, analytics: AnalyticsData
             playbook_id: 'not_in_top_list',
             payload: { platform, rate: data.mentionRate, avgRate },
           });
-          break;
+          addedGap = true;
         }
       }
     }
@@ -502,5 +510,33 @@ async function generateRecommendations(brandId: string, analytics: AnalyticsData
     } catch { /* skip individual insert failures */ }
   }
 
+  // Retire superseded rows: an open recommendation from one of these rules
+  // whose condition no longer holds (e.g. a blind spot for a prompt that is
+  // no longer tracked) is marked done and flagged, so only current advice
+  // shows. Skipped when there is no run data to judge against. Rows a user
+  // moved to in progress or ignored are left alone.
+  if (Object.keys(analytics.platformBreakdown).length > 0) {
+    const stale = existing.rows
+      .map((r: { type: string; prompt: string | null }) => ({ type: r.type, prompt: r.prompt || '', key: `${r.type}:${r.prompt || ''}` }))
+      .filter((r: { type: string; key: string }) => GENERATED_TYPES.has(r.type) && !currentKeys.has(r.key));
+    for (const r of stale) {
+      try {
+        await pool.query(
+          `UPDATE recommendations
+              SET status = 'done', updated_at = NOW(),
+                  payload = COALESCE(payload, '{}'::jsonb) || '{"superseded": true}'::jsonb
+            WHERE brand_id = $1 AND status = 'open' AND type = $2 AND COALESCE(prompt, '') = $3`,
+          [brandId, r.type, r.prompt],
+        );
+      } catch { /* best effort */ }
+    }
+  }
+
   return recommendations;
 }
+
+/** Rule types owned by generateRecommendations (eligible for superseding). */
+const GENERATED_TYPES = new Set([
+  'low_visibility', 'competitor_domination', 'negative_sentiment', 'visibility_declining',
+  'missing_citations', 'platform_gap', 'query_blind_spot', 'low_rank',
+]);

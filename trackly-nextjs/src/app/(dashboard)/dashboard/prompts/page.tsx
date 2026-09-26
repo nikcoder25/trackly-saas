@@ -774,7 +774,7 @@ export default function TrackedPromptsPage() {
                                         </span>
                                       )}
                                       {r.pinned && (
-                                        <span className="dim" title="Set by hand - automatic rebuilds leave it alone"> 📌</span>
+                                        <span className="dim lvx-emoji" title="Set by hand - automatic rebuilds leave it alone"> 📌</span>
                                       )}
                                     </td>
                                     <td className="num dim">

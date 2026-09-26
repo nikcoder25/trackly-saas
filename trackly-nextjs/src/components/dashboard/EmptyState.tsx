@@ -1,5 +1,7 @@
 'use client';
 
+import { useUiFlag } from '@/contexts/UiFlagContext';
+
 const ICONS: Record<string, string> = {
   chart: '📊', search: '🔍', data: '📈', alert: '🔔', shield: '🛡️',
   globe: '🌍', star: '⭐', query: '💬', brand: '🏷️', default: '📋',
@@ -13,6 +15,16 @@ interface EmptyStateProps {
 }
 
 export default function EmptyState({ icon = 'default', title, message, action }: EmptyStateProps) {
+  const { isV3 } = useUiFlag();
+  if (isV3) {
+    // v3: a short sentence and one primary action, no emoji.
+    return (
+      <div className="v3-empty-state">
+        <p><b>{title.replace(/[.!?]$/, '')}.</b> {message}</p>
+        {action && <button type="button" className="v3-btn v3-btn-primary" onClick={action.onClick}>{action.label}</button>}
+      </div>
+    );
+  }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 24px', minHeight: 200 }}>
       <div style={{ width: 56, height: 56, borderRadius: 14, background: 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, marginBottom: 14 }}>

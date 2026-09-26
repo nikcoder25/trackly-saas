@@ -40,7 +40,7 @@ const MAIN = UI === 'v3' ? '.v3-main' : '.lvx-shell-main';
 // classic UI must stay exactly as it is; v3 page fixes land with the page
 // restyle.
 const KNOWN_CLASSIC = { overflow: ['/dashboard/admin'] };
-const KNOWN_V3 = { overflow: ['/dashboard/admin'] };
+const KNOWN_V3 = { overflow: [] };
 const known = [];
 const failures = [];
 const passes = [];
@@ -119,7 +119,7 @@ let loginAt = 0;
 async function newPage(browser, width) {
   const ctx = await browser.newContext({ viewport: { width, height: width < 640 ? 800 : 900 }, acceptDownloads: true, storageState: storageState || undefined });
   await ctx.addInitScript(() => { try { localStorage.setItem('cookie-consent', 'accepted'); } catch { /* */ } });
-  if (UI === 'v3') await ctx.addCookies([{ name: 'lvx_ui', value: 'v3', url: BASE }]);
+  await ctx.addCookies([{ name: 'lvx_ui', value: UI, url: BASE }]);
   const page = await ctx.newPage();
   page.on('dialog', d => d.accept().catch(() => {}));
   if (!storageState || Date.now() - loginAt > 8 * 60_000) {
@@ -148,8 +148,8 @@ async function layoutAndShell(browser, width) {
       if (!shellOk) { fail(`[${width}] ${route}: ${UI} shell not rendered`); continue; }
       const m = await page.evaluate(measure);
       if (m.sw > m.vw + 1 || m.mainSw > m.mainCw + 1 || m.bad.length) {
-        if ((UI === 'classic' ? KNOWN_CLASSIC : KNOWN_V3).overflow.includes(route)) { known.push(`[${width}] ${route} overflow (pre-existing)`); continue; }
-        fail(`[${width}] ${route}: horizontal overflow vw=${m.vw} doc=${m.sw} main=${m.mainSw}/${m.mainCw} ${m.bad.join(' | ')}`);
+        if ((UI === 'classic' ? KNOWN_CLASSIC : KNOWN_V3).overflow.includes(route)) known.push(`[${width}] ${route} overflow (pre-existing)`);
+        else fail(`[${width}] ${route}: horizontal overflow vw=${m.vw} doc=${m.sw} main=${m.mainSw}/${m.mainCw} ${m.bad.join(' | ')}`);
       } else pass(`[${width}] ${route} no overflow`);
       if (SHOTS && (width === 1440 || width === 390)) {
         const name = route.replace(/\?.*$/, '').replace(/^\/dashboard\/?/, '').replace(/\//g, '-') || 'overview';
@@ -251,13 +251,20 @@ async function actions(browser, width) {
 
   await step(`${tag} Mentions filter changes rows`, async () => {
     await goto(page, '/dashboard/mentions');
+    // Rows are paginated, so compare the "Showing x-y of N" total (and the
+    // visible rows as a fallback) rather than the page-1 row count alone.
     const rows = page.locator(`${MAIN} table tbody tr, ${MAIN} .mention-row, ${MAIN} [data-row]`);
-    const before = await rows.count();
+    const snapshot = async () => {
+      const text = await page.locator(MAIN).innerText();
+      const total = (text.match(/Showing\s+\d+\s*[-–]\s*\d+\s+of\s+(\d+)/i) || [])[1] || '';
+      return `${total}|${await rows.count()}|${(await rows.allInnerTexts()).join('\n').slice(0, 2000)}`;
+    };
+    const before = await snapshot();
     await page.getByRole('button', { name: 'NOT MENTIONED', exact: true }).first().click();
-    await page.waitForTimeout(500);
-    const after = await rows.count();
+    await page.waitForTimeout(600);
+    const after = await snapshot();
     const body = await page.locator(MAIN).innerText();
-    if (before === after && !/No matching results/.test(body)) throw new Error(`row count unchanged (${before})`);
+    if (before === after && !/No matching results/.test(body)) throw new Error('rows unchanged after filtering');
   });
 
   await step(`${tag} Mentions export downloads a CSV`, async () => {
@@ -328,7 +335,16 @@ async function actions(browser, width) {
     await row.locator('input[type="checkbox"]').first().check();
     const del = page.waitForResponse(r => /\/api\/tracked-prompts\/bulk-delete/.test(r.url()), { timeout: 15000 });
     await page.getByRole('button', { name: /Delete selected/ }).click();
-    if (!(await del).ok()) throw new Error('delete failed');
+    let dres = await del;
+    if (dres.status() === 429) {
+      // The write endpoints are rate limited; honour Retry-After once.
+      const wait = ((await dres.json().catch(() => ({}))).retryAfter || 10) * 1000 + 1000;
+      await page.waitForTimeout(wait);
+      const again = page.waitForResponse(r => /\/api\/tracked-prompts\/bulk-delete/.test(r.url()), { timeout: 15000 });
+      await page.getByRole('button', { name: /Delete selected/ }).click();
+      dres = await again;
+    }
+    if (!dres.ok()) throw new Error(`delete failed ${dres.status()} ${(await dres.text()).slice(0, 160)}`);
   });
 
   await ctx.close();
