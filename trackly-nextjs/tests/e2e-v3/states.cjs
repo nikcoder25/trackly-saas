@@ -83,7 +83,7 @@ async function shot(page, name, check) {
 
     await open(page, '/dashboard/setup');
     await page.getByRole('button', { name: 'Save changes' }).click();
-    await shot(page, `state-toast-${tag}`, () => page.locator('[role="alert"][aria-live="assertive"] > div').first().waitFor({ state: 'visible', timeout: 15000 }));
+    await shot(page, `state-toast-${tag}`, () => page.locator('[role="alert"][aria-live="assertive"] > div').first().waitFor({ state: 'visible', timeout: 15000 }).then(() => page.waitForTimeout(500)));
 
     await open(page, '/dashboard/results');
     const row = page.locator('.v3-main button, .v3-main [role="button"]').filter({ hasText: /view|answer|open/i }).first();

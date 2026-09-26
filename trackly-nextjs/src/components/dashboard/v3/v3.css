@@ -714,3 +714,6 @@ html[data-ui="v3"] .glt-card { border-radius: 16px !important; }
   .v3 .v3-content .card-r > span { display: flex !important; flex-wrap: wrap; max-width: 100%; width: 100%; }
   .v3 .v3-content .card-r > span > .btn-d, .v3 .v3-content .card-r > span > .btn-g, .v3 .v3-content .card-r > span > a { flex: 1 1 auto; padding: 0 12px; }
 }
+/* Toasts sit under the topbar instead of on top of the avatar. */
+html[data-ui="v3"] [role="alert"][aria-live="assertive"] { top: 80px !important; }
+@media (max-width: 639px) { html[data-ui="v3"] [role="alert"][aria-live="assertive"] { top: 70px !important; } }

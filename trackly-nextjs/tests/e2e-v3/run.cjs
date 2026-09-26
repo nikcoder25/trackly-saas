@@ -328,7 +328,15 @@ async function actions(browser, width) {
     await row.locator('input[type="checkbox"]').first().check();
     const del = page.waitForResponse(r => /\/api\/tracked-prompts\/bulk-delete/.test(r.url()), { timeout: 15000 });
     await page.getByRole('button', { name: /Delete selected/ }).click();
-    const dres = await del;
+    let dres = await del;
+    if (dres.status() === 429) {
+      // The write endpoints are rate limited; honour Retry-After once.
+      const wait = ((await dres.json().catch(() => ({}))).retryAfter || 10) * 1000 + 1000;
+      await page.waitForTimeout(wait);
+      const again = page.waitForResponse(r => /\/api\/tracked-prompts\/bulk-delete/.test(r.url()), { timeout: 15000 });
+      await page.getByRole('button', { name: /Delete selected/ }).click();
+      dres = await again;
+    }
     if (!dres.ok()) throw new Error(`delete failed ${dres.status()} ${(await dres.text()).slice(0, 160)}`);
   });
 
