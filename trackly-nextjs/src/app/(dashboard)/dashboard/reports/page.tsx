@@ -254,7 +254,7 @@ export default function ReportsPage() {
         {empty ? (
           <Card>
             <div id="report-builder" style={{ textAlign: 'center', padding: '40px 20px' }}>
-              <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.5 }}>🗂️</div>
+              <div className="lvx-emoji" style={{ fontSize: 40, marginBottom: 12, opacity: 0.5 }}>🗂️</div>
               <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px' }}>Your report is empty</p>
               <p style={{ fontSize: 13, color: 'var(--text-3)', margin: '0 auto', maxWidth: 460, lineHeight: 1.6 }}>
                 Add items from around the dashboard: open a recent mention on the <b>Overview</b> and click

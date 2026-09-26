@@ -375,7 +375,7 @@ export default function CompetitorsPage() {
         {competitors.length > 0 && !hasData && (
           <Card>
             <div style={{ padding: 32, textAlign: 'center' }}>
-              <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>&#128202;</div>
+              <div className="lvx-emoji" style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>&#128202;</div>
               <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>Competitor data will populate after your next query run</div>
               <div style={{ fontSize: 13, color: 'var(--text-3)', maxWidth: 420, margin: '0 auto 20px' }}>
                 {isAdmin ? 'Run your first query scan to see how competitors appear in AI responses.' : 'Competitor data will appear after your next scheduled query run.'}

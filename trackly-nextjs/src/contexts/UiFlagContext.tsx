@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
-  UI_FLAG_KEY, UI_FLAG_PARAM, parseUiVersion, readUiCookie, resolveUiVersion, uiFlagCookie,
+  DEFAULT_UI, UI_FLAG_KEY, UI_FLAG_PARAM, parseUiVersion, readUiCookie, resolveUiVersion, uiFlagCookie,
   type UiVersion,
 } from '@/lib/ui-flag';
 
@@ -12,7 +12,7 @@ interface UiFlagContextType {
   setUi: (v: UiVersion) => void;
 }
 
-const UiFlagContext = createContext<UiFlagContextType>({ ui: 'classic', isV3: false, setUi: () => {} });
+const UiFlagContext = createContext<UiFlagContextType>({ ui: DEFAULT_UI, isV3: DEFAULT_UI === 'v3', setUi: () => {} });
 
 function persist(v: UiVersion) {
   try { document.cookie = uiFlagCookie(v, window.location.protocol === 'https:'); } catch { /* ignore */ }
@@ -35,8 +35,8 @@ export function UiFlagProvider({ initial, children }: { initial: UiVersion; chil
     try { stored = window.localStorage.getItem(UI_FLAG_KEY); } catch { /* ignore */ }
     const cookie = readUiCookie(document.cookie);
     const next = resolveUiVersion({ param, cookie, stored });
-    // Only write when something needs syncing, so a classic user who never
-    // touched the switch gets no cookie and no storage entry.
+    // Only write when something needs syncing, so a user who never touched
+    // the switch gets no cookie and no storage entry.
     if (parseUiVersion(param) || (!parseUiVersion(cookie) && parseUiVersion(stored))) persist(next);
     setUiState(next);
   }, []);

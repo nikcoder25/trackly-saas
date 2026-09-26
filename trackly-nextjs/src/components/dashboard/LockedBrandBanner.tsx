@@ -18,7 +18,7 @@ export default function LockedBrandBanner() {
       background: 'rgba(239,68,68,.05)', border: '1px solid rgba(239,68,68,.18)',
       borderRadius: 'var(--radius-xs)',
     }}>
-      <span style={{ fontSize: 22 }}>🔒</span>
+      <span className="lvx-banner-ico" style={{ fontSize: 22 }}>🔒</span>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--red)', marginBottom: 2 }}>
           This brand is locked

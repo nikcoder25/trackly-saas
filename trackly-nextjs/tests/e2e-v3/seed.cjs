@@ -6,7 +6,11 @@
  *   DATABASE_URL=postgres://postgres@localhost:5432/livesov node tests/e2e-v3/seed.cjs
  *
  * The app must have booted once against the database so its migrations have
- * created the tables. Login: owner@test.dev / Passw0rd!Passw0rd
+ * created the tables. Password for every account: Passw0rd!Passw0rd
+ *   owner@test.dev  owner plan, two brands with full history
+ *   free@test.dev   free plan, out of credits, two brands: one never scanned,
+ *                   one over the plan limit (locked)
+ *   new@test.dev    trial, no brands (onboarding)
  */
 const { Client } = require('pg');
 const bcrypt = require('bcryptjs');
@@ -92,7 +96,7 @@ async function main() {
     const data = {
       name: b.name, website: b.website, city: b.city, industry: 'HVAC', goal: 60,
       description: `${b.name} is a family owned home services company.`,
-      queries: QUERIES, competitors: RIVALS, platforms: ENGINES.map(e => e.toLowerCase()),
+      queries: QUERIES, competitors: RIVALS, platforms: ENGINES,
       runs, mentions: [], queryStats: {}, sovHistory: runs.map(r => ({ date: r.time, sov: r.sov })),
       schedule: 24,
     };
@@ -125,8 +129,32 @@ async function main() {
       [b.id, QUERIES[1]],
     );
   }
+  // Edge-state accounts for the empty, locked and low-balance screens.
+  const extra = [
+    { id: 'seed_free_1', email: 'free@test.dev', name: 'Fran Free', plan: 'free' },
+    { id: 'seed_new_1', email: 'new@test.dev', name: 'Nia New', plan: 'trial' },
+  ];
+  for (const u of extra) {
+    await db.query('DELETE FROM brands WHERE user_id = $1', [u.id]);
+    await db.query('DELETE FROM usage_counters WHERE user_id = $1', [u.id]);
+    await db.query('DELETE FROM users WHERE email = $1 OR id = $2', [u.email, u.id]);
+    await db.query(
+      `INSERT INTO users (id, email, username, name, password_hash, plan, role, email_verified, settings, trial_ends_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'user', true, '{}', NOW() + interval '5 days')`,
+      [u.id, u.email, u.email.split('@')[0], u.name, hash, u.plan],
+    );
+  }
+  const fresh = { name: 'Fresh Bakery', website: 'freshbakery.com', city: 'Austin', industry: 'Bakery', queries: QUERIES.slice(0, 3), competitors: [], runs: [] };
+  const lockedRuns = Array.from({ length: 2 }, (_, i) => buildRun(i, 2, 'Locked Cafe'));
+  const locked = { name: 'Locked Cafe', website: 'lockedcafe.com', city: 'Austin', industry: 'Cafe', queries: QUERIES, competitors: RIVALS, runs: lockedRuns };
+  await db.query(`INSERT INTO brands (id, user_id, data, created_at) VALUES ('seed_free_b1', 'seed_free_1', $1, NOW() - interval '3 days'), ('seed_free_b2', 'seed_free_1', $2, NOW() - interval '1 day')`,
+    [JSON.stringify(fresh), JSON.stringify(locked)]);
+  await db.query(
+    `INSERT INTO usage_counters (user_id, period_month, monthly_used, daily_date, manual_daily_used)
+     VALUES ('seed_free_1', date_trunc('month', NOW())::date, 99999, CURRENT_DATE, 0)`);
+
   await db.end();
-  console.log('seeded', EMAIL);
+  console.log('seeded', EMAIL, 'free@test.dev', 'new@test.dev');
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

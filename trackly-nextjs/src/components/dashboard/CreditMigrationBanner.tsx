@@ -51,7 +51,7 @@ export default function CreditMigrationBanner() {
       background: 'rgba(99,102,241,.06)', border: '1px solid rgba(99,102,241,.25)',
       borderRadius: 'var(--radius-xs)', fontSize: 12, color: 'var(--text)',
     }}>
-      <span style={{ fontSize: 14, color: 'var(--primary)' }}>★</span>
+      <span className="lvx-banner-ico" style={{ fontSize: 14, color: 'var(--primary)' }}>★</span>
       <div style={{ flex: 1, lineHeight: 1.5 }}>
         <strong>We&apos;ve upgraded your plan to a credit-based system.</strong>{' '}
         You now get monthly AI checks with daily auto-tracking - your

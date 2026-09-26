@@ -39,7 +39,7 @@ function TrendChart({ data }: { data: TrendPoint[] }) {
   if (data.length < 2) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 6, padding: 16 }}>
-        <div style={{ fontSize: 28, opacity: 0.4 }}>📉</div>
+        <div className="lvx-emoji" style={{ fontSize: 28, opacity: 0.4 }}>📉</div>
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Not Enough Data</div>
         <div style={{ color: 'var(--muted)', fontSize: 12, textAlign: 'center' }}>Run more checks to see accuracy trends over time.</div>
       </div>

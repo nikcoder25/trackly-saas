@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { allNavItems } from '@/lib/dashboard-nav';
 import {
-  V3_SECTIONS, V3_ALL_HREFS, V3_BOTTOM_TABS, V3_PAGE_BLURBS, v3TabForPath, v3SectionForPath, v3VisibleTabs,
+  V3_SECTIONS, V3_ALL_HREFS, V3_BOTTOM_TABS, V3_PAGE_BLURBS, v3TabForPath, v3SectionForPath, v3VisibleTabs, v3PageMeta,
 } from '@/lib/dashboard-nav-v3';
 
 describe('v3 dashboard nav', () => {
@@ -33,5 +33,16 @@ describe('v3 dashboard nav', () => {
   it('has a blurb for every page and valid bottom tabs', () => {
     for (const href of V3_ALL_HREFS) expect(V3_PAGE_BLURBS[href], href).toBeTruthy();
     for (const id of V3_BOTTOM_TABS) expect(V3_SECTIONS.some(s => s.id === id)).toBe(true);
+  });
+
+  it('gives every page header an eyebrow and a sentence', () => {
+    expect(v3PageMeta('/dashboard/mentions')).toEqual({ eyebrow: 'Prompts & answers · Mentions', blurb: V3_PAGE_BLURBS['/dashboard/mentions'] });
+    expect(v3PageMeta('/dashboard/citations').eyebrow).toBe('Sources AI cites');
+    expect(v3PageMeta('/dashboard/geo-audits/abc').eyebrow).toBe('Audits · Regional Audits');
+    expect(v3PageMeta('/dashboard/admin/runs').blurb).toBeTruthy();
+    expect(v3PageMeta('/dashboard/activity').eyebrow).toBe('Activity');
+    for (const href of [...V3_ALL_HREFS, '/dashboard/connect', '/dashboard/fixes', '/dashboard/billing/ledger', '/dashboard/prompt-details']) {
+      expect(v3PageMeta(href).blurb, href).toBeTruthy();
+    }
   });
 });

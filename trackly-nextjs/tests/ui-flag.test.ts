@@ -2,10 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { parseUiVersion, resolveUiVersion, uiFlagCookie, readUiCookie } from '@/lib/ui-flag';
 
 describe('ui flag', () => {
-  it('defaults to the classic UI', () => {
-    expect(resolveUiVersion({})).toBe('classic');
-    expect(resolveUiVersion({ param: null, cookie: null, stored: null })).toBe('classic');
-    expect(resolveUiVersion({ cookie: 'garbage' })).toBe('classic');
+  it('defaults to the v3 UI', () => {
+    expect(resolveUiVersion({})).toBe('v3');
+    expect(resolveUiVersion({ param: null, cookie: null, stored: null })).toBe('v3');
+    expect(resolveUiVersion({ cookie: 'garbage' })).toBe('v3');
+  });
+
+  it('keeps the classic fallback when chosen', () => {
+    expect(resolveUiVersion({ cookie: 'classic' })).toBe('classic');
+    expect(resolveUiVersion({ stored: 'classic' })).toBe('classic');
+    expect(resolveUiVersion({ param: 'classic' })).toBe('classic');
   });
 
   it('URL param beats cookie beats localStorage', () => {
@@ -16,7 +22,7 @@ describe('ui flag', () => {
   });
 
   it('ignores unknown param values instead of resetting the choice', () => {
-    expect(resolveUiVersion({ param: 'banana', cookie: 'v3' })).toBe('v3');
+    expect(resolveUiVersion({ param: 'banana', cookie: 'classic' })).toBe('classic');
   });
 
   it('normalises aliases', () => {

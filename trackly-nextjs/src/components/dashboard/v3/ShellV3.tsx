@@ -12,7 +12,7 @@ import { useRun, markPendingFirstRun } from '@/contexts/RunContext';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
 import CommandPalette from '@/components/dashboard/CommandPalette';
 import {
-  V3_SECTIONS, V3_BOTTOM_TABS, v3TabForPath, v3VisibleTabs, type V3Section, type V3SectionId,
+  V3_SECTIONS, V3_BOTTOM_TABS, v3TabForPath, v3VisibleTabs, v3PageMeta, type V3Section, type V3SectionId,
 } from '@/lib/dashboard-nav-v3';
 import { V3Icon, type V3IconName } from './icons';
 import { v3FontVars } from './fonts';
@@ -147,7 +147,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function ScanCard() {
+function ScanCard({ onNavigate }: { onNavigate?: () => void }) {
   const { selectedBrand, selectedBrandLocked, plan } = useBrands();
   const { live, startRun, pct } = useRun();
   useMinuteTick();
@@ -157,7 +157,7 @@ function ScanCard() {
     <div className="v3-scan-card">
       <div className="v3-eyebrow">Next automatic scan</div>
       <div className="v3-scan-when">{selectedBrand ? untilLabel(next) : 'Add a brand to start'}</div>
-      <button type="button" className="v3-btn v3-btn-dark v3-btn-block" onClick={() => startRun(false)} disabled={disabled}
+      <button type="button" className="v3-btn v3-btn-dark v3-btn-block" onClick={() => { onNavigate?.(); startRun(false); }} disabled={disabled}
         title={selectedBrandLocked ? 'This brand is locked - upgrade to run' : undefined}>
         {live.running
           ? <><span className="v3-pulse" /> Scanning… {pct}%</>
@@ -178,7 +178,7 @@ function Sidebar({ onNavigate, onAddBrand }: { onNavigate?: () => void; onAddBra
       </Link>
       <BrandMenu onAddBrand={onAddBrand} onPicked={onNavigate} />
       <SidebarNav onNavigate={onNavigate} />
-      <ScanCard />
+      <ScanCard onNavigate={onNavigate} />
     </aside>
   );
 }
@@ -226,11 +226,20 @@ function SectionTabs() {
   const pathname = usePathname();
   const isAdmin = useIsAdmin();
   const match = v3TabForPath(pathname);
+  const wrapRef = React.useRef<HTMLDivElement>(null);
+  // On narrow screens the strip scrolls; bring the current tab into view.
+  React.useEffect(() => {
+    const wrap = wrapRef.current;
+    const on = wrap?.querySelector<HTMLElement>('.v3-tab.on');
+    if (!wrap || !on) return;
+    const left = on.offsetLeft - (wrap.clientWidth - on.offsetWidth) / 2;
+    wrap.scrollLeft = Math.max(0, left);
+  }, [pathname]);
   if (!match) return null;
   const tabs = v3VisibleTabs(match.section, isAdmin);
   if (tabs.length < 2) return null;
   return (
-    <div className="v3-tabs-wrap">
+    <div className="v3-tabs-wrap" ref={wrapRef}>
       <nav className="v3-tabs" aria-label={match.section.label}>
         {tabs.map(t => (
           <Link key={t.href} href={t.href} prefetch={false} className={'v3-tab' + (t.href === match.tab.href ? ' on' : '')}
@@ -266,6 +275,17 @@ function BottomBar() {
   );
 }
 
+/* Pages that draw their own `.view-title` header instead of PageHead. The
+   shell adds the v3 eyebrow above them so every page reads the same way. */
+const LEGACY_HEADER = [/^\/dashboard\/prompt-details$/, /^\/dashboard\/activity$/, /^\/dashboard\/admin\/runs$/,
+  /^\/dashboard\/billing\/ledger$/, /^\/dashboard\/geo-audits\/[^/]+$/];
+
+function LegacyEyebrow() {
+  const pathname = usePathname() || '';
+  if (!LEGACY_HEADER.some(r => r.test(pathname))) return null;
+  return <div className="v3-page-eyebrow">{v3PageMeta(pathname).eyebrow}</div>;
+}
+
 /* ─────────────────────────── shell ─────────────────────────── */
 
 export default function ShellV3({ banners, children }: { banners?: React.ReactNode; children: React.ReactNode }) {
@@ -277,6 +297,14 @@ export default function ShellV3({ banners, children }: { banners?: React.ReactNo
   const close = React.useCallback(() => setDrawer(false), []);
 
   React.useEffect(() => { setDrawer(false); }, [pathname]);
+
+  // Toasts and some modals render outside this root; give <body> the font
+  // variables too so they pick up the v3 type.
+  React.useEffect(() => {
+    const cls = v3FontVars.split(' ').filter(Boolean);
+    document.body.classList.add(...cls);
+    return () => document.body.classList.remove(...cls);
+  }, []);
 
   React.useEffect(() => {
     if (!drawer) return;
@@ -306,6 +334,7 @@ export default function ShellV3({ banners, children }: { banners?: React.ReactNo
             <div className="v3-content">
               <SectionTabs />
               {banners && <div className="v3-banners">{banners}</div>}
+              <LegacyEyebrow />
               {children}
             </div>
           </main>

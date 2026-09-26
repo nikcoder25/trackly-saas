@@ -230,7 +230,7 @@ export default function TrendsPage() {
 function EmptyState({ text }: { text: string }) {
   return (
     <div style={{ minHeight: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 40 }}>
-      <div style={{ width: 56, height: 56, borderRadius: 14, background: 'var(--surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>📈</div>
+      <div className="lvx-emoji" style={{ width: 56, height: 56, borderRadius: 14, background: 'var(--surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>📈</div>
       <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Not Enough Data Yet</div>
       <p style={{ color: 'var(--mute)', fontSize: 13, textAlign: 'center', margin: 0, maxWidth: 340 }}>{text}</p>
     </div>

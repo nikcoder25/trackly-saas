@@ -4,6 +4,9 @@
 // Ported from the Dashboard.html design bundle (dash-components / dash-charts / dash-learn).
 
 import * as React from 'react';
+import { usePathname } from 'next/navigation';
+import { useUiFlag } from '@/contexts/UiFlagContext';
+import { v3PageMeta } from '@/lib/dashboard-nav-v3';
 
 /* ───────────────────────────── Platforms ───────────────────────────── */
 
@@ -125,6 +128,27 @@ export function Card({ title, right, padding = true, children, foot, style, lede
 }
 
 export function PageHead({ title, sub, actions }: { title: React.ReactNode; sub?: React.ReactNode; actions?: React.ReactNode }) {
+  const { isV3 } = useUiFlag();
+  const pathname = usePathname();
+  if (isV3) {
+    // v3 header: mono eyebrow (where you are), title, and one plain-English
+    // sentence about the page. A page's own dynamic sub-line (not plain
+    // text) is kept underneath because it carries live data.
+    const meta = v3PageMeta(pathname);
+    const lead = meta.blurb ?? sub;
+    const extra = meta.blurb && sub && typeof sub !== 'string' ? sub : null;
+    return (
+      <div className="page-head v3-page-head">
+        <div style={{ minWidth: 0 }}>
+          <div className="v3-page-eyebrow">{meta.eyebrow}</div>
+          <h1 className="page-t">{title}</h1>
+          {lead && <p className="page-s">{lead}</p>}
+          {extra && <p className="page-s">{extra}</p>}
+        </div>
+        {actions && <div className="page-a">{actions}</div>}
+      </div>
+    );
+  }
   return (
     <div className="page-head">
       <div>
