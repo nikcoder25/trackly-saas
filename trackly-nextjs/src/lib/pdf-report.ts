@@ -186,7 +186,7 @@ function renderCover(doc, brand, reportDate, sov, prevSov) {
   if (prevSov !== null && prevSov !== undefined) {
     const diff = sov - prevSov;
     const col = diff > 0 ? C.green : diff < 0 ? C.red : C.muted;
-    const txt = diff === 0 ? 'No change vs previous run' : `${diff > 0 ? '+' : ''}${diff} pts vs previous run`;
+    const txt = diff === 0 ? 'No change vs previous run' : `${diff > 0 ? '+' : ''}${diff} ${Math.abs(diff) === 1 ? 'pt' : 'pts'} vs previous run`;
     doc.font('Helvetica').fontSize(9).fillColor(col).text(txt, afterNumX, pillY + 46);
   } else {
     doc.font('Helvetica').fontSize(9).fillColor(C.muted).text('First tracked run', afterNumX, pillY + 46);

@@ -161,7 +161,7 @@ function isTransientError(e: Error): boolean {
     || msg.includes('api error 5') || msg.includes('max retries exhausted');
 }
 
-function buildFactCheckPrompt(facts: CanonicalFact[], responseText: string, platform: string, brandName?: string): string {
+export function buildFactCheckPrompt(facts: CanonicalFact[], responseText: string, platform: string, brandName?: string): string {
   const factsList = facts.map(f => `- ${f.key} (${f.category}): "${f.value}"`).join('\n');
   const brandRule = brandName
     ? `
@@ -186,6 +186,7 @@ For each canonical fact, determine if the AI response:
 1. Mentions the topic and gets it RIGHT → mark as "accurate"
 2. Mentions the topic but gets it WRONG → mark as "inaccurate" with what was found
 3. Does NOT mention the topic at all → mark as "not_mentioned"
+4. Says it LACKS or CANNOT FIND the fact ("I don't have", "not available", "couldn't find", "no current/public ...") → mark as "not_mentioned", NEVER "inaccurate". Admitting it does not know is not a wrong claim.
 ${brandRule}
 IMPORTANT - Avoid false positives. These are NOT inaccuracies:
 - Minor punctuation differences (periods, commas, hyphens): "C Brooks" vs "C. Brooks" → accurate
@@ -376,6 +377,27 @@ async function callChecker(
   throw new Error('Max retries exhausted for fact checker');
 }
 
+// An answer that admits it lacks a fact ("I don't have a current phone
+// number for X") makes no claim, so it can never be an inaccuracy.
+const NO_INFO_RE = /\b(don'?t have|do not have|not (?:available|sure|able)|couldn'?t find|no (?:current|public) )/i;
+
+type CheckerFinding = {
+  fact_key: string;
+  status: 'accurate' | 'inaccurate' | 'not_mentioned';
+  found: string;
+  severity: string;
+  explanation: string;
+};
+
+/** Downgrade "inaccurate" findings whose `found` text is a lack-of-info statement to "not_mentioned". */
+export function downgradeNoInfoFindings<T extends { status: string; found?: string }>(findings: T[]): T[] {
+  return findings.map(f =>
+    f.status === 'inaccurate' && NO_INFO_RE.test(f.found || '')
+      ? { ...f, status: 'not_mentioned' as const }
+      : f,
+  );
+}
+
 function parseCheckerResponse(raw: string): Array<{
   fact_key: string;
   status: 'accurate' | 'inaccurate' | 'not_mentioned';
@@ -512,7 +534,7 @@ export async function runFactCheck(
             throw e;
           }
         }
-        const findings = parseCheckerResponse(responseText);
+        const findings = downgradeNoInfoFindings(parseCheckerResponse(responseText) as CheckerFinding[]);
         return { run, findings };
       })
     );

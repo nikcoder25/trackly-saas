@@ -639,15 +639,15 @@ a.cit, .lvx a.cit { text-decoration: none; }
 .lvx .strip-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
 .lvx .strip-sub { font-size: 12px; color: var(--text-3); }
 .lvx .ins-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.lvx .ins-card { display: grid; grid-template-columns: 36px 1fr auto; gap: 12px; align-items: center; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-1); cursor: pointer; text-align: left; transition: border-color .12s, transform .12s, box-shadow .15s; }
+.lvx .ins-card { display: grid; grid-template-columns: 36px 1fr; gap: 4px 12px; align-items: start; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-1); cursor: pointer; text-align: left; transition: border-color .12s, transform .12s, box-shadow .15s; }
 .lvx .ins-card:hover { border-color: var(--line-2); transform: translateY(-1px); box-shadow: var(--shadow-2); }
-.lvx .ins-icon { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 18px; font-weight: 700; }
+.lvx .ins-icon { grid-row: span 2; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 18px; font-weight: 700; }
 .lvx .ins-pos  .ins-icon { background: var(--success-50); color: var(--success); }
 .lvx .ins-warn .ins-icon { background: var(--warn-50);    color: var(--warn); }
 .lvx .ins-info .ins-icon { background: var(--primary-50); color: var(--primary); }
 .lvx .ins-t { font-size: 13.5px; font-weight: 600; color: var(--text); }
 .lvx .ins-d { font-size: 12px; color: var(--text-2); margin-top: 3px; line-height: 1.4; }
-.lvx .ins-cta { font-family: var(--mono); font-size: 11px; color: var(--primary); font-weight: 600; letter-spacing: 0.04em; }
+.lvx .ins-cta { grid-column: 2; font-family: var(--mono); font-size: 11px; color: var(--primary); font-weight: 600; letter-spacing: 0.04em; }
 
 /* Engine grid */
 .lvx .eg-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; background: var(--line); }
