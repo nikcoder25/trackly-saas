@@ -251,13 +251,20 @@ async function actions(browser, width) {
 
   await step(`${tag} Mentions filter changes rows`, async () => {
     await goto(page, '/dashboard/mentions');
+    // Rows are paginated, so compare the "Showing x-y of N" total (and the
+    // visible rows as a fallback) rather than the page-1 row count alone.
     const rows = page.locator(`${MAIN} table tbody tr, ${MAIN} .mention-row, ${MAIN} [data-row]`);
-    const before = await rows.count();
+    const snapshot = async () => {
+      const text = await page.locator(MAIN).innerText();
+      const total = (text.match(/Showing\s+\d+\s*[-–]\s*\d+\s+of\s+(\d+)/i) || [])[1] || '';
+      return `${total}|${await rows.count()}|${(await rows.allInnerTexts()).join('\n').slice(0, 2000)}`;
+    };
+    const before = await snapshot();
     await page.getByRole('button', { name: 'NOT MENTIONED', exact: true }).first().click();
-    await page.waitForTimeout(500);
-    const after = await rows.count();
+    await page.waitForTimeout(600);
+    const after = await snapshot();
     const body = await page.locator(MAIN).innerText();
-    if (before === after && !/No matching results/.test(body)) throw new Error(`row count unchanged (${before})`);
+    if (before === after && !/No matching results/.test(body)) throw new Error('rows unchanged after filtering');
   });
 
   await step(`${tag} Mentions export downloads a CSV`, async () => {

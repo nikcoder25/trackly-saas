@@ -27,8 +27,9 @@ const QUERIES = [
   'affordable ac repair near me denver',
   'denver hvac company with best reviews',
   'polar air pros vs cool breeze hvac',
+  'which hvac company in the denver metro area offers the fastest same day emergency furnace and ac repair service',
 ];
-const CITES = ['yelp.com', 'angi.com', 'coolbreezehvac.com', 'reddit.com', 'bbb.org', 'homeadvisor.com', 'google.com'];
+const CITES = ['legendoztransportationservicesdetroitmetro.com', 'yelp.com', 'angi.com', 'coolbreezehvac.com', 'reddit.com', 'bbb.org', 'homeadvisor.com', 'google.com'];
 
 // Deterministic pseudo-random so screenshots are stable run to run.
 let seed = 42;
@@ -56,9 +57,10 @@ function buildRun(i, total, brandName) {
         sentiment: mentioned ? (rnd() < 0.7 ? 'positive' : 'neutral') : undefined,
         position: mentioned ? 1 + Math.floor(rnd() * 3) : undefined,
         competitorMentions: comps, citations: cits,
+        // Real engine answers are Markdown with [n] citation markers.
         response: mentioned
-          ? `${brandName} is a well reviewed HVAC company in Denver. ${comps.join(', ')} are also options.`
-          : `Popular choices include ${comps.join(', ') || 'several local firms'}.`,
+          ? `## Top picks\n1. **${brandName}** is a well reviewed HVAC company in Denver [1].\n2. ${comps.join(', ') || 'Others'} are also options [2, 3].`
+          : `Popular choices include **${comps.join(', ') || 'several local firms'}** [1].`,
       });
     }
     platforms[engine] = { sov: Math.round((m / QUERIES.length) * 100), total: QUERIES.length, mentions: m, errors: 0 };
@@ -104,6 +106,21 @@ async function main() {
       `INSERT INTO brands (id, user_id, data, created_at) VALUES ($1, $2, $3, NOW() - interval '30 days')`,
       [b.id, USER_ID, JSON.stringify(data)],
     );
+    // prompt_runs mirrors the latest runs: recommendations and global search
+    // read it rather than brand.data.
+    await db.query('DELETE FROM prompt_runs WHERE brand_id = $1', [b.id]);
+    let pr = 0;
+    for (const run of runs.slice(-2)) {
+      for (const r of run.allResults) {
+        await db.query(
+          `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, mentioned, sentiment, list_position, citations,
+             competitor_mentions, success, response_raw, status, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, $11, 'done', $12)`,
+          [`pr_${b.id}_${pr++}`, b.id, r.query, r.platform, r.model, r.mentioned, r.sentiment || null, r.position || null,
+            JSON.stringify(r.citations), JSON.stringify(r.competitorMentions), r.response, run.time],
+        );
+      }
+    }
     const recs = [
       ['critical', 'Get listed on Angi with your Denver service area', 'Angi is cited in 1 of 3 answers for your category.'],
       ['high', 'Add an FAQ page answering "emergency furnace repair"', 'AI engines quote FAQ pages for urgent service questions.'],
@@ -119,6 +136,14 @@ async function main() {
         [`rec_${b.id}_${n}`, b.id, severity, title, description, String(n++)],
       );
     }
+    // A recommendation left over from before prompts were cleaned up: it names
+    // a prompt the brand no longer tracks, so regenerating should retire it.
+    await db.query(
+      `INSERT INTO recommendations (id, brand_id, prompt, type, severity, title, description, status, created_at)
+       VALUES ($1, $2, 'top 10 transportation companies detroit', 'query_blind_spot', 'medium',
+               'Never mentioned for "top 10 Transportation companies Detroit" (+49 more)',
+               'Stale row from an old prompt list.', 'open', NOW() - interval '20 days')`,
+      [`rec_${b.id}_stale`, b.id]);
     await db.query(
       `INSERT INTO brand_facts (brand_id, fact_key, fact_value, category) VALUES
        ($1, 'phone', '(303) 555-0142', 'contact'), ($1, 'hours', 'Mon-Sat 7am-7pm', 'hours')`, [b.id]);
