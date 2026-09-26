@@ -1169,12 +1169,177 @@ a.cit, .lvx a.cit { text-decoration: none; }
 .lvx-shell-banners { padding: 12px 28px 0; }
 .lvx-shell-banners:empty { display: none; }
 .lvx-shell-content { padding: 16px 32px 40px; }
-.lvx-drawer { position: fixed; top: 56px; left: 0; bottom: 0; width: 248px; z-index: 41; }
-.lvx-drawer .sidebar { height: 100%; }
+/* Off-canvas nav for < 1024px. Always mounted (LvxShell) so it can slide;
+   `visibility` keeps it out of the tab order and hit-testing while closed. */
+.lvx-drawer {
+  position: fixed; top: 56px; left: 0; bottom: 0; width: 248px; max-width: 86vw; z-index: 41;
+  transform: translateX(-100%); visibility: hidden;
+  transition: transform .22s cubic-bezier(.2,.7,.2,1), visibility 0s linear .22s;
+}
+.lvx-drawer.open { transform: none; visibility: visible; box-shadow: var(--shadow-pop); transition: transform .22s cubic-bezier(.2,.7,.2,1); }
+/* Beats `.lvx .sidebar { display: none }` in the 880px block, which also
+   matched the drawer's copy and left the phone menu empty. */
+.lvx.lvx-drawer .sidebar { display: flex; height: 100%; }
+.lvx-drawer-backdrop {
+  position: fixed; inset: 56px 0 0 0; z-index: 40;
+  background: rgba(15, 23, 42, .42); opacity: 0; pointer-events: none;
+  transition: opacity .2s ease;
+}
+.lvx-drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+.lvx .sb-add-brand { display: none; width: 100%; font-family: inherit; }
 @media (max-width: 1023px) {
-  .lvx-shell { grid-template-columns: 1fr; grid-template-rows: 56px 1fr; }
-  .lvx-shell .sidebar { display: none; }
+  /* minmax(0, 1fr), not 1fr: a 1fr track's minimum is its content's
+     min-content width, so the topbar (brand selector, buttons, badge) blew
+     the single column out to ~690px on phones and clipped every page. */
+  .lvx-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: 56px 1fr; }
+  .lvx-shell > .lvx > .sidebar { display: none; }
   .lvx-shell-main { grid-column: 1; }
   .lvx-shell-banners, .lvx-shell-content { padding-left: 16px; padding-right: 16px; }
+  .lvx-shell .topbar { min-width: 0; }
 }
-@media (min-width: 1024px) { .lvx-drawer { display: none; } }
+@media (min-width: 1024px) { .lvx-drawer, .lvx-drawer-backdrop { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .lvx-drawer, .lvx-drawer.open, .lvx-drawer-backdrop { transition: none; }
+}
+
+
+/* ============================================================================
+   Mobile + tablet. Everything below is scoped to < 1024px, coarse pointers or
+   motion, except rules that only change content that was already overflowing
+   (long URLs / quotes), so desktop renders as before.
+   ========================================================================== */
+
+/* Long unbroken strings (URLs, quotes) wrap instead of widening their card. */
+.lvx .proof-q-new, .lvx .proof-quote, .lvx .proof-stat-row, .lvx .proof-stat { min-width: 0; }
+.lvx .proof-q-text, .lvx .proof-quote-text { overflow-wrap: anywhere; }
+.lvx .proof-cite-chips { min-width: 0; max-width: 100%; }
+.lvx .proof-cite-chips .cit { max-width: 100%; overflow-wrap: anywhere; }
+.lvx .filter-pager { display: inline-flex; gap: 8px; }
+
+/* Engagement: link cards lift on hover and press down; pages ease in. */
+.lvx a.card, .lvx .card-link { transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+@media (hover: hover) {
+  .lvx a.card:hover, .lvx .card-link:hover { transform: translateY(-1px); box-shadow: var(--shadow-2); border-color: var(--line-2); }
+}
+.lvx a.card:active, .lvx .card-link:active, .lvx .ins-card:active { transform: translateY(0); box-shadow: var(--shadow-1); }
+@keyframes lvx-page-in { from { opacity: 0; transform: translateY(4px); } }
+/* `backwards` (not `both`): once finished no transform is left behind, so the
+   page never becomes a containing block for its position:fixed children. */
+.lvx-shell-main > .lvx, .lvx-shell-content { animation: lvx-page-in .15s ease-out backwards; }
+@media (prefers-reduced-motion: reduce) {
+  .lvx-shell-main > .lvx, .lvx-shell-content { animation: none; }
+  .lvx a.card, .lvx .card-link, .lvx .ins-card { transition: none; }
+  .lvx a.card:hover, .lvx .card-link:hover, .lvx .ins-card:hover { transform: none; }
+}
+
+/* Subbar: the run pill never wraps; the crumb trail gives way instead. */
+.lvx .subbar-run { white-space: nowrap; flex-shrink: 0; }
+.lvx .subbar-run-short { display: none; }
+.lvx .breadcrumbs { min-width: 0; }
+.lvx .breadcrumbs b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lvx .seg-i { white-space: nowrap; }
+
+@media (max-width: 1023px) {
+  /* Implicit grid tracks are \`auto\` and grow to their widest child's
+     min-content; pin the page column to the viewport instead. */
+  .lvx .page-body { grid-template-columns: minmax(0, 1fr); }
+  .lvx .seg {
+    max-width: 100%; min-width: 0; overflow-x: auto; flex-wrap: nowrap;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .lvx .seg::-webkit-scrollbar { display: none; }
+  .lvx .seg-i { flex-shrink: 0; }
+  .lvx .kpi { min-width: 0; }
+  .lvx .kpi-info { white-space: normal; }
+}
+
+@media (max-width: 980px) {
+  .lvx .proof-hero { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 880px) {
+  .lvx .kpi-rail { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+
+@media (max-width: 640px) {
+  /* Topbar: brand selector takes the free space; secondary items move out. */
+  .lvx .topbar { padding: 0 12px; gap: 8px; }
+  .lvx .topbar-left { gap: 8px; }
+  .lvx .topbar-right { gap: 2px; flex-shrink: 0; }
+  .lvx .topbar .lv-word, .lvx .lvx-hide-sm { display: none; }
+  .lvx .brand-sel { min-width: 0; flex: 1 1 auto; gap: 8px; }
+  .lvx .sb-add-brand { display: flex; }
+
+  .lvx .subbar { padding: 10px 16px; gap: 10px; }
+
+  /* Page head: title block full width, actions wrap underneath. */
+  .lvx .page-head { flex-direction: column; align-items: stretch; gap: 14px; padding: 20px 16px 14px; }
+  .lvx .page-head > :first-child { min-width: 0; }
+  .lvx .page-t { font-size: clamp(21px, 6.4vw, 26px); overflow-wrap: anywhere; }
+  .lvx .page-s { font-size: 13.5px; }
+  .lvx .page-a { justify-content: flex-start; flex-shrink: 1; min-width: 0; }
+  .lvx .page-a > .btn-p, .lvx .page-a > .btn-g, .lvx .page-a > .btn-d,
+  .lvx .page-a > a, .lvx .page-a > .sel { flex: 1 1 auto; justify-content: center; min-width: 0; }
+  .lvx .page-body { padding: 0 16px 48px; }
+
+  /* Filter rows: controls wrap, selects fill the row, pager on its own row. */
+  .lvx .filter > * { min-width: 0; max-width: 100%; }
+  .lvx .filter .sel, .lvx .filter .search-box { flex: 1 1 100%; width: 100%; min-width: 0 !important; }
+  .lvx .filter > label { white-space: nowrap; }
+  .lvx .filter > label .sel { width: auto; flex: 0 1 auto; }
+  .lvx .filter > span[style*="flex: 1"], .lvx .filter > span[style*="flex:1"] { display: none; }
+  .lvx .filter-pager { flex: 1 1 100%; }
+  .lvx .filter-pager > * { flex: 1 1 0; justify-content: center; }
+
+  /* Cards: lighter padding, header right-side element drops under the title. */
+  .lvx .card { --pad: 16px; }
+  /* The legacy global \`.card { padding: 22px }\` (styles/globals.css) also
+     lands on these cards, doubling up with card-h / card-b padding. Drop it
+     for <Card> (section) and trim it for hand-rolled div cards. */
+  .lvx section.card { padding: 0; }
+  .lvx div.card { padding: 14px; }
+  .lvx .card-h { flex-wrap: wrap; gap: 8px 12px; }
+  .lvx .card-h.has-lede { flex-direction: column; align-items: flex-start; }
+  .lvx .card-h.has-lede .card-r { margin-top: 0; }
+  .lvx .card-tw { flex: 1 1 auto; }
+  .lvx .card-r { flex-wrap: wrap; flex-shrink: 1; min-width: 0; }
+  .lvx .card-r:empty { display: none; }
+  .lvx .proof-eng li, .lvx .hal-row, .lvx .h2h { padding-left: 16px; padding-right: 16px; }
+
+  /* Results rows: the query drops to its own line under engine + status. */
+  .lvx .res-row { flex-wrap: wrap; row-gap: 6px; }
+  .lvx .res-row > .res-q { order: 5; flex: 1 1 100% !important; }
+  .lvx .res-row > .res-ts { margin-left: auto; }
+
+  /* KPI rails. */
+  .lvx .kpi { padding: 12px 14px; }
+  .lvx .kpi-v { font-size: 23px; }
+
+  /* Overview "You vs competitors". */
+  .lvx .comp-row { grid-template-columns: minmax(0, 1fr) minmax(36px, .5fr) 36px 46px; gap: 10px; }
+
+  /* Evidence & Proof. */
+  .lvx .proof-hero { gap: 14px; }
+  .lvx .proof-quote { padding-left: 26px; font-size: 14.5px; }
+  .lvx .proof-quote-mark { font-size: 44px; }
+  .lvx .proof-stat-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; padding: 12px 14px; }
+  .lvx .proof-stat { flex-wrap: wrap; }
+  .lvx .proof-stat-div { display: none; }
+  .lvx .proof-stat-cites { grid-column: 1 / -1; }
+  .lvx .proof-cite-chips { display: flex; }
+}
+
+@media (max-width: 480px) {
+  .lvx .subbar-run-full, .lvx .breadcrumbs .crumb-mid { display: none; }
+  .lvx .subbar-run-short { display: inline; }
+  .lvx .brand-sel .bs-meta { display: none; }
+}
+
+/* Touch targets: at least 40px tall on coarse pointers. */
+@media (pointer: coarse) {
+  .lvx .btn-p, .lvx .btn-g, .lvx .btn-d, .lvx .sel, .lvx .seg-i,
+  .lvx .tbtn, .lvx .xbtn, .lvx .gbtn { min-height: 40px; }
+  .lvx .seg-i { display: inline-flex; align-items: center; }
+  .lvx .topbar .icon-btn, .lvx .topbar .avatar { width: 40px; height: 40px; }
+  .lvx .sb-item { min-height: 40px; }
+}

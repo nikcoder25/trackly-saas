@@ -21,6 +21,7 @@
  * accessible set returns nothing instead of everything.
  */
 import { pool } from '@/lib/db';
+import { logError } from '@/lib/api-error';
 
 export type SearchKind = 'prompt' | 'mention' | 'source';
 
@@ -144,11 +145,11 @@ async function searchPrompts(brandIds: string[], like: string): Promise<SearchRe
             MAX(created_at)                        AS last_seen
        FROM prompt_runs
       WHERE brand_id = ANY($1)
-        AND created_at > NOW() - INTERVAL '1 day' * $3
-        AND prompt ILIKE $2 ESCAPE '\\'
+        AND created_at > NOW() - INTERVAL '1 day' * $3::int
+        AND prompt ILIKE $2::text ESCAPE '\\'
       GROUP BY prompt, brand_id
       ORDER BY MAX(created_at) DESC
-      LIMIT $4`,
+      LIMIT $4::int`,
     [brandIds, like, LOOKBACK_DAYS, PER_KIND_LIMIT]
   );
 
@@ -172,20 +173,20 @@ async function searchMentions(brandIds: string[], like: string, raw: string): Pr
   // several KB each - just to throw almost all of it away.
   const res = await pool.query(
     `SELECT id, brand_id, prompt, platform, created_at,
-            GREATEST(1, POSITION(LOWER($5) IN LOWER(response_raw)) - 70) AS snippet_start,
+            GREATEST(1, POSITION(LOWER($5::text) IN LOWER(response_raw)) - 70) AS snippet_start,
             LENGTH(response_raw) AS full_length,
             substring(
               response_raw
-              FROM   GREATEST(1, POSITION(LOWER($5) IN LOWER(response_raw)) - 70)
+              FROM   GREATEST(1, POSITION(LOWER($5::text) IN LOWER(response_raw)) - 70)
               FOR    220
             ) AS snippet
        FROM prompt_runs
       WHERE brand_id = ANY($1)
-        AND created_at > NOW() - INTERVAL '1 day' * $3
+        AND created_at > NOW() - INTERVAL '1 day' * $3::int
         AND response_raw IS NOT NULL
-        AND response_raw ILIKE $2 ESCAPE '\\'
+        AND response_raw ILIKE $2::text ESCAPE '\\'
       ORDER BY created_at DESC
-      LIMIT $4`,
+      LIMIT $4::int`,
     [brandIds, like, LOOKBACK_DAYS, PER_KIND_LIMIT, raw]
   );
 
@@ -219,10 +220,10 @@ async function searchSources(brandIds: string[], like: string): Promise<SearchRe
        SELECT DISTINCT domain
          FROM citations
         WHERE brand_id = ANY($1)
-          AND created_at > NOW() - INTERVAL '1 day' * $3
+          AND created_at > NOW() - INTERVAL '1 day' * $3::int
           AND domain IS NOT NULL
-          AND (domain ILIKE $2 ESCAPE '\\' OR url ILIKE $2 ESCAPE '\\')
-        LIMIT $4
+          AND (domain ILIKE $2::text ESCAPE '\\' OR url ILIKE $2::text ESCAPE '\\')
+        LIMIT $4::int
      )
      SELECT c.domain,
             MIN(c.brand_id)                  AS brand_id,
@@ -232,7 +233,7 @@ async function searchSources(brandIds: string[], like: string): Promise<SearchRe
        FROM citations c
        JOIN matched m ON m.domain = c.domain
       WHERE c.brand_id = ANY($1)
-        AND c.created_at > NOW() - INTERVAL '1 day' * $3
+        AND c.created_at > NOW() - INTERVAL '1 day' * $3::int
       GROUP BY c.domain
       ORDER BY COUNT(*) DESC`,
     [brandIds, like, LOOKBACK_DAYS, PER_KIND_LIMIT]
@@ -258,17 +259,41 @@ export interface SearchOptions {
   brandId?: string | null;
 }
 
+export interface SearchResponse {
+  prompts: SearchResult[];
+  mentions: SearchResult[];
+  sources: SearchResult[];
+  /** Kinds whose query failed. Only present when at least one did. */
+  failed?: SearchKind[];
+}
+
+/** Pulls the fields a pg DatabaseError carries, for a useful log line. */
+function pgErrorContext(err: unknown): Record<string, unknown> {
+  if (!err || typeof err !== 'object') return {};
+  const e = err as Record<string, unknown>;
+  const ctx: Record<string, unknown> = {};
+  for (const k of ['code', 'detail', 'hint', 'table', 'column', 'routine', 'position']) {
+    if (e[k] !== undefined) ctx['pg_' + k] = e[k];
+  }
+  return ctx;
+}
+
 /**
  * Runs all three searches concurrently and returns them grouped.
  *
  * Returns empty (never throws, never falls back to an unscoped query) when
  * the user has no accessible brands - see the security note at the top.
+ *
+ * One kind failing (schema drift on `citations`, say) must not take the whole
+ * palette down: the failing kind is logged with its pg error and listed in
+ * `failed`, and the others still return. Only when all three fail does this
+ * throw, so the route can answer 500.
  */
 export async function runSearch(
   userId: string,
   query: string,
   options: SearchOptions = {}
-): Promise<{ prompts: SearchResult[]; mentions: SearchResult[]; sources: SearchResult[] }> {
+): Promise<SearchResponse> {
   const empty = { prompts: [], mentions: [], sources: [] };
 
   const trimmed = query.trim();
@@ -284,11 +309,26 @@ export async function runSearch(
 
   const like = `%${escapeLikePattern(trimmed)}%`;
 
-  const [prompts, mentions, sources] = await Promise.all([
+  const kinds: SearchKind[] = ['prompt', 'mention', 'source'];
+  const settled = await Promise.allSettled([
     searchPrompts(brandIds, like),
     searchMentions(brandIds, like, trimmed),
     searchSources(brandIds, like),
   ]);
 
-  return { prompts, mentions, sources };
+  const failed: SearchKind[] = [];
+  const pick = (i: number): SearchResult[] => {
+    const r = settled[i];
+    if (r.status === 'fulfilled') return r.value;
+    failed.push(kinds[i]);
+    logError('search.kind_failed', r.reason, { kind: kinds[i], ...pgErrorContext(r.reason) });
+    return [];
+  };
+  const out: SearchResponse = { prompts: pick(0), mentions: pick(1), sources: pick(2) };
+
+  if (failed.length === kinds.length) {
+    throw (settled[0] as PromiseRejectedResult).reason;
+  }
+  if (failed.length) out.failed = failed;
+  return out;
 }

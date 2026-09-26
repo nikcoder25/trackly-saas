@@ -130,14 +130,13 @@ function Lvx({ children }: { children: React.ReactNode }) {
   return <div className="lvx" style={{ display: 'contents' }}>{children}</div>;
 }
 
-function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
+function ProdTopbar({ onMenuToggle, menuOpen, onAddBrand }: { onMenuToggle: () => void; menuOpen: boolean; onAddBrand: () => void }) {
   const { user } = useAuth();
-  const { brands, selectedBrand, setSelectedBrand, selectBrandById, refreshBrands, plan, brandLimit, loading: brandsLoading } = useBrands();
+  const { brands, selectedBrand, selectBrandById, plan, brandLimit, loading: brandsLoading } = useBrands();
   const { live, pct } = useRun();
   // Per-brand run progress: show a thin bar under the brand selector when the
   // currently-selected brand is the one being scanned right now.
   const selectedBrandRunning = live.running && !!selectedBrand && live.brandId === selectedBrand.id;
-  const [showAddBrand, setShowAddBrand] = React.useState(false);
   // Shared by the topbar search button and the ⌘K shortcut inside the palette.
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [showLimitPrompt, setShowLimitPrompt] = React.useState(false);
@@ -157,18 +156,19 @@ function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
 
   const handleAddBrandClick = () => {
     if (atBrandLimit) setShowLimitPrompt(true);
-    else setShowAddBrand(true);
+    else onAddBrand();
   };
 
   return (
     <>
     <header className="topbar">
       <div className="topbar-left">
-        <button onClick={onMenuToggle} className="icon-btn lvx-hamburger" aria-label="Menu" style={{ display: 'none' }}>
+        <button onClick={onMenuToggle} className="icon-btn lvx-hamburger" aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={menuOpen} aria-controls="lvx-drawer" style={{ display: 'none' }}>
           <svg width="16" height="16" viewBox="0 0 16 16"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
         </button>
         <Logo size={14} />
-        <span className="div" />
+        <span className="div lvx-hide-sm" />
         <div className="brand-sel" style={{ position: 'relative' }}>
           <span className="ptile ptile-chatgpt mono" style={{ width: 22, height: 22, fontSize: 9, background: 'linear-gradient(135deg, #6366F1, #4F46E5)' }}>{initials}</span>
           <span className="bs-name">{selectedBrand?.name || 'Select brand'}</span>
@@ -190,7 +190,7 @@ function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
             </div>
           )}
         </div>
-        <div style={{ position: 'relative' }} ref={limitRef}>
+        <div className="lvx-hide-sm" style={{ position: 'relative' }} ref={limitRef}>
           <button
             type="button"
             onClick={handleAddBrandClick}
@@ -260,40 +260,36 @@ function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
           <span>Search prompts, mentions, sources…</span>
           <kbd>⌘ K</kbd>
         </button>
-        <style>{`@media(min-width:1100px){.lvx-search{display:flex!important;}}@media(max-width:1023px){.lvx-hamburger{display:inline-flex!important;}}`}</style>
+        <style>{`@media(min-width:1100px){.lvx-search{display:flex!important;}.lvx-search-icon{display:none!important;}}@media(max-width:1023px){.lvx-hamburger{display:inline-flex!important;}}`}</style>
       </div>
       <div className="topbar-right">
-        <Link href="/dashboard/alerts" className="icon-btn" title="Alerts">
+        {/* Below 1100px the search field above is hidden; this opens the same palette. */}
+        <button type="button" onClick={() => setSearchOpen(true)} className="icon-btn lvx-search-icon"
+          aria-label="Search prompts, mentions and sources" title="Search">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M9.5 9.5L12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </button>
+        <Link href="/dashboard/alerts" className="icon-btn" title="Alerts" aria-label="Alerts">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 6C3 3.8 4.8 2 7 2C9.2 2 11 3.8 11 6V8L12 10H2L3 8V6Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" fill="none" /><path d="M5.5 11.5C5.5 12.3 6.2 13 7 13C7.8 13 8.5 12.3 8.5 11.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none" /></svg>
         </Link>
-        <Link href="/dashboard/billing" className="plan-badge" style={{ textDecoration: 'none' }}>{planLabel}</Link>
+        <Link href="/dashboard/billing" className="plan-badge lvx-hide-sm" style={{ textDecoration: 'none' }}>{planLabel}</Link>
         <button className="avatar" title={user?.email || ''}>{user?.name?.[0]?.toUpperCase() || 'U'}</button>
       </div>
     </header>
     {/* Always mounted: it owns the ⌘K listener and renders null while closed. */}
     <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
-    {showAddBrand && (
-      <AddBrandModal
-        onClose={() => setShowAddBrand(false)}
-        onCreated={(brand) => {
-          setShowAddBrand(false);
-          setSelectedBrand(brand);
-          // Flag for an automatic first scan; <AutoFirstRun> dispatches it once
-          // the new brand is in context (survives this modal unmounting).
-          markPendingFirstRun(brand.id);
-          refreshBrands();
-        }}
-      />
-    )}
     </>
   );
 }
 
-function ProdSidebar({ onNavigate }: { onNavigate?: () => void }) {
+function ProdSidebar({ onNavigate, onAddBrand }: { onNavigate?: () => void; onAddBrand?: () => void }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { live, startRun } = useRun();
-  const { selectedBrandLocked } = useBrands();
+  const { selectedBrandLocked, brands, brandLimit } = useBrands();
+  const atBrandLimit = brands.length >= brandLimit;
   const isAdmin = user?.role === 'admin' || user?.plan === 'owner';
   const disabled = live.running || selectedBrandLocked;
   return (
@@ -306,6 +302,16 @@ function ProdSidebar({ onNavigate }: { onNavigate?: () => void }) {
           Run all engines
         </>}
       </button>
+      {/* The topbar drops "+ Add brand" below 640px; the drawer carries it instead. */}
+      {onAddBrand && (atBrandLimit ? (
+        <Link href="/dashboard/account" prefetch={false} onClick={onNavigate} className="sb-item sb-add-brand">
+          <span className="sb-i">+</span><span>Upgrade to add brands</span>
+        </Link>
+      ) : (
+        <button type="button" onClick={onAddBrand} className="sb-item sb-add-brand">
+          <span className="sb-i">+</span><span>Add brand</span>
+        </button>
+      ))}
       {NAV.map(group => group.items.some(it => !it.hidden) && (
         <div key={group.label} className="sb-group">
           <div className="sb-group-label">{group.label}</div>
@@ -346,12 +352,12 @@ function ProdSubbar() {
       <div className="breadcrumbs">
         <span>Livesov</span>
         <span className="crumb-sep">/</span>
-        <span>{meta.group}</span>
-        <span className="crumb-sep">/</span>
+        <span className="crumb-mid">{meta.group}</span>
+        <span className="crumb-sep crumb-mid">/</span>
         <b>{meta.label}</b>
       </div>
       <div className="subbar-right">
-        <span className="subbar-run"><span className="pulse" /> Auto-runs</span>
+        <span className="subbar-run"><span className="pulse" /> <span className="subbar-run-full">Auto-runs</span><span className="subbar-run-short">Auto</span></span>
       </div>
     </div>
   );
@@ -359,26 +365,67 @@ function ProdSubbar() {
 
 export default function LvxShell({ banners, children }: { banners?: React.ReactNode; children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [showAddBrand, setShowAddBrand] = React.useState(false);
+  const { setSelectedBrand, refreshBrands } = useBrands();
   const pathname = usePathname();
   const themed = !!pathname && THEMED_ROUTES.has(pathname);
+  const close = React.useCallback(() => setMobileOpen(false), []);
+
+  // Close on navigation - covers links, back/forward and the command palette.
+  React.useEffect(() => { setMobileOpen(false); }, [pathname]);
+
+  React.useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileOpen(false); };
+    window.addEventListener('keydown', onKey);
+    // Lock the page behind the drawer. The dashboard scrolls inside
+    // .lvx-shell-main, so that is locked along with the document.
+    const main = document.querySelector<HTMLElement>('.lvx-shell-main');
+    const prev = [document.documentElement.style.overflow, document.body.style.overflow, main?.style.overflow ?? ''];
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    if (main) main.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.documentElement.style.overflow = prev[0];
+      document.body.style.overflow = prev[1];
+      if (main) main.style.overflow = prev[2];
+    };
+  }, [mobileOpen]);
+
+  const openAddBrand = React.useCallback(() => { setMobileOpen(false); setShowAddBrand(true); }, []);
+
   return (
     <>
       <div className="lvx-shell">
-        <Lvx><ProdTopbar onMenuToggle={() => setMobileOpen(o => !o)} /></Lvx>
-        <Lvx><ProdSidebar onNavigate={() => setMobileOpen(false)} /></Lvx>
+        <Lvx><ProdTopbar menuOpen={mobileOpen} onMenuToggle={() => setMobileOpen(o => !o)} onAddBrand={openAddBrand} /></Lvx>
+        <Lvx><ProdSidebar onNavigate={close} /></Lvx>
         <main className="lvx-shell-main">
           <Lvx><ProdSubbar /></Lvx>
           {banners && <div className="lvx-shell-banners">{banners}</div>}
           {themed ? children : <div className="lvx-shell-content">{children}</div>}
         </main>
       </div>
-      {mobileOpen && (
-        <>
-          <div onClick={() => setMobileOpen(false)} style={{ position: 'fixed', inset: '56px 0 0 0', background: 'rgba(0,0,0,.35)', zIndex: 40 }} />
-          <div className="lvx lvx-drawer">
-            <ProdSidebar onNavigate={() => setMobileOpen(false)} />
-          </div>
-        </>
+      {/* Mounted at every size but hidden from 1024px up by CSS; kept in the
+          DOM while closed so it can slide instead of popping in. */}
+      <div className={'lvx-drawer-backdrop' + (mobileOpen ? ' open' : '')} onClick={close} aria-hidden="true" />
+      <div id="lvx-drawer" className={'lvx lvx-drawer' + (mobileOpen ? ' open' : '')}
+        role="dialog" aria-modal={mobileOpen} aria-label="Navigation" aria-hidden={!mobileOpen}
+        inert={!mobileOpen}>
+        <ProdSidebar onNavigate={close} onAddBrand={openAddBrand} />
+      </div>
+      {showAddBrand && (
+        <AddBrandModal
+          onClose={() => setShowAddBrand(false)}
+          onCreated={(brand) => {
+            setShowAddBrand(false);
+            setSelectedBrand(brand);
+            // Flag for an automatic first scan; <AutoFirstRun> dispatches it once
+            // the new brand is in context (survives this modal unmounting).
+            markPendingFirstRun(brand.id);
+            refreshBrands();
+          }}
+        />
       )}
     </>
   );
