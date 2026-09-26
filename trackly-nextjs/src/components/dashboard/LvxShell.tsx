@@ -18,6 +18,7 @@ import { useRun, markPendingFirstRun } from '@/contexts/RunContext';
 import { Logo } from '@/app/dashboard-v2/ui';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
 import CommandPalette from '@/components/dashboard/CommandPalette';
+import AccountMenu from '@/components/dashboard/v3/AccountMenu';
 import '@/app/dashboard-v2/dashboard-v2.css';
 
 /**
@@ -275,7 +276,8 @@ function ProdTopbar({ onMenuToggle, menuOpen, onAddBrand }: { onMenuToggle: () =
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 6C3 3.8 4.8 2 7 2C9.2 2 11 3.8 11 6V8L12 10H2L3 8V6Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" fill="none" /><path d="M5.5 11.5C5.5 12.3 6.2 13 7 13C7.8 13 8.5 12.3 8.5 11.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none" /></svg>
         </Link>
         <Link href="/dashboard/billing" className="plan-badge lvx-hide-sm" style={{ textDecoration: 'none' }}>{planLabel}</Link>
-        <button className="avatar" title={user?.email || ''}>{user?.name?.[0]?.toUpperCase() || 'U'}</button>
+        {/* Avatar opens the account menu, which carries the v3 design switch. */}
+        <AccountMenu variant="classic" />
       </div>
     </header>
     {/* Always mounted: it owns the ⌘K listener and renders null while closed. */}

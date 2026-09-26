@@ -88,6 +88,17 @@ interface OverviewData {
   /** Timestamp of the most recent completed run, for the "updated X ago"
    *  label on the engine grid. Null/absent when there is no real run. */
   lastRunAt?: string | null;
+  /* Extra figures read by the v3 Overview (components/dashboard/v3). Only
+     set for a real brand with at least one run. */
+  /** Every loaded run, oldest first, ignoring the range filter. */
+  history?: { t: number; sov: number }[];
+  /** Latest run: per tracked question, whether each engine named the brand
+   *  (null = that engine did not answer / errored). */
+  grid?: { q: string; engines: Record<string, boolean | null> }[];
+  /** Latest run: answers that came back without an error. */
+  answersOk?: number;
+  /** Latest run: share of sentiment-tagged mentions that were positive. */
+  positivePct?: number | null;
 }
 
 interface InsightItem { icon: string; tone: 'pos' | 'warn' | 'info'; t: string; d: string; cta: string; href: string }
@@ -680,7 +691,25 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   // Always-valid CTA (links to a real page; not fabricated copy).
   insights.push({ icon: '✦', tone: 'info', t: 'Ways to win more visibility', d: 'see your prioritized recommendations', cta: 'See plan', href: '/dashboard/recommendations' });
 
+  const history = sortedAll
+    .map(r => ({ t: new Date(r.time || r.date || r.created_at || 0).getTime(), sov: Math.round(Number(r.sov) || 0) }))
+    .filter(h => !isNaN(h.t) && h.t > 0);
+  const gridMap: Record<string, Record<string, boolean | null>> = {};
+  for (const r of allResults) {
+    if (!r?.query) continue;
+    const eng = matchPlatform(r.platform).name;
+    if (!gridMap[r.query]) gridMap[r.query] = {};
+    gridMap[r.query][eng] = r.error ? (gridMap[r.query][eng] ?? null) : (!!r.mentioned || !!gridMap[r.query][eng]);
+  }
+  const grid = Object.entries(gridMap).map(([q, engines]) => ({ q, engines }));
+  const allPos = allResults.filter(r => r.sentiment === 'positive').length;
+  const allSent = allResults.filter(r => r.sentiment === 'positive' || r.sentiment === 'neutral' || r.sentiment === 'negative').length;
+
   return {
+    history,
+    grid,
+    answersOk: allResults.filter(r => !r.error).length,
+    positivePct: allSent > 0 ? Math.round((allPos / allSent) * 100) : null,
     hasReal: true,
     runCount: runs.length,
     brandName: brand.name || fb.brandName,
@@ -1171,7 +1200,7 @@ function InsightsStrip({ items }: { items: InsightItem[] }) {
 // Fetch the brand's PDF report and trigger a download, handling the Pro+ plan
 // gate gracefully (a toast, not a raw JSON error tab). Shared by the Overview
 // header button and the mention drawer.
-async function downloadBrandReport(brandId: string | undefined, brandName: string | undefined, toast: any) {
+export async function downloadBrandReport(brandId: string | undefined, brandName: string | undefined, toast: any) {
   if (!brandId) { toast('Select a brand first to generate a report.', 'error'); return; }
   try {
     const res = await fetch(`/api/brands/${brandId}/report/pdf`, { credentials: 'include' });

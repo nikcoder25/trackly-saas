@@ -8,6 +8,9 @@ import { RunProvider, useRun, markPendingFirstRun, markBrandAutoRan, getAutoRanB
 import { CreditsProvider, useCredits } from '@/contexts/CreditsContext';
 import { PLAN_LIMITS } from '@/lib/constants';
 import LvxShell from '@/components/dashboard/LvxShell';
+import ShellV3 from '@/components/dashboard/v3/ShellV3';
+import { UiFlagProvider, useUiFlag } from '@/contexts/UiFlagContext';
+import type { UiVersion } from '@/lib/ui-flag';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import PaymentSuccessBanner from '@/components/dashboard/PaymentSuccessBanner';
 import GlobalRunProgress from '@/components/dashboard/GlobalRunProgress';
@@ -520,7 +523,13 @@ function BackgroundRunPoller() {
   return null;
 }
 
-export default function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
+export default function DashboardLayoutClient({ children, initialUi = 'classic' }: { children: React.ReactNode; initialUi?: UiVersion }) {
+  return <UiFlagProvider initial={initialUi}><DashboardLayoutInner>{children}</DashboardLayoutInner></UiFlagProvider>;
+}
+
+function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
+  const { isV3 } = useUiFlag();
+  const Shell = isV3 ? ShellV3 : LvxShell;
   const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -557,7 +566,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
     <BackgroundRunPoller />
     <SkeletonStyles />
     <>
-      <LvxShell
+      <Shell
         banners={<>
           <Suspense fallback={null}><PaymentSuccessBanner /></Suspense>
           <LockedBrandBanner />
@@ -572,7 +581,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
         </>}
       >
         {children}
-      </LvxShell>
+      </Shell>
       <GlobalLiveToasts />
     </>
     </ToastProvider>
