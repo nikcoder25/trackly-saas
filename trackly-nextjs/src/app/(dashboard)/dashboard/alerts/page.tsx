@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useBrandData } from '@/hooks/useBrandData';
 import { useToast } from '@/components/dashboard/Toast';
 import { Card, Badge, PageHead, KPIRail } from '@/app/dashboard-v2/ui';
+import { useUiFlag } from '@/contexts/UiFlagContext';
 
 interface AlertRule { id: string; name: string; condition: string; threshold: number; action: string; cooldown: number; enabled: boolean; }
 interface Notification { id: string; title: string; message: string; timestamp: string; read: boolean; }
@@ -11,6 +12,10 @@ interface Notification { id: string; title: string; message: string; timestamp: 
 export default function AlertsPage() {
   const { brand, loading } = useBrandData();
   const { toast } = useToast();
+  // The rules table gets a Delete action in the v3 design only; the classic
+  // UI is left exactly as it was until v3 is approved.
+  const { isV3 } = useUiFlag();
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -56,6 +61,21 @@ export default function AlertsPage() {
     window.addEventListener('livesov:run-complete', handler);
     return () => window.removeEventListener('livesov:run-complete', handler);
   }, [brand?.id]);
+
+  async function deleteAlert(rule: AlertRule) {
+    if (!confirm(`Delete the alert "${rule.name}"?`)) return;
+    setDeleting(rule.id);
+    try {
+      const res = await fetch(`/api/alerts/${encodeURIComponent(rule.id)}`, { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || `HTTP ${res.status}`);
+      setRules(prev => prev.filter(r => r.id !== rule.id));
+      toast('Alert deleted');
+    } catch (e) {
+      toast((e as Error).message || 'Could not delete alert', 'error');
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   async function saveAlert() {
     if (!brand) { toast('Add or select a brand before creating an alert', 'error'); return; }
@@ -153,7 +173,7 @@ export default function AlertsPage() {
             ) : (
               <div className="tbl-wrap">
                 <table className="tbl">
-                  <thead><tr><th>WHEN</th><th>CHANNELS</th><th>THRESHOLD · COOLDOWN</th><th>STATUS</th></tr></thead>
+                  <thead><tr><th>WHEN</th><th>CHANNELS</th><th>THRESHOLD · COOLDOWN</th><th>STATUS</th>{isV3 && <th aria-label="Actions" />}</tr></thead>
                   <tbody>
                     {rules.map(r => (
                       <tr key={r.id}>
@@ -161,6 +181,12 @@ export default function AlertsPage() {
                         <td className="mono dim">{r.action} · {r.condition}</td>
                         <td className="num mono"><b>{r.threshold}%</b> <span className="dim">· {r.cooldown}h</span></td>
                         <td><Badge tone={r.enabled ? 'pos' : 'neu'}>{r.enabled ? 'ACTIVE' : 'DISABLED'}</Badge></td>
+                        {isV3 && (
+                          <td style={{ textAlign: 'right' }}>
+                            <button type="button" className="btn-d" onClick={() => deleteAlert(r)} disabled={deleting === r.id}
+                              aria-label={`Delete alert ${r.name}`}>{deleting === r.id ? 'Deleting…' : 'Delete'}</button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
