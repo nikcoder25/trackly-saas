@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUiFlag } from '@/contexts/UiFlagContext';
 import { V3Icon } from './icons';
-import './v3.css';
+import './account-menu.css';
 
 function useOutsideClose(open: boolean, close: () => void) {
   const ref = React.useRef<HTMLDivElement>(null);

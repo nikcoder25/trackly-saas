@@ -97,6 +97,10 @@ interface OverviewData {
   grid?: { q: string; engines: Record<string, boolean | null> }[];
   /** Latest run: answers that came back without an error. */
   answersOk?: number;
+  /** Non-error answers of the last scan that named the brand (same array as answersOk). */
+  mentionsOk?: number;
+  /** True when a previous scan exists inside the selected range to compare against. */
+  hasPrev?: boolean;
   /** Latest run: share of sentiment-tagged mentions that were positive. */
   positivePct?: number | null;
 }
@@ -167,9 +171,12 @@ function resultMatchesIntent(r: any, intent: OverviewIntent): boolean {
 }
 
 /** Map a run result's engine name (e.g. "ChatGPT", "gpt-4o-mini") to a design Platform tile. */
-function matchPlatform(name: string): Platform {
+function matchPlatformOrNull(name: string): Platform | null {
   const n = String(name || '').toLowerCase();
-  return PLATFORMS.find(p => n.includes(p.id) || n.includes(p.name.toLowerCase()) || p.short.toLowerCase() === n) || PLATFORMS[0];
+  return PLATFORMS.find(p => n.includes(p.id) || n.includes(p.name.toLowerCase()) || p.short.toLowerCase() === n) || null;
+}
+function matchPlatform(name: string): Platform {
+  return matchPlatformOrNull(name) || PLATFORMS[0];
 }
 function ordinal(n: number): string {
   const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
@@ -253,12 +260,10 @@ export function useOverviewData(filters: OverviewFilters = DEFAULT_FILTERS): Ove
     const onVisible = () => { if (document.visibilityState === 'visible') loadAccuracy(); };
     window.addEventListener('livesov:run-complete', handler);
     window.addEventListener('livesov:accuracy-updated', handler);
-    window.addEventListener('focus', handler);
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       window.removeEventListener('livesov:run-complete', handler);
       window.removeEventListener('livesov:accuracy-updated', handler);
-      window.removeEventListener('focus', handler);
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [brandId, loadAccuracy]);
@@ -691,13 +696,17 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   // Always-valid CTA (links to a real page; not fabricated copy).
   insights.push({ icon: '✦', tone: 'info', t: 'Ways to win more visibility', d: 'see your prioritized recommendations', cta: 'See plan', href: '/dashboard/recommendations' });
 
-  const history = sortedAll
+  // Reaper / emergency stamps are partial runs; keep them out of the trend
+  // line unless they are all we have (matches lastRunMs in v3/hooks).
+  const realRuns = sortedAll.filter(r => !r?.watchdogReap && !r?.emergencySave);
+  const history = (realRuns.length > 0 ? realRuns : sortedAll)
     .map(r => ({ t: new Date(r.time || r.date || r.created_at || 0).getTime(), sov: Math.round(Number(r.sov) || 0) }))
     .filter(h => !isNaN(h.t) && h.t > 0);
   const gridMap: Record<string, Record<string, boolean | null>> = {};
   for (const r of allResults) {
     if (!r?.query) continue;
-    const eng = matchPlatform(r.platform).name;
+    const eng = matchPlatformOrNull(r.platform)?.name;
+    if (!eng) continue;
     if (!gridMap[r.query]) gridMap[r.query] = {};
     gridMap[r.query][eng] = r.error ? (gridMap[r.query][eng] ?? null) : (!!r.mentioned || !!gridMap[r.query][eng]);
   }
@@ -709,6 +718,8 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
     history,
     grid,
     answersOk: allResults.filter(r => !r.error).length,
+    mentionsOk: allResults.filter(r => !r.error && r.mentioned).length,
+    hasPrev: !!prevRun,
     positivePct: allSent > 0 ? Math.round((allPos / allSent) * 100) : null,
     hasReal: true,
     runCount: runs.length,

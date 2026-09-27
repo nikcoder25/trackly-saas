@@ -44,7 +44,9 @@ function useOutsideClose(open: boolean, close: () => void) {
   React.useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) close(); };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    // stopPropagation: Escape should close this menu only, not the drawer
+    // behind it (the drawer listens on window).
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
@@ -69,7 +71,7 @@ function BrandMenu({ onAddBrand, compact = false, onPicked }: { onAddBrand: () =
       <button type="button" className="v3-brand-btn" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(o => !o)}>
         <span className="v3-brand-tile">{initials(selectedBrand?.name)}</span>
         <span className="v3-brand-txt">
-          <span className="v3-brand-name">{name}</span>
+          <span className="v3-brand-name" title={name}>{name}</span>
           {!compact && <span className="v3-brand-meta">{[city, countLabel].filter(Boolean).join(' · ')}</span>}
         </span>
         <V3Icon name="chevron-down" size={16} className="v3-brand-caret" />
@@ -121,7 +123,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           aria-current={on ? 'page' : undefined}>
           <V3Icon name={SECTION_ICON[s.id]} size={18} />
           <span className="v3-menu-grow">{s.label}</span>
-          {s.id === 'fixes' && available && count > 0 && <span className="v3-nav-badge" aria-label={`${count} open`}>{count}</span>}
+          {s.id === 'fixes' && available && count > 0 && <span className="v3-nav-badge">{count}<span className="v3-sr"> open fixes</span></span>}
         </Link>
         {on && tabs.length > 1 && (
           <div className="v3-nav-sub">
@@ -185,14 +187,16 @@ function Sidebar({ onNavigate, onAddBrand }: { onNavigate?: () => void; onAddBra
 
 /* ─────────────────────────── topbar ─────────────────────────── */
 
-function Topbar({ onMenu, menuOpen, onSearch, onAddBrand }: { onMenu: () => void; menuOpen: boolean; onSearch: () => void; onAddBrand: () => void }) {
+function Topbar({ onMenu, menuOpen, onSearch, onAddBrand, menuBtnRef }: {
+  onMenu: () => void; menuOpen: boolean; onSearch: () => void; onAddBrand: () => void; menuBtnRef?: React.Ref<HTMLButtonElement>;
+}) {
   const { selectedBrand } = useBrands();
   const { live } = useRun();
   useMinuteTick();
   const last = lastRunMs(selectedBrand as Record<string, unknown> | null);
   return (
     <header className="v3-topbar">
-      <button type="button" className="v3-icon-btn v3-only-drawer" onClick={onMenu} aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+      <button type="button" ref={menuBtnRef} className="v3-icon-btn v3-only-drawer" onClick={onMenu} aria-label={menuOpen ? 'Close menu' : 'Open menu'}
         aria-expanded={menuOpen} aria-controls="v3-drawer">
         <V3Icon name="menu" size={20} />
       </button>
@@ -206,7 +210,7 @@ function Topbar({ onMenu, menuOpen, onSearch, onAddBrand }: { onMenu: () => void
       <div className="v3-top-right">
         <span className="v3-last-scan v3-hide-phone" title={last ? new Date(last).toLocaleString() : undefined}>
           <span className={'v3-dot' + (live.running ? ' live' : last ? '' : ' off')} />
-          {live.running ? 'Scanning now' : `Last scan ${agoLabel(last)}`}
+          {live.running ? 'Scanning now' : last ? `Last scan ${agoLabel(last)}` : 'No scans yet'}
         </span>
         <button type="button" className="v3-icon-btn v3-only-phone" onClick={onSearch} aria-label="Search">
           <V3Icon name="search" size={20} />
@@ -265,7 +269,7 @@ function BottomBar() {
           <Link key={id} href={s.tabs[0].href} prefetch={false} className={'v3-bb-item' + (on ? ' on' : '')} aria-current={on ? 'page' : undefined}>
             <span className="v3-bb-icon">
               <V3Icon name={SECTION_ICON[id]} size={20} />
-              {id === 'fixes' && available && count > 0 && <span className="v3-bb-badge">{count}</span>}
+              {id === 'fixes' && available && count > 0 && <span className="v3-bb-badge">{count}<span className="v3-sr"> open fixes</span></span>}
             </span>
             <span>{s.short || s.label}</span>
           </Link>
@@ -278,7 +282,7 @@ function BottomBar() {
 /* Pages that draw their own `.view-title` header instead of PageHead. The
    shell adds the v3 eyebrow above them so every page reads the same way. */
 const LEGACY_HEADER = [/^\/dashboard\/prompt-details$/, /^\/dashboard\/activity$/, /^\/dashboard\/admin\/runs$/,
-  /^\/dashboard\/billing\/ledger$/, /^\/dashboard\/geo-audits\/[^/]+$/];
+  /^\/dashboard\/billing\/ledger$/, /^\/dashboard\/geo-audits\/[^/]+$/, /^\/dashboard\/nap-audits\/[^/]+$/];
 
 function LegacyEyebrow() {
   const pathname = usePathname() || '';
@@ -295,8 +299,24 @@ export default function ShellV3({ banners, children }: { banners?: React.ReactNo
   const { setSelectedBrand, refreshBrands, selectedBrand } = useBrands();
   const pathname = usePathname();
   const close = React.useCallback(() => setDrawer(false), []);
+  const menuBtnRef = React.useRef<HTMLButtonElement>(null);
+  const drawerCloseRef = React.useRef<HTMLButtonElement>(null);
+  const wasOpen = React.useRef(false);
 
   React.useEffect(() => { setDrawer(false); }, [pathname]);
+
+  // Move focus into the drawer when it opens and back to the menu button
+  // when it closes, so keyboard and screen-reader users are not left behind
+  // the backdrop.
+  React.useEffect(() => {
+    if (drawer) {
+      drawerCloseRef.current?.focus();
+      wasOpen.current = true;
+    } else if (wasOpen.current) {
+      wasOpen.current = false;
+      menuBtnRef.current?.focus();
+    }
+  }, [drawer]);
 
   // Toasts and some modals render outside this root; give <body> the font
   // variables too so they pick up the v3 type.
@@ -329,7 +349,7 @@ export default function ShellV3({ banners, children }: { banners?: React.ReactNo
       <div className="v3-shell">
         <div className="v3-side-col"><Sidebar onAddBrand={openAddBrand} /></div>
         <div className="v3-main-col">
-          <Topbar onMenu={() => setDrawer(o => !o)} menuOpen={drawer} onSearch={() => setSearchOpen(true)} onAddBrand={openAddBrand} />
+          <Topbar onMenu={() => setDrawer(o => !o)} menuOpen={drawer} onSearch={() => setSearchOpen(true)} onAddBrand={openAddBrand} menuBtnRef={menuBtnRef} />
           <main className="v3-main">
             <div className="v3-content">
               <SectionTabs />
@@ -344,10 +364,13 @@ export default function ShellV3({ banners, children }: { banners?: React.ReactNo
       <div className={'v3-backdrop' + (drawer ? ' open' : '')} onClick={close} aria-hidden="true" />
       <div id="v3-drawer" className={'v3-drawer' + (drawer ? ' open' : '')} role="dialog" aria-modal={drawer}
         aria-label="Navigation" aria-hidden={!drawer} inert={!drawer}>
-        <button type="button" className="v3-icon-btn v3-drawer-close" onClick={close} aria-label="Close menu">
+        <button type="button" ref={drawerCloseRef} className="v3-icon-btn v3-drawer-close" onClick={close} aria-label="Close menu">
           <V3Icon name="close" size={20} />
         </button>
-        <Sidebar onNavigate={close} onAddBrand={openAddBrand} />
+        {/* Mount the second sidebar only while the drawer is open: on desktop
+            it is display:none but would otherwise re-render on every context
+            change and run its own minute timers. */}
+        {drawer && <Sidebar onNavigate={close} onAddBrand={openAddBrand} />}
       </div>
       <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
       {showAddBrand && (

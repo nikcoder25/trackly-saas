@@ -474,6 +474,10 @@ function BackgroundRunPoller() {
   const { brands, refreshBrands } = useBrands();
   const { live } = useRun();
   const lastRunCountRef = useRef<number | null>(null);
+  // Read brands through a ref so the 60s interval survives refreshBrands()
+  // (which replaces the array and used to reset the timer every tick).
+  const brandsRef = useRef(brands);
+  brandsRef.current = brands;
 
   useEffect(() => {
     // Don't poll while a user-triggered run is active (RunContext handles that)
@@ -482,7 +486,7 @@ function BackgroundRunPoller() {
     // Track current run count on mount
     if (lastRunCountRef.current === null) {
       let count = 0;
-      for (const brand of brands) {
+      for (const brand of brandsRef.current) {
         const b = brand as Record<string, unknown>;
         count += ((b.runs || []) as unknown[]).length;
       }
@@ -501,7 +505,7 @@ function BackgroundRunPoller() {
     }, 60000); // Poll every 60 seconds
 
     return () => clearInterval(interval);
-  }, [live.running, refreshBrands, brands]);
+  }, [live.running, refreshBrands]);
 
   // Detect new runs after refreshBrands updates brands
   useEffect(() => {

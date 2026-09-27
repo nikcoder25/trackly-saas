@@ -115,6 +115,7 @@ export function nextScanMs(brand: Record<string, unknown> | null | undefined, pl
 export function untilLabel(ms: number | null, now = Date.now()): string {
   if (ms == null) return 'Manual scans on your plan';
   const diff = ms - now;
+  if (diff < -60 * 60_000) return 'Overdue';
   if (diff <= 60 * 60_000) return 'Due now';
   const h = Math.round(diff / 3600_000);
   if (h < 24) return `In about ${h}h`;
