@@ -639,7 +639,7 @@ export const alternatives: Alternative[] = [
     switchHeading: 'Should you switch from Waikay to Livesov?',
     switchParagraphs: [
       'Both tools analyze how AI engines represent your brand. The practical differences come down to engine coverage, whether tracking is continuous, and whether you can prove what the AI said.',
-      'Livesov supports all five major LLMs with no add-ons, runs your prompts on a schedule several times each, and stores the full AI response behind every metric - plus a canonical facts store that flags untrue statements about your brand. A free GEO audit and 10 free tools let you act on what you find.',
+      'Livesov supports all five major LLMs with no add-ons, runs your prompts on a schedule, and stores the full AI response behind every metric - plus a canonical facts store that flags untrue statements about your brand. A free GEO audit and 10 free tools let you act on what you find.',
       'If Waikay matches your workflow, there may be no need to move. If you want broad engine coverage, continuous monitoring, and audit-grade evidence at a low entry price, Livesov is a strong Waikay alternative.',
     ],
     calloutTitle: 'Analysis is better with evidence',

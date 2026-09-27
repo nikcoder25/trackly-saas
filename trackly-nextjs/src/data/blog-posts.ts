@@ -7,6 +7,8 @@ export interface BlogPost {
   description: string;
   tag: string;
   date: string;
+  /** ISO date of the last substantive edit; falls back to `date` in schema. */
+  updated?: string;
   readTime: string;
   author: Author;
   image: string;

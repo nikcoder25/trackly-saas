@@ -4,7 +4,29 @@ import { useState } from 'react';
 import Link from 'next/link';
 import SeoLayout, { Breadcrumbs } from '@/components/seo/SeoLayout';
 import { PLAN_LIMITS, PRICING_PLANS, PRICING_COMPARISON } from '@/lib/constants';
-import { PLAN_CREDITS } from '@/lib/plan-config';
+import { PLAN_CREDITS, ECONOMY_MODEL_BY_PLATFORM, PREMIUM_MODEL_BY_PLATFORM } from '@/lib/plan-config';
+
+/**
+ * Human names for the model ids in plan-config, so this FAQ can never drift
+ * from what the engine actually calls. Unknown ids fall back to the raw id.
+ */
+const MODEL_LABELS: Record<string, string> = {
+  'gpt-5.4-nano': 'GPT-5.4 nano',
+  'gpt-5.4-mini': 'GPT-5.4 mini',
+  'gpt-5.4': 'GPT-5.4',
+  'claude-haiku-4-5-20251001': 'Claude Haiku 4.5',
+  'claude-sonnet-4-20250514': 'Claude Sonnet 4',
+  'gemini-2.5-flash-lite': 'Gemini 2.5 Flash-Lite',
+  'gemini-2.5-pro': 'Gemini 2.5 Pro',
+  'grok-3-mini': 'Grok 3 mini',
+  'grok-4': 'Grok 4',
+  'sonar': 'Perplexity Sonar',
+  'sonar-pro': 'Perplexity Sonar Pro',
+};
+const MODEL_ORDER = ['ChatGPT', 'Claude', 'Gemini', 'Perplexity', 'Grok'];
+function modelList(map: Record<string, string>): string {
+  return MODEL_ORDER.filter((k) => map[k]).map((k) => MODEL_LABELS[map[k]] || map[k]).join(', ');
+}
 import type { AutoRunFrequency } from '@/lib/plan-config';
 
 // The internal `free` tier still exists in plan-config (it's where
@@ -266,7 +288,7 @@ const FAQ = [
   },
   {
     q: 'Economy vs. Premium AI models - what changes?',
-    a: 'Economy uses fast, cost-efficient models (GPT-5 mini, Claude Haiku 4.5, Gemini 3 Flash-Lite, Perplexity Sonar, Grok 4 Mini). Premium tier (Agency) unlocks Claude Sonnet 4.5, Gemini 3 Pro, Sonar Pro, and Grok 5 for deeper reasoning.',
+    a: `Economy uses fast, cost-efficient models (${modelList(ECONOMY_MODEL_BY_PLATFORM)}). The Premium tier on Agency unlocks ${modelList(PREMIUM_MODEL_BY_PLATFORM)} for deeper reasoning.`,
   },
   {
     q: 'How does annual billing work?',
@@ -341,7 +363,7 @@ export default function PricingPage() {
             Livesov&apos;s generative engine optimization tools start at $9/mo. Every paid plan begins with a 7-day free trial - all 5 AI platforms included, no credit card required.
           </p>
           <p style={{ fontSize: 13, color: 'var(--text-muted, #94a3b8)', marginBottom: 36 }}>
-            Cancel anytime · 14-day money-back guarantee · No setup fees
+            Cancel anytime · No credit card to start · No setup fees
           </p>
 
           {/* Billing toggle */}

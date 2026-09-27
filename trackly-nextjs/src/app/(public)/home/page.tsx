@@ -353,7 +353,7 @@ function Problem() {
       ),
     },
     { v: 0, suf: '', l: 'legacy SEO platforms that surface this in their dashboard today' },
-    { v: 5, suf: '', l: 'AI engines Livesov queries on your behalf, every single day' },
+    { v: 5, suf: '', l: 'AI engines Livesov can query on your behalf, on a schedule you set' },
   ];
   return (
     <section className="section problem">
@@ -382,7 +382,7 @@ function Problem() {
               <h3 className="prob-h">Built for how AI actually answers</h3>
             </div>
             <ul className="prob-list">
-              <li><Check /> Tracks all 5 major AI engines, on a schedule</li>
+              <li><Check /> Tracks up to 5 major AI engines, on a schedule</li>
               <li><Check /> Share of voice, sentiment and the sources cited</li>
               <li><Check /> Natural-language queries, the way buyers ask</li>
               <li><Check /> Flags hallucinations &amp; stale facts about you</li>
@@ -663,7 +663,7 @@ function Pricing() {
           ))}
         </div>
         <p className="price-note">
-          1 credit = 1 AI query checked across the engines. Annual billing saves 20%.{' '}
+          1 credit = 1 prompt checked on 1 AI engine. Annual billing saves 20%.{' '}
           <Link href="/pricing">See full pricing, credit maths, and total cost examples &rarr;</Link>
         </p>
       </div>
@@ -712,7 +712,7 @@ function CTA() {
         <div className="cta-card">
           <div className="eyebrow"><span className="dot" /> Free GEO audit - no card</div>
           <h2 className="serif cta-h">See what AI says about your brand <em>in 90 seconds.</em></h2>
-          <p className="cta-sub">Drop your domain. We&apos;ll run 50 buyer-intent queries across all five engines and send you a report with your share of voice, every mention, and where competitors are winning.</p>
+          <p className="cta-sub">Drop your URL. We&apos;ll fetch the page, score how citable it is for ChatGPT, Perplexity and Google AI, and show the fixes that matter most. No signup.</p>
           <form className="cta-form" onSubmit={(e) => { e.preventDefault(); router.push('/geo-audit'); }}>
             <input type="text" placeholder="yourbrand.com" aria-label="Your domain" />
             <button type="submit" className="btn btn-pri btn-lg">Run my audit <span className="ar">→</span></button>

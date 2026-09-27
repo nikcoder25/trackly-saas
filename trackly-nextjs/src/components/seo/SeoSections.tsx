@@ -1,4 +1,5 @@
-'use client';
+// Server-renderable: these sections hold no state or handlers, so pages that
+// are server components keep their copy out of the RSC payload.
 
 import Link from 'next/link';
 

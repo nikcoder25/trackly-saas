@@ -116,7 +116,7 @@ export default async function BestCategoryPage({ params }: PageProps) {
             in 2026
           </>
         }
-        subtitle={`${category.intro} Updated continuously as ChatGPT's recommendation set evolves.`}
+        subtitle={`${category.intro} Re-checked as ChatGPT's recommendation set changes.`}
         ctaText="Track your own AI mention rate"
       />
 
@@ -126,7 +126,7 @@ export default async function BestCategoryPage({ params }: PageProps) {
             { value: `${category.brands.length}`, label: 'Brands in the recommendation set' },
             { value: top?.mentionRate ?? '-', label: `Mention rate for #1 (${top?.name})` },
             { value: '5', label: 'LLMs we measure against' },
-            { value: 'Live', label: 'Refreshed continuously' },
+            { value: `#${category.brands.length}`, label: `Lowest-ranked brand still recommended (${category.brands[category.brands.length - 1]?.name ?? '-'})` },
           ]}
         />
       </Section>

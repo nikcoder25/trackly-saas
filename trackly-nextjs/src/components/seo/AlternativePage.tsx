@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 import {
   Section,
@@ -204,14 +205,14 @@ export default function AlternativePage({ data }: { data: Alternative }) {
                   {(tool.alternativeSlug || tool.vsHref) && (
                     <p style={{ margin: '10px 0 0', fontSize: 13, display: 'flex', flexWrap: 'wrap', gap: 14 }}>
                       {tool.alternativeSlug && (
-                        <a href={`/${tool.alternativeSlug}`} style={{ color: 'var(--brand, #6366f1)', fontWeight: 600 }}>
+                        <Link href={`/${tool.alternativeSlug}`} style={{ color: 'var(--brand, #6366f1)', fontWeight: 600 }}>
                           {tool.name} alternatives &rarr;
-                        </a>
+                        </Link>
                       )}
                       {tool.vsHref && (
-                        <a href={tool.vsHref} style={{ color: 'var(--brand, #6366f1)', fontWeight: 600 }}>
+                        <Link href={tool.vsHref} style={{ color: 'var(--brand, #6366f1)', fontWeight: 600 }}>
                           Livesov vs {tool.name} &rarr;
-                        </a>
+                        </Link>
                       )}
                     </p>
                   )}
