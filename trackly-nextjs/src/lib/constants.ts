@@ -202,7 +202,7 @@ export const PRICING_COMPARISON = {
     ['AI Response Proof', '\u2713', '\u2717', '\u2717'],
     ['Share of Voice', '\u2713 Automatic', 'Limited', 'Limited'],
     ['Sentiment Analysis', '\u2713 Built-in', '\u2717', '\u2717'],
-    ['Competitor Tracking', '\u2713 Up to 20+', '\u2717', '\u2717'],
+    ['Competitor Tracking', '\u2713 Up to 20', '\u2717', '\u2717'],
     ['AI Response Monitoring', '\u2713 Automatic', '\u2717', '\u2717'],
     ['GEO URL Audits', '\u2713 Up to 300/mo', '\u2717', '\u2717'],
   ],

@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const ogImage = ogImageFor(post);
 
   return {
-    title: `${post.title} | Livesov Blog`,
+    title: `${post.title} | Livesov`,
     description: post.description,
     keywords: [post.tag, 'AI visibility', 'brand tracking', 'GEO', 'AI SEO', 'Livesov'],
     openGraph: {
@@ -244,10 +244,17 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     description: post.description,
     image: ogImageFor(post),
     datePublished: post.date,
+    dateModified: post.updated ?? post.date,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': `https://livesov.com/blog/${post.slug}` },
     // A full Person node (not just a name string) so the byline resolves to a
     // real, linkable identity with its own bio page and sameAs profiles.
     author: authorPersonSchema(post.author),
-    publisher: { '@type': 'Organization', name: 'Livesov', url: 'https://livesov.com' },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Livesov',
+      url: 'https://livesov.com',
+      logo: { '@type': 'ImageObject', url: 'https://livesov.com/android-chrome-512x512.png', width: 512, height: 512 },
+    },
   };
 
   return (
@@ -287,7 +294,9 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
         {/* Hero image */}
         <div className="blog-post-image-wrap">
-          <img src={post.image} alt={post.imageAlt} className="blog-post-image" />
+          {/* Intrinsic size reserves the box before the SVG arrives (no CLS);
+              this is the LCP element so it must not be lazy. */}
+          <img src={post.image} alt={post.imageAlt} className="blog-post-image" width={1200} height={630} fetchPriority="high" decoding="async" />
         </div>
 
         {/* Content */}

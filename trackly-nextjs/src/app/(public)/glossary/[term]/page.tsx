@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // boundary (e.g. a route-group loading.tsx) is ever reintroduced above
   // this page, a body-only notFound() would stream a 200 shell (soft-404).
   if (!t) notFound();
-  const title = `${t.term}${t.acronym ? ` (${t.acronym})` : ''} - Definition | Livesov AI Search Glossary`;
+  const title = `${t.term}${t.acronym ? ` (${t.acronym})` : ''} - Definition | Livesov`;
   return {
     title,
     description: t.shortDef,
@@ -115,9 +115,9 @@ export default async function GlossaryTermPage({ params }: PageProps) {
               <ul>
                 {related.map((r) => (
                   <li key={r.slug}>
-                    <a href={`/glossary/${r.slug}`}>
+                    <Link href={`/glossary/${r.slug}`}>
                       <strong>{r.term}</strong>
-                    </a>{' '}
+                    </Link>{' '}
                     - {r.shortDef}
                   </li>
                 ))}
@@ -127,11 +127,11 @@ export default async function GlossaryTermPage({ params }: PageProps) {
 
           <h2>Apply it</h2>
           <p>
-            The <a href="/learn/llm-seo">LLM SEO playbook</a> ties every concept in this glossary
+            The <Link href="/learn/llm-seo">LLM SEO playbook</Link> ties every concept in this glossary
             into a single operating model. If you want to see how your brand performs across all
             the LLMs at once - mention rate, citation share, sentiment, rank - start with the{' '}
-            <a href="/geo-audit">free GEO audit</a> or skip straight to a{' '}
-            <a href="/signup">free Livesov account</a>.
+            <Link href="/geo-audit">free GEO audit</Link> or skip straight to a{' '}
+            <Link href="/signup">free Livesov account</Link>.
           </p>
         </LongForm>
       </Section>

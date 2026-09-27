@@ -10,6 +10,7 @@ import { PLATFORMS, useLS } from '@/app/dashboard-v2/ui';
 import { useBrands } from '@/contexts/BrandContext';
 import { useRun } from '@/contexts/RunContext';
 import { useToast } from '@/components/dashboard/Toast';
+import { getPlanPlatforms } from '@/lib/constants';
 import { V3Icon } from './icons';
 import { useOpenRecommendations } from './hooks';
 
@@ -26,6 +27,12 @@ function hostOf(raw?: string | null): string {
 }
 
 function pts(n: number) { return `${n} point${Math.abs(n) === 1 ? '' : 's'}`; }
+function plural(n: number, word: string) { return `${n} ${word}${n === 1 ? '' : 's'}`; }
+/** Oxford-free list: "ChatGPT, Claude and Gemini". */
+function listNames(names: string[]) {
+  if (names.length <= 1) return names.join('');
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
 
 /* ─────────────────────────── goal ring ─────────────────────────── */
 
@@ -117,7 +124,7 @@ function GoalCard({ sov, answers, rank, accuracy, positive, brandId, brandGoal, 
         <div className="v3-tile"><div className="v3-tile-k">Answers naming you</div><div className="v3-tile-v">{answers}</div></div>
         <div className="v3-tile"><div className="v3-tile-k">Rank vs rivals</div><div className="v3-tile-v">{rank ?? <small>Add rivals in Brand Setup</small>}</div></div>
         <div className="v3-tile"><div className="v3-tile-k">Facts AI gets right</div>
-          <div className={'v3-tile-v' + (accuracy != null ? ' good' : '')}>{accuracy != null ? `${Math.round(accuracy)}%` : <small>Not checked yet</small>}</div></div>
+          <div className={'v3-tile-v' + (accuracy == null ? '' : accuracy >= 80 ? ' good' : accuracy < 50 ? ' bad' : '')}>{accuracy != null ? `${Math.round(accuracy)}%` : <small>Not checked yet</small>}</div></div>
         <div className="v3-tile"><div className="v3-tile-k">Positive tone</div>
           <div className="v3-tile-v">{positive != null ? `${positive}%` : <small>No tone data yet</small>}</div></div>
       </div>
@@ -172,10 +179,17 @@ function SovChart({ history, goal }: { history: { t: number; sov: number }[]; go
   const [W, setW] = React.useState(640);
   React.useEffect(() => {
     const el = boxRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(([e]) => setW(Math.max(240, Math.round(e.contentRect.width))));
+    if (!el) return;
+    const measure = (w: number) => setW(Math.max(240, Math.round(w)));
+    measure(el.clientWidth || 640);
+    if (typeof ResizeObserver === 'undefined') return;
+    let raf = 0;
+    const ro = new ResizeObserver(([e]) => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => measure(e.contentRect.width));
+    });
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
   }, []);
   const cutoff = Date.now() - RANGE_DAYS[range] * 86400_000;
   const inRange = history.filter(h => h.t >= cutoff);
@@ -197,10 +211,10 @@ function SovChart({ history, goal }: { history: { t: number; sov: number }[]; go
           <h2 id="v3-chart-t" className="v3-card-title">Share of voice over time</h2>
           <p className="v3-card-sub">Each point is one scan. The dashed line is your goal.</p>
         </div>
-        <div className="v3-seg" role="tablist" aria-label="Chart range">
+        <div className="v3-seg" role="group" aria-label="Chart range">
           {(['7d', '21d', '90d'] as Range[]).map(r => (
-            <button key={r} type="button" role="tab" aria-selected={range === r} className={range === r ? 'on' : ''} onClick={() => setRange(r)}>
-              {r === '7d' ? '7d' : r === '21d' ? '3 weeks' : '90d'}
+            <button key={r} type="button" aria-pressed={range === r} className={range === r ? 'on' : ''} onClick={() => setRange(r)}>
+              {r === '7d' ? '7 days' : r === '21d' ? '3 weeks' : '90 days'}
             </button>
           ))}
         </div>
@@ -209,7 +223,7 @@ function SovChart({ history, goal }: { history: { t: number; sov: number }[]; go
         <p className="v3-empty">Your chart starts after the first scan.</p>
       ) : (
         <div ref={boxRef}>
-          <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="v3-chart" role="img" aria-label={`Share of voice, ${pts0.length} scans`}>
+          <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="v3-chart" role="img" aria-label={`Share of voice, ${plural(pts0.length, 'scan')}`}>
             {ticks.map(t => (
               <g key={t}>
                 <line x1={padL} x2={W - padR} y1={y(t)} y2={y(t)} stroke="var(--v3-line-soft)" />
@@ -219,7 +233,7 @@ function SovChart({ history, goal }: { history: { t: number; sov: number }[]; go
             <line x1={padL} x2={W - padR} y1={y(goal)} y2={y(goal)} stroke="var(--v3-accent)" strokeDasharray="5 5" strokeWidth={1.5} opacity={0.6} />
             {area && <path d={area} fill="var(--v3-accent-50)" />}
             {pts0.length > 1 && <path d={line} fill="none" stroke="var(--v3-accent)" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round"/>}
-            {pts0.map(p => <circle key={p.t} cx={x(p.t)} cy={y(p.sov)} r={pts0.length > 12 ? 0 : 3.5} fill="var(--v3-surface)" stroke="var(--v3-accent)" strokeWidth={2} />)}
+            {pts0.map((p, i) => <circle key={`${p.t}-${i}`} cx={x(p.t)} cy={y(p.sov)} r={pts0.length > 12 ? 0 : 3.5} fill="var(--v3-surface)" stroke="var(--v3-accent)" strokeWidth={2} />)}
           </svg>
           <div className="v3-chart-x v3-mono">
             <span>{fmtDay(pts0[0].t)}</span>
@@ -239,7 +253,7 @@ function RivalBars({ rows }: { rows: { name: string; sov: number; me?: boolean }
       <div className="v3-card-head">
         <div>
           <h2 id="v3-rivals-t" className="v3-card-title">You vs competitors</h2>
-          <p className="v3-card-sub">Share of all brand mentions in the last scan.</p>
+          <p className="v3-card-sub">Your mentions against your top rivals&rsquo; mentions in the last scan. This is a share of that pool, not the headline mention rate.</p>
         </div>
         <Link href="/dashboard/competitors" className="v3-link">All rivals <V3Icon name="arrow-right" size={14} /></Link>
       </div>
@@ -247,10 +261,10 @@ function RivalBars({ rows }: { rows: { name: string; sov: number; me?: boolean }
         <p className="v3-empty">No rivals named yet. Add competitors in <Link href="/dashboard/setup" className="v3-link">Brand Setup</Link>.</p>
       ) : (
         <ul className="v3-bars">
-          {rows.map(r => (
-            <li key={r.name} className={r.me ? 'me' : ''}>
+          {rows.map((r, i) => (
+            <li key={`${r.name}-${i}`} className={r.me ? 'me' : ''}>
               <div className="v3-bars-top">
-                <span className="v3-bars-name">{r.name}{r.me && <span className="v3-pill accent">You</span>}</span>
+                <span className="v3-bars-name" title={r.name}>{r.name}{r.me && <span className="v3-pill accent">You</span>}</span>
                 <span className="v3-mono">{r.sov}%</span>
               </div>
               <div className="v3-bar thick"><i style={{ width: `${(r.sov / max) * 100}%`, background: r.me ? 'var(--v3-accent)' : 'var(--v3-text-3)' }} /></div>
@@ -264,10 +278,16 @@ function RivalBars({ rows }: { rows: { name: string; sov: number; me?: boolean }
 
 /* ─────────────────────────── questions + sites ─────────────────────────── */
 
-function BuyerQuestions({ grid }: { grid: { q: string; engines: Record<string, boolean | null> }[] }) {
+function BuyerQuestions({ grid, engineNames }: { grid: { q: string; engines: Record<string, boolean | null> }[]; engineNames: string[] }) {
   const [mode, setMode] = React.useState<'win' | 'miss'>('miss');
+  // Columns: only the engines this brand scans. A 2-engine plan should not
+  // see three columns of "no answer" on every row.
+  const inGrid = new Set(grid.flatMap(g => Object.keys(g.engines)));
+  const cols = PLATFORMS.filter(p => engineNames.includes(p.name) || inGrid.has(p.name));
+  const colNames = cols.length > 0 ? cols.map(p => p.name) : ENGINE_NAMES;
+  const shownCols = cols.length > 0 ? cols : PLATFORMS;
   const rows = grid.map(g => {
-    const answered = ENGINE_NAMES.filter(e => g.engines[e] != null);
+    const answered = colNames.filter(e => g.engines[e] != null);
     const named = answered.filter(e => g.engines[e]).length;
     return { ...g, named, answered: answered.length, winning: answered.length > 0 && named * 2 >= answered.length };
   });
@@ -281,9 +301,9 @@ function BuyerQuestions({ grid }: { grid: { q: string; engines: Record<string, b
           <h2 id="v3-q-t" className="v3-card-title">Buyer questions</h2>
           <p className="v3-card-sub">Winning means at least half the engines named you.</p>
         </div>
-        <div className="v3-seg" role="tablist" aria-label="Question filter">
-          <button type="button" role="tab" aria-selected={mode === 'win'} className={mode === 'win' ? 'on' : ''} onClick={() => setMode('win')}>Winning {counts.win}</button>
-          <button type="button" role="tab" aria-selected={mode === 'miss'} className={mode === 'miss' ? 'on' : ''} onClick={() => setMode('miss')}>Missing {counts.miss}</button>
+        <div className="v3-seg" role="group" aria-label="Question filter">
+          <button type="button" aria-pressed={mode === 'win'} className={mode === 'win' ? 'on' : ''} onClick={() => setMode('win')}>Winning {counts.win}</button>
+          <button type="button" aria-pressed={mode === 'miss'} className={mode === 'miss' ? 'on' : ''} onClick={() => setMode('miss')}>Missing {counts.miss}</button>
         </div>
       </div>
       {shown.length === 0 ? (
@@ -294,7 +314,7 @@ function BuyerQuestions({ grid }: { grid: { q: string; engines: Record<string, b
             <thead>
               <tr>
                 <th>Question</th>
-                {PLATFORMS.map(p => <th key={p.id} className="c" title={p.name}>{p.short}</th>)}
+                {shownCols.map(p => <th key={p.id} className="c" title={p.name}><abbr title={p.name}>{p.short}</abbr></th>)}
               </tr>
             </thead>
             <tbody>
@@ -308,12 +328,13 @@ function BuyerQuestions({ grid }: { grid: { q: string; engines: Record<string, b
                       {mode === 'win' ? 'See answers' : 'How to win'} <V3Icon name="arrow-right" size={14} />
                     </Link>
                   </td>
-                  {PLATFORMS.map(p => {
+                  {shownCols.map(p => {
                     const v = r.engines[p.name];
+                    const label = v == null ? 'no answer' : v ? 'named you' : 'did not name you';
                     return (
                       <td key={p.id} className="c">
-                        <span className={'v3-edot ' + (v == null ? 'na' : v ? 'yes' : 'no')}
-                          title={`${p.name}: ${v == null ? 'no answer' : v ? 'named you' : 'did not name you'}`} />
+                        <span className={'v3-edot ' + (v == null ? 'na' : v ? 'yes' : 'no')} title={`${p.name}: ${label}`} aria-hidden="true" />
+                        <span className="v3-sr">{p.name}: {label}</span>
                       </td>
                     );
                   })}
@@ -389,7 +410,13 @@ function Hero({ eyebrow, children, sub, actions }: { eyebrow: string; children: 
 
 export default function OverviewV3() {
   const { data, loading, error, retry } = useOverviewData(FILTERS);
-  const { selectedBrand, selectedBrandLocked, refreshBrands } = useBrands();
+  const { selectedBrand, selectedBrandLocked, refreshBrands, plan } = useBrands();
+  // The engines this brand actually scans: its own selection, else the plan default.
+  const brandPlatforms = (selectedBrand as Record<string, unknown> | null)?.platforms;
+  const engineNames: string[] = Array.isArray(brandPlatforms) && brandPlatforms.length > 0
+    ? (brandPlatforms as string[]).filter(p => ENGINE_NAMES.includes(p))
+    : getPlanPlatforms(plan);
+  const engineList = listNames(engineNames.length > 0 ? engineNames : ENGINE_NAMES);
   const { live, startRun, pct } = useRun();
   const { toast } = useToast();
   const [busy, setBusy] = React.useState(false);
@@ -425,7 +452,7 @@ export default function OverviewV3() {
       <div className="v3-page">
         <Hero eyebrow={today}>Add your brand to <em>get started</em>.</Hero>
         <div className="v3-card v3-empty-card">
-          <p>We ask ChatGPT, Claude, Gemini, Perplexity and Grok about your category and show how often they name you.</p>
+          <p>We ask {engineList} about your category and show how often they name you.</p>
           <p className="v3-dim">Use &ldquo;Add brand&rdquo; in the brand menu to begin.</p>
         </div>
       </div>
@@ -441,7 +468,7 @@ export default function OverviewV3() {
   if (d.noData) {
     return (
       <div className="v3-page">
-        <Hero eyebrow={today} sub={`We will ask the 5 AI engines your ${d.promptCount} tracked questions and show where ${d.brandName} shows up.`}>
+        <Hero eyebrow={today} sub={`We will ask ${engineList} your ${plural(d.promptCount, 'tracked question')} and show where ${d.brandName} shows up.`}>
           Run your first scan for <em>{d.brandName}</em>.
         </Hero>
         <div className="v3-card v3-empty-card">
@@ -460,12 +487,16 @@ export default function OverviewV3() {
   const othersAvg = real.length > 1 ? real.filter(p => p !== weakest).reduce((s, p) => s + p.sov, 0) / (real.length - 1) : 0;
   const weakId = weakest && real.length > 1 && othersAvg - weakest.sov >= 10 && weakest.sov < othersAvg * 0.6 ? weakest.id : null;
 
-  const trendLine = d.runCount < 2
+  const hasPrev = d.hasPrev ?? d.runCount >= 2;
+  const noAnswers = d.answersOk === 0;
+  const trendLine = noAnswers
+    ? 'Your last scan returned no answers. Check Platform Status and run it again.'
+    : !hasPrev
     ? 'This is your first scan, so there is nothing to compare yet.'
     : d.sovDelta > 0 ? `Up ${pts(d.sovDelta)} since your last scan.`
     : d.sovDelta < 0 ? `Down ${pts(Math.abs(d.sovDelta))} since your last scan.`
     : 'Same as your last scan.';
-  const weakLine = weakest && real.length > 1 ? ` ${weakest.name} is your weakest engine at ${weakest.sov}%.` : '';
+  const weakLine = weakest && weakId ? ` ${weakest.name} is your weakest engine at ${weakest.sov}%.` : '';
 
   const meIdx = d.competitors.findIndex(c => c.me);
   const rank = meIdx >= 0 && d.competitors.length > 1 ? `#${meIdx + 1} of ${d.competitors.length}` : null;
@@ -484,15 +515,15 @@ export default function OverviewV3() {
           <Link href="/dashboard/recommendations" className="v3-btn v3-btn-primary">See what to fix</Link>
         </>}
       >
-        AI names you in <em>{d.sov} of every 100</em> answers.
+        {noAnswers ? <>No AI answers came back in your <em>last scan</em>.</> : <>AI names you in <em>{d.sov} of every 100</em> answers.</>}
       </Hero>
 
-      {live.running && <p className="v3-note"><span className="v3-dot live" /> A scan is running. These numbers update when it finishes.</p>}
+      {live.running && <p className="v3-note"><span className="v3-dot live" /> A scan is running. These numbers update as results come in.</p>}
 
       <div className="v3-row v3-row-goal">
         <GoalCard
           sov={d.sov}
-          answers={`${d.totalM} of ${d.answersOk ?? d.totalQ}`}
+          answers={`${d.mentionsOk ?? d.totalM} of ${d.answersOk ?? d.totalQ}`}
           rank={rank}
           accuracy={d.accuracyRate}
           positive={d.positivePct ?? null}
@@ -524,7 +555,7 @@ export default function OverviewV3() {
                     <div className="v3-engine-v">{p.sov}<small>%</small></div>
                     <div className="v3-bar"><i style={{ width: `${p.sov}%`, background: weak ? 'var(--v3-warn)' : undefined }} /></div>
                     <div className="v3-engine-d v3-mono">
-                      {d.runCount < 2 ? 'first scan' : p.delta > 0 ? `+${p.delta} pts` : p.delta < 0 ? `${p.delta} pts` : 'no change'}
+                      {!hasPrev ? 'first scan' : p.delta > 0 ? `+${p.delta} pts` : p.delta < 0 ? `${p.delta} pts` : 'no change'}
                     </div>
                   </>
                 )}
@@ -540,7 +571,7 @@ export default function OverviewV3() {
       </div>
 
       <div className="v3-row v3-row-q">
-        <BuyerQuestions grid={d.grid || []} />
+        <BuyerQuestions grid={d.grid || []} engineNames={engineNames} />
         <TrustedSites sources={d.sources} ownHost={hostOf(d.website)} />
       </div>
     </div>

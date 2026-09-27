@@ -26,8 +26,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Livesov - AI Visibility Tracker | Track Your Brand on ChatGPT, Perplexity, Gemini & More',
-  description: 'Track how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand. GEO & AEO optimization tool - get real proof, measure share of voice, and monitor AI visibility with Livesov.',
+  title: 'Livesov - AI Visibility Tracker for ChatGPT, Perplexity & Gemini',
+  description: 'Track how ChatGPT, Perplexity, Claude, Gemini and Grok mention your brand. Real AI answers as proof, share of voice, and the fixes that get you named more.',
   keywords: 'AI visibility tracker, AI brand monitoring, ChatGPT brand tracking, Perplexity tracking, GEO optimization, generative engine optimization, AEO optimization, answer engine optimization, AI mention tracker, share of voice AI, AI rank tracker, AI SEO tool, brand monitoring AI, AI search tracking, LLM brand monitoring, AI citation tracker, AI brand visibility',
   authors: [{ name: 'Livesov' }],
   robots: 'index, follow, max-image-preview:large, max-snippet:-1',

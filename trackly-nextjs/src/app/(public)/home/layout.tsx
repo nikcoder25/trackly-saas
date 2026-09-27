@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 
 export const metadata: Metadata = {
-  title: 'Livesov - AI Visibility Tracker for ChatGPT, Perplexity, Claude & Gemini',
+  title: 'Livesov - AI Visibility Tracker for ChatGPT, Perplexity & Claude',
   description:
-    'Livesov is the AI visibility tracker that shows how ChatGPT, Perplexity, Claude, Gemini, and Grok talk about your brand. Track mentions, share of voice, and generative engine optimization in one platform. 7-day free trial, plans from $9/mo.',
+    'See how ChatGPT, Perplexity, Claude, Gemini and Grok talk about your brand. Track mentions, share of voice and GEO fixes in one place. 7-day free trial from $9/mo.',
   keywords: [
     'AI visibility tracker',
     'AI visibility tool',
@@ -50,8 +50,15 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'Organization',
+      '@id': 'https://livesov.com/#organization',
       name: 'Livesov',
       url: 'https://livesov.com',
+      logo: {
+        '@type': 'ImageObject',
+        url: 'https://livesov.com/android-chrome-512x512.png',
+        width: 512,
+        height: 512,
+      },
       description: 'AI visibility tracker - monitor your brand across ChatGPT, Perplexity, Claude, Gemini & Grok.',
       contactPoint: {
         '@type': 'ContactPoint',
@@ -62,6 +69,14 @@ const jsonLd = {
         'https://x.com/livesov',
         'https://linkedin.com/company/livesov',
       ],
+    },
+    {
+      '@type': 'WebSite',
+      '@id': 'https://livesov.com/#website',
+      name: 'Livesov',
+      url: 'https://livesov.com',
+      publisher: { '@id': 'https://livesov.com/#organization' },
+      inLanguage: 'en',
     },
     {
       '@type': 'SoftwareApplication',

@@ -1,0 +1,16 @@
+/* Avatar menu on the classic topbar. Kept apart from v3.css so the classic
+   UI does not download the whole v3 design sheet for a 240px popover. */
+/* ─── Classic topbar account menu (the only classic-UI addition) ─── */
+.lvx-acct-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 9999; width: 240px; padding: 6px;
+  background: var(--surface, #fff); border: 1px solid var(--line, #E6E7EB); border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .10), 0 24px 60px rgba(15, 23, 42, .10);
+}
+.lvx-acct-head { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 10px; border-bottom: 1px solid var(--line, #E6E7EB); margin-bottom: 4px; font-size: 13px; }
+.lvx-acct-head span { font-size: 11px; color: var(--text-3, #64748B); overflow: hidden; text-overflow: ellipsis; }
+.lvx-acct-item {
+  display: flex; align-items: center; width: 100%; min-height: 36px; padding: 0 10px; border: 0; border-radius: 6px;
+  background: none; color: var(--text, #0F172A); font: 500 13px/1.2 inherit; text-align: left; text-decoration: none; cursor: pointer;
+}
+.lvx-acct-item:hover { background: var(--surface-3, #F1F2F5); }
+.lvx-acct-try { color: var(--primary, #5B5BD6); font-weight: 600; }

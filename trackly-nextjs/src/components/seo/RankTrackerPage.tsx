@@ -85,7 +85,7 @@ function buildSteps(engine: string, subject: string) {
     },
     {
       title: `Automated ${engine} runs`,
-      description: `Livesov queries ${subject} on your schedule and runs each prompt multiple times, because AI answers are non-deterministic.`,
+      description: `Livesov queries ${subject} on your schedule and stores the full answer every time, so you can see how a non-deterministic engine drifts run to run.`,
     },
     {
       title: 'Record rank, citations, competitors',
@@ -102,7 +102,7 @@ function buildComparisonRows(engine: string): [string, string, string][] {
   return [
     [`Automated ${engine} rank tracking`, '✓ Scheduled', '✗ Manual re-checks'],
     ['Rank trend history over time', '✓', '✗ Snapshot only'],
-    ['Multi-run aggregation (non-deterministic answers)', '✓ 3-10x per run', '✗ Single shot'],
+    ['Run-over-run history (non-deterministic answers)', '✓ Every scheduled run', '✗ Single shot'],
     ['Competitor rank benchmarking', '✓ Up to 20', 'Manual'],
     ['Citation / source capture', '✓ Full ranked list', 'Partial'],
     ['Rank-change alerts', '✓ Email', '✗'],

@@ -72,6 +72,20 @@ export default function RecommendationsPage() {
 
   useEffect(() => { loadRecs(); }, [loadRecs]);
 
+  // Deep links from the Overview ("Do these next") arrive as #rec-<id>. The
+  // cards mount after the fetch, so the browser's own hash jump lands on an
+  // empty page; scroll once the list is in the DOM.
+  const [hashHandled, setHashHandled] = useState(false);
+  useEffect(() => {
+    if (!recsLoaded || hashHandled || allRecs.length === 0) return;
+    const hash = typeof window !== 'undefined' ? window.location.hash : '';
+    if (!hash.startsWith('#rec-')) return;
+    setHashHandled(true);
+    requestAnimationFrame(() => {
+      document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [recsLoaded, hashHandled, allRecs.length]);
+
   // Reload recommendations when a run completes so new suggestions (derived
   // from fresh run data) appear without requiring a manual refresh.
   useEffect(() => {

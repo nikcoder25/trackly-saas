@@ -4,6 +4,8 @@ const BASE_URL = process.env.APP_URL || 'https://livesov.com';
 
 const DISALLOW = [
   '/dashboard/',
+  '/dashboard-v2',   // preview shell of the old redesign, auth-gated, never indexable
+  '/onboarding',
   '/admin-backend/',
   '/api/',
   '/login',
