@@ -327,7 +327,7 @@ export default function CompetitorsPage() {
                 const maxTotal = Math.max(...discoveredCompetitors.map((d: CitationRow) => Number(d.total)), 1);
                 const alreadyTracked = competitors.some(comp => comp.toLowerCase() === c.domain.toLowerCase());
                 return (
-                  <div key={c.domain} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 70px', gap: 12, alignItems: 'center' }}>
+                  <div key={c.domain} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px auto', gap: 12, alignItems: 'center' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                       <span className="mono" style={{ fontSize: 12.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.domain}</span>
                       {c.is_competitor && <Badge tone="acc">TRACKED</Badge>}
@@ -335,10 +335,10 @@ export default function CompetitorsPage() {
                       {c.domain_type === 'news' && <Badge tone="warn">NEWS</Badge>}
                     </span>
                     <Bar value={Number(c.total)} max={maxTotal} color={c.is_competitor ? 'var(--primary)' : 'var(--info)'} />
-                    <span className="mono" style={{ textAlign: 'right', fontSize: 12, color: 'var(--text)' }}>
-                      {c.total}×
+                    <span className="mono" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, whiteSpace: 'nowrap', fontSize: 12, color: 'var(--text)' }}>
+                      <span style={{ minWidth: 40, textAlign: 'right' }}>{c.total}×</span>
                       {!alreadyTracked && !c.is_competitor && (
-                        <button onClick={() => addDiscoveredComp(c.domain)} className="btn-d" style={{ marginLeft: 8, padding: '2px 8px', fontSize: 11 }}>+ Track</button>
+                        <button onClick={() => addDiscoveredComp(c.domain)} className="btn-d" style={{ minHeight: 28, height: 28, padding: '0 10px', fontSize: 12, whiteSpace: 'nowrap' }}>+ Track</button>
                       )}
                     </span>
                   </div>

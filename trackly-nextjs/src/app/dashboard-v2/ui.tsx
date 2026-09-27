@@ -7,6 +7,7 @@ import * as React from 'react';
 import { usePathname } from 'next/navigation';
 import { useUiFlag } from '@/contexts/UiFlagContext';
 import { v3PageMeta } from '@/lib/dashboard-nav-v3';
+import { isRedirectCitationHost } from '@/lib/citation-hosts';
 
 /* ───────────────────────────── Platforms ───────────────────────────── */
 
@@ -454,7 +455,10 @@ export function Cit({ url }: { url: string }) {
       return u.toString();
     } catch { return ''; }
   })();
-  if (!href) return <span className="cit mono">{url}</span>;
+  // Gemini grounding links (vertexaisearch.../grounding-api-redirect/...) are
+  // long opaque tokens. Show a short label and keep the full link in the title.
+  const label = isRedirectCitationHost(url) ? 'Google source' : url;
+  if (!href) return <span className="cit mono" title={url}>{label}</span>;
   return (
     <a
       className="cit mono"
@@ -463,7 +467,7 @@ export function Cit({ url }: { url: string }) {
       rel="noopener noreferrer"
       title={`Open ${href} in a new tab`}
     >
-      {url}
+      {label}
     </a>
   );
 }

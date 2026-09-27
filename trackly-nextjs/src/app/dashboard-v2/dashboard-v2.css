@@ -1213,7 +1213,7 @@ a.cit, .lvx a.cit { text-decoration: none; }
 .lvx .proof-q-new, .lvx .proof-quote, .lvx .proof-stat-row, .lvx .proof-stat { min-width: 0; }
 .lvx .proof-q-text, .lvx .proof-quote-text { overflow-wrap: anywhere; }
 .lvx .proof-cite-chips { min-width: 0; max-width: 100%; }
-.lvx .proof-cite-chips .cit { max-width: 100%; overflow-wrap: anywhere; }
+.lvx .proof-cite-chips .cit { display: inline-block; max-width: min(100%, 260px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
 .lvx .filter-pager { display: inline-flex; gap: 8px; }
 
 /* Engagement: link cards lift on hover and press down; pages ease in. */

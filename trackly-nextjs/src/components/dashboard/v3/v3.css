@@ -603,6 +603,11 @@ html[data-ui="v3"] .lvx {
 .v3 .v3-content .btn-g { background: var(--v3-surface); border: 1px solid var(--v3-line-btn); color: var(--v3-ink); }
 .v3 .v3-content .btn-d { background: var(--v3-surface); border: 1px solid var(--v3-line-btn); color: var(--v3-ink); font-weight: 500; }
 .v3 .v3-content .btn-d:hover:not(:disabled), .v3 .v3-content .btn-g:hover:not(:disabled) { border-color: var(--v3-text-3); background: var(--v3-surface); }
+/* Compact inline buttons (row actions like "+ Track", "×", "Dismiss") set their own
+   padding inline. Drop the 44px floor so they stay small instead of stretching tall. */
+.v3 .v3-content .btn-p[style*="padding"], .v3 .v3-content .btn-g[style*="padding"], .v3 .v3-content .btn-d[style*="padding"] {
+  min-height: 28px; line-height: 1.2; border-radius: 8px;
+}
 .v3 .v3-content .btn-danger { color: var(--v3-bad); }
 .v3 .v3-content button:disabled { cursor: not-allowed; }
 
