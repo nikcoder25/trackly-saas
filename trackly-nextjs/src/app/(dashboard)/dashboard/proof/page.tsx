@@ -196,7 +196,7 @@ export default function ProofPage() {
           <Seg
             value={viewMode}
             onChange={v => setViewMode(v as 'grouped' | 'flat')}
-            options={[{ value: 'grouped', label: 'BY QUERY' }, { value: 'flat', label: 'ALL ROWS' }]}
+            options={[{ value: 'grouped', label: 'By query' }, { value: 'flat', label: 'All rows' }]}
           />
         </Filter>
 
@@ -211,10 +211,10 @@ export default function ProofPage() {
         ) : (
           <>
             <KPIRail items={[
-              { k: 'SHARE OF VOICE', term: 'sov', v: sovPct, suffix: '%', d: sovDelta, info: prevSov != null ? `vs ${prevSov}% prev` : undefined },
-              { k: 'MENTIONS FOUND', term: 'mention', v: `${foundCount}`, info: `of ${totalResults}`, d: foundDelta, suffix: '' },
-              { k: 'ENGINES COVERED', term: 'engine', v: `${uniquePlats.length}`, info: `${queries.length || 0} queries` },
-              { k: 'POSITIVE SENTIMENT', term: 'sentiment', v: posPct, suffix: '%', info: `${sentPos}↑ ${sentNeu}· ${sentNeg}↓` },
+              { k: 'Share of voice', term: 'sov', v: sovPct, suffix: '%', d: sovDelta, info: prevSov != null ? `vs ${prevSov}% prev` : undefined },
+              { k: 'Mentions found', term: 'mention', v: `${foundCount}`, info: `of ${totalResults}`, d: foundDelta, suffix: '' },
+              { k: 'Engines covered', term: 'engine', v: `${uniquePlats.length}`, info: `${queries.length || 0} queries` },
+              { k: 'Positive sentiment', term: 'sentiment', v: posPct, suffix: '%', info: `${sentPos}↑ ${sentNeu}· ${sentNeg}↓` },
             ]} />
 
             {filtered.length === 0 ? (
@@ -243,7 +243,7 @@ export default function ProofPage() {
                       </div>
                       <div className="proof-hero-content">
                         <div className="proof-q-new mono">
-                          <span className="proof-q-label">QUERY</span>
+                          <span className="proof-q-label">Query</span>
                           <span className="proof-q-text">&ldquo;{proof.query}&rdquo;</span>
                         </div>
                         <blockquote className="proof-quote">
@@ -256,17 +256,17 @@ export default function ProofPage() {
                         </blockquote>
                         <div className="proof-stat-row">
                           <span className="proof-stat">
-                            <span className="proof-stat-label mono">ENGINE</span>
+                            <span className="proof-stat-label mono">Engine</span>
                             <span className="proof-stat-val">{proof.platform}</span>
                           </span>
                           <span className="proof-stat-div" />
                           <span className="proof-stat">
-                            <span className="proof-stat-label mono">POSITION</span>
+                            <span className="proof-stat-label mono">Position</span>
                             <span className="proof-stat-val">{proofPos ? `#${proofPos}` : '-'}</span>
                           </span>
                           <span className="proof-stat-div" />
                           <span className="proof-stat">
-                            <span className="proof-stat-label mono">SENTIMENT</span>
+                            <span className="proof-stat-label mono">Sentiment</span>
                             <span className={`proof-stat-val proof-sent-${proofSent}`}>{proofSent}</span>
                           </span>
                           {proof.citations && proof.citations.length > 0 && (
@@ -321,10 +321,10 @@ export default function ProofPage() {
                   >
                     <div className="tbl-wrap">
                       <table className="tbl">
-                        <thead><tr><th>BRAND</th><th>ROLE</th></tr></thead>
+                        <thead><tr><th>Brand</th><th>Role</th></tr></thead>
                         <tbody>
                           <tr>
-                            <td><b style={{ color: 'var(--accent)' }}>{brand?.name || 'Your brand'}</b> <Badge tone="acc">YOU</Badge></td>
+                            <td><b style={{ color: 'var(--accent)' }}>{brand?.name || 'Your brand'}</b> <Badge tone="acc">You</Badge></td>
                             <td><Badge tone={proofTone}>{proof.mentioned ? `MENTIONED${proofPos ? ' · #' + proofPos : ''}` : 'NOT MENTIONED'}</Badge></td>
                           </tr>
                           {proof.competitorMentions.map((c, i) => (
@@ -392,7 +392,7 @@ export default function ProofPage() {
                             <div className="q-cov-engines">
                               {foundOn.length > 0 && (
                                 <span className="q-cov-eng-group">
-                                  <span className="mono dim">FOUND ON</span>
+                                  <span className="mono dim">Found on</span>
                                   <span className="q-cov-eng-tiles">
                                     {foundOn.map((p, i) => <PlatformTile key={i} p={platformFor(p)} size={18} />)}
                                   </span>
@@ -400,7 +400,7 @@ export default function ProofPage() {
                               )}
                               {missedOn.length > 0 && (
                                 <span className="q-cov-eng-group q-cov-eng-miss">
-                                  <span className="mono dim">MISSED</span>
+                                  <span className="mono dim">Missed</span>
                                   <span className="q-cov-eng-tiles">
                                     {missedOn.map((p, i) => <PlatformTile key={i} p={platformFor(p)} size={18} />)}
                                   </span>
@@ -425,7 +425,7 @@ export default function ProofPage() {
                   >
                     <div className="tbl-wrap">
                       <table className="tbl">
-                        <thead><tr><th>ENGINE</th><th>QUERY</th><th>VERDICT</th><th>POSITION</th><th>SENTIMENT</th></tr></thead>
+                        <thead><tr><th>Engine</th><th>Query</th><th>Verdict</th><th>Position</th><th>Sentiment</th></tr></thead>
                         <tbody>
                           {filtered.map((r, i) => {
                             const tone = r.error ? 'warn' : r.mentioned ? 'pos' : 'neg';

@@ -157,11 +157,11 @@ export default function AlertsPage() {
         actions={<button className="btn-p" onClick={() => setShowAddForm(!showAddForm)}>+ Add Alert</button>} />
       <div className="page-body">
         <KPIRail items={[
-          { k: 'RULES ACTIVE', v: String(activeCount), info: `of ${rules.length}` },
-          { k: 'TOTAL RULES', v: String(rules.length) },
-          { k: 'NOTIFICATIONS', v: String(notifications.length) },
-          { k: 'WEBHOOK', v: webhookUrl ? 'ON' : 'OFF' },
-          { k: 'EMAIL REPORT', v: reportFreq === 'off' ? 'OFF' : reportFreq.toUpperCase() },
+          { k: 'Rules active', v: String(activeCount), info: `of ${rules.length}` },
+          { k: 'Total rules', v: String(rules.length) },
+          { k: 'Notifications', v: String(notifications.length) },
+          { k: 'Webhook', v: webhookUrl ? 'ON' : 'OFF' },
+          { k: 'Email report', v: reportFreq === 'off' ? 'OFF' : reportFreq.toUpperCase() },
         ]} />
 
         <div className="g2">
@@ -173,7 +173,7 @@ export default function AlertsPage() {
             ) : (
               <div className="tbl-wrap">
                 <table className="tbl">
-                  <thead><tr><th>WHEN</th><th>CHANNELS</th><th>THRESHOLD · COOLDOWN</th><th>STATUS</th>{isV3 && <th aria-label="Actions" />}</tr></thead>
+                  <thead><tr><th>When</th><th>Channels</th><th>Threshold · cooldown</th><th>Status</th>{isV3 && <th aria-label="Actions" />}</tr></thead>
                   <tbody>
                     {rules.map(r => (
                       <tr key={r.id}>
@@ -199,11 +199,11 @@ export default function AlertsPage() {
             <Card title="New alert rule" style={{ gridColumn: 'span 2' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                 <div>
-                  <div className="eyebrow" style={{ marginBottom: 6 }}>ALERT NAME</div>
+                  <div className="eyebrow" style={{ marginBottom: 6 }}>Alert name</div>
                   <input ref={nameInputRef} className="sel" value={alertName} onChange={e => setAlertName(e.target.value)} placeholder="e.g. SOV dropped below 20%" style={{ width: '100%' }} />
                 </div>
                 <div>
-                  <div className="eyebrow" style={{ marginBottom: 6 }}>CONDITION</div>
+                  <div className="eyebrow" style={{ marginBottom: 6 }}>Condition</div>
                   <select className="sel" value={alertCondition} onChange={e => setAlertCondition(e.target.value)} style={{ width: '100%' }}>
                     <option value="visibility_drop">Visibility Drop (%)</option>
                     <option value="sov_below">SOV Below Threshold</option>
@@ -219,7 +219,7 @@ export default function AlertsPage() {
                   <input className="sel" type="number" value={alertThreshold} onChange={e => setAlertThreshold(Number(e.target.value))} min={1} max={100} style={{ width: '100%' }} />
                 </div>
                 <div>
-                  <div className="eyebrow" style={{ marginBottom: 6 }}>ACTION</div>
+                  <div className="eyebrow" style={{ marginBottom: 6 }}>Action</div>
                   <select className="sel" value={alertAction} onChange={e => setAlertAction(e.target.value)} style={{ width: '100%' }}>
                     <option value="in_app">In-App Notification</option>
                     <option value="email">Email</option>
@@ -291,7 +291,7 @@ export default function AlertsPage() {
                   <option value="monthly">Monthly</option>
                 </select>
                 <button className="btn-p" onClick={saveReport}>Save</button>
-                {reportSaved && <Badge tone="pos">SAVED</Badge>}
+                {reportSaved && <Badge tone="pos">Saved</Badge>}
               </div>
             </div>
           </Card>

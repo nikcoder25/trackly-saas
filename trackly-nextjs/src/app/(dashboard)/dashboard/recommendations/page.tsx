@@ -230,10 +230,10 @@ export default function RecommendationsPage() {
       />
       <div className="page-body">
         <KPIRail items={[
-          { k: 'TOTAL', v: allRecs.length },
-          { k: 'OPEN', v: open },
-          { k: 'IN PROGRESS', v: inProg },
-          { k: 'COMPLETED', v: done },
+          { k: 'Total', v: allRecs.length },
+          { k: 'Open', v: open },
+          { k: 'In progress', v: inProg },
+          { k: 'Completed', v: done },
         ]} />
 
         <Filter>
@@ -241,11 +241,11 @@ export default function RecommendationsPage() {
             value={filterStatus || ''}
             onChange={setFilterStatus}
             options={[
-              { value: '', label: 'ALL STATUS' },
-              { value: 'open', label: 'OPEN' },
-              { value: 'in_progress', label: 'IN PROGRESS' },
-              { value: 'done', label: 'DONE' },
-              { value: 'ignored', label: 'IGNORED' },
+              { value: '', label: 'All status' },
+              { value: 'open', label: 'Open' },
+              { value: 'in_progress', label: 'In progress' },
+              { value: 'done', label: 'Done' },
+              { value: 'ignored', label: 'Ignored' },
             ]}
           />
           <select className="sel" value={filterSeverity} onChange={e => setFilterSeverity(e.target.value)}>
@@ -319,7 +319,7 @@ export default function RecommendationsPage() {
                     <div className="rec-foot">
                       {p && (
                         <>
-                          <div className="mono dim" style={{ fontSize: 11, letterSpacing: '0.08em' }}>AFFECTS</div>
+                          <div className="mono dim" style={{ fontSize: 11, letterSpacing: '0.08em' }}>Affects</div>
                           <PlatformTile p={p} size={20} />
                         </>
                       )}

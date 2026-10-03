@@ -591,12 +591,12 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
       {message && <Badge tone="pos" style={{ display: 'block', padding: '8px 12px', fontSize: 11 }}>{message}</Badge>}
 
       <Card title="Identity">
-        <Fld label="BRAND NAME" value={name} onChange={setName} placeholder="Your Brand Name" />
+        <Fld label="Brand name" value={name} onChange={setName} placeholder="Your Brand Name" />
 
-        <Fld label="INDUSTRY" value={industry} onChange={setIndustry} placeholder="e.g. HVAC, Plumbing, Landscaping" />
-        <Fld label="WEBSITE" value={website} onChange={setWebsite} placeholder="yourbrand.com" mono />
-        <Fld label="CITY / LOCATION" value={city} onChange={setCity} placeholder="e.g. Austin TX" />
-        <Fld label="SOV GOAL (%)" value={String(goal)} onChange={(v: string) => setGoal(Number(v))} placeholder="70" type="number" mono />
+        <Fld label="Industry" value={industry} onChange={setIndustry} placeholder="e.g. HVAC, Plumbing, Landscaping" />
+        <Fld label="Website" value={website} onChange={setWebsite} placeholder="yourbrand.com" mono />
+        <Fld label="City / location" value={city} onChange={setCity} placeholder="e.g. Austin TX" />
+        <Fld label="SOV goal (%)" value={String(goal)} onChange={(v: string) => setGoal(Number(v))} placeholder="70" type="number" mono />
       </Card>
 
       <Card title="Alternate names & aliases" right={<button type="button" onClick={autoGenerateAliases} className="btn-d">Auto-generate</button>}>

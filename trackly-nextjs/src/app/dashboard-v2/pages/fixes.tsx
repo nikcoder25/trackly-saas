@@ -227,31 +227,31 @@ const MX_CSS = `
  */
 function statusMeta(s: string, diagnostic = false, queuedOnConnector = false): { label: string; color: string; bg: string } {
   const m: Record<string, { label: string; color: string; bg: string }> = {
-    detected: { label: 'DETECTED', color: 'var(--text-3)', bg: 'var(--surface-2)' },
-    generating: { label: 'GENERATING', color: 'var(--primary)', bg: 'var(--primary-50)' },
-    generated: { label: 'IN REVIEW', color: 'var(--primary)', bg: 'var(--primary-50)' },
-    preview_ready: { label: 'IN REVIEW', color: 'var(--primary)', bg: 'var(--primary-50)' },
-    approved: { label: 'APPROVED', color: 'var(--info)', bg: 'var(--info-50)' },
-    shipping: { label: 'SHIPPING', color: 'var(--info)', bg: 'var(--info-50)' },
-    staged: { label: 'STAGED DRAFT', color: 'var(--info)', bg: 'var(--info-50)' },
+    detected: { label: 'Detected', color: 'var(--text-3)', bg: 'var(--surface-2)' },
+    generating: { label: 'Generating', color: 'var(--primary)', bg: 'var(--primary-50)' },
+    generated: { label: 'In review', color: 'var(--primary)', bg: 'var(--primary-50)' },
+    preview_ready: { label: 'In review', color: 'var(--primary)', bg: 'var(--primary-50)' },
+    approved: { label: 'Approved', color: 'var(--info)', bg: 'var(--info-50)' },
+    shipping: { label: 'Shipping', color: 'var(--info)', bg: 'var(--info-50)' },
+    staged: { label: 'Staged draft', color: 'var(--info)', bg: 'var(--info-50)' },
     shipped: queuedOnConnector
-      ? { label: 'QUEUED', color: 'var(--info)', bg: 'var(--info-50)' }
+      ? { label: 'Queued', color: 'var(--info)', bg: 'var(--info-50)' }
       : { label: diagnostic ? 'DIAGNOSED' : 'SHIPPED', color: 'var(--success)', bg: 'var(--success-50)' },
     verified: queuedOnConnector
-      ? { label: 'QUEUED', color: 'var(--info)', bg: 'var(--info-50)' }
+      ? { label: 'Queued', color: 'var(--info)', bg: 'var(--info-50)' }
       : { label: diagnostic ? 'DIAGNOSED' : 'VERIFIED', color: 'var(--success)', bg: 'var(--success-50)' },
-    failed: { label: 'ATTENTION', color: 'var(--danger)', bg: 'var(--danger-50)' },
-    reverted: { label: 'REVERTED', color: 'var(--warn)', bg: 'var(--warn-50)' },
-    dismissed: { label: 'IGNORED', color: 'var(--text-3)', bg: 'var(--surface-2)' },
+    failed: { label: 'Attention', color: 'var(--danger)', bg: 'var(--danger-50)' },
+    reverted: { label: 'Reverted', color: 'var(--warn)', bg: 'var(--warn-50)' },
+    dismissed: { label: 'Ignored', color: 'var(--text-3)', bg: 'var(--surface-2)' },
   };
   return m[s] || m.detected;
 }
 function sevMeta(s: string): { label: string; glyph: string; color: string; bg: string } {
   const m: Record<string, { label: string; glyph: string; color: string; bg: string }> = {
-    critical: { label: 'CRITICAL', glyph: '✕', color: 'var(--danger)', bg: 'var(--danger-50)' },
-    high: { label: 'HIGH', glyph: '▲', color: 'var(--warn)', bg: 'var(--warn-50)' },
-    medium: { label: 'MEDIUM', glyph: '●', color: 'var(--info)', bg: 'var(--info-50)' },
-    low: { label: 'LOW', glyph: '▽', color: 'var(--text-3)', bg: 'var(--surface-2)' },
+    critical: { label: 'Critical', glyph: '✕', color: 'var(--danger)', bg: 'var(--danger-50)' },
+    high: { label: 'High', glyph: '▲', color: 'var(--warn)', bg: 'var(--warn-50)' },
+    medium: { label: 'Medium', glyph: '●', color: 'var(--info)', bg: 'var(--info-50)' },
+    low: { label: 'Low', glyph: '▽', color: 'var(--text-3)', bg: 'var(--surface-2)' },
   };
   return m[s] || m.medium;
 }
@@ -354,7 +354,7 @@ function SectionHeader({ title, open, onToggle, right, dark, bg }: {
 }) {
   const fg = dark ? 'var(--bg)' : '#fff';
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: bg || 'var(--text)', color: fg, flexWrap: 'wrap', gap: 10 }}>
+    <div className="mx-sec-h" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: bg || 'var(--text)', color: fg, flexWrap: 'wrap', gap: 10 }}>
       <button
         onClick={onToggle}
         aria-expanded={open}
@@ -1058,10 +1058,10 @@ export function PageFixes() {
     </div>
   );
 
-  if (brandLoading) return wrap(<div className="nb disp" style={{ padding: 48, textAlign: 'center', fontWeight: 700, color: 'var(--text-2)' }}>LOADING…</div>);
+  if (brandLoading) return wrap(<div className="nb disp" style={{ padding: 48, textAlign: 'center', fontWeight: 700, color: 'var(--text-2)' }}>Loading…</div>);
   if (!brandId) return wrap(
     <div className="nb" style={{ padding: 64, textAlign: 'center' }}>
-      <div className="disp" style={{ fontSize: 30, fontWeight: 700, color: 'var(--text)' }}>PICK A BRAND ☝</div>
+      <div className="disp" style={{ fontSize: 30, fontWeight: 700, color: 'var(--text)' }}>Pick a brand ☝</div>
       <p style={{ margin: '12px auto 0', fontSize: 14, color: 'var(--text-2)', maxWidth: '42ch', lineHeight: 1.6, fontWeight: 500 }}>Fixes are scoped to a brand&apos;s site, CMS &amp; tracked answers.</p>
     </div>,
   );
@@ -1086,14 +1086,14 @@ export function PageFixes() {
   const filterDefs = [
     // ALL is the to-do + live view: total minus what's been explicitly
     // archived or ignored. Shipped fixes stay here until archived.
-    { key: 'all', label: 'ALL', count: fixes.length - (counts.dismissed || 0) - archivedCount },
-    { key: 'detected', label: 'DETECTED', count: counts.detected || 0 },
-    { key: 'review', label: 'REVIEW', count: counts.review || 0 },
-    { key: 'approved', label: 'APPROVED', count: counts.approved || 0 },
-    { key: 'attention', label: 'ATTENTION', count: counts.attention || 0 },
+    { key: 'all', label: 'All', count: fixes.length - (counts.dismissed || 0) - archivedCount },
+    { key: 'detected', label: 'Detected', count: counts.detected || 0 },
+    { key: 'review', label: 'Review', count: counts.review || 0 },
+    { key: 'approved', label: 'Approved', count: counts.approved || 0 },
+    { key: 'attention', label: 'Attention', count: counts.attention || 0 },
     // Only fixes the user explicitly archived land here — still re-checkable/undoable.
-    { key: 'shipped', label: 'ARCHIVE', count: archivedCount },
-    ...((counts.dismissed || 0) > 0 ? [{ key: 'dismissed', label: 'IGNORED', count: counts.dismissed || 0 }] : []),
+    { key: 'shipped', label: 'Archive', count: archivedCount },
+    ...((counts.dismissed || 0) > 0 ? [{ key: 'dismissed', label: 'Ignored', count: counts.dismissed || 0 }] : []),
   ];
 
   return wrap(<>
@@ -1103,17 +1103,17 @@ export function PageFixes() {
       <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, flexWrap: 'wrap' }}>
         <div style={{ maxWidth: '32ch' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span className="chip" style={{ background: 'var(--primary)', color: '#fff' }}>⚡ FIX ENGINE</span>
+            <span className="chip" style={{ background: 'var(--primary)', color: '#fff' }}>⚡ Fix engine</span>
             <span className="chip">v2</span>
           </div>
-          <h1 className="disp" style={{ margin: '16px 0 0', fontSize: 42, lineHeight: 0.98, fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--text)' }}>FIND IT.<br />FIX IT.<br /><span style={{ color: 'var(--primary)', WebkitTextStroke: '1.5px var(--ink)' }}>SHIP IT.</span></h1>
+          <h1 className="disp" style={{ margin: '16px 0 0', fontSize: 42, lineHeight: 0.98, fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--text)' }}>Find it.<br />Fix it.<br /><span style={{ color: 'var(--primary)', WebkitTextStroke: '1.5px var(--ink)' }}>Ship it.</span></h1>
           <p style={{ margin: '16px 0 0', fontSize: 14, lineHeight: 1.6, color: 'var(--text-2)', fontWeight: 500 }}>What&apos;s hurting <b style={{ color: 'var(--text)' }}>{brandName}</b> in AI answers — detected, drafted and shipped on your say-so.</p>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-end' }}>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="gbtn" onClick={() => load(brandId)} disabled={loading}>↻ Refresh</button>
             <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0}>
-              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />SCANNING…</> : '▶ RUN SCAN'}
+              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />Scanning…</> : '▶ RUN SCAN'}
             </button>
           </div>
           {scanning && <div style={{ width: 320, maxWidth: '100%' }}><ScanBanner progress={scanProgress} /></div>}
@@ -1132,7 +1132,7 @@ export function PageFixes() {
 
     {!enabled && (
       <div className="nb" style={{ padding: 24, background: 'var(--warn-50)', borderColor: 'var(--warn)', boxShadow: '5px 5px 0 var(--warn)' }}>
-        <div className="disp" style={{ fontSize: 18, fontWeight: 700, color: 'var(--warn)' }}>UPGRADE REQUIRED</div>
+        <div className="disp" style={{ fontSize: 18, fontWeight: 700, color: 'var(--warn)' }}>Upgrade required</div>
         <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>The Fix Engine is available on Starter plans and above{plan ? ` (your plan: ${plan})` : ''}.</p>
       </div>
     )}
@@ -1163,7 +1163,7 @@ export function PageFixes() {
     {enabled && !wizDismissed && !cmsConn && !gscConn && !connectorConn && (
       <section className="nb" style={{ padding: 0, overflow: 'hidden', boxShadow: '6px 6px 0 var(--primary)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 22px', background: 'var(--primary)', color: '#fff' }}>
-          <div className="disp" style={{ fontSize: 17, fontWeight: 700 }}>GET STARTED — 3 STEPS</div>
+          <div className="disp" style={{ fontSize: 17, fontWeight: 700 }}>Get started — 3 steps</div>
           <button className="tbtn" onClick={() => setWizDismissed(true)} style={{ color: '#fff', textDecorationColor: '#fff' }}>Dismiss</button>
         </div>
         <div style={{ padding: '18px 22px', display: 'grid', gap: 16 }}>
@@ -1204,13 +1204,13 @@ export function PageFixes() {
               <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                 <span className="disp nb-sm" style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, background: 'var(--surface-2)', flexShrink: 0 }}>2</span>
                 {needsPlugin ? (
-                  <a className="xbtn" href="/integrations/wordpress" target="_blank" rel="noopener" style={{ background: 'var(--primary)', textDecoration: 'none', display: 'inline-block' }}>GET THE CONNECTOR PLUGIN →</a>
+                  <a className="xbtn" href="/integrations/wordpress" target="_blank" rel="noopener" style={{ background: 'var(--primary)', textDecoration: 'none', display: 'inline-block' }}>Get the connector plugin →</a>
                 ) : isCustom ? (
-                  <button className="xbtn" onClick={() => { setWizSite(site); requestConnect('custom'); }} style={{ background: 'var(--warn)' }}>CONNECT CUSTOM-CODED SITE →</button>
+                  <button className="xbtn" onClick={() => { setWizSite(site); requestConnect('custom'); }} style={{ background: 'var(--warn)' }}>Connect custom-coded site →</button>
                 ) : adapterPlatform ? (
                   <button className="xbtn" onClick={() => { setWizSite(site); requestConnect(adapterPlatform); }} style={{ background: 'var(--primary)' }}>CONNECT {adapterPlatform.toUpperCase()} →</button>
                 ) : (
-                  <button className="xbtn" onClick={() => connectWp(site)} disabled={!site} style={{ background: 'var(--primary)' }}>CONNECT WORDPRESS — ONE CLICK →</button>
+                  <button className="xbtn" onClick={() => connectWp(site)} disabled={!site} style={{ background: 'var(--primary)' }}>Connect wordpress — one click →</button>
                 )}
                 <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>
                   {needsPlugin ? 'Install it once, then Connect with Livesov from WordPress — it writes into your builder’s own content.'
@@ -1223,7 +1223,7 @@ export function PageFixes() {
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <span className="disp nb-sm" style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, background: 'var(--surface-2)', flexShrink: 0 }}>3</span>
             <button className="xbtn" onClick={runScan} disabled={scanning || selected.size === 0} style={{ background: 'var(--text)' }}>
-              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />SCANNING…</> : '▶ RUN YOUR FIRST SCAN'}
+              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />Scanning…</> : '▶ RUN YOUR FIRST SCAN'}
             </button>
             <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Scans {selected.size} checks against your site — you can do this before connecting.</span>
           </div>
@@ -1235,7 +1235,7 @@ export function PageFixes() {
     {/* KPI TILES */}
     <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 14 }}>
       {kpis.map((k) => (
-        <div key={k.label} className="nb-sm" style={{ padding: 16, background: k.bg }}>
+        <div key={k.label} className="nb-sm mx-kpi" style={{ padding: 16, background: k.bg }}>
           <div className="disp" style={{ fontSize: 32, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1, color: k.fg }}>{k.value}</div>
           <div className="xlbl" style={{ marginTop: 10, color: 'var(--text-2)' }}>{k.label}</div>
         </div>
@@ -1270,7 +1270,7 @@ export function PageFixes() {
     {/* MODULES */}
     <section className="nb" style={{ padding: 0, overflow: 'hidden' }}>
         <SectionHeader
-          title="SCAN MODULES" dark open={modulesOpen} onToggle={() => setModulesOpen((o) => !o)}
+          title="Scan modules" dark open={modulesOpen} onToggle={() => setModulesOpen((o) => !o)}
           right={<>
             <span className="chip" style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--bg)' }}>{selected.size} SELECTED</span>
             <button className="tbtn" onClick={toggleSelectAll} style={{ color: 'var(--bg)', textDecorationColor: 'var(--bg)' }}>{allSelected ? 'Clear all' : 'Select all'}</button>
@@ -1300,7 +1300,7 @@ export function PageFixes() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, flexWrap: 'wrap', gap: 10 }}>
             <span className="xlbl" style={{ color: 'var(--text-2)' }}>{selected.size}/{catalog.length || 19} selected · est {scanCost} credits</span>
             <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0}>
-              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />SCANNING…</> : '▶ RUN ON SELECTION'}
+              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />Scanning…</> : '▶ RUN ON SELECTION'}
             </button>
           </div>
           {scanning && <div style={{ marginTop: 12 }}><ScanBanner progress={scanProgress} /></div>}
@@ -1313,7 +1313,7 @@ export function PageFixes() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginBottom: 12 }}>
         <button onClick={() => setFixesOpen((o) => !o)} aria-expanded={fixesOpen} title={fixesOpen ? 'Hide the fixes' : 'Show the fixes'} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'none', border: 'none', cursor: 'pointer', padding: 0, margin: 0, color: 'var(--text)' }}>
           <span className="disp" aria-hidden style={{ fontSize: 22, fontWeight: 700, display: 'inline-block', transition: 'transform .15s', transform: fixesOpen ? 'none' : 'rotate(-90deg)' }}>▾</span>
-          <h2 className="disp" style={{ margin: 0, fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>THE FIXES</h2>
+          <h2 className="disp" style={{ margin: 0, fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>The fixes</h2>
         </button>
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', alignItems: 'center' }}>
           {filterDefs.map((d) => {
@@ -1324,17 +1324,17 @@ export function PageFixes() {
       </div>
       {fixesOpen && (<>
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 9, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
-        <button className="chip" onClick={() => { setOpenCards(new Set(shown.map((f) => f.id))); setExpandedGroups(new Set(shown.map((f) => f.moduleKey))); }} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>▾ EXPAND ALL</button>
-        <button className="chip" onClick={() => { setOpenCards(new Set()); setExpandedGroups(new Set()); }} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>▴ COLLAPSE ALL</button>
+        <button className="chip" onClick={() => { setOpenCards(new Set(shown.map((f) => f.id))); setExpandedGroups(new Set(shown.map((f) => f.moduleKey))); }} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>▾ Expand all</button>
+        <button className="chip" onClick={() => { setOpenCards(new Set()); setExpandedGroups(new Set()); }} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>▴ Collapse all</button>
         {shown.length > 0 && (() => {
           const allPicked = shown.every((f) => picked.has(f.id));
           return <button className="chip" onClick={() => setPicked(allPicked ? new Set() : new Set(shown.map((f) => f.id)))} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: allPicked ? 'var(--primary-50)' : 'var(--surface)', color: allPicked ? 'var(--primary)' : 'var(--text-2)', borderColor: allPicked ? 'var(--primary)' : 'var(--ink)' }}>{allPicked ? '☑ SELECT NONE' : `☐ SELECT ALL · ${shown.length}`}</button>;
         })()}
-        <button className="chip" onClick={() => setQuickWins((q) => !q)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: quickWins ? 'var(--success-50)' : 'var(--surface)', color: quickWins ? 'var(--success)' : 'var(--text-2)', borderColor: quickWins ? 'var(--success)' : 'var(--ink)' }}>⚡ QUICK WINS</button>
-        <button className="chip" onClick={() => setGroupByPage((g) => !g)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: groupByPage ? 'var(--text)' : 'var(--surface)', color: groupByPage ? 'var(--bg)' : 'var(--text-2)' }}>▦ BY PAGE</button>
-        <button className="chip" onClick={exportCsv} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>⤓ EXPORT CSV</button>
-        <button className="chip" onClick={pdfReport} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>📄 PDF REPORT</button>
-        <button className="chip" onClick={notify} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>🔔 NOTIFY</button>
+        <button className="chip" onClick={() => setQuickWins((q) => !q)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: quickWins ? 'var(--success-50)' : 'var(--surface)', color: quickWins ? 'var(--success)' : 'var(--text-2)', borderColor: quickWins ? 'var(--success)' : 'var(--ink)' }}>⚡ Quick wins</button>
+        <button className="chip" onClick={() => setGroupByPage((g) => !g)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: groupByPage ? 'var(--text)' : 'var(--surface)', color: groupByPage ? 'var(--bg)' : 'var(--text-2)' }}>▦ By page</button>
+        <button className="chip" onClick={exportCsv} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>⤓ Export CSV</button>
+        <button className="chip" onClick={pdfReport} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>📄 PDF report</button>
+        <button className="chip" onClick={notify} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>🔔 Notify</button>
       </div>
 
       {/* Ignored tab — one-click "Restore all" (and "Restore selected" when a
@@ -1415,7 +1415,7 @@ export function PageFixes() {
       {enabled && !canShip && (
         <div className="nb-sm" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', marginBottom: 16, background: 'var(--warn-50)', borderColor: 'var(--warn)', boxShadow: '4px 4px 0 var(--warn)' }}>
           <span className="disp" style={{ fontSize: 22 }}>⚠</span>
-          <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Connect a CMS or the Connector to <b className="disp">SHIP</b> — detect, generate &amp; preview all work without it.</span>
+          <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Connect a CMS or the Connector to <b className="disp">Ship</b> — detect, generate &amp; preview all work without it.</span>
         </div>
       )}
 
@@ -1460,7 +1460,7 @@ export function PageFixes() {
           // To-do list is clear but published fixes are parked in the Archive —
           // celebrate the clean queue and point to where the done work lives.
           <div className="nb" style={{ padding: 56, textAlign: 'center', background: 'var(--success-50)' }}>
-            <div className="disp" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>ALL CAUGHT UP ✓</div>
+            <div className="disp" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>All caught up ✓</div>
             <p style={{ margin: '12px auto 22px', fontSize: 14, color: 'var(--text-2)', maxWidth: '46ch', lineHeight: 1.6, fontWeight: 500 }}>
               Nothing needs you right now. {counts.shipped} published fix{counts.shipped === 1 ? '' : 'es'} {counts.shipped === 1 ? 'is' : 'are'} in the Archive — re-check or undo any of them there. Run a fresh scan to look for more.
             </p>
@@ -1472,10 +1472,10 @@ export function PageFixes() {
           </div>
         ) : (
           <div className="nb" style={{ padding: 56, textAlign: 'center', background: 'var(--primary-50)' }}>
-            <div className="disp" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>NOTHING TO FIX… YET</div>
+            <div className="disp" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>Nothing to fix… yet</div>
             <p style={{ margin: '12px auto 22px', fontSize: 14, color: 'var(--text-2)', maxWidth: '44ch', lineHeight: 1.6, fontWeight: 500 }}>Run a scan to check {brandName} against {selected.size} modules, ranked by severity.</p>
             <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0} style={{ margin: '0 auto' }}>
-              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />SCANNING…</> : '▶ RUN SCAN'}
+              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />Scanning…</> : '▶ RUN SCAN'}
             </button>
             {scanning && <div style={{ maxWidth: 420, margin: '16px auto 0', textAlign: 'left' }}><ScanBanner progress={scanProgress} /></div>}
           </div>
@@ -1623,7 +1623,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
     </div>
   );
   const okChip = (label: string) => <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)' }}>● {label}</span>;
-  const offChip = <span className="chip" style={{ color: 'var(--text-3)' }}>○ NOT CONNECTED</span>;
+  const offChip = <span className="chip" style={{ color: 'var(--text-3)' }}>○ Not connected</span>;
 
   return (
     <section id="fix-connections" className="nb" style={{ padding: 0, overflow: 'hidden' }}>
@@ -1631,11 +1631,12 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
         onClick={() => setCollapsed((c) => !c)}
         aria-expanded={!collapsed}
         title={collapsed ? 'Show connections' : 'Hide connections'}
+        className="mx-sec-h"
         style={{ width: '100%', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '16px 22px', background: 'var(--text)', color: 'var(--bg)', fontFamily: 'inherit' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span className="disp" aria-hidden style={{ fontSize: 15, fontWeight: 700, transition: 'transform .15s', transform: collapsed ? 'rotate(-90deg)' : 'none' }}>▾</span>
-          <span className="disp" style={{ fontSize: 18, fontWeight: 700 }}>CONNECTIONS</span>
+          <span className="disp" style={{ fontSize: 18, fontWeight: 700 }}>Connections</span>
         </div>
         <span className="chip" style={{ background: 'var(--bg)', color: 'var(--text)' }}>{connectedCount} OF 3{collapsed ? ' · SHOW' : ''}</span>
       </button>
@@ -1668,7 +1669,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
             {/* WordPress: one-click (no plugin) + manual app password */}
             {cmsType === 'wordpress' && (<>
               <div style={{ display: 'grid', gap: 8 }}>
-                <button className="xbtn" onClick={() => onConnectWp(siteUrl)} disabled={!siteUrl} style={{ background: 'var(--primary)', justifySelf: 'start' }}>CONNECT WORDPRESS — ONE CLICK →</button>
+                <button className="xbtn" onClick={() => onConnectWp(siteUrl)} disabled={!siteUrl} style={{ background: 'var(--primary)', justifySelf: 'start' }}>Connect wordpress — one click →</button>
                 <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Approve once in your WP admin (Application Passwords — built into WP, no plugin). You&apos;ll come straight back, connected.</span>
               </div>
               <div style={{ borderTop: '2px dashed var(--line-2)', paddingTop: 14, display: 'grid', gap: 12 }}>
@@ -1679,7 +1680,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
                   <button className="gbtn" onClick={() => setShowForm(false)}>Cancel</button>
-                  <button className="xbtn" onClick={() => onConnectCms({ cmsType, siteUrl, username, appPassword })} disabled={!siteUrl || !username || !appPassword}>CONNECT WP</button>
+                  <button className="xbtn" onClick={() => onConnectCms({ cmsType, siteUrl, username, appPassword })} disabled={!siteUrl || !username || !appPassword}>Connect WP</button>
                 </div>
               </div>
             </>)}
@@ -1701,13 +1702,13 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                   {cmsType === 'custom' && (<>
                     {/* Which path is fastest — two clear choices, ranked by effort. */}
                     <div className="nb-sm" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--success-50)', borderColor: 'var(--success)', display: 'grid', gap: 5 }}>
-                      <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--success)' }}>⚡ FASTEST — NO CODE, START NOW</div>
+                      <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--success)' }}>⚡ Fastest — no code, start now</div>
                       <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text)', fontWeight: 500 }}>
                         You can skip this form entirely. <b>Run a scan</b> to see every fix, then hand them to your team as a to-do list via <b>Spreadsheet</b>, <b>Linear</b> or <b>Jira</b> (rows below). Nothing to install.
                       </span>
                     </div>
                     <div className="nb-sm" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', display: 'grid', gap: 9 }}>
-                      <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--info)' }}>🔧 FULL AUTOPILOT — ONE-TIME ~10-MIN DEV SETUP</div>
+                      <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--info)' }}>🔧 Full autopilot — one-time ~10-min dev setup</div>
                       <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text)', fontWeight: 500 }}>Want fixes applied to your live site automatically? Your developer adds one small endpoint, <b>once</b> — then every approved fix ships itself. Three steps:</span>
                       <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.75, color: 'var(--text)', fontWeight: 500, display: 'grid', gap: 2 }}>
                         <li><b>Copy</b> a template below → send it to your developer to add to the site.</li>
@@ -1723,13 +1724,13 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                   </>)}
                   {cmsType === 'edge' && (<>
                     <div className="nb-sm" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--success-50)', borderColor: 'var(--success)', display: 'grid', gap: 9 }}>
-                      <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--success)' }}>⚡ ONE-CLICK DEPLOY — NOTHING INSTALLED ON YOUR SITE, ANY STACK</div>
+                      <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--success)' }}>⚡ One-click deploy — nothing installed on your site, any stack</div>
                       <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text)', fontWeight: 500 }}>
                         Paste a Cloudflare API token <b>once</b> and Livesov does everything itself: uploads the Worker, routes it to this domain, verifies it&apos;s live, and activates the connection. Every website you add after this connects <b>automatically within minutes</b> — no clicks, no setup, nothing to visit; the saved token is reused behind the scenes.
                       </span>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                         <input className="xin" style={{ flex: 1, minWidth: 220 }} type="password" placeholder="Cloudflare API token (blank = reuse saved token)" value={cc.cfToken || ''} onChange={(e) => ccSet('cfToken', e.target.value)} />
-                        <button className="xbtn" onClick={() => onDeployCloudflare(cc.cfToken || '')} disabled={disabled || !siteUrl.trim()} style={{ whiteSpace: 'nowrap' }}>DEPLOY AUTOMATICALLY</button>
+                        <button className="xbtn" onClick={() => onDeployCloudflare(cc.cfToken || '')} disabled={disabled || !siteUrl.trim()} style={{ whiteSpace: 'nowrap' }}>Deploy automatically</button>
                       </div>
                       <span style={{ fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>Token scopes: Account → Workers Scripts: Edit · Zone → Workers Routes: Edit · Zone → Zone: Read. Stored encrypted; create it at Cloudflare → My Profile → API Tokens.</span>
                     </div>
@@ -1755,7 +1756,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                             <button className="gbtn" type="button" onClick={() => copy(cc[f.k] || '', 'Shared secret')} disabled={!(cc[f.k] || '').trim()} title="Copy secret to clipboard" aria-label="Copy secret to clipboard" style={{ padding: '9px 13px', whiteSpace: 'nowrap', flexShrink: 0 }}>⧉ Copy</button>
                             <button className="gbtn" type="button" onClick={genSecret} title="Generate a secure 48-character secret" style={{ padding: '9px 13px', whiteSpace: 'nowrap', flexShrink: 0 }}>⚄ Generate</button>
                           </div>
-                          <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 5, fontWeight: 500 }}>Paste the <b>same</b> secret into your endpoint&rsquo;s <code>LIVESOV_SECRET</code>. Reveal or Copy to grab the exact value.</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 5, fontWeight: 500 }}>Paste the <b>same</b> secret into your endpoint&rsquo;s <code>Livesov_secret</code>. Reveal or Copy to grab the exact value.</div>
                         </>
                       ) : (
                         <input className="xin" type={f.pw ? 'password' : 'text'} value={cc[f.k] || ''} placeholder={f.ph} onChange={(e) => ccSet(f.k, e.target.value)} />
@@ -1816,7 +1817,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
             ? (connectorLastSeen && Date.now() - Date.parse(connectorLastSeen) <= 12 * 60_000
                 ? okChip('ONLINE')
                 : <span className="chip" style={{ background: 'var(--warn-50)', color: 'var(--warn)', borderColor: 'var(--warn)' }}>{connectorLastSeen ? '○ OFFLINE' : '● PAIRED'}</span>)
-            : <span className="chip" style={{ color: 'var(--text-3)' }}>○ NOT PAIRED</span>}
+            : <span className="chip" style={{ color: 'var(--text-3)' }}>○ Not paired</span>}
           <button className="gbtn" onClick={() => { onPairConnector(); setReveal(true); }} disabled={disabled} style={{ padding: '7px 13px', fontSize: 12 }}>{connector ? 'Re-pair' : 'Pair'}</button>
           {connector && <button className="tbtn" onClick={onRevokeConnector} disabled={disabled} style={{ color: 'var(--danger)', textDecorationColor: 'var(--danger)' }}>Revoke</button>}
         </div>
@@ -1864,7 +1865,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Personal API key from Linear → Settings → API. Verified, then encrypted.</span>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="gbtn" onClick={() => setTracker('')}>Cancel</button>
-                <button className="xbtn" onClick={() => onConnectTracker('linear', tk)} disabled={!tk.apiKey || !tk.teamId}>CONNECT LINEAR</button>
+                <button className="xbtn" onClick={() => onConnectTracker('linear', tk)} disabled={!tk.apiKey || !tk.teamId}>Connect linear</button>
               </div>
             </div>
           </div>
@@ -1888,7 +1889,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>API token from id.atlassian.com → Security. Verified, then encrypted.</span>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="gbtn" onClick={() => setTracker('')}>Cancel</button>
-                <button className="xbtn" onClick={() => onConnectTracker('jira', tk)} disabled={!tk.email || !tk.apiToken || !tk.domain || !tk.projectKey}>CONNECT JIRA</button>
+                <button className="xbtn" onClick={() => onConnectTracker('jira', tk)} disabled={!tk.email || !tk.apiToken || !tk.domain || !tk.projectKey}>Connect jira</button>
               </div>
             </div>
           </div>
@@ -1903,7 +1904,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
           <div className="nb-sm" style={{ padding: 18, margin: '6px 0 14px', background: 'var(--surface-2)', display: 'grid', gap: 14 }}>
             {/* Fastest path: one click — we create the sheet on the user's Drive. */}
             <div className="nb-sm" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--success-50)', borderColor: 'var(--success)', display: 'grid', gap: 8 }}>
-              <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--success)' }}>⚡ FASTEST — ONE CLICK, WE CREATE THE SHEET</div>
+              <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--success)' }}>⚡ Fastest — one click, we create the sheet</div>
               <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text)', fontWeight: 500 }}>Connect your Google account and Livesov creates a new spreadsheet for you automatically — handed-off fixes append as rows, no script to paste. We only get access to the one sheet we create.</span>
               <div>
                 <button className="xbtn" onClick={onCreateSheet} disabled={disabled} style={{ background: 'var(--success)' }}>⚡ Create &amp; connect Google Sheet →</button>
@@ -1912,7 +1913,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
             </div>
             <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-2)', letterSpacing: '0.04em', textAlign: 'center' }}>— OR SET UP MANUALLY (NO GOOGLE LOGIN) —</div>
             <div className="nb-sm" style={{ padding: '11px 14px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', display: 'grid', gap: 7 }}>
-              <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--info)' }}>2-MINUTE SETUP, NO API KEY NEEDED</div>
+              <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--info)' }}>2-minute setup, no API key needed</div>
               <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.6, color: 'var(--text)', fontWeight: 500, display: 'grid', gap: 3 }}>
                 <li>Open (or create) your Google Sheet → Extensions → <b>Apps Script</b>.</li>
                 <li>Paste the script (copy below), set the secret inside it, then <b>Deploy → New deployment → Web app</b> — Execute as <b>Me</b>, access <b>Anyone</b>.</li>
@@ -1929,7 +1930,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Verified with a test ping, then encrypted. Each handed-off fix appends one row: date · fix · details · link. Zapier/Make webhooks work too.</span>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="gbtn" onClick={() => setTracker('')}>Cancel</button>
-                <button className="xbtn" onClick={() => onConnectTracker('sheet', tk)} disabled={!(tk.url || '').startsWith('https://') || (tk.secret || '').length < 8}>CONNECT SHEET</button>
+                <button className="xbtn" onClick={() => onConnectTracker('sheet', tk)} disabled={!(tk.url || '').startsWith('https://') || (tk.secret || '').length < 8}>Connect sheet</button>
               </div>
             </div>
           </div>
@@ -1947,7 +1948,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>From keywordseverywhere.com → API. Verified (uses 1 credit), then encrypted. Volume lookups are cached 7 days to save credits.</span>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="gbtn" onClick={() => setKweOpen(false)}>Cancel</button>
-                <button className="xbtn" onClick={() => { onConnectKwe(kweKey.trim()); setKweOpen(false); }} disabled={!kweKey.trim()}>CONNECT</button>
+                <button className="xbtn" onClick={() => { onConnectKwe(kweKey.trim()); setKweOpen(false); }} disabled={!kweKey.trim()}>Connect</button>
               </div>
             </div>
           </div>
@@ -1972,7 +1973,7 @@ function SeoBrainSection({ brain, disabled, onSave, onReset }: {
   return (
     <section className="nb" style={{ padding: 0, overflow: 'hidden' }}>
       <SectionHeader
-        title="SEO BRAIN" dark open={expanded} onToggle={() => setExpanded((e) => !e)}
+        title="SEO brain" dark open={expanded} onToggle={() => setExpanded((e) => !e)}
         right={<>
           <span className="chip" style={{ background: brain?.isCustom ? 'var(--success-50)' : 'var(--bg)', color: brain?.isCustom ? 'var(--success)' : 'var(--text)', borderColor: brain?.isCustom ? 'var(--success)' : 'var(--bg)' }}>{brain?.isCustom ? 'CUSTOM' : 'DEFAULT'}</span>
           {expanded && <button className="tbtn" onClick={() => setOpen((o) => !o)} disabled={disabled} style={{ color: 'var(--bg)', textDecorationColor: 'var(--bg)' }}>{open ? 'Close' : 'Edit'}</button>}
@@ -1996,7 +1997,7 @@ function SeoBrainSection({ brain, disabled, onSave, onReset }: {
             </div>
             <textarea className="xin" rows={12} value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste your SEO/GEO playbook (Growth Atlas brain, agency methodology, brand voice, linking & citation rules…)" />
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button className="xbtn" onClick={() => onSave(text)} disabled={!text.trim()}>✓ SAVE BRAIN</button>
+              <button className="xbtn" onClick={() => onSave(text)} disabled={!text.trim()}>✓ Save brain</button>
               {brain?.isCustom && <button className="gbtn" onClick={onReset}>Reset to default</button>}
               <span className="xlbl" style={{ color: 'var(--text-2)', marginLeft: 'auto' }}>{text.length}{brain?.maxChars ? ` / ${brain.maxChars}` : ''}</span>
             </div>
@@ -2046,8 +2047,8 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
   return (
     <section className="nb" style={{ padding: 0, overflow: 'hidden' }}>
       <SectionHeader
-        title="AUTOMATION" dark open={expanded} onToggle={() => setExpanded((e) => !e)}
-        right={a.scanEnabled ? <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)' }}>SCHEDULED</span> : undefined}
+        title="Automation" dark open={expanded} onToggle={() => setExpanded((e) => !e)}
+        right={a.scanEnabled ? <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)' }}>Scheduled</span> : undefined}
       />
       {expanded && (
       <div style={{ padding: '16px 20px', display: 'grid', gap: 14 }}>
@@ -2098,7 +2099,7 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
                 <div><div className="xlbl" style={{ marginBottom: 6, color: 'var(--text-2)' }}>Meta max</div><input className="xin" value={rules.metaMaxLen} placeholder="155" onChange={(e) => setRules((r) => ({ ...r, metaMaxLen: e.target.value.replace(/\D/g, '') }))} /></div>
               </div>
               <div><div className="xlbl" style={{ marginBottom: 6, color: 'var(--text-2)' }}>Banned phrases (comma-separated)</div><input className="xin" value={rules.bannedPhrases} placeholder="world-class, game-changing, revolutionary" onChange={(e) => setRules((r) => ({ ...r, bannedPhrases: e.target.value }))} /></div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}><button className="xbtn" onClick={saveRules} disabled={disabled} style={{ padding: '8px 14px' }}>SAVE RULES</button></div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}><button className="xbtn" onClick={saveRules} disabled={disabled} style={{ padding: '8px 14px' }}>Save rules</button></div>
             </div>
           )}
         </div>
@@ -2195,7 +2196,7 @@ function AssistantSection({ disabled, onAsk, onWholeSite, scanning }: {
 
   return (
     <section className="nb" style={{ padding: 0, overflow: 'hidden', background: 'var(--info-50)' }}>
-      <SectionHeader title="ASK FOR A FIX — DESCRIBE IT, WE BUILD IT" open={open} onToggle={() => setOpen((o) => !o)} bg="var(--info)" />
+      <SectionHeader title="Ask for a fix — describe it, we build it" open={open} onToggle={() => setOpen((o) => !o)} bg="var(--info)" />
       {open && (
       <div style={{ padding: '18px 20px', display: 'grid', gap: 14 }}>
         <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.55 }}>
@@ -2261,11 +2262,11 @@ function AssistantSection({ disabled, onAsk, onWholeSite, scanning }: {
             </div>
             {result.before ? (<>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}>
-                <span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− NOW</span>
+                <span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− Now</span>
                 <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: 'var(--text-2)', textDecoration: 'line-through', textDecorationColor: 'var(--danger-200)', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{result.before}</span>
               </div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--success-50)' }}>
-                <span className="disp" style={{ color: 'var(--success)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ NEW</span>
+                <span className="disp" style={{ color: 'var(--success)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ New</span>
                 <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: 'var(--text)', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{result.after}</span>
               </div>
             </>) : (
@@ -2358,13 +2359,13 @@ function BeforeAfter({ before, after, label, addNote }: { before?: string; after
     <div className="nb-sm" style={{ overflow: 'hidden', boxShadow: 'none' }}>
       {label && <div className="xlbl" style={{ color: 'var(--primary)', padding: '10px 14px 4px' }}>{label}</div>}
       <div style={{ ...cell('var(--danger-50)'), borderBottom: '2px solid var(--ink)' }}>
-        <span className="disp" style={tag('var(--danger)')}>− NOW</span>
+        <span className="disp" style={tag('var(--danger)')}>− Now</span>
         {now
           ? <pre className="mono" style={{ ...pre, color: 'var(--text-2)' }}>{now}</pre>
           : <span style={{ ...pre, fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic', fontFamily: "'Space Grotesk'" }}>{addNote || 'Nothing on the page today — this fix adds it.'}</span>}
       </div>
       <div style={cell('var(--success-50)')}>
-        <span className="disp" style={tag('var(--success)')}>+ FIX</span>
+        <span className="disp" style={tag('var(--success)')}>+ Fix</span>
         <pre className="mono" style={{ ...pre, color: 'var(--text)' }}>{after}</pre>
       </div>
     </div>
@@ -2424,7 +2425,7 @@ function NextStepPanel({ fix, diagnostic, busy, onRunTargeted, onRunScan }: {
   return (
     <div className="nb-sm" style={{ padding: '12px 14px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', display: 'grid', gap: 9 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span className="xlbl" style={{ color: 'var(--info)' }}>NEXT STEP</span>
+        <span className="xlbl" style={{ color: 'var(--info)' }}>Next step</span>
         <span className="disp" style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{route.label}</span>
         {kind === 'analysis' && (
           <span className="chip" style={{ fontSize: 10.5, padding: '3px 8px', color: 'var(--text-2)' }}>another analysis</span>
@@ -2483,12 +2484,12 @@ function LiveCheckPanel({ fix, busy, onVerify }: {
   const [showHow, setShowHow] = React.useState(false);
 
   const TONE: Record<string, { color: string; bg: string; icon: string; title: string }> = {
-    confirmed: { color: 'var(--success)', bg: 'var(--success-50)', icon: '✓', title: 'ON YOUR LIVE PAGE' },
-    partial: { color: 'var(--warn)', bg: 'var(--warn-50)', icon: '◐', title: 'PARTLY LIVE' },
-    missing: { color: 'var(--danger)', bg: 'var(--danger-50)', icon: '✕', title: 'NOT FOUND ON THE PAGE' },
-    unreachable: { color: 'var(--warn)', bg: 'var(--warn-50)', icon: '?', title: 'COULD NOT CHECK' },
-    not_applicable: { color: 'var(--text-2)', bg: 'var(--surface-2)', icon: 'ⓘ', title: 'NOTHING WAS WRITTEN' },
-    unsupported: { color: 'var(--text-2)', bg: 'var(--surface-2)', icon: 'ⓘ', title: 'CHECK BY HAND' },
+    confirmed: { color: 'var(--success)', bg: 'var(--success-50)', icon: '✓', title: 'On your live page' },
+    partial: { color: 'var(--warn)', bg: 'var(--warn-50)', icon: '◐', title: 'Partly live' },
+    missing: { color: 'var(--danger)', bg: 'var(--danger-50)', icon: '✕', title: 'Not found on the page' },
+    unreachable: { color: 'var(--warn)', bg: 'var(--warn-50)', icon: '?', title: 'Could not check' },
+    not_applicable: { color: 'var(--text-2)', bg: 'var(--surface-2)', icon: 'ⓘ', title: 'Nothing was written' },
+    unsupported: { color: 'var(--text-2)', bg: 'var(--surface-2)', icon: 'ⓘ', title: 'Check by hand' },
   };
   const tone = lc ? (TONE[lc.state] ?? TONE.unsupported) : null;
   // A diagnosis has nothing on the page to look for, so offering a re-check
@@ -2892,23 +2893,23 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
           return (
             <div className="nb-sm" style={{ overflow: 'hidden', boxShadow: 'none' }}>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}>
-                <span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− NOW</span>
+                <span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− Now</span>
                 <span className="mono" style={{ fontSize: 12, color: 'var(--text-2)', fontStyle: now.missing ? 'italic' : 'normal', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{now.value}</span>
               </div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '11px 14px', background: 'var(--surface-2)' }}>
-                <span className="disp" style={{ color: 'var(--text-3)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ FIX</span>
+                <span className="disp" style={{ color: 'var(--text-3)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ Fix</span>
                 <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, fontFamily: "'Space Grotesk'" }}>Generate the fix to see the proposed rewrite →</span>
               </div>
             </div>
           );
         })()}
         {busy && (
-          <div className="nb-sm" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 11, fontFamily: "'Space Grotesk'", fontWeight: 600, fontSize: 13, color: 'var(--text)', boxShadow: 'none', background: 'var(--primary-50)' }}><span style={{ width: 15, height: 15, border: '2.5px solid var(--primary-200)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'xspin .7s linear infinite', display: 'inline-block' }} />WORKING…</div>
+          <div className="nb-sm" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 11, fontFamily: "'Space Grotesk'", fontWeight: 600, fontSize: 13, color: 'var(--text)', boxShadow: 'none', background: 'var(--primary-50)' }}><span style={{ width: 15, height: 15, border: '2.5px solid var(--primary-200)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'xspin .7s linear infinite', display: 'inline-block' }} />Working…</div>
         )}
         {!busy && preview && preview.kind === 'text-diff' && (
           <div className="nb-sm" style={{ overflow: 'hidden', boxShadow: 'none' }}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}><span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− NOW</span><span className="mono" style={{ fontSize: 12, color: 'var(--text-2)', textDecoration: 'line-through', textDecorationColor: 'var(--danger-200)', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{preview.before || '(empty)'}</span></div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--success-50)' }}><span className="disp" style={{ color: 'var(--success)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ FIX</span><span className="mono" style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{preview.after}</span></div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}><span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− Now</span><span className="mono" style={{ fontSize: 12, color: 'var(--text-2)', textDecoration: 'line-through', textDecorationColor: 'var(--danger-200)', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{preview.before || '(empty)'}</span></div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--success-50)' }}><span className="disp" style={{ color: 'var(--success)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ Fix</span><span className="mono" style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{preview.after}</span></div>
           </div>
         )}
         {!busy && preview && preview.kind === 'text-diff' && (fix.moduleKey === 'title-rewrite' || fix.moduleKey === 'meta-rewrite') && (() => {
@@ -2922,8 +2923,8 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
             <div style={{ display: 'grid', gap: 8 }}>
               <div className="xlbl" style={{ color: 'var(--primary)' }}>How it looks in search &amp; AI answers</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 10 }}>
-                <SerpCard label="NOW" host={host || 'your-site.com'} title={nowT} desc={nowD} color="var(--danger)" />
-                <SerpCard label="AFTER" host={host || 'your-site.com'} title={fixT} desc={fixD} color="var(--success)" />
+                <SerpCard label="Now" host={host || 'your-site.com'} title={nowT} desc={nowD} color="var(--danger)" />
+                <SerpCard label="After" host={host || 'your-site.com'} title={fixT} desc={fixD} color="var(--success)" />
               </div>
             </div>
           );
@@ -2963,9 +2964,9 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
 
         {/* actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingTop: 13, borderTop: '2.5px solid var(--ink)' }}>
-          {isDetected && (<><button className="xbtn" onClick={onGenerate} disabled={busy}>✦ GENERATE FIX</button><span className="xlbl" style={{ color: cost === 0 ? 'var(--success)' : 'var(--text-2)' }}>{cost === 0 ? 'free · no LLM' : `${cost} credit${cost === 1 ? '' : 's'}`}</span></>)}
+          {isDetected && (<><button className="xbtn" onClick={onGenerate} disabled={busy}>✦ Generate fix</button><span className="xlbl" style={{ color: cost === 0 ? 'var(--success)' : 'var(--text-2)' }}>{cost === 0 ? 'free · no LLM' : `${cost} credit${cost === 1 ? '' : 's'}`}</span></>)}
           {isReview && (<>
-            <button className="xbtn" onClick={onApprove} disabled={busy} style={{ background: 'var(--success)' }}>✓ APPROVE</button>
+            <button className="xbtn" onClick={onApprove} disabled={busy} style={{ background: 'var(--success)' }}>✓ Approve</button>
             {editableField && typeof (fix.generated as Record<string, unknown> | null)?.[editableField] === 'string' && (
               <button className="gbtn" disabled={busy} title="Edit the AI's draft yourself before approving" onClick={() => { setEditText(String((fix.generated as Record<string, unknown>)[editableField])); setRegenning(false); setEditing((e) => !e); }}>✎ Edit</button>
             )}
@@ -2986,19 +2987,19 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
           {isStaged && (() => {
             const publishing = fix.shipResult?.op === 'publish_content';
             return (<>
-              <span className="chip" style={{ background: 'var(--info-50)', color: 'var(--info)', borderColor: 'var(--info)', fontSize: 11, padding: '6px 12px' }}>⎘ STAGED DRAFT</span>
+              <span className="chip" style={{ background: 'var(--info-50)', color: 'var(--info)', borderColor: 'var(--info)', fontSize: 11, padding: '6px 12px' }}>⎘ Staged draft</span>
               {fix.previewUrl
-                ? <a className="xbtn" href={fix.previewUrl} target="_blank" rel="noreferrer" style={{ background: 'var(--info)' }}>↗ PREVIEW</a>
+                ? <a className="xbtn" href={fix.previewUrl} target="_blank" rel="noreferrer" style={{ background: 'var(--info)' }}>↗ Preview</a>
                 : <span className="xlbl" style={{ color: 'var(--text-2)' }}>waiting for the Connector to build the preview…</span>}
               {publishing
                 ? <span className="xlbl" style={{ color: 'var(--success)' }}>publishing… (your site applies it within ~5 min)</span>
-                : <button className="xbtn" onClick={onPublish} disabled={busy} style={{ background: 'var(--success)' }}>⬢ PUBLISH LIVE</button>}
+                : <button className="xbtn" onClick={onPublish} disabled={busy} style={{ background: 'var(--success)' }}>⬢ Publish live</button>}
             </>);
           })()}
           {isApproved && armed && (
             <div className="nb-sm" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', width: '100%', padding: '13px 15px', background: 'var(--warn-50)', borderColor: 'var(--warn)', boxShadow: 'none' }}>
               <span className="disp" style={{ fontSize: 20 }}>⚠</span>
-              <span style={{ flex: 1, minWidth: 170, fontSize: 12.5, lineHeight: 1.4, fontWeight: 500, color: 'var(--text)' }}>This publishes to your <b className="disp">LIVE</b> site and can&apos;t be auto-undone.</span>
+              <span style={{ flex: 1, minWidth: 170, fontSize: 12.5, lineHeight: 1.4, fontWeight: 500, color: 'var(--text)' }}>This publishes to your <b className="disp">Live</b> site and can&apos;t be auto-undone.</span>
               <button className="gbtn" onClick={onCancelArm} style={{ padding: '7px 13px' }}>Cancel</button>
               <button className="xbtn" onClick={onShipConfirm} disabled={busy || !canShip} style={{ background: 'var(--success)' }}>{canShip ? 'CONFIRM SHIP' : 'CONNECT CMS FIRST'}</button>
             </div>
@@ -3020,8 +3021,8 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
             {revertable && <button className="gbtn" onClick={onRevert} disabled={busy} style={{ padding: '7px 13px' }}>⤺ Undo</button>}
             {absoluteUrl && <a className="tbtn" href={absoluteUrl} target="_blank" rel="noreferrer">View on site</a>}
           </>)}
-          {s === 'reverted' && <span className="chip" style={{ background: 'var(--warn-50)', color: 'var(--warn)', borderColor: 'var(--warn)', fontSize: 11, padding: '6px 12px' }}>⤺ REVERTED</span>}
-          {isAttention && (<button className="xbtn" onClick={onRetry} disabled={busy} style={{ background: 'var(--danger)' }}>↻ RETRY</button>)}
+          {s === 'reverted' && <span className="chip" style={{ background: 'var(--warn-50)', color: 'var(--warn)', borderColor: 'var(--warn)', fontSize: 11, padding: '6px 12px' }}>⤺ Reverted</span>}
+          {isAttention && (<button className="xbtn" onClick={onRetry} disabled={busy} style={{ background: 'var(--danger)' }}>↻ Retry</button>)}
           {/* No-plugin fallback for site-root files (llms.txt / robots.txt). */}
           {downloadHref && !isDetected && !isReview && (
             <a className="gbtn" href={downloadHref} style={{ padding: '7px 13px' }} title="Download this file and drop it at your site root — no plugin needed">⬇ Download file</a>
@@ -3032,7 +3033,7 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
           {isLive && !fix.archivedAt && <button className="tbtn" onClick={() => onArchive(true)} disabled={busy} title="Done with this one? Move it to the Archive tab. The shipped change stays live on your site." style={{ color: 'var(--text-3)' }}>⇣ Archive</button>}
           {isLive && fix.archivedAt && <button className="tbtn" onClick={() => onArchive(false)} disabled={busy} title="Bring this fix back into the main list">↩ Unarchive</button>}
           {canIgnore && <button className="tbtn" onClick={onDismiss} disabled={busy} title="Ignore — hide this suggestion (the AI may be wrong). Restore it later from the Ignored tab." style={{ color: 'var(--text-3)' }}>✕ Ignore</button>}
-          {isDismissed && <button className="xbtn" onClick={onRestore} disabled={busy} style={{ background: 'var(--primary)' }}>↩ RESTORE</button>}
+          {isDismissed && <button className="xbtn" onClick={onRestore} disabled={busy} style={{ background: 'var(--primary)' }}>↩ Restore</button>}
           <button className="tbtn" onClick={onTicket} disabled={busy} title={hasTracker ? 'Create a Linear/Jira issue for this fix' : 'Connect Linear or Jira (or a webhook) to hand this off'}>⊕ {hasTracker ? 'Ticket' : 'Hand off'}</button>
           <button className="tbtn" onClick={() => { if (!showHistory && !events) onLoadHistory(); setShowHistory((h) => !h); }}>{showHistory ? 'Hide history' : 'History'}</button>
         </div>
@@ -3049,7 +3050,7 @@ function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, ev
             <textarea className="xin" rows={editText.length > 160 ? 5 : 2} value={editText} onChange={(e) => setEditText(e.target.value)} style={{ boxShadow: 'none', fontSize: 13, lineHeight: 1.5 }} />
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 10 }}>
               <button className="gbtn" onClick={() => setEditing(false)} style={{ padding: '7px 13px' }}>Cancel</button>
-              <button className="xbtn" disabled={busy || !editText.trim()} onClick={() => { onEditDraft({ [editableField]: editText.trim() }); setEditing(false); }} style={{ padding: '7px 13px' }}>SAVE DRAFT</button>
+              <button className="xbtn" disabled={busy || !editText.trim()} onClick={() => { onEditDraft({ [editableField]: editText.trim() }); setEditing(false); }} style={{ padding: '7px 13px' }}>Save draft</button>
             </div>
           </div>
         )}

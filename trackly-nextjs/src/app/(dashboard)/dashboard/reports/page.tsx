@@ -301,7 +301,7 @@ export default function ReportsPage() {
               ) : (
                 <div className="tbl-wrap">
                   <table className="tbl">
-                    <thead><tr><th>QUERY</th><th className="right">SOV</th><th className="right">ENGINES</th><th /></tr></thead>
+                    <thead><tr><th>Query</th><th className="right">SOV</th><th className="right">Engines</th><th /></tr></thead>
                     <tbody>
                       {queries.map(it => {
                         const p = it.payload as Record<string, unknown>;

@@ -257,14 +257,14 @@ export default function AccountPage() {
           {/* Account info */}
           <Card title="Account info" right={<Badge tone={emailVerified ? 'pos' : 'neg'}>{emailVerified ? 'VERIFIED' : 'UNVERIFIED'}</Badge>}>
             <div className="fld">
-              <div className="eyebrow">EMAIL</div>
+              <div className="eyebrow">Email</div>
               <div style={{ fontSize: 13, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ color: 'var(--text)' }}>{user?.email}</span>
                 {!emailVerified && <button className="btn-d" style={{ padding: '3px 8px', fontSize: 11 }} onClick={async () => { try { let res = await fetch('/api/auth/resend-verification', { method: 'POST', credentials: 'include' }); if (res.status === 401) { try { const r = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' }); if (r.ok) res = await fetch('/api/auth/resend-verification', { method: 'POST', credentials: 'include' }); } catch { /* refresh failed */ } } let d; try { d = await res.json(); } catch { alert('Server error - please try again later.'); return; } alert(res.ok ? 'Verification email sent!' : d.error || 'Failed to send verification email'); } catch { alert('Failed to send verification email. Please try again later.'); } }}>Resend verification</button>}
               </div>
             </div>
             <div className="fld">
-              <div className="eyebrow">USERNAME</div>
+              <div className="eyebrow">Username</div>
               <div style={{ fontSize: 13, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                 {usernameEdit ? (
                   <><input className="fld-in mono" value={usernameVal} onChange={e => setUsernameVal(e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, ''))} style={{ width: 180 }} onKeyDown={e => e.key === 'Enter' && saveUsername()} /><button className="btn-d" style={{ padding: '3px 8px', fontSize: 11 }} onClick={saveUsername}>Save</button></>
@@ -275,11 +275,11 @@ export default function AccountPage() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 4 }}>
               <div>
-                <div className="eyebrow">PLAN</div>
+                <div className="eyebrow">Plan</div>
                 <div style={{ fontSize: 13, marginTop: 4 }}><span style={{ textTransform: 'uppercase' }}>{plan}</span> · <span className="pos">active</span></div>
               </div>
               <div>
-                <div className="eyebrow">MEMBER SINCE</div>
+                <div className="eyebrow">Member since</div>
                 <div style={{ fontSize: 13, marginTop: 4 }} className="mono">{user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '-'}</div>
               </div>
             </div>
@@ -300,10 +300,10 @@ export default function AccountPage() {
         {/* Billing history */}
         {billingHistory.length > 0 && (
           <Card title="Billing history" padding={false}
-            right={<a href={BILLING_PORTAL_URL} target="_blank" rel="noopener" className="mono dim" style={{ fontSize: 11, textDecoration: 'none' }}>MANAGE BILLING →</a>}>
+            right={<a href={BILLING_PORTAL_URL} target="_blank" rel="noopener" className="mono dim" style={{ fontSize: 11, textDecoration: 'none' }}>Manage billing →</a>}>
             <div className="tbl-wrap">
               <table className="tbl">
-                <thead><tr><th>DATE</th><th>EVENT</th><th className="right">AMOUNT</th><th>STATUS</th></tr></thead>
+                <thead><tr><th>Date</th><th>Event</th><th className="right">Amount</th><th>Status</th></tr></thead>
                 <tbody>
                   {billingHistory.map((b, i) => (
                     <tr key={i}>
@@ -346,7 +346,7 @@ export default function AccountPage() {
             {twoFASetup && (
               <div style={{ marginTop: 12 }}>
                 <div style={{ marginBottom: 16 }}>
-                  <div className="eyebrow" style={{ marginBottom: 8 }}>1 · SCAN THIS QR CODE WITH YOUR AUTHENTICATOR APP</div>
+                  <div className="eyebrow" style={{ marginBottom: 8 }}>1 · scan this qr code with your authenticator app</div>
                   <div style={{ display: 'flex', justifyContent: 'center', padding: 16, background: '#ffffff', borderRadius: 8, maxWidth: 240, marginTop: 8 }}>
                     <QRCodeSVG value={twoFASetup.otpauthUrl} size={180} level="M" bgColor="#ffffff" fgColor="#000000" includeMargin />
                   </div>
@@ -356,7 +356,7 @@ export default function AccountPage() {
                   </div>
                 </div>
 
-                <div className="eyebrow" style={{ marginBottom: 8 }}>2 · ENTER THE 6-DIGIT CODE FROM YOUR APP</div>
+                <div className="eyebrow" style={{ marginBottom: 8 }}>2 · enter the 6-digit code from your app</div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', maxWidth: 400 }}>
                   <input className="fld-in mono" value={twoFACode} onChange={e => setTwoFACode(e.target.value)} type="text" placeholder="Enter 6-digit code" maxLength={6} inputMode="numeric" style={{ flex: 1, textAlign: 'center', letterSpacing: 4, fontSize: 18 }} />
                   <button className="btn-p" onClick={async () => {
@@ -436,7 +436,7 @@ export default function AccountPage() {
             {PLANS.filter(p => p.name.toLowerCase() !== 'free').map(p => {
               const isCurrent = plan === p.name.toLowerCase();
               return (
-                <Card key={p.name} title={p.name} right={p.featured ? <Badge tone="acc">POPULAR</Badge> : isCurrent ? <Badge tone="pos">CURRENT</Badge> : undefined}>
+                <Card key={p.name} title={p.name} right={p.featured ? <Badge tone="acc">Popular</Badge> : isCurrent ? <Badge tone="pos">Current</Badge> : undefined}>
                   <div className="kpi-v mono" style={{ fontSize: 28 }}>{p.price}<i>/mo</i></div>
                   <div className="quiet" style={{ fontSize: 13, margin: '6px 0 14px' }}>{p.sub}</div>
                   <ul className="plan-feat">{p.features.map(f => <li key={f}>{f}</li>)}</ul>

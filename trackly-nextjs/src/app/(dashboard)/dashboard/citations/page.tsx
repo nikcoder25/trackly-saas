@@ -83,9 +83,9 @@ export default function CitationsPage() {
       <PageHead title="Citation Analysis" sub="The websites AI engines use as sources when they answer your tracked prompts. Getting listed on the top ones is the fastest way to be recommended more." />
       <div className="page-body">
         <KPIRail items={[
-          { k: 'DOMAINS CITED', v: domainCount.toLocaleString() },
-          { k: 'TOTAL CITATIONS', v: totalCitations.toLocaleString() },
-          { k: 'YOUR SITE CITED', v: ownDomainCount.toLocaleString(), info: `${totalCitations > 0 ? ((ownDomainCount / totalCitations) * 100).toFixed(1) : '0'}% of all citations` },
+          { k: 'Domains cited', v: domainCount.toLocaleString() },
+          { k: 'Total citations', v: totalCitations.toLocaleString() },
+          { k: 'Your site cited', v: ownDomainCount.toLocaleString(), info: `${totalCitations > 0 ? ((ownDomainCount / totalCitations) * 100).toFixed(1) : '0'}% of all citations` },
         ]} />
 
         <Card title="All cited sources" right={domainFilter
@@ -99,7 +99,7 @@ export default function CitationsPage() {
             <div className="tbl-wrap">
               <table className="tbl">
                 <thead><tr>
-                  <th>DOMAIN</th><th>CITES</th><th>SHARE</th><th>SHARE BAR</th>
+                  <th>Domain</th><th>Cites</th><th>Share</th><th>Share bar</th>
                 </tr></thead>
                 <tbody>
                   {sortedDomains.map(([domain, count]) => {
@@ -110,7 +110,7 @@ export default function CitationsPage() {
                         <td>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                             <Cit url={domain} />
-                            {isOwn && <Badge tone="acc">YOU</Badge>}
+                            {isOwn && <Badge tone="acc">You</Badge>}
                           </span>
                         </td>
                         <td className="num"><b>{count.toLocaleString()}</b></td>

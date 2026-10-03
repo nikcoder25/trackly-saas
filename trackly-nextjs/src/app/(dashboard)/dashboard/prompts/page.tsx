@@ -418,17 +418,17 @@ export default function TrackedPromptsPage() {
         <KPIRail
           items={[
             {
-              k: 'TRACKED',
+              k: 'Tracked',
               v: totalUsed.toLocaleString(),
               info: isUnlimited ? '∞ limit' : `of ${cap.toLocaleString()}`,
             },
-            { k: 'BRANDS', v: ownedBrands.length.toLocaleString() },
-            { k: 'PENDING', v: pendingCount.toLocaleString(), danger: pendingCount > 0 },
-            { k: 'PLAN', v: String(plan).toUpperCase() },
-            { k: 'SELECTED', v: selected.size.toLocaleString() },
+            { k: 'Brands', v: ownedBrands.length.toLocaleString() },
+            { k: 'Pending', v: pendingCount.toLocaleString(), danger: pendingCount > 0 },
+            { k: 'Plan', v: String(plan).toUpperCase() },
+            { k: 'Selected', v: selected.size.toLocaleString() },
             ...(isUnlimited
-              ? [{ k: 'USAGE', v: '∞' }]
-              : [{ k: 'OVER BY', v: overBy.toLocaleString(), danger: overBy > 0 }]),
+              ? [{ k: 'Usage', v: '∞' }]
+              : [{ k: 'Over by', v: overBy.toLocaleString(), danger: overBy > 0 }]),
           ]}
         />
 
@@ -584,7 +584,7 @@ export default function TrackedPromptsPage() {
                 title={
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                     {brand.name || 'Untitled brand'}
-                    {brand.lockedByPlan && <Badge tone="warn">LOCKED</Badge>}
+                    {brand.lockedByPlan && <Badge tone="warn">Locked</Badge>}
                   </span>
                 }
                 lede={
@@ -664,12 +664,12 @@ export default function TrackedPromptsPage() {
                               }}
                             />
                           </th>
-                          <th>TOPIC / PROMPT</th>
-                          <th>PAGE</th>
-                          <th className="num">BRANDS</th>
-                          <th className="num">AVG POS</th>
-                          <th className="num">MENTION RATE</th>
-                          <th>STATUS</th>
+                          <th>Topic / prompt</th>
+                          <th>Page</th>
+                          <th className="num">Brands</th>
+                          <th className="num">Avg pos</th>
+                          <th className="num">Mention rate</th>
+                          <th>Status</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -790,11 +790,11 @@ export default function TrackedPromptsPage() {
                                     </td>
                                     <td>
                                       {r.locked ? (
-                                        <Badge tone="warn">LOCKED</Badge>
+                                        <Badge tone="warn">Locked</Badge>
                                       ) : r.hasData ? (
-                                        <Badge tone="pos">TRACKING</Badge>
+                                        <Badge tone="pos">Tracking</Badge>
                                       ) : (
-                                        <Badge tone="neu">PENDING</Badge>
+                                        <Badge tone="neu">Pending</Badge>
                                       )}
                                     </td>
                                   </tr>

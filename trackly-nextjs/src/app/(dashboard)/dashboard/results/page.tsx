@@ -103,7 +103,7 @@ function deriveStatus(r: Mention): ResultStatus {
 }
 
 function StatusBadge({ status }: { status: ResultStatus }) {
-  if (status === 'mentioned') return <span className="status-found">FOUND</span>;
+  if (status === 'mentioned') return <span className="status-found">Found</span>;
   if (status === 'failed') {
     return (
       <span className="status-notfound" style={{ color: 'var(--danger, #ef4444)', borderColor: 'rgba(239,68,68,.35)' }}>
@@ -111,7 +111,7 @@ function StatusBadge({ status }: { status: ResultStatus }) {
       </span>
     );
   }
-  return <span className="status-notfound">NOT FOUND</span>;
+  return <span className="status-notfound">Not found</span>;
 }
 
 function dateOnly(iso: string): string {
@@ -435,7 +435,7 @@ export default function ResultsPage() {
                       <span style={{ fontSize: 12, fontWeight: 700, color: PLATFORM_COLORS[r.model] || 'var(--text)', minWidth: 84, flexShrink: 0 }}>{p.name}</span>
                       <StatusBadge status={r.status} />
                       <span className="mono res-q" style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        <span className="dim">QUERY ›</span> &ldquo;{r.prompt}&rdquo;
+                        <span className="dim">Query ›</span> &ldquo;{r.prompt}&rdquo;
                       </span>
                       {r.status === 'failed' && (
                         <button
@@ -459,9 +459,9 @@ export default function ResultsPage() {
                             : (r.response || <span className="dim">Engine returned no usable answer.</span>)}
                         </div>
                         <div className="proof-meta mono" style={{ marginTop: 10 }}>
-                          <span><span className="dim">MODEL:</span> {r.model}</span>
+                          <span><span className="dim">Model:</span> {r.model}</span>
                           <span className="dim">·</span>
-                          <span><span className="dim">RESULT:</span> {r.status === 'failed' ? 'failed' : r.status === 'mentioned' ? 'mentioned' : 'not found'}</span>
+                          <span><span className="dim">Result:</span> {r.status === 'failed' ? 'failed' : r.status === 'mentioned' ? 'mentioned' : 'not found'}</span>
                           {r.status === 'failed' && (
                             <>
                               <span className="dim">·</span>

@@ -138,7 +138,7 @@ export default function DashboardGeoAuditPage() {
         <Card title="New audit">
           <form onSubmit={handleSubmit} className="audit-form">
             <div className="aud-field">
-              <label className="eyebrow">PAGE URL</label>
+              <label className="eyebrow">Page URL</label>
               <input
                 className="aud-input"
                 type="url"
@@ -175,7 +175,7 @@ export default function DashboardGeoAuditPage() {
             )}
 
             <div className="aud-cta">
-              <span className="mono dim" style={{ fontSize: 11 }}>≈ FETCH + SCORE ACROSS GEO CATEGORIES</span>
+              <span className="mono dim" style={{ fontSize: 11 }}>≈ Fetch + score across GEO categories</span>
               <button type="submit" className="btn-p" disabled={loading} style={{ padding: '10px 18px' }}>
                 {loading ? 'Auditing…' : '▶ Audit this page'}
               </button>
@@ -196,7 +196,7 @@ export default function DashboardGeoAuditPage() {
           >
             <div className="aud-summary">
               <div className="aud-num">
-                <Donut value={result.overallScore} size={140} label="OVERALL SCORE" />
+                <Donut value={result.overallScore} size={140} label="Overall score" />
                 <div style={{ marginTop: 14, fontSize: 11, color: 'var(--mute)', textAlign: 'center', fontFamily: 'var(--mono)' }}>
                   {result.overallScore >= 70 ? 'Good' : result.overallScore >= 40 ? 'Needs work' : 'Poor'}
                 </div>

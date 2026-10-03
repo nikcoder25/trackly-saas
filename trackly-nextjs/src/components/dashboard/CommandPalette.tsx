@@ -285,7 +285,7 @@ export default function CommandPalette({ open, onOpenChange }: {
           {loading && (
             <span style={{ width: 14, height: 14, border: '2px solid var(--primary, #6366f1)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'cp-spin .8s linear infinite' }} aria-hidden="true" />
           )}
-          <kbd style={{ fontSize: 10, padding: '3px 6px', borderRadius: 4, border: '1px solid var(--border, #e5e7eb)', opacity: .6 }}>ESC</kbd>
+          <kbd style={{ fontSize: 10, padding: '3px 6px', borderRadius: 4, border: '1px solid var(--border, #e5e7eb)', opacity: .6 }}>Esc</kbd>
         </div>
 
         {/* Results */}

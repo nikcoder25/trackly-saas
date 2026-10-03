@@ -82,13 +82,13 @@ export default function FanoutPage() {
       <PageHead
         title="Fan-out Queries"
         sub="The searches engines actually ran while answering your prompts - not what we think they ran, what they reported running."
-        actions={<Badge tone="warn">BETA</Badge>}
+        actions={<Badge tone="warn">Beta</Badge>}
       />
       <div className="page-body">
         <KPIRail items={[
-          { k: 'DISTINCT SUB-QUERIES', v: data?.distinctQueries ?? '—' },
-          { k: 'OBSERVATIONS', v: data?.totalObservations ?? '—' },
-          { k: 'REPORTING ENGINES', v: data?.reportingPlatforms?.length || 0 },
+          { k: 'Distinct sub-queries', v: data?.distinctQueries ?? '—' },
+          { k: 'Observations', v: data?.totalObservations ?? '—' },
+          { k: 'Reporting engines', v: data?.reportingPlatforms?.length || 0 },
         ]} />
 
         <Filter>
@@ -131,10 +131,10 @@ export default function FanoutPage() {
               <table className="tbl">
                 <thead><tr>
                   <th>SUB-QUERY</th>
-                  <th>SEEN</th>
-                  <th>SHARE</th>
-                  <th>ENGINES</th>
-                  <th>FROM YOUR PROMPTS</th>
+                  <th>Seen</th>
+                  <th>Share</th>
+                  <th>Engines</th>
+                  <th>From your prompts</th>
                 </tr></thead>
                 <tbody>
                   {rows.map(a => (

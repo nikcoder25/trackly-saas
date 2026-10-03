@@ -132,10 +132,10 @@ export default function TrendsPage() {
       <div className="page-body">
         {/* ── KPI rail ── */}
         <KPIRail items={[
-          { k: 'CURRENT SOV', term: 'sov', v: latest ? `${latest.overall}%` : '-', d: sovDelta ?? undefined },
-          { k: 'AVERAGE SOV', v: `${avgSov}%` },
-          { k: 'PEAK SOV', v: `${peakSov}%` },
-          { k: 'LOWEST SOV', v: `${lowSov}%` },
+          { k: 'Current SOV', term: 'sov', v: latest ? `${latest.overall}%` : '-', d: sovDelta ?? undefined },
+          { k: 'Average SOV', v: `${avgSov}%` },
+          { k: 'Peak SOV', v: `${peakSov}%` },
+          { k: 'Lowest SOV', v: `${lowSov}%` },
         ]} />
 
         {/* ── Main Share of Voice chart ── */}
@@ -161,7 +161,7 @@ export default function TrendsPage() {
         {/* ── Per-platform trend ── */}
         <Card
           title="SOV by engine"
-          right={<span className="mono dim" style={{ fontSize: 11 }}>PER-PLATFORM TREND</span>}
+          right={<span className="mono dim" style={{ fontSize: 11 }}>Per-platform trend</span>}
         >
           {history.length > 1 && allPlatforms.length > 0 ? (
             <>
@@ -197,7 +197,7 @@ export default function TrendsPage() {
 
         {/* ── Latest per-engine sparklines ── */}
         {allPlatforms.length > 0 && history.length > 0 && (
-          <Card title="Latest by engine" right={<span className="mono dim" style={{ fontSize: 11 }}>SPARKLINES</span>}>
+          <Card title="Latest by engine" right={<span className="mono dim" style={{ fontSize: 11 }}>Sparklines</span>}>
             <div style={{ display: 'grid', gap: 12 }}>
               {allPlatforms.map(p => {
                 const data = history.map(h => Number(h.platforms?.[p] ?? 0) || 0);

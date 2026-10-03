@@ -263,7 +263,7 @@ function PromptDetailsInner() {
         <div className="card" style={{ padding: '14px 18px', marginBottom: 18, borderColor: 'var(--green)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', display: 'inline-block', animation: 'pdLiveBlink 1.2s infinite' }} />
-            <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--mono)', color: 'var(--green)' }}>LIVE</span>
+            <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--mono)', color: 'var(--green)' }}>Live</span>
             <span style={{ fontSize: 12, color: 'var(--muted)' }}>
               Scanning &ldquo;{selectedQuery}&rdquo; - {liveForQuery.length}/{expectedEngines.length || liveForQuery.length} engines
             </span>
