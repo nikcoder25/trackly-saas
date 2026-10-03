@@ -384,7 +384,7 @@ html[data-ui="v3"] body {
 .v3 .v3-row-2 { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
 
 /* Hero: rings + the headline number */
-.v3 .v3-hero-card { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 32px; align-items: center; align-content: space-between; }
+.v3 .v3-hero-card { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 32px; align-items: center; align-content: center; row-gap: 8px; }
 .v3 .v3-rings { position: relative; flex-shrink: 0; }
 .v3 .v3-rings svg { display: block; }
 .v3 .v3-rings circle.arc { transition: stroke-dasharray 1s var(--v3-ease); }
