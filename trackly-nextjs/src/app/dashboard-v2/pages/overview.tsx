@@ -964,11 +964,11 @@ export function PageOverview() {
         {scanning
           ? <KpiCardsSkeleton count={5} />
           : <KPIRail items={[
-              { k: 'SHARE OF VOICE', term: 'sov', v: String(d.sov), suffix: '%', d: d.sovDelta, info: 'vs prev. run' },
-              { k: 'MENTIONS', term: 'mention', v: fmt(d.totalM), d: d.mentionsDelta, info: '5 engines' },
-              { k: 'SENTIMENT', term: 'sentiment', v: String(d.sentiment), suffix: '%', d: d.sentimentDelta ?? undefined, info: d.sentimentDelta != null ? 'vs prev. run' : undefined },
-              { k: 'FALSE CLAIMS', term: 'hallucination', v: d.accuracyRate !== null ? String(d.openIssues) : '-', danger: d.accuracyRate !== null && d.openIssues > 0, info: d.accuracyRate !== null ? (d.fixedIssues > 0 ? `${d.fixedIssues} fixed` : 'none fixed') : 'not set up' },
-              { k: 'COVERAGE', term: 'coverage', v: String(d.promptCount), d: d.coverageDelta ?? undefined, info: `prompts × ${d.engineCount ?? 5} engines` },
+              { k: 'Share of voice', term: 'sov', v: String(d.sov), suffix: '%', d: d.sovDelta, info: 'vs prev. run' },
+              { k: 'Mentions', term: 'mention', v: fmt(d.totalM), d: d.mentionsDelta, info: '5 engines' },
+              { k: 'Sentiment', term: 'sentiment', v: String(d.sentiment), suffix: '%', d: d.sentimentDelta ?? undefined, info: d.sentimentDelta != null ? 'vs prev. run' : undefined },
+              { k: 'False claims', term: 'hallucination', v: d.accuracyRate !== null ? String(d.openIssues) : '-', danger: d.accuracyRate !== null && d.openIssues > 0, info: d.accuracyRate !== null ? (d.fixedIssues > 0 ? `${d.fixedIssues} fixed` : 'none fixed') : 'not set up' },
+              { k: 'Coverage', term: 'coverage', v: String(d.promptCount), d: d.coverageDelta ?? undefined, info: `prompts × ${d.engineCount ?? 5} engines` },
             ]} />}
 
         <div className="g2">
@@ -1044,7 +1044,7 @@ function HealthBannerSkeleton({ grade = 'Scanning…', note = 'Calculating once 
       <div className="hb-score">
         <div style={{ width: 96, height: 96, borderRadius: '50%', border: '6px solid rgba(255,255,255,.18)', boxSizing: 'border-box' }} />
         <div>
-          <div className="eyebrow" style={{ color: 'rgba(255,255,255,.7)' }}>BRAND HEALTH</div>
+          <div className="eyebrow" style={{ color: 'rgba(255,255,255,.7)' }}>Brand health</div>
           <div className="hb-grade" style={{ opacity: .8 }}>{grade}</div>
           <div className="hb-d"><span style={{ color: 'rgba(255,255,255,.7)' }}>{note}</span></div>
         </div>
@@ -1153,7 +1153,7 @@ function HealthBanner({ health, healthDelta, sentiment, sentimentSub, sov, total
       <div className="hb-score">
         <BrandHealthGauge value={health} />
         <div>
-          <div className="eyebrow" style={{ color: 'rgba(255,255,255,.7)', display: 'flex', alignItems: 'center' }}>BRAND HEALTH <Info term="health" /></div>
+          <div className="eyebrow" style={{ color: 'rgba(255,255,255,.7)', display: 'flex', alignItems: 'center' }}>Brand health <Info term="health" /></div>
           <div className="hb-grade">{grade}</div>
           <div className="hb-d">
             {healthDelta != null && <Delta v={healthDelta} />}
@@ -1189,7 +1189,7 @@ function InsightsStrip({ items }: { items: InsightItem[] }) {
   return (
     <div>
       <div className="strip-head">
-        <span className="eyebrow">NEEDS YOU TODAY</span>
+        <span className="eyebrow">Needs you today</span>
         <span className="strip-sub">The few things worth acting on right now - tap to dive in.</span>
       </div>
       <div className="ins-strip">
@@ -1325,9 +1325,9 @@ function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => voi
           </button>
         </header>
         <div className="drawer-b">
-          <div className="eyebrow">QUERY</div>
+          <div className="eyebrow">Query</div>
           <div style={{ fontSize: 14.5, color: 'var(--text)', padding: '10px 12px', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 6, margin: '8px 0 18px', fontFamily: 'var(--mono)' }}>&ldquo;{item.q}&rdquo;</div>
-          <div className="eyebrow">VERDICT</div>
+          <div className="eyebrow">Verdict</div>
           <div style={{ display: 'flex', gap: 8, margin: '8px 0 18px', alignItems: 'center', flexWrap: 'wrap' }}>
             <Badge tone={verdictTone}>{verdictLabel}</Badge>
             <span className="quiet" style={{ fontSize: 13 }}>{item.meta}</span>
@@ -1335,7 +1335,7 @@ function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => voi
               <span className="mono dim" style={{ fontSize: 11 }}>· sentiment: {sentiment}</span>
             )}
           </div>
-          <div className="eyebrow">VERBATIM ANSWER</div>
+          <div className="eyebrow">Verbatim answer</div>
           {item.error ? (
             <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--warn)', margin: '8px 0 18px' }}>{item.error}</p>
           ) : highlighted ? (
@@ -1350,7 +1350,7 @@ function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => voi
           )}
           {item.competitorMentions && item.competitorMentions.length > 0 && (
             <>
-              <div className="eyebrow">ALSO MENTIONED</div>
+              <div className="eyebrow">Also mentioned</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '8px 0 18px' }}>
                 {item.competitorMentions.map((c, i) => (
                   <span key={i} className="badge badge-neu">{c}</span>
@@ -1360,13 +1360,13 @@ function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => voi
           )}
           {item.citations && item.citations.length > 0 && (
             <>
-              <div className="eyebrow">SOURCES CITED</div>
+              <div className="eyebrow">Sources cited</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '8px 0 18px' }}>
                 {item.citations.map((c, i) => <Cit key={i} url={c} />)}
               </div>
             </>
           )}
-          <div className="eyebrow">ACTIONS</div>
+          <div className="eyebrow">Actions</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
             <button className="btn-g" onClick={handleRerun}>↻ Re-run this query</button>
             <button className="btn-g" onClick={handleFlag}>⚐ Flag as hallucination</button>
@@ -1404,10 +1404,10 @@ function OverviewEngineGrid({ platforms, hasReal, lastRunAt }: { platforms: Plat
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</div>
                 <div className="mono" style={{ fontSize: 10, color: 'var(--mute)', letterSpacing: '0.08em' }}>
                   {p.noData
-                    ? <>NO DATA YET</>
+                    ? <>No data yet</>
                     : p.ok
                       ? <><span className="pulse" style={{ width: 5, height: 5 }} /> OK{p.ms > 0 ? <> · {p.ms}ms</> : null}</>
-                      : <span className="neg">⚠ ERRORS IN LAST RUN</span>}
+                      : <span className="neg">⚠ Errors in last run</span>}
                 </div>
               </div>
               {!p.noData && <Delta v={p.delta} />}
@@ -1492,7 +1492,7 @@ function OverviewQueriesTable({ rows, totalQ }: { rows: QueryRow[]; totalQ: numb
       ) : (
       <div className="tbl-wrap">
         <table className="tbl">
-          <thead><tr><th>QUERY</th><th className="right">VISIBILITY</th><th className="right">ENGINES</th><th /></tr></thead>
+          <thead><tr><th>Query</th><th className="right">Visibility</th><th className="right">Engines</th><th /></tr></thead>
           <tbody>
             {rows.map((r, i) => (
               <tr key={i}>
@@ -1525,7 +1525,7 @@ function OverviewCompetitors({ rows }: { rows: OverviewData['competitors'] }) {
   return (
     <Card title="You vs competitors" info="sov"
       lede="Of all brand mentions in AI answers (you + tracked rivals), the share each one gets."
-      right={<a href="/dashboard/competitors" className="mono dim" style={{ fontSize: 11 }}>COMPETITORS →</a>}>
+      right={<a href="/dashboard/competitors" className="mono dim" style={{ fontSize: 11 }}>Competitors →</a>}>
       {rows.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--muted)', fontSize: 12.5 }}>
           No competitor data yet - run queries to see how you compare.
@@ -1537,7 +1537,7 @@ function OverviewCompetitors({ rows }: { rows: OverviewData['competitors'] }) {
               <span className="comp-name">
                 <span style={{ width: 8, height: 8, background: r.color, borderRadius: 2, display: 'inline-block', flexShrink: 0 }} />
                 <b title={r.name} style={{ color: r.me ? 'var(--accent)' : 'var(--text)', fontWeight: 500, fontSize: 13 }}>{r.name}</b>
-                {r.me && <Badge tone="acc">YOU</Badge>}
+                {r.me && <Badge tone="acc">You</Badge>}
               </span>
               <Bar value={r.sov} max={max} />
               <span className="mono" style={{ fontSize: 13, textAlign: 'right' }}>{r.sov}%</span>
@@ -1555,7 +1555,7 @@ function OverviewSources({ rows }: { rows: OverviewData['sources'] }) {
   return (
     <Card title="Most cited sources" info="citation"
       lede="The websites AI engines use as sources for your prompts. Get listed or mentioned on the top ones."
-      right={<a href="/dashboard/citations" className="mono dim" style={{ fontSize: 11 }}>CITATIONS →</a>}>
+      right={<a href="/dashboard/citations" className="mono dim" style={{ fontSize: 11 }}>Citations →</a>}>
       {rows.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--muted)', fontSize: 12.5 }}>
           No citations tracked yet.

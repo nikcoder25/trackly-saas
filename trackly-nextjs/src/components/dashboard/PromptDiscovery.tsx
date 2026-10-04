@@ -219,7 +219,7 @@ export function PromptDiscovery({
   return (
     <Card
       title="Find prompts for me"
-      right={running ? <Badge tone="acc">RUNNING</Badge> : undefined}
+      right={running ? <Badge tone="acc">Running</Badge> : undefined}
       lede="Builds a prompt set from how people actually search for what you do, filters it down to the ones with buying intent, then groups them into topics and binds each to the page that should win it."
     >
       {!job && (

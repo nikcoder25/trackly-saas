@@ -6,6 +6,7 @@ import { useBrandData } from '@/hooks/useBrandData';
 import { useToast } from '@/components/dashboard/Toast';
 import { logger } from '@/lib/logger';
 import { RECS_UPDATED_EVENT } from '@/components/dashboard/v3/hooks';
+import { useUiFlag } from '@/contexts/UiFlagContext';
 import { loadRecsWithRetry, defaultRefresh, type RecommendationRow } from './load-recs';
 import {
   PageHead,
@@ -26,6 +27,7 @@ interface Brand { id: string; name: string; }
 export default function RecommendationsPage() {
   const { brand: selectedBrand, brands, loading } = useBrandData();
   const { toast } = useToast();
+  const { isV3 } = useUiFlag();
   const [allRecs, setAllRecs] = useState<Recommendation[]>([]);
   const [generating, setGenerating] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
@@ -221,7 +223,7 @@ export default function RecommendationsPage() {
     <div className="lvx">
       <PageHead
         title="Recommendations"
-        sub="AI-powered suggestions to improve your visibility across all platforms."
+        sub={isV3 ? 'The changes most likely to get AI engines to name you. Tick them off as you go.' : 'AI-powered suggestions to improve your visibility across all platforms.'}
         actions={
           <button className="btn-p" onClick={() => generate()} disabled={generating} style={{ opacity: generating ? 0.6 : 1 }}>
             {generating ? 'Analyzing…' : 'Generate'}
@@ -229,23 +231,28 @@ export default function RecommendationsPage() {
         }
       />
       <div className="page-body">
-        <KPIRail items={[
-          { k: 'TOTAL', v: allRecs.length },
-          { k: 'OPEN', v: open },
-          { k: 'IN PROGRESS', v: inProg },
-          { k: 'COMPLETED', v: done },
-        ]} />
+        {isV3 ? (
+          <RecProgress total={allRecs.filter(r => r.status !== 'ignored').length} open={open} inProg={inProg} done={done}
+            critical={allRecs.filter(r => r.status === 'open' && (r.severity === 'critical' || r.severity === 'high')).length} />
+        ) : (
+          <KPIRail items={[
+            { k: 'Total', v: allRecs.length },
+            { k: 'Open', v: open },
+            { k: 'In progress', v: inProg },
+            { k: 'Completed', v: done },
+          ]} />
+        )}
 
         <Filter>
           <Seg
             value={filterStatus || ''}
             onChange={setFilterStatus}
             options={[
-              { value: '', label: 'ALL STATUS' },
-              { value: 'open', label: 'OPEN' },
-              { value: 'in_progress', label: 'IN PROGRESS' },
-              { value: 'done', label: 'DONE' },
-              { value: 'ignored', label: 'IGNORED' },
+              { value: '', label: 'All status' },
+              { value: 'open', label: 'Open' },
+              { value: 'in_progress', label: 'In progress' },
+              { value: 'done', label: 'Done' },
+              { value: 'ignored', label: 'Ignored' },
             ]}
           />
           <select className="sel" value={filterSeverity} onChange={e => setFilterSeverity(e.target.value)}>
@@ -297,6 +304,8 @@ export default function RecommendationsPage() {
               )}
             </div>
           </Card>
+        ) : isV3 ? (
+          <RecGroups recs={recs} platformFor={platformFor} onStatus={updateStatus} />
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
             {recs.map((r, idx) => {
@@ -319,7 +328,7 @@ export default function RecommendationsPage() {
                     <div className="rec-foot">
                       {p && (
                         <>
-                          <div className="mono dim" style={{ fontSize: 11, letterSpacing: '0.08em' }}>AFFECTS</div>
+                          <div className="mono dim" style={{ fontSize: 11, letterSpacing: '0.08em' }}>Affects</div>
                           <PlatformTile p={p} size={20} />
                         </>
                       )}
@@ -349,6 +358,103 @@ export default function RecommendationsPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ─────────────── dashboard (v3) layout: progress + grouped checklist ─────────────── */
+
+const SEV_GROUPS: { key: string; label: string; hint: string }[] = [
+  { key: 'critical', label: 'Critical', hint: 'Fix these first' },
+  { key: 'high', label: 'High impact', hint: 'Big wins' },
+  { key: 'medium', label: 'Medium impact', hint: 'Worth doing this month' },
+  { key: 'low', label: 'Low impact', hint: 'Nice to have' },
+];
+
+function RecProgress({ total, open, inProg, done, critical }: { total: number; open: number; inProg: number; done: number; critical: number }) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  return (
+    <section className="rx-progress">
+      <div className="rx-progress-top">
+        <div>
+          <div className="rx-progress-k">Your progress</div>
+          <div className="rx-progress-v"><b>{done}</b> of {total} done</div>
+        </div>
+        <div className="rx-progress-stats">
+          <span><i className="rx-dot open" />{open} to do</span>
+          <span><i className="rx-dot prog" />{inProg} in progress</span>
+          <span><i className="rx-dot done" />{done} done</span>
+        </div>
+      </div>
+      <div className="rx-bar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Recommendations done">
+        <i className="done" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
+        <i className="prog" style={{ width: `${total ? (inProg / total) * 100 : 0}%` }} />
+      </div>
+      <p className="rx-progress-note">
+        {total === 0 ? 'New recommendations appear after each scan.'
+          : done === total ? 'Everything is done. New ideas arrive with your next scan.'
+          : critical > 0 ? `Start with the ${critical} high-impact fix${critical === 1 ? '' : 'es'} at the top.`
+          : 'Keep going. Each fix gives AI another reason to name you.'}
+      </p>
+    </section>
+  );
+}
+
+function RecGroups({ recs, platformFor, onStatus }: {
+  recs: RecommendationRow[];
+  platformFor: (p?: string) => Platform | undefined;
+  onStatus: (id: string, status: string) => void;
+}) {
+  const groups = SEV_GROUPS.map(g => ({ ...g, items: recs.filter(r => (r.severity || 'low') === g.key) }))
+    .concat([{ key: 'other', label: 'Other', hint: '', items: recs.filter(r => !SEV_GROUPS.some(g => g.key === (r.severity || 'low'))) }])
+    .filter(g => g.items.length > 0);
+  return (
+    <div className="rx-groups">
+      {groups.map(g => (
+        <section key={g.key} className="rx-group" aria-labelledby={`rx-g-${g.key}`}>
+          <header className="rx-group-h">
+            <h2 id={`rx-g-${g.key}`}><i className={`rx-sev ${g.key}`} />{g.label}<span className="rx-count">{g.items.length}</span></h2>
+            {g.hint && <span className="rx-hint">{g.hint}</span>}
+          </header>
+          <ul className="rx-list">
+            {g.items.map((r, idx) => {
+              const isDone = r.status === 'done';
+              const isIgnored = r.status === 'ignored';
+              const p = platformFor(r.platform);
+              return (
+                <li key={r.id || idx} id={r.id ? `rec-${r.id}` : undefined} className={'rx-item' + (isDone ? ' done' : '') + (isIgnored ? ' ignored' : '')}>
+                  <button type="button" className="rx-check" aria-pressed={isDone}
+                    aria-label={isDone ? `Mark "${r.title}" as not done` : `Mark "${r.title}" as done`}
+                    onClick={() => onStatus(r.id, isDone ? 'open' : 'done')}>
+                    {isDone && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>}
+                  </button>
+                  <div className="rx-body">
+                    <h3 className="rx-title">{r.title}</h3>
+                    {r.description && <p className="rx-desc">{r.description}</p>}
+                    <div className="rx-meta">
+                      {r.status === 'in_progress' && <span className="rx-chip prog">In progress</span>}
+                      {isIgnored && <span className="rx-chip">Ignored</span>}
+                      {r.category && <span className="rx-chip">{r.category.charAt(0).toUpperCase() + r.category.slice(1)}</span>}
+                      {p && <span className="rx-chip"><PlatformTile p={p} size={16} />{p.name}</span>}
+                    </div>
+                  </div>
+                  <div className="rx-actions">
+                    {!isDone && r.status !== 'in_progress' && !isIgnored && (
+                      <button type="button" className="rx-btn" onClick={() => onStatus(r.id, 'in_progress')}>Start</button>
+                    )}
+                    <select className="rx-sel" aria-label={`Status of "${r.title}"`} value={r.status} onChange={e => onStatus(r.id, e.target.value)}>
+                      <option value="open">To do</option>
+                      <option value="in_progress">In progress</option>
+                      <option value="done">Done</option>
+                      <option value="ignored">Ignore</option>
+                    </select>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
     </div>
   );
 }

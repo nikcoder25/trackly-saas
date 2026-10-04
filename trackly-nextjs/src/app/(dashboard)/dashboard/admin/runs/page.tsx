@@ -258,7 +258,7 @@ export default function AdminRunsPage() {
                   <td style={td}>{fmtAge(r.ageSeconds)}</td>
                   <td style={{ ...td, color: r.stale ? 'var(--red)' : undefined, fontWeight: r.stale ? 700 : undefined }}>
                     {fmtAge(r.noProgressSeconds)}
-                    {r.stale && <span style={{ marginLeft: 6, fontSize: 9, padding: '1px 4px', borderRadius: 3, background: 'var(--red)', color: '#fff' }}>STALE</span>}
+                    {r.stale && <span style={{ marginLeft: 6, fontSize: 9, padding: '1px 4px', borderRadius: 3, background: 'var(--red)', color: '#fff' }}>Stale</span>}
                   </td>
                   <td style={td}>
                     {r.lastPlatformAttempted ? (

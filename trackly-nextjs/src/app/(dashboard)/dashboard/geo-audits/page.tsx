@@ -519,10 +519,10 @@ export default function GeoAuditsPage() {
         {audits !== null && !error && allAudits.length > 0 && (
           <KPIRail
             items={[
-              { k: 'TOTAL AUDITS', v: String(allAudits.length) },
-              { k: 'COMPLETED', v: String(doneCount) },
-              { k: 'IN PROGRESS', v: String(activeCount) },
-              { k: 'TOTAL MENTIONS', v: String(totalMentions) },
+              { k: 'Total audits', v: String(allAudits.length) },
+              { k: 'Completed', v: String(doneCount) },
+              { k: 'In progress', v: String(activeCount) },
+              { k: 'Total mentions', v: String(totalMentions) },
             ]}
           />
         )}
@@ -548,7 +548,7 @@ export default function GeoAuditsPage() {
             </div>
           </Card>
         ) : error ? (
-          <Card title="Audits" right={<Badge tone="neg">ERROR</Badge>}>
+          <Card title="Audits" right={<Badge tone="neg">Error</Badge>}>
             <div style={{ textAlign: 'center', padding: 24 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--danger)', marginBottom: 4 }}>
                 Couldn&apos;t load audits
@@ -579,7 +579,7 @@ export default function GeoAuditsPage() {
             </div>
           </Card>
         ) : tableRows.length === 0 ? (
-          <Card title="Audits" right={<Badge tone="neu">FILTERED</Badge>}>
+          <Card title="Audits" right={<Badge tone="neu">Filtered</Badge>}>
             <div style={{ textAlign: 'center', padding: 32 }}>
               <div className="quiet" style={{ marginBottom: 12, fontSize: 13 }}>
                 No audits match your current filters.

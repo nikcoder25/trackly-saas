@@ -103,7 +103,7 @@ function deriveStatus(r: Mention): ResultStatus {
 }
 
 function StatusBadge({ status }: { status: ResultStatus }) {
-  if (status === 'mentioned') return <span className="status-found">FOUND</span>;
+  if (status === 'mentioned') return <span className="status-found">Found</span>;
   if (status === 'failed') {
     return (
       <span className="status-notfound" style={{ color: 'var(--danger, #ef4444)', borderColor: 'rgba(239,68,68,.35)' }}>
@@ -111,7 +111,7 @@ function StatusBadge({ status }: { status: ResultStatus }) {
       </span>
     );
   }
-  return <span className="status-notfound">NOT FOUND</span>;
+  return <span className="status-notfound">Not found</span>;
 }
 
 function dateOnly(iso: string): string {
@@ -416,12 +416,13 @@ export default function ResultsPage() {
               </Card>
             ) : (
               <>
+              <div className="res-list">
               {slice.map(r => {
                 const p = platformFor(r.model);
                 const expanded = expandedId === r.id;
                 const toggle = () => setExpandedId(expanded ? null : r.id);
                 return (
-                  <div key={r.id} className="card" style={{ padding: 0, marginBottom: 8, overflow: 'hidden' }}>
+                  <div key={r.id} className="card res-item" style={{ padding: 0, marginBottom: 8, overflow: 'hidden' }}>
                     {/* Collapsed one-line row: platform + status + query + timestamp */}
                     <div
                       role="button" tabIndex={0} aria-expanded={expanded}
@@ -430,12 +431,12 @@ export default function ResultsPage() {
                       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }}
                       style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer' }}
                     >
-                      <span aria-hidden="true" style={{ color: 'var(--muted)', fontSize: 10, width: 12, flexShrink: 0 }}>{expanded ? '▾' : '▸'}</span>
+                      <span aria-hidden="true" className="res-caret" style={{ color: 'var(--muted)', fontSize: 10, width: 12, flexShrink: 0 }}>{expanded ? '▾' : '▸'}</span>
                       <PlatformTile p={p} size={22} />
-                      <span style={{ fontSize: 12, fontWeight: 700, color: PLATFORM_COLORS[r.model] || 'var(--text)', minWidth: 84, flexShrink: 0 }}>{p.name}</span>
+                      <span className="res-eng" style={{ fontSize: 12, fontWeight: 700, color: PLATFORM_COLORS[r.model] || 'var(--text)', minWidth: 84, flexShrink: 0 }}>{p.name}</span>
                       <StatusBadge status={r.status} />
                       <span className="mono res-q" style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        <span className="dim">QUERY ›</span> &ldquo;{r.prompt}&rdquo;
+                        <span className="dim">Query ›</span> &ldquo;{r.prompt}&rdquo;
                       </span>
                       {r.status === 'failed' && (
                         <button
@@ -459,9 +460,9 @@ export default function ResultsPage() {
                             : (r.response || <span className="dim">Engine returned no usable answer.</span>)}
                         </div>
                         <div className="proof-meta mono" style={{ marginTop: 10 }}>
-                          <span><span className="dim">MODEL:</span> {r.model}</span>
+                          <span><span className="dim">Model:</span> {r.model}</span>
                           <span className="dim">·</span>
-                          <span><span className="dim">RESULT:</span> {r.status === 'failed' ? 'failed' : r.status === 'mentioned' ? 'mentioned' : 'not found'}</span>
+                          <span><span className="dim">Result:</span> {r.status === 'failed' ? 'failed' : r.status === 'mentioned' ? 'mentioned' : 'not found'}</span>
                           {r.status === 'failed' && (
                             <>
                               <span className="dim">·</span>
@@ -481,6 +482,7 @@ export default function ResultsPage() {
                   </div>
                 );
               })}
+              </div>
               {/* Footer controls - mirror the top bar; shared page/size state. */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>
                 <span className="mono dim" style={{ fontSize: 11 }}>

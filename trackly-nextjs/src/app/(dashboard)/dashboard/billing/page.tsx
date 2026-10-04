@@ -297,7 +297,7 @@ export default function BillingPage() {
         {/* Plan + spend header */}
         <section className="bill-head">
           <div className="bh-plan">
-            <div className="eyebrow">CURRENT PLAN</div>
+            <div className="eyebrow">Current plan</div>
             <div className="bh-name">
               {planLabel}{' '}
               <Badge tone={planActive ? 'pos' : 'neu'}>{planActive ? 'ACTIVE' : 'FREE'}</Badge>
@@ -332,7 +332,7 @@ export default function BillingPage() {
           </div>
 
           <div className="bh-spend">
-            <div className="eyebrow" style={{ padding: '2px 0 2px' }}>SPEND</div>
+            <div className="eyebrow" style={{ padding: '2px 0 2px' }}>Spend</div>
             <div className="bhs-row">
               <span className="bhs-label">{noChargeReason ? 'This billing period' : 'Next invoice'}</span>
               <span className="bhs-v mono">{noChargeReason ? 'No charge' : `$${monthlyPriceUsd.toFixed(2)}`}</span>
@@ -363,7 +363,7 @@ export default function BillingPage() {
           >
             <div className="bill-usage">
               <div className="bu-ring">
-                <Donut value={creditPct} size={150} label="OF MONTHLY CREDITS" color="var(--accent)" />
+                <Donut value={creditPct} size={150} label="Of monthly credits" color="var(--accent)" />
                 <div className="bu-ring-sub">
                   <div className="mono">
                     <b>{monthlyUsed.toLocaleString()}</b> of {isUnlimitedCredits ? '∞' : monthlyCap.toLocaleString()} credits
@@ -428,7 +428,7 @@ export default function BillingPage() {
           ) : (
             <div className="tbl-wrap">
               <table className="tbl">
-                <thead><tr><th>DATE</th><th>EVENT</th><th className="right">AMOUNT</th><th>STATUS</th></tr></thead>
+                <thead><tr><th>Date</th><th>Event</th><th className="right">Amount</th><th>Status</th></tr></thead>
                 <tbody>
                   {billingHistory.map((row, i) => (
                     <tr key={i}>
@@ -464,7 +464,7 @@ export default function BillingPage() {
           <Card title="API cost breakdown" padding={false}>
             <div className="tbl-wrap">
               <table className="tbl">
-                <thead><tr><th>PLATFORM</th><th className="right">TOTAL COST</th></tr></thead>
+                <thead><tr><th>Platform</th><th className="right">Total cost</th></tr></thead>
                 <tbody>
                   {Object.entries(apiCosts).sort((a, b) => b[1] - a[1]).map(([platform, cost]) => (
                     <tr key={platform}>

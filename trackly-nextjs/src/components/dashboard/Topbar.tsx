@@ -157,7 +157,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Notifications</div>
-                <Link href="/dashboard/alerts" onClick={() => setShowNotifs(false)} style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--primary)', textDecoration: 'none' }}>VIEW ALL →</Link>
+                <Link href="/dashboard/alerts" onClick={() => setShowNotifs(false)} style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--primary)', textDecoration: 'none' }}>View all →</Link>
               </div>
               {notifications.length === 0 ? (
                 <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>No new notifications.</p>

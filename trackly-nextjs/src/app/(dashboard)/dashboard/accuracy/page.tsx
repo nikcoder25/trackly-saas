@@ -487,7 +487,7 @@ export default function AccuracyPage() {
 
   function getExpected(issue: Issue): string {
     if (issue.expected) return issue.expected;
-    const baseKey = stripCategorySuffix(issue.fact_key);
+    const baseKey = stripCategorySuffix(issue.fact_key ?? '');
     return expectedLookup.get(baseKey) || expectedLookup.get(normalizeKey(baseKey)) || '';
   }
 
@@ -582,11 +582,11 @@ export default function AccuracyPage() {
       <div className="page-body">
         {/* KPI rail - real metrics */}
         <KPIRail items={[
-          { k: 'WRONG CLAIMS OPEN', v: issues.length - issueSummary.fixed, danger: (issues.length - issueSummary.fixed) > 0 },
-          { k: 'FIXED', v: issueSummary.fixed },
-          { k: 'ACCURACY RATE', v: accuracyRate != null ? accuracyRate : '-', suffix: accuracyRate != null ? '%' : '', info: 'of claims AI made about you' },
-          { k: 'BRAND FACTS', v: facts.length, info: 'the truth AI is checked against' },
-          { k: 'LAST CHECKED', v: lastChecked ? new Date(lastChecked).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Never', info: lastChecked ? new Date(lastChecked).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : undefined },
+          { k: 'Wrong claims open', v: issues.length - issueSummary.fixed, danger: (issues.length - issueSummary.fixed) > 0 },
+          { k: 'Fixed', v: issueSummary.fixed },
+          { k: 'Accuracy rate', v: accuracyRate != null ? accuracyRate : '-', suffix: accuracyRate != null ? '%' : '', info: 'of claims AI made about you' },
+          { k: 'Brand facts', v: facts.length, info: 'the truth AI is checked against' },
+          { k: 'Last checked', v: lastChecked ? new Date(lastChecked).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Never', info: lastChecked ? new Date(lastChecked).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : undefined },
         ]} />
 
         {/* Status message */}
@@ -769,12 +769,12 @@ export default function AccuracyPage() {
                     <PlatformTile p={platformFor(issue.platform)} size={26} />
                     <div style={{ minWidth: 0 }}>
                       <div className="hal-q mono">
-                        <span className="dim">FACT ›</span> {issue.fact_key}
+                        <span className="dim">Fact ›</span> {issue.fact_key}
                         {(issue.count ?? 1) > 1 && <span className="dim"> · ×{issue.count}</span>}
-                        {issue.query && <> &nbsp;<span className="dim">QUERY ›</span> &ldquo;{issue.query}&rdquo;</>}
+                        {issue.query && <> &nbsp;<span className="dim">Query ›</span> &ldquo;{issue.query}&rdquo;</>}
                       </div>
-                      <div className="hal-claim"><span className="hal-tag mono">CLAIMED ✗</span> {issue.found}</div>
-                      <div className="hal-truth"><span className="hal-tag mono ok">TRUTH ✓</span> {getExpected(issue) || '(not set)'}</div>
+                      <div className="hal-claim"><span className="hal-tag mono">Claimed ✗</span> {issue.found}</div>
+                      <div className="hal-truth"><span className="hal-tag mono ok">Truth ✓</span> {getExpected(issue) || '(not set)'}</div>
                       <div style={{ marginTop: 6, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <span>{issue.platform}</span>
                         {issue.date && <span>{new Date(issue.date).toLocaleDateString()}</span>}

@@ -113,6 +113,8 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const { count, available } = useOpenRecommendations();
   const current = v3TabForPath(pathname)?.section.id;
 
+  // Sub-pages live in the tab strip above the content, so the sidebar
+  // stays one line per section.
   const row = (s: V3Section) => {
     const tabs = v3VisibleTabs(s, isAdmin);
     if (tabs.length === 0) return null;
@@ -125,18 +127,6 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           <span className="v3-menu-grow">{s.label}</span>
           {s.id === 'fixes' && available && count > 0 && <span className="v3-nav-badge">{count}<span className="v3-sr"> open fixes</span></span>}
         </Link>
-        {on && tabs.length > 1 && (
-          <div className="v3-nav-sub">
-            {tabs.map(t => {
-              const tOn = v3TabForPath(pathname)?.tab.href === t.href;
-              return (
-                <Link key={t.href} href={t.href} prefetch={false} onClick={onNavigate} className={'v3-nav-subitem' + (tOn ? ' on' : '')}>
-                  {t.label}
-                </Link>
-              );
-            })}
-          </div>
-        )}
       </div>
     );
   };
@@ -157,14 +147,23 @@ function ScanCard({ onNavigate }: { onNavigate?: () => void }) {
   const next = nextScanMs(selectedBrand as Record<string, unknown> | null, plan);
   return (
     <div className="v3-scan-card">
-      <div className="v3-eyebrow">Next automatic scan</div>
-      <div className="v3-scan-when">{selectedBrand ? untilLabel(next) : 'Add a brand to start'}</div>
-      <button type="button" className="v3-btn v3-btn-dark v3-btn-block" onClick={() => { onNavigate?.(); startRun(false); }} disabled={disabled}
-        title={selectedBrandLocked ? 'This brand is locked - upgrade to run' : undefined}>
-        {live.running
-          ? <><span className="v3-pulse" /> Scanning… {pct}%</>
-          : selectedBrandLocked ? 'Brand locked' : 'Scan all engines now'}
-      </button>
+      <div className="v3-scan-top">
+        <span className="v3-scan-ico"><V3Icon name={live.running ? 'sparkle' : 'clock'} size={17} /></span>
+        <span className="v3-scan-txt">
+          <span className="v3-scan-k">{live.running ? 'Scanning all engines' : 'Next automatic scan'}</span>
+          <span className="v3-scan-when">{live.running ? `${pct}% done` : selectedBrand ? untilLabel(next) : 'Add a brand to start'}</span>
+        </span>
+      </div>
+      {live.running ? (
+        <div className="v3-scan-prog" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Scan progress">
+          <i style={{ width: `${Math.max(4, pct)}%` }} />
+        </div>
+      ) : (
+        <button type="button" className="v3-btn v3-btn-dark v3-btn-block" onClick={() => { onNavigate?.(); startRun(false); }} disabled={disabled}
+          title={selectedBrandLocked ? 'This brand is locked - upgrade to run' : undefined}>
+          {selectedBrandLocked ? 'Brand locked' : <><V3Icon name="play" size={14} /> Scan now</>}
+        </button>
+      )}
     </div>
   );
 }
@@ -194,8 +193,17 @@ function Topbar({ onMenu, menuOpen, onSearch, onAddBrand, menuBtnRef }: {
   const { live } = useRun();
   useMinuteTick();
   const last = lastRunMs(selectedBrand as Record<string, unknown> | null);
+  const [scrolled, setScrolled] = React.useState(false);
+  React.useEffect(() => {
+    const main = document.querySelector<HTMLElement>('.v3-main');
+    if (!main) return;
+    const onScroll = () => setScrolled(main.scrollTop > 4);
+    onScroll();
+    main.addEventListener('scroll', onScroll, { passive: true });
+    return () => main.removeEventListener('scroll', onScroll);
+  }, []);
   return (
-    <header className="v3-topbar">
+    <header className={'v3-topbar' + (scrolled ? ' scrolled' : '')}>
       <button type="button" ref={menuBtnRef} className="v3-icon-btn v3-only-drawer" onClick={onMenu} aria-label={menuOpen ? 'Close menu' : 'Open menu'}
         aria-expanded={menuOpen} aria-controls="v3-drawer">
         <V3Icon name="menu" size={20} />
@@ -290,6 +298,54 @@ function LegacyEyebrow() {
   return <div className="v3-page-eyebrow">{v3PageMeta(pathname).eyebrow}</div>;
 }
 
+/* ─────────────────────────── phone tables ─────────────────────────── */
+
+/** Columns whose cell should span the whole card row on phones. */
+const WIDE_COL = /query|prompt|question|domain|source|page|title|claim|answer|name|url|event|description/i;
+
+/**
+ * Data tables turn into stacked cards on phones (see `table[data-v3cards]` in
+ * v3.css). CSS cannot read a column's header from a cell, so this copies
+ * each header's text onto its cells as `data-label`. Runs on route changes
+ * and whenever a page re-renders its rows. Data attributes, not classes:
+ * React rewrites className on re-render but leaves unknown attributes alone.
+ */
+function usePhoneTables() {
+  const pathname = usePathname();
+  React.useEffect(() => {
+    const root = document.querySelector<HTMLElement>('.v3-content');
+    if (!root) return;
+    let raf = 0;
+    const label = () => {
+      raf = 0;
+      root.querySelectorAll<HTMLTableElement>('table:not(.v3-table)').forEach(table => {
+        const heads = Array.from(table.querySelectorAll<HTMLTableCellElement>('thead tr:last-child th'))
+          .map(th => {
+            const t = (th.textContent || th.getAttribute('aria-label') || '').replace(/[ⓘ\u24D8]/g, '').trim();
+            // Headers written in caps read as shouting once they sit above a value.
+            return t && t === t.toUpperCase() && /[A-Z]{3}/.test(t) ? t.charAt(0) + t.slice(1).toLowerCase() : t;
+          });
+        if (heads.length < 3) return;
+        table.dataset.v3cards = '';
+        table.querySelectorAll<HTMLTableRowElement>('tbody tr').forEach(tr => {
+          const cells = Array.from(tr.children) as HTMLTableCellElement[];
+          if (cells.length !== heads.length) { tr.dataset.v3full = ''; return; }
+          cells.forEach((td, i) => {
+            if (td.dataset.label !== heads[i]) td.dataset.label = heads[i];
+            const wide = i > 0 && WIDE_COL.test(heads[i]);
+            if (wide) td.dataset.v3wide = ''; else delete td.dataset.v3wide;
+          });
+        });
+      });
+    };
+    const schedule = () => { if (!raf) raf = requestAnimationFrame(label); };
+    schedule();
+    const mo = new MutationObserver(schedule);
+    mo.observe(root, { childList: true, subtree: true });
+    return () => { mo.disconnect(); if (raf) cancelAnimationFrame(raf); };
+  }, [pathname]);
+}
+
 /* ─────────────────────────── shell ─────────────────────────── */
 
 export default function ShellV3({ banners, children }: { banners?: React.ReactNode; children: React.ReactNode }) {
@@ -340,6 +396,8 @@ export default function ShellV3({ banners, children }: { banners?: React.ReactNo
       if (main) main.style.overflow = prev[1];
     };
   }, [drawer]);
+
+  usePhoneTables();
 
   const openAddBrand = React.useCallback(() => { setDrawer(false); setShowAddBrand(true); }, []);
 

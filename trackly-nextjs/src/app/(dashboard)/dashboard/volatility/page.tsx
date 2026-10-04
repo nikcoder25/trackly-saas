@@ -23,10 +23,10 @@ const PLATFORM_COLORS: Record<string, string> = {
 
 /** Bands mirror how the score is read, not arbitrary thirds. */
 function band(score: number | null): { tone: string; label: string } {
-  if (score === null) return { tone: 'neu', label: 'NO DATA' };
-  if (score >= 70) return { tone: 'neg', label: 'HIGH' };
-  if (score >= 40) return { tone: 'warn', label: 'ELEVATED' };
-  return { tone: 'acc', label: 'NORMAL' };
+  if (score === null) return { tone: 'neu', label: 'No data' };
+  if (score >= 70) return { tone: 'neg', label: 'High' };
+  if (score >= 40) return { tone: 'warn', label: 'Elevated' };
+  return { tone: 'acc', label: 'Normal' };
 }
 
 export default function VolatilityPage() {

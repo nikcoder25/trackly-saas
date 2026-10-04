@@ -1,11 +1,11 @@
-// v3 dashboard type. Self-hosted through next/font (served from our origin,
-// so the CSP needs no change). preload: false keeps the files off classic
-// pages; they only download once a v3 element actually uses the family.
-import { Geist, Geist_Mono, Instrument_Serif } from 'next/font/google';
+// Dashboard type. Apple devices render the system face (SF Pro) first; every
+// other platform gets Inter, self-hosted through next/font (served from our
+// origin, so the CSP needs no change). preload: false keeps the files off
+// classic pages; they only download once a dashboard element uses the family.
+import { Inter, Geist_Mono } from 'next/font/google';
 
-const geist = Geist({ subsets: ['latin'], weight: ['400', '500', '600', '700'], display: 'swap', variable: '--v3-font-sans', preload: false });
-const geistMono = Geist_Mono({ subsets: ['latin'], weight: ['400', '500', '600'], display: 'swap', variable: '--v3-font-mono', preload: false });
-const serif = Instrument_Serif({ subsets: ['latin'], weight: '400', style: ['normal', 'italic'], display: 'swap', variable: '--v3-font-serif', preload: false });
+const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600', '700'], display: 'swap', variable: '--v3-font-sans', preload: false });
+const mono = Geist_Mono({ subsets: ['latin'], weight: ['400', '500'], display: 'swap', variable: '--v3-font-mono', preload: false });
 
-/** Class names that define the three CSS variables on the v3 root. */
-export const v3FontVars = `${geist.variable} ${geistMono.variable} ${serif.variable}`;
+/** Class names that define the CSS font variables on the dashboard root. */
+export const v3FontVars = `${inter.variable} ${mono.variable}`;

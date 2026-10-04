@@ -13,18 +13,18 @@ export function PageGeoAudit() {
         <Card title="New audit" right={<Pill>Free on Team plan · 4/10 used this month</Pill>}>
           <div className="audit-form">
             <div className="aud-field">
-              <label className="eyebrow">DOMAIN</label>
+              <label className="eyebrow">Domain</label>
               <div style={{display:'flex',gap:0,alignItems:'stretch'}}>
                 <span className="mono" style={{padding:'10px 12px',background:'var(--surface-2)',border:'1px solid var(--line)',borderRight:'0',borderTopLeftRadius:5,borderBottomLeftRadius:5,color:'var(--mute)',fontSize:13}}>https://</span>
                 <input className="aud-input" defaultValue="acme.com" style={{borderTopLeftRadius:0,borderBottomLeftRadius:0}}/>
               </div>
             </div>
             <div className="aud-field">
-              <label className="eyebrow">QUERIES</label>
-              <Seg value="seeded" onChange={()=>{}} options={[{value:'seeded',label:'50 SEEDED'},{value:'tracked',label:'YOUR 142 PROMPTS'},{value:'custom',label:'CUSTOM LIST'}]}/>
+              <label className="eyebrow">Queries</label>
+              <Seg value="seeded" onChange={()=>{}} options={[{value:'seeded',label:'50 seeded'},{value:'tracked',label:'Your 142 prompts'},{value:'custom',label:'Custom list'}]}/>
             </div>
             <div className="aud-field">
-              <label className="eyebrow">ENGINES</label>
+              <label className="eyebrow">Engines</label>
               <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                 {PLATFORMS.map(p => (
                   <label key={p.id} className="aud-eng"><input type="checkbox" defaultChecked/><PlatformTile p={p} size={20}/>{p.name}</label>
@@ -32,7 +32,7 @@ export function PageGeoAudit() {
               </div>
             </div>
             <div className="aud-field">
-              <label className="eyebrow">REGION</label>
+              <label className="eyebrow">Region</label>
               <select className="sel" style={{width:'100%'}}><option>Global (US English)</option><option>UK</option><option>Germany</option><option>Brazil</option><option>India</option></select>
             </div>
             <div className="aud-cta">
@@ -45,7 +45,7 @@ export function PageGeoAudit() {
         <Card title="Latest audit · ran 4h ago" right={<><Badge tone="acc">SOV 27.4%</Badge><Pill>50 queries · 5 engines · 1m 32s</Pill></>}>
           <div className="aud-summary">
             <div className="aud-num">
-              <Donut value={27.4} size={140} label="OVERALL SOV"/>
+              <Donut value={27.4} size={140} label="Overall SOV"/>
               <div style={{marginTop:14,fontSize:11,color:'var(--mute)',textAlign:'center',fontFamily:'var(--mono)'}}>vs Top 3 competitors</div>
             </div>
             <div style={{display:'grid',gap:14,flex:1}}>
@@ -105,11 +105,11 @@ export function PageRegional() {
         actions={<><button className="btn-d">+ Add region</button><button className="btn-p">Run all regions</button></>}/>
       <div className="page-body">
         <KPIRail items={[
-          { k: 'REGIONS TRACKED', v: '10', d: +2 },
-          { k: 'STRONGEST', v: 'US · 27.4%', info: 'EN-speaking' },
-          { k: 'WEAKEST', v: 'JP · 4.2%', info: 'opportunity' },
+          { k: 'Regions tracked', v: '10', d: +2 },
+          { k: 'Strongest', v: 'US · 27.4%', info: 'EN-speaking' },
+          { k: 'Weakest', v: 'JP · 4.2%', info: 'opportunity' },
           { k: 'AVG. SOV',  v: '15.7%', d: +1.2 },
-          { k: 'LANGUAGES', v: '6' },
+          { k: 'Languages', v: '6' },
         ]}/>
 
         <Card title="Regions" padding={false}>
@@ -122,7 +122,7 @@ export function PageRegional() {
                     <div style={{fontWeight:600,fontSize:13}}>{r.name.split('·')[0]}</div>
                     <div className="mono dim" style={{fontSize:10}}>{r.name.split('·')[1]}</div>
                   </div>
-                  {!r.ok && <Badge tone="warn">PRO</Badge>}
+                  {!r.ok && <Badge tone="warn">Pro</Badge>}
                 </div>
                 <div className="reg-v mono">{r.sov}<i>%</i></div>
                 <Bar value={r.sov} max={30}/>
@@ -147,7 +147,7 @@ export function PageOnboarding() {
     <>
       <div className="page-head" style={{paddingTop:24}}>
         <div>
-          <div className="eyebrow" style={{color:'var(--primary)'}}>FIRST-RUN · 2 OF 5 MINUTES</div>
+          <div className="eyebrow" style={{color:'var(--primary)'}}>First-run · 2 of 5 minutes</div>
           <h1 className="page-t" style={{marginTop:6}}>Let's get Livesov watching your brand.</h1>
           <p className="page-s">Drop your domain - we'll detect your competitors, draft 50 buyer-intent prompts, and start tracking before you finish your coffee.</p>
         </div>
@@ -169,33 +169,33 @@ export function PageOnboarding() {
           <Card title="What's your domain?">
             <div style={{display:'grid',gap:18}}>
               <div className="fld">
-                <label className="eyebrow">PRIMARY DOMAIN</label>
+                <label className="eyebrow">Primary domain</label>
                 <div style={{display:'flex',alignItems:'stretch'}}>
                   <span className="mono" style={{padding:'12px 14px',background:'var(--surface-2)',border:'1px solid var(--line)',borderRight:0,borderTopLeftRadius:6,borderBottomLeftRadius:6,color:'var(--text-3)',fontSize:13}}>https://</span>
                   <input className="fld-in" style={{borderTopLeftRadius:0,borderBottomLeftRadius:0,fontFamily:'var(--mono)',padding:'12px 14px',fontSize:14}} defaultValue="acme.com"/>
                 </div>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
-                <div className="fld"><label className="eyebrow">CATEGORY</label><input className="fld-in" defaultValue="Project management software"/></div>
-                <div className="fld"><label className="eyebrow">PRIMARY REGION</label><select className="fld-in"><option>Global · US English</option><option>UK</option><option>Germany</option></select></div>
+                <div className="fld"><label className="eyebrow">Category</label><input className="fld-in" defaultValue="Project management software"/></div>
+                <div className="fld"><label className="eyebrow">Primary region</label><select className="fld-in"><option>Global · US English</option><option>UK</option><option>Germany</option></select></div>
               </div>
               <div className="ob-tip">
                 <span className="ob-tip-i">✨</span>
                 <div>We'll automatically pull your meta description, look at your category, and seed prompts based on what buyers actually ask AI engines about your space.</div>
               </div>
             </div>
-            <div className="ob-cta"><div/><button className="btn-p" onClick={()=>setStep(1)}>Continue → <span className="mono" style={{fontSize:10,opacity:0.7,marginLeft:6}}>ENTER</span></button></div>
+            <div className="ob-cta"><div/><button className="btn-p" onClick={()=>setStep(1)}>Continue → <span className="mono" style={{fontSize:10,opacity:0.7,marginLeft:6}}>Enter</span></button></div>
           </Card>
         )}
 
         {step === 1 && (
           <Card title="Confirm your brand details" right={<Badge tone="acc">DETECTED FROM acme.com</Badge>}>
             <div className="g2" style={{gridTemplateColumns:'1fr 1fr'}}>
-              <div className="fld"><label className="eyebrow">BRAND NAME</label><input className="fld-in" defaultValue="Acme PM"/></div>
-              <div className="fld"><label className="eyebrow">FOUNDED</label><input className="fld-in mono" defaultValue="2019"/></div>
+              <div className="fld"><label className="eyebrow">Brand name</label><input className="fld-in" defaultValue="Acme PM"/></div>
+              <div className="fld"><label className="eyebrow">Founded</label><input className="fld-in mono" defaultValue="2019"/></div>
               <div className="fld" style={{gridColumn:'span 2'}}><label className="eyebrow">ONE-LINER</label><input className="fld-in" defaultValue="Project management for engineering teams that doesn't suck."/></div>
               <div className="fld" style={{gridColumn:'span 2'}}>
-                <label className="eyebrow">ALIASES & MISSPELLINGS</label>
+                <label className="eyebrow">Aliases & misspellings</label>
                 <div className="tag-grid">
                   {['Acme', 'Acme PM', 'AcmePM', 'Acmee', 'AcmeProject'].map(t => (
                     <span key={t} className="ttag mono">{t} <span className="x">×</span></span>
@@ -263,14 +263,14 @@ export function PageOnboarding() {
         )}
 
         {step === 4 && (
-          <Card title="Ready to launch" right={<Badge tone="acc">ALL SET</Badge>}>
+          <Card title="Ready to launch" right={<Badge tone="acc">All set</Badge>}>
             <div className="ob-review">
-              <div className="rev-card"><div className="eyebrow">DOMAIN</div><div className="rev-v mono">acme.com</div></div>
-              <div className="rev-card"><div className="eyebrow">BRAND</div><div className="rev-v">Acme PM</div></div>
-              <div className="rev-card"><div className="eyebrow">COMPETITORS</div><div className="rev-v">5 brands</div></div>
-              <div className="rev-card"><div className="eyebrow">PROMPTS</div><div className="rev-v">50 seeded</div></div>
-              <div className="rev-card"><div className="eyebrow">ENGINES</div><div className="rev-v">5 / 5</div></div>
-              <div className="rev-card"><div className="eyebrow">SCHEDULE</div><div className="rev-v">Hourly</div></div>
+              <div className="rev-card"><div className="eyebrow">Domain</div><div className="rev-v mono">acme.com</div></div>
+              <div className="rev-card"><div className="eyebrow">Brand</div><div className="rev-v">Acme PM</div></div>
+              <div className="rev-card"><div className="eyebrow">Competitors</div><div className="rev-v">5 brands</div></div>
+              <div className="rev-card"><div className="eyebrow">Prompts</div><div className="rev-v">50 seeded</div></div>
+              <div className="rev-card"><div className="eyebrow">Engines</div><div className="rev-v">5 / 5</div></div>
+              <div className="rev-card"><div className="eyebrow">Schedule</div><div className="rev-v">Hourly</div></div>
             </div>
 
             <div className="ob-final">

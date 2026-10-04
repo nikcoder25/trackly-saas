@@ -147,11 +147,11 @@ export default function PlatformsPage() {
 
       <div className="page-body">
         <KPIRail items={[
-          { k: 'ACTIVE ENGINES', v: `${activePlatforms}/${totalPlatforms}` },
-          { k: 'HEALTHY', v: `${healthyCount}`, info: `of ${activePlatforms} active` },
-          { k: 'OVERALL SOV', v: `${overallSov}`, suffix: '%', term: 'sov', info: `${totalMentions} of ${totalQueries}` },
-          { k: 'MENTIONS', v: `${totalMentions}`, term: 'mention', info: `of ${totalQueries}` },
-          { k: 'ERRORS', v: `${totalErrors}`, danger: totalErrors > 0, info: totalErrors === 0 ? 'none' : 'total' },
+          { k: 'Active engines', v: `${activePlatforms}/${totalPlatforms}` },
+          { k: 'Healthy', v: `${healthyCount}`, info: `of ${activePlatforms} active` },
+          { k: 'Overall SOV', v: `${overallSov}`, suffix: '%', term: 'sov', info: `${totalMentions} of ${totalQueries}` },
+          { k: 'Mentions', v: `${totalMentions}`, term: 'mention', info: `of ${totalQueries}` },
+          { k: 'Errors', v: `${totalErrors}`, danger: totalErrors > 0, info: totalErrors === 0 ? 'none' : 'total' },
         ]} />
 
         {best && worst && best.name !== worst.name && (
@@ -186,21 +186,21 @@ export default function PlatformsPage() {
                 {hasData ? (
                   <div className="plat-grid">
                     <div>
-                      <div className="eyebrow">SHARE OF VOICE</div>
+                      <div className="eyebrow">Share of voice</div>
                       <div className="kpi-v mono" style={{ fontSize: 22 }}>{n.sov}<i>%</i></div>
                       {sovHistory.length >= 2
                         ? <Spark data={sovHistory} width={140} height={28} color={color} fill />
                         : <div className="mono" style={{ fontSize: 11, color: 'var(--mute)' }}>{n.mentions} mention{n.mentions === 1 ? '' : 's'} / {n.total} responses</div>}
                     </div>
                     <div>
-                      <div className="eyebrow">SUCCESS RATE</div>
+                      <div className="eyebrow">Success rate</div>
                       <div className="kpi-v mono" style={{ fontSize: 22 }}>{successRate !== null ? successRate : '-'}{successRate !== null && <i>%</i>}</div>
                       <div className="mono" style={{ fontSize: 11, color: 'var(--mute)' }}>
                         {stats && stats.totalCalls > 0 ? `last ${stats.totalCalls} calls` : 'no calls yet'}
                       </div>
                     </div>
                     <div>
-                      <div className="eyebrow">MENTIONS</div>
+                      <div className="eyebrow">Mentions</div>
                       <div className="kpi-v mono" style={{ fontSize: 22 }}>{n.mentions}<i> / {n.total}</i></div>
                       <Bar value={n.mentions} max={Math.max(n.total, 1)} color={color} />
                     </div>
@@ -221,7 +221,7 @@ export default function PlatformsPage() {
                   </div>
                 ) : (
                   <div style={{ textAlign: 'center', padding: '20px 0 8px' }}>
-                    <Badge tone="neu">NO DATA</Badge>
+                    <Badge tone="neu">No data</Badge>
                     <p className="mono" style={{ fontSize: 12, color: 'var(--mute)', marginTop: 10 }}>Run queries to see {name} results</p>
                   </div>
                 )}

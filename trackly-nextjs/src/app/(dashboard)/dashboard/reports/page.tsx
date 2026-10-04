@@ -49,7 +49,7 @@ export default function ReportsPage() {
   const load = useCallback((brandId: string) => {
     fetch(`/api/brands/${brandId}/report/items`, { credentials: 'include', cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
-      .then((d: Draft | null) => { if (d) { setDraft(d); setTitle(d.title || ''); setNote(d.note || ''); } })
+      .then((d: Draft | null) => { if (d) { setDraft({ ...d, items: Array.isArray(d.items) ? d.items : [] }); setTitle(d.title || ''); setNote(d.note || ''); } })
       .catch(() => { /* non-fatal */ });
   }, []);
 
@@ -301,7 +301,7 @@ export default function ReportsPage() {
               ) : (
                 <div className="tbl-wrap">
                   <table className="tbl">
-                    <thead><tr><th>QUERY</th><th className="right">SOV</th><th className="right">ENGINES</th><th /></tr></thead>
+                    <thead><tr><th>Query</th><th className="right">SOV</th><th className="right">Engines</th><th /></tr></thead>
                     <tbody>
                       {queries.map(it => {
                         const p = it.payload as Record<string, unknown>;

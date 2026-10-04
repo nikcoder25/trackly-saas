@@ -193,11 +193,11 @@ export default function QueryTrackerPage() {
       />
       <div className="page-body">
         <KPIRail items={[
-          { k: 'TRACKED', term: 'prompt', v: keywords.length },
-          { k: 'WINNING (VIS ≥ 30%)', v: winningCount },
-          { k: 'AT RISK (VIS < 15%)', v: atRiskCount, danger: atRiskCount > 0 },
-          { k: 'MISS RATE', v: missRate, suffix: '%' },
-          { k: 'TOTAL RUNS', v: totalRunsCount.toLocaleString() },
+          { k: 'Tracked', term: 'prompt', v: keywords.length },
+          { k: 'Winning (vis ≥ 30%)', v: winningCount },
+          { k: 'At risk (vis < 15%)', v: atRiskCount, danger: atRiskCount > 0 },
+          { k: 'Miss rate', v: missRate, suffix: '%' },
+          { k: 'Total runs', v: totalRunsCount.toLocaleString() },
         ]} />
 
         <Filter>
@@ -213,7 +213,7 @@ export default function QueryTrackerPage() {
           <Seg
             value={period}
             onChange={(p) => { setPeriod(p); setExpanded(null); setSortField(null); setFilterText(''); }}
-            options={[{ value: 'day', label: 'DAY' }, { value: 'week', label: 'WEEK' }, { value: 'month', label: 'MONTH' }]}
+            options={[{ value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }]}
           />
         </Filter>
 
@@ -233,12 +233,12 @@ export default function QueryTrackerPage() {
               <table className="tbl">
                 <thead><tr>
                   <th style={{ cursor: 'pointer' }} onClick={() => handleSort('keyword')}>QUERY{sortIcon('keyword')}</th>
-                  <th>STATUS</th>
+                  <th>Status</th>
                   <th style={{ cursor: 'pointer' }} onClick={() => handleSort('mentionRate')}>VISIBILITY{sortIcon('mentionRate')} <Info term="sov" /></th>
                   <th style={{ cursor: 'pointer' }} onClick={() => handleSort('change')}>Δ{sortIcon('change')}</th>
                   <th style={{ cursor: 'pointer' }} onClick={() => handleSort('totalRuns')}>MENTIONS{sortIcon('totalRuns')}</th>
                   <th style={{ cursor: 'pointer' }} onClick={() => handleSort('platformCount')}>ENGINES{sortIcon('platformCount')}</th>
-                  <th>TREND</th>
+                  <th>Trend</th>
                   <th className="right" style={{ cursor: 'pointer' }} onClick={() => handleSort('lastUpdated')}>UPDATED{sortIcon('lastUpdated')}</th>
                 </tr></thead>
                 <tbody>

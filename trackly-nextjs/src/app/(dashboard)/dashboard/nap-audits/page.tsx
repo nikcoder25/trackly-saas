@@ -59,7 +59,7 @@ function ProgressBadge({ done, total }: { done: number; total: number }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 120 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', letterSpacing: '.5px' }}>RUNNING</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', letterSpacing: '.5px' }}>Running</span>
         <span className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>
           {safeTotal > 0 ? `${safeDone}/${safeTotal}` : '…'}
         </span>
@@ -313,15 +313,15 @@ export default function NapAuditsPage() {
       <div className="page-body">
         {all.length > 0 && (
           <KPIRail items={[
-            { k: 'SAVED AUDITS', v: String(all.length) },
-            { k: 'CITATIONS CHECKED', v: String(citations) },
-            { k: 'AVG. CONSISTENCY', v: `${avg}/100` },
-            { k: 'CLEAN', v: String(clean) },
-            { k: 'WITH ISSUES', v: String(withIssues) },
-            { k: 'BLOCKED', v: String(blocked) },
-            { k: 'DEAD LINKS', v: String(deadOnly) },
-            { k: 'DUPLICATE LISTINGS', v: String(dupes) },
-            { k: 'NO SITE LINK', v: String(noLink) },
+            { k: 'Saved audits', v: String(all.length) },
+            { k: 'Citations checked', v: String(citations) },
+            { k: 'Avg. consistency', v: `${avg}/100` },
+            { k: 'Clean', v: String(clean) },
+            { k: 'With issues', v: String(withIssues) },
+            { k: 'Blocked', v: String(blocked) },
+            { k: 'Dead links', v: String(deadOnly) },
+            { k: 'Duplicate listings', v: String(dupes) },
+            { k: 'No site link', v: String(noLink) },
           ]} />
         )}
 
@@ -334,7 +334,7 @@ export default function NapAuditsPage() {
             </div>
           </Card>
         ) : error ? (
-          <Card title="Audits" right={<Badge tone="neg">ERROR</Badge>}>
+          <Card title="Audits" right={<Badge tone="neg">Error</Badge>}>
             <div style={{ textAlign: 'center', padding: 24 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--danger)', marginBottom: 4 }}>Couldn&apos;t load audits</div>
               <div className="quiet" style={{ fontSize: 12, marginBottom: 14 }}>{error}</div>
@@ -378,11 +378,11 @@ export default function NapAuditsPage() {
                       </td>
                       <td style={{ padding: '12px 14px', minWidth: 140 }}>
                         {a.status === 'queued' ? (
-                          <Badge tone="neu">QUEUED</Badge>
+                          <Badge tone="neu">Queued</Badge>
                         ) : a.status === 'running' ? (
                           <ProgressBadge done={a.progressDone} total={a.urlCount} />
                         ) : a.status === 'failed' ? (
-                          <Badge tone="neg">FAILED</Badge>
+                          <Badge tone="neg">Failed</Badge>
                         ) : (
                           <Badge tone={scoreTone(a.score)}>{a.score == null ? '-' : `${a.score}/100`}</Badge>
                         )}

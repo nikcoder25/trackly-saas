@@ -193,10 +193,10 @@ export default function MentionsPage() {
         ) : (
           <>
             <KPIRail items={[
-              { k: 'MENTION RATE', term: 'mention', v: `${sovPct}%`, info: 'excludes errored queries' },
-              { k: 'FOUND / TOTAL', v: `${found.length}/${statsSource.length}` },
-              { k: 'PLATFORMS', v: Object.keys(platformCounts).length },
-              { k: 'RECOMMENDED', v: `${recPct}%` },
+              { k: 'Mention rate', term: 'mention', v: `${sovPct}%`, info: 'excludes errored queries' },
+              { k: 'Found / total', v: `${found.length}/${statsSource.length}` },
+              { k: 'Platforms', v: Object.keys(platformCounts).length },
+              { k: 'Recommended', v: `${recPct}%` },
             ]} />
 
             <Filter>
@@ -205,11 +205,11 @@ export default function MentionsPage() {
                 <input placeholder="Filter mentions, queries, sources…" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
               </div>
               <Seg value={filter} onChange={v => setFilter(v as FilterMode)} options={[
-                { value: 'all', label: 'ALL' },
-                { value: 'mentioned', label: 'MENTIONED' },
-                { value: 'not_mentioned', label: 'NOT MENTIONED' },
-                { value: 'recommended', label: 'RECOMMENDED' },
-                { value: 'errors', label: 'ERRORS' },
+                { value: 'all', label: 'All' },
+                { value: 'mentioned', label: 'Mentioned' },
+                { value: 'not_mentioned', label: 'Not mentioned' },
+                { value: 'recommended', label: 'Recommended' },
+                { value: 'errors', label: 'Errors' },
               ]} />
               <select className="sel" value={platformFilter} onChange={e => setPlatformFilter(e.target.value)}>
                 <option value="all">All engines</option>
@@ -237,11 +237,11 @@ export default function MentionsPage() {
                   <table className="tbl">
                     <thead>
                       <tr>
-                        <th>ENGINE</th>
-                        <th>QUERY</th>
-                        <th>VERDICT <Info>How you showed up in this answer - found, not found, or an error.</Info></th>
-                        <th>SENTIMENT <Info term="sentiment" /></th>
-                        <th>POSITION <Info term="position" /></th>
+                        <th>Engine</th>
+                        <th>Query</th>
+                        <th>Verdict <Info>How you showed up in this answer - found, not found, or an error.</Info></th>
+                        <th>Sentiment <Info term="sentiment" /></th>
+                        <th>Position <Info term="position" /></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -258,7 +258,7 @@ export default function MentionsPage() {
                             <tr role={responseText || r.error ? 'button' : undefined} tabIndex={responseText || r.error ? 0 : undefined} style={{ cursor: responseText || r.error ? 'pointer' : 'default' }} onClick={() => { if (responseText || r.error) setExpandedRow(isExpanded ? null : globalIdx); }} onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && (responseText || r.error)) { e.preventDefault(); setExpandedRow(isExpanded ? null : globalIdx); } }}>
                               <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><PlatformTile p={pl} size={22} /> <b>{r.platform}</b></span></td>
                               <td><span style={{ color: 'var(--text)' }}>{r.query}</span></td>
-                              <td>{r.error ? <Badge tone="warn">ERROR</Badge> : r.mentioned ? <Badge tone="pos">FOUND</Badge> : <Badge tone="miss">NOT FOUND</Badge>}{!r.error && r.recommended && <Badge tone="acc" style={{ marginLeft: 6 }}>REC</Badge>}</td>
+                              <td>{r.error ? <Badge tone="warn">Error</Badge> : r.mentioned ? <Badge tone="pos">Found</Badge> : <Badge tone="miss">Not found</Badge>}{!r.error && r.recommended && <Badge tone="acc" style={{ marginLeft: 6 }}>Rec</Badge>}</td>
                               <td>{r.error || !r.mentioned ? <span className="dim">-</span> : <span className={sentTone}>{r.sentiment ? r.sentiment.charAt(0).toUpperCase() + r.sentiment.slice(1) : '-'}</span>}</td>
                               <td className="num">{posLabel === 'N/A' ? <span title="No numbered list detected in this response" className="dim" style={{ cursor: 'help', borderBottom: '1px dotted var(--mute)' }}>N/A</span> : posLabel}</td>
                             </tr>

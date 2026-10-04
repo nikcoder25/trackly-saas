@@ -330,9 +330,9 @@ export default function CompetitorsPage() {
                   <div key={c.domain} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px auto', gap: 12, alignItems: 'center' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                       <span className="mono" style={{ fontSize: 12.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.domain}</span>
-                      {c.is_competitor && <Badge tone="acc">TRACKED</Badge>}
-                      {c.domain_type === 'review_site' && <Badge tone="info">REVIEW</Badge>}
-                      {c.domain_type === 'news' && <Badge tone="warn">NEWS</Badge>}
+                      {c.is_competitor && <Badge tone="acc">Tracked</Badge>}
+                      {c.domain_type === 'review_site' && <Badge tone="info">Review</Badge>}
+                      {c.domain_type === 'news' && <Badge tone="warn">News</Badge>}
                     </span>
                     <Bar value={Number(c.total)} max={maxTotal} color={c.is_competitor ? 'var(--primary)' : 'var(--info)'} />
                     <span className="mono" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, whiteSpace: 'nowrap', fontSize: 12, color: 'var(--text)' }}>
@@ -414,7 +414,7 @@ export default function CompetitorsPage() {
             <div className="tbl-wrap">
               <table className="tbl">
                 <thead><tr>
-                  <th>RANK</th><th>BRAND</th><th>SOV</th><th>MENTIONS</th><th>SOV TREND</th>
+                  <th>Rank</th><th>Brand</th><th>SOV</th><th>Mentions</th><th>SOV trend</th>
                 </tr></thead>
                 <tbody>
                   {leaderboard.map((c, i) => (
@@ -424,7 +424,7 @@ export default function CompetitorsPage() {
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ width: 10, height: 10, background: c.color, borderRadius: 2, display: 'inline-block' }} />
                           <b style={{ color: c.me ? 'var(--primary)' : 'var(--text)' }}>{c.name}</b>
-                          {c.me && <Badge tone="acc">YOU</Badge>}
+                          {c.me && <Badge tone="acc">You</Badge>}
                         </span>
                       </td>
                       <td className="num"><b>{c.sov}%</b></td>

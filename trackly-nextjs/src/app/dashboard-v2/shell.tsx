@@ -278,7 +278,7 @@ export function Topbar({ brandName = 'Acme PM', brandMeta = '3 / 5' }: { brandNa
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 6C3 3.8 4.8 2 7 2C9.2 2 11 3.8 11 6V8L12 10H2L3 8V6Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" fill="none" /><path d="M5.5 11.5C5.5 12.3 6.2 13 7 13C7.8 13 8.5 12.3 8.5 11.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none" /></svg>
           <span className="dot" />
         </button>
-        <span className="plan-badge">TEAM</span>
+        <span className="plan-badge">Team</span>
         <button className="avatar">N</button>
       </div>
     </header>
@@ -367,7 +367,7 @@ export function WhatChangedRecap() {
           <svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 2L12 12M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
         </button>
         <div className="recap-hd">
-          <div className="recap-eyebrow eyebrow">SINCE YOU WERE GONE</div>
+          <div className="recap-eyebrow eyebrow">Since you were gone</div>
           <h2 className="recap-title">Welcome back, Nikhil.</h2>
           <p className="recap-sub">Here&rsquo;s what moved while you were away - tap any item to jump straight to it.</p>
         </div>
@@ -450,7 +450,7 @@ export function GoalCard({ current = 27.4, brandId, brandGoal, onSaved }: {
     <section className="goal-card">
       <div className="goal-top">
         <div>
-          <div className="eyebrow" style={{ display: 'flex', alignItems: 'center' }}>YOUR GOAL <Info term="sov" /></div>
+          <div className="eyebrow" style={{ display: 'flex', alignItems: 'center' }}>Your goal <Info term="sov" /></div>
           {editing ? (
             <div className="goal-edit">
               <span>Reach</span>
