@@ -4,7 +4,13 @@ Customers connect AI apps (Claude Code, Claude Desktop, Cursor, VS Code and
 other MCP clients) to their Livesov data.
 
 - Endpoint: `POST /api/mcp` (Streamable HTTP, stateless JSON responses)
-- Auth: `Authorization: Bearer lsv_...` personal API key (or `x-api-key`)
+- Auth, either:
+  - OAuth 2.1 (claude.ai, Claude Desktop and ChatGPT connectors): the app
+    discovers `/.well-known/oauth-protected-resource`, registers itself at
+    `/api/oauth/register`, sends the user to `/oauth/authorize` (consent
+    screen), then swaps the code at `/api/oauth/token` with PKCE S256.
+    Access tokens `lsva_…` last 1 hour; refresh tokens rotate and last 30 days.
+  - Personal API key: `Authorization: Bearer lsv_...` (or `x-api-key`)
 - Keys: created and deleted in Account & Plan (`/api/api-keys`). Only the
   sha256 hash is stored; the plaintext is shown once. Max 10 active keys.
 - Limits: 120 requests per minute per key, plus the normal per-route limits.
@@ -42,5 +48,14 @@ npx @modelcontextprotocol/inspector --cli https://livesov.com/api/mcp \
   --transport http --header "Authorization: Bearer lsv_..." --method tools/list
 ```
 
-Not yet supported: clients that only accept OAuth (claude.ai web connectors,
-ChatGPT connectors). Adding OAuth 2.1 to this endpoint is the next step.
+## OAuth details
+
+- Code: `src/lib/oauth.ts` (storage, PKCE, codes, tokens), `src/lib/oauth-http.ts`
+  (CORS, metadata), routes under `src/app/api/oauth/`, metadata under
+  `src/app/.well-known/`, consent page `src/app/oauth/authorize/`.
+- Public clients only, exact redirect URI match, https or loopback http.
+- Codes are single use (claimed atomically) and expire in 10 minutes.
+- Every code and token is stored as a sha256 digest.
+- Users see and disconnect apps under Account & Plan; disconnecting revokes
+  every token that app holds.
+- Set `APP_URL` in production so metadata documents carry the public origin.

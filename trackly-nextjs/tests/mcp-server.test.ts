@@ -192,3 +192,30 @@ describe('API key helpers', () => {
     expect(cleanKeyName('x'.repeat(200))).toHaveLength(60);
   });
 });
+
+describe('OAuth helpers', async () => {
+  const { isAllowedRedirectUri, pkceChallenge, isValidVerifier, isValidChallenge, looksLikeAccessToken } = await import('@/lib/oauth');
+
+  it('allows https and loopback http redirect URIs only', () => {
+    expect(isAllowedRedirectUri('https://claude.ai/api/mcp/auth_callback')).toBe(true);
+    expect(isAllowedRedirectUri('http://localhost:6274/oauth/callback')).toBe(true);
+    expect(isAllowedRedirectUri('http://127.0.0.1:33418/')).toBe(true);
+    expect(isAllowedRedirectUri('http://evil.com/cb')).toBe(false);
+    expect(isAllowedRedirectUri('javascript:alert(1)')).toBe(false);
+    expect(isAllowedRedirectUri('https://a.com/cb#frag')).toBe(false);
+    expect(isAllowedRedirectUri('https://user:pw@a.com/cb')).toBe(false);
+  });
+
+  it('computes the RFC 7636 S256 challenge', () => {
+    // Test vector from RFC 7636 appendix B.
+    expect(pkceChallenge('dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk')).toBe('E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM');
+    expect(isValidVerifier('dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk')).toBe(true);
+    expect(isValidVerifier('short')).toBe(false);
+    expect(isValidChallenge('E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM')).toBe(true);
+  });
+
+  it('recognises access tokens by shape', () => {
+    expect(looksLikeAccessToken('lsva_' + 'a'.repeat(43))).toBe(true);
+    expect(looksLikeAccessToken('lsv_' + 'a'.repeat(43))).toBe(false);
+  });
+});

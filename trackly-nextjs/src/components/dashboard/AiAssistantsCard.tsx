@@ -1,15 +1,17 @@
 'use client';
-// Account page: personal API keys + copy-paste setup for the Livesov MCP
-// server, so customers can ask Claude, Cursor and other MCP apps about their AI
-// visibility.
+// Account page: connect AI apps to the Livesov MCP server, either by signing
+// in from the app (OAuth: claude.ai, Claude Desktop, ChatGPT) or with a
+// personal API key (Claude Code, Cursor, VS Code). Lists connected apps and
+// keys so either can be revoked.
 
 import { useCallback, useEffect, useState } from 'react';
 import { Card, Badge, Seg } from '@/app/dashboard-v2/ui';
 import { useToast } from '@/components/dashboard/Toast';
 
 interface ApiKey { id: string; name: string; hint: string; createdAt: string; lastUsedAt: string | null }
+interface ConnectedApp { clientId: string; name: string; connectedAt: string; lastUsedAt: string | null }
 
-type Client = 'claude-code' | 'claude-desktop' | 'cursor' | 'vscode' | 'other';
+type Client = 'claude-code' | 'cursor' | 'vscode' | 'other';
 
 const PLACEHOLDER = 'YOUR_API_KEY';
 
@@ -17,16 +19,6 @@ function snippet(client: Client, url: string, key: string): string {
   switch (client) {
     case 'claude-code':
       return `claude mcp add --transport http livesov ${url} \\\n  --header "Authorization: Bearer ${key}"`;
-    case 'claude-desktop':
-      return JSON.stringify({
-        mcpServers: {
-          livesov: {
-            command: 'npx',
-            args: ['-y', 'mcp-remote', url, '--header', 'Authorization:${LIVESOV_AUTH}'],
-            env: { LIVESOV_AUTH: `Bearer ${key}` },
-          },
-        },
-      }, null, 2);
     case 'cursor':
       return JSON.stringify({ mcpServers: { livesov: { url, headers: { Authorization: `Bearer ${key}` } } } }, null, 2);
     case 'vscode':
@@ -38,7 +30,6 @@ function snippet(client: Client, url: string, key: string): string {
 
 const WHERE: Record<Client, string> = {
   'claude-code': 'Run this in your terminal.',
-  'claude-desktop': 'Claude Desktop → Settings → Developer → Edit config. Paste into claude_desktop_config.json, then restart Claude. Needs Node.js installed.',
   cursor: 'Cursor → Settings → MCP → Add new server, or paste into ~/.cursor/mcp.json.',
   vscode: 'Paste into .vscode/mcp.json in your project (VS Code with Copilot agent mode).',
   other: 'Use these details in any app that supports remote MCP servers with a custom header.',
@@ -66,6 +57,8 @@ export default function AiAssistantsCard() {
   const [client, setClient] = useState<Client>('claude-code');
   const [origin, setOrigin] = useState('https://livesov.com');
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [apps, setApps] = useState<ConnectedApp[]>([]);
+  const [confirmApp, setConfirmApp] = useState<string | null>(null);
 
   useEffect(() => { setOrigin(window.location.origin); }, []);
   const url = `${origin}/api/mcp`;
@@ -77,6 +70,19 @@ export default function AiAssistantsCard() {
     } finally { setLoaded(true); }
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  const loadApps = useCallback(async () => {
+    const res = await fetch('/api/oauth/connections', { credentials: 'include', cache: 'no-store' }).catch(() => null);
+    if (res?.ok) { const d = await res.json(); setApps(d.apps || []); }
+  }, []);
+  useEffect(() => { loadApps(); }, [loadApps]);
+
+  const disconnect = async (clientId: string) => {
+    setConfirmApp(null);
+    const res = await fetch(`/api/oauth/connections/${encodeURIComponent(clientId)}`, { method: 'DELETE', credentials: 'include' });
+    if (res.ok) { toast('App disconnected', 'success'); await loadApps(); }
+    else toast('Could not disconnect the app', 'error');
+  };
 
   const create = async () => {
     setBusy(true);
@@ -103,14 +109,43 @@ export default function AiAssistantsCard() {
 
   return (
     <Card title="Connect AI assistants" right={<Badge tone="acc">MCP</Badge>}
-      lede="Ask Claude, Cursor and other AI apps about your AI visibility, rivals and fixes, using your live Livesov data.">
+      lede="Ask Claude, ChatGPT, Cursor and other AI apps about your visibility, rivals and fixes, using your live Livesov data.">
       <div className="aic">
-        <ol className="aic-steps">
-          <li><b>Create a key.</b> It works like a password for your account, so keep it private.</li>
-          <li><b>Add Livesov to your app</b> with the setup below.</li>
-          <li><b>Ask a question</b>, like &ldquo;Which buyer questions am I losing to rivals?&rdquo;</li>
-        </ol>
+        <section className="aic-way" aria-labelledby="aic-way1">
+          <h3 id="aic-way1" className="aic-way-t"><span className="aic-n">1</span>Sign in from the app <span className="aic-tag">Easiest</span></h3>
+          <p className="aic-note">For <b>claude.ai</b>, <b>Claude Desktop</b> and <b>ChatGPT</b>. Add a custom connector with this address, then sign in to Livesov when the app asks.</p>
+          <div className="aic-keybox aic-url">
+            <code>{url}</code>
+            <button type="button" className="btn-g" onClick={() => copy(url, toast)}>Copy address</button>
+          </div>
+          <p className="aic-note">Claude: Settings → Connectors → Add custom connector. ChatGPT: Settings → Apps &amp; Connectors → Create (developer mode).</p>
+          {apps.length > 0 && (
+            <div className="aic-keys">
+              <div className="aic-label">Connected apps</div>
+              <ul>
+                {apps.map(a => (
+                  <li key={a.clientId}>
+                    <span className="aic-kname">{a.name}</span>
+                    <span />
+                    <span className="aic-kmeta">Connected {when(a.connectedAt)} · {a.lastUsedAt ? `Last used ${when(a.lastUsedAt)}` : 'Not used yet'}</span>
+                    {confirmApp === a.clientId ? (
+                      <span className="aic-confirm">
+                        <button type="button" className="btn-d btn-danger" onClick={() => disconnect(a.clientId)}>Disconnect</button>
+                        <button type="button" className="btn-d" onClick={() => setConfirmApp(null)}>Keep</button>
+                      </span>
+                    ) : (
+                      <button type="button" className="btn-d" onClick={() => setConfirmApp(a.clientId)} aria-label={`Disconnect ${a.name}`}>Disconnect</button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
 
+        <section className="aic-way" aria-labelledby="aic-way2">
+          <h3 id="aic-way2" className="aic-way-t"><span className="aic-n">2</span>Use an API key</h3>
+          <p className="aic-note">For <b>Claude Code</b>, <b>Cursor</b>, <b>VS Code</b> and scripts. A key works like a password for your account, so keep it private.</p>
         <div className="aic-create">
           <label htmlFor="aic-name" className="aic-label">Key name</label>
           <div className="aic-row">
@@ -138,7 +173,6 @@ export default function AiAssistantsCard() {
           <div className="aic-label">Setup</div>
           <Seg value={client} onChange={v => setClient(v as Client)} options={[
             { value: 'claude-code', label: 'Claude Code' },
-            { value: 'claude-desktop', label: 'Claude Desktop' },
             { value: 'cursor', label: 'Cursor' },
             { value: 'vscode', label: 'VS Code' },
             { value: 'other', label: 'Other' },
@@ -174,11 +208,19 @@ export default function AiAssistantsCard() {
             </ul>
           )}
         </div>
+        </section>
       </div>
       <style>{`
         .aic { display: flex; flex-direction: column; gap: 20px; }
-        .aic-steps { margin: 0; padding-left: 22px; list-style: decimal; display: grid; gap: 6px; font-size: 14px; color: var(--text-2); }
-        .aic-steps b { color: var(--text); font-weight: 600; }
+        .aic-way .aic-keys { margin-top: 4px; }
+        .aic-way { display: flex; flex-direction: column; gap: 12px; }
+        .aic-way + .aic-way { padding-top: 20px; border-top: 1px solid var(--line); }
+        .aic-way-t { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+        .aic-n { width: 24px; height: 24px; border-radius: 50%; background: var(--primary-50); color: var(--primary); display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+        .aic-tag { font-size: 11.5px; font-weight: 600; color: var(--success); background: var(--success-50); padding: 3px 8px; border-radius: 99px; }
+        .aic-note b { color: var(--text); font-weight: 600; }
+        .aic-way > .aic-note { margin: 0; }
+        .aic-url code { background: var(--surface-2) !important; }
         .aic-label { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
         .aic-row { display: flex; gap: 8px; flex-wrap: wrap; }
         .aic-row .fld-in { flex: 1 1 240px; min-width: 0; padding: 0 12px; }

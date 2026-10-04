@@ -1,9 +1,11 @@
 /**
  * Livesov MCP server (Model Context Protocol, Streamable HTTP, stateless).
  *
- * Clients (Claude, Cursor, VS Code and others) POST JSON-RPC here with a
- * personal API key: `Authorization: Bearer lsv_...`. Cookies are never read,
- * so the route is exempt from the cookie CSRF check in middleware.
+ * Clients (Claude, Cursor, VS Code and others) POST JSON-RPC here with
+ * either a personal API key (`Authorization: Bearer lsv_...`) or an OAuth
+ * access token from /api/oauth/token (`lsva_...`, used by claude.ai and
+ * ChatGPT connectors). Cookies are never read, so the route is exempt from
+ * the cookie CSRF check in middleware.
  *
  * Tools call the app's own route handlers in-process with a short-lived
  * access token minted for the key's owner. That keeps one source of truth
@@ -11,6 +13,8 @@
  */
 import { signAccessToken } from '@/lib/auth';
 import { resolveApiKey } from '@/lib/api-keys';
+import { resolveAccessToken, issuerFor } from '@/lib/oauth';
+import { CORS_HEADERS, preflight } from '@/lib/oauth-http';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { handleBody, parseError, SERVER_INFO } from '@/lib/mcp/protocol';
 import { TOOLS, type McpContext } from '@/lib/mcp/tools';
@@ -41,14 +45,16 @@ const ROUTES: { method: 'GET' | 'POST' | 'PUT'; pattern: RegExp; keys: string[];
 ];
 
 function json(body: unknown, status = 200, headers: Record<string, string> = {}) {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...headers } });
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...CORS_HEADERS, ...headers } });
 }
 
-function unauthorized(message: string) {
+/** 401 that points OAuth clients at our metadata (RFC 9728) so they can start the login flow. */
+function unauthorized(request: Request, message: string, invalidToken: boolean) {
+  const meta = `${issuerFor(request)}/.well-known/oauth-protected-resource`;
   return json(
     { jsonrpc: '2.0', id: null, error: { code: -32001, message } },
     401,
-    { 'WWW-Authenticate': 'Bearer realm="livesov", error="invalid_token"' },
+    { 'WWW-Authenticate': `Bearer realm="livesov", resource_metadata="${meta}"${invalidToken ? ', error="invalid_token"' : ''}` },
   );
 }
 
@@ -89,10 +95,12 @@ function makeContext(request: Request, owner: { userId: string; email: string; r
 
 export async function POST(request: Request) {
   const key = readKey(request);
-  if (!key) return unauthorized('Missing API key. Create one in Livesov under Account & Plan, then send it as "Authorization: Bearer <key>".');
-  const owner = await resolveApiKey(key).catch(() => null);
-  if (!owner) return unauthorized('This API key is not valid or was deleted. Create a new one in Livesov under Account & Plan.');
-  if (!owner.emailVerified) return unauthorized('Verify your email address in Livesov before using the API.');
+  if (!key) return unauthorized(request, 'Sign in required. Connect Livesov from your AI app, or send a personal API key as "Authorization: Bearer <key>" (create one under Account & Plan).', false);
+  const owner = key.startsWith('lsva_')
+    ? await resolveAccessToken(key).then(o => o && { ...o, keyId: `oauth:${o.tokenId}` }).catch(() => null)
+    : await resolveApiKey(key).catch(() => null);
+  if (!owner) return unauthorized(request, 'This key or sign-in is not valid any more. Reconnect Livesov, or create a new API key under Account & Plan.', true);
+  if (!owner.emailVerified) return unauthorized(request, 'Verify your email address in Livesov before using the API.', true);
 
   const rl = await rateLimit(`mcp:${owner.keyId}`, 60_000, 120).catch(() => ({ allowed: true, retryAfter: 0 }));
   if (!rl.allowed) {
@@ -103,7 +111,7 @@ export async function POST(request: Request) {
   try { body = await request.json(); } catch { return json(parseError(), 400); }
 
   const out = await handleBody(body, TOOLS, makeContext(request, owner));
-  if (out == null) return new Response(null, { status: 202 });
+  if (out == null) return new Response(null, { status: 202, headers: CORS_HEADERS });
   return json(out);
 }
 
@@ -114,5 +122,7 @@ export async function GET() {
 
 /** Stateless: there is no session to end. */
 export async function DELETE() {
-  return new Response(null, { status: 405, headers: { Allow: 'POST' } });
+  return new Response(null, { status: 405, headers: { Allow: 'POST', ...CORS_HEADERS } });
 }
+
+export function OPTIONS() { return preflight(); }
