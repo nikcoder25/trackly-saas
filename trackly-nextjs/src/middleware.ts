@@ -30,6 +30,10 @@ const CSRF_EXEMPT_PREFIXES = [
   // single-use code server-to-server (no cookies, no Origin header), so the
   // same-origin check would 403 every legitimate exchange.
   '/api/connect/connector/exchange',
+  // MCP server: authenticates only with a personal API key in the
+  // Authorization header and never reads cookies, so there is no session
+  // for a cross-site request to ride. AI clients send no Origin header.
+  '/api/mcp',
 ];
 
 // /api/connect/[key]/heartbeat — posted cross-origin from the customer's own
