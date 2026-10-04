@@ -30,6 +30,17 @@ const CSRF_EXEMPT_PREFIXES = [
   // single-use code server-to-server (no cookies, no Origin header), so the
   // same-origin check would 403 every legitimate exchange.
   '/api/connect/connector/exchange',
+  // MCP server: authenticates only with a personal API key in the
+  // Authorization header and never reads cookies, so there is no session
+  // for a cross-site request to ride. AI clients send no Origin header.
+  '/api/mcp',
+  // OAuth endpoints MCP clients call server-to-server (or from their own
+  // origin): registration, token exchange and revocation authenticate with
+  // codes/tokens in the body and never read cookies. /api/oauth/authorize
+  // (the consent POST) is cookie-authenticated and keeps CSRF enforcement.
+  '/api/oauth/register',
+  '/api/oauth/token',
+  '/api/oauth/revoke',
 ];
 
 // /api/connect/[key]/heartbeat — posted cross-origin from the customer's own
@@ -472,8 +483,22 @@ export async function middleware(request: NextRequest) {
   }
 
   // If user is on auth page but already logged in, redirect to dashboard
+  // An OAuth consent hand-off (/login?redirect=/oauth/authorize...) resumes
+  // there instead of dropping the user on the dashboard.
   if (authPaths.some((p) => pathname.startsWith(p)) && hasValidToken) {
-    const redirect = NextResponse.redirect(new URL('/dashboard', request.url));
+    const back = request.nextUrl.searchParams.get('redirect') || '';
+    const target = back.startsWith('/oauth/authorize?') ? back : '/dashboard';
+    const redirect = NextResponse.redirect(new URL(target, request.url));
+    applyCspHeaders(redirect, nonce, csp, requestId);
+    return redirect;
+  }
+
+  // OAuth consent for MCP clients: sign in first, then come back to the
+  // same authorize URL (login honours ?redirect= for same-site paths).
+  if (pathname === '/oauth/authorize' && !hasValidToken) {
+    const login = new URL('/login', request.url);
+    login.searchParams.set('redirect', pathname + request.nextUrl.search);
+    const redirect = NextResponse.redirect(login);
     applyCspHeaders(redirect, nonce, csp, requestId);
     return redirect;
   }

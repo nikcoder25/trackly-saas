@@ -8,6 +8,7 @@ import { useBrands } from '@/contexts/BrandContext';
 import { PRICING_PLANS, BILLING_PORTAL_URL } from '@/lib/constants';
 import { useToast } from '@/components/dashboard/Toast';
 import { Card, Badge, PageHead, Pill } from '@/app/dashboard-v2/ui';
+import AiAssistantsCard from '@/components/dashboard/AiAssistantsCard';
 
 interface BillingEntry {
   date: string;
@@ -423,6 +424,9 @@ export default function AccountPage() {
             </div>
           </Card>
         </div>
+
+        {/* API keys + MCP setup */}
+        <AiAssistantsCard />
 
         {/* Choose your plan */}
         <Card title="Choose your plan" right={<Pill tone="acc">Current · {plan.toUpperCase()}</Pill>}>
