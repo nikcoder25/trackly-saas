@@ -416,12 +416,13 @@ export default function ResultsPage() {
               </Card>
             ) : (
               <>
+              <div className="res-list">
               {slice.map(r => {
                 const p = platformFor(r.model);
                 const expanded = expandedId === r.id;
                 const toggle = () => setExpandedId(expanded ? null : r.id);
                 return (
-                  <div key={r.id} className="card" style={{ padding: 0, marginBottom: 8, overflow: 'hidden' }}>
+                  <div key={r.id} className="card res-item" style={{ padding: 0, marginBottom: 8, overflow: 'hidden' }}>
                     {/* Collapsed one-line row: platform + status + query + timestamp */}
                     <div
                       role="button" tabIndex={0} aria-expanded={expanded}
@@ -430,9 +431,9 @@ export default function ResultsPage() {
                       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }}
                       style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer' }}
                     >
-                      <span aria-hidden="true" style={{ color: 'var(--muted)', fontSize: 10, width: 12, flexShrink: 0 }}>{expanded ? '▾' : '▸'}</span>
+                      <span aria-hidden="true" className="res-caret" style={{ color: 'var(--muted)', fontSize: 10, width: 12, flexShrink: 0 }}>{expanded ? '▾' : '▸'}</span>
                       <PlatformTile p={p} size={22} />
-                      <span style={{ fontSize: 12, fontWeight: 700, color: PLATFORM_COLORS[r.model] || 'var(--text)', minWidth: 84, flexShrink: 0 }}>{p.name}</span>
+                      <span className="res-eng" style={{ fontSize: 12, fontWeight: 700, color: PLATFORM_COLORS[r.model] || 'var(--text)', minWidth: 84, flexShrink: 0 }}>{p.name}</span>
                       <StatusBadge status={r.status} />
                       <span className="mono res-q" style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         <span className="dim">Query ›</span> &ldquo;{r.prompt}&rdquo;
@@ -481,6 +482,7 @@ export default function ResultsPage() {
                   </div>
                 );
               })}
+              </div>
               {/* Footer controls - mirror the top bar; shared page/size state. */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>
                 <span className="mono dim" style={{ fontSize: 11 }}>

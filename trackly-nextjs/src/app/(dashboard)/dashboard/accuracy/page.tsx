@@ -487,7 +487,7 @@ export default function AccuracyPage() {
 
   function getExpected(issue: Issue): string {
     if (issue.expected) return issue.expected;
-    const baseKey = stripCategorySuffix(issue.fact_key);
+    const baseKey = stripCategorySuffix(issue.fact_key ?? '');
     return expectedLookup.get(baseKey) || expectedLookup.get(normalizeKey(baseKey)) || '';
   }
 

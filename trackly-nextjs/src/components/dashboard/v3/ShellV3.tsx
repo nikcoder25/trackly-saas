@@ -298,6 +298,54 @@ function LegacyEyebrow() {
   return <div className="v3-page-eyebrow">{v3PageMeta(pathname).eyebrow}</div>;
 }
 
+/* ─────────────────────────── phone tables ─────────────────────────── */
+
+/** Columns whose cell should span the whole card row on phones. */
+const WIDE_COL = /query|prompt|question|domain|source|page|title|claim|answer|name|url|event|description/i;
+
+/**
+ * Data tables turn into stacked cards on phones (see `table[data-v3cards]` in
+ * v3.css). CSS cannot read a column's header from a cell, so this copies
+ * each header's text onto its cells as `data-label`. Runs on route changes
+ * and whenever a page re-renders its rows. Data attributes, not classes:
+ * React rewrites className on re-render but leaves unknown attributes alone.
+ */
+function usePhoneTables() {
+  const pathname = usePathname();
+  React.useEffect(() => {
+    const root = document.querySelector<HTMLElement>('.v3-content');
+    if (!root) return;
+    let raf = 0;
+    const label = () => {
+      raf = 0;
+      root.querySelectorAll<HTMLTableElement>('table:not(.v3-table)').forEach(table => {
+        const heads = Array.from(table.querySelectorAll<HTMLTableCellElement>('thead tr:last-child th'))
+          .map(th => {
+            const t = (th.textContent || th.getAttribute('aria-label') || '').replace(/[ⓘ\u24D8]/g, '').trim();
+            // Headers written in caps read as shouting once they sit above a value.
+            return t && t === t.toUpperCase() && /[A-Z]{3}/.test(t) ? t.charAt(0) + t.slice(1).toLowerCase() : t;
+          });
+        if (heads.length < 3) return;
+        table.dataset.v3cards = '';
+        table.querySelectorAll<HTMLTableRowElement>('tbody tr').forEach(tr => {
+          const cells = Array.from(tr.children) as HTMLTableCellElement[];
+          if (cells.length !== heads.length) { tr.dataset.v3full = ''; return; }
+          cells.forEach((td, i) => {
+            if (td.dataset.label !== heads[i]) td.dataset.label = heads[i];
+            const wide = i > 0 && WIDE_COL.test(heads[i]);
+            if (wide) td.dataset.v3wide = ''; else delete td.dataset.v3wide;
+          });
+        });
+      });
+    };
+    const schedule = () => { if (!raf) raf = requestAnimationFrame(label); };
+    schedule();
+    const mo = new MutationObserver(schedule);
+    mo.observe(root, { childList: true, subtree: true });
+    return () => { mo.disconnect(); if (raf) cancelAnimationFrame(raf); };
+  }, [pathname]);
+}
+
 /* ─────────────────────────── shell ─────────────────────────── */
 
 export default function ShellV3({ banners, children }: { banners?: React.ReactNode; children: React.ReactNode }) {
@@ -348,6 +396,8 @@ export default function ShellV3({ banners, children }: { banners?: React.ReactNo
       if (main) main.style.overflow = prev[1];
     };
   }, [drawer]);
+
+  usePhoneTables();
 
   const openAddBrand = React.useCallback(() => { setDrawer(false); setShowAddBrand(true); }, []);
 
