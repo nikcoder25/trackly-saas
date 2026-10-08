@@ -100,7 +100,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // New BOFU pages for the local SEO agency positioning.
     // (Engine rank-tracker pages come from rankTrackerEntries below; the old
     // /x-brand-tracking pages 301 to them.)
-    { url: `${BASE_URL}/ai-overview-tracker`, changeFrequency: 'monthly', priority: 0.9 },
     { url: `${BASE_URL}/uses`, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/uses/ai-visibility-for-local-businesses`, changeFrequency: 'monthly', priority: 0.9 },
     { url: `${BASE_URL}/uses/white-label-ai-visibility-report`, changeFrequency: 'monthly', priority: 0.9 },

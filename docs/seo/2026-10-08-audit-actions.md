@@ -8,7 +8,7 @@
 - Homepage: title, meta and JSON-LD now actually render on `/` (they only reached `/home` before). New title "AI Visibility Tracker for Agencies | ChatGPT & Gemini | Livesov", H1 "AI Visibility Tracker for Agencies".
 - `/geo-audit` retargeted to "AI Visibility Checker". Copy is honest: it scores a page for citation readiness, it does not query the AI engines.
 - `/solutions/agencies` retargeted to "AI Visibility Tool for Agencies". `/tools/nap-verification` now targets "NAP audit".
-- New pages: `/ai-overview-tracker`, `/uses`, `/uses/ai-visibility-for-local-businesses`, `/uses/white-label-ai-visibility-report`, `/uses/ai-visibility-for-hvac-companies`.
+- New pages: `/uses`, `/uses/ai-visibility-for-local-businesses`, `/uses/white-label-ai-visibility-report`, `/uses/ai-visibility-for-hvac-companies`.
 - Real dashboard screenshot on rank tracker, alternative, agencies, GEO tool, AI visibility checker and new pages.
 - Long titles and metas fixed site wide.
 - Disavow file: `docs/seo/disavow-livesov.txt` (707 domains).
@@ -18,7 +18,12 @@
 1. **Disavow**: upload `docs/seo/disavow-livesov.txt` at https://search.google.com/search-console/disavow-links. Also Bing Webmaster Tools.
 2. **Spam source**: nothing in this codebase creates those links. The admin backlink tool only writes articles, it never posts them. The pattern (`backlinksgenerator.space`, `dachecker...`) is a known network that makes a page for every domain typed into their "free backlink generator" / "DA checker". Do not enter livesov.com into those tools, and cancel any "high DA backlinks" package. Re-export new domains monthly and add them to the file.
 3. **GSC Pages report**: count "Crawled, currently not indexed".
-4. **Request indexing** in this order: `/`, `/pricing`, `/solutions/agencies`, `/geo-audit`, `/ai-overview-tracker`, `/uses/white-label-ai-visibility-report`, `/uses/ai-visibility-for-local-businesses`, `/chatgpt-rank-tracker`, `/perplexity-rank-tracker`, `/gemini-rank-tracker`, `/claude-rank-tracker`, `/grok-rank-tracker`, `/llm-rank-tracker`, `/peec-ai-alternative`.
+4. **Request indexing** in this order: `/`, `/pricing`, `/solutions/agencies`, `/geo-audit`, `/uses/white-label-ai-visibility-report`, `/uses/ai-visibility-for-local-businesses`, `/chatgpt-rank-tracker`, `/perplexity-rank-tracker`, `/gemini-rank-tracker`, `/claude-rank-tracker`, `/grok-rank-tracker`, `/llm-rank-tracker`, `/peec-ai-alternative`.
 5. **Resubmit sitemap** in GSC after deploy.
 6. **Stop new informational blogs.** Put the effort into BOFU pages (next: plumbers, roofers, dentists, law firms on the HVAC template).
 7. **Link plan** (workbook "Link Plan" tab): directories, launch sites, expert quotes, podcasts.
+
+## Not built (product can't back it)
+
+- `/ai-overview-tracker`: Livesov does not track Google AI Overviews. Build it only after that engine ships. False "we track AI Overviews" lines were removed from `/learn/ai-overviews-optimization`.
+- "White label" page: the product has no logo upload or custom domain. The page at `/uses/white-label-ai-visibility-report` targets the keyword but says plainly what reports include today. Shipping real white label (logo + custom report domain) would make this the strongest page on the site.

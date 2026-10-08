@@ -58,7 +58,6 @@ describe('sitemap.xml coverage', () => {
       expect(urls).toContain(`/${engine}-rank-tracker`);
     }
     for (const path of [
-      '/ai-overview-tracker',
       '/uses',
       '/uses/ai-visibility-for-local-businesses',
       '/uses/white-label-ai-visibility-report',

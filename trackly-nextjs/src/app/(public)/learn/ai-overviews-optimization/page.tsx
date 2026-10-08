@@ -155,7 +155,7 @@ const faqs = [
   {
     question: 'How do I measure AI Overviews performance?',
     answer:
-      'Three metrics: (1) AI Overview presence rate - what share of your priority queries trigger an Overview today, (2) citation share - when an Overview shows, are you one of the cited sources, and (3) rank-in-citation - when cited, are you the first, third, or sixth source named. Livesov tracks all three continuously alongside the four other AI surfaces.',
+      'Three metrics: (1) AI Overview presence rate - what share of your priority queries trigger an Overview today, (2) citation share - when an Overview shows, are you one of the cited sources, and (3) rank-in-citation - when cited, are you the first, third, or sixth source named. Livesov does not track Google AI Overviews yet; it tracks Gemini (the model behind them) plus ChatGPT, Perplexity, Claude and Grok every day.',
   },
 ];
 
@@ -179,7 +179,7 @@ export default function AiOverviewsOptimizationPage() {
           </>
         }
         subtitle="How to win - and hold - a citation inside Google AI Overviews. The six ranking factors, the on-page patterns Google quietly favours, and how to measure citation share at the query level."
-        ctaText="Start tracking AI Overviews"
+        ctaText="Track Gemini and other AI engines"
       />
 
       <Section pad="0 24px 56px" width={1000}>
@@ -334,8 +334,9 @@ export default function AiOverviewsOptimizationPage() {
             </li>
           </ul>
           <p>
-            Livesov tracks all four continuously, alongside ChatGPT Search, Perplexity, Claude,
-            Gemini, and Grok. <a href="/pricing">Start free</a> - no credit card.
+            Livesov does not track Google AI Overviews yet. It tracks Gemini, the model behind
+            them, plus ChatGPT, Perplexity, Claude and Grok every day.{' '}
+            <a href="/pricing">Start free</a> - no credit card.
           </p>
         </LongForm>
       </Section>
@@ -367,12 +368,12 @@ export default function AiOverviewsOptimizationPage() {
           {
             href: '/generative-engine-optimization-tool',
             label: 'GEO tool',
-            description: 'Livesov - built for AI Overviews and the rest of the AI surfaces.',
+            description: 'Livesov tracks ChatGPT, Gemini, Perplexity, Claude and Grok daily.',
           },
           {
             href: '/gemini-rank-tracker',
-            label: 'Gemini & AI Overviews tracking',
-            description: 'Track Gemini and AI Overview mentions continuously.',
+            label: 'Gemini rank tracker',
+            description: 'Track Gemini mentions and rank continuously.',
           },
           {
             href: '/tools/geo-score-checker',

@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI Visibility Tracker for Agencies | Livesov',
     description:
-      'Track how ChatGPT, Gemini, Perplexity, Claude and Grok mention every client. White label reports, daily tracking, plans from $9/mo.',
+      'Track how ChatGPT, Gemini, Perplexity, Claude and Grok mention every client. Client reports, daily tracking, plans from $9/mo.',
     type: 'website',
     url: 'https://livesov.com/',
     siteName: 'Livesov',
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'AI Visibility Tracker for Agencies | Livesov',
     description:
-      'Track how ChatGPT, Gemini, Perplexity, Claude and Grok mention every client. White label reports, daily tracking, plans from $9/mo.',
+      'Track how ChatGPT, Gemini, Perplexity, Claude and Grok mention every client. Client reports, daily tracking, plans from $9/mo.',
   },
   alternates: {
     canonical: '/',

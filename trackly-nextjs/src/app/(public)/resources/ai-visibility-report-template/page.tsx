@@ -209,7 +209,7 @@ export default function AiVisibilityReportTemplatePage() {
         links={[
           { href: '/resources', label: 'All resources', description: 'Templates, calculators, and playbooks.' },
           { href: '/learn/llm-seo', label: 'LLM SEO playbook', description: 'The full operating model the report measures against.' },
-          { href: '/uses/white-label-ai-visibility-report', label: 'White label AI visibility report', description: 'Automate this report for every client under your brand.' },
+          { href: '/uses/white-label-ai-visibility-report', label: 'AI visibility reports for agencies', description: 'Automate this report for every client with scheduled PDFs.' },
           { href: '/ai-search-statistics-2026', label: 'AI search statistics 2026', description: 'Numbers to contextualise your own report.' },
         ]}
       />

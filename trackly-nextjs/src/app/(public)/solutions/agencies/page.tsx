@@ -13,14 +13,14 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'AI Visibility Tool for Agencies | White Label Reports | Livesov',
+  title: 'AI Visibility Tool for Agencies | Client Reports | Livesov',
   description:
     'AI visibility tool for agencies: track every client in ChatGPT, Gemini, Perplexity, Claude and Grok, send client-ready reports, and add a new retainer line.',
   keywords:
     'ai visibility tracker for agencies, llm optimization agency, ai search optimization agency, ai seo companies, ai search agency, ai visibility tool for agencies, ai search reports for clients',
   alternates: { canonical: '/solutions/agencies' },
   openGraph: {
-    title: 'AI Visibility Tool for Agencies | White Label Reports | Livesov',
+    title: 'AI Visibility Tool for Agencies | Client Reports | Livesov',
     description:
       'The AI visibility tool built for agencies. Run LLM optimization for every client, deliver client-ready AI search reports, and add a new retainer line.',
     url: 'https://livesov.com/solutions/agencies',

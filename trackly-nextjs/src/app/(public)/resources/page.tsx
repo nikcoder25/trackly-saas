@@ -184,7 +184,7 @@ export default function ResourcesPage() {
         title="Apply what you download"
         links={[
           { href: '/learn/llm-seo', label: 'LLM SEO playbook', description: 'The full operating model these templates plug into.' },
-          { href: '/uses/white-label-ai-visibility-report', label: 'White label AI visibility report', description: 'Send AI visibility reports to every client under your brand.' },
+          { href: '/uses/white-label-ai-visibility-report', label: 'AI visibility reports for agencies', description: 'What Livesov client reports include and how agencies use them.' },
           { href: '/generative-engine-optimization-tool', label: 'GEO tool', description: 'Continuous AI visibility measurement.' },
           { href: '/pricing', label: 'Pricing', description: 'Plans from one brand to multi-brand agency programs.' },
         ]}

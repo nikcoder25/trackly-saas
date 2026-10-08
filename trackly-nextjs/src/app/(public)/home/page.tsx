@@ -749,7 +749,6 @@ function Footer() {
             <li><Link href="/gemini-rank-tracker">Gemini tracker</Link></li>
             <li><Link href="/perplexity-rank-tracker">Perplexity tracker</Link></li>
             <li><Link href="/grok-rank-tracker">Grok tracker</Link></li>
-            <li><Link href="/ai-overview-tracker">AI Overview tracker</Link></li>
             <li><Link href="/uses/ai-visibility-for-local-businesses">For local businesses</Link></li>
           </ul>
         </div>
@@ -775,7 +774,7 @@ function Footer() {
             <li><Link href="/docs">Docs</Link></li>
             <li><Link href="/resources">Templates &amp; Resources</Link></li>
             <li><Link href="/geo-optimization">GEO guide</Link></li>
-            <li><Link href="/uses/white-label-ai-visibility-report">White label reports</Link></li>
+            <li><Link href="/uses/white-label-ai-visibility-report">Client reports</Link></li>
             <li><Link href="/changelog">Changelog</Link></li>
           </ul>
         </div>

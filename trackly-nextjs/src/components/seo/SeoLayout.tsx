@@ -128,7 +128,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <h4>Resources</h4>
             <Link href="/blog">Blog</Link>
             <Link href="/glossary">Glossary</Link>
-            <Link href="/uses/white-label-ai-visibility-report">White Label AI Reports</Link>
+            <Link href="/uses/white-label-ai-visibility-report">Client AI Visibility Reports</Link>
             <Link href="/resources">Templates &amp; Resources</Link>
             <Link href="/docs">Docs</Link>
             <Link href="/ai-search-statistics-2026">AI Search Statistics 2026</Link>
@@ -169,7 +169,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/claude-rank-tracker">Claude Tracking</Link>
             <Link href="/gemini-rank-tracker">Gemini Tracking</Link>
             <Link href="/grok-rank-tracker">Grok Tracking</Link>
-            <Link href="/ai-overview-tracker">AI Overview Tracker</Link>
+            <Link href="/uses/ai-visibility-for-local-businesses">For Local Businesses</Link>
             <div className="land-footer-subhead">Compare Alternatives</div>
             {alternatives.map((a) => (
               <Link key={a.slug} href={`/${a.slug}`}>{a.name} Alternative</Link>
