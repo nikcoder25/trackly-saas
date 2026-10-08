@@ -270,7 +270,7 @@ export default function UseCasesPage() {
             description: 'Recurring commissions, co-marketing, dedicated support.',
           },
           {
-            href: '/chatgpt-brand-tracking',
+            href: '/chatgpt-rank-tracker',
             label: 'ChatGPT brand tracking',
             description: 'Methodology for ChatGPT specifically.',
           },

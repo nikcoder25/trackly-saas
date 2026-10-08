@@ -128,7 +128,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <h4>Resources</h4>
             <Link href="/blog">Blog</Link>
             <Link href="/glossary">Glossary</Link>
-            <Link href="/case-studies">Case Studies</Link>
+            <Link href="/uses/white-label-ai-visibility-report">White Label AI Reports</Link>
             <Link href="/resources">Templates &amp; Resources</Link>
             <Link href="/docs">Docs</Link>
             <Link href="/ai-search-statistics-2026">AI Search Statistics 2026</Link>
@@ -164,11 +164,12 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
           </div>
           <div className="land-footer-col">
             <h4>AI Platforms</h4>
-            <Link href="/chatgpt-brand-tracking">ChatGPT Tracking</Link>
-            <Link href="/perplexity-brand-tracking">Perplexity Tracking</Link>
-            <Link href="/claude-brand-tracking">Claude Tracking</Link>
-            <Link href="/gemini-brand-tracking">Gemini Tracking</Link>
-            <Link href="/grok-brand-tracking">Grok Tracking</Link>
+            <Link href="/chatgpt-rank-tracker">ChatGPT Tracking</Link>
+            <Link href="/perplexity-rank-tracker">Perplexity Tracking</Link>
+            <Link href="/claude-rank-tracker">Claude Tracking</Link>
+            <Link href="/gemini-rank-tracker">Gemini Tracking</Link>
+            <Link href="/grok-rank-tracker">Grok Tracking</Link>
+            <Link href="/ai-overview-tracker">AI Overview Tracker</Link>
             <div className="land-footer-subhead">Compare Alternatives</div>
             {alternatives.map((a) => (
               <Link key={a.slug} href={`/${a.slug}`}>{a.name} Alternative</Link>

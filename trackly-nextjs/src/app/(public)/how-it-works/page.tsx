@@ -350,12 +350,12 @@ export default function HowItWorksPage() {
         title="Go deeper"
         links={[
           {
-            href: '/chatgpt-brand-tracking',
+            href: '/chatgpt-rank-tracker',
             label: 'ChatGPT tracking',
             description: 'Methodology applied to OpenAI&rsquo;s ChatGPT specifically.',
           },
           {
-            href: '/perplexity-brand-tracking',
+            href: '/perplexity-rank-tracker',
             label: 'Perplexity tracking',
             description: 'How citation capture works for AI search.',
           },

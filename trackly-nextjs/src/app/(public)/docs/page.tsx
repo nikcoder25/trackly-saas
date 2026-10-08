@@ -227,7 +227,7 @@ export default function DocsHubPage() {
         title="Adjacent"
         links={[
           { href: '/learn/llm-seo', label: 'LLM SEO: the 2026 guide', description: 'The conceptual playbook the product is built on.' },
-          { href: '/case-studies', label: 'Case studies', description: 'Real teams running the workflows in this doc.' },
+          { href: '/solutions/agencies', label: 'AI visibility for agencies', description: 'Run these workflows across every client from one account.' },
           { href: '/integrations', label: 'All integrations', description: 'Slack, Zapier, API, webhooks, and exports.' },
           { href: '/pricing', label: 'Pricing', description: 'Plan that fits - from solo to multi-brand agency.' },
         ]}

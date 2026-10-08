@@ -306,9 +306,9 @@ function Hero() {
     <header className="hero" id="top">
       <div className="container hero-grid">
         <div className="hero-copy">
-          <div className="eyebrow"><span className="dot" /> Generative Engine Optimization</div>
-          <h1 className="serif hero-h1">AI is the new search.<br /><em>Track your AI visibility.</em></h1>
-          <p className="hero-sub">Livesov is the AI visibility tracker that shows exactly how ChatGPT, Claude, Gemini, Perplexity and Grok answer the questions your buyers ask - and whether your brand gets mentioned, recommended, or ignored.</p>
+          <div className="eyebrow"><span className="dot" /> AI is the new search</div>
+          <h1 className="serif hero-h1">AI Visibility Tracker<br /><em>for Agencies.</em></h1>
+          <p className="hero-sub">Livesov is the AI visibility tracker for agencies that shows exactly how ChatGPT, Claude, Gemini, Perplexity and Grok answer the questions your clients&apos; customers ask - and whether each brand gets mentioned, recommended, or ignored.</p>
           <div className="hero-cta">
             <Link className="btn btn-pri btn-lg" href="/geo-audit">Run my free audit <span className="ar">→</span></Link>
           </div>
@@ -744,11 +744,13 @@ function Footer() {
         <div className="ft-col">
           <div className="ft-col-t">Platform</div>
           <ul>
-            <li><Link href="/chatgpt-brand-tracking">ChatGPT tracker</Link></li>
-            <li><Link href="/claude-brand-tracking">Claude tracker</Link></li>
-            <li><Link href="/gemini-brand-tracking">Gemini tracker</Link></li>
-            <li><Link href="/perplexity-brand-tracking">Perplexity tracker</Link></li>
-            <li><Link href="/grok-brand-tracking">Grok tracker</Link></li>
+            <li><Link href="/chatgpt-rank-tracker">ChatGPT tracker</Link></li>
+            <li><Link href="/claude-rank-tracker">Claude tracker</Link></li>
+            <li><Link href="/gemini-rank-tracker">Gemini tracker</Link></li>
+            <li><Link href="/perplexity-rank-tracker">Perplexity tracker</Link></li>
+            <li><Link href="/grok-rank-tracker">Grok tracker</Link></li>
+            <li><Link href="/ai-overview-tracker">AI Overview tracker</Link></li>
+            <li><Link href="/uses/ai-visibility-for-local-businesses">For local businesses</Link></li>
           </ul>
         </div>
         <div className="ft-col">
@@ -766,14 +768,14 @@ function Footer() {
         <div className="ft-col">
           <div className="ft-col-t">Resources</div>
           <ul>
-            <li><Link href="/geo-audit">Free GEO audit</Link></li>
+            <li><Link href="/geo-audit">AI visibility checker</Link></li>
             <li><Link href="/blog">Blog</Link></li>
             <li><Link href="/tools">Free Tools</Link></li>
             <li><Link href="/glossary">Glossary</Link></li>
             <li><Link href="/docs">Docs</Link></li>
             <li><Link href="/resources">Templates &amp; Resources</Link></li>
             <li><Link href="/geo-optimization">GEO guide</Link></li>
-            <li><Link href="/case-studies">Case studies</Link></li>
+            <li><Link href="/uses/white-label-ai-visibility-report">White label reports</Link></li>
             <li><Link href="/changelog">Changelog</Link></li>
           </ul>
         </div>

@@ -250,7 +250,7 @@ export default function VsProfoundPage() {
           { href: '/vs/peec-ai', label: 'Livesov vs Peec AI', description: 'Add-on pricing vs no-add-ons.' },
           { href: '/pricing', label: 'Pricing & plans', description: 'Start free, scale to agency multi-brand.' },
           { href: '/how-it-works', label: 'How Livesov works', description: 'Methodology and data pipeline explained.' },
-          { href: '/case-studies', label: 'Case studies', description: 'How teams move their share of AI answers.' },
+          { href: '/solutions/agencies', label: 'AI visibility for agencies', description: 'Track every client across five AI engines from one account.' },
           { href: '/geo-audit', label: 'Free GEO audit', description: 'Score any URL for AI citation-readiness.' },
         ]}
       />

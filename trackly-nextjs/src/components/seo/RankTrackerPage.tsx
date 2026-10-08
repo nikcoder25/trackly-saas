@@ -1,4 +1,5 @@
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
+import ProductScreenshot from '@/components/seo/ProductScreenshot';
 import {
   Section,
   SectionHeader,
@@ -137,6 +138,13 @@ export default function RankTrackerPage({ data }: { data: RankTracker }) {
         subtitle={data.heroSubtitle}
         ctaText={`Start tracking ${data.engine} rank - free`}
       />
+
+      <ProductScreenshot
+        alt={`${data.engine} rank tracker dashboard`}
+        caption={`Livesov dashboard: ${data.engine} mentions, rank and sources in one view.`}
+        priority
+      />
+      <div style={{ height: 48 }} />
 
       <Section pad="0 24px 56px" width={1000}>
         <StatsBar stats={data.stats} />

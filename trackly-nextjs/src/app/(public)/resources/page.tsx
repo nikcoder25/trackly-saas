@@ -184,7 +184,7 @@ export default function ResourcesPage() {
         title="Apply what you download"
         links={[
           { href: '/learn/llm-seo', label: 'LLM SEO playbook', description: 'The full operating model these templates plug into.' },
-          { href: '/case-studies', label: 'Case studies', description: 'See how teams used these resources to grow mention rate.' },
+          { href: '/uses/white-label-ai-visibility-report', label: 'White label AI visibility report', description: 'Send AI visibility reports to every client under your brand.' },
           { href: '/generative-engine-optimization-tool', label: 'GEO tool', description: 'Continuous AI visibility measurement.' },
           { href: '/pricing', label: 'Pricing', description: 'Plans from one brand to multi-brand agency programs.' },
         ]}

@@ -47,7 +47,7 @@ const platforms = [
   {
     name: 'ChatGPT (OpenAI)',
     color: '#10a37f',
-    href: '/chatgpt-brand-tracking',
+    href: '/chatgpt-rank-tracker',
     models: 'GPT-5 · GPT-5 mini · GPT-5 Search · o-series reasoning',
     desc: 'Track brand visibility across every ChatGPT model OpenAI ships. Direct API access with full request/response logging.',
     surfaces: ['ChatGPT consumer app', 'ChatGPT Enterprise', 'ChatGPT Search', 'API-embedded apps'],
@@ -55,7 +55,7 @@ const platforms = [
   {
     name: 'Claude (Anthropic)',
     color: '#d97706',
-    href: '/claude-brand-tracking',
+    href: '/claude-rank-tracker',
     models: 'Claude Opus 4.5 · Sonnet 4.5 · Haiku 4.5 · Sonnet 4 (legacy)',
     desc: 'Track every Claude tier from Opus to Haiku. Direct Anthropic API access with model-tier comparison built in.',
     surfaces: ['Claude.ai', 'Claude in Notion / Slack / Quora', 'Claude API integrations', 'Claude in Cursor / Windsurf'],
@@ -63,7 +63,7 @@ const platforms = [
   {
     name: 'Gemini (Google)',
     color: '#4285f4',
-    href: '/gemini-brand-tracking',
+    href: '/gemini-rank-tracker',
     models: 'Gemini 3 Pro · 3 Flash · Flash-Lite · grounded variants',
     desc: 'Track Gemini API responses plus grounded variants that simulate Google AI Overviews. Vertex and AI Studio supported.',
     surfaces: ['Google AI Overviews', 'Gemini app (mobile + web)', 'Workspace AI (Gmail / Docs / Meet)', 'Android assistant'],
@@ -71,7 +71,7 @@ const platforms = [
   {
     name: 'Perplexity',
     color: '#20b8cd',
-    href: '/perplexity-brand-tracking',
+    href: '/perplexity-rank-tracker',
     models: 'Sonar · Sonar Pro · Sonar Reasoning · Sonar Deep Research',
     desc: 'Full Sonar-family API access with complete citation capture - every source URL logged in rank order.',
     surfaces: ['Perplexity.ai (web)', 'Perplexity mobile apps', 'Perplexity Pages', 'Embedded Perplexity widgets'],
@@ -79,7 +79,7 @@ const platforms = [
   {
     name: 'Grok (xAI)',
     color: '#1d9bf0',
-    href: '/grok-brand-tracking',
+    href: '/grok-rank-tracker',
     models: 'Grok 5 · Grok 4 · Grok 4 Mini · live-search variant',
     desc: 'Direct xAI API with real-time X (Twitter) signal correlation. Surface social-driven visibility shifts as they happen.',
     surfaces: ['Grok inside X (Twitter)', 'Grok standalone app', 'Grok web (grok.com)', 'xAI API integrations'],
@@ -511,27 +511,27 @@ export default function IntegrationsPage() {
         title="Explore Livesov by platform"
         links={[
           {
-            href: '/chatgpt-brand-tracking',
+            href: '/chatgpt-rank-tracker',
             label: 'ChatGPT brand tracking',
             description: 'GPT-5, GPT-5 mini, ChatGPT Search - all tracked.',
           },
           {
-            href: '/perplexity-brand-tracking',
+            href: '/perplexity-rank-tracker',
             label: 'Perplexity brand tracking',
             description: 'Full Sonar family with complete citation capture.',
           },
           {
-            href: '/claude-brand-tracking',
+            href: '/claude-rank-tracker',
             label: 'Claude brand tracking',
             description: 'Opus, Sonnet, Haiku - tuned for nuanced answers.',
           },
           {
-            href: '/gemini-brand-tracking',
+            href: '/gemini-rank-tracker',
             label: 'Gemini brand tracking',
             description: 'Pro, Flash, Flash-Lite + AI Overviews simulation.',
           },
           {
-            href: '/grok-brand-tracking',
+            href: '/grok-rank-tracker',
             label: 'Grok brand tracking',
             description: 'Real-time X-grounded Grok with live signal correlation.',
           },

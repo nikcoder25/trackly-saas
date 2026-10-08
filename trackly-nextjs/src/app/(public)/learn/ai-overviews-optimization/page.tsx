@@ -370,7 +370,7 @@ export default function AiOverviewsOptimizationPage() {
             description: 'Livesov - built for AI Overviews and the rest of the AI surfaces.',
           },
           {
-            href: '/gemini-brand-tracking',
+            href: '/gemini-rank-tracker',
             label: 'Gemini & AI Overviews tracking',
             description: 'Track Gemini and AI Overview mentions continuously.',
           },

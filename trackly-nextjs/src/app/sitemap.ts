@@ -1,8 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { blogPosts } from '@/data/blog-posts';
-import { getAllTermSlugs } from '@/data/glossary';
 import { getAllCategorySlugs } from '@/data/best-categories';
-import { getAllCaseStudySlugs } from '@/data/case-studies';
 import { getAllAlternativeSlugs } from '@/data/alternatives';
 import { getAllRankTrackerSlugs } from '@/data/rank-trackers';
 import { AUTHORS } from '@/data/authors';
@@ -26,20 +24,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
   // hard-coded dates were months behind the real edits, and an inaccurate
   // lastmod makes crawlers ignore the field for the whole sitemap. Blog posts
   // carry their real publish date.
-  const glossaryEntries: MetadataRoute.Sitemap = getAllTermSlugs().map((term) => ({
-    url: `${BASE_URL}/glossary/${term}`,
-    changeFrequency: 'monthly' as const,
-    priority: 0.6,
-  }));
+  // Glossary term pages and case studies are noindex (thin templated
+  // definitions; illustrative, not real, customer stories), so they are
+  // deliberately left out of the sitemap. Only the /glossary hub is listed.
   const bestEntries: MetadataRoute.Sitemap = getAllCategorySlugs().map((slug) => ({
     url: `${BASE_URL}/best/${slug}-chatgpt-recommends`,
     changeFrequency: 'monthly' as const,
     priority: 0.7,
-  }));
-  const caseStudyEntries: MetadataRoute.Sitemap = getAllCaseStudySlugs().map((brand) => ({
-    url: `${BASE_URL}/case-studies/${brand}`,
-    changeFrequency: 'monthly' as const,
-    priority: 0.6,
   }));
   // Competitor "alternative" landing pages (commercial-intent programmatic SEO).
   const alternativeEntries: MetadataRoute.Sitemap = getAllAlternativeSlugs().map((slug) => ({
@@ -106,12 +97,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/learn/ai-visibility-score`, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${BASE_URL}/learn/brand-visibility-in-llms`, changeFrequency: 'monthly', priority: 0.7 },
 
-    // Platform-specific tracking pages (programmatic SEO)
-    { url: `${BASE_URL}/chatgpt-brand-tracking`, changeFrequency: 'monthly', priority: 0.8 },
-    { url: `${BASE_URL}/perplexity-brand-tracking`, changeFrequency: 'monthly', priority: 0.8 },
-    { url: `${BASE_URL}/gemini-brand-tracking`, changeFrequency: 'monthly', priority: 0.8 },
-    { url: `${BASE_URL}/claude-brand-tracking`, changeFrequency: 'monthly', priority: 0.8 },
-    { url: `${BASE_URL}/grok-brand-tracking`, changeFrequency: 'monthly', priority: 0.8 },
+    // New BOFU pages for the local SEO agency positioning.
+    // (Engine rank-tracker pages come from rankTrackerEntries below; the old
+    // /x-brand-tracking pages 301 to them.)
+    { url: `${BASE_URL}/ai-overview-tracker`, changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${BASE_URL}/uses`, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/uses/ai-visibility-for-local-businesses`, changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${BASE_URL}/uses/white-label-ai-visibility-report`, changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${BASE_URL}/uses/ai-visibility-for-hvac-companies`, changeFrequency: 'monthly', priority: 0.8 },
 
     // Comparison pages
     { url: `${BASE_URL}/vs/semrush`, changeFrequency: 'monthly', priority: 0.7 },
@@ -132,7 +125,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // point. See src/lib/promo-offer.ts.
     { url: `${BASE_URL}/glossary`, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/best`, changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${BASE_URL}/case-studies`, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/resources`, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${BASE_URL}/resources/ai-visibility-report-template`, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${BASE_URL}/ai-search-statistics-2026`, changeFrequency: 'monthly', priority: 0.8 },
@@ -152,10 +144,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // Blog posts
     ...blogEntries,
 
-    // Programmatic SEO sections (glossary terms, best-of lists, case studies)
-    ...glossaryEntries,
+    // Programmatic SEO sections
     ...bestEntries,
-    ...caseStudyEntries,
     ...alternativeEntries,
     ...rankTrackerEntries,
     ...vsDataEntries,

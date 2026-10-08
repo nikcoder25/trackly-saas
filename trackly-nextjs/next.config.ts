@@ -37,6 +37,21 @@ const nextConfig: NextConfig = {
         destination: '/#features',
         permanent: true,
       },
+      // Cannibalization fix: each engine had a /x-brand-tracking and a
+      // /x-rank-tracker page chasing the same search. The rank-tracker page
+      // is the one money page per engine; the brand-tracking URLs 301 to it.
+      ...['chatgpt', 'perplexity', 'claude', 'gemini', 'grok'].map((engine) => ({
+        source: `/${engine}-brand-tracking`,
+        destination: `/${engine}-rank-tracker`,
+        permanent: true,
+      })),
+      // Three near-duplicate "track mentions in Perplexity" posts merged
+      // into the strongest one.
+      ...['track-brand-mentions-citations-perplexity-ai', 'is-tracking-brand-mentions-in-perplexity-effective'].map((slug) => ({
+        source: `/blog/${slug}`,
+        destination: '/blog/how-to-track-brand-mentions-in-perplexity',
+        permanent: true,
+      })),
     ],
     headers: async () => [
       {

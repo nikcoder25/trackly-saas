@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import ProductScreenshot from '@/components/seo/ProductScreenshot';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 import {
   Section,
@@ -157,6 +158,13 @@ export default function GenerativeEngineOptimizationToolPage() {
         subtitle="Livesov tracks how ChatGPT, Claude, Gemini, Perplexity, and Grok talk about your brand - daily. Mention rate, citation share, rank, sentiment, competitor benchmarks, and the diagnostics that let you move them. Free audit, 7-day trial, no credit card."
         ctaText="Start free 7-day trial"
       />
+
+      <ProductScreenshot
+        alt="Generative engine optimization tool dashboard"
+        caption="The Livesov dashboard: brand health, visibility, sentiment and accuracy across five AI engines."
+        priority
+      />
+      <div style={{ height: 48 }} />
 
       <Section pad="0 24px 56px" width={1000}>
         <StatsBar

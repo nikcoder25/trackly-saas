@@ -42,6 +42,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     description: c.summary,
     keywords: `${c.brand.toLowerCase()} case study, ${c.industry.toLowerCase()} ai visibility, geo case study, llm seo case study, chatgpt mention case study`,
     alternates: { canonical: `/case-studies/${c.slug}` },
+    // Illustrative scenarios, not real customers: kept out of the index and
+    // the sitemap until real client results replace them.
+    robots: { index: false, follow: true },
     openGraph: {
       title,
       description: c.summary,

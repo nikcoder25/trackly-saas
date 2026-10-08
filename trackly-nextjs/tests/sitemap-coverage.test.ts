@@ -30,10 +30,10 @@ describe('sitemap.xml coverage', () => {
     }
   });
 
-  it('contains every glossary term plus the hub', () => {
+  it('lists the glossary hub but not the noindexed term pages', () => {
     expect(urls).toContain('/glossary');
     for (const term of getAllTermSlugs()) {
-      expect(urls, `/glossary/${term} missing from sitemap`).toContain(`/glossary/${term}`);
+      expect(urls, `/glossary/${term} is noindex and must stay out of the sitemap`).not.toContain(`/glossary/${term}`);
     }
   });
 
@@ -45,10 +45,26 @@ describe('sitemap.xml coverage', () => {
     }
   });
 
-  it('contains every case study plus the hub', () => {
-    expect(urls).toContain('/case-studies');
+  it('keeps the illustrative (noindex) case studies out', () => {
+    expect(urls).not.toContain('/case-studies');
     for (const brand of getAllCaseStudySlugs()) {
-      expect(urls, `/case-studies/${brand} missing from sitemap`).toContain(`/case-studies/${brand}`);
+      expect(urls, `/case-studies/${brand} is noindex and must stay out of the sitemap`).not.toContain(`/case-studies/${brand}`);
+    }
+  });
+
+  it('drops the 301ed brand-tracking pages and lists the new BOFU pages', () => {
+    for (const engine of ['chatgpt', 'perplexity', 'claude', 'gemini', 'grok']) {
+      expect(urls).not.toContain(`/${engine}-brand-tracking`);
+      expect(urls).toContain(`/${engine}-rank-tracker`);
+    }
+    for (const path of [
+      '/ai-overview-tracker',
+      '/uses',
+      '/uses/ai-visibility-for-local-businesses',
+      '/uses/white-label-ai-visibility-report',
+      '/uses/ai-visibility-for-hvac-companies',
+    ]) {
+      expect(urls, `${path} missing from sitemap`).toContain(path);
     }
   });
 

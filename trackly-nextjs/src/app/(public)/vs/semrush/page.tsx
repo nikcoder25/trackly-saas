@@ -311,11 +311,11 @@ export default function VsSemrushPage() {
           <p>
             For the full GEO framework, read our{' '}
             <a href="/geo-optimization">Generative Engine Optimization guide</a>. For platform-
-            specific tactics, see <a href="/chatgpt-brand-tracking">ChatGPT</a>,{' '}
-            <a href="/perplexity-brand-tracking">Perplexity</a>,{' '}
-            <a href="/claude-brand-tracking">Claude</a>,{' '}
-            <a href="/gemini-brand-tracking">Gemini</a>, and{' '}
-            <a href="/grok-brand-tracking">Grok</a> brand tracking pages.
+            specific tactics, see <a href="/chatgpt-rank-tracker">ChatGPT</a>,{' '}
+            <a href="/perplexity-rank-tracker">Perplexity</a>,{' '}
+            <a href="/claude-rank-tracker">Claude</a>,{' '}
+            <a href="/gemini-rank-tracker">Gemini</a>, and{' '}
+            <a href="/grok-rank-tracker">Grok</a> brand tracking pages.
           </p>
         </LongForm>
       </Section>

@@ -18,10 +18,10 @@ export default function NapVerificationPage() {
     <ToolPage
       title={
         <>
-          NAP <span style={{ color: 'var(--brand)' }}>Verification</span> Tool
+          NAP <span style={{ color: 'var(--brand)' }}>Audit</span> &amp; Verification Tool
         </>
       }
-      subtitle="Audit local citation consistency at scale. Enter a client's canonical NAP, add citation URLs, and Livesov fetches each page, extracts the NAP it shows, and flags every mismatch - saved per client and re-runnable to track progress."
+      subtitle="Run a NAP audit on local citations at scale. Enter a client's canonical NAP, add citation URLs, and Livesov fetches each page, extracts the NAP it shows, and flags every mismatch - saved per client and re-runnable to track progress."
       toolName="NAP Verification Tool"
       toolSlug="nap-verification"
     >

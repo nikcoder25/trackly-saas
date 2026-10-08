@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   keywords:
     'livesov case studies, ai visibility case study, chatgpt seo case study, geo case study, ai overviews case study, llm seo wins',
   alternates: { canonical: '/case-studies' },
+  // Illustrative scenarios, not real customers. Out of the index, sitemap
+  // and navigation until real client results exist.
+  robots: { index: false, follow: true },
   openGraph: {
     title: 'Livesov Case Studies: AI Visibility Playbooks',
     description:

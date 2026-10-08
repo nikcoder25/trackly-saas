@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import ProductScreenshot from '@/components/seo/ProductScreenshot';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 import {
   Section,
@@ -132,6 +133,13 @@ export default function AlternativePage({ data }: { data: Alternative }) {
         subtitle={data.heroSubtitle}
         ctaText="Try Livesov free - no card"
       />
+
+      <ProductScreenshot
+        alt={`${data.name} alternative: Livesov AI visibility dashboard`}
+        caption="The Livesov dashboard: brand health, visibility, sentiment and accuracy across five AI engines."
+        priority
+      />
+      <div style={{ height: 48 }} />
 
       <Section pad="0 24px 56px" width={1000}>
         <StatsBar stats={data.stats} />
