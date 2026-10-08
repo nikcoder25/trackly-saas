@@ -164,6 +164,13 @@ export default function AiVisibilityForLocalBusinessesPage() {
             and history, so nothing gets mixed up.
           </p>
           <p>
+            Trade-specific guides:{' '}
+            <Link href="/uses/ai-visibility-for-hvac-companies">AI visibility for HVAC companies</Link>,{' '}
+            <Link href="/uses/ai-visibility-for-plumbers">AI visibility for plumbers</Link>,{' '}
+            <Link href="/uses/ai-visibility-for-roofers">AI visibility for roofers</Link> and{' '}
+            <Link href="/uses/ai-visibility-for-dentists">AI visibility for dentists</Link>.
+          </p>
+          <p>
             <Link href="/signup">Start free</Link> and run your first local prompts in a few
             minutes. No card needed for the trial.
           </p>

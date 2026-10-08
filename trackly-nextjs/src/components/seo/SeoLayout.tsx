@@ -151,6 +151,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
           <div className="land-footer-col">
             <h4>Free Tools</h4>
             <Link href="/tools">All Tools</Link>
+            <Link href="/geo-audit">AI Visibility Checker</Link>
             <Link href="/tools/llms-txt-generator">llms.txt Generator</Link>
             <Link href="/tools/ai-crawler-checker">AI Crawler Checker</Link>
             <Link href="/tools/chatgpt-mention-checker">ChatGPT Mention Checker</Link>
@@ -160,7 +161,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/tools/prompt-generator">Prompt Generator</Link>
             <Link href="/tools/citation-finder">AI Citation Finder</Link>
             <Link href="/tools/competitor-finder">AI Competitor Finder</Link>
-            <Link href="/tools/nap-verification">NAP Verification Tool</Link>
+            <Link href="/tools/nap-verification">NAP Audit Tool</Link>
           </div>
           <div className="land-footer-col">
             <h4>AI Platforms</h4>
@@ -169,7 +170,8 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/claude-rank-tracker">Claude Tracking</Link>
             <Link href="/gemini-rank-tracker">Gemini Tracking</Link>
             <Link href="/grok-rank-tracker">Grok Tracking</Link>
-            <Link href="/uses/ai-visibility-for-local-businesses">For Local Businesses</Link>
+            <Link href="/uses">Uses</Link>
+            <Link href="/uses/ai-visibility-for-local-businesses">AI Visibility for Local Businesses</Link>
             <div className="land-footer-subhead">Compare Alternatives</div>
             {alternatives.map((a) => (
               <Link key={a.slug} href={`/${a.slug}`}>{a.name} Alternative</Link>
@@ -178,7 +180,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/about">About</Link>
             <Link href="/contact">Contact</Link>
             <Link href="/partners">Partners</Link>
-            <Link href="/solutions/agencies">For Agencies</Link>
+            <Link href="/solutions/agencies">AI Visibility Tool for Agencies</Link>
           </div>
         </div>
         <div className="land-footer-bottom">

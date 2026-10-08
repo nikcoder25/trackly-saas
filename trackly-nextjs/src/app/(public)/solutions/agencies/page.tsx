@@ -228,6 +228,9 @@ export default function AgenciesSolutionPage() {
         title="For agencies"
         links={[
           { href: '/partners', label: 'Partner program', description: 'Affiliate and reseller options.' },
+          { href: '/uses/ai-visibility-report-for-agencies', label: 'AI visibility report for agencies', description: 'What each client report includes.' },
+          { href: '/resources/ai-visibility-report-template', label: 'AI visibility report template', description: 'A free template for your monthly client report.' },
+          { href: '/uses/ai-visibility-for-local-businesses', label: 'AI visibility for local businesses', description: 'Near me prompts, city results and NAP citations.' },
           { href: '/pricing', label: 'Agency pricing', description: 'Unlimited brands, API access and premium models.' },
           { href: '/use-cases', label: 'Use cases', description: 'How different teams put Livesov to work.' },
           { href: '/how-it-works', label: 'How it works', description: 'The measurement methodology in detail.' },

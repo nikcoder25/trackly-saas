@@ -749,6 +749,7 @@ function Footer() {
             <li><Link href="/gemini-rank-tracker">Gemini tracker</Link></li>
             <li><Link href="/perplexity-rank-tracker">Perplexity tracker</Link></li>
             <li><Link href="/grok-rank-tracker">Grok tracker</Link></li>
+            <li><Link href="/uses">Uses</Link></li>
             <li><Link href="/uses/ai-visibility-for-local-businesses">For local businesses</Link></li>
           </ul>
         </div>
@@ -760,6 +761,7 @@ function Footer() {
             <li><Link href="/vs/otterly">vs Otterly</Link></li>
             <li><Link href="/vs/profound">vs Profound</Link></li>
             <li><Link href="/vs/peec-ai">vs Peec AI</Link></li>
+            <li><Link href="/peec-ai-alternative">Peec AI alternative</Link></li>
             <li><Link href="/how-it-works">How it works</Link></li>
             <li><Link href="/#features">Features</Link></li>
           </ul>

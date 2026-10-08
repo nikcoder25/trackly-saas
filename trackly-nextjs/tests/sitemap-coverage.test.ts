@@ -62,6 +62,9 @@ describe('sitemap.xml coverage', () => {
       '/uses/ai-visibility-for-local-businesses',
       '/uses/ai-visibility-report-for-agencies',
       '/uses/ai-visibility-for-hvac-companies',
+      '/uses/ai-visibility-for-plumbers',
+      '/uses/ai-visibility-for-roofers',
+      '/uses/ai-visibility-for-dentists',
     ]) {
       expect(urls, `${path} missing from sitemap`).toContain(path);
     }
