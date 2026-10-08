@@ -50,7 +50,7 @@ const USES = [
     description: 'See if ChatGPT and Gemini recommend you for AC repair and furnace prompts in your city.',
   },
   {
-    href: '/uses/white-label-ai-visibility-report',
+    href: '/uses/ai-visibility-report-for-agencies',
     label: 'AI visibility reports for clients',
     description: 'What Livesov client reports include and how agencies brand the data today.',
   },

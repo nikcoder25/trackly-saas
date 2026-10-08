@@ -14,9 +14,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'AI Visibility Report Template (Free Google Doc + Notion + PDF) | Livesov',
+  title: 'AI Visibility Report Template (Free Download) | Livesov',
   description:
-    'A board-ready monthly AI visibility report template - mention rate, citation share, sentiment, rank across ChatGPT, Claude, Gemini, Perplexity, and Grok. Free download.',
+    'Free AI visibility report template for monthly reviews. Covers mention rate, citation share, sentiment and rank across five AI engines. Get your copy.',
   keywords:
     'ai visibility report template, ai visibility template, geo report template, llm seo report template, chatgpt mention report, ai search report template',
   alternates: { canonical: '/resources/ai-visibility-report-template' },
@@ -209,7 +209,7 @@ export default function AiVisibilityReportTemplatePage() {
         links={[
           { href: '/resources', label: 'All resources', description: 'Templates, calculators, and playbooks.' },
           { href: '/learn/llm-seo', label: 'LLM SEO playbook', description: 'The full operating model the report measures against.' },
-          { href: '/uses/white-label-ai-visibility-report', label: 'AI visibility reports for agencies', description: 'Automate this report for every client with scheduled PDFs.' },
+          { href: '/uses/ai-visibility-report-for-agencies', label: 'AI visibility reports for agencies', description: 'Automate this report for every client with scheduled PDFs.' },
           { href: '/ai-search-statistics-2026', label: 'AI search statistics 2026', description: 'Numbers to contextualise your own report.' },
         ]}
       />

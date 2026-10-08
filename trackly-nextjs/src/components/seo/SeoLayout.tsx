@@ -128,7 +128,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <h4>Resources</h4>
             <Link href="/blog">Blog</Link>
             <Link href="/glossary">Glossary</Link>
-            <Link href="/uses/white-label-ai-visibility-report">Client AI Visibility Reports</Link>
+            <Link href="/uses/ai-visibility-report-for-agencies">Client AI Visibility Reports</Link>
             <Link href="/resources">Templates &amp; Resources</Link>
             <Link href="/docs">Docs</Link>
             <Link href="/ai-search-statistics-2026">AI Search Statistics 2026</Link>

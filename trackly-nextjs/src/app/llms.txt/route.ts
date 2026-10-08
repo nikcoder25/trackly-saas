@@ -58,7 +58,7 @@ const STATIC_BODY = [
   `- [How it works](${BASE_URL}/how-it-works): Setup, scheduling, and the measurement pipeline.`,
   `- [LLM rank tracker](${BASE_URL}/llm-rank-tracker): Track brand rank across all five models at once.`,
   `- [AI visibility tool for agencies](${BASE_URL}/solutions/agencies): Track every client from one account.`,
-  `- [AI visibility reports for agencies](${BASE_URL}/uses/white-label-ai-visibility-report): What Livesov client reports include.`,
+  `- [AI visibility report for agencies](${BASE_URL}/uses/ai-visibility-report-for-agencies): What Livesov client reports include.`,
   `- [AI visibility for local businesses](${BASE_URL}/uses/ai-visibility-for-local-businesses): Local and near-me prompts, NAP and citations.`,
   '',
   '## Free tools',

@@ -60,7 +60,7 @@ describe('sitemap.xml coverage', () => {
     for (const path of [
       '/uses',
       '/uses/ai-visibility-for-local-businesses',
-      '/uses/white-label-ai-visibility-report',
+      '/uses/ai-visibility-report-for-agencies',
       '/uses/ai-visibility-for-hvac-companies',
     ]) {
       expect(urls, `${path} missing from sitemap`).toContain(path);

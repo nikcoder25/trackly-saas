@@ -14,9 +14,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'LLM SEO: The 2026 Guide to Ranking in ChatGPT, Claude, Gemini & Perplexity | Livesov',
+  title: 'LLM SEO: How to Rank in ChatGPT & AI Search (2026) | Livesov',
   description:
-    'LLM SEO is the practice of optimizing your brand for Large Language Models - ChatGPT, Claude, Gemini, Perplexity, and Grok. The full 2026 playbook: how LLMs rank pages, what they cite, and how to measure it.',
+    'LLM SEO is how you get your brand named by ChatGPT, Claude, Gemini and Perplexity. Learn how LLMs pick sources, what they cite and how to track it.',
   keywords:
     'llm seo, llm optimization, large language model seo, chatgpt seo, claude seo, perplexity seo, ranking in llms, how llms rank content, llm visibility, llm search optimization',
   alternates: { canonical: '/learn/llm-seo' },

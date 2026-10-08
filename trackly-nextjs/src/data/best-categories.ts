@@ -36,6 +36,10 @@ export interface BestCategory {
   followUps: string[];
   /** Optional related categories for internal linking */
   related?: string[];
+  /** Optional SERP title override (<= 60 chars incl. " | Livesov"). */
+  seoTitle?: string;
+  /** Optional SERP meta description override (120-158 chars). */
+  metaDescription?: string;
 }
 
 export const BEST_CATEGORIES: BestCategory[] = [
@@ -302,4 +306,38 @@ export function getCategory(slug: string): BestCategory | undefined {
 
 export function getAllCategorySlugs(): string[] {
   return BEST_CATEGORIES.map((c) => c.slug);
+}
+
+const TITLE_MAX = 60;
+const DESC_MIN = 120;
+const DESC_MAX = 158;
+
+/** "project management software" -> "Project Management Software" (keeps CRM, SEO, AI). */
+function titleCase(s: string): string {
+  return s.replace(/\b([a-z])/g, (m) => m.toUpperCase());
+}
+
+/**
+ * SERP title and meta description for a /best/ page. Tries the fullest
+ * keyword-first variant and falls back to shorter ones so every category
+ * stays within search-result length limits.
+ */
+export function bestCategoryMeta(c: BestCategory): { title: string; description: string } {
+  const cat = titleCase(c.category);
+  const n = c.brands.length;
+  const titles = [
+    `Best ${cat} ChatGPT Recommends (2026) | Livesov`,
+    `Best ${cat} ChatGPT Recommends | Livesov`,
+    `Best ${cat}: ChatGPT's Top ${n} | Livesov`,
+  ];
+  const descriptions = [
+    `See the ${n} best ${c.category} ChatGPT recommends ${c.audience}, ranked by AI mention rate with the reason each one is cited. See who made the list.`,
+    `See the ${n} best ${c.category} ChatGPT recommends, ranked by AI mention rate with the reason each one is cited. See who made the list.`,
+  ];
+  const title = c.seoTitle ?? titles.find((t) => t.length <= TITLE_MAX) ?? titles[titles.length - 1];
+  const description =
+    c.metaDescription ??
+    descriptions.find((d) => d.length >= DESC_MIN && d.length <= DESC_MAX) ??
+    descriptions[descriptions.length - 1];
+  return { title, description };
 }

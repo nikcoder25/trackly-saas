@@ -102,7 +102,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // /x-brand-tracking pages 301 to them.)
     { url: `${BASE_URL}/uses`, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/uses/ai-visibility-for-local-businesses`, changeFrequency: 'monthly', priority: 0.9 },
-    { url: `${BASE_URL}/uses/white-label-ai-visibility-report`, changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${BASE_URL}/uses/ai-visibility-report-for-agencies`, changeFrequency: 'monthly', priority: 0.9 },
     { url: `${BASE_URL}/uses/ai-visibility-for-hvac-companies`, changeFrequency: 'monthly', priority: 0.8 },
 
     // Comparison pages

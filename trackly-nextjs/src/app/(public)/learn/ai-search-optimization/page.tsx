@@ -16,7 +16,7 @@ import {
 export const metadata: Metadata = {
   title: 'AI Search Optimization: The Complete 2026 Guide | Livesov',
   description:
-    'AI search optimization is how you rank inside AI-powered search engines - ChatGPT Search, Perplexity, Google AI Overviews, Gemini, and Bing Copilot. The full strategy, signals, and measurement playbook.',
+    'AI search optimization helps your brand show up in ChatGPT, Perplexity, Gemini and Google AI Overviews. Get the full strategy and how to measure it.',
   keywords:
     'ai search optimization, ai search seo, ranking in ai search, chatgpt search optimization, perplexity optimization, google ai mode, ai overviews seo, bing copilot, ai search engine optimization',
   alternates: { canonical: '/learn/ai-search-optimization' },

@@ -27,7 +27,7 @@ export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: 'Your Offer | Livesov',
-  description: 'The promotion you were referred to, with full terms and validity dates.',
+  description: 'The Livesov promotion you were referred to, with the full terms, the discount, and the dates it is valid. Read the details before you claim your offer.',
   // Deliberately NOT noindex.
   //
   // The first cut of this page was noindex/nofollow, which was wrong: the

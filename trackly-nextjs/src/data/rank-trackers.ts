@@ -78,9 +78,9 @@ export const rankTrackers: RankTracker[] = [
     engineFull: 'Perplexity AI',
     gradientFrom: '#20b8cd',
     gradientTo: '#1a94a5',
-    metaTitle: 'Perplexity Rank Tracker | Track AI Rankings | Livesov',
+    metaTitle: 'Perplexity Rank Tracker | Mentions & Citations | Livesov',
     metaDescription:
-      'The Perplexity rank tracker that tracks your position and citations in Perplexity AI answers over time. Track rankings, competitors, and share of voice. Free to start.',
+      'Perplexity rank tracker that shows where your brand ranks and gets cited in Perplexity answers. Track competitors and share of voice. Start free today.',
     keywords:
       'perplexity rank tracker, perplexity rank tracker tool, rank tracker tool perplexity, rank tracking tool perplexity, best perplexity rank tracker, free perplexity rank tracker, perplexity rank tracking, track perplexity rankings, perplexity keyword rank tracker, perplexity seo rank tracking, perplexity ai rank tracking',
     heroSubtitle:
@@ -147,7 +147,7 @@ export const rankTrackers: RankTracker[] = [
     engineFull: 'ChatGPT',
     gradientFrom: '#19c37d',
     gradientTo: '#10a37f',
-    metaTitle: 'ChatGPT Rank Tracker | Track AI Rankings | Livesov',
+    metaTitle: 'ChatGPT Rank Tracker | Track Brand Mentions Daily | Livesov',
     metaDescription:
       'The ChatGPT rank tracker that tracks your position in ChatGPT answers over time. Track rankings, competitors, citations, and share of voice. Free to start.',
     keywords:
@@ -227,9 +227,9 @@ export const rankTrackers: RankTracker[] = [
     engineFull: 'large language model',
     gradientFrom: '#6366f1',
     gradientTo: '#8b5cf6',
-    metaTitle: 'LLM Rank Tracker | Track Your Rank Across AI Models | Livesov',
+    metaTitle: 'LLM Rank Tracker | ChatGPT, Claude, Gemini, Grok | Livesov',
     metaDescription:
-      'The LLM rank tracker that records where your brand ranks across ChatGPT, Claude, Gemini, Perplexity, and Grok - and how that position moves over time. Free to start.',
+      'LLM rank tracker that shows where your brand ranks in ChatGPT, Claude, Gemini, Perplexity and Grok, and how it moves over time. Start tracking free.',
     keywords:
       'llm rank tracker, llm rank tracking, llm rank tracker tool, free llm rank tracker, best llm rank tracker, llm tracker, llm visibility checker, llm seo rank tracking, large language model rank tracker, track llm rankings, llm brand rank tracker',
     heroSubtitle:
@@ -300,7 +300,7 @@ export const rankTrackers: RankTracker[] = [
     gradientTo: '#b45309',
     metaTitle: 'Claude Rank Tracker | Track Your Rank in Claude | Livesov',
     metaDescription:
-      'The Claude rank tracker that records where your brand ranks in Claude answers over time. Track rankings across Claude models, benchmark competitors, and start free.',
+      'Claude rank tracker that shows where your brand ranks in Claude answers over time. Track every Claude model, compare competitors, and start free.',
     keywords:
       'claude rank tracker, claude rank tracking, best claude rank tracker tool, claude rank tracker tool, free claude rank tracking, free claude rank tracker, track claude rankings, claude ai rank tracking, claude seo rank tracking, anthropic claude rank tracker, claude visibility tracker',
     heroSubtitle:
@@ -372,7 +372,7 @@ export const rankTrackers: RankTracker[] = [
     gradientTo: '#9b72cb',
     metaTitle: 'Gemini Rank Tracker | Track Your Rank in Gemini | Livesov',
     metaDescription:
-      'The Gemini rank tracker that records where your brand ranks in Google Gemini answers over time. Track rankings across Gemini models, benchmark competitors, and start free.',
+      'Gemini rank tracker that shows where your brand ranks in Google Gemini answers over time. Track each Gemini model, compare competitors, and start free.',
     keywords:
       'gemini rank tracker, gemini rank tracking, gemini rank tracker tool, free gemini rank tracker, best gemini rank tracker, track gemini rankings, google gemini rank tracker, gemini ai rank tracking, gemini seo rank tracking, gemini keyword rank tracker',
     heroSubtitle:
@@ -444,7 +444,7 @@ export const rankTrackers: RankTracker[] = [
     gradientTo: '#0f172a',
     metaTitle: 'Grok Rank Tracker | Track Your Rank in Grok | Livesov',
     metaDescription:
-      'The Grok rank tracker that records where your brand ranks in Grok answers over time. Track rankings across Grok models, see the X posts behind them, and start free.',
+      'Grok rank tracker that shows where your brand ranks in Grok answers over time. See the X posts behind each answer, compare competitors, and start free.',
     keywords:
       'grok rank tracker, grok rank tracker tool, grok rank tracking, free grok rank tracker, best grok rank tracker, track grok rankings, xai grok rank tracker, grok ai rank tracking, grok seo rank tracking, grok visibility tracker',
     heroSubtitle:

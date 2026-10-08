@@ -12,14 +12,14 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'AI Visibility Score: What It Is & What Counts as a Good One (2026) | Livesov',
+  title: 'AI Visibility Score: What Is a Good Score? | Livesov',
   description:
-    'What is an AI visibility score, how is it calculated, and what counts as a good search visibility score? A plain-English guide to measuring how often AI engines surface your brand.',
+    'What is an AI visibility score, how is it worked out, and what is a good one? A simple guide to measuring how often AI engines name your brand.',
   keywords:
     'visibility score, search visibility score, what is a good search visibility score, search visibility definition, visibility percentage, ai visibility score, search visibility',
   alternates: { canonical: '/learn/ai-visibility-score' },
   openGraph: {
-    title: 'AI Visibility Score: What It Is & What Counts as a Good One (2026) | Livesov',
+    title: 'AI Visibility Score: What Is a Good Score? | Livesov',
     description:
       'What is an AI visibility score, how is it calculated, and what counts as a good search visibility score? A plain-English guide for the AI search era.',
     url: 'https://livesov.com/learn/ai-visibility-score',

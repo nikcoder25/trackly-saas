@@ -19,14 +19,14 @@ import {
 } from '@/lib/connector-version';
 
 export const metadata: Metadata = {
-  title: 'Livesov WordPress Plugin: What It Is & How to Install It',
+  title: 'WordPress Plugin: What It Is & How to Install It | Livesov',
   description:
-    'The Livesov Connector plugin applies your approved AI-visibility fixes - llms.txt, robots.txt AI-crawler rules, head schema, and draft page edits - straight to WordPress. Download, install, and connect in about two minutes.',
+    'The Livesov WordPress plugin applies your approved AI visibility fixes, like llms.txt, robots.txt rules and schema, to your site. Set it up in two minutes.',
   keywords:
     'livesov wordpress plugin, livesov connector, ai visibility wordpress plugin, llms.txt wordpress plugin, geo wordpress plugin, ai crawler robots.txt wordpress, schema wordpress plugin',
   alternates: { canonical: '/integrations/wordpress' },
   openGraph: {
-    title: 'Livesov WordPress Plugin: What It Is & How to Install It',
+    title: 'WordPress Plugin: What It Is & How to Install It | Livesov',
     description:
       'Apply approved llms.txt, robots.txt, schema, and draft page fixes to WordPress automatically. Install and connect in two minutes.',
     url: 'https://livesov.com/integrations/wordpress',
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Livesov WordPress Plugin: What It Is & How to Install It',
+    title: 'WordPress Plugin: What It Is & How to Install It | Livesov',
     description:
       'Apply approved llms.txt, robots.txt, schema, and draft page fixes to WordPress automatically.',
     images: ['https://livesov.com/og-image.png'],

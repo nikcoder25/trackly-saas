@@ -14,9 +14,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'AI Overviews Optimization: How to Rank in Google AI Overviews (2026) | Livesov',
+  title: 'AI Overviews Optimization: How to Rank in 2026 | Livesov',
   description:
-    'AI Overviews now appears on the majority of US Google searches. The complete optimization guide: how AI Overviews chooses sources, the schema and content patterns it favours, and how to measure whether you are cited.',
+    'AI Overviews optimization guide: learn how Google AI Overviews picks its sources, the content and schema it favours, and how to check if you are cited.',
   keywords:
     'ai overviews optimization, google ai overviews seo, rank in ai overviews, sge optimization, google search generative experience, ai overviews citation, ai overviews ranking factors',
   alternates: { canonical: '/learn/ai-overviews-optimization' },

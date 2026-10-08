@@ -6,9 +6,9 @@ import type { Metadata } from 'next';
 // near-identical page 1 - same #1 result, overlapping sites, and no AI Overview
 // on any of them. Splitting them across two URLs would just have the two pages
 // competing, so both jobs live here and the metadata claims both vocabularies.
-const TITLE = 'Free llms.txt Generator & Validator | Build and Check Yours | Livesov';
+const TITLE = 'Free llms.txt Generator & Validator | Livesov';
 const DESCRIPTION =
-  'Free llms.txt generator and validator. Crawl your sitemap to build a valid llms.txt, or check an existing file against the spec - errors, warnings and a score. No signup.';
+  'Free llms.txt generator and validator. Build a valid llms.txt from your sitemap or check an existing file for errors and get a score. No signup needed.';
 
 export const metadata: Metadata = {
   title: TITLE,

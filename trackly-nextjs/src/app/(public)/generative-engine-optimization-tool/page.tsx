@@ -15,9 +15,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Generative Engine Optimization Tool - Livesov GEO Platform (2026)',
+  title: 'Generative Engine Optimization Tool | Livesov',
   description:
-    'Livesov is the generative engine optimization (GEO) tool teams use to track and improve brand mentions across ChatGPT, Claude, Gemini, Perplexity, and Grok. Free audit, daily monitoring, 7-day trial - no credit card.',
+    'Livesov is a generative engine optimization tool that tracks and grows your brand mentions in ChatGPT, Claude, Gemini and Perplexity. Try it free for 7 days.',
   keywords:
     'generative engine optimization tool, geo tool, geo platform, ai visibility tool, ai mention tracking tool, llm visibility tool, ai brand monitoring software, chatgpt brand tracking tool, perplexity tracking tool',
   alternates: { canonical: '/generative-engine-optimization-tool' },

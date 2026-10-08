@@ -3,21 +3,21 @@ import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/Se
 import EmailOff from '@/components/EmailOff';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service - Livesov',
-  description: 'Livesov Terms of Service - rules and conditions for using our AI visibility tracking platform.',
+  title: 'Terms of Service | Livesov',
+  description: 'Read the Livesov Terms of Service: the rules for using our AI visibility tracking platform, including accounts, billing, fair use and your rights.',
   alternates: { canonical: '/terms' },
   openGraph: {
-    title: 'Terms of Service - Livesov',
-    description: 'Livesov Terms of Service - rules and conditions for using our AI visibility tracking platform.',
+    title: 'Terms of Service | Livesov',
+    description: 'Read the Livesov Terms of Service: the rules for using our AI visibility tracking platform, including accounts, billing, fair use and your rights.',
     url: 'https://livesov.com/terms',
     siteName: 'Livesov',
     type: 'website',
-    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Terms of Service - Livesov' }],
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Terms of Service | Livesov' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Terms of Service - Livesov',
-    description: 'Livesov Terms of Service - rules and conditions for using our AI visibility tracking platform.',
+    title: 'Terms of Service | Livesov',
+    description: 'Read the Livesov Terms of Service: the rules for using our AI visibility tracking platform, including accounts, billing, fair use and your rights.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

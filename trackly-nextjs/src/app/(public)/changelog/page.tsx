@@ -3,12 +3,12 @@ import { Rocket, ShieldCheck, Cpu, BarChart3, Globe, Zap, FileText } from 'lucid
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
-  title: 'Livesov Changelog | Product Updates & Features',
-  description: 'Latest Livesov updates: new AI platforms, features, and improvements shipped to the AI visibility tracker.',
+  title: 'Changelog | Product Updates & New Features | Livesov',
+  description: 'See the latest Livesov changelog: new AI platforms, features and fixes shipped to our AI visibility tracker. Check back often to see what is new.',
   alternates: { canonical: '/changelog' },
   openGraph: {
-    title: 'Livesov Changelog | Product Updates & Features',
-    description: 'Latest Livesov updates: new AI platforms, features, and improvements shipped to the AI visibility tracker.',
+    title: 'Changelog | Product Updates & New Features | Livesov',
+    description: 'See the latest Livesov changelog: new AI platforms, features and fixes shipped to our AI visibility tracker. Check back often to see what is new.',
     url: 'https://livesov.com/changelog',
     siteName: 'Livesov',
     type: 'website',
@@ -16,8 +16,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Livesov Changelog | Product Updates & Features',
-    description: 'Latest Livesov updates: new AI platforms, features, and improvements shipped to the AI visibility tracker.',
+    title: 'Changelog | Product Updates & New Features | Livesov',
+    description: 'See the latest Livesov changelog: new AI platforms, features and fixes shipped to our AI visibility tracker. Check back often to see what is new.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

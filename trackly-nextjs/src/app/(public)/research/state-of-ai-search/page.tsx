@@ -23,12 +23,18 @@ const fmt = (n: number) => n.toLocaleString('en-US');
 export async function generateMetadata(): Promise<Metadata> {
   const stats = await getStateOfAiSearchStats();
   const q = quarterLabel();
-  const title = stats
-    ? `State of AI Search ${q}: Benchmarks from ${fmt(stats.totalResponses)} AI Responses | Livesov`
-    : `State of AI Search ${q}: Live AI Visibility Benchmarks | Livesov`;
-  const description = stats
-    ? `Mention rates, sentiment, citation sources, and accuracy issues measured across ${fmt(stats.totalResponses)} real AI responses from ${stats.platforms.length} platforms over the last ${stats.windowDays} days. Free to republish with attribution.`
-    : 'Quarterly benchmarks of brand visibility inside ChatGPT, Claude, Gemini, Perplexity, and Grok, measured from real AI responses on the Livesov platform. Free to republish with attribution.';
+  const title = `State of AI Search ${q}: Live Benchmarks | Livesov`;
+  // Same wording either way so the meta stays within 120-158 characters; the
+  // live response count only appears when it still fits.
+  const fallbackDescription =
+    'State of AI search benchmarks: brand mentions, sentiment and citations in ChatGPT, Claude, Gemini, Perplexity and Grok. Free to republish with credit.';
+  const liveDescription = stats
+    ? `State of AI search benchmarks: mention rates, sentiment and citations from ${fmt(stats.totalResponses)} real AI responses. Free to republish with credit.`
+    : null;
+  const description =
+    liveDescription && liveDescription.length >= 120 && liveDescription.length <= 158
+      ? liveDescription
+      : fallbackDescription;
   return {
     title,
     description,

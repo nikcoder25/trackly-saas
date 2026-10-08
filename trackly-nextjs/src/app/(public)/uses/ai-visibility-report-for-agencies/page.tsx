@@ -8,17 +8,17 @@ import { Section, FaqSection, LongForm, JsonLd, Callout } from '@/components/seo
 // (see src/lib/pdf-report.ts header). Keep this page honest: describe the
 // branding options that exist (custom report title + note, API, JSON export)
 // and do not promise "your logo" until the feature ships.
-const PATH = '/uses/white-label-ai-visibility-report';
+const PATH = '/uses/ai-visibility-report-for-agencies';
 const PAGE_URL = `https://livesov.com${PATH}`;
-const TITLE = 'White Label AI Visibility Report | Agency Options | Livesov';
+const TITLE = 'AI Visibility Report for Agencies | Client Reports | Livesov';
 const DESCRIPTION =
-  'Looking for a white label AI visibility report? See what Livesov client reports include and how agencies brand the data today. Try it free.';
+  'AI visibility report for agencies: show each client how ChatGPT, Gemini and Perplexity mention them, with PDF and scheduled reports. Try it free.';
 
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   keywords:
-    'white label ai visibility report, ai visibility report for clients, agency ai search report, chatgpt visibility report, ai seo client report',
+    'ai visibility report for agencies, ai visibility report for clients, agency ai search report, chatgpt visibility report, ai seo client report',
   alternates: { canonical: PATH },
   openGraph: {
     title: TITLE,
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'White label AI visibility report options for agencies | Livesov',
+        alt: 'AI visibility report for agencies | Livesov',
       },
     ],
   },
@@ -64,7 +64,7 @@ const faqs = [
 const webPageSchema = {
   '@context': 'https://schema.org',
   '@type': 'WebPage',
-  name: 'White Label AI Visibility Report',
+  name: 'AI Visibility Report for Agencies',
   url: PAGE_URL,
   description: DESCRIPTION,
   isPartOf: { '@type': 'WebSite', name: 'Livesov', url: 'https://livesov.com/' },
@@ -76,19 +76,19 @@ const webPageSchema = {
   },
 };
 
-export default function WhiteLabelAiVisibilityReportPage() {
+export default function AiVisibilityReportForAgenciesPage() {
   return (
     <SeoLayout>
       <Breadcrumbs
         items={[
           { name: 'Use Cases', url: '/uses' },
-          { name: 'White Label AI Visibility Report', url: PATH },
+          { name: 'AI Visibility Report for Agencies', url: PATH },
         ]}
       />
       <JsonLd data={webPageSchema} />
 
       <SeoHero
-        title="White Label AI Visibility Report"
+        title="AI Visibility Report for Agencies"
         subtitle="Give every client a clear report on how ChatGPT, Gemini, Claude and Perplexity talk about their business. Here is what Livesov reports include today, and how agencies make them their own."
         ctaText="Try it free"
         ctaHref="/signup"
@@ -97,7 +97,7 @@ export default function WhiteLabelAiVisibilityReportPage() {
       <Section pad="0 24px 56px" width={1000}>
         <Image
           src="/dashboard-shot.png"
-          alt="White label AI visibility report dashboard"
+          alt="AI visibility report for agencies dashboard"
           width={924}
           height={540}
           priority
@@ -108,8 +108,8 @@ export default function WhiteLabelAiVisibilityReportPage() {
       <Section pad="24px 24px 80px">
         <LongForm>
           <p>
-            A white label AI visibility report lets an agency show clients how AI assistants
-            mention their brand, under the agency&apos;s own name. Clients now ask &ldquo;does
+            An AI visibility report for agencies shows each client how AI assistants mention
+            their brand. Clients now ask &ldquo;does
             ChatGPT recommend us?&rdquo; and they want the answer in a report, not a screenshot.
             Livesov gives you the data and the report. Here is exactly what you get, so there are
             no surprises.
@@ -117,8 +117,8 @@ export default function WhiteLabelAiVisibilityReportPage() {
 
           <h2>Branding your report: what works today</h2>
           <Callout title="Straight answer" variant="note">
-            Livesov does not offer full white label yet. There is no logo upload or custom domain,
-            and exported PDFs carry Livesov branding.
+            There is no logo upload or custom domain yet, and exported PDFs carry Livesov
+            branding.
           </Callout>
           <p>What you can do today:</p>
           <ul>
@@ -179,7 +179,7 @@ export default function WhiteLabelAiVisibilityReportPage() {
         </LongForm>
       </Section>
 
-      <FaqSection title="White label AI visibility report: FAQ" items={faqs} />
+      <FaqSection title="AI visibility report for agencies: FAQ" items={faqs} />
 
       <Section pad="56px 24px 80px" width={820}>
         <div style={{ textAlign: 'center' }}>

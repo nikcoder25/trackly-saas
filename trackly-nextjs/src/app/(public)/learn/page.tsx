@@ -4,12 +4,12 @@ import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 import { Section, SectionHeader } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Learn AI Visibility & GEO - Pillar Guides | Livesov',
+  title: 'Learn AI Visibility & GEO: Free Guides | Livesov',
   description:
-    'In-depth pillar guides on LLM SEO, AI search optimization, AI Overviews optimization, and the full GEO playbook. Free, no signup, written by the team behind Livesov.',
+    'Free guides on AI visibility, LLM SEO, AI search optimization and Google AI Overviews. No signup needed. Learn how to get your brand named by AI.',
   alternates: { canonical: '/learn' },
   openGraph: {
-    title: 'Learn AI Visibility & GEO - Pillar Guides | Livesov',
+    title: 'Learn AI Visibility & GEO: Free Guides | Livesov',
     description:
       'In-depth pillar guides on LLM SEO, AI search optimization, AI Overviews optimization, and the full GEO playbook.',
     url: 'https://livesov.com/learn',
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
         url: 'https://livesov.com/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Learn AI Visibility & GEO - Pillar Guides | Livesov',
+        alt: 'Learn AI Visibility & GEO: Free Guides | Livesov',
       },
     ],
   },

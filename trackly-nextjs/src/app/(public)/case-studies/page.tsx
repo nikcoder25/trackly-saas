@@ -5,9 +5,9 @@ import { Section, SectionHeader, StatsBar, LongForm, PillarLinks } from '@/compo
 import { CASE_STUDIES } from '@/data/case-studies';
 
 export const metadata: Metadata = {
-  title: 'Livesov Case Studies: AI Visibility Playbooks Across SaaS, E-commerce, Agency & More',
+  title: 'AI Visibility Case Studies & Playbooks | Livesov',
   description:
-    'Illustrative playbooks for growing ChatGPT mention rates, capturing AI Overviews citations, and recovering revenue lost to AI search - with the diagnostic, approach, and numbers.',
+    'Example AI visibility playbooks for growing ChatGPT mentions, winning AI Overviews citations and getting back revenue lost to AI search. See the steps.',
   keywords:
     'livesov case studies, ai visibility case study, chatgpt seo case study, geo case study, ai overviews case study, llm seo wins',
   alternates: { canonical: '/case-studies' },

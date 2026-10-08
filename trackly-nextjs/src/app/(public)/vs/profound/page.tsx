@@ -13,14 +13,14 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Livesov vs Profound | Self-Serve AI Visibility vs Enterprise (2026)',
+  title: 'Livesov vs Profound: AI Visibility Tools Compared (2026)',
   description:
     'Compare Livesov and Profound: platforms covered, pricing, self-serve vs sales-led, and who each tool is really for. An honest Profound alternative comparison.',
   keywords:
     'livesov vs profound, profound vs livesov, ai visibility tool comparison, aeo tool, geo tool for smb',
   alternates: { canonical: '/vs/profound' },
   openGraph: {
-    title: 'Livesov vs Profound | Self-Serve AI Visibility vs Enterprise (2026)',
+    title: 'Livesov vs Profound: AI Visibility Tools Compared (2026)',
     description:
       'Compare Livesov and Profound: platforms covered, pricing, self-serve vs sales-led, and who each tool is really for.',
     url: 'https://livesov.com/vs/profound',
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Livesov vs Profound | Self-Serve AI Visibility vs Enterprise (2026)',
+    title: 'Livesov vs Profound: AI Visibility Tools Compared (2026)',
     description:
       'Compare Livesov and Profound: platforms covered, pricing, self-serve vs sales-led, and who each tool is really for.',
     images: ['https://livesov.com/og-image.png'],

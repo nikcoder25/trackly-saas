@@ -774,7 +774,7 @@ function Footer() {
             <li><Link href="/docs">Docs</Link></li>
             <li><Link href="/resources">Templates &amp; Resources</Link></li>
             <li><Link href="/geo-optimization">GEO guide</Link></li>
-            <li><Link href="/uses/white-label-ai-visibility-report">Client reports</Link></li>
+            <li><Link href="/uses/ai-visibility-report-for-agencies">Client reports</Link></li>
             <li><Link href="/changelog">Changelog</Link></li>
           </ul>
         </div>
