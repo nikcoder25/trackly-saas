@@ -36,12 +36,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!c) notFound();
 
   // Keep the title SERP-length; the full summary stays in the description.
-  const title = `${c.brand} Case Study: AI Visibility in ${c.industry} | Livesov`;
+  // Industry labels carry a sub-niche after " - "; drop it, and fall back to
+  // the bare brand if the title would still pass 60 characters.
+  const industry = c.industry.split(' - ')[0];
+  const fullTitle = `${c.brand} Case Study: AI Visibility in ${industry} | Livesov`;
+  const title = fullTitle.length <= 60 ? fullTitle : `${c.brand} Case Study: AI Visibility | Livesov`;
   return {
     title,
     description: c.summary,
     keywords: `${c.brand.toLowerCase()} case study, ${c.industry.toLowerCase()} ai visibility, geo case study, llm seo case study, chatgpt mention case study`,
     alternates: { canonical: `/case-studies/${c.slug}` },
+    // Illustrative scenarios, not real customers: kept out of the index and
+    // the sitemap until real client results replace them.
+    robots: { index: false, follow: true },
     openGraph: {
       title,
       description: c.summary,

@@ -354,7 +354,7 @@ export default function PricingPage() {
             fontSize: 48, fontWeight: 800, letterSpacing: -1.5,
             color: 'var(--text-primary)', marginBottom: 14, lineHeight: 1.1,
           }}>
-            Simple pricing for generative engine optimization tools
+            AI Visibility Tracker Pricing
           </h1>
           <p style={{
             fontSize: 18, color: 'var(--text-secondary)', lineHeight: 1.6,

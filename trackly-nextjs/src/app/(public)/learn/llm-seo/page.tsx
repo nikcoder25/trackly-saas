@@ -14,9 +14,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'LLM SEO: The 2026 Guide to Ranking in ChatGPT, Claude, Gemini & Perplexity | Livesov',
+  title: 'LLM SEO: How to Rank in ChatGPT & AI Search (2026) | Livesov',
   description:
-    'LLM SEO is the practice of optimizing your brand for Large Language Models - ChatGPT, Claude, Gemini, Perplexity, and Grok. The full 2026 playbook: how LLMs rank pages, what they cite, and how to measure it.',
+    'LLM SEO is how you get your brand named by ChatGPT, Claude, Gemini and Perplexity. Learn how LLMs pick sources, what they cite and how to track it.',
   keywords:
     'llm seo, llm optimization, large language model seo, chatgpt seo, claude seo, perplexity seo, ranking in llms, how llms rank content, llm visibility, llm search optimization',
   alternates: { canonical: '/learn/llm-seo' },
@@ -251,7 +251,7 @@ export default function LlmSeoPage() {
             additionally re-ranks live retrieval, where schema, freshness, and explicit
             comparison content matter. If you are invisible in Reddit + G2 + Wikipedia, expect to
             be invisible in default ChatGPT regardless of what your blog says. See our{' '}
-            <a href="/chatgpt-brand-tracking">ChatGPT brand tracking</a> page for the full
+            <a href="/chatgpt-rank-tracker">ChatGPT brand tracking</a> page for the full
             platform breakdown.
           </p>
 
@@ -260,7 +260,7 @@ export default function LlmSeoPage() {
             Claude rewards depth, attribution, and balance. Marketing-heavy prose tends to be
             quoted less than well-cited, long-form documentation. Claude is also unusually
             sensitive to fact consistency - contradictions across sources visibly suppress your
-            mention rate. See <a href="/claude-brand-tracking">Claude brand tracking</a>.
+            mention rate. See <a href="/claude-rank-tracker">Claude brand tracking</a>.
           </p>
 
           <h3>Gemini (Google)</h3>
@@ -277,14 +277,14 @@ export default function LlmSeoPage() {
             Perplexity is the most directly optimisable LLM. It retrieves live, cites
             explicitly, and updates within days. Structured comparison pages and high-ranking
             evergreen content move citation share quickly. See{' '}
-            <a href="/perplexity-brand-tracking">Perplexity brand tracking</a>.
+            <a href="/perplexity-rank-tracker">Perplexity brand tracking</a>.
           </p>
 
           <h3>Grok (xAI)</h3>
           <p>
             Grok weights real-time X conversation heavily and uses live X search. Active,
             credible X presence in your category shifts answers within days - even when your
-            website footprint is unchanged. See <a href="/grok-brand-tracking">Grok brand
+            website footprint is unchanged. See <a href="/grok-rank-tracker">Grok brand
             tracking</a>.
           </p>
 

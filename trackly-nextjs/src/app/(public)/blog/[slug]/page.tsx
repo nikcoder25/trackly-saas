@@ -30,13 +30,19 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   // text. See ogImageFor() in the data module.
   const ogImage = ogImageFor(post);
 
+  // SERP title/description: a dedicated SEO field when the on-page title or
+  // dek is too long for search results, otherwise derived from the post.
+  const seoTitle = post.seoTitle ?? `${post.title} | Livesov`;
+  const socialTitle = post.seoTitle ?? post.title;
+  const metaDescription = post.metaDescription ?? post.description;
+
   return {
-    title: `${post.title} | Livesov`,
-    description: post.description,
+    title: seoTitle,
+    description: metaDescription,
     keywords: [post.tag, 'AI visibility', 'brand tracking', 'GEO', 'AI SEO', 'Livesov'],
     openGraph: {
-      title: post.title,
-      description: post.description,
+      title: socialTitle,
+      description: metaDescription,
       type: 'article',
       publishedTime: post.date,
       authors: [post.author.name],
@@ -44,8 +50,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     },
     twitter: {
       card: 'summary_large_image',
-      title: post.title,
-      description: post.description,
+      title: socialTitle,
+      description: metaDescription,
       images: [ogImage],
     },
     alternates: { canonical: `/blog/${post.slug}` },

@@ -2,21 +2,21 @@ import type { Metadata } from 'next';
 import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
-  title: 'Cookie Policy - Livesov',
-  description: 'Livesov Cookie Policy - learn what cookies and local storage we use, how they work, and how to manage them.',
+  title: 'Cookie Policy | Livesov',
+  description: 'Read the Livesov Cookie Policy to see which cookies and local storage we use, why we use them, and how you can manage or turn them off at any time.',
   alternates: { canonical: '/cookies' },
   openGraph: {
-    title: 'Cookie Policy - Livesov',
-    description: 'Livesov Cookie Policy - learn what cookies and local storage we use, how they work, and how to manage them.',
+    title: 'Cookie Policy | Livesov',
+    description: 'Read the Livesov Cookie Policy to see which cookies and local storage we use, why we use them, and how you can manage or turn them off at any time.',
     url: 'https://livesov.com/cookies',
     siteName: 'Livesov',
     type: 'website',
-    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Cookie Policy - Livesov' }],
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Cookie Policy | Livesov' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Cookie Policy - Livesov',
-    description: 'Livesov Cookie Policy - learn what cookies and local storage we use, how they work, and how to manage them.',
+    title: 'Cookie Policy | Livesov',
+    description: 'Read the Livesov Cookie Policy to see which cookies and local storage we use, why we use them, and how you can manage or turn them off at any time.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

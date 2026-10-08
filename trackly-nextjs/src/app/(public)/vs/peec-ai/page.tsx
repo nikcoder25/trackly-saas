@@ -15,7 +15,7 @@ import {
 export const metadata: Metadata = {
   title: 'Livesov vs Peec AI | AI Visibility Tools Compared (2026)',
   description:
-    'Compare Livesov and Peec AI: platform coverage, add-on pricing vs all-inclusive plans, methodology, and who each tool fits. An honest Peec AI alternative comparison.',
+    'Livesov vs Peec AI compared: AI platform coverage, add-on vs all-in pricing, method, and who each tool fits. Read the honest side-by-side before you buy.',
   keywords:
     'livesov vs peec ai, peec ai vs livesov, ai visibility tool comparison, geo tool, llm seo tool',
   alternates: { canonical: '/vs/peec-ai' },

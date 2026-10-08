@@ -5,9 +5,9 @@ import { Section, SectionHeader, LongForm, PillarLinks } from '@/components/seo/
 import EmailOff from '@/components/EmailOff';
 
 export const metadata: Metadata = {
-  title: 'AI Visibility Resources, Templates & Free Downloads | Livesov',
+  title: 'AI Visibility Resources & Free Templates | Livesov',
   description:
-    'Free templates, calculators, and downloadable playbooks for running an AI visibility program - from board-ready reports to prompt panels and the GEO maturity model.',
+    'Free AI visibility resources: report templates, calculators and playbooks for tracking how AI engines see your brand. Download and use them today.',
   keywords:
     'ai visibility report template, geo report template, llm seo template, ai visibility playbook, free seo templates, ai search resources',
   alternates: { canonical: '/resources' },
@@ -184,7 +184,7 @@ export default function ResourcesPage() {
         title="Apply what you download"
         links={[
           { href: '/learn/llm-seo', label: 'LLM SEO playbook', description: 'The full operating model these templates plug into.' },
-          { href: '/case-studies', label: 'Case studies', description: 'See how teams used these resources to grow mention rate.' },
+          { href: '/uses/ai-visibility-report-for-agencies', label: 'AI visibility reports for agencies', description: 'What Livesov client reports include and how agencies use them.' },
           { href: '/generative-engine-optimization-tool', label: 'GEO tool', description: 'Continuous AI visibility measurement.' },
           { href: '/pricing', label: 'Pricing', description: 'Plans from one brand to multi-brand agency programs.' },
         ]}

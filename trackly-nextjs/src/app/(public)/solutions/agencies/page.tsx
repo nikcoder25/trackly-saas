@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import ProductScreenshot from '@/components/seo/ProductScreenshot';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 import {
   Section,
@@ -12,14 +13,14 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'AI Visibility Tool for Agencies | LLM Optimization at Scale | Livesov',
+  title: 'AI Visibility Tool for Agencies | Client Reports | Livesov',
   description:
-    'Livesov is the AI visibility tool built for agencies. Run LLM optimization for every client, deliver client-ready AI search reports, and add a new retainer line - across ChatGPT, Perplexity, Claude, Gemini and Grok.',
+    'AI visibility tool for agencies: track every client in ChatGPT, Gemini, Perplexity, Claude and Grok, send client-ready reports, and add a new retainer line.',
   keywords:
-    'llm optimization agency, ai search optimization agency, ai seo companies, ai search agency, ai visibility tool for agencies, ai search reports for clients',
+    'ai visibility tracker for agencies, llm optimization agency, ai search optimization agency, ai seo companies, ai search agency, ai visibility tool for agencies, ai search reports for clients',
   alternates: { canonical: '/solutions/agencies' },
   openGraph: {
-    title: 'AI Visibility Tool for Agencies | LLM Optimization at Scale | Livesov',
+    title: 'AI Visibility Tool for Agencies | Client Reports | Livesov',
     description:
       'The AI visibility tool built for agencies. Run LLM optimization for every client, deliver client-ready AI search reports, and add a new retainer line.',
     url: 'https://livesov.com/solutions/agencies',
@@ -141,13 +142,20 @@ export default function AgenciesSolutionPage() {
       <SeoHero
         title={
           <>
-            The AI visibility tool built for <span className="text-[var(--brand)]">agencies</span>
+            AI Visibility Tool for <span className="text-[var(--brand)]">Agencies</span>
           </>
         }
-        subtitle="Your clients are already asking how they show up in ChatGPT and Perplexity. Livesov lets your agency run LLM optimization for every client, prove it with client-ready reports, and turn AI search into a new retainer line - without hiring an AI team."
+        subtitle="Livesov is the AI visibility tracker for agencies. Your clients are already asking how they show up in ChatGPT and Perplexity. Livesov lets your agency run LLM optimization for every client, prove it with client-ready reports, and turn AI search into a new retainer line - without hiring an AI team."
         ctaText="Become a partner"
         ctaHref="/partners"
       />
+
+      <ProductScreenshot
+        alt="AI visibility tool for agencies dashboard"
+        caption="One Livesov dashboard per client: brand health, visibility, sentiment and accuracy."
+        priority
+      />
+      <div style={{ height: 48 }} />
 
       <Section pad="0 24px 56px" width={1000}>
         <StatsBar

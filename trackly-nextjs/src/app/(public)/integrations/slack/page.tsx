@@ -12,9 +12,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Livesov + Slack: Send AI Visibility Updates to Any Channel',
+  title: 'Slack Integration: AI Visibility Updates | Livesov',
   description:
-    'Point Livesov at a Slack incoming webhook and get Fix Engine updates and issue hand-offs in the channel your team already lives in. Two minutes, no app install.',
+    'Send Livesov AI visibility updates and fix hand-offs to any Slack channel with an incoming webhook. No app to install. Set it up in two minutes today.',
   keywords:
     'livesov slack, ai visibility slack alerts, chatgpt mention slack, ai search alerts slack, geo slack webhook, llm alerts slack',
   alternates: { canonical: '/integrations/slack' },

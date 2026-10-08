@@ -1,14 +1,14 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'NAP Verification Tool | Audit Citation Consistency | Livesov',
+  title: 'NAP Audit Tool | Free NAP Verification for Citations | Livesov',
   description:
-    'Free NAP verification tool. Paste your citation URLs and we fetch each page, extract the name, address and phone, and flag every mismatch against your canonical NAP.',
+    'Free NAP audit and verification tool. Paste your citation URLs and we fetch each page, extract the name, address and phone, and flag every mismatch against your canonical NAP.',
   keywords:
     'nap verification, nap consistency checker, citation audit tool, local seo citation checker, nap audit',
   alternates: { canonical: '/tools/nap-verification' },
   openGraph: {
-    title: 'NAP Verification Tool | Audit Citation Consistency | Livesov',
+    title: 'NAP Audit Tool | Free NAP Verification for Citations | Livesov',
     description:
       'Paste your citation URLs and we fetch each page, extract the NAP, and flag every mismatch against your canonical record.',
     url: 'https://livesov.com/tools/nap-verification',
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'NAP Verification Tool | Audit Citation Consistency | Livesov',
+    title: 'NAP Audit Tool | Free NAP Verification for Citations | Livesov',
     description:
       'Paste your citation URLs and we fetch each page, extract the NAP, and flag every mismatch against your canonical record.',
     images: ['https://livesov.com/og-image.png'],

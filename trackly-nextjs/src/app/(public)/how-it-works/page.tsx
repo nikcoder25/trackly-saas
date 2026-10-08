@@ -15,14 +15,14 @@ import {
 export const metadata: Metadata = {
   title: 'How AI Brand Monitoring Works | Livesov',
   description:
-    'See how Livesov\'s AI brand monitoring works: it queries ChatGPT, Perplexity, Claude, Gemini, and Grok daily, tracks every brand mention, and turns the results into AI search optimization you can act on.',
+    'See how AI brand monitoring works in Livesov. We ask ChatGPT, Perplexity, Claude, Gemini and Grok daily and track every mention. See the steps.',
   keywords:
     'ai brand monitoring, ai search optimization, ai mention tracking, ai brand visibility tool, ai brand tracking methodology, llm brand monitoring',
   alternates: { canonical: '/how-it-works' },
   openGraph: {
     title: 'How AI Brand Monitoring Works | Livesov',
     description:
-      'See how Livesov\'s AI brand monitoring works: it queries ChatGPT, Perplexity, Claude, Gemini, and Grok daily, tracks every brand mention, and turns the results into AI search optimization you can act on.',
+      'See how AI brand monitoring works in Livesov. We ask ChatGPT, Perplexity, Claude, Gemini and Grok daily and track every mention. See the steps.',
     url: 'https://livesov.com/how-it-works',
     siteName: 'Livesov',
     type: 'website',
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'How AI Brand Monitoring Works | Livesov',
     description:
-      'See how Livesov\'s AI brand monitoring works: it queries ChatGPT, Perplexity, Claude, Gemini, and Grok daily, tracks every brand mention, and turns the results into AI search optimization you can act on.',
+      'See how AI brand monitoring works in Livesov. We ask ChatGPT, Perplexity, Claude, Gemini and Grok daily and track every mention. See the steps.',
     images: ['https://livesov.com/og-image.png'],
   },
 };
@@ -350,12 +350,12 @@ export default function HowItWorksPage() {
         title="Go deeper"
         links={[
           {
-            href: '/chatgpt-brand-tracking',
+            href: '/chatgpt-rank-tracker',
             label: 'ChatGPT tracking',
             description: 'Methodology applied to OpenAI&rsquo;s ChatGPT specifically.',
           },
           {
-            href: '/perplexity-brand-tracking',
+            href: '/perplexity-rank-tracker',
             label: 'Perplexity tracking',
             description: 'How citation capture works for AI search.',
           },

@@ -13,14 +13,14 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Best AI Search Optimization Tools (2026): Compared on Data Accuracy & Historical Depth | Livesov',
+  title: 'Best AI Search Optimization Tools (2026) | Livesov',
   description:
-    'How to compare AI search optimization tools in 2026. We rank the top AI search optimization tools on data accuracy, historical depth, engine coverage, and price - so content creators and marketers pick the right one.',
+    'We compare the best AI search optimization tools for 2026 on data accuracy, history, AI engine coverage and price. See which tool fits your team best.',
   keywords:
     'how to compare ai search optimization tools, top ai search optimization tools, best ai search optimization tools, ai search optimization tools data accuracy comparison, ai search optimization historical data, search visibility tracking software',
   alternates: { canonical: '/best-ai-search-optimization-tools' },
   openGraph: {
-    title: 'Best AI Search Optimization Tools (2026): Compared on Data Accuracy & Historical Depth | Livesov',
+    title: 'Best AI Search Optimization Tools (2026) | Livesov',
     description:
       'How to compare AI search optimization tools in 2026. We rank the top AI search optimization tools on data accuracy, historical depth, engine coverage, and price.',
     url: 'https://livesov.com/best-ai-search-optimization-tools',

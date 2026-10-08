@@ -7,9 +7,8 @@ import type { Metadata } from 'next';
 // ChatGPT ~13.8K search volume across long-tail variants) with "rank tracker",
 // "rank tracking tool", "free ... rank tracker", and "track ... rankings"
 // intent. They are deliberately framed around RANK / POSITION tracking over
-// time - distinct from the /[engine]-brand-tracking pages, which are framed
-// around brand mentions and citations - and cross-link to them to avoid
-// keyword cannibalization.
+// time. The old /[engine]-brand-tracking pages competed for the same intent,
+// so they now 301 here (see next.config.ts) and each engine has one page.
 //
 // Keep punctuation ASCII/Unicode (no HTML entities): the generic feature/step/
 // comparison scaffolding lives in the RankTrackerPage component and these
@@ -79,9 +78,9 @@ export const rankTrackers: RankTracker[] = [
     engineFull: 'Perplexity AI',
     gradientFrom: '#20b8cd',
     gradientTo: '#1a94a5',
-    metaTitle: 'Perplexity Rank Tracker | Track AI Rankings | Livesov',
+    metaTitle: 'Perplexity Rank Tracker | Mentions & Citations | Livesov',
     metaDescription:
-      'The Perplexity rank tracker that tracks your position and citations in Perplexity AI answers over time. Track rankings, competitors, and share of voice. Free to start.',
+      'Perplexity rank tracker that shows where your brand ranks and gets cited in Perplexity answers. Track competitors and share of voice. Start free today.',
     keywords:
       'perplexity rank tracker, perplexity rank tracker tool, rank tracker tool perplexity, rank tracking tool perplexity, best perplexity rank tracker, free perplexity rank tracker, perplexity rank tracking, track perplexity rankings, perplexity keyword rank tracker, perplexity seo rank tracking, perplexity ai rank tracking',
     heroSubtitle:
@@ -133,9 +132,9 @@ export const rankTrackers: RankTracker[] = [
           'Yes. Every tracked answer stores the full ranked list of cited URLs, so you can see exactly which of your pages (and which competitor pages) earn Perplexity citations and drive your ranking.',
       },
     ],
-    brandTrackingHref: '/perplexity-brand-tracking',
-    brandTrackingLabel: 'Perplexity brand tracking',
-    brandTrackingDescription: 'Track mentions and citations, not just rank.',
+    brandTrackingHref: '/tools/citation-finder',
+    brandTrackingLabel: 'Free AI citation finder',
+    brandTrackingDescription: 'See which sources AI engines cite for your prompts.',
     otherHref: '/chatgpt-rank-tracker',
     otherLabel: 'ChatGPT rank tracker',
     otherDescription: 'Track your rankings in ChatGPT answers too.',
@@ -148,7 +147,7 @@ export const rankTrackers: RankTracker[] = [
     engineFull: 'ChatGPT',
     gradientFrom: '#19c37d',
     gradientTo: '#10a37f',
-    metaTitle: 'ChatGPT Rank Tracker | Track AI Rankings | Livesov',
+    metaTitle: 'ChatGPT Rank Tracker | Track Brand Mentions Daily | Livesov',
     metaDescription:
       'The ChatGPT rank tracker that tracks your position in ChatGPT answers over time. Track rankings, competitors, citations, and share of voice. Free to start.',
     keywords:
@@ -202,9 +201,9 @@ export const rankTrackers: RankTracker[] = [
           'Yes. When ChatGPT Search returns source URLs, Livesov logs the full list, so you can see which pages feed the answers that determine your rank.',
       },
     ],
-    brandTrackingHref: '/chatgpt-brand-tracking',
-    brandTrackingLabel: 'ChatGPT brand tracking',
-    brandTrackingDescription: 'Track mentions, sentiment, and recommendations.',
+    brandTrackingHref: '/tools/chatgpt-mention-checker',
+    brandTrackingLabel: 'Free ChatGPT mention checker',
+    brandTrackingDescription: 'Check one prompt now, no signup needed.',
     otherHref: '/perplexity-rank-tracker',
     otherLabel: 'Perplexity rank tracker',
     otherDescription: 'Track your rankings in Perplexity answers too.',
@@ -228,9 +227,9 @@ export const rankTrackers: RankTracker[] = [
     engineFull: 'large language model',
     gradientFrom: '#6366f1',
     gradientTo: '#8b5cf6',
-    metaTitle: 'LLM Rank Tracker | Track Your Rank Across AI Models | Livesov',
+    metaTitle: 'LLM Rank Tracker | ChatGPT, Claude, Gemini, Grok | Livesov',
     metaDescription:
-      'The LLM rank tracker that records where your brand ranks across ChatGPT, Claude, Gemini, Perplexity, and Grok - and how that position moves over time. Free to start.',
+      'LLM rank tracker that shows where your brand ranks in ChatGPT, Claude, Gemini, Perplexity and Grok, and how it moves over time. Start tracking free.',
     keywords:
       'llm rank tracker, llm rank tracking, llm rank tracker tool, free llm rank tracker, best llm rank tracker, llm tracker, llm visibility checker, llm seo rank tracking, large language model rank tracker, track llm rankings, llm brand rank tracker',
     heroSubtitle:
@@ -282,9 +281,9 @@ export const rankTrackers: RankTracker[] = [
           'More often than Google rank, because the variance is higher. Livesov runs on a daily, 2-day, or weekly schedule depending on your plan, and runs each prompt several times per scheduled check so the number you see is an average rather than a single roll of the dice.',
       },
     ],
-    brandTrackingHref: '/chatgpt-brand-tracking',
-    brandTrackingLabel: 'AI brand tracking',
-    brandTrackingDescription: 'Track mentions and sentiment, not just rank.',
+    brandTrackingHref: '/geo-audit',
+    brandTrackingLabel: 'Free AI visibility checker',
+    brandTrackingDescription: 'Score any page for AI citation readiness, no signup.',
     otherHref: '/chatgpt-rank-tracker',
     otherLabel: 'ChatGPT rank tracker',
     otherDescription: 'Drill into rank for ChatGPT specifically.',
@@ -301,7 +300,7 @@ export const rankTrackers: RankTracker[] = [
     gradientTo: '#b45309',
     metaTitle: 'Claude Rank Tracker | Track Your Rank in Claude | Livesov',
     metaDescription:
-      'The Claude rank tracker that records where your brand ranks in Claude answers over time. Track rankings across Claude models, benchmark competitors, and start free.',
+      'Claude rank tracker that shows where your brand ranks in Claude answers over time. Track every Claude model, compare competitors, and start free.',
     keywords:
       'claude rank tracker, claude rank tracking, best claude rank tracker tool, claude rank tracker tool, free claude rank tracking, free claude rank tracker, track claude rankings, claude ai rank tracking, claude seo rank tracking, anthropic claude rank tracker, claude visibility tracker',
     heroSubtitle:
@@ -353,9 +352,9 @@ export const rankTrackers: RankTracker[] = [
           'Yes. Livesov benchmarks up to 20 competitors on the same prompts, so you can see who Claude ranks above you, on which queries, and how the gap changes over time.',
       },
     ],
-    brandTrackingHref: '/claude-brand-tracking',
-    brandTrackingLabel: 'Claude brand tracking',
-    brandTrackingDescription: 'Track mentions, sentiment, and recommendations.',
+    brandTrackingHref: '/tools/chatgpt-mention-checker',
+    brandTrackingLabel: 'Free AI mention checker',
+    brandTrackingDescription: 'Check one prompt now, no signup needed.',
     otherHref: '/gemini-rank-tracker',
     otherLabel: 'Gemini rank tracker',
     otherDescription: 'Track your rankings in Gemini answers too.',
@@ -373,7 +372,7 @@ export const rankTrackers: RankTracker[] = [
     gradientTo: '#9b72cb',
     metaTitle: 'Gemini Rank Tracker | Track Your Rank in Gemini | Livesov',
     metaDescription:
-      'The Gemini rank tracker that records where your brand ranks in Google Gemini answers over time. Track rankings across Gemini models, benchmark competitors, and start free.',
+      'Gemini rank tracker that shows where your brand ranks in Google Gemini answers over time. Track each Gemini model, compare competitors, and start free.',
     keywords:
       'gemini rank tracker, gemini rank tracking, gemini rank tracker tool, free gemini rank tracker, best gemini rank tracker, track gemini rankings, google gemini rank tracker, gemini ai rank tracking, gemini seo rank tracking, gemini keyword rank tracker',
     heroSubtitle:
@@ -425,9 +424,9 @@ export const rankTrackers: RankTracker[] = [
           'Yes. Livesov benchmarks up to 20 competitors on the same prompts, so you can see who Gemini ranks above you, on which queries, and how the gap changes over time.',
       },
     ],
-    brandTrackingHref: '/gemini-brand-tracking',
-    brandTrackingLabel: 'Gemini brand tracking',
-    brandTrackingDescription: 'Track mentions, sentiment, and grounded citations.',
+    brandTrackingHref: '/uses/ai-visibility-for-local-businesses',
+    brandTrackingLabel: 'AI visibility for local businesses',
+    brandTrackingDescription: 'Near me prompts, city results and the citations AI trusts.',
     otherHref: '/grok-rank-tracker',
     otherLabel: 'Grok rank tracker',
     otherDescription: 'Track your rankings in Grok answers too.',
@@ -445,7 +444,7 @@ export const rankTrackers: RankTracker[] = [
     gradientTo: '#0f172a',
     metaTitle: 'Grok Rank Tracker | Track Your Rank in Grok | Livesov',
     metaDescription:
-      'The Grok rank tracker that records where your brand ranks in Grok answers over time. Track rankings across Grok models, see the X posts behind them, and start free.',
+      'Grok rank tracker that shows where your brand ranks in Grok answers over time. See the X posts behind each answer, compare competitors, and start free.',
     keywords:
       'grok rank tracker, grok rank tracker tool, grok rank tracking, free grok rank tracker, best grok rank tracker, track grok rankings, xai grok rank tracker, grok ai rank tracking, grok seo rank tracking, grok visibility tracker',
     heroSubtitle:
@@ -497,9 +496,9 @@ export const rankTrackers: RankTracker[] = [
           'They overlap. Rank tracking focuses on your position and how it trends over time for specific prompts and keywords; brand tracking focuses on whether and how Grok mentions, describes, and recommends your brand. Livesov does both - see the Grok brand tracking page for the mention-and-sentiment angle.',
       },
     ],
-    brandTrackingHref: '/grok-brand-tracking',
-    brandTrackingLabel: 'Grok brand tracking',
-    brandTrackingDescription: 'Track mentions, sentiment, and X-driven swings.',
+    brandTrackingHref: '/tools/competitor-finder',
+    brandTrackingLabel: 'Free AI competitor finder',
+    brandTrackingDescription: 'Find who AI engines recommend instead of you.',
     otherHref: '/claude-rank-tracker',
     otherLabel: 'Claude rank tracker',
     otherDescription: 'Track your rankings in Claude answers too.',

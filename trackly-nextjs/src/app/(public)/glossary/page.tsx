@@ -6,9 +6,9 @@ import { GLOSSARY, type GlossaryTerm } from '@/data/glossary';
 import EmailOff from '@/components/EmailOff';
 
 export const metadata: Metadata = {
-  title: 'AI Search & LLM SEO Glossary: GEO, AEO, RAG, llms.txt & 30+ Terms Defined | Livesov',
+  title: 'AI Search Glossary: GEO, AEO, RAG & 30+ Terms | Livesov',
   description:
-    'The definitive glossary of AI search and LLM SEO terminology. Clear definitions of GEO, AEO, LLM SEO, RAG, grounding, mention rate, citation share, llms.txt, GPTBot, ClaudeBot, and more.',
+    'AI search glossary with plain definitions of GEO, AEO, LLM SEO, RAG, mention rate, citation share, llms.txt and AI crawlers. Learn the terms in minutes.',
   keywords:
     'ai search glossary, llm seo glossary, geo glossary, what is geo, what is aeo, what is llm seo, what is rag, what is llms.txt, ai search terminology',
   alternates: { canonical: '/glossary' },

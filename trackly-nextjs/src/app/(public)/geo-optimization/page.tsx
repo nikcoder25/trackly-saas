@@ -340,7 +340,7 @@ export default function GeoOptimizationPage() {
           <ul>
             <li>
               <strong>
-                <a href="/chatgpt-brand-tracking">ChatGPT</a>:
+                <a href="/chatgpt-rank-tracker">ChatGPT</a>:
               </strong>{' '}
               broad open-web consensus matters most. Long-tail comparison content and
               high-authority third-party reviews dominate. Citations only appear in ChatGPT
@@ -348,7 +348,7 @@ export default function GeoOptimizationPage() {
             </li>
             <li>
               <strong>
-                <a href="/perplexity-brand-tracking">Perplexity</a>:
+                <a href="/perplexity-rank-tracker">Perplexity</a>:
               </strong>{' '}
               the most directly optimisable platform. Live retrieval means structured, well-
               ranking, citation-friendly pages win quickly. Citation share is the single
@@ -356,7 +356,7 @@ export default function GeoOptimizationPage() {
             </li>
             <li>
               <strong>
-                <a href="/claude-brand-tracking">Claude</a>:
+                <a href="/claude-rank-tracker">Claude</a>:
               </strong>{' '}
               long-form, well-attributed, balanced content rules. Claude rewards depth and
               caveats; it punishes marketing language. Documentation sites often outperform
@@ -364,7 +364,7 @@ export default function GeoOptimizationPage() {
             </li>
             <li>
               <strong>
-                <a href="/gemini-brand-tracking">Gemini</a>:
+                <a href="/gemini-rank-tracker">Gemini</a>:
               </strong>{' '}
               strong Google rankings are a near-prerequisite, since AI Overviews ground on
               the same index. After that, scannable answers and schema markup are the
@@ -372,7 +372,7 @@ export default function GeoOptimizationPage() {
             </li>
             <li>
               <strong>
-                <a href="/grok-brand-tracking">Grok</a>:
+                <a href="/grok-rank-tracker">Grok</a>:
               </strong>{' '}
               real-time X presence carries unusual weight. Active, credible X accounts in your
               category materially shift Grok&apos;s answers within days.
@@ -445,12 +445,12 @@ export default function GeoOptimizationPage() {
             description: 'Score any URL for AI citation-readiness.',
           },
           {
-            href: '/chatgpt-brand-tracking',
+            href: '/chatgpt-rank-tracker',
             label: 'ChatGPT tracking',
             description: 'Apply GEO measurement to ChatGPT specifically.',
           },
           {
-            href: '/perplexity-brand-tracking',
+            href: '/perplexity-rank-tracker',
             label: 'Perplexity tracking',
             description: 'The cleanest platform to test GEO improvements on.',
           },

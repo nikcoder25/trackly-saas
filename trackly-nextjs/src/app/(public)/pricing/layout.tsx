@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Pricing - AI Visibility Tracking from $9/mo | Livesov',
-  description: 'AI brand monitoring across ChatGPT, Perplexity, Claude, Gemini and Grok from $9/mo. Credits, plan limits and total cost examples. 7-day free trial, no card needed.',
+  title: 'Pricing | AI Visibility Tracking from $9/mo | Livesov',
+  description: 'AI brand monitoring for ChatGPT, Perplexity, Claude, Gemini and Grok from $9/mo. See plan limits and costs. Start a 7-day free trial, no card needed.',
   alternates: { canonical: '/pricing' },
   openGraph: {
-    title: 'Pricing - AI Visibility Tracking from $9/mo | Livesov',
-    description: 'AI brand monitoring across ChatGPT, Perplexity, Claude, Gemini and Grok from $9/mo. Credits, plan limits and total cost examples. 7-day free trial, no card needed.',
+    title: 'Pricing | AI Visibility Tracking from $9/mo | Livesov',
+    description: 'AI brand monitoring for ChatGPT, Perplexity, Claude, Gemini and Grok from $9/mo. See plan limits and costs. Start a 7-day free trial, no card needed.',
     url: 'https://livesov.com/pricing',
     siteName: 'Livesov',
     type: 'website',
@@ -14,8 +14,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Pricing - AI Visibility Tracking from $9/mo | Livesov',
-    description: 'AI brand monitoring across ChatGPT, Perplexity, Claude, Gemini and Grok from $9/mo. Credits, plan limits and total cost examples. 7-day free trial, no card needed.',
+    title: 'Pricing | AI Visibility Tracking from $9/mo | Livesov',
+    description: 'AI brand monitoring for ChatGPT, Perplexity, Claude, Gemini and Grok from $9/mo. See plan limits and costs. Start a 7-day free trial, no card needed.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

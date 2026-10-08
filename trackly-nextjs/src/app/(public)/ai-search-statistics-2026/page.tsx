@@ -14,9 +14,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'AI Search Statistics 2026: 120+ Data Points on ChatGPT, Perplexity, Gemini & AI Overviews | Livesov',
+  title: 'AI Search Statistics 2026: 120+ Data Points | Livesov',
   description:
-    'The definitive 2026 dataset on AI search. Adoption, market share, click-through rates, citation patterns, and revenue impact across ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews. Free to cite and embed.',
+    '120+ AI search statistics for 2026 on adoption, market share, click rates and citations across ChatGPT, Perplexity, Gemini and AI Overviews. Free to cite.',
   keywords:
     'ai search statistics, ai search statistics 2026, chatgpt statistics, perplexity statistics, ai overviews statistics, generative search statistics, llm search market share, ai search adoption, zero-click search statistics, ai citation statistics',
   alternates: { canonical: '/ai-search-statistics-2026' },
