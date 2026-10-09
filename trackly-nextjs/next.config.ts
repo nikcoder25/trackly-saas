@@ -9,6 +9,13 @@ const nextConfig: NextConfig = {
     // throws ("Failed to generate PDF report"). Keeping it external makes Next
     // require it from node_modules so the font data loads correctly.
     serverExternalPackages: ['pdfkit'],
+    // Dashboard pages are client components behind a dynamic layout, so each
+    // click used to wait on a fresh server round trip. Reusing a visited
+    // page's payload for 30s makes going back and forth between pages
+    // instant; their data still comes from the client-side brand cache.
+    experimental: {
+          staleTimes: { dynamic: 30 },
+    },
     images: {
           remotePatterns: [
             { protocol: 'https', hostname: 'lh3.googleusercontent.com' },

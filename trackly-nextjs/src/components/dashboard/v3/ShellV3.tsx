@@ -121,7 +121,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
     const on = current === s.id;
     return (
       <div key={s.id} className="v3-nav-group">
-        <Link href={tabs[0].href} prefetch={false} onClick={onNavigate} className={'v3-nav-item' + (on ? ' on' : '')}
+        <Link href={tabs[0].href} onClick={onNavigate} className={'v3-nav-item' + (on ? ' on' : '')}
           aria-current={on ? 'page' : undefined}>
           <V3Icon name={SECTION_ICON[s.id]} size={18} />
           <span className="v3-menu-grow">{s.label}</span>
@@ -254,7 +254,7 @@ function SectionTabs() {
     <div className="v3-tabs-wrap" ref={wrapRef}>
       <nav className="v3-tabs" aria-label={match.section.label}>
         {tabs.map(t => (
-          <Link key={t.href} href={t.href} prefetch={false} className={'v3-tab' + (t.href === match.tab.href ? ' on' : '')}
+          <Link key={t.href} href={t.href} className={'v3-tab' + (t.href === match.tab.href ? ' on' : '')}
             aria-current={t.href === match.tab.href ? 'page' : undefined}>
             {t.label}
           </Link>
@@ -274,7 +274,7 @@ function BottomBar() {
         const s = V3_SECTIONS.find(x => x.id === id)!;
         const on = current === id;
         return (
-          <Link key={id} href={s.tabs[0].href} prefetch={false} className={'v3-bb-item' + (on ? ' on' : '')} aria-current={on ? 'page' : undefined}>
+          <Link key={id} href={s.tabs[0].href} className={'v3-bb-item' + (on ? ' on' : '')} aria-current={on ? 'page' : undefined}>
             <span className="v3-bb-icon">
               <V3Icon name={SECTION_ICON[id]} size={20} />
               {id === 'fixes' && available && count > 0 && <span className="v3-bb-badge">{count}<span className="v3-sr"> open fixes</span></span>}

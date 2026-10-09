@@ -3,6 +3,33 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useBrands } from '@/contexts/BrandContext';
 import { useRun, type LiveResult } from '@/contexts/RunContext';
+import { useAuth } from '@/contexts/AuthContext';
+
+// Full brand payloads (every stored run with its raw AI answers) can run to
+// several MB. Pages share one copy per brand so navigating between dashboard
+// pages reuses it instead of re-downloading it on every page mount.
+const FULL_BRAND_FRESH_MS = 30_000;
+const fullBrandCache = new Map<string, { brand: Record<string, unknown> | null; at: number }>();
+const fullBrandInflight = new Map<string, Promise<Record<string, unknown> | null>>();
+
+// Keyed by viewer + brand so a different sign-in in the same tab never sees
+// another account's copy.
+function loadFullBrand(key: string, id: string, force = false): Promise<Record<string, unknown> | null> {
+  const pending = fullBrandInflight.get(key);
+  if (pending && !force) return pending;
+  const p = (async () => {
+    const res = await fetch(`/api/brands/${id}`, { credentials: 'include' });
+    if (!res.ok) throw new Error('Failed to load brand data');
+    const d = await res.json();
+    const brand = (d.brand || null) as Record<string, unknown> | null;
+    fullBrandCache.set(key, { brand, at: Date.now() });
+    return brand;
+  })().finally(() => {
+    if (fullBrandInflight.get(key) === p) fullBrandInflight.delete(key);
+  });
+  fullBrandInflight.set(key, p);
+  return p;
+}
 
 /**
  * Hook that syncs with BrandContext's selected brand.
@@ -20,36 +47,51 @@ import { useRun, type LiveResult } from '@/contexts/RunContext';
 export function useBrandData({ fullData = false }: { fullData?: boolean } = {}) {
   const { selectedBrand, brands, loading: contextLoading, error: contextError, refreshBrands } = useBrands();
   const { live } = useRun();
-  const [fullBrand, setFullBrand] = useState<Record<string, unknown> | null>(null);
+  const { user } = useAuth();
+  const brandId = selectedBrand?.id;
+  const cacheKey = `${user?.id ?? ''}:${brandId ?? ''}`;
+  // Seed from the shared cache so a revisited page paints on its first render.
+  const [fullBrand, setFullBrand] = useState<Record<string, unknown> | null>(
+    () => (fullData && brandId ? fullBrandCache.get(cacheKey)?.brand ?? null : null),
+  );
   const [fullLoading, setFullLoading] = useState(false);
   const [fullError, setFullError] = useState<string | null>(null);
 
-  const brandId = selectedBrand?.id;
+  // Bumped on every write to the brand row; a cached copy whose stamp differs
+  // from the list's is revalidated even inside the freshness window.
+  const listUpdatedAt = selectedBrand?.updatedAt == null ? null : String(selectedBrand.updatedAt);
 
-  const fetchFullBrand = useCallback(async (id: string) => {
-    const res = await fetch(`/api/brands/${id}`, { credentials: 'include' });
-    if (!res.ok) throw new Error('Failed to load brand data');
-    const d = await res.json();
-    return d.brand || null;
-  }, []);
+  const fetchFullBrand = useCallback((id: string, force = false) => loadFullBrand(cacheKey, id, force), [cacheKey]);
 
-  // Fetch full brand data when selected brand changes
+  // Fetch full brand data when selected brand changes. A cached copy (from
+  // an earlier page) renders immediately and is revalidated in the
+  // background, so switching pages no longer waits on the full payload.
   useEffect(() => {
     if (!fullData || !brandId) {
       setFullBrand(null);
       return;
     }
     let cancelled = false;
-    setFullLoading(true);
+    const cached = fullBrandCache.get(cacheKey);
     setFullError(null);
+    if (cached) {
+      setFullBrand(cached.brand);
+      setFullLoading(false);
+      const sameVersion = listUpdatedAt == null || String(cached.brand?.updatedAt ?? '') === listUpdatedAt;
+      if (sameVersion && Date.now() - cached.at < FULL_BRAND_FRESH_MS) return;
+    } else {
+      setFullBrand(null);
+      setFullLoading(true);
+    }
     fetchFullBrand(brandId)
       .then(b => { if (!cancelled) setFullBrand(b); })
       .catch(err => {
-        if (!cancelled) { setFullBrand(null); setFullError((err as Error)?.message || 'Failed to load brand data'); }
+        // Keep showing the cached copy if the background refresh fails.
+        if (!cancelled && !cached) { setFullBrand(null); setFullError((err as Error)?.message || 'Failed to load brand data'); }
       })
       .finally(() => { if (!cancelled) setFullLoading(false); });
     return () => { cancelled = true; };
-  }, [fullData, brandId, fetchFullBrand]);
+  }, [fullData, brandId, listUpdatedAt, fetchFullBrand]);
 
   const baseBrand = fullData ? (fullBrand as typeof selectedBrand) : selectedBrand;
   // Surface the brand-*list* failure alongside the full-brand fetch failure.
@@ -73,7 +115,7 @@ export function useBrandData({ fullData = false }: { fullData?: boolean } = {}) 
     // If full data mode, re-fetch the full brand too
     if (fullData && brandId) {
       try {
-        const b = await fetchFullBrand(brandId);
+        const b = await fetchFullBrand(brandId, true);
         setFullBrand(b);
         // Clear a prior failure so a successful retry actually leaves the
         // error state, rather than the consumer having to infer it from

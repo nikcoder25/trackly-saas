@@ -306,7 +306,7 @@ function ProdSidebar({ onNavigate, onAddBrand }: { onNavigate?: () => void; onAd
       </button>
       {/* The topbar drops "+ Add brand" below 640px; the drawer carries it instead. */}
       {onAddBrand && (atBrandLimit ? (
-        <Link href="/dashboard/account" prefetch={false} onClick={onNavigate} className="sb-item sb-add-brand">
+        <Link href="/dashboard/account" onClick={onNavigate} className="sb-item sb-add-brand">
           <span className="sb-i">+</span><span>Upgrade to add brands</span>
         </Link>
       ) : (
@@ -322,7 +322,7 @@ function ProdSidebar({ onNavigate, onAddBrand }: { onNavigate?: () => void; onAd
             if (it.adminOnly && !isAdmin) return null;
             const active = pathname === it.href || (it.href !== '/dashboard' && pathname?.startsWith(it.href + '/'));
             return (
-              <Link key={it.id} href={it.href} prefetch={false} onClick={onNavigate} className={'sb-item ' + (active ? 'on' : '')}>
+              <Link key={it.id} href={it.href} onClick={onNavigate} className={'sb-item ' + (active ? 'on' : '')}>
                 <span className="sb-i"><NavIcon id={it.id} /></span>
                 <span>{it.label}</span>
                 {it.badge && <span className="sb-badge">{it.badge}</span>}
