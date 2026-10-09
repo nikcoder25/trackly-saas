@@ -78,7 +78,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                 if ('adminOnly' in item && item.adminOnly && user?.role !== 'admin') return null;
                 const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href + '/'));
                 return (
-                  <Link key={item.href} href={item.href} prefetch={false} onClick={onClose}
+                  <Link key={item.href} href={item.href} onClick={onClose}
                     className={`nav-item ${isActive ? 'active' : ''} ${'adminOnly' in item && item.adminOnly ? 'admin-link' : ''}`}
                     style={{ textDecoration: 'none' }}>
                     {item.icon} {item.label}
