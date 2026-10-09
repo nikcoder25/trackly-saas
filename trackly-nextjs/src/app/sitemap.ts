@@ -104,6 +104,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/uses/ai-visibility-for-local-businesses`, changeFrequency: 'monthly', priority: 0.9 },
     { url: `${BASE_URL}/uses/ai-visibility-report-for-agencies`, changeFrequency: 'monthly', priority: 0.9 },
     { url: `${BASE_URL}/uses/ai-visibility-for-hvac-companies`, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/uses/ai-visibility-for-plumbers`, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/uses/ai-visibility-for-roofers`, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/uses/ai-visibility-for-dentists`, changeFrequency: 'monthly', priority: 0.8 },
 
     // Comparison pages
     { url: `${BASE_URL}/vs/semrush`, changeFrequency: 'monthly', priority: 0.7 },

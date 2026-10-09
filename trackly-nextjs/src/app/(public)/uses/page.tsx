@@ -7,7 +7,7 @@ const PATH = '/uses';
 const PAGE_URL = `https://livesov.com${PATH}`;
 const TITLE = 'AI Visibility Use Cases for Local SEO Agencies | Livesov';
 const DESCRIPTION =
-  'AI visibility use cases for local SEO agencies: track how ChatGPT, Gemini and Perplexity recommend local businesses and HVAC companies, and report it to clients.';
+  'AI visibility use cases for local SEO agencies: track how ChatGPT, Gemini and Perplexity recommend local businesses, HVAC, plumbing, roofing and dental, and report it.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -48,6 +48,21 @@ const USES = [
     href: '/uses/ai-visibility-for-hvac-companies',
     label: 'AI visibility for HVAC companies',
     description: 'See if ChatGPT and Gemini recommend you for AC repair and furnace prompts in your city.',
+  },
+  {
+    href: '/uses/ai-visibility-for-plumbers',
+    label: 'AI visibility for plumbers',
+    description: 'Burst pipe, drain and water heater prompts: see which plumbers AI names in your city.',
+  },
+  {
+    href: '/uses/ai-visibility-for-roofers',
+    label: 'AI visibility for roofers',
+    description: 'Roof repair, storm damage and replacement prompts: see who makes the AI shortlist.',
+  },
+  {
+    href: '/uses/ai-visibility-for-dentists',
+    label: 'AI visibility for dentists',
+    description: 'Emergency, implant and family dental prompts: see which practices AI recommends.',
   },
   {
     href: '/uses/ai-visibility-report-for-agencies',
