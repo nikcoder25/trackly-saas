@@ -41,6 +41,9 @@ const CSRF_EXEMPT_PREFIXES = [
   '/api/oauth/register',
   '/api/oauth/token',
   '/api/oauth/revoke',
+  // Email unsubscribe: authenticated by an HMAC token in the link, never
+  // reads cookies, and is posted from a plain HTML form on the same route.
+  '/api/email/unsubscribe',
 ];
 
 // /api/connect/[key]/heartbeat — posted cross-origin from the customer's own
