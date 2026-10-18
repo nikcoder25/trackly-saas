@@ -62,6 +62,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // Core pages - highest priority
     { url: `${BASE_URL}/`, changeFrequency: 'weekly', priority: 1.0 },
     { url: `${BASE_URL}/pricing`, changeFrequency: 'weekly', priority: 0.9 },
+    { url: `${BASE_URL}/features`, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${BASE_URL}/geo-audit`, changeFrequency: 'monthly', priority: 0.9 },
 
     // Free tools hub + individual tools

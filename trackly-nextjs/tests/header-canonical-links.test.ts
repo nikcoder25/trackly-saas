@@ -14,7 +14,7 @@ describe('MARKETING_NAV_LINKS - canonical 6-link header set (finding #2)', () =>
   it('contains exactly the canonical 6 items in canonical order', () => {
     expect(MARKETING_NAV_LINKS).toHaveLength(6);
     expect(MARKETING_NAV_LINKS.map(l => l.href)).toEqual([
-      '/#features',
+      '/features',
       '/how-it-works',
       '/pricing',
       '/tools',
@@ -64,9 +64,9 @@ describe('MARKETING_NAV_LINKS - canonical 6-link header set (finding #2)', () =>
     expect(pricing?.homeHref).toBeUndefined();
   });
 
-  it('Features always uses the anchor form (no `/features` real page exists; PR-1 added a 301)', () => {
+  it('Features points at the real /features page', () => {
     const features = MARKETING_NAV_LINKS.find(l => l.label === 'Features');
-    expect(features?.href).toBe('/#features');
+    expect(features?.href).toBe('/features');
     expect(features?.homeHref).toBeUndefined();
   });
 });

@@ -169,7 +169,7 @@ function HowItWorks() {
           <span className="ls-eyebrow">How it works</span>
           <h2 className="ls-h2">Set up in under <span className="ls-em">two minutes.</span></h2>
         </div>
-        <Link href="/how-it-works" className="ls-link">See the full walkthrough</Link>
+        <Link href="/features" className="ls-link">Explore all features</Link>
       </div>
       <div className="ls-grid ls-grid-3">
         {steps.map((s) => (

@@ -34,16 +34,6 @@ const nextConfig: NextConfig = {
         destination: '/tools',
         permanent: true,
       },
-      {
-        // Defense-in-depth for the legacy /features route, which never
-        // shipped as a page. The homepage `#features` section is the
-        // canonical destination. Catches any stray external backlink,
-        // cached crawler entry, or future internal link that points at
-        // the bare /features path.
-        source: '/features',
-        destination: '/#features',
-        permanent: true,
-      },
       // Cannibalization fix: each engine had a /x-brand-tracking and a
       // /x-rank-tracker page chasing the same search. The rank-tracker page
       // is the one money page per engine; the brand-tracking URLs 301 to it.

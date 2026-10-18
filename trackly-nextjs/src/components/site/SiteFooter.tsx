@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { SiteLogo } from './SiteHeader';
 
 /* Links are written out (not mapped) so the canonical public destinations -
-   including the `/#features` anchor and the real `/pricing` page - stay
+   including the real `/features` and `/pricing` pages - stay
    pinned in source (see tests/nav-features-anchor, header-canonical-links). */
 export default function SiteFooter({ variant = 'full' }: { variant?: 'full' | 'compact' }) {
   const year = new Date().getFullYear();
@@ -13,7 +13,7 @@ export default function SiteFooter({ variant = 'full' }: { variant?: 'full' | 'c
         <div className="ls-wrap ls-ft-compact">
           <Link href="/" className="ls-logo inv" aria-label="Livesov home"><SiteLogo /></Link>
           <nav aria-label="Footer">
-            <Link href="/#features">Features</Link>
+            <Link href="/features">Features</Link>
             <Link href="/pricing">Pricing</Link>
             <Link href="/geo-audit">Free audit</Link>
             <Link href="/blog">Blog</Link>
@@ -53,7 +53,7 @@ export default function SiteFooter({ variant = 'full' }: { variant?: 'full' | 'c
               <Link href="/vs/otterly">vs Otterly</Link>
               <Link href="/vs/profound">vs Profound</Link>
               <Link href="/vs/peec-ai">vs Peec AI</Link>
-              <Link href="/#features">Features</Link>
+              <Link href="/features">Features</Link>
               <Link href="/how-it-works">How it works</Link>
             </div>
             <div className="ls-ft-col">

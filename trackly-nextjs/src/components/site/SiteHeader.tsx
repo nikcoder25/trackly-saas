@@ -15,7 +15,7 @@ export function SiteLogo() {
 }
 
 /* In-page smooth scroll when a link's hash target exists on this page
-   (homepage: /#features, /#how-it-works). Falls through to navigation. */
+   (homepage: /#how-it-works). Falls through to navigation. */
 function smoothScrollTo(e: React.MouseEvent<HTMLAnchorElement>) {
   const href = e.currentTarget.getAttribute('href') || '';
   const i = href.indexOf('#');
