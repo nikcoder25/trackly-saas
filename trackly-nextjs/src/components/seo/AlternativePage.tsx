@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import ProductScreenshot from '@/components/seo/ProductScreenshot';
-import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
+import SeoLayout, { Breadcrumbs } from '@/components/seo/SeoLayout';
 import {
   Section,
   SectionHeader,
@@ -16,6 +16,7 @@ import {
 import type { Alternative } from '@/data/alternatives';
 import { alternatives, comparisonDisclaimer } from '@/data/alternatives';
 import { buildShortlist } from '@/data/competitor-roster';
+import '@/styles/site-templates.css';
 
 // Livesov's own capabilities are the same on every alternative page, so they
 // live here once rather than being duplicated across nine data entries.
@@ -123,23 +124,26 @@ export default function AlternativePage({ data }: { data: Alternative }) {
 
       <JsonLd data={itemListSchema} />
 
-      <SeoHero
-        title={
-          <>
-            7 Best {data.name} Alternatives in{' '}
-            <span className="text-[var(--brand)]">2026</span>
-          </>
-        }
-        subtitle={data.heroSubtitle}
-        ctaText="Try Livesov free - no card"
-      />
+      <section className="ls-wrap ls-tpl-hero">
+        <span className="ls-eyebrow">{data.name} alternatives</span>
+        <h1 className="ls-h1 xl">
+          7 Best {data.name} Alternatives in <span className="ls-em acc">2026</span>
+        </h1>
+        <p className="ls-lead xl">{data.heroSubtitle}</p>
+        <div className="ls-cta-row">
+          <Link href="/signup" className="ls-btn ls-btn-pri ls-btn-lg">Try Livesov free - no card</Link>
+          <Link href="/geo-audit" className="ls-btn ls-btn-out ls-btn-lg">Run a free audit</Link>
+        </div>
+        <p className="ls-trust">7 day free trial · No credit card · Plans from $9/mo</p>
+      </section>
 
-      <ProductScreenshot
-        alt={`${data.name} alternative: Livesov AI visibility dashboard`}
-        caption="The Livesov dashboard: brand health, visibility, sentiment and accuracy across five AI engines."
-        priority
-      />
-      <div style={{ height: 48 }} />
+      <div className="ls-wrap ls-tpl-shot">
+        <ProductScreenshot
+          alt={`${data.name} alternative: Livesov AI visibility dashboard`}
+          caption="The Livesov dashboard: brand health, visibility, sentiment and accuracy across five AI engines."
+          priority
+        />
+      </div>
 
       <Section pad="0 24px 56px" width={1000}>
         <StatsBar stats={data.stats} />
@@ -167,60 +171,28 @@ export default function AlternativePage({ data }: { data: Alternative }) {
           subtitle={`Ranked for teams actively looking to replace ${data.name}. Each entry says who it is genuinely the right call for - including where it beats us.`}
         />
 
-        <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <ol className="ls-tpl-list">
           {shortlist.map((tool, i) => {
             const isUs = tool.name === 'Livesov';
             return (
-              <li
-                key={tool.name}
-                style={{
-                  display: 'flex', gap: 16, alignItems: 'flex-start',
-                  background: '#fff', borderRadius: 14, padding: '20px 22px',
-                  border: isUs ? '2px solid var(--brand, #6366f1)' : '1px solid var(--card-border, #e5e7eb)',
-                }}
-              >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    flexShrink: 0, width: 34, height: 34, borderRadius: 10,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontWeight: 800, fontSize: 15,
-                    background: isUs ? 'var(--brand, #6366f1)' : 'rgba(99,102,241,.08)',
-                    color: isUs ? '#fff' : 'var(--brand, #6366f1)',
-                  }}
-                >
-                  {i + 1}
-                </span>
+              <li key={tool.name} className={'ls-tpl-item' + (isUs ? ' us' : '')}>
+                <span aria-hidden="true" className="ls-tpl-n">{String(i + 1).padStart(2, '0')}</span>
                 <div style={{ minWidth: 0 }}>
-                  <h3 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 6px', color: 'var(--text-primary)' }}>
+                  <h3>
                     {i + 1}. {tool.name}
-                    {isUs && (
-                      <span style={{
-                        marginLeft: 8, fontSize: 10, fontWeight: 800, letterSpacing: 0.6,
-                        textTransform: 'uppercase', padding: '3px 8px', borderRadius: 100,
-                        background: 'var(--brand, #6366f1)', color: '#fff', verticalAlign: 'middle',
-                      }}>
-                        Our tool
-                      </span>
-                    )}
+                    {isUs && <span className="ls-badge">Our tool</span>}
                   </h3>
-                  <p style={{ margin: '0 0 8px', fontSize: 14, lineHeight: 1.65, color: 'var(--text-secondary)' }}>
-                    {tool.blurb}
-                  </p>
-                  <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
-                    <strong style={{ color: 'var(--text-primary)' }}>Best for:</strong> {tool.bestFor}
+                  <p>{tool.blurb}</p>
+                  <p style={{ marginBottom: 0 }}>
+                    <strong>Best for:</strong> {tool.bestFor}
                   </p>
                   {(tool.alternativeSlug || tool.vsHref) && (
-                    <p style={{ margin: '10px 0 0', fontSize: 13, display: 'flex', flexWrap: 'wrap', gap: 14 }}>
+                    <p className="ls-tpl-links">
                       {tool.alternativeSlug && (
-                        <Link href={`/${tool.alternativeSlug}`} style={{ color: 'var(--brand, #6366f1)', fontWeight: 600 }}>
-                          {tool.name} alternatives &rarr;
-                        </Link>
+                        <Link href={`/${tool.alternativeSlug}`}>{tool.name} alternatives &rarr;</Link>
                       )}
                       {tool.vsHref && (
-                        <Link href={tool.vsHref} style={{ color: 'var(--brand, #6366f1)', fontWeight: 600 }}>
-                          Livesov vs {tool.name} &rarr;
-                        </Link>
+                        <Link href={tool.vsHref}>Livesov vs {tool.name} &rarr;</Link>
                       )}
                     </p>
                   )}
@@ -233,24 +205,13 @@ export default function AlternativePage({ data }: { data: Alternative }) {
 
       {/* Backs the "(Tested)" claim in the page title. */}
       <Section pad="24px 24px 16px" width={860}>
-        <details
-          className="lp-faq-item"
-          style={{
-            background: 'var(--bg-section, #f7f5f1)', borderRadius: 12,
-            border: '1px solid var(--card-border, #e5e7eb)', padding: '18px 22px',
-          }}
-        >
-          <summary style={{
-            cursor: 'pointer', fontWeight: 700, fontSize: 15, color: 'var(--text-primary)',
-          }}>
-            How we compared these tools (and our bias, stated plainly)
+        <details className="ls-tpl-method">
+          <summary>
+            <span>How we compared these tools (and our bias, stated plainly)</span>
+            <span className="pm" aria-hidden="true">+</span>
           </summary>
-          <ul style={{ margin: '12px 0 0', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {METHODOLOGY.map((line) => (
-              <li key={line} style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--text-secondary)' }}>
-                {line}
-              </li>
-            ))}
+          <ul>
+            {METHODOLOGY.map((line) => <li key={line}>{line}</li>)}
           </ul>
         </details>
       </Section>
@@ -266,12 +227,10 @@ export default function AlternativePage({ data }: { data: Alternative }) {
           rows={data.comparisonRows}
           highlightColumn={1}
         />
-        <p style={{ fontSize: 13, color: '#6b7280', marginTop: 12, textAlign: 'center' }}>
-          {comparisonDisclaimer(data)}
-        </p>
+        <p className="ls-tpl-note">{comparisonDisclaimer(data)}</p>
       </Section>
 
-      <Section background="var(--bg-section, #f7f5f1)" pad="80px 24px">
+      <Section background="#fff" pad="80px 24px">
         <SectionHeader label="Where Livesov leads" title="Six reasons teams pick Livesov" />
         <FeatureGrid items={LIVESOV_STRENGTHS} columns={3} />
       </Section>

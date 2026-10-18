@@ -1,4 +1,5 @@
-import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
+import Link from 'next/link';
+import SeoLayout, { Breadcrumbs } from '@/components/seo/SeoLayout';
 import ProductScreenshot from '@/components/seo/ProductScreenshot';
 import {
   Section,
@@ -13,25 +14,7 @@ import {
   PillarLinks,
 } from '@/components/seo/SeoSections';
 import type { RankTracker } from '@/data/rank-trackers';
-
-// Hero accent gradients. These must be written as STATIC literal class strings
-// so Tailwind's content scanner generates the arbitrary-value utilities - a
-// runtime-interpolated `from-[${var}]` would never be emitted. Keyed by slug.
-const HERO_GRADIENTS: Record<string, string> = {
-  'perplexity-rank-tracker':
-    'text-transparent bg-clip-text bg-gradient-to-r from-[#20b8cd] to-[#1a94a5]',
-  'chatgpt-rank-tracker':
-    'text-transparent bg-clip-text bg-gradient-to-r from-[#19c37d] to-[#10a37f]',
-  'llm-rank-tracker':
-    'text-transparent bg-clip-text bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]',
-  'claude-rank-tracker':
-    'text-transparent bg-clip-text bg-gradient-to-r from-[#d97757] to-[#b45309]',
-  'gemini-rank-tracker':
-    'text-transparent bg-clip-text bg-gradient-to-r from-[#4285f4] to-[#9b72cb]',
-  'grok-rank-tracker':
-    'text-transparent bg-clip-text bg-gradient-to-r from-[#64748b] to-[#0f172a]',
-};
-const FALLBACK_GRADIENT = 'text-[var(--brand)]';
+import '@/styles/site-templates.css';
 
 // Rank-tracker scaffolding is the same for every engine, so the generic
 // features/steps/comparison live here and interpolate the engine name. Only
@@ -126,25 +109,26 @@ export default function RankTrackerPage({ data }: { data: RankTracker }) {
     <SeoLayout>
       <Breadcrumbs items={[{ name: `${data.engine} Rank Tracker`, url: `/${data.slug}` }]} />
 
-      <SeoHero
-        title={
-          <>
-            The {data.engine}{' '}
-            <span className={HERO_GRADIENTS[data.slug] || FALLBACK_GRADIENT}>
-              Rank Tracker
-            </span>
-          </>
-        }
-        subtitle={data.heroSubtitle}
-        ctaText={`Start tracking ${data.engine} rank - free`}
-      />
+      <section className="ls-wrap ls-tpl-hero">
+        <span className="ls-eyebrow">{data.engine} rank tracking</span>
+        <h1 className="ls-h1 xl">
+          The {data.engine} <span className="ls-em acc">Rank Tracker</span>
+        </h1>
+        <p className="ls-lead xl">{data.heroSubtitle}</p>
+        <div className="ls-cta-row">
+          <Link href="/signup" className="ls-btn ls-btn-pri ls-btn-lg">{`Start tracking ${data.engine} rank - free`}</Link>
+          <Link href="/geo-audit" className="ls-btn ls-btn-out ls-btn-lg">Run a free audit</Link>
+        </div>
+        <p className="ls-trust">7 day free trial · No credit card · Plans from $9/mo</p>
+      </section>
 
-      <ProductScreenshot
-        alt={`${data.engine} rank tracker dashboard`}
-        caption={`Livesov dashboard: ${data.engine} mentions, rank and sources in one view.`}
-        priority
-      />
-      <div style={{ height: 48 }} />
+      <div className="ls-wrap ls-tpl-shot">
+        <ProductScreenshot
+          alt={`${data.engine} rank tracker dashboard`}
+          caption={`Livesov dashboard: ${data.engine} mentions, rank and sources in one view.`}
+          priority
+        />
+      </div>
 
       <Section pad="0 24px 56px" width={1000}>
         <StatsBar stats={data.stats} />
@@ -171,7 +155,7 @@ export default function RankTrackerPage({ data }: { data: RankTracker }) {
         <FeatureGrid items={features} />
       </Section>
 
-      <Section background="var(--bg-section, #f7f5f1)" pad="80px 24px">
+      <Section background="#fff" pad="80px 24px">
         <SectionHeader label="How it works" title={`Live ${data.engine} rank tracking in under 5 minutes`} />
         <ProcessSteps steps={steps} />
       </Section>
@@ -190,7 +174,7 @@ export default function RankTrackerPage({ data }: { data: RankTracker }) {
         </LongForm>
       </Section>
 
-      <Section background="var(--bg-section, #f7f5f1)" pad="80px 24px" width={1000}>
+      <Section background="#fff" pad="80px 24px" width={1000}>
         <SectionHeader
           label={`Why Livesov for ${data.engine} rank`}
           title={`Livesov vs. manual ${data.engine} rank checks`}
