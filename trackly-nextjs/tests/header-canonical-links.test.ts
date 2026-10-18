@@ -14,7 +14,7 @@ describe('MARKETING_NAV_LINKS - canonical 6-link header set (finding #2)', () =>
   it('contains exactly the canonical 6 items in canonical order', () => {
     expect(MARKETING_NAV_LINKS).toHaveLength(6);
     expect(MARKETING_NAV_LINKS.map(l => l.href)).toEqual([
-      '/#features',
+      '/features',
       '/how-it-works',
       '/pricing',
       '/tools',
@@ -64,9 +64,9 @@ describe('MARKETING_NAV_LINKS - canonical 6-link header set (finding #2)', () =>
     expect(pricing?.homeHref).toBeUndefined();
   });
 
-  it('Features always uses the anchor form (no `/features` real page exists; PR-1 added a 301)', () => {
+  it('Features points at the real /features page', () => {
     const features = MARKETING_NAV_LINKS.find(l => l.label === 'Features');
-    expect(features?.href).toBe('/#features');
+    expect(features?.href).toBe('/features');
     expect(features?.homeHref).toBeUndefined();
   });
 });
@@ -77,6 +77,7 @@ describe('no header/footer links the homepage pricing anchor', () => {
   // sitewide footer silently redirects link equity to the homepage.
   const SOURCES = [
     'src/components/seo/SeoLayout.tsx',
+    'src/components/site/SiteFooter.tsx',
     'src/app/(public)/home/page.tsx',
   ];
 
@@ -95,7 +96,7 @@ describe('Both header sources import MARKETING_NAV_LINKS (finding #2)', () => {
   // headers drift again.
   const NAV_SOURCES = [
     'src/components/seo/SeoLayout.tsx',
-    'src/app/(public)/home/page.tsx',
+    'src/components/site/SiteHeader.tsx',
   ];
 
   for (const rel of NAV_SOURCES) {

@@ -163,9 +163,12 @@ function LoginForm() {
 
       {/* Tabs */}
       <div className="auth-tabs">
-        <div className="auth-tab active">Log In</div>
-        <Link href="/signup" className="auth-tab">Sign Up</Link>
+        <Link href="/signup" className="auth-tab">Start free trial</Link>
+        <div className="auth-tab active">Sign in</div>
       </div>
+
+      <h1 className="auth-title">Welcome back</h1>
+      <p style={{ margin: '0 0 22px', fontSize: 16 }}>Sign in to your Livesov workspace.</p>
 
       {verified && (
         <div className="auth-err" style={{ display: 'block', background: 'var(--success-light)', borderColor: 'rgba(16,185,129,.2)', color: 'var(--success)' }}>

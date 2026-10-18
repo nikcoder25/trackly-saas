@@ -182,9 +182,12 @@ export default function SignupPage() {
 
       {/* Tabs */}
       <div className="auth-tabs">
-        <Link href="/login" className="auth-tab">Log In</Link>
-        <div className="auth-tab active">Sign Up</div>
+        <div className="auth-tab active">Start free trial</div>
+        <Link href="/login" className="auth-tab">Sign in</Link>
       </div>
+
+      <h1 className="auth-title">Start your free trial</h1>
+      <p style={{ margin: '0 0 22px', fontSize: 16 }}>7 days free. No credit card.</p>
 
       {error && (
         <div className="auth-err" style={{ display: 'block' }}>{error}</div>
@@ -209,14 +212,14 @@ export default function SignupPage() {
           autoComplete="name"
         />
 
-        <label htmlFor="email" className="flbl">Email</label>
+        <label htmlFor="email" className="flbl">Work email</label>
         <input
           id="email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="finp"
-          placeholder="you@example.com"
+          placeholder="you@agency.com"
           required
           autoComplete="email"
         />
