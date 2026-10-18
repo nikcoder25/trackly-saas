@@ -11,7 +11,7 @@ import { join } from 'node:path';
 // header / footer.
 const NAV_SOURCES = [
   'src/components/seo/SeoLayout.tsx',
-  'src/app/(public)/home/page.tsx',
+  'src/components/site/SiteFooter.tsx',
 ];
 
 describe('legacy /features link must remain anchor-form', () => {

@@ -1,6 +1,6 @@
 // Canonical marketing-page navigation. Single source of truth for the
 // public top header. Both src/components/seo/SeoLayout.tsx (interior
-// pages) and src/app/(public)/home/page.tsx (homepage) render from
+// pages) and src/components/site/SiteHeader.tsx (redesigned public pages) render from
 // this array. Tests/header-canonical-links.test.ts pins the link set
 // so future drift is caught at CI.
 //
