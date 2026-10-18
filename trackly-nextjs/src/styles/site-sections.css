@@ -1,0 +1,114 @@
+/* Shared SEO page sections (src/components/seo/SeoSections.tsx) in the
+   Livesov site design. Builds on the tokens in livesov-site.css. */
+
+.ls .ls-s { background: transparent; }
+.ls .ls-s-band { background: #fff; border-top: 1px solid var(--ls-line); border-bottom: 1px solid var(--ls-line); }
+.ls .ls-s-in { margin: 0 auto; min-width: 0; }
+
+/* Header */
+.ls .ls-s-head { display: flex; flex-direction: column; gap: 14px; max-width: 760px; margin-bottom: 40px; }
+.ls .ls-s-title {
+  font-size: clamp(30px, 4vw, 48px); line-height: 1.05; letter-spacing: -0.04em; font-weight: 600;
+  color: var(--ls-ink); margin: 0;
+}
+.ls .ls-s-sub { font-size: 17px; line-height: 1.6; color: var(--ls-muted); margin: 0; }
+
+/* Feature grid: 1px-gap bordered grid of white cells */
+.ls .ls-s-feats {
+  /* Cells draw their own right/bottom rules so a short last row leaves
+     white space, not a grey block. */
+  display: grid; gap: 0; background: #fff; border: 1px solid var(--ls-line);
+  border-radius: 20px; overflow: hidden;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+}
+.ls .ls-s-feats.cols-2 { grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); }
+.ls .ls-s-feats.cols-4 { grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); }
+.ls .ls-s-feat { background: #fff; box-shadow: 1px 0 0 var(--ls-line), 0 1px 0 var(--ls-line); padding: 28px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ls .ls-s-feat-ic {
+  width: 40px; height: 40px; border-radius: 10px; background: var(--ls-accent-tint); color: var(--ls-accent-ink);
+  display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 4px;
+}
+.ls .ls-s-feat h3 { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; color: var(--ls-ink); margin: 0; }
+.ls .ls-s-feat p { font-size: 15px; line-height: 1.6; color: var(--ls-muted); margin: 0; }
+
+/* Stats */
+.ls .ls-s-stats {
+  display: grid; gap: 24px; border-top: 1px solid var(--ls-line); padding-top: 32px;
+  grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
+}
+.ls .ls-s-stat { min-width: 0; }
+.ls .ls-s-stat .v { overflow-wrap: anywhere; font-size: clamp(36px, 5vw, 64px); font-weight: 600; letter-spacing: -0.04em; line-height: 1.05; color: var(--ls-ink); }
+.ls .ls-s-stat .l { font-size: 15px; line-height: 1.5; color: var(--ls-muted); margin-top: 8px; }
+
+/* Steps */
+.ls .ls-s-steps {
+  list-style: none; padding: 0; margin: 0; display: grid; gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+}
+.ls .ls-s-step {
+  background: #fff; border: 1px solid var(--ls-line); border-radius: 20px; padding: 32px;
+  display: flex; flex-direction: column; gap: 12px; min-width: 0;
+}
+.ls .ls-s-step h3 { font-size: 21px; font-weight: 600; letter-spacing: -0.02em; color: var(--ls-ink); margin: 0; }
+.ls .ls-s-step p { font-size: 15px; line-height: 1.6; color: var(--ls-muted); margin: 0; }
+
+/* FAQ: title left, questions right (wraps on small screens) */
+.ls .ls-s-faq { display: flex; flex-wrap: wrap; gap: 48px; }
+.ls .ls-s-faq-head { flex: 1 1 300px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.ls .ls-s-faq > .ls-faq { flex: 2 1 520px; min-width: 0; }
+
+/* Comparison table */
+.ls .ls-s-table { min-width: 560px; }
+.ls .ls-s-table td { line-height: 1.55; }
+
+/* Callouts */
+.ls .ls-s-callout { border-radius: 20px; padding: 24px 28px; margin: 24px 0; border: 1px solid var(--ls-line); background: #fff; }
+.ls .ls-s-callout-t {
+  font-family: var(--ls-mono-f); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--ls-accent); margin-bottom: 8px;
+}
+.ls .ls-s-callout-b { font-size: 16px; line-height: 1.7; color: var(--ls-ink-2); }
+.ls .ls-s-callout.info { background: var(--ls-accent-tint); border-color: #DCDDFB; }
+.ls .ls-s-callout.info .ls-s-callout-t { color: var(--ls-accent-ink); }
+.ls .ls-s-callout.tip { background: var(--ls-ink); border-color: var(--ls-ink); }
+.ls .ls-s-callout.tip .ls-s-callout-t { color: var(--ls-lime); }
+.ls .ls-s-callout.tip .ls-s-callout-b { color: var(--ls-on-dark); }
+.ls .ls-s-callout.tip a { color: var(--ls-lime); }
+.ls .ls-s-callout.note { background: var(--ls-warm); border-color: var(--ls-warm-line); }
+.ls .ls-s-callout.note .ls-s-callout-t { color: var(--ls-warm-ink); }
+
+/* Long-form prose */
+.ls .ls-s-prose { max-width: 760px; margin: 0 auto; padding: 0 24px; font-size: 17px; line-height: 1.7; color: var(--ls-muted); overflow-wrap: anywhere; }
+.ls .ls-s-prose h2 { font-size: clamp(26px, 3vw, 32px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.15; color: var(--ls-ink); margin: 56px 0 16px; }
+.ls .ls-s-prose h2:first-child { margin-top: 0; }
+.ls .ls-s-prose h3 { font-size: 21px; font-weight: 600; letter-spacing: -0.02em; color: var(--ls-ink); margin: 32px 0 12px; }
+.ls .ls-s-prose p { margin: 0 0 18px; }
+.ls .ls-s-prose ul, .ls .ls-s-prose ol { padding-left: 22px; margin: 0 0 22px; }
+.ls .ls-s-prose li { margin-bottom: 10px; line-height: 1.7; }
+.ls .ls-s-prose strong { color: var(--ls-ink); font-weight: 600; }
+.ls .ls-s-prose a {
+  color: var(--ls-accent-ink); font-weight: 500; text-decoration: underline;
+  text-decoration-color: rgba(67, 56, 202, .3); text-underline-offset: 3px;
+}
+.ls .ls-s-prose a:hover { text-decoration-color: var(--ls-accent-ink); }
+.ls .ls-s-prose blockquote {
+  margin: 28px 0; padding: 0; font-family: var(--ls-serif); font-style: italic; font-size: 24px;
+  line-height: 1.35; color: var(--ls-ink);
+}
+.ls .ls-s-prose code {
+  font-family: var(--ls-mono-f); background: var(--ls-accent-tint); color: var(--ls-accent-deep);
+  padding: 2px 6px; border-radius: 6px; font-size: 14px;
+}
+.ls .ls-s-prose table { width: 100%; border-collapse: collapse; font-size: 15px; display: block; overflow-x: auto; }
+.ls .ls-s-prose th, .ls .ls-s-prose td { padding: 10px 14px; border-bottom: 1px solid var(--ls-row); text-align: left; }
+
+/* Pillar links */
+.ls .ls-s-pillars { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); }
+.ls .ls-s-pillars .ls-linkcard strong { font-size: 17px; }
+.ls .ls-s-pillars .ls-linkcard small { margin-top: 4px; line-height: 1.5; }
+.ls .ls-s-pillars .ls-linkcard svg { flex: none; color: var(--ls-accent); }
+
+@media (max-width: 640px) {
+  .ls .ls-s-feat, .ls .ls-s-step { padding: 24px; }
+  .ls .ls-s-faq { gap: 24px; }
+}

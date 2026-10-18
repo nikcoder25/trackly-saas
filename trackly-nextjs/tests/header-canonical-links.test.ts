@@ -76,7 +76,6 @@ describe('no header/footer links the homepage pricing anchor', () => {
   // Every internal link must reach it directly - a `/#pricing` link in a
   // sitewide footer silently redirects link equity to the homepage.
   const SOURCES = [
-    'src/components/seo/SeoLayout.tsx',
     'src/components/site/SiteFooter.tsx',
     'src/app/(public)/home/page.tsx',
   ];
@@ -95,7 +94,6 @@ describe('Both header sources import MARKETING_NAV_LINKS (finding #2)', () => {
   // `const navLinks = [...]` array in either consumer and letting the
   // headers drift again.
   const NAV_SOURCES = [
-    'src/components/seo/SeoLayout.tsx',
     'src/components/site/SiteHeader.tsx',
   ];
 

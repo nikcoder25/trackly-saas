@@ -6,7 +6,6 @@ import { join } from 'node:path';
 // the homepage `#features` anchor; that redirect is gone, so every public
 // header/footer must link the real page and pass it link equity.
 const NAV_SOURCES = [
-  'src/components/seo/SeoLayout.tsx',
   'src/components/site/SiteFooter.tsx',
 ];
 

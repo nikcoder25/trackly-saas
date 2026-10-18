@@ -146,7 +146,7 @@ export default function GeoAuditPage() {
   const state = scoreState(shown.overall);
 
   return (
-    <SiteShell footer="compact">
+    <SiteShell>
       {/* ── Hero: form + report ─────────────────── */}
       <section className="ls-wrap ls-split" style={{ paddingTop: 80, paddingBottom: 72, gap: 56 }}>
         <div className="ls-stack ls-gap-24" style={{ gap: 22 }}>

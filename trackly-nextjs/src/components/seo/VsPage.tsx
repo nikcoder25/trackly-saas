@@ -1,4 +1,5 @@
-import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
+import Link from 'next/link';
+import SeoLayout, { Breadcrumbs } from '@/components/seo/SeoLayout';
 import {
   Section,
   SectionHeader,
@@ -12,6 +13,7 @@ import {
 } from '@/components/seo/SeoSections';
 import type { VsComparison } from '@/data/vs-comparisons';
 import { vsComparisons, vsDisclaimer } from '@/data/vs-comparisons';
+import '@/styles/site-templates.css';
 
 // Livesov's own strengths are identical on every /vs/ page, so they live here
 // once rather than being duplicated across each data entry - the same pattern
@@ -90,15 +92,18 @@ export default function VsPage({ data }: { data: VsComparison }) {
     <SeoLayout>
       <Breadcrumbs items={[{ name: `vs ${data.name}`, url: `/vs/${data.slug}` }]} />
 
-      <SeoHero
-        title={
-          <>
-            Livesov vs <span className="text-[var(--brand)]">{data.name}</span>
-          </>
-        }
-        subtitle={data.heroSubtitle}
-        ctaText="Try Livesov free - no card"
-      />
+      <section className="ls-wrap ls-tpl-hero">
+        <span className="ls-eyebrow">Compare</span>
+        <h1 className="ls-h1 xl">
+          Livesov vs <span className="ls-em acc">{data.name}</span>
+        </h1>
+        <p className="ls-lead xl">{data.heroSubtitle}</p>
+        <div className="ls-cta-row">
+          <Link href="/signup" className="ls-btn ls-btn-pri ls-btn-lg">Try Livesov free - no card</Link>
+          <Link href="/pricing" className="ls-btn ls-btn-out ls-btn-lg">See pricing</Link>
+        </div>
+        <p className="ls-trust">7 day free trial · No credit card · Plans from $9/mo</p>
+      </section>
 
       <Section pad="0 24px 56px" width={1000}>
         <StatsBar stats={data.stats} />
@@ -115,10 +120,10 @@ export default function VsPage({ data }: { data: VsComparison }) {
           rows={data.comparisonRows}
           highlightColumn={1}
         />
-        <p style={{ fontSize: 13, color: '#6b7280', marginTop: 12 }}>{vsDisclaimer(data)}</p>
+        <p className="ls-tpl-note">{vsDisclaimer(data)}</p>
       </Section>
 
-      <Section background="var(--bg-section, #f7f5f1)" pad="80px 24px">
+      <Section background="#fff" pad="80px 24px">
         <SectionHeader label="Where Livesov leads" title="Six reasons teams pick Livesov" />
         <FeatureGrid items={LIVESOV_STRENGTHS} columns={3} />
       </Section>
@@ -132,7 +137,7 @@ export default function VsPage({ data }: { data: VsComparison }) {
         <FeatureGrid items={data.competitorFit} columns={data.competitorFit.length >= 3 ? 3 : 2} />
       </Section>
 
-      <Section background="var(--bg-section, #f7f5f1)" pad="80px 24px">
+      <Section background="#fff" pad="80px 24px">
         <LongForm>
           <h2>How to choose between Livesov and {data.name}</h2>
           <p>{data.chooseIntro}</p>
