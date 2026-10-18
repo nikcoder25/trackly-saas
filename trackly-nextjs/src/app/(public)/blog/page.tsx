@@ -95,7 +95,7 @@ export default function BlogPage() {
   const rest = activeTag === 'All' ? filtered.slice(1) : filtered;
 
   return (
-    <SiteShell footer="compact">
+    <SiteShell>
       <Breadcrumbs items={[{ name: 'Blog', url: '/blog' }]} />
 
       {/* ── Hero ── */}

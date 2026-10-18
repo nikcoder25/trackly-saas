@@ -189,10 +189,10 @@ describe('the landing page is unlinked but readable by agents', () => {
 
   it('is not linked from the site footer', async () => {
     // Read as source rather than rendered: the assertion is about the
-    // navigation surface, and rendering SeoLayout would pull in the whole
+    // navigation surface, and rendering SiteFooter would pull in the whole
     // page shell for a one-line check.
     const { readFileSync } = await import('node:fs');
-    const src = readFileSync(process.cwd() + '/src/components/seo/SeoLayout.tsx', 'utf8');
+    const src = readFileSync(process.cwd() + '/src/components/site/SiteFooter.tsx', 'utf8');
     expect(src).not.toMatch(/href="\/offer"/);
   });
 });

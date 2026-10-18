@@ -305,7 +305,12 @@
 .ls-cta-band.dark { background: var(--ls-ink); }
 .ls-cta-band p { color: var(--ls-accent-on); }
 .ls-cta-form { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 560px; margin-top: 8px; }
-.ls-cta-form input { flex: 1 1 260px; min-width: 0; padding: 16px 18px; border-radius: 12px; border: 0; font: inherit; font-size: 16px; color: var(--ls-ink); }
+.ls-cta-form input {
+  flex: 1 1 260px; min-width: 0; padding: 16px 18px; border-radius: 12px; border: 1px solid #fff;
+  font: inherit; font-size: 16px; color: var(--ls-ink); background: #fff; box-shadow: 0 8px 24px -12px rgba(11, 12, 20, .35);
+}
+.ls-cta-form input::placeholder { color: #8A8C99; }
+.ls-cta-form input:focus { outline: none; box-shadow: 0 0 0 3px rgba(163, 230, 53, .6); }
 
 /* ── Pricing ────────────────────────────────────────────────────────────── */
 .ls-toggle { display: inline-flex; gap: 4px; padding: 4px; background: #fff; border: 1px solid var(--ls-line); border-radius: 12px; }
@@ -484,3 +489,117 @@
   .ls-engines-list { gap: 20px; font-size: 18px; }
   .ls-stat-v { font-size: 52px; }
 }
+
+/* ── Footer extras ──────────────────────────────────────────────────────── */
+.ls-ft-news {
+  display: flex; flex-wrap: wrap; gap: 32px; align-items: center; justify-content: space-between;
+  padding: 32px; border: 1px solid var(--ls-ft-line); border-radius: 24px; background: #11131F;
+}
+.ls-ft-news p { font-size: 15px; line-height: 1.6; }
+.ls-ft-news-h { color: #fff; font-size: clamp(26px, 3vw, 34px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; }
+.ls-ft-news form { display: flex; flex-wrap: wrap; gap: 10px; flex: 1 1 360px; max-width: 480px; }
+.ls-ft-news input[type='email'] {
+  flex: 1 1 220px; min-width: 0; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--ls-dark-line);
+  background: var(--ls-dark-2); color: #fff; font: inherit; font-size: 16px;
+}
+.ls-ft-news input[type='email']::placeholder { color: var(--ls-on-dark-3); }
+.ls-ft-news input[type='email']:focus { outline: none; border-color: var(--ls-lime); }
+.ls-ft-news button {
+  padding: 14px 22px; border-radius: 12px; border: 0; background: var(--ls-lime); color: var(--ls-ink);
+  font: inherit; font-weight: 600; font-size: 16px; cursor: pointer; box-shadow: none;
+}
+.ls-ft-news .land-footer-newsletter-success { color: var(--ls-lime); font-weight: 500; }
+.ls-ft-social { display: flex; gap: 8px; }
+.ls .ls-ft-social a {
+  width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--ls-ft-line);
+  display: inline-flex; align-items: center; justify-content: center; color: var(--ls-ft-text);
+}
+.ls .ls-ft-social a:hover { color: #fff; border-color: var(--ls-on-dark-3); }
+.ls-ft-legal button { background: none; border: 0; color: var(--ls-ft-text); font: inherit; font-size: 13px; cursor: pointer; padding: 0 0 0 6px; text-decoration: underline; }
+
+/* ── Long-tail pages (SeoLayout) ────────────────────────────────────────────
+   Those pages are styled with inline styles that read the legacy CSS
+   variables. Remapping the variables here moves every one of them onto the
+   new palette and type without touching ~45 page files. */
+.ls-seo {
+  --brand: var(--ls-accent);
+  --primary: var(--ls-accent);
+  --primary-hover: var(--ls-accent-ink);
+  --primary-light: var(--ls-accent-tint);
+  --primary-border: #C7CAFB;
+  --accent: var(--ls-accent-ink);
+  --bg-landing: var(--ls-bg);
+  --bg-section: #FFFFFF;
+  --bg: var(--ls-bg);
+  --white: #FFFFFF;
+  --card-border: var(--ls-line);
+  --border: var(--ls-line);
+  --line: var(--ls-line);
+  --text-primary: var(--ls-ink);
+  --text-secondary: var(--ls-muted);
+  --text-muted: var(--ls-subtle);
+  --text: var(--ls-ink);
+  --text-2: var(--ls-muted);
+  --text-3: var(--ls-subtle);
+  --mute: var(--ls-subtle);
+  --text-inverse: #FFFFFF;
+  --surface: #FFFFFF;
+  --surface-2: var(--ls-bg);
+  --surface-3: var(--ls-row);
+  --font: var(--ls-sans);
+  --sans: var(--ls-sans);
+  --mono: var(--ls-mono-f);
+  --radius: 14px;
+  --radius-lg: 20px;
+  background: var(--ls-bg);
+  overflow-x: clip;
+}
+.ls-seo main :is(h1, h2, h3, h4) { font-family: var(--ls-sans); letter-spacing: -0.03em; color: var(--ls-ink); }
+.ls-seo main h1 { letter-spacing: -0.045em; }
+.ls-seo main :is(p, li) { font-family: var(--ls-sans); }
+.ls-seo main code, .ls-seo main kbd, .ls-seo main .mono { font-family: var(--ls-mono-f); }
+/* Old gradient headline accents read as indigo text on the new ground. */
+.ls-seo main .bg-clip-text { background: none !important; -webkit-text-fill-color: currentColor; color: var(--ls-accent); }
+
+/* Legacy section / hero / button classes still used in page bodies. */
+.ls-seo .land-hero {
+  background: none; padding: 88px 24px 48px; max-width: 1200px; margin: 0 auto; align-items: center; text-align: center;
+}
+.ls-seo .land-hero h1 {
+  font-size: clamp(42px, 6vw, 72px); font-weight: 600; letter-spacing: -0.045em; line-height: 0.98; max-width: 980px; color: var(--ls-ink);
+}
+.ls-seo .land-hero h1 span { background: none; -webkit-text-fill-color: currentColor; color: var(--ls-accent); font-family: var(--ls-serif); font-style: italic; font-weight: 400; letter-spacing: 0; }
+.ls-seo .land-hero p { font-size: 19px; line-height: 1.55; color: var(--ls-muted); max-width: 680px; }
+.ls-seo .land-hero-badge { border-radius: 999px; background: #fff; border: 1px solid var(--ls-line); color: var(--ls-muted); font-weight: 500; }
+.ls-seo .land-section { max-width: 1200px; padding: 72px 24px; }
+.ls-seo .land-section-label { font-family: var(--ls-mono-f); font-weight: 400; letter-spacing: 0.08em; color: var(--ls-accent); }
+.ls-seo .land-section h2 { font-size: clamp(32px, 4.2vw, 52px); font-weight: 600; letter-spacing: -0.04em; line-height: 1.04; }
+.ls-seo .land-section .section-sub { font-size: 18px; color: var(--ls-muted); max-width: 640px; }
+.ls-seo .land-btn {
+  border-radius: 12px; font-family: var(--ls-sans); font-weight: 600; box-shadow: none; transform: none;
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px; text-decoration: none;
+}
+.ls-seo .land-btn-primary { background: var(--ls-accent); color: #fff; }
+.ls-seo .land-btn-primary:hover { background: var(--ls-accent-ink); color: #fff; transform: none; box-shadow: none; }
+.ls-seo .land-btn-ghost { background: #fff; color: var(--ls-ink); border: 1px solid var(--ls-line-2); }
+.ls-seo .lp-faq-item { border-radius: 16px !important; border-color: var(--ls-line) !important; background: #fff !important; }
+.ls-seo .lp-faq-item summary { font-family: var(--ls-sans); }
+
+/* SeoHero / SeoContent */
+.ls-seo-hero { padding-bottom: 56px; }
+.ls-seo-hero .ls-h1 { max-width: 980px; }
+.ls-seo-hero .ls-lead { max-width: 680px; }
+.ls-seo-prose { font-size: 17px; line-height: 1.7; color: var(--ls-muted); }
+.ls-seo-prose :is(h2, h3) { color: var(--ls-ink); margin: 36px 0 12px; line-height: 1.2; }
+.ls-seo-prose h2 { font-size: 30px; font-weight: 600; }
+.ls-seo-prose h3 { font-size: 22px; font-weight: 600; }
+.ls-seo-prose p { margin: 0 0 18px; }
+.ls-seo-prose :is(ul, ol) { padding-left: 22px; margin: 0 0 18px; }
+.ls-seo-prose a { color: var(--ls-accent-ink); text-decoration: underline; text-underline-offset: 3px; }
+.ls-seo-prose strong { color: var(--ls-ink); }
+
+/* Product screenshot frame (matches the home preview frame). */
+.ls-figure { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+.ls-figure-frame { background: var(--ls-ink); border-radius: 24px; padding: 12px; box-shadow: 0 40px 80px -40px rgba(11, 12, 20, .45); }
+.ls-figure-frame img { display: block; width: 100%; height: auto; border-radius: 14px; }
+.ls-figure figcaption { text-align: center; font-family: var(--ls-mono-f); font-size: 13px; color: var(--ls-subtle); margin-top: 14px; }

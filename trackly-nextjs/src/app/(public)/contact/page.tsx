@@ -33,7 +33,7 @@ function Arrow() {
 
 export default function ContactPage() {
   return (
-    <SiteShell footer="compact">
+    <SiteShell>
       <Breadcrumbs items={[{ name: 'Contact', url: '/contact' }]} />
       <section className="ls-wrap" style={{ paddingTop: 80, paddingBottom: 112, display: 'flex', flexWrap: 'wrap', gap: 64 }}>
         <div className="ls-stack" style={{ flex: '1 1 400px', gap: 28, minWidth: 0 }}>
