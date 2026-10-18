@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import SeoLayout, { Breadcrumbs } from '@/components/seo/SeoLayout';
+import '@/styles/site-tools.css';
 
 interface Tool {
   slug: string;
@@ -83,82 +84,48 @@ export default function ToolsHubPage() {
   return (
     <SeoLayout>
       <Breadcrumbs items={[{ name: 'Free Tools', url: '/tools' }]} />
-      <section className="land-hero" style={{ paddingTop: 80, paddingBottom: 40, textAlign: 'center' }}>
-        <h1 style={{ fontSize: 44, fontWeight: 800, lineHeight: 1.2, marginBottom: 14 }}>
-          Free <span style={{ color: 'var(--brand)' }}>GEO &amp; AI Visibility</span> Tools
+      <section className="ls-wrap ls-tool-hero">
+        <span className="ls-eyebrow">Free tools</span>
+        <h1 className="ls-h1">
+          Free GEO &amp; AI visibility <span className="ls-em acc">tools.</span>
         </h1>
-        <p style={{ fontSize: 17, color: 'var(--text-secondary)', maxWidth: 620, margin: '0 auto' }}>
+        <p className="ls-lead">
           Ten free utilities to help you understand and improve how AI platforms see your brand.
           No signup required for most. Built by the team behind Livesov.
         </p>
       </section>
 
-      <section style={{ padding: '32px 24px 80px', maxWidth: 1080, margin: '0 auto' }}>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-            gap: 20,
-          }}
-        >
+      <section className="ls-wrap" style={{ paddingTop: 16, paddingBottom: 72 }}>
+        <div className="ls-grid ls-grid-3w">
           {TOOLS.map((tool) => (
-            <Link
-              key={tool.slug}
-              href={`/tools/${tool.slug}`}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                background: '#fff',
-                borderRadius: 14,
-                padding: 24,
-                boxShadow: '0 4px 20px rgba(0,0,0,.06)',
-                textDecoration: 'none',
-                color: 'inherit',
-                border: '1px solid #f0f0f0',
-                transition: 'transform .15s, box-shadow .15s',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
-                <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1a1a2e', margin: 0 }}>{tool.name}</h2>
+            <Link key={tool.slug} href={`/tools/${tool.slug}`} className="ls-hub-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                <h2>{tool.name}</h2>
                 {tool.badge && (
-                  <span style={{ background: '#dcfce7', color: '#166534', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>
-                    {tool.badge.toUpperCase()}
-                  </span>
+                  <span className={'ls-hub-badge' + (tool.badge === 'Dashboard' ? ' dash' : '')}>{tool.badge}</span>
                 )}
               </div>
-              <p style={{ fontSize: 14, color: '#4b5563', margin: '0 0 14px', lineHeight: 1.55 }}>{tool.tagline}</p>
-              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: '#6b7280', lineHeight: 1.7, flex: 1 }}>
+              <p className="ls-small">{tool.tagline}</p>
+              <ul>
                 {tool.bullets.map((b) => (
                   <li key={b}>{b}</li>
                 ))}
               </ul>
-              <div style={{ marginTop: 16, fontSize: 13, fontWeight: 700, color: 'var(--brand)' }}>
-                Open tool →
-              </div>
+              <span className="ls-mono" style={{ fontSize: 13, color: 'var(--ls-accent-ink)' }}>Open tool →</span>
             </Link>
           ))}
         </div>
+      </section>
 
-        <div style={{ marginTop: 48, padding: 32, borderRadius: 14, background: '#fff', boxShadow: '0 4px 20px rgba(0,0,0,.06)', textAlign: 'center' }}>
-          <h2 style={{ fontSize: 22, fontWeight: 800, color: '#1a1a2e', margin: '0 0 8px' }}>Want continuous AI visibility tracking?</h2>
-          <p style={{ fontSize: 14, color: '#4b5563', margin: '0 0 18px' }}>
-            Free tools give you a snapshot. Livesov tracks AI mentions across ChatGPT, Perplexity, Claude, Gemini and Grok every day.
-          </p>
-          <Link
-            href="/signup"
-            style={{
-              display: 'inline-block',
-              padding: '14px 32px',
-              borderRadius: 10,
-              background: 'var(--brand)',
-              color: '#fff',
-              fontWeight: 700,
-              fontSize: 15,
-              textDecoration: 'none',
-            }}
-          >
-            Start tracking free
-          </Link>
+      <section className="ls-wrap" style={{ paddingBottom: 96 }}>
+        <div className="ls-cta-band row">
+          <div className="ls-stack ls-gap-10" style={{ maxWidth: 620 }}>
+            <h2 className="ls-h2 sm">Want continuous <span className="ls-em">AI visibility tracking?</span></h2>
+            <p style={{ fontSize: 17 }}>
+              Free tools give you a snapshot. Livesov tracks AI mentions across ChatGPT, Perplexity, Claude, Gemini and Grok every day.
+            </p>
+          </div>
+          <Link href="/signup" className="ls-btn ls-btn-dark ls-btn-lg">Start tracking free</Link>
         </div>
       </section>
     </SeoLayout>

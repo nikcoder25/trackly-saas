@@ -1,0 +1,86 @@
+/* Free tool pages (ToolPage + /tools hub) in the Livesov site design.
+   Scoped under `.ls`; tokens come from livesov-site.css. */
+
+.ls .ls-tool-hero {
+  padding-top: 80px; padding-bottom: 40px; display: flex; flex-direction: column;
+  align-items: center; text-align: center; gap: 20px;
+}
+.ls .ls-tool-hero .ls-h1 { max-width: 900px; font-size: clamp(40px, 5.6vw, 64px); }
+.ls .ls-tool-hero .ls-lead { max-width: 640px; }
+.ls .ls-crumbs { display: flex; gap: 8px; align-items: center; font-family: var(--ls-mono-f); font-size: 13px; color: var(--ls-subtle); }
+.ls .ls-crumbs a { color: var(--ls-accent-ink); }
+.ls .ls-tool-body { max-width: 808px; padding-bottom: 48px; }
+
+/* Legacy gradient-text spans in tool titles read as the serif accent. */
+.ls .ls-tool-hero .bg-clip-text, .ls .ls-tool-hero .text-transparent, .ls .ls-tool-hero h1 span {
+  background: none !important; -webkit-text-fill-color: currentColor; color: var(--ls-accent);
+  font-family: var(--ls-serif); font-style: italic; font-weight: 400; letter-spacing: 0;
+}
+
+.ls .ls-tool-sec { margin-top: 48px; display: flex; flex-direction: column; gap: 20px; }
+.ls .ls-tool-card {
+  display: flex; flex-direction: column; gap: 6px; background: #fff; border: 1px solid var(--ls-line);
+  border-radius: 16px; padding: 18px; color: var(--ls-ink); transition: border-color .15s ease, transform .15s ease;
+}
+.ls .ls-tool-card:hover { color: var(--ls-ink); border-color: var(--ls-line-2); transform: translateY(-2px); }
+.ls .ls-tool-card .t { font-weight: 600; font-size: 15px; }
+.ls .ls-tool-card .d { font-size: 13px; line-height: 1.55; color: var(--ls-muted); }
+.ls .ls-tool-card .go { margin-top: auto; padding-top: 6px; font-family: var(--ls-mono-f); font-size: 12px; color: var(--ls-accent-ink); }
+
+/* Tools hub */
+.ls .ls-hub-card {
+  display: flex; flex-direction: column; gap: 12px; background: #fff; border: 1px solid var(--ls-line);
+  border-radius: 20px; padding: 28px; color: var(--ls-ink); transition: border-color .15s ease, transform .15s ease;
+}
+.ls .ls-hub-card:hover { color: var(--ls-ink); border-color: var(--ls-line-2); transform: translateY(-2px); }
+.ls .ls-hub-card h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+.ls .ls-hub-card ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--ls-muted); flex: 1; }
+.ls .ls-hub-card li::before { content: '·'; color: var(--ls-accent); font-weight: 700; margin-right: 8px; }
+.ls .ls-hub-badge { font-family: var(--ls-mono-f); font-size: 11px; padding: 4px 9px; border-radius: 99px; background: var(--ls-lime-tint); color: var(--ls-lime-ink); white-space: nowrap; }
+.ls .ls-hub-badge.dash { background: var(--ls-accent-tint); color: var(--ls-accent-deep); }
+
+/* Tool article blocks */
+.ls .ls-tool-article { margin-top: 48px; padding: 44px 40px; }
+.ls .ls-capsule {
+  background: var(--ls-accent-tint-2); border: 1px solid #DCDDFB; border-radius: 16px;
+  padding: 18px 22px; margin: 0 0 28px; font-size: 16px; line-height: 1.7; color: var(--ls-ink-2);
+}
+.ls .ls-takeaways { background: var(--ls-lime-tint); border-radius: 16px; padding: 20px 24px; margin: 24px 0 30px; }
+.ls .ls-takeaways ul { margin: 0; padding-left: 20px; color: var(--ls-ink-2); }
+.ls .ls-takeaways li { margin-bottom: 6px; }
+.ls .ls-quote { margin: 28px 0; padding: 28px; background: var(--ls-ink); border-radius: 20px; color: #fff; }
+.ls .ls-quote blockquote {
+  margin: 0; padding: 0; background: none; border: 0; color: #fff;
+  font-family: var(--ls-serif); font-style: italic; font-size: 24px; line-height: 1.35;
+}
+.ls .ls-quote figcaption { margin-top: 16px; font-size: 13px; color: var(--ls-on-dark-3); font-family: var(--ls-mono-f); }
+.ls .ls-quote figcaption strong { color: var(--ls-lime); font-weight: 500; }
+
+.ls .tool-article-prose { font-size: 17px; line-height: 1.7; color: var(--ls-muted); }
+.ls .tool-article-prose h2 {
+  font-size: clamp(24px, 2.6vw, 30px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.15;
+  color: var(--ls-ink); margin: 40px 0 14px; scroll-margin-top: 90px;
+}
+.ls .tool-article-prose h2:first-child { margin-top: 0; }
+.ls .tool-article-prose h3 { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; color: var(--ls-ink); margin: 28px 0 10px; }
+.ls .tool-article-prose p { margin: 0 0 16px; }
+.ls .tool-article-prose ul, .ls .tool-article-prose ol { margin: 0 0 18px; padding-left: 22px; }
+.ls .tool-article-prose li { margin-bottom: 6px; }
+.ls .tool-article-prose strong { color: var(--ls-ink); }
+.ls .tool-article-prose a { color: var(--ls-accent-ink); text-decoration: underline; text-underline-offset: 3px; }
+.ls .tool-article-prose code { font-family: var(--ls-mono-f); background: var(--ls-row); padding: 1px 6px; border-radius: 6px; font-size: 0.88em; color: var(--ls-ink); }
+.ls .tool-article-prose pre { background: var(--ls-ink); color: #E6E7EF; border-radius: 14px; padding: 18px 20px; overflow-x: auto; font-size: 14px; }
+.ls .tool-article-prose pre code { background: none; color: inherit; padding: 0; }
+.ls .tool-article-prose blockquote {
+  margin: 20px 0; padding: 4px 0 4px 20px; border-left: 2px solid var(--ls-accent);
+  font-family: var(--ls-serif); font-style: italic; font-size: 21px; line-height: 1.45; color: var(--ls-ink);
+}
+.ls .tool-article-prose .callout { margin: 20px 0; padding: 16px 20px; background: var(--ls-accent-tint-2); border: 1px solid #DCDDFB; border-radius: 14px; }
+.ls .tool-article-prose table { width: 100%; border-collapse: collapse; margin: 18px 0 24px; font-size: 15px; display: block; overflow-x: auto; }
+.ls .tool-article-prose th, .ls .tool-article-prose td { border-bottom: 1px solid var(--ls-row); padding: 12px 14px; text-align: left; vertical-align: top; }
+.ls .tool-article-prose th { font-weight: 600; color: var(--ls-ink); border-bottom-color: var(--ls-line); }
+
+@media (max-width: 640px) {
+  .ls .ls-tool-article { padding: 28px 22px; }
+  .ls .ls-tool-hero { padding-top: 56px; }
+}

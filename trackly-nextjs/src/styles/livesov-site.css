@@ -284,8 +284,8 @@
 .ls-vs-card.new ul { color: var(--ls-on-dark); }
 .ls-stats { border-top: 1px solid var(--ls-line); padding-top: 40px; }
 .ls-stat-v { font-size: 64px; font-weight: 600; letter-spacing: -0.04em; line-height: 1.05; }
-.ls-feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 1px; background: var(--ls-line); border: 1px solid var(--ls-line); border-radius: 20px; overflow: hidden; }
-.ls-feat { background: #fff; padding: 32px; display: flex; flex-direction: column; gap: 12px; min-height: 180px; }
+.ls-feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 0; background: #fff; border: 1px solid var(--ls-line); border-radius: 20px; overflow: hidden; }
+.ls-feat { background: #fff; box-shadow: 1px 0 0 var(--ls-line), 0 1px 0 var(--ls-line); padding: 32px; display: flex; flex-direction: column; gap: 12px; min-height: 180px; }
 .ls-feat-ic { width: 40px; height: 40px; border-radius: 10px; background: var(--ls-accent-tint); color: var(--ls-accent-ink); display: flex; align-items: center; justify-content: center; }
 .ls-plan { border-radius: 20px; padding: 32px; display: flex; flex-direction: column; gap: 16px; background: #fff; border: 1px solid var(--ls-line); }
 .ls-plan.pop { background: var(--ls-ink); color: #fff; border-color: var(--ls-ink); }
@@ -603,3 +603,11 @@
 .ls-figure-frame { background: var(--ls-ink); border-radius: 24px; padding: 12px; box-shadow: 0 40px 80px -40px rgba(11, 12, 20, .45); }
 .ls-figure-frame img { display: block; width: 100%; height: auto; border-radius: 14px; }
 .ls-figure figcaption { text-align: center; font-family: var(--ls-mono-f); font-size: 13px; color: var(--ls-subtle); margin-top: 14px; }
+
+/* Accent words in long-tail hero titles get the home page's serif italic. */
+.ls-seo-hero h1 span, .ls-seo main h1 .bg-clip-text {
+  font-family: var(--ls-serif); font-style: italic; font-weight: 400; letter-spacing: 0; color: var(--ls-accent);
+}
+@media (min-width: 1100px) {
+  .ls-ft-cols { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}

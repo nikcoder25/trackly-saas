@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import SeoLayout, { Breadcrumbs } from '@/components/seo/SeoLayout';
+import '@/styles/site-tools.css';
 
 interface ToolPageProps {
   title: React.ReactNode;
@@ -16,73 +17,31 @@ export default function ToolPage({ title, subtitle, toolName, toolSlug, children
   return (
     <SeoLayout>
       <Breadcrumbs items={[{ name: 'Free Tools', url: '/tools' }, { name: toolName, url: `/tools/${toolSlug}` }]} />
-      <section
-        className="land-hero"
-        style={{ paddingTop: 80, paddingBottom: 32, textAlign: 'center' }}
-      >
-        <div style={{ marginBottom: 16, fontSize: 13, color: 'var(--text-muted)' }}>
-          <Link href="/tools" style={{ color: 'var(--primary)', textDecoration: 'none' }}>
-            Free Tools
-          </Link>
-          {' / '}
+      <section className="ls-wrap ls-tool-hero">
+        <nav aria-label="Breadcrumb" className="ls-crumbs">
+          <Link href="/tools">Free Tools</Link>
+          <span aria-hidden="true">/</span>
           <span>{toolName}</span>
-        </div>
-        <h1 style={{ fontSize: 40, fontWeight: 800, lineHeight: 1.2, marginBottom: 14 }}>{title}</h1>
-        <p
-          style={{
-            fontSize: 17,
-            color: 'var(--text-secondary)',
-            maxWidth: 620,
-            margin: '0 auto',
-            paddingBottom: 8,
-          }}
-        >
-          {subtitle}
-        </p>
+        </nav>
+        <h1 className="ls-h1">{title}</h1>
+        <p className="ls-lead">{subtitle}</p>
       </section>
 
-      <section style={{ padding: '0 24px 64px', maxWidth: 760, margin: '0 auto' }}>{children}</section>
+      <section className="ls-wrap ls-tool-body">{children}</section>
 
       {!hideUpsell && (
-        <section style={{ padding: '0 24px 80px', maxWidth: 760, margin: '0 auto' }}>
-          <div
-            style={{
-              background: '#fff',
-              borderRadius: 16,
-              padding: 32,
-              boxShadow: '0 4px 24px rgba(0,0,0,.08)',
-              textAlign: 'center',
-            }}
-          >
-            <div
-              style={{
-                background: '#f5f3ff',
-                borderRadius: 10,
-                padding: 20,
-                marginBottom: 20,
-                border: '1px solid #e0e7ff',
-              }}
-            >
-              <p style={{ fontSize: 14, color: '#1a1a2e', lineHeight: 1.6, margin: 0 }}>
+        <section className="ls-wrap ls-tool-body" style={{ paddingBottom: 96 }}>
+          <div className="ls-cta-band row dark" style={{ padding: '40px 36px' }}>
+            <div className="ls-stack ls-gap-10" style={{ maxWidth: 440 }}>
+              <h2 className="ls-h2 sm" style={{ fontSize: 'clamp(26px, 3vw, 32px)' }}>
+                Want this <span className="ls-em lime">every day?</span>
+              </h2>
+              <p style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--ls-on-dark-2)' }}>
                 Want continuous tracking instead of a one-off check? Livesov monitors your AI visibility across
                 ChatGPT, Perplexity, Claude, Gemini and Grok every day.
               </p>
             </div>
-            <Link
-              href="/signup"
-              style={{
-                display: 'inline-block',
-                padding: '14px 32px',
-                borderRadius: 10,
-                background: 'var(--brand)',
-                color: '#fff',
-                fontSize: 15,
-                fontWeight: 700,
-                textDecoration: 'none',
-              }}
-            >
-              Start Tracking Free
-            </Link>
+            <Link href="/signup" className="ls-btn ls-btn-pri ls-btn-lg">Start Tracking Free</Link>
           </div>
         </section>
       )}
@@ -92,27 +51,30 @@ export default function ToolPage({ title, subtitle, toolName, toolSlug, children
 
 export const cardStyle: React.CSSProperties = {
   background: '#fff',
-  borderRadius: 16,
+  borderRadius: 20,
   padding: 32,
-  boxShadow: '0 4px 24px rgba(0,0,0,.08)',
+  border: '1px solid #E4E4DE',
 };
 
 export const inputStyle: React.CSSProperties = {
   width: '100%',
-  padding: '12px 16px',
-  borderRadius: 10,
-  border: '1px solid #e0e0e0',
-  fontSize: 15,
+  padding: '14px 16px',
+  borderRadius: 12,
+  border: '1px solid #D6D6CF',
+  fontSize: 16,
+  fontFamily: 'inherit',
+  color: '#0B0C14',
+  background: '#fff',
   outline: 'none',
   boxSizing: 'border-box',
 };
 
 export const labelStyle: React.CSSProperties = {
   display: 'block',
-  fontWeight: 600,
+  fontWeight: 500,
   fontSize: 14,
-  color: '#1a1a2e',
-  marginBottom: 6,
+  color: '#0B0C14',
+  marginBottom: 8,
 };
 
 export function PrimaryButton({
@@ -127,13 +89,15 @@ export function PrimaryButton({
       disabled={disabled || loading}
       style={{
         width: '100%',
-        padding: '14px 24px',
-        borderRadius: 10,
+        minHeight: 48,
+        padding: '15px 24px',
+        borderRadius: 12,
         border: 'none',
-        background: loading || disabled ? '#ccc' : 'var(--brand)',
+        background: loading || disabled ? '#A5A3F0' : '#4F46E5',
         color: '#fff',
+        fontFamily: 'inherit',
         fontSize: 16,
-        fontWeight: 700,
+        fontWeight: 600,
         cursor: loading || disabled ? 'not-allowed' : 'pointer',
         ...(rest.style || {}),
       }}
@@ -146,16 +110,7 @@ export function PrimaryButton({
 export function ErrorBanner({ message }: { message: string }) {
   if (!message) return null;
   return (
-    <div
-      style={{
-        marginTop: 20,
-        padding: '12px 16px',
-        borderRadius: 10,
-        background: '#fef2f2',
-        color: '#dc2626',
-        fontSize: 14,
-      }}
-    >
+    <div className="ls-alert err" role="alert" style={{ marginTop: 20 }}>
       {message}
     </div>
   );
@@ -164,110 +119,12 @@ export function ErrorBanner({ message }: { message: string }) {
 /**
  * Long-form prose section that sits below the tool card. Mirrors the
  * SeoContent voice + width so tool pages feel consistent with the
- * platform-tracking landing pages.
+ * platform-tracking landing pages. Prose styles live in site-tools.css.
  */
 export function ToolArticle({ children }: { children: React.ReactNode }) {
   return (
-    <article
-      style={{
-        marginTop: 48,
-        background: '#fff',
-        borderRadius: 16,
-        padding: '40px 36px',
-        boxShadow: '0 4px 24px rgba(0,0,0,.06)',
-        color: '#1f2937',
-      }}
-    >
-      <div
-        className="tool-article-prose"
-        style={{
-          fontSize: 16,
-          lineHeight: 1.75,
-        }}
-      >
-        {children}
-      </div>
-      <style jsx global>{`
-        .tool-article-prose h2 {
-          font-size: 24px;
-          font-weight: 800;
-          color: #0f172a;
-          margin: 36px 0 14px;
-          line-height: 1.3;
-          scroll-margin-top: 80px;
-        }
-        .tool-article-prose h2:first-child {
-          margin-top: 0;
-        }
-        .tool-article-prose h3 {
-          font-size: 18px;
-          font-weight: 700;
-          color: #0f172a;
-          margin: 26px 0 8px;
-        }
-        .tool-article-prose p {
-          margin: 0 0 14px;
-          color: #334155;
-        }
-        .tool-article-prose ul,
-        .tool-article-prose ol {
-          margin: 0 0 16px;
-          padding-left: 22px;
-          color: #334155;
-        }
-        .tool-article-prose li {
-          margin-bottom: 6px;
-        }
-        .tool-article-prose a {
-          color: var(--brand);
-          text-decoration: underline;
-          text-underline-offset: 2px;
-        }
-        .tool-article-prose code {
-          background: #f1f5f9;
-          padding: 1px 6px;
-          border-radius: 4px;
-          font-size: 0.92em;
-        }
-        .tool-article-prose blockquote {
-          margin: 16px 0;
-          padding: 12px 18px;
-          background: #f8fafc;
-          border-left: 3px solid var(--brand);
-          border-radius: 6px;
-          color: #475569;
-          font-style: italic;
-        }
-        .tool-article-prose .callout {
-          margin: 18px 0;
-          padding: 14px 18px;
-          background: #f5f3ff;
-          border: 1px solid #e0e7ff;
-          border-radius: 10px;
-        }
-        .tool-article-prose table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 16px 0 22px;
-          font-size: 14.5px;
-          background: #fff;
-        }
-        .tool-article-prose th,
-        .tool-article-prose td {
-          border: 1px solid #e5e7eb;
-          padding: 10px 12px;
-          text-align: left;
-          vertical-align: top;
-        }
-        .tool-article-prose th {
-          background: #f8fafc;
-          font-weight: 700;
-          color: #0f172a;
-        }
-        .tool-article-prose tbody tr:nth-child(even) td {
-          background: #fafbfd;
-        }
-      `}</style>
+    <article className="ls-card ls-tool-article">
+      <div className="tool-article-prose">{children}</div>
     </article>
   );
 }
@@ -279,24 +136,8 @@ export function ToolArticle({ children }: { children: React.ReactNode }) {
  */
 export function AnswerCapsule({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      role="note"
-      aria-label="Quick answer"
-      style={{
-        background: 'linear-gradient(180deg,#f8fafc 0%,#f1f5f9 100%)',
-        border: '1px solid #e2e8f0',
-        borderLeft: '4px solid var(--brand)',
-        borderRadius: 10,
-        padding: '16px 20px',
-        margin: '0 0 24px',
-        fontSize: 15.5,
-        lineHeight: 1.7,
-        color: '#1e293b',
-      }}
-    >
-      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--brand)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>
-        Quick answer
-      </div>
+    <div role="note" aria-label="Quick answer" className="ls-capsule">
+      <div className="ls-eyebrow" style={{ fontSize: 12, marginBottom: 8 }}>Quick answer</div>
       {children}
     </div>
   );
@@ -307,22 +148,13 @@ export function AnswerCapsule({ children }: { children: React.ReactNode }) {
  */
 export function KeyTakeaways({ items }: { items: string[] }) {
   return (
-    <aside
-      aria-label="Key takeaways"
-      style={{
-        background: '#fffbf2',
-        border: '1px solid #fde68a',
-        borderRadius: 12,
-        padding: '18px 22px',
-        margin: '20px 0 28px',
-      }}
-    >
-      <div style={{ fontSize: 12, fontWeight: 800, color: '#92400e', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
+    <aside aria-label="Key takeaways" className="ls-takeaways">
+      <div className="ls-mono" style={{ fontSize: 12, color: 'var(--ls-lime-ink)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
         Key takeaways
       </div>
-      <ul style={{ margin: 0, paddingLeft: 22 }}>
+      <ul>
         {items.map((it, i) => (
-          <li key={i} style={{ color: '#334155' }}>{it}</li>
+          <li key={i}>{it}</li>
         ))}
       </ul>
     </aside>
@@ -334,22 +166,11 @@ export function KeyTakeaways({ items }: { items: string[] }) {
  */
 export function ExpertQuote({ quote, name, title }: { quote: string; name: string; title: string }) {
   return (
-    <figure
-      style={{
-        margin: '24px 0',
-        padding: '22px 26px',
-        background: '#0f172a',
-        borderRadius: 14,
-        color: '#e2e8f0',
-      }}
-    >
-      <div style={{ fontSize: 28, color: 'var(--brand)', lineHeight: 1, marginBottom: 8 }}>“</div>
-      <blockquote style={{ margin: 0, padding: 0, background: 'transparent', border: 'none', fontStyle: 'normal', color: '#f1f5f9', fontSize: 16, lineHeight: 1.7 }}>
-        {quote}
-      </blockquote>
-      <figcaption style={{ marginTop: 14, fontSize: 13, color: '#94a3b8' }}>
-        <strong style={{ color: '#fff' }}>{name}</strong>
-        <span style={{ marginLeft: 6 }}>· {title}</span>
+    <figure className="ls-quote">
+      <blockquote>{quote}</blockquote>
+      <figcaption>
+        <strong>{name}</strong>
+        <span> · {title}</span>
       </figcaption>
     </figure>
   );
@@ -415,27 +236,18 @@ export function FaqSection({ heading = 'Frequently asked questions', items }: { 
     })),
   };
   return (
-    <section style={{ marginTop: 32 }}>
-      <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: '0 0 16px' }}>{heading}</h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <section className="ls-tool-sec">
+      <h2 className="ls-h2 sm" style={{ fontSize: 'clamp(26px, 3vw, 32px)' }}>{heading}</h2>
+      <div className="ls-faq">
         {items.map((it, i) => (
-          <details
-            key={i}
-            style={{
-              background: '#f9fafb',
-              borderRadius: 10,
-              padding: '14px 18px',
-              border: '1px solid #f0f0f0',
-            }}
-          >
-            <summary style={{ cursor: 'pointer', fontWeight: 700, color: '#0f172a', fontSize: 15 }}>{it.q}</summary>
-            <div style={{ marginTop: 10, color: '#334155', fontSize: 15, lineHeight: 1.7 }}>{it.a}</div>
+          <details key={i}>
+            <summary><span>{it.q}</span><span className="pm" aria-hidden="true">+</span></summary>
+            <p>{it.a}</p>
           </details>
         ))}
       </div>
       <script
         type="application/ld+json"
-       
         dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
       />
     </section>
@@ -447,26 +259,14 @@ export function FaqSection({ heading = 'Frequently asked questions', items }: { 
  */
 export function RelatedTools({ items }: { items: Array<{ slug: string; name: string; tagline: string }> }) {
   return (
-    <section style={{ marginTop: 32 }}>
-      <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: '0 0 16px' }}>Related free tools</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+    <section className="ls-tool-sec">
+      <h2 className="ls-h2 sm" style={{ fontSize: 'clamp(26px, 3vw, 32px)' }}>Related <span className="ls-em">free tools.</span></h2>
+      <div className="ls-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(220px, 100%), 1fr))', gap: 12 }}>
         {items.map((t) => (
-          <Link
-            key={t.slug}
-            href={`/tools/${t.slug}`}
-            style={{
-              display: 'block',
-              background: '#fff',
-              borderRadius: 12,
-              padding: 16,
-              border: '1px solid #f0f0f0',
-              textDecoration: 'none',
-              color: 'inherit',
-            }}
-          >
-            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14 }}>{t.name}</div>
-            <div style={{ marginTop: 4, color: '#64748b', fontSize: 12, lineHeight: 1.55 }}>{t.tagline}</div>
-            <div style={{ marginTop: 8, color: 'var(--brand)', fontSize: 12, fontWeight: 700 }}>Open →</div>
+          <Link key={t.slug} href={`/tools/${t.slug}`} className="ls-tool-card">
+            <span className="t">{t.name}</span>
+            <span className="d">{t.tagline}</span>
+            <span className="go">Open →</span>
           </Link>
         ))}
       </div>
