@@ -67,7 +67,7 @@
 .ls .tool-article-prose ul, .ls .tool-article-prose ol { margin: 0 0 18px; padding-left: 22px; }
 .ls .tool-article-prose li { margin-bottom: 6px; }
 .ls .tool-article-prose strong { color: var(--ls-ink); }
-.ls .tool-article-prose a { color: var(--ls-accent-ink); text-decoration: underline; text-underline-offset: 3px; }
+.ls .tool-article-prose a:not(.ls-tool-card) { color: var(--ls-accent-ink); text-decoration: underline; text-underline-offset: 3px; }
 .ls .tool-article-prose code { font-family: var(--ls-mono-f); background: var(--ls-row); padding: 1px 6px; border-radius: 6px; font-size: 0.88em; color: var(--ls-ink); }
 .ls .tool-article-prose pre { background: var(--ls-ink); color: #E6E7EF; border-radius: 14px; padding: 18px 20px; overflow-x: auto; font-size: 14px; }
 .ls .tool-article-prose pre code { background: none; color: inherit; padding: 0; }

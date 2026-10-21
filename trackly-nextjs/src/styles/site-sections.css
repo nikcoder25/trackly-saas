@@ -79,6 +79,8 @@
 
 /* Long-form prose */
 .ls .ls-s-prose { max-width: 760px; margin: 0 auto; padding: 0 24px; font-size: 17px; line-height: 1.7; color: var(--ls-muted); overflow-wrap: anywhere; }
+/* Prose under a section header lines up with the header, not centred. */
+.ls .ls-s-head + .ls-s-prose { margin-left: 0; padding: 0; }
 .ls .ls-s-prose h2 { font-size: clamp(26px, 3vw, 32px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.15; color: var(--ls-ink); margin: 56px 0 16px; }
 .ls .ls-s-prose h2:first-child { margin-top: 0; }
 .ls .ls-s-prose h3 { font-size: 21px; font-weight: 600; letter-spacing: -0.02em; color: var(--ls-ink); margin: 32px 0 12px; }

@@ -116,18 +116,6 @@ export default function ToolsHubPage() {
           ))}
         </div>
       </section>
-
-      <section className="ls-wrap" style={{ paddingBottom: 96 }}>
-        <div className="ls-cta-band row">
-          <div className="ls-stack ls-gap-10" style={{ maxWidth: 620 }}>
-            <h2 className="ls-h2 sm">Want continuous <span className="ls-em">AI visibility tracking?</span></h2>
-            <p style={{ fontSize: 17 }}>
-              Free tools give you a snapshot. Livesov tracks AI mentions across ChatGPT, Perplexity, Claude, Gemini and Grok every day.
-            </p>
-          </div>
-          <Link href="/signup" className="ls-btn ls-btn-dark ls-btn-lg">Start tracking free</Link>
-        </div>
-      </section>
     </SeoLayout>
   );
 }
