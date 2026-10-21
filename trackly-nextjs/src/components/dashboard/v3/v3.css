@@ -349,7 +349,9 @@ html[data-ui="v3"] body {
 }
 @media (max-width: 639px) {
   .v3 { --v3-pad-card: 18px; --v3-r-card: 16px; }
-  .v3 .v3-topbar { height: 56px; gap: 4px; padding: 0 8px; }
+  /* Solid on phones: the frosted bar let the scrolled page title and cards
+     show through it, which read as the header overlapping the content. */
+  .v3 .v3-topbar { height: 56px; gap: 4px; padding: 0 8px; background: var(--v3-bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
   .v3 .v3-main { padding-top: 56px; }
   .v3 .v3-hide-phone { display: none !important; }
   .v3 .v3-only-phone { display: inline-flex; }

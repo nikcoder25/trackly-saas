@@ -555,6 +555,8 @@
   overflow-x: clip;
 }
 .ls-seo main :is(h1, h2, h3, h4) { font-family: var(--ls-sans); letter-spacing: -0.03em; color: var(--ls-ink); }
+/* CTA bands sit on indigo / ink: keep their headings white, not the ink above. */
+.ls-seo main .ls-cta-band :is(h1, h2, h3, h4) { color: #fff; }
 .ls-seo main h1 { letter-spacing: -0.045em; }
 .ls-seo main :is(p, li) { font-family: var(--ls-sans); }
 .ls-seo main code, .ls-seo main kbd, .ls-seo main .mono { font-family: var(--ls-mono-f); }

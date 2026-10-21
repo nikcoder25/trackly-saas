@@ -358,6 +358,18 @@ export default function ShellV3({ banners, children }: { banners?: React.ReactNo
   const menuBtnRef = React.useRef<HTMLButtonElement>(null);
   const drawerCloseRef = React.useRef<HTMLButtonElement>(null);
   const wasOpen = React.useRef(false);
+  // Whether the last interaction was a tap/click rather than a key press.
+  const pointerInput = React.useRef(false);
+  React.useEffect(() => {
+    const onPointer = () => { pointerInput.current = true; };
+    const onKey = () => { pointerInput.current = false; };
+    window.addEventListener('pointerdown', onPointer, true);
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('pointerdown', onPointer, true);
+      window.removeEventListener('keydown', onKey, true);
+    };
+  }, []);
 
   React.useEffect(() => { setDrawer(false); }, [pathname]);
 
@@ -370,7 +382,9 @@ export default function ShellV3({ banners, children }: { banners?: React.ReactNo
       wasOpen.current = true;
     } else if (wasOpen.current) {
       wasOpen.current = false;
-      menuBtnRef.current?.focus();
+      // After a tap, Safari paints the focus ring on the programmatically
+      // focused menu button; keep focus there but skip the ring.
+      menuBtnRef.current?.focus({ preventScroll: true, focusVisible: !pointerInput.current } as FocusOptions);
     }
   }, [drawer]);
 
@@ -393,7 +407,10 @@ export default function ShellV3({ banners, children }: { banners?: React.ReactNo
     return () => {
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = prev[0];
-      if (main) main.style.overflow = prev[1];
+      if (main) {
+        main.style.overflow = prev[1];
+        if (!main.getAttribute('style')) main.removeAttribute('style');
+      }
     };
   }, [drawer]);
 
