@@ -94,3 +94,15 @@ describe('homepage pricing cannot drift from /pricing', () => {
     }
   });
 });
+
+describe('Agency daily auto-run claim matches the credit maths', () => {
+  it('states how many prompts on all engines fit a daily scan', async () => {
+    const { PLAN_CREDITS } = await import('@/lib/plan-config');
+    const cfg = PLAN_CREDITS.agency;
+    const fits = Math.floor(cfg.monthlyCredits / 30 / cfg.maxPlatforms);
+    const agency = PRICING_PLANS.find((p) => p.name === 'Agency');
+    expect(agency).toBeDefined();
+    const daily = agency!.features.find((f) => /daily auto-runs/i.test(f));
+    expect(daily).toBe(`Daily auto-runs (about ${fits} prompts on all ${cfg.maxPlatforms} engines)`);
+  });
+});

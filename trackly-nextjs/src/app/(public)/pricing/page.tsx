@@ -583,6 +583,7 @@ export default function PricingPage() {
             </tbody>
           </table>
         </div>
+        <p className="ls-note">Ahrefs Brand Radar and the Semrush AI Toolkit track AI answers as paid add-ons on top of the base plan. Check their current engine list before comparing.</p>
       </section>
 
       {/* ── FAQ ──────────────────────────────────── */}

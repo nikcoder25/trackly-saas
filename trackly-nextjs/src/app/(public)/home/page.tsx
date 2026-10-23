@@ -111,7 +111,7 @@ function Problem() {
         <span className="ls-eyebrow">The problem</span>
         <h2 className="ls-h2">Your SEO tools are blind <span className="ls-em">to AI search.</span></h2>
         <p className="ls-body" style={{ fontSize: 18 }}>
-          Ahrefs, Semrush and Search Console show Google rankings. None of them can tell you what an LLM says about your client when a buyer asks.
+          Ahrefs, Semrush and Search Console are built around Google rankings. Where the suites track AI answers at all, it is a paid add-on on top of the base plan.
         </p>
       </div>
       <div className="ls-grid ls-grid-2">
@@ -127,28 +127,28 @@ function Problem() {
         <div className="ls-vs-card new">
           <h3 style={{ fontWeight: 600, fontSize: 20 }}>With Livesov</h3>
           <ul>
-            <li>Five AI engines, on a schedule</li>
+            <li>Up to five AI engines, on a schedule</li>
             <li>Share of voice and sentiment</li>
             <li>Natural language buyer prompts</li>
             <li>Cited sources and hallucination flags</li>
           </ul>
         </div>
       </div>
-      {/* The 68% figure is third-party, so it links to the page that shows
+      {/* The 52% figure is third-party, so it links to the page that shows
           the sourcing instead of sitting on the homepage unattributed. */}
       <div className="ls-grid ls-grid-4 ls-stats">
         <div className="ls-stack ls-gap-8">
-          <span className="ls-stat-v">68%</span>
-          <span className="ls-small">of B2B buyers consult an LLM before shortlisting vendors</span>
+          <span className="ls-stat-v">52%</span>
+          <span className="ls-small">of B2B tech buyers use generative AI when weighing vendors</span>
           <Link href="/ai-search-statistics-2026" className="ls-mono" style={{ fontSize: 12 }}>Source</Link>
         </div>
         <div className="ls-stack ls-gap-8">
-          <span className="ls-stat-v">0</span>
-          <span className="ls-small">legacy SEO platforms surface this today</span>
+          <span className="ls-stat-v">$9</span>
+          <span className="ls-small">a month to start, no SEO suite or add-on needed</span>
         </div>
         <div className="ls-stack ls-gap-8">
           <span className="ls-stat-v">5</span>
-          <span className="ls-small">AI engines queried on schedule</span>
+          <span className="ls-small">AI engines you can query on a schedule</span>
         </div>
       </div>
     </section>
@@ -158,9 +158,9 @@ function Problem() {
 /* ─── How it works ─── */
 function HowItWorks() {
   const steps = [
-    { n: '01', t: 'Connect your brand', d: 'Add the domain, competitors and buyer prompts. Start fast with 50+ seeded industry queries.' },
+    { n: '01', t: 'Connect your brand', d: 'Add the domain, competitors and buyer prompts. Start fast with suggested buyer prompts.' },
     { n: '02', t: 'We query the engines', d: 'Prompts run on a schedule. Every answer is parsed for mentions, sentiment and cited sources.' },
-    { n: '03', t: 'Watch share of voice', d: 'See wins, losses, and the exact page each engine cites for every client.' },
+    { n: '03', t: 'Watch share of voice', d: 'See wins, losses, and the pages search-enabled engines cite for every client.' },
   ];
   return (
     <section className="ls-wrap ls-sec" id="how-it-works">
@@ -187,7 +187,7 @@ function HowItWorks() {
 /* ─── Features ─── */
 function Features() {
   const feats = [
-    { t: 'Share of voice', d: 'A daily percentage of how often each client shows up across all five engines.' },
+    { t: 'Share of voice', d: 'A daily percentage of how often each client shows up across the engines you track.' },
     { t: 'Evidence and proof', d: 'Verbatim output, the exact prompt and every cited source. Drill to the exact line.' },
     { t: 'Sentiment', d: 'Every mention scored and charted, with alerts when tone drops.' },
     { t: 'Hallucination detection', d: 'Flags invented features, wrong pricing or false facts before buyers see them.' },
@@ -219,11 +219,11 @@ function Features() {
 function Compare() {
   const rows = [
     { k: 'Google rankings', a: 'No', b: 'Yes', c: 'Yes' },
-    { k: 'Five AI engines', a: 'Yes', b: 'No', c: 'No' },
-    { k: 'AI share of voice', a: 'Yes', b: 'No', c: 'No' },
+    { k: 'AI answer tracking', a: 'Up to five engines', b: 'Paid add-on', c: 'Paid add-on' },
+    { k: 'AI share of voice', a: 'Yes', b: 'With add-on', c: 'With add-on' },
     { k: 'Sentiment', a: 'Yes', b: 'No', c: 'Partial' },
     { k: 'Hallucination detection', a: 'Yes', b: 'No', c: 'No' },
-    { k: 'Cited source attribution', a: 'Yes', b: 'No', c: 'No' },
+    { k: 'Cited source attribution', a: 'Yes', b: 'With add-on', c: 'With add-on' },
     { k: 'Starting price', a: '$9/mo', b: '$99/mo', c: '$129/mo' },
     { k: 'Setup time', a: '2 min', b: 'About 1 hr', c: 'About 1 hr' },
   ];
@@ -256,7 +256,7 @@ function Compare() {
           </tbody>
         </table>
       </div>
-      <p style={{ fontSize: 13, color: 'var(--ls-faint)' }}>Pricing as of May 2026, from vendor pricing pages.</p>
+      <p style={{ fontSize: 13, color: 'var(--ls-faint)' }}>Pricing as of May 2026, from vendor pricing pages. Ahrefs Brand Radar and the Semrush AI Toolkit are sold as paid add-ons; check their current engine list before comparing.</p>
     </section>
   );
 }
@@ -264,8 +264,8 @@ function Compare() {
 /* ─── Who it's for ─── */
 function UseCases() {
   const rest = [
-    { t: 'SaaS marketing', d: 'Catch the moment engines recommend a competitor. 50+ buyer intent queries seeded.' },
-    { t: 'E-commerce', d: 'Track product queries and review site citations across all 5 engines.' },
+    { t: 'SaaS marketing', d: 'Catch the moment engines recommend a competitor. Suggested buyer prompts to start from.' },
+    { t: 'E-commerce', d: 'Track product queries and review site citations across the engines you track.' },
     { t: 'Enterprise brands', d: 'Daily hallucination checks, corrections and share of voice drop alerts.' },
   ];
   return (
