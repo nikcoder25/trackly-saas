@@ -35,6 +35,10 @@ interface ComparePlansGridProps {
   currentPlan: string;
   annualBilling: boolean;
   onAnnualToggle: (next: boolean) => void;
+  /** Plans with a configured annual product. The toggle hides when none. */
+  annualAvailable?: Record<string, boolean>;
+  /** Billing cycle of the user's current subscription, when known. */
+  currentBilling?: 'monthly' | 'annual' | null;
   /** Called with the lowercase target plan key (e.g. 'pro'). */
   onSwitchPlan: (planKey: string) => void;
   planSwitching: string;
@@ -109,24 +113,32 @@ function buildBullets(planKey: string): string[] {
   return bullets;
 }
 
-function fmtPrice(planKey: string, _annualBilling: boolean): string {
+function fmtPrice(planKey: string, showAnnual: boolean): string {
   const p = PRICING_PLANS.find((x) => x.name.toLowerCase() === planKey);
   if (!p) return '-';
   if (p.price === 'Custom') return 'Custom';
-  // Always show the monthly price. Checkout (`/api/payments/checkout`) only
-  // maps plans to their single monthly Dodo product id - there are no annual
-  // product ids - so an annual price shown here could never actually be
-  // charged. The annual toggle is removed below until annual products exist.
-  return p.price;
+  // Annual prices are only shown for plans with a real annual Dodo product,
+  // so the number on the card is what checkout will actually charge.
+  return showAnnual ? p.annualPrice : p.price;
+}
+
+function yearlyTotal(planKey: string): string {
+  const p = PRICING_PLANS.find((x) => x.name.toLowerCase() === planKey);
+  const m = p?.annualPrice.match(/\$\s*([\d.]+)/);
+  return m ? `$${Number(m[1]) * 12}` : '';
 }
 
 export default function ComparePlansGrid({
   currentPlan,
   annualBilling,
   onAnnualToggle,
+  annualAvailable = {},
+  currentBilling = null,
   onSwitchPlan,
   planSwitching,
 }: ComparePlansGridProps) {
+  const anyAnnual = Object.values(annualAvailable).some(Boolean);
+  const annual = annualBilling && anyAnnual;
   const visiblePlans = ['free', 'starter', 'pro', 'agency'] as const;
   const currentTier = PLAN_TIERS[currentPlan] ?? 0;
   // Trial isn't one of the comparison cards, so without this note a trial user
@@ -180,9 +192,8 @@ export default function ComparePlansGrid({
             Switch anytime · prorated billing
           </div>
         </div>
-        {/* Annual billing toggle removed: there are no annual Dodo products, so
-            the annual price it displayed could never be charged at checkout.
-            Re-add alongside real annual product ids. */}
+        {/* Only offered when at least one plan has an annual Dodo product. */}
+        {anyAnnual && <BillingCycleToggle annual={annual} onChange={onAnnualToggle} />}
       </div>
 
       {/* Cards */}
@@ -197,8 +208,12 @@ export default function ComparePlansGrid({
         {visiblePlans.map((planKey) => {
           const isCurrent = planKey === currentPlan;
           const tier = PLAN_TIERS[planKey] ?? 0;
+          const showAnnual = annual && !!annualAvailable[planKey];
+          // Current plan on monthly with Annual selected: offer the switch.
           const direction =
-            isCurrent ? 'current' : tier > currentTier ? 'upgrade' : 'downgrade';
+            isCurrent
+              ? (showAnnual && currentBilling !== 'annual' ? 'switch' : 'current')
+              : tier > currentTier ? 'upgrade' : 'downgrade';
           const pricing = PRICING_PLANS.find((p) => p.name.toLowerCase() === planKey);
           const isCustom = pricing?.price === 'Custom';
           return (
@@ -263,7 +278,7 @@ export default function ComparePlansGrid({
                     lineHeight: 1,
                   }}
                 >
-                  {fmtPrice(planKey, annualBilling)}
+                  {fmtPrice(planKey, showAnnual)}
                 </span>
                 {!isCustom && (
                   <span
@@ -273,10 +288,15 @@ export default function ComparePlansGrid({
                       fontWeight: 500,
                     }}
                   >
-                    /mo
+                    {showAnnual ? '/mo, billed yearly' : '/mo'}
                   </span>
                 )}
               </div>
+              {showAnnual && (
+                <div style={{ fontSize: 12, color: TEXT_SECONDARY, marginTop: -8 }}>
+                  {yearlyTotal(planKey)} per year
+                </div>
+              )}
 
               <ul
                 style={{
@@ -419,7 +439,7 @@ function PlanCta({
   isSwitching,
   onClick,
 }: {
-  direction: 'current' | 'upgrade' | 'downgrade';
+  direction: 'current' | 'switch' | 'upgrade' | 'downgrade';
   planKey: string;
   isCustom: boolean;
   isSwitching: boolean;
@@ -467,7 +487,7 @@ function PlanCta({
       </a>
     );
   }
-  const isUpgrade = direction === 'upgrade';
+  const isUpgrade = direction === 'upgrade' || direction === 'switch';
   return (
     <button
       type="button"
@@ -486,7 +506,11 @@ function PlanCta({
         opacity: isSwitching ? 0.7 : 1,
       }}
     >
-      {isSwitching ? 'Processing…' : isUpgrade ? `Upgrade to ${cap(planKey)}` : 'Downgrade'}
+      {isSwitching
+        ? 'Processing…'
+        : direction === 'switch'
+          ? 'Switch to annual'
+          : isUpgrade ? `Upgrade to ${cap(planKey)}` : 'Downgrade'}
     </button>
   );
 }

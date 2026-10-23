@@ -3,17 +3,26 @@ import { requireVerifiedAuth } from '@/lib/auth';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
+import {
+  annualAvailability,
+  billingCycleForProduct,
+  monthlyProductIds,
+  parseBillingCycle,
+  resolveCheckout,
+} from '@/lib/dodo-products';
 
-const PRODUCT_IDS: Record<string, string | undefined> = {
-  starter: process.env.DODO_STARTER_PRODUCT_ID,
-  pro: process.env.DODO_PRO_PRODUCT_ID,
-  agency: process.env.DODO_AGENCY_PRODUCT_ID,
-  enterprise: process.env.DODO_ENTERPRISE_PRODUCT_ID,
-};
-
-const PLAN_TIER: Record<string, number> = {
-  free: 0, starter: 1, pro: 2, agency: 3, enterprise: 4, owner: 5,
-};
+// Tells the billing UI which plans can be bought annually and which cycle
+// the user is on now, so the Monthly/Annual toggle only shows when usable.
+export async function GET(request: Request) {
+  const authResult = await requireVerifiedAuth(request, pool);
+  if (authResult instanceof Response) return authResult;
+  const result = await pool.query('SELECT settings FROM users WHERE id = $1', [authResult.id]);
+  const settings = (result.rows[0]?.settings ?? {}) as Record<string, unknown>;
+  return Response.json({
+    annual: annualAvailability(),
+    currentBilling: billingCycleForProduct(settings.dodo_product_id),
+  });
+}
 
 export async function POST(request: Request) {
   const authResult = await requireVerifiedAuth(request, pool);
@@ -27,24 +36,29 @@ export async function POST(request: Request) {
   });
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const { plan: rawPlan } = await request.json();
+  const { plan: rawPlan, billing: rawBilling } = await request.json();
   const plan = typeof rawPlan === 'string' ? rawPlan.toLowerCase() : '';
-  if (!plan || !PRODUCT_IDS[plan]) return Response.json({ error: 'Invalid plan' }, { status: 400 });
+  if (!plan || !monthlyProductIds()[plan]) return Response.json({ error: 'Invalid plan' }, { status: 400 });
+  const billing = parseBillingCycle(rawBilling);
+  if (!billing) return Response.json({ error: 'Invalid billing cycle' }, { status: 400 });
 
   const apiKey = process.env.DODO_PAYMENTS_API_KEY;
   if (!apiKey) return Response.json({ error: 'Payment system not configured' }, { status: 503 });
 
   try {
-    const userResult = await pool.query('SELECT email, name, plan FROM users WHERE id = $1', [user.id]);
+    const userResult = await pool.query('SELECT email, name, plan, settings FROM users WHERE id = $1', [user.id]);
     const u = userResult.rows[0];
     if (!u) return Response.json({ error: 'User not found' }, { status: 404 });
 
-    // Prevent downgrade attempts via checkout
-    const currentTier = PLAN_TIER[u.plan] || 0;
-    const targetTier = PLAN_TIER[plan] || 0;
-    if (targetTier <= currentTier && u.plan !== 'free') {
-      return Response.json({ error: 'Cannot downgrade via checkout. Use the cancel option to downgrade.' }, { status: 400 });
-    }
+    // Picks the monthly or annual product and blocks downgrades via
+    // checkout. A monthly -> annual switch of the same plan is allowed.
+    const decision = resolveCheckout({
+      plan,
+      billing,
+      currentPlan: u.plan,
+      currentProductId: u.settings?.dodo_product_id,
+    });
+    if (!decision.ok) return Response.json({ error: decision.error }, { status: 400 });
 
     const env = process.env.DODO_PAYMENTS_ENVIRONMENT || 'test_mode';
     const baseUrl = env === 'live_mode' ? 'https://live.dodopayments.com' : 'https://test.dodopayments.com';
@@ -55,8 +69,12 @@ export async function POST(request: Request) {
     // "Payment received, upgrade processing…" instead of the wrong
     // "Welcome to {currentPlan}!" message that Bug 1 in the
     // mnpwyu6r8730ddlda847 timeline was producing.
+    // A monthly -> annual switch keeps the same plan, so `from` would leave
+    // the banner stuck on "processing"; omit it for that case.
     const fromPlanParam = encodeURIComponent(u.plan || 'free');
-    const returnUrl = `${appBase}/dashboard?payment=success&from=${fromPlanParam}`;
+    const returnUrl = plan === u.plan
+      ? `${appBase}/dashboard?payment=success`
+      : `${appBase}/dashboard?payment=success&from=${fromPlanParam}`;
 
     const resp = await fetch(`${baseUrl}/checkouts`, {
       method: 'POST',
@@ -64,10 +82,10 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         payment_link: true,
         product_cart: [
-          { product_id: PRODUCT_IDS[plan], quantity: 1 },
+          { product_id: decision.productId, quantity: 1 },
         ],
         customer: { email: u.email, name: u.name || u.email },
-        metadata: { userId: user.id, plan },
+        metadata: { userId: user.id, plan, billing },
         return_url: returnUrl,
       }),
     });

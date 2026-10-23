@@ -9,6 +9,7 @@ import { useBrands } from '@/contexts/BrandContext';
 import UsageSection from '@/components/dashboard/billing/UsageSection';
 import type { ActivityEntry } from '@/components/dashboard/billing/RecentActivityCard';
 import ComparePlansGrid from '@/components/dashboard/billing/ComparePlansGrid';
+import { parsePlanIntent, takePlanIntent } from '@/lib/plan-intent';
 import { Card, Badge, Bar, Pill, Donut, PageHead } from '@/app/dashboard-v2/ui';
 
 const SURFACE = '#ffffff';
@@ -166,6 +167,31 @@ export default function BillingPage() {
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [planSwitching, setPlanSwitching] = useState('');
   const [annualBilling, setAnnualBilling] = useState(false);
+  // Plans with a configured annual Dodo product, and the cycle the user is
+  // on now. Empty until loaded, which keeps the annual toggle hidden.
+  const [annualAvailable, setAnnualAvailable] = useState<Record<string, boolean>>({});
+  const [currentBilling, setCurrentBilling] = useState<'monthly' | 'annual' | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/payments/checkout', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d) return;
+        const available: Record<string, boolean> = d.annual && typeof d.annual === 'object' ? d.annual : {};
+        setAnnualAvailable(available);
+        setCurrentBilling(d.currentBilling === 'annual' || d.currentBilling === 'monthly' ? d.currentBilling : null);
+        // /pricing CTAs carry ?plan=pro&billing=annual (directly, or via
+        // signup's stash). Preselect the cycle when annual is actually
+        // sellable for that plan, and jump to the grid.
+        const intent = parsePlanIntent(window.location.search) ?? takePlanIntent();
+        if (!intent) return;
+        if (intent.billing === 'annual' && available[intent.plan]) setAnnualBilling(true);
+        document.getElementById('plan-comparison')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   async function switchPlan(targetPlan: string) {
     const target = targetPlan.toLowerCase();
@@ -175,7 +201,10 @@ export default function BillingPage() {
     const currentTier = PLAN_TIERS[currentPlan] ?? 0;
     const targetTier = PLAN_TIERS[target] ?? 0;
 
-    if (target === currentPlan) return;
+    const billing: 'monthly' | 'annual' = annualBilling && annualAvailable[target] ? 'annual' : 'monthly';
+    // Same plan is only a valid checkout as a monthly -> annual switch.
+    const isAnnualSwitch = target === currentPlan && billing === 'annual' && currentBilling !== 'annual';
+    if (target === currentPlan && !isAnnualSwitch) return;
 
     if (target === 'free') {
       if (!confirm('Cancel your subscription? You will be moved to the Free plan right away and lose access to paid features immediately. There is no proration or refund for the remainder of the period.')) return;
@@ -196,7 +225,7 @@ export default function BillingPage() {
       return;
     }
 
-    if (targetTier <= currentTier && currentPlan !== 'free') {
+    if (!isAnnualSwitch && targetTier <= currentTier && currentPlan !== 'free') {
       alert('To downgrade, please cancel your current subscription first or manage billing via the customer portal.');
       return;
     }
@@ -207,7 +236,7 @@ export default function BillingPage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: target }),
+        body: JSON.stringify({ plan: target, billing }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -235,10 +264,16 @@ export default function BillingPage() {
       ? 'owner account'
       : currentPlanPricing?.price === 'Custom'
         ? 'invoiced'
-        : 'billed monthly';
+        : currentBilling === 'annual'
+          ? 'billed yearly'
+          : 'billed monthly';
 
   const noChargeReason = noChargeReasonFor(currentPlan);
-  const monthlyPriceUsd = parsePriceUsd(currentPlanPricing?.price);
+  const onAnnual = currentBilling === 'annual' && !!currentPlanPricing && currentPlanPricing.price !== 'Custom';
+  // Annual subscribers are invoiced the full year up front.
+  const nextInvoiceUsd = onAnnual
+    ? parsePriceUsd(currentPlanPricing?.annualPrice) * 12
+    : parsePriceUsd(currentPlanPricing?.price);
 
   const handleManagePlan = () => {
     if (typeof window === 'undefined') return;
@@ -305,7 +340,9 @@ export default function BillingPage() {
             <div className="bh-price">
               {currentPlanPricing?.price === 'Custom'
                 ? <span className="mono">Custom</span>
-                : <><span className="mono">{currentPlanPricing?.price ?? monthlyPriceLabel}</span><i>/ month</i></>}
+                : onAnnual
+                  ? <><span className="mono">{currentPlanPricing?.annualPrice}</span><i>/ month, billed yearly</i></>
+                  : <><span className="mono">{currentPlanPricing?.price ?? monthlyPriceLabel}</span><i>/ month</i></>}
             </div>
             <div className="bh-renew">
               {cycleSuffix} · credits renew <b>{renewLabel}</b>
@@ -335,7 +372,7 @@ export default function BillingPage() {
             <div className="eyebrow" style={{ padding: '2px 0 2px' }}>Spend</div>
             <div className="bhs-row">
               <span className="bhs-label">{noChargeReason ? 'This billing period' : 'Next invoice'}</span>
-              <span className="bhs-v mono">{noChargeReason ? 'No charge' : `$${monthlyPriceUsd.toFixed(2)}`}</span>
+              <span className="bhs-v mono">{noChargeReason ? 'No charge' : `$${nextInvoiceUsd.toFixed(2)}`}</span>
             </div>
             <div className="bhs-meta mono">
               {noChargeReason === 'free'
@@ -344,7 +381,9 @@ export default function BillingPage() {
                   ? 'owner account'
                   : noChargeReason === 'custom'
                     ? 'invoiced'
-                    : 'billed monthly'}
+                    : onAnnual
+                      ? 'billed yearly'
+                      : 'billed monthly'}
             </div>
             <div className="bhs-row">
               <span className="bhs-label">Member since</span>
@@ -454,6 +493,8 @@ export default function BillingPage() {
             currentPlan={currentPlan}
             annualBilling={annualBilling}
             onAnnualToggle={setAnnualBilling}
+            annualAvailable={annualAvailable}
+            currentBilling={currentBilling}
             onSwitchPlan={switchPlan}
             planSwitching={planSwitching}
           />
@@ -529,6 +570,8 @@ export default function BillingPage() {
                 currentPlan={currentPlan}
                 annualBilling={annualBilling}
                 onAnnualToggle={setAnnualBilling}
+                annualAvailable={annualAvailable}
+                currentBilling={currentBilling}
                 onSwitchPlan={switchPlan}
                 planSwitching={planSwitching}
               />

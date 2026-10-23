@@ -408,7 +408,7 @@ export default function PricingPage() {
                   <span className="muted">{annual ? '/mo, billed yearly' : '/mo'}</span>
                 </div>
                 <div className="ls-mono muted" style={{ fontSize: 13 }}>{plan.headline.replace(/\/month$/, ' / month')}</div>
-                <Link href="/signup" className={'ls-btn ls-btn-block ' + (pop ? 'ls-btn-pri' : 'ls-btn-out')}>{plan.cta}</Link>
+                <Link href={`/signup?plan=${plan.name.toLowerCase()}&billing=${annual ? 'annual' : 'monthly'}`} className={'ls-btn ls-btn-block ' + (pop ? 'ls-btn-pri' : 'ls-btn-out')}>{plan.cta}</Link>
                 <p className="ls-mono muted" style={{ fontSize: 12, textAlign: 'center', marginTop: -6 }}>7 day free trial · No credit card</p>
                 <hr />
                 <ul>

@@ -490,7 +490,14 @@ export async function middleware(request: NextRequest) {
   // there instead of dropping the user on the dashboard.
   if (authPaths.some((p) => pathname.startsWith(p)) && hasValidToken) {
     const back = request.nextUrl.searchParams.get('redirect') || '';
-    const target = back.startsWith('/oauth/authorize?') ? back : '/dashboard';
+    let target = back.startsWith('/oauth/authorize?') ? back : '/dashboard';
+    // A /pricing CTA (/signup?plan=pro&billing=annual) from a signed-in user
+    // goes straight to billing with the choice preselected.
+    const planIntent = request.nextUrl.searchParams.get('plan') || '';
+    if (target === '/dashboard' && /^(starter|pro|agency)$/.test(planIntent)) {
+      const cycle = request.nextUrl.searchParams.get('billing') === 'annual' ? 'annual' : 'monthly';
+      target = `/dashboard/billing?plan=${planIntent}&billing=${cycle}`;
+    }
     const redirect = NextResponse.redirect(new URL(target, request.url));
     applyCspHeaders(redirect, nonce, csp, requestId);
     return redirect;
