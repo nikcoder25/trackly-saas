@@ -17,6 +17,10 @@ if (process.env.DODO_STARTER_PRODUCT_ID) PLAN_MAP[process.env.DODO_STARTER_PRODU
 if (process.env.DODO_PRO_PRODUCT_ID) PLAN_MAP[process.env.DODO_PRO_PRODUCT_ID] = 'pro';
 if (process.env.DODO_AGENCY_PRODUCT_ID) PLAN_MAP[process.env.DODO_AGENCY_PRODUCT_ID] = 'agency';
 if (process.env.DODO_ENTERPRISE_PRODUCT_ID) PLAN_MAP[process.env.DODO_ENTERPRISE_PRODUCT_ID] = 'enterprise';
+// Annual (yearly) products resolve to the same plan as their monthly twin.
+if (process.env.DODO_STARTER_ANNUAL_PRODUCT_ID) PLAN_MAP[process.env.DODO_STARTER_ANNUAL_PRODUCT_ID] = 'starter';
+if (process.env.DODO_PRO_ANNUAL_PRODUCT_ID) PLAN_MAP[process.env.DODO_PRO_ANNUAL_PRODUCT_ID] = 'pro';
+if (process.env.DODO_AGENCY_ANNUAL_PRODUCT_ID) PLAN_MAP[process.env.DODO_AGENCY_ANNUAL_PRODUCT_ID] = 'agency';
 
 /**
  * Payment Reconciliation Cron Job

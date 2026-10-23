@@ -37,6 +37,9 @@ vi.hoisted(() => {
   process.env.DODO_PRO_PRODUCT_ID = 'prod_pro';
   process.env.DODO_STARTER_PRODUCT_ID = 'prod_starter';
   process.env.DODO_ENTERPRISE_PRODUCT_ID = 'prod_enterprise';
+  process.env.DODO_STARTER_ANNUAL_PRODUCT_ID = 'prod_starter_year';
+  process.env.DODO_PRO_ANNUAL_PRODUCT_ID = 'prod_pro_year';
+  process.env.DODO_AGENCY_ANNUAL_PRODUCT_ID = 'prod_agency_year';
 });
 
 const {
@@ -280,6 +283,36 @@ describe('reconcile-payments cron - email parity with webhook', () => {
       );
       expect(sendDowngrade).not.toHaveBeenCalled();
       expect(sendCancellation).not.toHaveBeenCalled();
+    } finally {
+      fetchMock.restore();
+    }
+  });
+
+  it('T3b: annual product id resolves to its plan (free -> agency via yearly product)', async () => {
+    const fake = makeFakeClient({
+      users: [{
+        id: 'user_A',
+        email: 'a@test.com',
+        plan: 'free',
+        settings: { subscription_id: 'sub_X' },
+      }],
+    });
+    safeConnectFn.mockResolvedValue(fake);
+
+    const fetchMock = installFetchMock(async () => new Response(JSON.stringify({
+      status: 'active',
+      product_id: 'prod_agency_year',
+      customer: { customer_id: 'cus_X' },
+    }), { status: 200 }));
+
+    try {
+      const res = await cronReconcileGet(authedRequest());
+      expect(res.status).toBe(200);
+      expect(sendUpgrade).toHaveBeenCalledWith(
+        'a@test.com',
+        { previousPlan: 'free', newPlan: 'agency' },
+        expect.stringMatching(/^plan_email:user_A:sub_X:active:agency$/),
+      );
     } finally {
       fetchMock.restore();
     }

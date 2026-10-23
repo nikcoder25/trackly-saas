@@ -102,6 +102,9 @@ function planFromProductId(productId: string | null | undefined): string | null 
   if (process.env.DODO_PRO_PRODUCT_ID) map[process.env.DODO_PRO_PRODUCT_ID] = 'pro';
   if (process.env.DODO_AGENCY_PRODUCT_ID) map[process.env.DODO_AGENCY_PRODUCT_ID] = 'agency';
   if (process.env.DODO_ENTERPRISE_PRODUCT_ID) map[process.env.DODO_ENTERPRISE_PRODUCT_ID] = 'enterprise';
+  if (process.env.DODO_STARTER_ANNUAL_PRODUCT_ID) map[process.env.DODO_STARTER_ANNUAL_PRODUCT_ID] = 'starter';
+  if (process.env.DODO_PRO_ANNUAL_PRODUCT_ID) map[process.env.DODO_PRO_ANNUAL_PRODUCT_ID] = 'pro';
+  if (process.env.DODO_AGENCY_ANNUAL_PRODUCT_ID) map[process.env.DODO_AGENCY_ANNUAL_PRODUCT_ID] = 'agency';
   return map[productId] ?? null;
 }
 

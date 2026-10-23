@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { reportConversion } from '@/lib/googleAds';
 import { SIGNUP_SOURCES } from '@/lib/attribution';
 import { readFirstTouch } from '@/lib/attribution-client';
+import { parsePlanIntent, savePlanIntent } from '@/lib/plan-intent';
 
 declare global {
   interface Window {
@@ -33,6 +34,12 @@ export default function SignupPage() {
   const router = useRouter();
   const googleClientIdRef = useRef<string | null>(null);
   const gsiLoadedRef = useRef(false);
+
+  // Remember the plan picked on /pricing so billing can preselect it.
+  useEffect(() => {
+    const intent = parsePlanIntent(window.location.search);
+    if (intent) savePlanIntent(intent);
+  }, []);
 
   // Load Google OAuth - prefer build-time env var, fallback to API
   useEffect(() => {
