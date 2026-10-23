@@ -1,7 +1,7 @@
 import { pool } from '@/lib/db';
 import { isRedirectCitationHost } from '@/lib/citation-hosts';
 import { requireVerifiedAuth } from '@/lib/auth';
-import { getBrandWithAccess } from '@/lib/helpers';
+import { getBrandLiteWithAccess } from '@/lib/helpers';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { logError } from '@/lib/api-error';
 
@@ -16,7 +16,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const { id } = await params;
-  const access = await getBrandWithAccess(id, user.id);
+  const access = await getBrandLiteWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
 
   try {

@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import Link from 'next/link';
 import { useBrandData } from '@/hooks/useBrandData';
+import { useBrands } from '@/contexts/BrandContext';
+import { getPlanPlatforms } from '@/lib/constants';
 import { Card, KPIRail, Badge, Bar, Pill, PageHead, Filter, Seg } from '@/app/dashboard-v2/ui';
 
 interface FanoutAggregate {
@@ -26,8 +29,12 @@ const WINDOWS = [
   { value: '90', label: '90D' },
 ];
 
+/** Engines that report the sub-queries they issued. */
+const FANOUT_PLATFORMS = ['Gemini', 'Perplexity'];
+
 export default function FanoutPage() {
   const { brand, loading } = useBrandData();
+  const { plan } = useBrands();
   const [data, setData] = useState<FanoutResponse | null>(null);
   const [days, setDays] = useState('30');
   const [busy, setBusy] = useState(false);
@@ -69,7 +76,17 @@ export default function FanoutPage() {
 
   const maxSeen = rows.length ? rows[0].timesSeen : 1;
 
-  if (loading) return (
+  // An empty saved selection means the plan defaults are tracked.
+  const savedPlatforms = (brand as { platforms?: string[] } | null)?.platforms;
+  const trackedPlatforms = Array.isArray(savedPlatforms) && savedPlatforms.length
+    ? savedPlatforms
+    : getPlanPlatforms(plan || '');
+  const tracksFanoutEngine = trackedPlatforms.some(p => FANOUT_PLATFORMS.includes(p));
+
+  // One loading state until the first response lands: the brand list and the
+  // fan-out request each used to flip a different placeholder (and briefly
+  // the empty state) on screen before any data arrived.
+  if (loading || (brandId && !data && !failed)) return (
     <div className="lvx">
       <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 240 }}>
         <span className="spinner" style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'lvx-spin 1s linear infinite' }} />
@@ -85,6 +102,15 @@ export default function FanoutPage() {
         actions={<Badge tone="warn">Beta</Badge>}
       />
       <div className="page-body">
+        {brand && !tracksFanoutEngine && (
+          <Card>
+            <div style={{ fontSize: 13, lineHeight: 1.7 }}>
+              Fan-out is only reported by {FANOUT_PLATFORMS.join(' and ')}, and neither is enabled for this brand,
+              so this page will stay empty.{' '}
+              <Link href="/dashboard/setup">Enable Gemini or Perplexity in brand setup</Link>, then run your prompts.
+            </div>
+          </Card>
+        )}
         <KPIRail items={[
           { k: 'Distinct sub-queries', v: data?.distinctQueries ?? '—' },
           { k: 'Observations', v: data?.totalObservations ?? '—' },
@@ -122,9 +148,9 @@ export default function FanoutPage() {
             <div style={{ textAlign: 'center', padding: 32, color: 'var(--mute)', fontSize: 12, lineHeight: 1.7 }}>
               No fan-out recorded in this window.
               <br />
-              Fan-out is only captured from engines that report it. Today that means
-              grounded Gemini — make sure Gemini is one of your tracked platforms,
-              then run your prompts.
+              Fan-out is only captured from engines that report it ({FANOUT_PLATFORMS.join(' and ')}).
+              Make sure one of them is a tracked platform in{' '}
+              <Link href="/dashboard/setup">brand setup</Link>, then run your prompts.
             </div>
           ) : (
             <div className="tbl-wrap">

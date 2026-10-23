@@ -9,6 +9,7 @@ import { PRICING_PLANS, BILLING_PORTAL_URL } from '@/lib/constants';
 import { useToast } from '@/components/dashboard/Toast';
 import { Card, Badge, PageHead, Pill } from '@/app/dashboard-v2/ui';
 import AiAssistantsCard from '@/components/dashboard/AiAssistantsCard';
+import { sanitizeUsernameInput } from '@/lib/username';
 
 interface BillingEntry {
   date: string;
@@ -268,7 +269,7 @@ export default function AccountPage() {
               <div className="eyebrow">Username</div>
               <div style={{ fontSize: 13, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                 {usernameEdit ? (
-                  <><input className="fld-in mono" value={usernameVal} onChange={e => setUsernameVal(e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, ''))} style={{ width: 180 }} onKeyDown={e => e.key === 'Enter' && saveUsername()} /><button className="btn-d" style={{ padding: '3px 8px', fontSize: 11 }} onClick={saveUsername}>Save</button></>
+                  <><input className="fld-in mono" value={usernameVal} onChange={e => setUsernameVal(sanitizeUsernameInput(e.target.value))} style={{ width: 180 }} onKeyDown={e => e.key === 'Enter' && saveUsername()} /><button className="btn-d" style={{ padding: '3px 8px', fontSize: 11 }} onClick={saveUsername}>Save</button></>
                 ) : (
                   <><span className="mono" style={{ color: 'var(--text)' }}>@{user?.username || '-'}</span><button className="btn-d" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => setUsernameEdit(true)}>Edit</button></>
                 )}

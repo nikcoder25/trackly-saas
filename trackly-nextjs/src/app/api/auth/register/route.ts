@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { usernameBase } from '@/lib/username';
 import { pool, auditLog, ensureColumns } from '@/lib/db';
 import { uid, safeUser, normaliseEmail } from '@/lib/helpers';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, validatePasswordComplexity, issueSession, sessionContextFromRequest } from '@/lib/auth';
@@ -47,11 +48,8 @@ function isDotTrickedGmail(email: string): boolean {
 }
 
 async function generateUsername(nameOrEmail: string): Promise<string> {
-  let base = (nameOrEmail || '').trim().toLowerCase();
-  if (base.includes('@')) base = base.split('@')[0];
-  base = base.replace(/\s+/g, '.').replace(/[^a-z0-9_.-]/g, '').replace(/\.{2,}/g, '.').replace(/^[._-]+|[._-]+$/g, '');
-  if (base.length < 3) base = 'user' + base;
-  if (base.length > 25) base = base.substring(0, 25);
+  // Shared with the account page: email -> local part, accents transliterated.
+  const base = usernameBase(nameOrEmail);
 
   const exists = await pool.query('SELECT id FROM users WHERE LOWER(username) = $1', [base]);
   if (!exists.rows.length) return base;

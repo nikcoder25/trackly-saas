@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useRun } from '@/contexts/RunContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBrands } from '@/contexts/BrandContext';
 import Link from 'next/link';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { PLATFORM_COLORS } from '@/lib/constants';
@@ -31,6 +32,11 @@ interface CompetitorStatsData {
 export default function CompetitorsPage() {
   const { brand: rawBrand, loading, reload } = useBrandData({ fullData: true });
   const brand = rawBrand as Brand | null;
+  // The stats routes only need the id, which the brand list already has, so
+  // they start in parallel with the (much heavier) full brand payload
+  // instead of waiting for it to finish first.
+  const { selectedBrand } = useBrands();
+  const brandId = selectedBrand?.id;
   const [newComp, setNewComp] = useState('');
   const { startRun, live } = useRun();
   const { user } = useAuth();
@@ -41,10 +47,12 @@ export default function CompetitorsPage() {
   // Citation-based competitor discovery
   const [citations, setCitations] = useState<CitationRow[]>([]);
   const [citLoading, setCitLoading] = useState(false);
+  const [citLoadedFor, setCitLoadedFor] = useState<string | null>(null);
 
   // Competitor stats from dedicated API (aggregated from prompt_runs)
   const [compStatsData, setCompStatsData] = useState<CompetitorStatsData | null>(null);
   const [compStatsLoading, setCompStatsLoading] = useState(false);
+  const [statsLoadedFor, setStatsLoadedFor] = useState<string | null>(null);
 
   const fetchCompetitorStats = useCallback(async (brandId: string) => {
     setCompStatsLoading(true);
@@ -56,6 +64,7 @@ export default function CompetitorsPage() {
       }
     } catch { /* fetch failed */ }
     setCompStatsLoading(false);
+    setStatsLoadedFor(brandId);
   }, []);
 
   const fetchCitations = useCallback(async (brandId: string) => {
@@ -73,14 +82,15 @@ export default function CompetitorsPage() {
       }
     } catch { /* fetch failed */ }
     setCitLoading(false);
+    setCitLoadedFor(brandId);
   }, []);
 
   useEffect(() => {
-    if (brand?.id) {
-      fetchCitations(brand.id);
-      fetchCompetitorStats(brand.id);
+    if (brandId) {
+      fetchCitations(brandId);
+      fetchCompetitorStats(brandId);
     }
-  }, [brand?.id, fetchCitations, fetchCompetitorStats]);
+  }, [brandId, fetchCitations, fetchCompetitorStats]);
 
   // Refresh aggregated competitor/citation stats when a run finishes so the
   // page reflects the new mentions in real time (matches the toast behaviour).
@@ -275,7 +285,10 @@ export default function CompetitorsPage() {
     return rows.sort((a, b) => b.sov - a.sov || b.mentions - a.mentions);
   }, [brand?.name, competitors, compStats, compStatsData, totalQueries, compTrends]);
 
-  if (loading || compStatsLoading) return (
+  // One loading state until the brand and both stats requests have landed,
+  // so the empty states never flash while data is still on its way.
+  const firstLoadPending = !!brandId && (statsLoadedFor !== brandId || citLoadedFor !== brandId);
+  if (loading || compStatsLoading || firstLoadPending) return (
     <div className="lvx">
       <div className="page-body" style={{ paddingTop: 28 }}>
         <Card>

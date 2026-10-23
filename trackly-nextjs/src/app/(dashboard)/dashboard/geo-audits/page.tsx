@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { COUNTRIES } from '@/lib/constants';
+import { brandDefaultCountry } from '@/lib/brand-location';
 import { useBrands } from '@/contexts/BrandContext';
 import AuditCreditConfirmModal, {
   AUDIT_PER_UNIT_COST,
@@ -94,13 +95,15 @@ function formatDate(iso: string): string {
 interface NewAuditModalProps {
   brandId: string | null;
   brandName: string | null;
+  /** Pre-selected primary region, from the brand's country or location. */
+  defaultRegion: string;
   trackedPrompts: string[];
   onClose: () => void;
   onCreated: () => void;
 }
 
-function NewAuditModal({ brandId, brandName, trackedPrompts, onClose, onCreated }: NewAuditModalProps) {
-  const [region, setRegion] = useState<string>(COUNTRIES[0]);
+function NewAuditModal({ brandId, brandName, defaultRegion, trackedPrompts, onClose, onCreated }: NewAuditModalProps) {
+  const [region, setRegion] = useState<string>(defaultRegion);
   const [extraRegions, setExtraRegions] = useState<string[]>([]);
   const [allPrompts, setAllPrompts] = useState(true);
   const [promptCount, setPromptCount] = useState<number>(trackedPrompts.length);
@@ -602,6 +605,7 @@ export default function GeoAuditsPage() {
         <NewAuditModal
           brandId={brandId}
           brandName={brandName}
+          defaultRegion={brandDefaultCountry(selectedBrand as { country?: unknown; city?: unknown } | null)}
           trackedPrompts={trackedPrompts}
           onClose={() => setModalOpen(false)}
           onCreated={fetchAudits}

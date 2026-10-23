@@ -1,6 +1,6 @@
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
-import { getBrandWithAccess } from '@/lib/helpers';
+import { getBrandLiteWithAccess } from '@/lib/helpers';
 import { computeShareOfVoice } from '@/lib/run-sov';
 
 /**
@@ -14,23 +14,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const user = authResult;
 
   const { id } = await params;
-  const access = await getBrandWithAccess(id, user.id);
+  const access = await getBrandLiteWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
 
   const brand = access.brand;
-  const competitors: string[] = brand.competitors || [];
+  const competitors: string[] = Array.isArray(brand.competitors) ? (brand.competitors as string[]) : [];
 
   if (!competitors.length) {
     return Response.json({ competitors: [], platforms: {}, totalQueries: 0, brandMentions: 0 });
   }
 
   try {
-    // Get all successful prompt_runs for this brand in last 30 days
+    // Get all successful prompt_runs for this brand in last 30 days. Only the
+    // columns the aggregation reads: prompt text and an ORDER BY the loop
+    // never relies on made this the slowest query on the Competitors page.
     const result = await pool.query(
-      `SELECT prompt, platform, mentioned, competitor_mentions, batch_id, created_at
+      `SELECT platform, mentioned, competitor_mentions, created_at
        FROM prompt_runs
-       WHERE brand_id = $1 AND success = true AND created_at >= NOW() - INTERVAL '30 days'
-       ORDER BY created_at DESC`,
+       WHERE brand_id = $1 AND success = true AND created_at >= NOW() - INTERVAL '30 days'`,
       [id]
     );
 
