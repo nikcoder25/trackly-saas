@@ -181,7 +181,7 @@ describe('GET /api/search', () => {
 
     expect(body.total).toBe(1);
     expect(body.results.prompts[0].title).toBe('best crm');
-    expect(body.results.prompts[0].subtitle).toBe('4/10 runs mentioned you');
+    expect(body.results.prompts[0].subtitle).toBe('Mentioned in 4 of 10 runs (last 30 days)');
     // The href has to be a real, navigable destination.
     expect(body.results.prompts[0].href).toBe('/dashboard/prompt-details?q=best%20crm');
   });

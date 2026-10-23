@@ -8,10 +8,20 @@ import { useBrandData } from '@/hooks/useBrandData';
 import { TableSkeleton } from '@/components/dashboard/Skeleton';
 import { Card, KPIRail, Badge, Delta, Spark, Filter, Seg, PageHead, Info } from '@/app/dashboard-v2/ui';
 
-interface KTKeyword { keyword: string; mentionRate: number; change: number | null; totalRuns: number; platformCount: number; avgPosition: number | null; lastUpdated: string; sparkline?: number[]; platforms?: Record<string, number>; }
+interface KTKeyword { keyword: string; mentionRate: number; change: number | null; totalRuns: number; mentionCount?: number; platformCount: number; avgPosition: number | null; lastUpdated: string; sparkline?: number[]; platforms?: Record<string, number>; }
 interface Brand { id: string; name: string; queries?: string[]; runs?: Array<{ date?: string; time?: string; sov?: number; platforms?: Record<string, unknown>; allResults?: Array<{ query: string; platform: string; mentioned: boolean; position?: number }> }>; }
 
-type SortField = 'keyword' | 'mentionRate' | 'change' | 'totalRuns' | 'platformCount' | 'avgPosition' | 'lastUpdated';
+/**
+ * Runs that mentioned the brand. Older API responses only carried the rate,
+ * so fall back to deriving the count from it rather than showing the run
+ * total in the Mentions column (which is what this page used to do).
+ */
+function mentionsOf(kw: KTKeyword): number {
+  if (typeof kw.mentionCount === 'number') return kw.mentionCount;
+  return Math.round((kw.mentionRate / 100) * kw.totalRuns);
+}
+
+type SortField = 'keyword' | 'mentionRate' | 'change' | 'mentionCount' | 'totalRuns' | 'platformCount' | 'avgPosition' | 'lastUpdated';
 
 export default function QueryTrackerPage() {
   const { user } = useAuth();
@@ -100,6 +110,7 @@ export default function QueryTrackerPage() {
         mentionRate: m.totalRuns > 0 ? Math.round(m.mentionCount / m.totalRuns * 100) : 0,
         change: m.history.length >= 2 ? m.history[m.history.length - 1] - m.history[m.history.length - 2] : null,
         totalRuns: m.totalRuns,
+        mentionCount: m.mentionCount,
         platformCount: m.platforms.size,
         avgPosition: m.posCount > 0 ? Math.round(m.posSum / m.posCount) : null,
         lastUpdated: m.lastDate,
@@ -124,6 +135,7 @@ export default function QueryTrackerPage() {
           case 'keyword': va = a.keyword.toLowerCase(); vb = b.keyword.toLowerCase(); break;
           case 'mentionRate': va = a.mentionRate; vb = b.mentionRate; break;
           case 'change': va = a.change ?? -999; vb = b.change ?? -999; break;
+          case 'mentionCount': va = mentionsOf(a); vb = mentionsOf(b); break;
           case 'totalRuns': va = a.totalRuns; vb = b.totalRuns; break;
           case 'platformCount': va = a.platformCount; vb = b.platformCount; break;
           case 'avgPosition': va = a.avgPosition ?? 999; vb = b.avgPosition ?? 999; break;
@@ -235,7 +247,8 @@ export default function QueryTrackerPage() {
                   <th>Status</th>
                   <th style={{ cursor: 'pointer' }} onClick={() => handleSort('mentionRate')}>VISIBILITY{sortIcon('mentionRate')} <Info term="sov" /></th>
                   <th style={{ cursor: 'pointer' }} onClick={() => handleSort('change')}>Δ{sortIcon('change')}</th>
-                  <th style={{ cursor: 'pointer' }} onClick={() => handleSort('totalRuns')}>MENTIONS{sortIcon('totalRuns')}</th>
+                  <th style={{ cursor: 'pointer' }} onClick={() => handleSort('mentionCount')}>MENTIONS{sortIcon('mentionCount')}</th>
+                  <th style={{ cursor: 'pointer' }} onClick={() => handleSort('totalRuns')}>RUNS{sortIcon('totalRuns')}</th>
                   <th style={{ cursor: 'pointer' }} onClick={() => handleSort('platformCount')}>ENGINES{sortIcon('platformCount')}</th>
                   <th>Trend</th>
                   <th className="right" style={{ cursor: 'pointer' }} onClick={() => handleSort('lastUpdated')}>UPDATED{sortIcon('lastUpdated')}</th>
@@ -243,7 +256,7 @@ export default function QueryTrackerPage() {
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={8} style={{ textAlign: 'center', padding: 32, color: 'var(--mute)', fontSize: 12.5 }}>
+                      <td colSpan={9} style={{ textAlign: 'center', padding: 32, color: 'var(--mute)', fontSize: 12.5 }}>
                         No keywords match your filter.
                       </td>
                     </tr>
@@ -263,7 +276,8 @@ export default function QueryTrackerPage() {
                         <td><Badge tone={statusTone}>{statusLabel}</Badge></td>
                         <td className="num"><b>{kw.mentionRate}%</b></td>
                         <td>{kw.change != null ? <Delta v={kw.change} suffix="%" /> : <span className="dim">-</span>}</td>
-                        <td className="num">{kw.totalRuns}</td>
+                        <td className="num">{mentionsOf(kw)}</td>
+                        <td className="num dim">{kw.totalRuns}</td>
                         <td className="num">{kw.platformCount}/{planPlatforms.length}</td>
                         <td>
                           {kw.sparkline && kw.sparkline.length > 1

@@ -52,7 +52,33 @@ import { logger } from './logger';
 /** Below this many comparable pairs, a day's score is not reported. */
 export const MIN_COHORT = Number(process.env.VOLATILITY_MIN_COHORT) || 30;
 
+/**
+ * Minimum comparable pairs for a single brand's own series. One tenant tracks
+ * tens of prompts, not thousands, so the market-wide floor of 30 would leave
+ * almost every brand permanently unscored ("needs 2 days of runs").
+ */
+export const MIN_BRAND_COHORT = Number(process.env.VOLATILITY_MIN_BRAND_COHORT) || 3;
+
 export const WEIGHTS = { sources: 0.6, mentions: 0.25, positions: 0.15 };
+
+/**
+ * Engine names as the dashboard shows them. prompt_runs.platform is written
+ * as the display name ('ChatGPT'), but provider keys ('openai') and casing
+ * variants split one engine into separate series that each look too young
+ * to score. Everything here keys on the canonical name.
+ */
+const PLATFORM_ALIASES: Record<string, string> = {
+  chatgpt: 'ChatGPT', openai: 'ChatGPT', gpt: 'ChatGPT',
+  claude: 'Claude', anthropic: 'Claude',
+  gemini: 'Gemini', google: 'Gemini',
+  perplexity: 'Perplexity',
+  grok: 'Grok', xai: 'Grok',
+};
+
+export function canonicalPlatform(platform: string | null | undefined): string {
+  const raw = String(platform || '').trim();
+  return PLATFORM_ALIASES[raw.toLowerCase()] || raw;
+}
 
 /** Position deltas are divided by this before clamping to 0..1. */
 const POSITION_SCALE = 5;
@@ -133,7 +159,11 @@ export interface ScoreBreakdown {
  * Both inputs are one day's observations for a single platform. Pairing is
  * on the prompt text, so only prompts present on both days contribute.
  */
-export function scoreDay(prev: DayObservation[], curr: DayObservation[]): ScoreBreakdown {
+export function scoreDay(
+  prev: DayObservation[],
+  curr: DayObservation[],
+  minCohort: number = MIN_COHORT,
+): ScoreBreakdown {
   const prevByPrompt = new Map(prev.map(o => [o.prompt, o]));
   const pairs: Array<[DayObservation, DayObservation]> = [];
   for (const c of curr) {
@@ -142,7 +172,7 @@ export function scoreDay(prev: DayObservation[], curr: DayObservation[]): ScoreB
   }
 
   const cohortSize = pairs.length;
-  if (cohortSize < MIN_COHORT) {
+  if (cohortSize < minCohort) {
     return { score: null, cohortSize, sourceChurn: null, mentionFlip: null, positionMove: null };
   }
 
@@ -218,15 +248,19 @@ export async function loadDay(day: string): Promise<Map<string, DayObservation[]
 
   const byPlatform = new Map<string, DayObservation[]>();
   for (const row of res.rows) {
-    const list = byPlatform.get(row.platform) || [];
+    const platform = canonicalPlatform(row.platform);
+    const list = byPlatform.get(platform) || [];
+    // Two aliases of one engine on the same prompt collapse to one
+    // observation, so the cohort is not double-counted.
+    if (list.some(o => o.prompt === row.prompt)) continue;
     list.push({
       prompt: row.prompt,
-      platform: row.platform,
+      platform,
       mentioned: !!row.mentioned,
       listPosition: row.list_position == null ? null : Number(row.list_position),
       domains: (row.domains || []).filter(Boolean),
     });
-    byPlatform.set(row.platform, list);
+    byPlatform.set(platform, list);
   }
   return byPlatform;
 }
@@ -298,9 +332,12 @@ export async function getVolatilitySeries(days = 90): Promise<VolatilitySeries[]
     );
     const byPlatform = new Map<string, VolatilitySeries>();
     for (const row of res.rows) {
-      const key = row.platform;
+      const key = canonicalPlatform(row.platform);
       const entry: VolatilitySeries =
         byPlatform.get(key) || { platform: key, points: [], latest: null };
+      const day = new Date(row.day).toISOString().slice(0, 10);
+      // Rows stored under an alias before canonicalisation: keep one per day.
+      if (entry.points.some(p => p.day === day)) continue;
       entry.points.push({
         day: new Date(row.day).toISOString().slice(0, 10),
         score: row.score == null ? null : Math.round(Number(row.score)),
@@ -320,5 +357,156 @@ export async function getVolatilitySeries(days = 90): Promise<VolatilitySeries[]
   } catch (e) {
     logger.error('volatility.series_failed', { errorMessage: (e as Error).message });
     return [];
+  }
+}
+
+// ── Per-brand series ────────────────────────────────────────────
+
+export interface BrandDayRow {
+  /** UTC day, YYYY-MM-DD. */
+  day: string;
+  platform: string;
+  prompt: string;
+  mentioned: boolean;
+  listPosition: number | null;
+  domains: string[];
+}
+
+/**
+ * Build one brand's volatility series from its own runs.
+ *
+ * Differs from the market index in the ways that matter for one brand:
+ *
+ *   - Only that brand's rows go in, and days before `since` (the later of
+ *     the brand's creation day and the window start) are dropped, so the
+ *     chart never shows dates the brand did not exist for. Reading the
+ *     cross-tenant table is how Claude showed August for a brand created in
+ *     September.
+ *   - Each measured day is compared with the PREVIOUS MEASURED day for that
+ *     engine, not the calendar day before. A plan that scans every 2 days,
+ *     or a scan that lands either side of midnight UTC, otherwise never has
+ *     two consecutive calendar days and every point stays null.
+ *
+ * The first measured day of each engine has nothing to compare against and
+ * is reported with a null score.
+ */
+export function buildBrandVolatilitySeries(
+  rows: BrandDayRow[],
+  opts: { since: string; minCohort?: number },
+): VolatilitySeries[] {
+  const minCohort = opts.minCohort ?? MIN_BRAND_COHORT;
+  const byPlatform = new Map<string, Map<string, Map<string, DayObservation>>>();
+  for (const r of rows) {
+    if (!r.day || r.day < opts.since) continue;
+    const platform = canonicalPlatform(r.platform);
+    if (!platform) continue;
+    const days = byPlatform.get(platform) || new Map<string, Map<string, DayObservation>>();
+    const prompts = days.get(r.day) || new Map<string, DayObservation>();
+    const existing = prompts.get(r.prompt);
+    if (existing) {
+      // Same prompt twice in a day (two scans, or an alias): merge the way
+      // loadDay's GROUP BY does.
+      existing.mentioned = existing.mentioned || !!r.mentioned;
+      if (r.listPosition != null) {
+        existing.listPosition = existing.listPosition == null
+          ? r.listPosition
+          : Math.min(existing.listPosition, r.listPosition);
+      }
+      existing.domains = [...new Set([...existing.domains, ...r.domains.filter(Boolean)])];
+    } else {
+      prompts.set(r.prompt, {
+        prompt: r.prompt,
+        platform,
+        mentioned: !!r.mentioned,
+        listPosition: r.listPosition,
+        domains: [...new Set(r.domains.filter(Boolean))],
+      });
+    }
+    days.set(r.day, prompts);
+    byPlatform.set(platform, days);
+  }
+
+  const out: VolatilitySeries[] = [];
+  for (const [platform, days] of byPlatform) {
+    const ordered = [...days.keys()].sort();
+    const points: VolatilitySeries['points'] = [];
+    for (let i = 0; i < ordered.length; i++) {
+      if (i === 0) {
+        points.push({ day: ordered[i], score: null, cohortSize: 0 });
+        continue;
+      }
+      const prev = [...days.get(ordered[i - 1])!.values()];
+      const curr = [...days.get(ordered[i])!.values()];
+      const b = scoreDay(prev, curr, minCohort);
+      points.push({ day: ordered[i], score: b.score, cohortSize: b.cohortSize });
+    }
+    let latest: number | null = null;
+    for (let i = points.length - 1; i >= 0; i--) {
+      if (points[i].score !== null) { latest = points[i].score; break; }
+    }
+    out.push({ platform, points, latest });
+  }
+  return out.sort((a, b) => (b.latest ?? -1) - (a.latest ?? -1) || a.platform.localeCompare(b.platform));
+}
+
+/** The later of the brand's creation day and the first day of the window (UTC). */
+export function brandSeriesSince(
+  brandCreatedAt: string | Date | null | undefined,
+  days: number,
+  now: Date = new Date(),
+): string {
+  const start = new Date(now);
+  start.setUTCDate(start.getUTCDate() - (days - 1));
+  const windowStart = start.toISOString().slice(0, 10);
+  const created = brandCreatedAt ? new Date(brandCreatedAt) : null;
+  if (!created || isNaN(created.getTime())) return windowStart;
+  const createdDay = created.toISOString().slice(0, 10);
+  return createdDay > windowStart ? createdDay : windowStart;
+}
+
+/**
+ * One brand's volatility series, read live from that brand's own successful
+ * runs. Scoped by brand_id: the caller must already have checked access.
+ */
+export async function getBrandVolatilitySeries(
+  brandId: string,
+  brandCreatedAt: string | Date | null | undefined,
+  days = 90,
+): Promise<{ series: VolatilitySeries[]; since: string }> {
+  const since = brandSeriesSince(brandCreatedAt, days);
+  try {
+    const res = await pool.query(
+      `SELECT to_char(pr.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day,
+              pr.platform,
+              pr.prompt,
+              BOOL_OR(pr.mentioned)                       AS mentioned,
+              MIN(pr.list_position)                       AS list_position,
+              COALESCE(
+                ARRAY_AGG(DISTINCT c.domain) FILTER (WHERE c.domain IS NOT NULL),
+                '{}'
+              )                                           AS domains
+         FROM prompt_runs pr
+         LEFT JOIN citations c ON c.prompt_run_id = pr.id
+        WHERE pr.brand_id = $1
+          AND pr.success = true
+          AND pr.created_at >= ($2::date)::timestamp AT TIME ZONE 'UTC'
+        GROUP BY 1, pr.platform, pr.prompt`,
+      [brandId, since],
+    );
+    const rows: BrandDayRow[] = (res.rows as Array<{
+      day: string; platform: string; prompt: string; mentioned: boolean;
+      list_position: number | null; domains: string[] | null;
+    }>).map(row => ({
+      day: row.day,
+      platform: row.platform,
+      prompt: row.prompt,
+      mentioned: !!row.mentioned,
+      listPosition: row.list_position == null ? null : Number(row.list_position),
+      domains: (row.domains || []).filter(Boolean),
+    }));
+    return { series: buildBrandVolatilitySeries(rows, { since }), since };
+  } catch (e) {
+    logger.error('volatility.brand_series_failed', { brandId, errorMessage: (e as Error).message });
+    return { series: [], since };
   }
 }
