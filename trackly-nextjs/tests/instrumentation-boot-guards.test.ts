@@ -67,6 +67,35 @@ describe('instrumentation production boot guards', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('warns (but boots) when annual product ids are partially configured', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await expect(
+        registerWith({ DODO_PRO_ANNUAL_PRODUCT_ID: 'prod_pro_year' }),
+      ).resolves.toBeUndefined();
+      const msgs = warn.mock.calls.map((c) => String(c[0]));
+      expect(msgs.some((m) => m.includes('annual billing is partially configured')
+        && m.includes('DODO_STARTER_ANNUAL_PRODUCT_ID')
+        && m.includes('DODO_AGENCY_ANNUAL_PRODUCT_ID'))).toBe(true);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('warns when an annual product id reuses a monthly id', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await registerWith({
+        DODO_PRO_PRODUCT_ID: 'prod_pro',
+        DODO_PRO_ANNUAL_PRODUCT_ID: 'prod_pro',
+      });
+      const msgs = warn.mock.calls.map((c) => String(c[0]));
+      expect(msgs.some((m) => m.includes('DODO_PRO_ANNUAL_PRODUCT_ID reuse a monthly'))).toBe(true);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it('refuses to boot with a localhost APP_URL', async () => {
     await expect(registerWith({ APP_URL: 'http://localhost:3000' })).rejects.toThrow(/APP_URL/);
   });

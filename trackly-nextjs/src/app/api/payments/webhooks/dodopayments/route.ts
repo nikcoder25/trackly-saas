@@ -37,6 +37,11 @@ Object.entries(PLAN_MAP).forEach(([productId, planName]) => {
     PLAN_TO_PRODUCT[planName] = productId;
 });
 
+// Added after the reverse map so PLAN_TO_PRODUCT keeps the monthly ids.
+if (process.env.DODO_STARTER_ANNUAL_PRODUCT_ID) PLAN_MAP[process.env.DODO_STARTER_ANNUAL_PRODUCT_ID] = 'starter';
+if (process.env.DODO_PRO_ANNUAL_PRODUCT_ID) PLAN_MAP[process.env.DODO_PRO_ANNUAL_PRODUCT_ID] = 'pro';
+if (process.env.DODO_AGENCY_ANNUAL_PRODUCT_ID) PLAN_MAP[process.env.DODO_AGENCY_ANNUAL_PRODUCT_ID] = 'agency';
+
 // Defense-in-depth: only these values may ever be written to users.plan
 // from a webhook. 'owner' is intentionally excluded - it is an internal
 // admin marker that grants admin-backend access via lib/admin-auth.ts,
