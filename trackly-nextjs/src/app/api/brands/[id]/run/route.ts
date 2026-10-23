@@ -16,6 +16,7 @@ import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
 import { mergeCitations, persistCitations, type CitationBatchRow } from '@/lib/citations';
 import { persistFanout, type FanoutBatchRow } from '@/lib/fanout';
+import { refreshRecommendationsAfterRun } from '@/lib/recommendations-engine';
 import { after } from 'next/server';
 import { isQueueAvailable, enqueueBrandRun } from '@/lib/job-queue';
 import { getServerKeys } from '@/lib/server-keys';
@@ -1447,6 +1448,10 @@ async function executeRunBackgroundInner(
         });
       }
     }
+
+    // Refresh open recommendations against the scan that just landed.
+    // Runs inside after(), so it never delays the HTTP response.
+    await refreshRecommendationsAfterRun(brandId);
 
     auditLog(userId, 'run_queries', 'brand', brandId, { runId, queries: totalQ, mentions: totalM, sov: overallSov }, '');
 

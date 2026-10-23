@@ -16,6 +16,7 @@ import { getAdminModel } from './site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from './parser';
 import { mergeCitations, persistCitations, type CitationBatchRow } from './citations';
 import { persistFanout, type FanoutBatchRow } from './fanout';
+import { refreshRecommendationsAfterRun } from './recommendations-engine';
 import { uid, decryptApiKeys, loadTenantFairnessSettings } from './helpers';
 import { circuitBreakerCheck, recordApiKeyFailure, resetApiKeyFailures, acquirePlatformSlot } from './ai-platforms';
 import { setTenantFairness } from './fairness-scheduler';
@@ -567,6 +568,9 @@ async function processRun(job: Job<BrandRunJobData>) {
         });
       }
     }
+
+    // Refresh open recommendations against the scan that just landed.
+    await refreshRecommendationsAfterRun(brandId);
 
     console.log(`[Worker] Run ${runId} complete: ${totalQ} queries, ${totalM} mentions, ${totalErrors} errors, ${Math.round(durationMs/1000)}s`);
 

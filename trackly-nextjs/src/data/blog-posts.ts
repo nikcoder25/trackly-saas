@@ -522,7 +522,7 @@ AI Overviews are a search surface rather than an assistant and behave differentl
 
 Most prediction pieces are unfalsifiable by design. "AI will transform search" cannot be wrong, so it is not a prediction - it is a mood.
 
-Every call below has three things attached: **a specific threshold**, **a date**, and **the measurement it rests on**. The measurements come from our own tracking - a rolling panel of roughly 1,200 brands across ChatGPT, Claude, Gemini, Perplexity, and Grok, sampled on the schedule described in [our measurement methodology](/blog/how-livesov-measures-llm-visibility). Where a number comes from somewhere else, it is sourced on the [AI search statistics page](/ai-search-statistics-2026).
+Every call below has three things attached: **a specific threshold**, **a date**, and **the measurement it rests on**. The measurements come from our own tracking of the brands tracked in Livesov across ChatGPT, Claude, Gemini, Perplexity, and Grok, sampled on the schedule described in [our measurement methodology](/blog/how-livesov-measures-llm-visibility). Where a number comes from somewhere else, it is sourced on the [AI search statistics page](/ai-search-statistics-2026).
 
 I score the previous year's calls first, including the ones I got wrong, because a predictions post that never revisits its own record is entertainment.
 
@@ -673,7 +673,7 @@ Against the stated thresholds on the stated dates, using the same panel and the 
 
 ### Are the panel numbers audited?
 
-They are internally reproducible - every figure traces back to stored answers with timestamps, engines, and model tiers - but they are not third-party audited. Treat them as what they are: measurements from one panel of roughly 1,200 brands, with the sampling error described in the methodology.
+They are internally reproducible - every figure traces back to stored answers with timestamps, engines, and model tiers - but they are not third-party audited. Treat them as what they are: measurements from the brands tracked in Livesov, with the sampling error described in the methodology.
 
 ### Which prediction matters most for a small team?
 

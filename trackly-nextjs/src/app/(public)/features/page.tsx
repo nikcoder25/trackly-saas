@@ -46,7 +46,7 @@ const AGENCY = [
 ];
 
 const STEPS = [
-  { t: 'Connect your brand', d: 'Domain, competitors and buyer prompts. 50+ seeded industry queries.' },
+  { t: 'Connect your brand', d: 'Domain, competitors and buyer prompts, with suggested buyer prompts to start from.' },
   { t: 'We query the engines', d: 'Scheduled runs. Answers parsed for mentions, sentiment and sources.' },
   { t: 'Watch share of voice', d: 'Wins, losses and which page each engine cites.' },
 ];
@@ -154,7 +154,7 @@ export default function FeaturesPage() {
           <div className="ls-card lg ls-stack ls-gap-16">
             <span className="ls-kicker">06 · Custom queries</span>
             <h3 style={{ fontSize: 30, fontWeight: 600, letterSpacing: '-0.03em' }}>Ask what buyers ask.</h3>
-            <p className="ls-body">Add your own buyer questions and long tail prompts, or start from 50+ seeded ones.</p>
+            <p className="ls-body">Add your own buyer questions and long tail prompts, or start from suggested buyer prompts.</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <span className="ls-tag">best hvac company near me</span>
               <span className="ls-tag">who installs heat pumps</span>

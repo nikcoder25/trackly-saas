@@ -134,6 +134,16 @@ export interface PricingPlan {
 // with that table - the billing UI is the source of truth for what users
 // actually get on each plan. v3 spec (2026-04-27). No Enterprise tier on
 // the public site.
+// Agency's 8,000 monthly credits (PLAN_CREDITS.agency.monthlyCredits in
+// plan-config.ts) cover a daily scan of only floor(8000 / 30 / 5) prompts on
+// all five engines, well under the 100-prompt cap. Same maths as the /pricing
+// credit table (dailyPromptCapacity); tests/marketing-claim-accuracy.test.ts
+// checks it against PLAN_CREDITS so the card cannot drift.
+const AGENCY_MONTHLY_CREDITS = 8000;
+export const AGENCY_DAILY_FULL_SCAN_PROMPTS = Math.floor(
+  AGENCY_MONTHLY_CREDITS / 30 / PLAN_LIMITS.agency.platforms,
+);
+
 export const PRICING_PLANS: PricingPlan[] = [
   {
     name: 'Free', price: '$0', annualPrice: '$0',
@@ -184,7 +194,7 @@ export const PRICING_PLANS: PricingPlan[] = [
       '5 AI platforms (all)',
       'Competitor tracking (20)',
       'Premium AI models',
-      'Daily auto-runs',
+      `Daily auto-runs (about ${AGENCY_DAILY_FULL_SCAN_PROMPTS} prompts on all 5 engines)`,
       'Sentiment analysis',
       'Priority support',
       'API access',
@@ -197,13 +207,15 @@ export const PRICING_PLANS: PricingPlan[] = [
 export const PRICING_COMPARISON = {
   headers: ['Feature', 'Livesov', 'Ahrefs', 'Semrush'],
   rows: [
-    ['AI Brand Tracking', '\u2713 (5 platforms)', '\u2717', '\u2717'],
+    // Ahrefs (Brand Radar) and Semrush (AI Toolkit) do track AI answers, as
+    // paid add-ons. Keep this hedged: their engine lists change often.
+    ['AI Brand Tracking', '\u2713 (up to 5 platforms)', 'Paid add-on', 'Paid add-on'],
     ['Starting Price', '$9/mo', '$99/mo', '$129/mo'],
-    ['AI Response Proof', '\u2713', '\u2717', '\u2717'],
-    ['Share of Voice', '\u2713 Automatic', 'Limited', 'Limited'],
-    ['Sentiment Analysis', '\u2713 Built-in', '\u2717', '\u2717'],
-    ['Competitor Tracking', '\u2713 Up to 20', '\u2717', '\u2717'],
-    ['AI Response Monitoring', '\u2713 Automatic', '\u2717', '\u2717'],
+    ['AI Response Proof', '\u2713', 'With add-on', 'With add-on'],
+    ['Share of Voice', '\u2713 Automatic', 'With add-on', 'With add-on'],
+    ['Sentiment Analysis', '\u2713 Built-in', '\u2717', 'Partial'],
+    ['Competitor Tracking', '\u2713 Up to 20', 'With add-on', 'With add-on'],
+    ['AI Response Monitoring', '\u2713 Automatic', 'Paid add-on', 'Paid add-on'],
     ['GEO URL Audits', '\u2713 Up to 300/mo', '\u2717', '\u2717'],
   ],
 };
