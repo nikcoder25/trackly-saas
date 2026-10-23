@@ -272,6 +272,18 @@ const creditVerdict = (m: CreditMath): string => {
 
 const FAQ = [
   {
+    q: 'Does "unlimited brands" mean unlimited websites?',
+    a: 'Yes. On Pro and Agency you can add as many websites or brands as you like. Free includes 1 brand and Starter includes 3.',
+  },
+  {
+    q: 'Are tracked prompts per brand or for the whole account?',
+    a: `For the whole account. Your plan's tracked prompts are shared across all your brands, and you decide how to split them. For example, Pro's ${PLAN_CREDITS.pro.trackedPromptsPerAccount} prompts could be 5 prompts for each of 5 brands, or 20 for one brand and 5 for another.`,
+  },
+  {
+    q: 'Which AI platforms are included in my plan?',
+    a: `We support 5 AI platforms: ChatGPT, Perplexity, Claude, Gemini and Grok. Free and Starter let you pick any ${PLAN_CREDITS.starter.maxPlatforms}, Pro lets you pick any ${PLAN_CREDITS.pro.maxPlatforms}, and Agency includes all ${PLAN_CREDITS.agency.maxPlatforms}. You choose them per brand in Brand Setup and can change them at any time.`,
+  },
+  {
     q: 'What is one AI credit?',
     a: 'One credit = one query sent to one AI platform. A run with 10 queries across 3 platforms uses 30 credits. Credits refresh at the start of every UTC month.',
   },

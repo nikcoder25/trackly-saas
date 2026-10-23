@@ -142,7 +142,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     features: [
       '1 brand',
       '5 tracked prompts',
-      '2 AI platforms',
+      '2 AI platforms (you pick from 5)',
       'Manual runs only',
       '3 GEO audits/month',
     ],
@@ -153,8 +153,8 @@ export const PRICING_PLANS: PricingPlan[] = [
     headline: '750 AI credits/month',
     features: [
       '3 brands',
-      '15 tracked prompts',
-      '2 AI platforms',
+      '15 tracked prompts (shared across all brands)',
+      '2 AI platforms (you pick from 5)',
       'Competitor tracking (3)',
       'Auto-runs every 2 days',
       '20 GEO audits/month',
@@ -166,8 +166,8 @@ export const PRICING_PLANS: PricingPlan[] = [
     headline: '2,500 AI credits/month',
     features: [
       'Unlimited brands',
-      '25 tracked prompts',
-      '3 AI platforms',
+      '25 tracked prompts (shared across all brands)',
+      '3 AI platforms (you pick from 5)',
       'Competitor tracking (8)',
       'Daily auto-runs',
       'Sentiment analysis',
@@ -180,7 +180,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     headline: '8,000 AI credits/month',
     features: [
       'Unlimited brands',
-      '100 tracked prompts',
+      '100 tracked prompts (shared across all brands)',
       '5 AI platforms (all)',
       'Competitor tracking (20)',
       'Premium AI models',
