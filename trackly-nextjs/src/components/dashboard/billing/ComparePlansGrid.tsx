@@ -2,6 +2,9 @@
 
 import { PLAN_LIMITS, PRICING_PLANS } from '@/lib/constants';
 import { PLAN_CREDITS } from '@/lib/plan-config';
+import { getPlanSwitchDirection, type PlanSwitchDirection } from '@/lib/plan-rank';
+
+type PlanCtaDirection = PlanSwitchDirection | 'switch';
 
 const SURFACE = '#ffffff';
 const SURFACE_BORDER = '#ececec';
@@ -13,15 +16,6 @@ const HAIRLINE = '#f1f1ef';
 const ACCENT = '#4f46e5';
 const CURRENT_BG = '#f1f0fb';
 const CURRENT_BORDER = '#d8d6f0';
-
-const PLAN_TIERS: Record<string, number> = {
-  free: 0,
-  starter: 1,
-  pro: 2,
-  agency: 3,
-  enterprise: 4,
-  owner: 99,
-};
 
 const PLAN_TAGLINES: Record<string, string> = {
   free: 'Test the waters',
@@ -140,7 +134,6 @@ export default function ComparePlansGrid({
   const anyAnnual = Object.values(annualAvailable).some(Boolean);
   const annual = annualBilling && anyAnnual;
   const visiblePlans = ['free', 'starter', 'pro', 'agency'] as const;
-  const currentTier = PLAN_TIERS[currentPlan] ?? 0;
   // Trial isn't one of the comparison cards, so without this note a trial user
   // would read the (highlighted-looking) Free column as "their" allowances -
   // contradicting the dashboard banner. Surface the real trial allowances,
@@ -206,14 +199,12 @@ export default function ComparePlansGrid({
         }}
       >
         {visiblePlans.map((planKey) => {
-          const isCurrent = planKey === currentPlan;
-          const tier = PLAN_TIERS[planKey] ?? 0;
+          const baseDirection = getPlanSwitchDirection(currentPlan, planKey);
+          const isCurrent = baseDirection === 'current';
           const showAnnual = annual && !!annualAvailable[planKey];
           // Current plan on monthly with Annual selected: offer the switch.
-          const direction =
-            isCurrent
-              ? (showAnnual && currentBilling !== 'annual' ? 'switch' : 'current')
-              : tier > currentTier ? 'upgrade' : 'downgrade';
+          const direction: PlanCtaDirection =
+            isCurrent && showAnnual && currentBilling !== 'annual' ? 'switch' : baseDirection;
           const pricing = PRICING_PLANS.find((p) => p.name.toLowerCase() === planKey);
           const isCustom = pricing?.price === 'Custom';
           return (
@@ -439,7 +430,7 @@ function PlanCta({
   isSwitching,
   onClick,
 }: {
-  direction: 'current' | 'switch' | 'upgrade' | 'downgrade';
+  direction: PlanCtaDirection;
   planKey: string;
   isCustom: boolean;
   isSwitching: boolean;
@@ -462,6 +453,26 @@ function PlanCta({
         }}
       >
         Your plan
+      </button>
+    );
+  }
+  if (direction === 'unavailable') {
+    return (
+      <button
+        disabled
+        style={{
+          width: '100%',
+          padding: '9px 12px',
+          borderRadius: 10,
+          border: `1px solid ${SURFACE_BORDER}`,
+          background: SURFACE,
+          color: TEXT_MUTED,
+          fontSize: 12,
+          fontWeight: 700,
+          cursor: 'default',
+        }}
+      >
+        Included
       </button>
     );
   }
@@ -510,7 +521,7 @@ function PlanCta({
         ? 'Processing…'
         : direction === 'switch'
           ? 'Switch to annual'
-          : isUpgrade ? `Upgrade to ${cap(planKey)}` : 'Downgrade'}
+          : isUpgrade ? `Upgrade to ${cap(planKey)}` : `Downgrade to ${cap(planKey)}`}
     </button>
   );
 }

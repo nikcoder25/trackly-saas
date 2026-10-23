@@ -19,7 +19,7 @@
 
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
-import { getEffectivePlan, PLATFORM_COLORS } from '@/lib/constants';
+import { PLATFORM_COLORS } from '@/lib/constants';
 import {
   currentMonthStart,
   nextMonthStart,
@@ -70,23 +70,14 @@ export interface UsageBreakdown {
   activePlatforms: string[];
   geoAuditsThisMonth: number;
   geoAuditsResetAt: string | null;
+  /** Credits per AI platform over the last 30 days (ledger rows). */
+  platformTotalsLast30Days: Record<string, number>;
 }
 
 export async function GET(request: Request): Promise<Response> {
   const authResult = await requireVerifiedAuth(request, pool);
   if (authResult instanceof Response) return authResult;
   const user = authResult;
-
-  // Effective plan: matches /api/credits/status so the page never
-  // sees a different plan label between the two calls.
-  const planRow = await pool.query(
-    'SELECT plan, trial_ends_at FROM users WHERE id = $1 LIMIT 1',
-    [user.id],
-  );
-  if (!planRow.rows.length) {
-    return Response.json({ error: 'User not found' }, { status: 401 });
-  }
-  void getEffectivePlan(planRow.rows[0].plan, planRow.rows[0].trial_ends_at);
 
   const now = new Date();
   const monthStart = currentMonthStart(now);
@@ -103,6 +94,8 @@ export async function GET(request: Request): Promise<Response> {
     lastRunRes,
     brandsRes,
     geoAuditRes,
+    platformRes,
+    userRes,
   ] = await Promise.all([
     // 30-day series, grouped by UTC day. We zero-fill missing days
     // client-side so the SQL stays simple and the response is bounded.
@@ -140,8 +133,24 @@ export async function GET(request: Request): Promise<Response> {
       received: number;
       platforms: unknown;
     }> })),
+    // Only the handful of fields the tiles read, built in Postgres. The
+    // old `SELECT data` shipped every brand's full run history (up to 30
+    // runs of raw AI answers each) to Node just to count prompts and read
+    // run timestamps, which dominated this endpoint's latency.
     pool.query(
-      `SELECT id, data, updated_at FROM brands WHERE user_id = $1`,
+      `SELECT id, updated_at, jsonb_build_object(
+                'queries', data->'queries',
+                'platforms', data->'platforms',
+                'schedule', data->'schedule',
+                'runs', (
+                  SELECT COALESCE(jsonb_agg(jsonb_build_object('time', r.run->'time', 'date', r.run->'date') ORDER BY r.ord), '[]'::jsonb)
+                    FROM jsonb_array_elements(
+                      CASE WHEN jsonb_typeof(data->'runs') = 'array' THEN data->'runs' ELSE '[]'::jsonb END
+                    ) WITH ORDINALITY AS r(run, ord)
+                    WHERE jsonb_typeof(r.run) = 'object'
+                )
+              ) AS data
+         FROM brands WHERE user_id = $1`,
       [user.id],
     ).catch(() => ({ rows: [] as Array<{ id: string; data: Record<string, unknown>; updated_at: string }> })),
     // Geo Audits this month: counts rows in the new geo_audits table
@@ -158,7 +167,24 @@ export async function GET(request: Request): Promise<Response> {
           AND status <> 'cancelled'`,
       [user.id, monthStart.toISOString()],
     ).catch(() => ({ rows: [{ c: 0 }] as Array<{ c: number }> })),
+    // Per-platform credits over the last 30 days for the "Prompts by AI
+    // platform" chart. Replaces a client-side sum over a 200-row page of
+    // /api/credits/ledger (which also resolved runs and brand names per
+    // row, and undercounted any account with more than 200 calls).
+    pool.query(
+      `SELECT platform, COUNT(*)::int AS credits FROM tenant_cost_events
+        WHERE tenant_id = $1 AND created_at >= $2
+        GROUP BY platform`,
+      [user.id, thirtyDaysAgoDate.toISOString()],
+    ).catch(() => ({ rows: [] as Array<{ platform: string; credits: number }> })),
+    // Existence check only (nothing in this payload is plan-dependent).
+    // It used to run serially before this batch; running it alongside
+    // saves a full round-trip on page load.
+    pool.query('SELECT 1 FROM users WHERE id = $1 LIMIT 1', [user.id]),
   ]);
+  if (!userRes.rows.length) {
+    return Response.json({ error: 'User not found' }, { status: 401 });
+  }
 
   // ── Build 30-day series, zero-filling missing days ─────────────
   // The 14-day field is the trailing 14 entries of the same series so
@@ -288,6 +314,12 @@ export async function GET(request: Request): Promise<Response> {
   const geoAuditsThisMonth = auditRow ? Number(auditRow.c) || 0 : 0;
   const geoAuditsResetAt = monthEnd.toISOString();
 
+  const platformTotalsLast30Days: Record<string, number> = {};
+  for (const row of platformRes.rows as Array<{ platform?: string; credits?: number }>) {
+    if (!row.platform) continue;
+    platformTotalsLast30Days[row.platform] = (platformTotalsLast30Days[row.platform] || 0) + (Number(row.credits) || 0);
+  }
+
 
   const body: UsageBreakdown = {
     dailyUsageLast30Days,
@@ -304,6 +336,7 @@ export async function GET(request: Request): Promise<Response> {
     activePlatforms,
     geoAuditsThisMonth,
     geoAuditsResetAt,
+    platformTotalsLast30Days,
   };
 
   return Response.json(body, {

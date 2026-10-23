@@ -2,6 +2,7 @@ import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
+import { toAdminUserRow } from '@/lib/admin-user-row';
 
 async function requireAdmin(request: Request): Promise<{ id: string; email: string } | Response> {
   const authResult = await requireVerifiedAuth(request, pool);
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
   const search = (url.searchParams.get('search') || '').slice(0, 100);
 
   try {
-    let query = 'SELECT id, email, username, name, plan, role, email_verified, created_at FROM users';
+    let query = 'SELECT id, email, username, name, plan, trial_ends_at, role, email_verified, created_at FROM users';
     const values: unknown[] = [];
     let idx = 1;
 
@@ -44,9 +45,11 @@ export async function GET(request: Request) {
     query += ` ORDER BY created_at DESC LIMIT $${idx} OFFSET $${idx + 1}`;
     values.push(limit, offset);
 
-    const result = await pool.query(query, values);
-    const countResult = await pool.query('SELECT COUNT(*)::int AS total FROM users');
-    return Response.json({ users: result.rows, total: countResult.rows[0].total });
+    const [result, countResult] = await Promise.all([
+      pool.query(query, values),
+      pool.query('SELECT COUNT(*)::int AS total FROM users'),
+    ]);
+    return Response.json({ users: result.rows.map(toAdminUserRow), total: countResult.rows[0].total });
   } catch (e) {
     logError('admin.users.list_failed', e);
     return serverError({ message: 'Failed to load users' });

@@ -140,10 +140,10 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function ScanCard({ onNavigate }: { onNavigate?: () => void }) {
-  const { selectedBrand, selectedBrandLocked, plan } = useBrands();
+  const { selectedBrand, selectedBrandLocked, plan, loading } = useBrands();
   const { live, startRun, pct } = useRun();
   useMinuteTick();
-  const disabled = live.running || selectedBrandLocked || !selectedBrand;
+  const disabled = live.running || selectedBrandLocked || !selectedBrand || loading;
   const next = nextScanMs(selectedBrand as Record<string, unknown> | null, plan);
   return (
     <div className="v3-scan-card">
@@ -151,7 +151,7 @@ function ScanCard({ onNavigate }: { onNavigate?: () => void }) {
         <span className="v3-scan-ico"><V3Icon name={live.running ? 'sparkle' : 'clock'} size={17} /></span>
         <span className="v3-scan-txt">
           <span className="v3-scan-k">{live.running ? 'Scanning all engines' : 'Next automatic scan'}</span>
-          <span className="v3-scan-when">{live.running ? `${pct}% done` : selectedBrand ? untilLabel(next) : 'Add a brand to start'}</span>
+          <span className="v3-scan-when">{live.running ? `${pct}% done` : selectedBrand ? untilLabel(next) : loading ? '\u00a0' : 'Add a brand to start'}</span>
         </span>
       </div>
       {live.running ? (
@@ -189,7 +189,7 @@ function Sidebar({ onNavigate, onAddBrand }: { onNavigate?: () => void; onAddBra
 function Topbar({ onMenu, menuOpen, onSearch, onAddBrand, menuBtnRef }: {
   onMenu: () => void; menuOpen: boolean; onSearch: () => void; onAddBrand: () => void; menuBtnRef?: React.Ref<HTMLButtonElement>;
 }) {
-  const { selectedBrand } = useBrands();
+  const { selectedBrand, loading: brandsLoading } = useBrands();
   const { live } = useRun();
   useMinuteTick();
   const last = lastRunMs(selectedBrand as Record<string, unknown> | null);
@@ -218,7 +218,7 @@ function Topbar({ onMenu, menuOpen, onSearch, onAddBrand, menuBtnRef }: {
       <div className="v3-top-right">
         <span className="v3-last-scan v3-hide-phone" title={last ? new Date(last).toLocaleString() : undefined}>
           <span className={'v3-dot' + (live.running ? ' live' : last ? '' : ' off')} />
-          {live.running ? 'Scanning now' : last ? `Last scan ${agoLabel(last)}` : 'No scans yet'}
+          {live.running ? 'Scanning now' : last ? `Last scan ${agoLabel(last)}` : brandsLoading ? '\u00a0' : 'No scans yet'}
         </span>
         <button type="button" className="v3-icon-btn v3-only-phone" onClick={onSearch} aria-label="Search">
           <V3Icon name="search" size={20} />

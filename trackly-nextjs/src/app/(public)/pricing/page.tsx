@@ -220,7 +220,6 @@ interface CreditMath {
   dailyPromptCapacity: number;
   monthlyPrice: number;
   annualMonthlyPrice: number;
-  costPerScan: number;
 }
 
 const buildCreditMath = (t: Tier): CreditMath => {
@@ -247,7 +246,6 @@ const buildCreditMath = (t: Tier): CreditMath => {
     dailyPromptCapacity: Math.floor(cfg.monthlyCredits / 30 / cfg.maxPlatforms),
     monthlyPrice,
     annualMonthlyPrice: priceNum(plan?.annualPrice ?? cfg.price),
-    costPerScan: (monthlyPrice / cfg.monthlyCredits) * fullScanCost,
   };
 };
 
@@ -334,12 +332,12 @@ const SCENARIOS = [
   {
     who: 'Solo founder, one brand',
     plan: 'Starter',
-    body: `${money(CREDIT_MATH.starter.monthlyPrice)}/mo (${money(CREDIT_MATH.starter.annualMonthlyPrice * 12)}/year on annual). Tracks ${CREDIT_MATH.starter.prompts} buyer-intent prompts across ${CREDIT_MATH.starter.platforms} platforms, scanned ${autoRunLabel(PLAN_CREDITS.starter.autoRunFrequency).toLowerCase()}. Works out to ${money(CREDIT_MATH.starter.costPerScan)} per full scan.`,
+    body: `${money(CREDIT_MATH.starter.monthlyPrice)}/mo (${money(CREDIT_MATH.starter.annualMonthlyPrice * 12)}/year on annual). Tracks ${CREDIT_MATH.starter.prompts} buyer-intent prompts across ${CREDIT_MATH.starter.platforms} platforms, scanned ${autoRunLabel(PLAN_CREDITS.starter.autoRunFrequency).toLowerCase()}.`,
   },
   {
     who: 'In-house marketing team',
     plan: 'Pro',
-    body: `${money(CREDIT_MATH.pro.monthlyPrice)}/mo (${money(CREDIT_MATH.pro.annualMonthlyPrice * 12)}/year on annual). ${CREDIT_MATH.pro.prompts} prompts across ${CREDIT_MATH.pro.platforms} platforms with daily scans and sentiment analysis - ${money(CREDIT_MATH.pro.costPerScan)} per full scan, or about ${money(CREDIT_MATH.pro.monthlyPrice / 30)} a day.`,
+    body: `${money(CREDIT_MATH.pro.monthlyPrice)}/mo (${money(CREDIT_MATH.pro.annualMonthlyPrice * 12)}/year on annual). ${CREDIT_MATH.pro.prompts} prompts across ${CREDIT_MATH.pro.platforms} platforms with daily scans and sentiment analysis, for about ${money(CREDIT_MATH.pro.monthlyPrice / 30)} a day.`,
   },
   {
     who: 'Agency, 10 client brands',
@@ -488,7 +486,6 @@ export default function PricingPage() {
                     ['One full scan costs', `${m.prompts} x ${m.platforms} = ${m.fullScanCost.toLocaleString()} credits`],
                     ['Full scans per month', `${m.fullScansPerMonth}`],
                     ['Scheduled scans included', `${m.scheduledRuns} (${autoRunLabel(PLAN_CREDITS[t].autoRunFrequency).toLowerCase()}${RUNS_PER_MONTH[PLAN_CREDITS[t].autoRunFrequency] > m.scheduledRuns ? ', capped by credits' : ''})`],
-                    ['Cost per full scan', money(m.costPerScan)],
                   ].map(([k, v]) => (
                     <div key={k}><dt>{k}</dt><dd>{v}</dd></div>
                   ))}

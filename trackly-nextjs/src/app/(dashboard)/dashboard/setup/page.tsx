@@ -13,6 +13,7 @@ import { useToast } from '@/components/dashboard/Toast';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
 import { PromptDiscovery } from '@/components/dashboard/PromptDiscovery';
 import { Card, Badge, PageHead } from '@/app/dashboard-v2/ui';
+import { isBrandedPrompt } from '@/lib/parser';
 
 /* ── design-system field/tag helpers (presentation only) ───────────────── */
 function Fld({ label, value, onChange, placeholder, type = 'text', mono = false }: any) {
@@ -26,6 +27,27 @@ function Fld({ label, value, onChange, placeholder, type = 'text', mono = false 
         className={'fld-in' + (mono ? ' mono' : '')}
         placeholder={placeholder}
       />
+    </div>
+  );
+}
+
+/**
+ * Shown when tracked prompts contain the brand's own name. AI answers to
+ * "how much does <brand> charge" repeat the name even when the model knows
+ * nothing about the brand, so these prompts can't show whether buyers
+ * discover it.
+ */
+function BrandedPromptWarning({ queries, brandName, website, aliases, industry, city }: { queries: string[]; brandName: string; website?: string; aliases?: string[]; industry?: string; city?: string }) {
+  if (!brandName.trim()) return null;
+  const brandInput = { name: brandName, website, aliases };
+  const count = queries.filter(q => isBrandedPrompt(q, brandInput)).length;
+  if (!count) return null;
+  const service = (industry || 'your service').trim().toLowerCase();
+  const where = city ? ` in ${city}` : '';
+  return (
+    <div role="alert" style={{ fontSize: 13, lineHeight: 1.5, padding: '10px 12px', margin: '0 0 12px', borderRadius: 'var(--radius-xs)', border: '1px solid #d97706', background: 'rgba(217,119,6,0.08)', color: 'var(--text)' }}>
+      <strong>{count} of {queries.length} prompt{queries.length === 1 ? '' : 's'} contain{count === 1 ? 's' : ''} your brand name.</strong>{' '}
+      Branded prompts don&apos;t measure discovery: the AI repeats the name you asked about, even when it knows nothing about you. Try buyer questions like &ldquo;best {service} company{where}&rdquo; or &ldquo;who should I hire for {service}{where}?&rdquo;
     </div>
   );
 }
@@ -235,6 +257,7 @@ function CreateBrandWizard({ onCreated }: { onCreated: (brand: Brand) => void })
       {step === 3 && (
         <div>
           <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>These queries will be sent to AI platforms to check if your brand is mentioned.</p>
+          <BrandedPromptWarning queries={queries} brandName={name} website={website} industry={industry} city={city} />
           <div style={{ maxHeight: '40vh', overflowY: 'auto' }}>
             {queries.map((q, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', padding: '8px 12px', fontSize: 13, color: 'var(--text)', marginBottom: 4 }}>
@@ -484,13 +507,15 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
         });
         const suggestions: string[] = data.queries || [];
         const existing = new Set(queries.map(q => q.toLowerCase()));
-        const needle = name.toLowerCase();
+        // Suggestions are buyer questions; never add one that names the
+        // brand, since it can't measure discovery.
+        const brandInput = { name, website, aliases };
         newQs = suggestions
-          .filter(q => q.toLowerCase().includes(needle))
+          .filter(q => !isBrandedPrompt(q, brandInput))
           .filter(q => !existing.has(q.toLowerCase()));
       }
       if (!newQs.length) {
-        setMessage('No new brand-focused queries this round - click Suggest again for more variety.');
+        setMessage('No new buyer questions this round - click Suggest again for more variety.');
         setSuggesting(false);
         return;
       }
@@ -503,7 +528,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
         newQs = newQs.slice(0, accountSlotsRemaining);
       }
       setQueries([...queries, ...newQs]);
-      setMessage(`+ ${newQs.length} brand-focused quer${newQs.length === 1 ? 'y' : 'ies'} added - click again for more.`);
+      setMessage(`+ ${newQs.length} buyer quer${newQs.length === 1 ? 'y' : 'ies'} added - click again for more.`);
     } catch (e) { setError((e as Error).message); }
     setSuggesting(false);
   };
@@ -650,6 +675,8 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
         <p className="quiet" style={{ fontSize: 13, margin: '0 0 12px', lineHeight: 1.5 }}>
           Add, remove, or bulk-manage the queries tracked for this brand.
         </p>
+
+        <BrandedPromptWarning queries={queries} brandName={name} website={website} aliases={aliases} industry={industry} city={city} />
 
         {/* Query tags */}
         <div className="tag-grid" style={{ marginBottom: 12, minHeight: 28 }}>

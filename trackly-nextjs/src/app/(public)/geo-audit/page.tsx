@@ -5,6 +5,7 @@ import Link from 'next/link';
 import SiteShell from '@/components/site/SiteShell';
 import { PLAN_LIMITS } from '@/lib/constants';
 import { validateUrlClientSide } from './validate-url';
+import { normalizeAuditUrl } from '@/lib/geo-audit-utils';
 
 interface CategoryResult {
   name: string;
@@ -32,11 +33,7 @@ function categoriesAsArray(cats: Record<string, CategoryResult> | CategoryResult
 
 /* The design's input takes a bare domain ("yourclient.com"); the API needs
    a full http(s) URL, so add https:// when the protocol is missing. */
-function normalizeUrl(raw: string): string {
-  const t = raw.trim();
-  if (!t || /^[a-z][a-z0-9+.-]*:\/\//i.test(t)) return t;
-  return `https://${t}`;
-}
+const normalizeUrl = normalizeAuditUrl;
 
 const scoreState = (s: number) => (s >= 70 ? { cls: '', label: 'Good' } : s >= 40 ? { cls: ' warn', label: 'Needs work' } : { cls: ' bad', label: 'Poor' });
 

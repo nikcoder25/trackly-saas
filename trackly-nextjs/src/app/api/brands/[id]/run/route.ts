@@ -8,7 +8,7 @@ import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 import { countTrackedPromptsForOwner } from '@/lib/prompt-quota';
 import { reserveTrialPromptBudget, releaseTrialPromptBudget } from '@/lib/anti-abuse';
 import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, pickBestKey, withDeepRetry, withCacheAndRetry, isTransientError, acquirePlatformSlot, resolveChatGPTModel } from '@/lib/ai-platforms';
-import { isSearchEnabled } from '@/lib/response-cache';
+import { isSearchEnabled, getRunCacheMaxAgeSeconds } from '@/lib/response-cache';
 import { resolveSearchModelWithBudget } from '@/lib/search-budget';
 import { reconcileStaleRuns } from '@/lib/run-reconciler';
 import { computeSovFromResults } from '@/lib/run-sov';
@@ -43,10 +43,6 @@ const PLAN_DEFAULT_PLATFORMS: Record<string, string[]> = {
   free:    ['Gemini', 'Grok'],
 };
 const FAIL_THRESHOLD = 5;
-
-// TTL for AI/DB response cache entries. No prior constant existed in this
-// route, so default to 3600s per the backend caching policy.
-const RESPONSE_CACHE_TTL_SECONDS = 3600;
 
 // Auto-create the active_runs table if it doesn't exist, and
 // additively add any diagnostic columns introduced later. Additive
@@ -901,6 +897,9 @@ async function executeRunBackgroundInner(
       platform: plat, query: q, model: result.model,
       mentioned: parsed.mentioned, recommended: parsed.recommended,
       sentiment: parsed.sentiment, listPosition: parsed.listPosition,
+      // The prompt itself names the brand: a mention here is only counted
+      // when the answer describes the brand (see parser.isBrandedPrompt).
+      branded: parsed.branded || undefined,
       citations, competitorMentions: competitors,
       // Reported by the engine, never inferred. Survives the response
       // cache because it is part of the cached QueryResult, so a cache
@@ -1195,6 +1194,10 @@ async function executeRunBackgroundInner(
               model: effectiveModel,
               searchEnabled: budgetResolved.searchEnabled,
               fresh: !!freshBypass,
+              // A run must measure today's answer: only reuse a row
+              // written in the last few minutes (same-run / double-click
+              // dedup), never a prior run's answer.
+              maxAgeSeconds: getRunCacheMaxAgeSeconds(),
               brandId: brand?.id ?? null,
               city: brand?.city ?? null,
             },

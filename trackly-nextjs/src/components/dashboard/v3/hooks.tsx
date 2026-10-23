@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { PLAN_LIMITS } from '@/lib/constants';
-import type { RecommendationRow } from '@/app/(dashboard)/dashboard/recommendations/load-recs';
+import { defaultRefresh, type RecommendationRow } from '@/app/(dashboard)/dashboard/recommendations/load-recs';
 
 /** Fired by pages that change a recommendation's status, so the sidebar
  *  badge and the Overview's "Do these next" list refresh. */
@@ -17,28 +17,48 @@ const SEVERITY_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2,
  */
 function useOpenRecommendationsFetch(brandId: string | undefined) {
   const [recs, setRecs] = React.useState<RecommendationRow[]>([]);
+  // `loaded` only turns true once this brand's list really arrived (or the
+  // plan has no recommendations). Callers must not read an empty list as
+  // "nothing to fix" before then: on first open the brand id is not known
+  // yet and the first request can 401 while the session cookie refreshes,
+  // which used to flash "All clear" over a brand with open fixes.
   const [loaded, setLoaded] = React.useState(false);
+  const [failed, setFailed] = React.useState(false);
   const [available, setAvailable] = React.useState(true);
 
   const load = React.useCallback(async (signal?: AbortSignal) => {
-    if (!brandId) { setRecs([]); setLoaded(true); return; }
+    if (!brandId) return;
+    const url = `/api/brands/${brandId}/recommendations?status=open`;
     try {
-      const res = await fetch(`/api/brands/${brandId}/recommendations?status=open`, { credentials: 'include', cache: 'no-store', signal });
+      let res = await fetch(url, { credentials: 'include', cache: 'no-store', signal });
       if (signal?.aborted) return;
-      if (res.status === 403) { setAvailable(false); setRecs([]); setLoaded(true); return; }
-      if (!res.ok) { setLoaded(true); return; }
+      if (res.status === 401 && (await defaultRefresh())) {
+        if (signal?.aborted) return;
+        res = await fetch(url, { credentials: 'include', cache: 'no-store', signal });
+        if (signal?.aborted) return;
+      }
+      if (res.status === 403) { setAvailable(false); setRecs([]); setFailed(false); setLoaded(true); return; }
+      if (!res.ok) { setFailed(true); setLoaded(true); return; }
       const data = await res.json();
+      if (signal?.aborted) return;
       const list: RecommendationRow[] = Array.isArray(data?.recommendations) ? data.recommendations : [];
       list.sort((a, b) => (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9));
       setAvailable(true);
       setRecs(list.filter(r => r.status === 'open'));
+      setFailed(false);
       setLoaded(true);
-    } catch { /* aborted or offline; keep the last list */ }
+    } catch {
+      // Aborted: a newer load owns the state. Offline: keep the last list,
+      // but say so instead of leaving a spinner forever.
+      if (!signal?.aborted) { setFailed(true); setLoaded(true); }
+    }
   }, [brandId]);
 
   React.useEffect(() => {
     const ac = new AbortController();
     setLoaded(false);
+    setFailed(false);
+    setRecs([]);
     load(ac.signal);
     return () => ac.abort();
   }, [load]);
@@ -53,7 +73,7 @@ function useOpenRecommendationsFetch(brandId: string | undefined) {
     };
   }, [load]);
 
-  return { recs, count: recs.length, loaded, available, reload: load };
+  return { recs, count: recs.length, loaded, failed, available, reload: load };
 }
 
 type OpenRecs = ReturnType<typeof useOpenRecommendationsFetch>;
@@ -68,7 +88,7 @@ export function OpenRecsProvider({ brandId, children }: { brandId: string | unde
 
 export function useOpenRecommendations(): OpenRecs {
   const ctx = React.useContext(OpenRecsContext);
-  return ctx || { recs: [], count: 0, loaded: false, available: false, reload: async () => {} };
+  return ctx || { recs: [], count: 0, loaded: false, failed: false, available: false, reload: async () => {} };
 }
 
 type RunLike = { time?: string; date?: string; created_at?: string; watchdogReap?: boolean; emergencySave?: boolean };

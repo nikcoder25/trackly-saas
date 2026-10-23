@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useBrandData } from '@/hooks/useBrandData';
 import { Card, KPIRail, Badge, Pill, PageHead, Filter, Seg, LineChart, type LineSeries } from '@/app/dashboard-v2/ui';
 
 interface SeriesPoint { day: string; score: number | null; cohortSize: number }
 interface VolatilitySeries { platform: string; points: SeriesPoint[]; latest: number | null }
-interface VolatilityResponse { series: VolatilitySeries[]; days: number; minCohort: number }
+interface VolatilityResponse { series: VolatilitySeries[]; days: number; minCohort: number; since?: string; scope?: 'brand' | 'market' }
 
 const WINDOWS = [
   { value: '30', label: '30D' },
@@ -30,6 +31,8 @@ function band(score: number | null): { tone: string; label: string } {
 }
 
 export default function VolatilityPage() {
+  const { brand, loading: brandLoading } = useBrandData();
+  const brandId = (brand as { id?: string } | null)?.id || null;
   const [data, setData] = useState<VolatilityResponse | null>(null);
   const [days, setDays] = useState('90');
   const [loading, setLoading] = useState(true);
@@ -37,16 +40,21 @@ export default function VolatilityPage() {
   const [active, setActive] = useState<string | null>(null);
 
   useEffect(() => {
+    // Scoped to the selected brand: only its own runs, from the day it was
+    // created. Wait for the brand so the market-wide series never flashes in.
+    if (brandLoading) return;
     let cancelled = false;
     setLoading(true);
     setFailed(false);
-    fetch(`/api/volatility?days=${days}`, { credentials: 'include' })
+    const qs = new URLSearchParams({ days });
+    if (brandId) qs.set('brandId', brandId);
+    fetch(`/api/volatility?${qs.toString()}`, { credentials: 'include' })
       .then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); })
       .then((d: VolatilityResponse) => { if (!cancelled) setData(d); })
       .catch(() => { if (!cancelled) { setData(null); setFailed(true); } })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [days]);
+  }, [days, brandId, brandLoading]);
 
   const series = data?.series || [];
   const selected = useMemo(
@@ -115,16 +123,15 @@ export default function VolatilityPage() {
             <div style={{ textAlign: 'center', padding: 32, color: 'var(--mute)', fontSize: 12, lineHeight: 1.7 }}>
               No index yet.
               <br />
-              The index is computed nightly from the previous day’s measurements
-              and needs two consecutive days of data before it can report a
-              first score.
+              Each engine needs at least two days of runs for this brand before
+              it can report a first score.
             </div>
           </Card>
         ) : (
           <>
             <KPIRail items={series.slice(0, 5).map(s => ({
               k: s.platform.toUpperCase(),
-              v: s.latest ?? '—',
+              v: s.latest ?? '-',
               danger: (s.latest ?? 0) >= 70,
               info: s.latest === null ? 'needs 2 days of runs'
                 : s.latest >= 70 ? 'high churn'
@@ -148,13 +155,14 @@ export default function VolatilityPage() {
                 right={
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                     <Badge tone={band(selected.latest).tone}>{band(selected.latest).label}</Badge>
-                    <Pill>{selected.latest ?? '—'}</Pill>
+                    <Pill>{selected.latest ?? '-'}</Pill>
                   </span>
                 }
                 foot={
                   <span style={{ fontSize: 11, color: 'var(--mute)' }}>
                     Latest score compares {latestCohort.toLocaleString()} prompts measured on both
                     days on this engine.
+                    {data?.since && ` Shows days from ${data.since} on, never before this brand was created.`}
                     {gapDays > 0 && ` ${gapDays} day${gapDays === 1 ? '' : 's'} in this window had too few comparable prompts to score and are shown flat.`}
                   </span>
                 }
@@ -169,21 +177,22 @@ export default function VolatilityPage() {
             >
               <div style={{ fontSize: 12, lineHeight: 1.8, color: 'var(--mute)' }}>
                 <p style={{ marginBottom: 10 }}>
-                  Each day is compared against the day before, using only the prompts
-                  that were measured on <b>both</b> days for that engine. That
+                  Each day with runs is compared against the previous day with runs,
+                  using only this brand&apos;s prompts that were measured on <b>both</b>{' '}
+                  days for that engine. That
                   same-prompt cohort is what stops normal churn in what people track
                   from being reported as engines changing their minds.
                 </p>
                 <p style={{ marginBottom: 10 }}>
                   The score blends three signals: how much the <b>cited sources</b>{' '}
-                  changed (weighted heaviest — retrieval moves before the prose does),
+                  changed (weighted heaviest, since retrieval moves before the prose does),
                   how often a brand <b>flipped</b> between mentioned and not, and how
                   far <b>list positions</b> moved.
                 </p>
                 <p>
                   A high score is not a problem in itself. It means the answers were
                   unstable that day, so a drop in your own numbers is more likely to be
-                  the engine moving than anything you did — and a gain is less likely to
+                  the engine moving than anything you did, and a gain is less likely to
                   be durable.
                 </p>
               </div>

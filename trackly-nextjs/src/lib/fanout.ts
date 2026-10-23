@@ -152,20 +152,34 @@ export async function getFanoutSummary(
   };
   try {
     await ensureFanoutSchema();
-    const res = await pool.query(
-      `SELECT MIN(fanout_query)                    AS query,
-              COUNT(*)::int                        AS times_seen,
-              ARRAY_AGG(DISTINCT platform)         AS platforms,
-              ARRAY_AGG(DISTINCT prompt)           AS prompts,
-              MAX(created_at)                      AS last_seen
-         FROM prompt_fanout
-        WHERE brand_id = $1
-          AND created_at >= NOW() - ($2 || ' days')::interval
-        GROUP BY LOWER(fanout_query)
-        ORDER BY times_seen DESC, last_seen DESC
-        LIMIT $3`,
-      [brandId, String(days), limit],
-    );
+    // Counted separately rather than taken from `aggregates.length`, which
+    // would silently report the LIMIT as the true distinct count on any
+    // brand with more fan-out than one page shows. Both queries run in
+    // parallel; awaiting them one after the other doubled the page's wait.
+    const [res, totals] = await Promise.all([
+      pool.query(
+        `SELECT MIN(fanout_query)                    AS query,
+                COUNT(*)::int                        AS times_seen,
+                ARRAY_AGG(DISTINCT platform)         AS platforms,
+                ARRAY_AGG(DISTINCT prompt)           AS prompts,
+                MAX(created_at)                      AS last_seen
+           FROM prompt_fanout
+          WHERE brand_id = $1
+            AND created_at >= NOW() - ($2 || ' days')::interval
+          GROUP BY LOWER(fanout_query)
+          ORDER BY times_seen DESC, last_seen DESC
+          LIMIT $3`,
+        [brandId, String(days), limit],
+      ),
+      pool.query(
+        `SELECT COUNT(*)::int                                 AS total,
+                COUNT(DISTINCT LOWER(fanout_query))::int      AS distinct_queries,
+                ARRAY_AGG(DISTINCT platform)                  AS platforms
+           FROM prompt_fanout
+          WHERE brand_id = $1 AND created_at >= NOW() - ($2 || ' days')::interval`,
+        [brandId, String(days)],
+      ),
+    ]);
 
     const aggregates: FanoutAggregate[] = res.rows.map(r => ({
       query: r.query,
@@ -174,18 +188,6 @@ export async function getFanoutSummary(
       prompts: (r.prompts || []).filter(Boolean),
       lastSeen: r.last_seen ? new Date(r.last_seen).toISOString() : '',
     }));
-
-    // Counted separately rather than taken from `aggregates.length`, which
-    // would silently report the LIMIT as the true distinct count on any
-    // brand with more fan-out than one page shows.
-    const totals = await pool.query(
-      `SELECT COUNT(*)::int                                 AS total,
-              COUNT(DISTINCT LOWER(fanout_query))::int      AS distinct_queries,
-              ARRAY_AGG(DISTINCT platform)                  AS platforms
-         FROM prompt_fanout
-        WHERE brand_id = $1 AND created_at >= NOW() - ($2 || ' days')::interval`,
-      [brandId, String(days)],
-    );
 
     return {
       aggregates,

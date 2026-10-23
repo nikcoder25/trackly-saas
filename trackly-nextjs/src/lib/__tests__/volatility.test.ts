@@ -9,7 +9,10 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { jaccardDistance, scoreDay, MIN_COHORT, type DayObservation } from '../volatility';
+import {
+  jaccardDistance, scoreDay, MIN_COHORT, type DayObservation,
+  buildBrandVolatilitySeries, brandSeriesSince, canonicalPlatform, type BrandDayRow,
+} from '../volatility';
 
 function obs(
   prompt: string,
@@ -156,5 +159,83 @@ describe('scoreDay', () => {
       curr.push(obs(`p${i}`, { listPosition: 100 }));
     }
     expect(scoreDay(prev, curr).positionMove).toBe(1);
+  });
+});
+
+describe('canonicalPlatform', () => {
+  it('folds provider keys and casing into the dashboard engine name', () => {
+    expect(canonicalPlatform('ChatGPT')).toBe('ChatGPT');
+    expect(canonicalPlatform('openai')).toBe('ChatGPT');
+    expect(canonicalPlatform('chatgpt')).toBe('ChatGPT');
+    expect(canonicalPlatform('anthropic')).toBe('Claude');
+    expect(canonicalPlatform('Perplexity')).toBe('Perplexity');
+  });
+
+  it('leaves unknown engines alone', () => {
+    expect(canonicalPlatform('Copilot')).toBe('Copilot');
+  });
+});
+
+describe('brandSeriesSince', () => {
+  const now = new Date('2026-10-23T12:00:00Z');
+
+  it('clamps the window to the brand creation day', () => {
+    expect(brandSeriesSince('2026-09-14T08:30:00Z', 90, now)).toBe('2026-09-14');
+  });
+
+  it('uses the window start when the brand is older than the window', () => {
+    expect(brandSeriesSince('2025-01-01T00:00:00Z', 30, now)).toBe('2026-09-24');
+  });
+
+  it('falls back to the window start without a creation date', () => {
+    expect(brandSeriesSince(null, 30, now)).toBe('2026-09-24');
+  });
+});
+
+describe('buildBrandVolatilitySeries', () => {
+  function row(day: string, prompt: string, over: Partial<BrandDayRow> = {}): BrandDayRow {
+    return { day, platform: 'ChatGPT', prompt, mentioned: true, listPosition: 1, domains: ['a.com'], ...over };
+  }
+  const prompts = ['p1', 'p2', 'p3', 'p4'];
+
+  it('scores runs every other day instead of reporting "needs 2 days"', () => {
+    // Starter scans every 2 days, so there are never two consecutive
+    // calendar days. Comparing against the previous measured day fixes it.
+    const rows = ['2026-10-01', '2026-10-03', '2026-10-05']
+      .flatMap(d => prompts.map(p => row(d, p)));
+    const [chatgpt] = buildBrandVolatilitySeries(rows, { since: '2026-09-01' });
+    expect(chatgpt.platform).toBe('ChatGPT');
+    expect(chatgpt.points.map(p => p.day)).toEqual(['2026-10-01', '2026-10-03', '2026-10-05']);
+    expect(chatgpt.points[0].score).toBeNull();
+    expect(chatgpt.points[2]).toEqual({ day: '2026-10-05', score: 0, cohortSize: 4 });
+    expect(chatgpt.latest).toBe(0);
+  });
+
+  it('merges an aliased platform key into one engine series', () => {
+    const rows = [
+      ...prompts.map(p => row('2026-10-01', p, { platform: 'openai' })),
+      ...prompts.map(p => row('2026-10-02', p, { platform: 'ChatGPT', mentioned: false })),
+    ];
+    const series = buildBrandVolatilitySeries(rows, { since: '2026-09-01' });
+    expect(series).toHaveLength(1);
+    expect(series[0].platform).toBe('ChatGPT');
+    expect(series[0].points[1].cohortSize).toBe(4);
+    expect(series[0].latest).not.toBeNull();
+  });
+
+  it('drops days before the brand existed', () => {
+    const rows = ['2026-08-20', '2026-08-21', '2026-09-15', '2026-09-16']
+      .flatMap(d => prompts.map(p => row(d, p, { platform: 'Claude' })));
+    const [claude] = buildBrandVolatilitySeries(rows, { since: '2026-09-14' });
+    expect(claude.points.map(p => p.day)).toEqual(['2026-09-15', '2026-09-16']);
+    // The first in-range day has nothing in range to compare against.
+    expect(claude.points[0].score).toBeNull();
+  });
+
+  it('honours the per-brand cohort floor', () => {
+    const rows = [row('2026-10-01', 'p1'), row('2026-10-02', 'p1')];
+    const [s] = buildBrandVolatilitySeries(rows, { since: '2026-09-01', minCohort: 3 });
+    expect(s.points[1]).toEqual({ day: '2026-10-02', score: null, cohortSize: 1 });
+    expect(s.latest).toBeNull();
   });
 });

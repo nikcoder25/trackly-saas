@@ -6,6 +6,7 @@ import { Card, Badge, PageHead, KPIRail } from '@/app/dashboard-v2/ui';
 import NapAuditForm, { type NapAuditFormValues } from '@/components/dashboard/NapAuditForm';
 import { extractUrlsFromText } from '@/lib/nap-verify';
 import { useBrands } from '@/contexts/BrandContext';
+import { splitCityRegion } from '@/lib/brand-location';
 
 type NapAuditStatus = 'queued' | 'running' | 'done' | 'failed';
 
@@ -170,10 +171,13 @@ function NewAuditModal({ brandId, brandName, brandCity, onClose, onCreated }: Ne
   // with the brand name saves the user from retyping context they
   // already chose in the top-bar dropdown.
   const gbpQuery = [brandName, brandCity].filter((s): s is string => !!s && s.trim().length > 0).join(' ');
+  // The brand location is free text like "Hatfield, England": only the
+  // first part is the city, the second is the state / region.
+  const loc = splitCityRegion(brandCity);
   const formInitial = brandName
     ? {
         label: `${brandName} - NAP audit`,
-        canonical: { name: brandName, city: brandCity ?? undefined },
+        canonical: { name: brandName, city: loc.city || undefined, region: loc.region || undefined },
       }
     : undefined;
 

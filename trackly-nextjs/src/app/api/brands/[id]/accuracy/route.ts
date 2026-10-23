@@ -102,6 +102,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       // fine
     }
 
+    // No facts means nothing is checked: a rate saved by an earlier check
+    // (before the facts were removed) must not read as "facts right".
+    if (facts.length === 0) accuracyRate = null;
+
     // If no accuracy check has been run yet, compute a basic rate from issues
     if (accuracyRate === null && facts.length > 0) {
       if (issues.length === 0) {

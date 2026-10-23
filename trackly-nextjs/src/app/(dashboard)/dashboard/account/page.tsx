@@ -6,9 +6,11 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrands } from '@/contexts/BrandContext';
 import { PRICING_PLANS, BILLING_PORTAL_URL } from '@/lib/constants';
+import { getPlanSwitchDirection, hasActivePaidSubscription } from '@/lib/plan-rank';
 import { useToast } from '@/components/dashboard/Toast';
 import { Card, Badge, PageHead, Pill } from '@/app/dashboard-v2/ui';
 import AiAssistantsCard from '@/components/dashboard/AiAssistantsCard';
+import { sanitizeUsernameInput } from '@/lib/username';
 
 interface BillingEntry {
   date: string;
@@ -184,24 +186,24 @@ export default function AccountPage() {
     } catch { toast('Failed to cancel subscription', 'error'); }
   }
 
-  const rawPlan = user?.plan || 'free';
-  const plan = rawPlan;
+  const plan = user?.plan || 'free';
   const emailVerified = user?.emailVerified;
-
-  const PLAN_TIERS: Record<string, number> = { free: 0, starter: 1, pro: 2, agency: 3, enterprise: 4 };
+  // Only a paid plan backed by a provider subscription can be cancelled.
+  // Owner, trial and free accounts have nothing to cancel.
+  const canCancel = hasActivePaidSubscription(plan, user?.settings);
 
   async function switchPlan(targetPlan: string) {
     const target = targetPlan.toLowerCase();
 
     if (target === 'free') {
-      await cancelSubscription();
+      if (canCancel) await cancelSubscription();
+      else toast('There is no active subscription to cancel.', 'error');
       return;
     }
 
-    const currentTier = PLAN_TIERS[plan] ?? 0;
-    const targetTier = PLAN_TIERS[target] ?? 0;
-
-    if (targetTier <= currentTier) {
+    const direction = getPlanSwitchDirection(plan, target);
+    if (direction === 'current' || direction === 'unavailable') return;
+    if (direction === 'downgrade') {
       toast('To downgrade, please cancel your current subscription first or manage billing via the customer portal.', 'error');
       return;
     }
@@ -229,6 +231,23 @@ export default function AccountPage() {
   }
 
   const currentPlanDef = PLANS.find(p => p.name.toLowerCase() === plan);
+  // Plans that aren't on the public price list (owner, trial, enterprise)
+  // get their own summary instead of falling back to "$0 Free plan".
+  const trialEnds = plan === 'trial' && user?.trialEndsAt ? new Date(user.trialEndsAt) : null;
+  const planSummary = currentPlanDef
+    ? { price: currentPlanDef.price, perMonth: true, line: currentPlanDef.headline ?? currentPlanDef.sub }
+    : plan === 'owner'
+      ? { price: 'Owner', perMonth: false, line: 'Unlimited access. No subscription or billing.' }
+      : plan === 'trial'
+        ? {
+            price: '$0', perMonth: true,
+            line: trialEnds && !isNaN(trialEnds.getTime())
+              ? `Free trial, ends ${trialEnds.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+              : 'Free trial',
+          }
+        : plan === 'enterprise'
+          ? { price: 'Custom', perMonth: false, line: 'Enterprise plan, invoiced' }
+          : { price: '$0', perMonth: true, line: 'Free plan' };
 
   return (
     <div className="lvx">
@@ -241,14 +260,14 @@ export default function AccountPage() {
         <div className="g3">
           {/* Current plan */}
           <Card title="Current plan" right={<Badge tone="acc">{plan.toUpperCase()}</Badge>}>
-            <div className="kpi-v mono" style={{ fontSize: 32 }}>{currentPlanDef?.price ?? '$0'}<i>/mo</i></div>
-            <div className="quiet" style={{ fontSize: 13, margin: '6px 0 14px' }}>{currentPlanDef?.headline ?? currentPlanDef?.sub ?? 'Free plan'}</div>
+            <div className="kpi-v mono" style={{ fontSize: 32 }}>{planSummary.price}{planSummary.perMonth && <i>/mo</i>}</div>
+            <div className="quiet" style={{ fontSize: 13, margin: '6px 0 14px' }}>{planSummary.line}</div>
             {currentPlanDef && (
               <ul className="plan-feat">
                 {currentPlanDef.features.map(f => <li key={f}>{f}</li>)}
               </ul>
             )}
-            {plan !== 'free' && (
+            {canCancel && (
               <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
                 <button className="btn-d btn-danger" onClick={cancelSubscription}>Cancel subscription</button>
               </div>
@@ -268,7 +287,7 @@ export default function AccountPage() {
               <div className="eyebrow">Username</div>
               <div style={{ fontSize: 13, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                 {usernameEdit ? (
-                  <><input className="fld-in mono" value={usernameVal} onChange={e => setUsernameVal(e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, ''))} style={{ width: 180 }} onKeyDown={e => e.key === 'Enter' && saveUsername()} /><button className="btn-d" style={{ padding: '3px 8px', fontSize: 11 }} onClick={saveUsername}>Save</button></>
+                  <><input className="fld-in mono" value={usernameVal} onChange={e => setUsernameVal(sanitizeUsernameInput(e.target.value))} style={{ width: 180 }} onKeyDown={e => e.key === 'Enter' && saveUsername()} /><button className="btn-d" style={{ padding: '3px 8px', fontSize: 11 }} onClick={saveUsername}>Save</button></>
                 ) : (
                   <><span className="mono" style={{ color: 'var(--text)' }}>@{user?.username || '-'}</span><button className="btn-d" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => setUsernameEdit(true)}>Edit</button></>
                 )}
@@ -438,7 +457,8 @@ export default function AccountPage() {
                 current tier is still shown by the "Current plan" card and the
                 "Current · FREE" pill above. */}
             {PLANS.filter(p => p.name.toLowerCase() !== 'free').map(p => {
-              const isCurrent = plan === p.name.toLowerCase();
+              const direction = getPlanSwitchDirection(plan, p.name.toLowerCase());
+              const isCurrent = direction === 'current';
               return (
                 <Card key={p.name} title={p.name} right={p.featured ? <Badge tone="acc">Popular</Badge> : isCurrent ? <Badge tone="pos">Current</Badge> : undefined}>
                   <div className="kpi-v mono" style={{ fontSize: 28 }}>{p.price}<i>/mo</i></div>
@@ -447,11 +467,13 @@ export default function AccountPage() {
                   <div style={{ marginTop: 14 }}>
                     {isCurrent ? (
                       <button className="btn-d" style={{ width: '100%', opacity: 0.7, cursor: 'default' }} disabled>Current plan</button>
+                    ) : direction === 'unavailable' ? (
+                      <button className="btn-d" style={{ width: '100%', opacity: 0.7, cursor: 'default' }} disabled>Included</button>
                     ) : p.name.toLowerCase() === 'enterprise' ? (
                       <a href="/contact" className="btn-p" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>Contact us</a>
                     ) : (
                       <button className="btn-p" style={{ width: '100%' }} onClick={() => switchPlan(p.name)}>
-                        {(PLAN_TIERS[p.name.toLowerCase()] ?? 0) < (PLAN_TIERS[plan] ?? 0) ? `Downgrade to ${p.name}` : `Upgrade to ${p.name}`}
+                        {direction === 'downgrade' ? `Downgrade to ${p.name}` : `Upgrade to ${p.name}`}
                       </button>
                     )}
                   </div>

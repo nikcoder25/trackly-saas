@@ -98,7 +98,7 @@ function TrendChart({ data }: { data: TrendPoint[] }) {
 }
 
 // ── Donut Chart (CSS) ───────────────────────────────────────────
-function SeverityDonut({ issues }: { issues: Issue[] }) {
+function SeverityDonut({ issues, factCount, checked }: { issues: Issue[]; factCount: number; checked: boolean }) {
   const counts = useMemo(() => {
     const acc = { critical: 0, high: 0, medium: 0, low: 0 };
     for (const issue of issues) {
@@ -109,6 +109,21 @@ function SeverityDonut({ issues }: { issues: Issue[] }) {
   }, [issues]);
 
   const total = Object.values(counts).reduce((a: number, b: number) => a + b, 0);
+  // With no facts there is nothing to check against, so "passed" would be a
+  // false claim. Prompt for facts first, then for a first check.
+  if (total === 0 && (factCount === 0 || !checked)) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 6, padding: 16 }}>
+        <div style={{ fontSize: 28, opacity: 0.4 }}>{factCount === 0 ? '＋' : '◇'}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{factCount === 0 ? 'No facts set up yet' : 'Not checked yet'}</div>
+        <div style={{ color: 'var(--muted)', fontSize: 12, textAlign: 'center' }}>
+          {factCount === 0
+            ? 'Add your brand facts above so AI answers can be checked against them.'
+            : 'Click "Check Now" to check AI answers against your facts.'}
+        </div>
+      </div>
+    );
+  }
   if (total === 0) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 6, padding: 16 }}>
@@ -697,7 +712,7 @@ export default function AccuracyPage() {
             <TrendChart data={facts.length === 0 ? [] : trend} />
           </Card>
           <Card title="Severity distribution">
-            <SeverityDonut issues={issues} />
+            <SeverityDonut issues={issues} factCount={facts.length} checked={!!lastChecked} />
           </Card>
         </div>
 

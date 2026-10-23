@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     // idempotent - clicking the same link a second time still resolves to the
     // same user and shows success, instead of "Invalid or expired token".
     const result = await pool.query(
-      `SELECT id, email, plan, trial_ends_at, email_verified FROM users
+      `SELECT id, email, plan, trial_ends_at, email_verified, settings FROM users
        WHERE verify_token = $1
          AND verify_token_hashed = TRUE
          AND (verify_token_expires IS NULL OR verify_token_expires > NOW())`,
@@ -49,9 +49,16 @@ export async function GET(request: NextRequest) {
     // verify_token in place so a repeat click stays idempotent until it
     // naturally expires; a fresh resend overwrites it.
     const extendedTrialEnd = new Date(Date.now() + TRIAL_DURATION_MS);
-    if (row.plan === 'trial') {
+    // A provisional trial that lapsed before the click has already been
+    // moved to 'free' by the trial-expiry sweep (settings.trialExpiredAt).
+    // The user never got the full trial, so verification still grants it.
+    const sweptTrial = row.plan === 'free' && !!row.settings?.trialExpiredAt;
+    const grantTrial = row.plan === 'trial' || sweptTrial;
+    if (grantTrial) {
       await pool.query(
-        'UPDATE users SET email_verified = TRUE, trial_ends_at = $1 WHERE id = $2',
+        `UPDATE users SET email_verified = TRUE, trial_ends_at = $1, plan = 'trial',
+                settings = COALESCE(settings, '{}'::jsonb) - 'trialExpiredAt'
+          WHERE id = $2 AND plan IN ('trial', 'free')`,
         [extendedTrialEnd, row.id]
       );
     } else {
@@ -60,7 +67,7 @@ export async function GET(request: NextRequest) {
         [row.id]
       );
     }
-    auditLog(row.id, 'email_verified', 'user', row.id, { trialExtended: row.plan === 'trial' }, ip);
+    auditLog(row.id, 'email_verified', 'user', row.id, { trialExtended: grantTrial }, ip);
 
     return landing('success');
   } catch {

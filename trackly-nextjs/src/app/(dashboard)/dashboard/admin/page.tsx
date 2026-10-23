@@ -11,7 +11,11 @@ interface AdminUser {
   email: string;
   username?: string;
   name?: string;
+  /** Effective plan (an expired trial already reads 'free'). */
   plan: string;
+  /** Plan as stored in the DB. */
+  raw_plan?: string;
+  trial_ends_at?: string | null;
   role?: string;
   email_verified?: boolean;
   created_at?: string;
@@ -47,6 +51,24 @@ function avatarGrad(str: string): string {
 }
 
 /* ─── Reusable badge components ────────────────────────────────── */
+
+function fmtShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+}
+
+/** Trial end date under the plan badge: "Ends Oct 30" or "Trial ended Apr 12". */
+function TrialNote({ user }: { user: AdminUser }) {
+  if (!user.trial_ends_at) return null;
+  const end = new Date(user.trial_ends_at);
+  if (isNaN(end.getTime())) return null;
+  let text: string | null = null;
+  if (user.plan === 'trial') text = `Ends ${fmtShortDate(user.trial_ends_at)}`;
+  else if (user.plan === 'free' && end.getTime() <= Date.now()) text = `Trial ended ${fmtShortDate(user.trial_ends_at)}`;
+  if (!text) return null;
+  return (
+    <span style={{ display: 'block', marginTop: 4, fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{text}</span>
+  );
+}
 
 function PlanBadge({ plan }: { plan: string }) {
   const cfg = PLAN_CFG[plan?.toLowerCase()] ?? DEFAULT_CFG;
@@ -382,7 +404,7 @@ export default function AdminPage() {
                           {u.username ? `@${u.username}` : <span style={{ opacity: 0.3 }}>-</span>}
                         </span>
                       </td>
-                      <td style={{ padding: '13px 16px' }}><PlanBadge plan={u.plan} /></td>
+                      <td style={{ padding: '13px 16px' }}><PlanBadge plan={u.plan} /><TrialNote user={u} /></td>
                       <td style={{ padding: '13px 16px' }}><RoleBadge role={u.role} /></td>
                       <td style={{ padding: '13px 16px' }}><VerifiedBadge verified={u.email_verified} /></td>
                       <td style={{ padding: '13px 16px', fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
@@ -430,7 +452,7 @@ export default function AdminPage() {
                         {u.name && <p style={{ margin: '0 0 2px', fontSize: 14, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</p>}
                         <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</p>
                       </div>
-                      <PlanBadge plan={u.plan} />
+                      <div style={{ textAlign: 'right' }}><PlanBadge plan={u.plan} /><TrialNote user={u} /></div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
                       <RoleBadge role={u.role} />

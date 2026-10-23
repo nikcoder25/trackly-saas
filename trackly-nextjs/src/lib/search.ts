@@ -22,6 +22,12 @@
  */
 import { pool } from '@/lib/db';
 import { logError } from '@/lib/api-error';
+import {
+  distinctMentionedRunsSql,
+  distinctRunsSql,
+  RUN_COUNT_WINDOW_DAYS,
+  formatPromptRunSummary,
+} from '@/lib/prompt-run-counts';
 
 export type SearchKind = 'prompt' | 'mention' | 'source';
 
@@ -158,15 +164,21 @@ function tidySnippet(raw: string | null, startedAt: number, fullLength: number):
 
 // ── Per-entity queries ──────────────────────────────────────────
 
+/** Rows that count as a run for a prompt result: successful, last 30 days ($5). */
+const COUNTED_RUN_SQL = `success AND created_at > NOW() - INTERVAL '1 day' * $5::int`;
+
 async function searchPrompts(brandIds: string[], like: string): Promise<SearchResult[]> {
   // Grouped by prompt so a prompt tracked across five engines for six months
-  // is one row. mention_rate is what the user actually wants to know about a
-  // prompt at a glance, and it comes free from the same aggregate.
+  // is one row. The prompt is FOUND over the full lookback, but its runs and
+  // mentions are COUNTED exactly as Query Tracker counts them (distinct
+  // successful runs in the last 30 days, see prompt-run-counts.ts). Counting
+  // every row over 180 days, failures included, is how this once said
+  // "368/624 runs" for a prompt Query Tracker showed with 90.
   const res = await pool.query(
     `SELECT prompt,
             brand_id,
-            COUNT(*)::int                          AS runs,
-            COUNT(*) FILTER (WHERE mentioned)::int AS mentions,
+            ${distinctRunsSql(COUNTED_RUN_SQL)}           AS runs,
+            ${distinctMentionedRunsSql(COUNTED_RUN_SQL)}  AS mentions,
             MAX(created_at)                        AS last_seen
        FROM prompt_runs
       WHERE brand_id = ANY($1)
@@ -175,7 +187,7 @@ async function searchPrompts(brandIds: string[], like: string): Promise<SearchRe
       GROUP BY prompt, brand_id
       ORDER BY MAX(created_at) DESC
       LIMIT $4::int`,
-    [brandIds, like, LOOKBACK_DAYS, PER_KIND_LIMIT]
+    [brandIds, like, LOOKBACK_DAYS, PER_KIND_LIMIT, RUN_COUNT_WINDOW_DAYS]
   );
 
   return (res.rows as Array<{
@@ -184,7 +196,7 @@ async function searchPrompts(brandIds: string[], like: string): Promise<SearchRe
     kind: 'prompt' as const,
     id: `prompt:${r.brand_id}:${r.prompt}`,
     title: collapse(r.prompt),
-    subtitle: `${r.mentions}/${r.runs} runs mentioned you`,
+    subtitle: formatPromptRunSummary(r.mentions, r.runs),
     href: `/dashboard/prompt-details?q=${encodeURIComponent(r.prompt)}`,
     brandId: r.brand_id,
     when: r.last_seen?.toISOString(),

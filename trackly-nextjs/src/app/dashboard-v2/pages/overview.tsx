@@ -17,6 +17,8 @@ import { useRun } from '@/contexts/RunContext';
 import { useToast } from '@/components/dashboard/Toast';
 import { useBrands } from '@/contexts/BrandContext';
 import { cleanCitationCounts } from '@/lib/citation-hosts';
+import { buildRivalRows, cleanCompetitorList, leadsRivals } from '@/lib/rival-standing';
+import { friendlyCompetitorName } from '@/lib/parser';
 import { useAuth } from '@/contexts/AuthContext';
 import { KpiCardsSkeleton, CardsSkeleton, ChartSkeleton } from '@/components/dashboard/Skeleton';
 import { highlightBrand as highlightBrandText, sanitizeHtml } from '@/lib/sanitize';
@@ -502,53 +504,34 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
     ? platformsAll.filter(p => p.name.toLowerCase() === filters.engine.toLowerCase()).map(p => ({ ...p, sov }))
     : platformsAll;
 
-  // competitors: when filters are active we can't trust lastRun.competitors
-  // (it aggregates across all engines/intents), so rebuild from filtered
-  // r.competitorMentions. Otherwise use the precomputed map for parity.
-  const compRaw: Record<string, number> = filtersActive
-    ? results.reduce<Record<string, number>>((acc, r) => {
-        const list: unknown = r?.competitorMentions;
-        if (Array.isArray(list)) {
-          for (const name of list) {
-            if (typeof name === 'string' && name.trim()) {
-              acc[name] = (acc[name] || 0) + 1;
-            }
-          }
-        }
-        return acc;
-      }, {})
-    : (lastRun.competitors || {});
-  let competitors: OverviewData['competitors'] = [];
-  const compEntries = Object.entries(compRaw).sort((a, b) => b[1] - a[1]).slice(0, 7);
-  if (compEntries.length > 0) {
-    // Every row in this table is a share of the SAME pool - your mentions
-    // plus each tracked competitor's mentions - so the rank and the
-    // "Competitive" standing below compare like with like. (The headline SOV
-    // above stays mention-rate; mixing the two here ranked a 40%-mention-rate
-    // brand against competitors measured on a different denominator.)
-    const myMentions = Math.max(0, Number(totalM) || 0);
-    const total = compEntries.reduce((s, [, c]) => s + c, 0) + myMentions;
-    const share = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
-    const prevCompRaw: Record<string, number> = (prevRun?.competitors as Record<string, number>) || {};
-    const prevMy = Math.max(0, Number(prevRun?.totalM) || 0);
-    const prevTotal = Object.values(prevCompRaw).reduce((s, c) => s + (Number(c) || 0), 0) + prevMy;
-    const prevShare = (n: number) => (prevTotal > 0 ? Math.round((n / prevTotal) * 100) : 0);
-    const mySov = share(myMentions);
-    competitors = [
-      { name: brand.name || 'You', sov: mySov, d: prevRun ? mySov - prevShare(prevMy) : 0, me: true, color: 'var(--accent)' },
-      ...compEntries.map(([name, c], i) => ({
-        name,
-        sov: share(c),
-        d: prevRun && name in prevCompRaw ? share(c) - prevShare(Number(prevCompRaw[name]) || 0) : 0,
-        color: COMP_COLORS[(i + 1) % COMP_COLORS.length],
-      })),
-    ].sort((a, b) => b.sov - a.sov);
-    // "vs Top 3 competitors" = me + the three highest-SOV non-me brands.
-    if (filters.competitorView === 'top3') {
-      const me = competitors.find(c => c.me);
-      const rest = competitors.filter(c => !c.me).slice(0, 3);
-      competitors = (me ? [me, ...rest] : rest).sort((a, b) => b.sov - a.sov);
-    }
+  // competitors: the brand's configured rival list (the same list the
+  // Competitors page shows), each measured as a mention rate over the same
+  // answered results as the headline visibility. The brand's own row is its
+  // visibility score, so the rank card can never say "91%" next to a 31%
+  // headline. Per-result competitorMentions are already engine/intent
+  // filtered; the aggregate lastRun.competitors map is only a fallback for
+  // older runs and is skipped when a filter is active.
+  const rivalRows = buildRivalRows({
+    brandName: brand.name || 'You',
+    brandSov: sov,
+    prevBrandSov: prevRun ? prevSov : null,
+    competitors: cleanCompetitorList(brand.competitors),
+    results,
+    prevResults: prevFiltered,
+    fallbackCounts: filtersActive ? null : lastRun.competitors,
+    prevFallbackCounts: filtersActive ? null : prevRun?.competitors,
+    displayName: friendlyCompetitorName,
+  });
+  let rivalIdx = 0;
+  let competitors: OverviewData['competitors'] = rivalRows.map(r => ({
+    ...r,
+    color: r.me ? 'var(--accent)' : COMP_COLORS[(++rivalIdx) % COMP_COLORS.length],
+  }));
+  // "vs Top 3 competitors" = me + the three highest-SOV non-me brands.
+  if (filters.competitorView === 'top3' && competitors.length > 0) {
+    const me = competitors.find(c => c.me);
+    const rest = competitors.filter(c => !c.me).slice(0, 3);
+    competitors = (me ? [me, ...rest] : rest).sort((a, b) => b.sov - a.sov || (a.me ? 1 : 0) - (b.me ? 1 : 0));
   }
 
   // Real "Competitive" standing derived from the competitor SOV table: how close
@@ -678,7 +661,7 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   // Real "needs you today" insights - derived only from data we actually have.
   // Cards with no real backing are simply not emitted (the strip hides itself
   // when there are none).
-  const realComp = compEntries.length > 0;
+  const realComp = competitors.length > 0;
   const insights: InsightItem[] = [];
   if (trend.length >= 2) {
     const momentum = Math.round((sov - prevSov) * 10) / 10;
@@ -686,9 +669,9 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
     else if (momentum <= -1) insights.push({ icon: '▼', tone: 'warn', t: `Share of Voice down ${Math.abs(momentum)} ${Math.abs(momentum) === 1 ? 'pt' : 'pts'}`, d: `now ${sov}% - see what changed`, cta: 'Investigate', href: '/dashboard/competitors' });
   }
   if (realComp) {
-    const top = competitors[0];
-    if (top?.me) insights.push({ icon: '★', tone: 'pos', t: 'You lead your category', d: `#1 of ${competitors.length} at ${sov}% Share of Voice`, cta: 'Compare', href: '/dashboard/competitors' });
-    else if (top) insights.push({ icon: '◆', tone: 'info', t: `${top.name} leads at ${top.sov}%`, d: `you're at ${sov}% - close the gap`, cta: 'Compare', href: '/dashboard/competitors' });
+    const top = competitors.find(c => !c.me);
+    if (leadsRivals(competitors)) insights.push({ icon: '★', tone: 'pos', t: 'You lead your tracked rivals', d: `#1 of ${competitors.length} at ${sov}% visibility`, cta: 'Compare', href: '/dashboard/competitors' });
+    else if (top && top.sov > 0) insights.push({ icon: '◆', tone: 'info', t: `${top.name} leads at ${top.sov}%`, d: `you're at ${sov}% - close the gap`, cta: 'Compare', href: '/dashboard/competitors' });
   }
   if (sentTotal > 0 && sentiment < 60) {
     insights.push({ icon: '⚠', tone: 'warn', t: `Sentiment is ${sentiment}%`, d: 'how the AI engines describe you needs attention', cta: 'Review mentions', href: '/dashboard/mentions' });

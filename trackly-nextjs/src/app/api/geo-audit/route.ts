@@ -5,6 +5,7 @@ import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 import { pool } from '@/lib/db';
 import { safeFetch, SSRFError, ssrfErrorToCopy } from '@/lib/safe-fetch';
 import { logError, serverError } from '@/lib/api-error';
+import { normalizeAuditUrl, decodeHtmlEntities } from '@/lib/geo-audit-utils';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -335,11 +336,11 @@ function generateRecommendations(categories: Record<string, CategoryResult>): st
 
 function extractMeta(html: string): { title: string; description: string } {
   const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-  const title = titleMatch ? stripTags(titleMatch[1]).trim() : '';
+  const title = titleMatch ? decodeHtmlEntities(stripTags(titleMatch[1])).replace(/\s+/g, ' ').trim() : '';
 
   const descMatch = html.match(/<meta[^>]+name\s*=\s*["']description["'][^>]+content\s*=\s*["']([^"']*)["']/i) ||
     html.match(/<meta[^>]+content\s*=\s*["']([^"']*)["'][^>]+name\s*=\s*["']description["']/i);
-  const description = descMatch ? descMatch[1].trim() : '';
+  const description = descMatch ? decodeHtmlEntities(descMatch[1]).trim() : '';
 
   return { title, description };
 }
@@ -379,7 +380,8 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'URL is required.' }, { status: 400 });
     }
 
-    const trimmedUrl = url.trim();
+    // Bare domains ("livesov.com") are accepted: https:// is assumed.
+    const trimmedUrl = normalizeAuditUrl(url);
     if (!isValidUrl(trimmedUrl)) {
       return Response.json({ error: 'Invalid URL. Must be a valid http or https URL.' }, { status: 400 });
     }

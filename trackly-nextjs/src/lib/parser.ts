@@ -323,8 +323,95 @@ export function buildBrandMatcher(brand: BrandInput): BrandMatcher {
   return { nameLower, exactRe, noPuncRe, nameNoSpace, firstWord, sigWords, sigWordRes, domain, aliasMatchers, positionRes, allLocations, compRes, hasCity: !!brand.city };
 }
 
+// ── No-knowledge / echo detection ────────────────────────────────
+// A model that answers "I don't have specific pricing information for
+// Acme Ltd" has repeated the brand name, not shown any knowledge of it.
+// Before this check such answers counted as Found, and because the
+// recommendation and sentiment passes scanned the whole response, the
+// "I'd recommend contacting them directly" boilerplate that usually
+// follows also made them Recommended and Positive.
+//
+// Matched against apostrophe-normalized, lower-cased sentences.
+const NO_INFO_RES: RegExp[] = [
+  /\b(?:i|we)\s+(?:don't|do not|didn't|did not)\s+have\s+(?:\w+\s+){0,4}?(?:information|info|details|data|knowledge|records?|figures|pricing|prices|reviews|access)\b/,
+  /\b(?:i|we)\s+have\s+no\s+(?:\w+\s+){0,3}?(?:information|info|details|data|knowledge|records?|record of)\b/,
+  /\b(?:i'm|i am|we're|we are)\s+not\s+(?:aware of|familiar with|able to (?:find|locate|verify|confirm|provide)|sure (?:about|of|what|who|whether|if)|certain (?:about|of|what|who|whether|if))\b/,
+  /\b(?:i|we)\s+(?:couldn't|could not|can't|cannot|can not|wasn't able to|was not able to|was unable to|am unable to)\s+(?:find|locate|verify|confirm|identify|access|provide|give|share|see)\b/,
+  /\b(?:i'm|i am)\s+unable\s+to\s+(?:find|locate|verify|confirm|identify|access|provide|give|share)\b/,
+  /\b(?:i|we)\s+(?:don't|do not)\s+(?:know|recognize|recognise)\b/,
+  /\bno\s+(?:\w+\s+){0,3}?(?:information|info|details|data|results|records|listings?|reviews)\s+(?:(?:is|are|was|were)\s+)?(?:available|found|on|about|for|regarding|that)\b/,
+  /\b(?:unfamiliar with|no knowledge of|no record of|not in my (?:training|knowledge))\b/,
+  /\b(?:limited|little|scarce)\s+(?:\w+\s+){0,2}?(?:information|info|details|data)\s+(?:is\s+)?(?:available|about|on|for)\b/,
+  /\bnot\s+(?:readily\s+|publicly\s+)?(?:available|listed|disclosed)\s+(?:online|publicly|to me|in my)\b/,
+  /\bnot\s+publicly\s+(?:available|listed|disclosed)\b/,
+  /\bdoes(?:n't| not)\s+appear\s+(?:in my|to be (?:a )?(?:well[- ]known|widely))/,
+  /\bmy\s+(?:training data|knowledge)\s+(?:doesn't|does not)\s+(?:include|contain|cover)\b/,
+];
+
+// "Recommend contacting them" is advice to the reader, not a
+// recommendation of the brand. Sentences carrying this are ignored by the
+// recommendation, description and sentiment passes.
+const DEFLECT_RE = /\b(?:recommend(?:ed)?|suggest(?:ed)?|advise|best (?:way|bet|option))\b[^.!?\n]{0,30}?\b(?:contact|contacting|reach(?:ing)? out|call(?:ing)?|check(?:ing)?|visit(?:ing)?|request(?:ing)?|ask(?:ing)?|look(?:ing)? (?:up|at|for)|search(?:ing)?|consult(?:ing)?|speak(?:ing)?|email(?:ing)?|get(?:ting)? (?:a |in touch|quotes?))\b|\b(?:contact|call|reach out to|email)\s+(?:them|the company|the business|it)\s+directly\b|\b(?:check|visit|see)\s+(?:their|the company's|its|the official)\s+(?:website|site|page)\b/;
+const DEFLECT_RE_G = new RegExp(DEFLECT_RE.source, 'g');
+const HEDGE_RE = /\b(?:if|whether|unless|might|may|could|possibly|perhaps|assuming)\b/;
+const DESCRIBE_RE = /\b(?:is|are|was|were|has|have|had|offers?|provides?|speciali[sz](?:es|e|ed|ing)|operates?|serves?|founded|based|located|headquartered|known|rated|reviewed|delivers?|supplies|includes?|features?|stands? out|excels?|focuses|uses)\b/;
+
+function _normalizeForSentences(text: string): string {
+  return text.replace(/[\u2018\u2019\u02bc`]/g, "'").replace(/\*\*|__/g, '');
+}
+
+function _splitSentences(text: string): string[] {
+  return text
+    .split(/(?<=[.!?])\s+(?=["'(\[*#\-\d]|[A-Z])|\n+/)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Where the sentence names the brand (by name, alias or domain), or -1.
+ * The index is best effort for the punctuation-insensitive fallbacks.
+ */
+function _brandIndex(s: string, m: BrandMatcher): number {
+  const exact = m.exactRe.exec(s);
+  if (exact) return exact.index;
+  for (const am of m.aliasMatchers) { const a = am.exact.exec(s); if (a) return a.index; }
+  const lower = s.toLowerCase();
+  if (m.domain && lower.includes(m.domain)) return lower.indexOf(m.domain);
+  if (m.noPuncRe && m.noPuncRe.test(lower.replace(/[''`\-.,&!]/g, ''))) return Math.max(0, lower.indexOf(m.firstWord));
+  if (m.nameNoSpace.length >= 6 && lower.replace(/[\s\-_]+/g, '').includes(m.nameNoSpace)) return Math.max(0, lower.indexOf(m.firstWord));
+  return -1;
+}
+
+function _brandInText(s: string, m: BrandMatcher): boolean {
+  return _brandIndex(s, m) >= 0;
+}
+
+/** Is this sentence a "I don't have / not aware of / couldn't find" statement? */
+export function isNoInfoText(text: string): boolean {
+  const s = _normalizeForSentences(text).toLowerCase();
+  return NO_INFO_RES.some(rx => rx.test(s));
+}
+
+/**
+ * A branded prompt is one that already contains the brand's own name,
+ * alias or domain. An answer to it will almost always repeat the name, so
+ * the repetition alone is not evidence the model knows the brand.
+ */
+export function isBrandedPrompt(query: string, brandOrMatcher: BrandInput | BrandMatcher): boolean {
+  if (!query) return false;
+  const m = 'exactRe' in brandOrMatcher ? brandOrMatcher : (brandOrMatcher.name ? buildBrandMatcher(brandOrMatcher) : null);
+  if (!m) return false;
+  if (_brandInText(query, m)) return true;
+  // "easypump pricing" for easypump.co.uk: the bare domain label counts too.
+  if (m.domain) {
+    const label = m.domain.split('.')[0];
+    if (label.length >= 5 && new RegExp('\\b' + label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i').test(query)) return true;
+  }
+  return false;
+}
+
 export function parseResponse(text: string, brand: BrandInput, query: string, matcher?: BrandMatcher) {
-  if (!text || !brand.name) return { mentioned: false, recommended: false, sentiment: 'neutral', cites: [] as string[], listPosition: null as number | null };
+  if (!text || !brand.name) return { mentioned: false, recommended: false, sentiment: 'neutral', cites: [] as string[], listPosition: null as number | null, branded: false, noInfo: false };
 
   const m = matcher || buildBrandMatcher(brand);
   const lower = text.toLowerCase();
@@ -353,13 +440,49 @@ export function parseResponse(text: string, brand: BrandInput, query: string, ma
 
   if (!mentioned && m.domain && lower.includes(m.domain)) { mentioned = true; matchPosition = lower.indexOf(m.domain); }
 
-  const recommended = mentioned && RECOMMENDATION_RE.test(text);
+  let listPosition: number | null = null;
+  if (mentioned) {
+    for (const posRx of m.positionRes) {
+      const posMatch = posRx.exec(text);
+      if (posMatch) { listPosition = parseInt(posMatch[1], 10); break; }
+    }
+  }
+
+  // Sentence-level pass: which sentences name the brand, and do any of
+  // them actually say something about it?
+  const branded = isBrandedPrompt(query || '', m);
+  let noInfo = false;
+  let describes = listPosition !== null;
+  let recommendsBrand = false;
+  if (mentioned) {
+    for (const raw of _splitSentences(_normalizeForSentences(text))) {
+      const at = _brandIndex(raw, m);
+      if (at < 0) continue;
+      const s = raw.toLowerCase();
+      if (NO_INFO_RES.some(rx => rx.test(s))) { noInfo = true; continue; }
+      if (DEFLECT_RE.test(s)) continue;
+      // The brand has to be the subject: "Acme is a ...", "Acme offers ...".
+      // "Here is what I know about Acme" says nothing about it.
+      if (!HEDGE_RE.test(s) && DESCRIBE_RE.test(s.slice(at + m.firstWord.length))) describes = true;
+      if (RECOMMENDATION_RE.test(s)) recommendsBrand = true;
+    }
+    // "I don't know Acme" or a branded prompt answered without saying
+    // anything about the brand is an echo of the question, not visibility.
+    if ((noInfo || branded) && !describes) mentioned = false;
+  }
+
+  // Recommendation needs recommending language about the brand itself, or
+  // the brand ranked in a list the answer frames as a recommendation.
+  const recommended = mentioned && (recommendsBrand || (listPosition !== null && RECOMMENDATION_RE.test(_normalizeForSentences(lower).replace(DEFLECT_RE_G, ' '))));
+  if (!mentioned) listPosition = null;
 
   let sentiment = 'neutral';
   if (mentioned && matchPosition >= 0) {
     const start = Math.max(0, matchPosition - 200);
     const end = Math.min(lower.length, matchPosition + m.nameLower.length + 300);
-    const context = lower.substring(start, end);
+    // Strip deflection boilerplate so "I'd recommend contacting them" and
+    // "the best way to get a quote" don't read as praise.
+    const context = _normalizeForSentences(lower.substring(start, end)).replace(DEFLECT_RE_G, ' ');
     const p = (context.match(POS_RE) || []).length;
     const n = (context.match(NEG_RE) || []).length;
     sentiment = p > n ? 'positive' : n > p ? 'negative' : 'neutral';
@@ -370,15 +493,7 @@ export function parseResponse(text: string, brand: BrandInput, query: string, ma
   const seen = new Set<string>();
   for (const url of urlMatches) { if (!seen.has(url) && cites.length < 6) { seen.add(url); cites.push(url); } }
 
-  let listPosition: number | null = null;
-  if (mentioned) {
-    for (const posRx of m.positionRes) {
-      const posMatch = posRx.exec(text);
-      if (posMatch) { listPosition = parseInt(posMatch[1], 10); break; }
-    }
-  }
-
-  return { mentioned, recommended, sentiment, cites, listPosition };
+  return { mentioned, recommended, sentiment, cites, listPosition, branded, noInfo };
 }
 
 export function detectCompetitors(text: string, matcher: BrandMatcher): string[] {

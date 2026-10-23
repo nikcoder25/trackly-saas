@@ -3,14 +3,18 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useBrandData } from '@/hooks/useBrandData';
 import { Card, KPIRail, Badge, Bar, Pill, Cit, PageHead } from '@/app/dashboard-v2/ui';
+import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
 import { isRedirectCitationHost } from '@/lib/citation-hosts';
+import { geminiGroundingAllowedForPlan } from '@/lib/plan-config';
 
-interface Brand { id: string; name: string; runs?: Array<{ allResults?: Array<{ citations?: string[] }> }>; }
+interface Brand { id: string; name: string; platforms?: string[]; runs?: Array<{ allResults?: Array<{ citations?: string[]; platform?: string; model?: string }> }>; }
 interface CitationData { domains: Record<string, number>; totalCitations: number; ownDomain?: number; ownDomainName?: string; }
 
 export default function CitationsPage() {
   const { brand: rawBrand, loading } = useBrandData();
   const brand = rawBrand as Brand | null;
+  const { user } = useAuth();
   const [citData, setCitData] = useState<CitationData | null>(null);
 
   const loadCitations = useCallback((b: Brand) => {
@@ -70,6 +74,23 @@ export default function CitationsPage() {
   // Detect own domain (brand website)
   const ownDomainName = citData?.ownDomainName || '';
 
+  // Only engines that search the web return source URLs. Perplexity always
+  // does; Gemini does when Google Search grounding is on (Pro and above);
+  // ChatGPT only on a web search model. The cheaper training-data models
+  // (ChatGPT nano, Claude Haiku, Grok mini) never cite, so the empty state
+  // must not promise sources a brand's engines cannot produce.
+  const trackedPlatforms = useMemo(() => {
+    if (Array.isArray(brand?.platforms) && brand.platforms.length) return brand.platforms;
+    const seen = new Set<string>();
+    (brand?.runs || []).slice(-1).forEach(run => (run.allResults || []).forEach(r => { if (r.platform) seen.add(r.platform); }));
+    return [...seen];
+  }, [brand]);
+  const geminiCites = geminiGroundingAllowedForPlan(user?.plan);
+  const canCite = trackedPlatforms.length === 0
+    || trackedPlatforms.includes('Perplexity')
+    || (geminiCites && trackedPlatforms.includes('Gemini'))
+    || (brand?.runs || []).some(run => (run.allResults || []).some(r => r.platform === 'ChatGPT' && (r.model || '').includes('search')));
+
   if (loading) return (
     <div className="lvx">
       <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 240 }}>
@@ -93,7 +114,11 @@ export default function CitationsPage() {
           : <Pill>{domainCount.toLocaleString()} unique</Pill>} padding={false}>
           {sortedDomains.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 32, color: 'var(--mute)', fontSize: 12 }}>
-              No citations captured yet. Citations will appear after your next run.
+              {canCite ? (
+                <>No citations captured yet. Sources come from engines that search the web (Perplexity on every plan, Gemini with Google Search grounding on Pro plans and above), so they will appear once one of those engines cites a page for your prompts.</>
+              ) : (
+                <>No cited sources for this brand. It tracks {trackedPlatforms.join(', ')}, which answer from training data and do not return source URLs. Only engines that search the web cite sources: Perplexity on every plan, Gemini with Google Search grounding on Pro plans and above, and ChatGPT on a web search model. Add Perplexity in <Link href="/dashboard/setup" style={{ color: 'var(--primary)', fontWeight: 600 }}>Brand Setup</Link> to start collecting sources.</>
+              )}
             </div>
           ) : (
             <div className="tbl-wrap">

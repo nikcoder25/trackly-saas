@@ -5,7 +5,7 @@
 
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
-import { getBrandWithAccess } from '@/lib/helpers';
+import { getBrandLiteWithAccess } from '@/lib/helpers';
 import { logError, serverError } from '@/lib/api-error';
 import { getFanoutSummary } from '@/lib/fanout';
 import { intParam } from '@/lib/query-params';
@@ -20,7 +20,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const user = authResult;
     const { id } = await params;
 
-    const access = await getBrandWithAccess(id, user.id);
+    const access = await getBrandLiteWithAccess(id, user.id);
     if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
 
     const sp = new URL(request.url).searchParams;
