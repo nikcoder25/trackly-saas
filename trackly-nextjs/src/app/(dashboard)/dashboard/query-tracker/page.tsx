@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { getPlanPlatforms } from '@/lib/constants';
+import { promptStatusFromRate, WINNING_RATE, LOSING_RATE, type PromptStatus } from '@/lib/prompt-status';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrandData } from '@/hooks/useBrandData';
 import { TableSkeleton } from '@/components/dashboard/Skeleton';
@@ -153,18 +154,16 @@ export default function QueryTrackerPage() {
     return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   }
 
-  // Status derived from real visibility - categorises tracked queries for the badge/filter.
-  function statusOf(kw: KTKeyword): 'priority' | 'tracking' | 'losing' | 'none' {
-    if (kw.totalRuns === 0) return 'none';
-    if (kw.mentionRate >= 30) return 'priority';
-    if (kw.mentionRate < 15) return 'losing';
-    return 'tracking';
+  // Status derived from real visibility. Shared with the Overview's buyer
+  // questions (lib/prompt-status) so a prompt reads the same on both pages.
+  function statusOf(kw: KTKeyword): PromptStatus {
+    return promptStatusFromRate(kw.mentionRate, kw.totalRuns);
   }
 
   // Real KPI metrics computed from the tracked-query set.
   const totalRunsCount = useMemo(() => keywords.reduce((a, k) => a + k.totalRuns, 0), [keywords]);
-  const winningCount = useMemo(() => keywords.filter(k => k.totalRuns > 0 && k.mentionRate >= 30).length, [keywords]);
-  const atRiskCount = useMemo(() => keywords.filter(k => k.totalRuns > 0 && k.mentionRate < 15).length, [keywords]);
+  const winningCount = useMemo(() => keywords.filter(k => promptStatusFromRate(k.mentionRate, k.totalRuns) === 'winning').length, [keywords]);
+  const atRiskCount = useMemo(() => keywords.filter(k => promptStatusFromRate(k.mentionRate, k.totalRuns) === 'losing').length, [keywords]);
   const missRate = useMemo(() => {
     const withData = keywords.filter(k => k.totalRuns > 0);
     if (withData.length === 0) return 0;
@@ -194,8 +193,8 @@ export default function QueryTrackerPage() {
       <div className="page-body">
         <KPIRail items={[
           { k: 'Tracked', term: 'prompt', v: keywords.length },
-          { k: 'Winning (vis ≥ 30%)', v: winningCount },
-          { k: 'At risk (vis < 15%)', v: atRiskCount, danger: atRiskCount > 0 },
+          { k: `Winning (vis ≥ ${WINNING_RATE}%)`, v: winningCount },
+          { k: `At risk (vis < ${LOSING_RATE}%)`, v: atRiskCount, danger: atRiskCount > 0 },
           { k: 'Miss rate', v: missRate, suffix: '%' },
           { k: 'Total runs', v: totalRunsCount.toLocaleString() },
         ]} />
@@ -250,7 +249,7 @@ export default function QueryTrackerPage() {
                     </tr>
                   ) : filtered.map((kw, idx) => {
                     const status = statusOf(kw);
-                    const statusTone = status === 'priority' ? 'acc' : status === 'losing' ? 'neg' : status === 'none' ? 'neu' : 'neu';
+                    const statusTone = status === 'winning' ? 'acc' : status === 'losing' ? 'neg' : status === 'none' ? 'neu' : 'neu';
                     const statusLabel = status === 'none' ? 'NO DATA' : status.toUpperCase();
                     const isExpanded = expanded === idx;
                     return (

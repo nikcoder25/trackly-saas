@@ -179,7 +179,7 @@ export default function ReportsPage() {
   // Custom report assembled from the selected mentions/queries.
   function download() {
     if (!draft.items.length) {
-      toast('Your custom report is empty. Add mentions (open a recent mention on the Overview) or queries ("+ Report") first - or use “Download report” for the full visibility report.', 'error');
+      toast('Your custom report is empty. Use “Download report” for the full visibility report.', 'error');
       // Surface the empty-state guidance below.
       document.getElementById('report-builder')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
@@ -257,9 +257,8 @@ export default function ReportsPage() {
               <div className="lvx-emoji" style={{ fontSize: 40, marginBottom: 12, opacity: 0.5 }}>🗂️</div>
               <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px' }}>Your report is empty</p>
               <p style={{ fontSize: 13, color: 'var(--text-3)', margin: '0 auto', maxWidth: 460, lineHeight: 1.6 }}>
-                Add items from around the dashboard: open a recent mention on the <b>Overview</b> and click
-                <b> “Add to report”</b>, or use <b>“+ Add to report”</b> on a tracked query. They’ll show up here,
-                ready to download as a polished PDF.
+                Nothing has been added to a custom report yet. Use <b>“Download report”</b> above for the full
+                visibility report as a polished PDF.
               </p>
             </div>
           </Card>

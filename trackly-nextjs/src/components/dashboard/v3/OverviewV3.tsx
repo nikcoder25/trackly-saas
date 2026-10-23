@@ -14,6 +14,8 @@ import { useToast } from '@/components/dashboard/Toast';
 import { getPlanPlatforms } from '@/lib/constants';
 import { V3Icon } from './icons';
 import { useOpenRecommendations } from './hooks';
+import { leadsRivals } from '@/lib/rival-standing';
+import { promptStatus, WINNING_RATE } from '@/lib/prompt-status';
 
 const FILTERS: OverviewFilters = { range: '90d', engine: 'all', intent: 'all', competitorView: 'all' };
 const ENGINE_NAMES = PLATFORMS.map(p => p.name);
@@ -207,7 +209,7 @@ function HeroCard({ sov, delta, first, noAnswers, answers, accuracy, positive, h
 /* ─────────────────────────── fixes ─────────────────────────── */
 
 function DoNext() {
-  const { recs, loaded, available } = useOpenRecommendations();
+  const { recs, loaded, failed, available, reload } = useOpenRecommendations();
   const top = recs.slice(0, 4);
   return (
     <section className="v3-card v3-fixes v3-rise" aria-labelledby="v3-next-t">
@@ -221,7 +223,12 @@ function DoNext() {
       {!available ? (
         <div className="v3-fixes-empty"><p>Fix suggestions come with the Starter plan and up.</p></div>
       ) : !loaded ? (
-        <p className="v3-empty">Loading…</p>
+        <p className="v3-empty" aria-busy="true">Loading your fixes…</p>
+      ) : failed && top.length === 0 ? (
+        <div className="v3-fixes-empty">
+          <p>We could not load your fixes.</p>
+          <button type="button" className="v3-link-btn" onClick={() => reload()}>Try again</button>
+        </div>
       ) : top.length === 0 ? (
         <div className="v3-fixes-empty">
           <span className="v3-done-ico"><V3Icon name="check" size={24} /></span>
@@ -354,24 +361,27 @@ function RankLadder({ rows, firstScan }: { rows: { name: string; sov: number; d?
   const meIdx = rows.findIndex(r => r.me);
   const ahead = meIdx > 0 ? rows[meIdx - 1] : null;
   const gap = ahead ? Math.max(1, ahead.sov - rows[meIdx].sov) : 0;
+  const leading = leadsRivals(rows);
   return (
     <section className="v3-card v3-rise" aria-labelledby="v3-rivals-t">
       <div className="v3-card-head" style={{ marginBottom: 10 }}>
         <div>
           <h2 id="v3-rivals-t" className="v3-card-title">Your rank</h2>
-          <p className="v3-card-sub">Share of mentions against your rivals in the last scan.</p>
+          <p className="v3-card-sub">How often AI named you and each tracked rival in the last scan.</p>
         </div>
         <Link href="/dashboard/competitors" className="v3-link">Rivals <V3Icon name="chevron-right" size={14} /></Link>
       </div>
       {rows.length === 0 ? (
-        <p className="v3-empty">No rivals named yet. Add competitors in <Link href="/dashboard/setup" className="v3-link">Brand Setup</Link>.</p>
+        <p className="v3-empty">No rivals tracked yet. Add competitors on the <Link href="/dashboard/competitors" className="v3-link">Competitors</Link> page.</p>
       ) : (
         <>
           {meIdx >= 0 && (
             <>
               <div className="v3-rank-big"><b>#{meIdx + 1}</b><span>of {rows.length}</span></div>
               <p className="v3-rank-next">
-                {ahead ? <><strong>{pts(gap)}</strong> to pass {ahead.name}.</> : <strong className="v3-good">You lead your category.</strong>}
+                {ahead ? <><strong>{pts(gap)}</strong> to pass {ahead.name}.</>
+                  : leading ? <strong className="v3-good">You lead your tracked rivals.</strong>
+                  : null}
               </p>
             </>
           )}
@@ -409,7 +419,8 @@ function BuyerQuestions({ grid, engineNames }: { grid: { q: string; engines: Rec
   const rows = grid.map(g => {
     const answered = colNames.filter(e => g.engines[e] != null);
     const named = answered.filter(e => g.engines[e]).length;
-    return { ...g, named, answered: answered.length, winning: answered.length > 0 && named * 2 >= answered.length };
+    // Same rule as the Query Tracker's status column (see lib/prompt-status).
+    return { ...g, named, answered: answered.length, winning: promptStatus(named, answered.length) === 'winning' };
   });
   const shown = rows.filter(r => (mode === 'win' ? r.winning : !r.winning))
     .sort((a, b) => (mode === 'win' ? b.named - a.named : a.named - b.named));
@@ -419,7 +430,7 @@ function BuyerQuestions({ grid, engineNames }: { grid: { q: string; engines: Rec
       <div className="v3-card-head v3-pad">
         <div>
           <h2 id="v3-q-t" className="v3-card-title">Buyer questions</h2>
-          <p className="v3-card-sub">Winning means at least half the engines named you.</p>
+          <p className="v3-card-sub">Winning means AI named you in at least {WINNING_RATE}% of answers in the last scan.</p>
         </div>
         <div className="v3-seg" role="group" aria-label="Question filter">
           <button type="button" aria-pressed={mode === 'win'} className={mode === 'win' ? 'on' : ''} onClick={() => setMode('win')}>Winning {counts.win}</button>
