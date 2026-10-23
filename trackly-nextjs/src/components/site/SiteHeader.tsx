@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MARKETING_NAV_LINKS } from '@/lib/marketing-nav';
 
 export function SiteLogo() {
@@ -35,6 +35,16 @@ export default function SiteHeader() {
   const isHome = pathname === '/' || pathname === '/home';
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
+  // Signed-out by default so SSR and first client render match; the session
+  // check runs only after mount.
+  const [signedIn, setSignedIn] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then((r) => { if (!cancelled && r.ok) setSignedIn(true); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <header className={'ls-nav' + (open ? ' open' : '')}>
@@ -54,8 +64,14 @@ export default function SiteHeader() {
           </ul>
         </nav>
         <div className="ls-nav-cta">
-          <Link href="/login" className="ls-nav-signin">Sign in</Link>
-          <Link href="/signup" className="ls-btn ls-btn-pri">Start free trial</Link>
+          {signedIn ? (
+            <Link href="/dashboard" className="ls-btn ls-btn-pri">Dashboard</Link>
+          ) : (
+            <>
+              <Link href="/login" className="ls-nav-signin">Sign in</Link>
+              <Link href="/signup" className="ls-btn ls-btn-pri">Start free trial</Link>
+            </>
+          )}
           <button
             type="button"
             className="ls-burger"
@@ -80,8 +96,14 @@ export default function SiteHeader() {
           })}
         </ul>
         <div className="ls-sheet-cta">
-          <Link href="/login" className="ls-btn ls-btn-out" onClick={close}>Sign in</Link>
-          <Link href="/signup" className="ls-btn ls-btn-pri" onClick={close}>Start free trial</Link>
+          {signedIn ? (
+            <Link href="/dashboard" className="ls-btn ls-btn-pri" onClick={close}>Dashboard</Link>
+          ) : (
+            <>
+              <Link href="/login" className="ls-btn ls-btn-out" onClick={close}>Sign in</Link>
+              <Link href="/signup" className="ls-btn ls-btn-pri" onClick={close}>Start free trial</Link>
+            </>
+          )}
         </div>
       </div>
     </header>

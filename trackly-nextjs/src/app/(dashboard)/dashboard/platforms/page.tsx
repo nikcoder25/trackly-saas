@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import Link from 'next/link';
 import { PLATFORM_COLORS, getPlanPlatforms } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrandData } from '@/hooks/useBrandData';
@@ -41,6 +42,7 @@ interface Brand {
   name: string;
   runs?: Run[];
   selected_platforms?: string[];
+  platforms?: string[];
 }
 
 function normPlatform(pd: unknown): { sov: number; total: number; mentions: number; errors: number } {
@@ -76,6 +78,10 @@ export default function PlatformsPage() {
   const planPlatforms = getPlanPlatforms(user?.plan || 'free');
   const { brand: rawBrand, brands, loading } = useBrandData({ fullData: true });
   const selectedBrand = rawBrand as Brand | null;
+  // Engines this brand actually scans: its own selection, else the plan default.
+  const trackedPlatforms = Array.isArray(selectedBrand?.platforms) && selectedBrand.platforms.length > 0
+    ? selectedBrand.platforms
+    : planPlatforms;
 
   const sortedRuns = useMemo(
     () => [...(selectedBrand?.runs || [])].sort((a, b) => (runTimestampMs(a) ?? 0) - (runTimestampMs(b) ?? 0)),
@@ -176,14 +182,24 @@ export default function PlatformsPage() {
             const sovHistory = stats?.sovHistory || [];
 
             const operational = hasData && health.label !== 'Degraded' && health.label !== 'No Data';
+            const tracked = trackedPlatforms.includes(name);
 
             return (
               <Card key={name}
                 title={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}><PlatformTile p={tile} size={26} /> {name}</span>}
-                right={operational
+                right={!tracked
+                  ? <Pill tone="neu">OFF</Pill>
+                  : operational
                   ? <Pill tone="acc"><span className="pulse" style={{ width: 5, height: 5 }} /> {health.label.toUpperCase()}</Pill>
                   : <Pill tone={hasData ? 'neg' : 'neu'}>{hasData ? '⚠ ' : ''}{health.label.toUpperCase()}</Pill>}>
-                {hasData ? (
+                {!tracked ? (
+                  <div style={{ textAlign: 'center', padding: '20px 0 8px' }}>
+                    <Badge tone="neu">Not tracked</Badge>
+                    <p className="mono" style={{ fontSize: 12, color: 'var(--mute)', marginTop: 10 }}>
+                      {name} is turned off for this brand. <Link href="/dashboard/setup">Turn it on in Brand Setup</Link>
+                    </p>
+                  </div>
+                ) : hasData ? (
                   <div className="plat-grid">
                     <div>
                       <div className="eyebrow">Share of voice</div>
@@ -222,7 +238,7 @@ export default function PlatformsPage() {
                 ) : (
                   <div style={{ textAlign: 'center', padding: '20px 0 8px' }}>
                     <Badge tone="neu">No data</Badge>
-                    <p className="mono" style={{ fontSize: 12, color: 'var(--mute)', marginTop: 10 }}>Run queries to see {name} results</p>
+                    <p className="mono" style={{ fontSize: 12, color: 'var(--mute)', marginTop: 10 }}>{name} did not answer in the last scan</p>
                   </div>
                 )}
               </Card>

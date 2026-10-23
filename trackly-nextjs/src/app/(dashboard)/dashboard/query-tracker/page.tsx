@@ -37,6 +37,11 @@ export default function QueryTrackerPage() {
   const [expanded, setExpanded] = useState<number | null>(null);
 
   const [refreshTick, setRefreshTick] = useState(0);
+  // Brand id + period of the last completed keyword-tracker response. Until it
+  // matches the current selection we keep the skeleton up instead of flashing
+  // the empty state.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const currentKey = brand ? `${brand.id}|${period}` : null;
 
   // Refresh keyword tracker data when a run completes.
   useEffect(() => {
@@ -48,6 +53,7 @@ export default function QueryTrackerPage() {
   useEffect(() => {
     if (!brand) return;
     let cancelled = false;
+    const key = `${brand.id}|${period}`;
 
     // Try API first, fall back to computing from brand data
     fetch(`/api/brands/${brand.id}/keyword-tracker?period=${period}`, { credentials: 'include' })
@@ -55,6 +61,7 @@ export default function QueryTrackerPage() {
       .then(d => {
         if (!cancelled && d.keywords && d.keywords.length > 0) {
           setKeywords(d.keywords);
+          setLoadedFor(key);
         } else if (!cancelled) {
           computeFromBrand();
         }
@@ -103,7 +110,7 @@ export default function QueryTrackerPage() {
         }
       }
 
-      if (Object.keys(map).length === 0) { setKeywords([]); return; }
+      if (Object.keys(map).length === 0) { setKeywords([]); setLoadedFor(key); return; }
 
       const computed: KTKeyword[] = Object.values(map).map(m => ({
         keyword: m.keyword,
@@ -117,6 +124,7 @@ export default function QueryTrackerPage() {
         sparkline: m.history.length > 1 ? m.history.slice(-7) : undefined,
       }));
       setKeywords(computed);
+      setLoadedFor(key);
     }
 
     return () => { cancelled = true; };
@@ -182,7 +190,7 @@ export default function QueryTrackerPage() {
     return Math.round(withData.filter(k => k.mentionRate === 0).length / withData.length * 100);
   }, [keywords]);
 
-  if (loading) return (
+  if (loading || (currentKey !== null && loadedFor !== currentKey)) return (
     <div className="lvx">
       <div className="page-head">
         <div>
