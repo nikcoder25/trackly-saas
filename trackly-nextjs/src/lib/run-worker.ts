@@ -10,7 +10,7 @@ import IORedis from 'ioredis';
 import { pool } from './db';
 import { queryAI, getDefaultModel, estimateCost, resolveChatGPTModel, withCacheAndRetry, withDeepRetry, type AiError } from './ai-platforms';
 import { computeSovFromResults } from './run-sov';
-import { isSearchEnabled } from './response-cache';
+import { isSearchEnabled, getRunCacheMaxAgeSeconds } from './response-cache';
 import { resolveSearchModelWithBudget } from './search-budget';
 import { getAdminModel } from './site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from './parser';
@@ -309,6 +309,8 @@ async function processRun(job: Job<BrandRunJobData>) {
               platform: plat,
               model: modelForTask,
               searchEnabled: searchEnabledForTask,
+              // Never replay a prior run's answer; see getRunCacheMaxAgeSeconds.
+              maxAgeSeconds: getRunCacheMaxAgeSeconds(),
               brandId: brand?.id ?? null,
               city: brand?.city ?? null,
             },

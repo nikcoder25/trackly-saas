@@ -61,7 +61,12 @@ import {
 // OpenAI's automatic-cache threshold (~1024 tokens) - caching engages
 // only on requests where the combined system+user prefix crosses that
 // bar. This invariant is what keeps the door open.
-const SYSTEM_PROMPT = 'Recommendation assistant. List 3-6 specific businesses by name with one-line descriptions. Max 80 words. No intro, no caveats, no closing advice.';
+// It must answer the question actually asked. The previous wording
+// ("List 3-6 specific businesses by name") forced a list for every prompt,
+// so a brand-awareness prompt like "what is <brand>" came back as a list
+// of OTHER companies. Grok follows the system role most literally, which
+// is why its brand prompts scored 0%.
+const SYSTEM_PROMPT = 'Answer the question directly. If it asks for recommendations, name 3-6 specific businesses with one-line descriptions. If it asks about a specific business, describe that business. Max 80 words. No intro, no caveats, no closing advice.';
 // Output ceiling. Parsed responses (mentions, sentiment, position)
 // typically consume <100 tokens; 100 matches the tightened SYSTEM_PROMPT
 // budget (3-6 names, one line each, no preamble). Override via env for
@@ -544,6 +549,28 @@ export async function withDeepRetry<T>(
   }
 }
 
+// ── Perplexity source extraction ───────────────────────
+// Perplexity returns its sources as a top-level `citations` URL array and,
+// on the current API, as `search_results` ({ title, url, date }). Newer
+// responses can carry only `search_results`, which used to leave every
+// Perplexity row with zero sources. Read both, citations first (their
+// order matches the [n] markers in the text), deduped.
+export function extractPerplexityCitations(d: AiResponseData): string[] {
+  const urls: string[] = [];
+  if (Array.isArray(d?.citations)) {
+    for (const c of d.citations) {
+      const u = typeof c === 'string' ? c : (c && typeof c.url === 'string' ? c.url : '');
+      if (u) urls.push(u);
+    }
+  }
+  if (Array.isArray(d?.search_results)) {
+    for (const r of d.search_results) {
+      if (r && typeof r.url === 'string' && r.url) urls.push(r.url);
+    }
+  }
+  return [...new Set(urls)];
+}
+
 // ── Shared response cache wrapper ───────────────────────
 // Wraps any provider-call function (typically a withDeepRetry-wrapped
 // singleAttempt or a raw queryAI call) with a Postgres-backed read-through
@@ -561,6 +588,12 @@ export interface CacheAndRetryParams {
   searchEnabled: boolean;
   /** When true, skip the read but still write the resulting response. */
   fresh?: boolean;
+  /**
+   * Only reuse a cached row written within the last N seconds. Tracking
+   * runs pass getRunCacheMaxAgeSeconds() so they never replay a prior
+   * run's answer; the public tools omit it and keep the long TTL.
+   */
+  maxAgeSeconds?: number;
   /**
    * Brand context - recorded on the row for ops/debug only. Cross-tenant
    * dedup is keyed on the SHA-256 cache_key alone, so once a row exists
@@ -590,7 +623,9 @@ export async function withCacheAndRetry<T extends { model?: string }>(
     city: params.city ?? null,
   });
   if (!params.fresh) {
-    const hit = await getCached<T>(cacheKey);
+    const hit = params.maxAgeSeconds !== undefined
+      ? await getCached<T>(cacheKey, { maxAgeSeconds: params.maxAgeSeconds })
+      : await getCached<T>(cacheKey);
     if (hit) {
       return { data: hit.response, fromCache: true, model: hit.model };
     }
@@ -2192,12 +2227,20 @@ export async function queryAI(
           model: d.model || useModel,
           tokensIn: d.usage?.prompt_tokens || 0,
           tokensOut: d.usage?.completion_tokens || 0,
-          citations: d.citations || [],
+          citations: extractPerplexityCitations(d),
         };
       } else if (platform === 'Grok') {
         const d = await fetchAI(API_ENDPOINTS.grok.chat, {
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify({ model: useModel, max_tokens: maxTok, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }] }),
+          // grok-3-mini is a reasoning model and its thinking tokens count
+          // against max_tokens, so at the default effort the 100-token
+          // budget could be spent before any answer was written. 'low'
+          // keeps the budget for the visible reply.
+          body: JSON.stringify({
+            model: useModel, max_tokens: maxTok,
+            ...(useModel.startsWith('grok-3-mini') ? { reasoning_effort: 'low' } : {}),
+            messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }],
+          }),
           signal,
         }, AI_GROK_REQUEST_TIMEOUT_MS, apiKey, 'Grok');
         result = {
