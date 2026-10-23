@@ -22,6 +22,7 @@ import { queryAI, getDefaultModel } from './ai-platforms';
 import { resolveGeneratorKey } from './generator-key';
 import { classifyPrompts, selectImportantPages, type CandidatePage } from './prompt-map';
 import { upsertPromptMeta } from './prompt-meta';
+import { isBrandedPrompt } from './parser';
 import {
   deLocalize,
   getAiSearchVolume,
@@ -612,7 +613,12 @@ export async function runDiscovery(input: DiscoveryInput): Promise<void> {
     // Existing prompts are folded in so the dedupe also catches near-
     // duplicates of what the brand already tracks, then removed again.
     const existingKeys = new Set(dedupePrompts(input.existing).map(p => p.toLowerCase()));
-    candidates = dedupePrompts(candidates).filter(p => !existingKeys.has(p.toLowerCase()));
+    // Branded prompts are dropped here too: the generator is told not to
+    // name the brand, and one that slips through can't measure discovery.
+    const brandForFilter = { name: input.brandName, website: input.website };
+    candidates = dedupePrompts(candidates)
+      .filter(p => !existingKeys.has(p.toLowerCase()))
+      .filter(p => !input.brandName || !isBrandedPrompt(p, brandForFilter));
     await patchStage(jobId, 'dedupe', {
       status: 'done',
       detail: `${beforeDedupe - candidates.length} removed`,

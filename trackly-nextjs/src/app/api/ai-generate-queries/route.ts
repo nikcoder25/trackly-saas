@@ -7,6 +7,7 @@ import { getServerKeys } from '@/lib/server-keys';
 import { resolveKeysForTenant, PROVIDER_SPECS } from '@/lib/tenant-keys';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
+import { isBrandedPrompt } from '@/lib/parser';
 
 // Try platforms in this order so we prefer the cheapest / fastest
 // generator first, then fall back. Names match `ProviderSpec.keyName`.
@@ -66,22 +67,26 @@ export async function POST(request: Request) {
     ? `\n\nAlready tracked queries (do NOT repeat these):\n${existingQueries.join('\n')}`
     : '';
 
+  // Neither mode may put the brand name in a prompt. A prompt that names
+  // the brand gets the name echoed back ("I don't have information on
+  // <brand>") and reads as a mention, which inflated visibility for brands
+  // whose whole prompt list was branded. Suggest mode now asks for the
+  // high-intent buyer questions where the brand would have to be found.
   const prompt = isSuggestMode
-    ? `Generate 10-15 BRAND-FOCUSED search queries about "${brandName}" - a ${industry} brand${city ? ' based in or serving ' + city : ''}.
+    ? `Generate 10-15 high-intent buyer questions that a person ready to hire or buy would ask an AI chatbot (ChatGPT, Claude, Perplexity) when choosing a ${industry} provider${city ? ' in or near ' + city : ''}.
 
-These queries are designed to MAXIMIZE the brand's visibility score by directly probing what AI chatbots (ChatGPT, Claude, Perplexity) say about "${brandName}" specifically.
+These prompts will be used to check whether AI assistants recommend "${brandName}" on their own, so they must measure discovery.
 
 CRITICAL REQUIREMENT:
-- EVERY SINGLE QUERY MUST CONTAIN THE EXACT BRAND NAME "${brandName}". No exceptions.
-- Do NOT generate generic category-level queries (e.g. "best ${industry}" or "top ${industry} companies") - those are for a separate flow.
+- Do NOT include the brand name "${brandName}", any part of it, or its website in any query.
 
 Requirements:
-- Vary the intent: reviews, pricing, comparisons, reputation, services offered, alternatives, "is ${brandName} good", "is ${brandName} worth it", "what is ${brandName}", "${brandName} vs <competitor>", "${brandName} customer experience"
-- Mix question styles: "what is...", "is ... good", "... reviews", "... pricing", "tell me about ...", "how does ... compare"
-- Make them natural - how real people actually ask AI chatbots about a specific brand
+- Vary the buying angle: reviews and reputation, pricing and quotes, comparisons ("which is better"), trust ("most reliable", "licensed and insured"), specific services, urgency ("same day", "this week")
+- Mix question styles: "who is the best...", "which company should I hire for...", "how much does ... cost in ...", "most trusted ...", "recommend a ..."
+- Make them natural - how real people actually ask AI chatbots
 - Return ONLY a JSON array of strings, nothing else${existingList}
 
-Example format: ["what is ${brandName}", "is ${brandName} good", "${brandName} reviews", "${brandName} vs competitors", "${brandName} pricing"]`
+Example format: ["who is the most reliable ${industry} company${city ? ' in ' + city : ''}", "which ${industry} provider has the best reviews${city ? ' in ' + city : ''}"]`
     : `Generate 10-15 search queries that a person would type into an AI chatbot (like ChatGPT, Claude, Perplexity) when looking for "${industry}" services${city ? ' in or near ' + city : ''}.
 
 These queries will be used to track whether the brand "${brandName}" appears in AI responses.
@@ -90,6 +95,7 @@ Requirements:
 - Mix of general queries ("best ${industry} in ${city || 'my area'}") and specific queries ("affordable", "top rated", "most recommended", "near me")
 - Include different question styles: "who is the best...", "recommend a...", "top 5...", "which company..."
 - Include queries with and without location
+- Do NOT include the brand name "${brandName}" in any query
 - Make them natural - how real people actually ask AI chatbots
 - Return ONLY a JSON array of strings, nothing else${existingList}
 
@@ -131,10 +137,9 @@ Example format: ["best ${industry} in ${city || 'my area'}", "top rated ${indust
       return Response.json({ error: 'AI returned malformed JSON. Please try again.' }, { status: 500 });
     }
 
-    if (isSuggestMode) {
-      const needle = brandName.toLowerCase();
-      queries = queries.filter(q => q.toLowerCase().includes(needle));
-    }
+    // Belt and braces: drop anything the model returned that still names
+    // the brand, since a branded prompt can't measure discovery.
+    queries = queries.filter(q => !isBrandedPrompt(q, { name: String(brandName) }));
 
     if (!queries.length) {
       return Response.json({ error: 'No queries generated' }, { status: 500 });

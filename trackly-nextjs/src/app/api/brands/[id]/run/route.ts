@@ -901,6 +901,9 @@ async function executeRunBackgroundInner(
       platform: plat, query: q, model: result.model,
       mentioned: parsed.mentioned, recommended: parsed.recommended,
       sentiment: parsed.sentiment, listPosition: parsed.listPosition,
+      // The prompt itself names the brand: a mention here is only counted
+      // when the answer describes the brand (see parser.isBrandedPrompt).
+      branded: parsed.branded || undefined,
       citations, competitorMentions: competitors,
       // Reported by the engine, never inferred. Survives the response
       // cache because it is part of the cached QueryResult, so a cache
