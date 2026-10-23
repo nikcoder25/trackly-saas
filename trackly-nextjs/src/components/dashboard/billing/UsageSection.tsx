@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useCredits } from '@/contexts/CreditsContext';
 import { useBrands } from '@/contexts/BrandContext';
@@ -20,6 +19,8 @@ import DailyCreditChart from './DailyCreditChart';
 interface UsageSectionProps {
   numBrandsFromPage: number;
   resetDateLabel?: string;
+  /** /api/credits/usage payload, fetched once by the billing page. */
+  usage: UsageBreakdown | null;
 }
 
 const SURFACE = '#ffffff';
@@ -60,44 +61,12 @@ const UPGRADE_BTN_BG = '#e1e3f4';
 const UPGRADE_BTN_FG = '#3f3dbb';
 const UPGRADE_BTN_BORDER = '#cbcdf0';
 
-export default function UsageSection({ numBrandsFromPage, resetDateLabel }: UsageSectionProps) {
+export default function UsageSection({ numBrandsFromPage, resetDateLabel, usage }: UsageSectionProps) {
   const { status } = useCredits();
   const { brands } = useBrands();
-  const [usage, setUsage] = useState<UsageBreakdown | null>(null);
-  const [platformTotals, setPlatformTotals] = useState<Record<string, number> | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/credits/usage', { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (!cancelled && d) setUsage(d as UsageBreakdown); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
-
-  // Aggregate per-platform credit usage from the credit ledger over the
-  // last 30 days. The ledger endpoint already exists (no backend change);
-  // we just sum `rows[].credits` keyed by `platform` to power the
-  // "Prompts by AI platform" chart.
-  useEffect(() => {
-    let cancelled = false;
-    const to = new Date().toISOString();
-    const from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const url = `/api/credits/ledger?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=200`;
-    fetch(url, { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (cancelled || !d) return;
-        const totals: Record<string, number> = {};
-        for (const row of (d.rows || []) as { platform: string; credits: number }[]) {
-          if (!row.platform) continue;
-          totals[row.platform] = (totals[row.platform] || 0) + (row.credits || 1);
-        }
-        setPlatformTotals(totals);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
+  // Per-platform totals come with the usage payload (one aggregate query)
+  // instead of a separate client-side sum over a 200-row ledger page.
+  const platformTotals = usage ? usage.platformTotalsLast30Days ?? {} : null;
 
   if (!status) {
     return (

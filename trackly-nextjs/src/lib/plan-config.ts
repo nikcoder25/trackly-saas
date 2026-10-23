@@ -206,56 +206,18 @@ export const PLAN_DISPLAY_ORDER = [
   'enterprise',
 ] as const;
 
-/**
- * Numeric rank used to decide whether a plan transition is an upgrade or
- * a downgrade (e.g. for the post-checkout confirmation email).
- *
- * `trial` sits ABOVE `free` and below every paid tier. The previous
- * model collapsed `trial` and `free` to the same rank so the first paid
- * checkout from either state would still classify as an upgrade - but
- * that also made the trial → free transition register as `'same'`,
- * which silently suppresses any downgrade email a future trial-expiry
- * code path would want to send. With `trial = 1`, `free = 0`, the
- * first paid checkout (`trial → starter` etc.) is still strictly an
- * upgrade (1 < 2/3/4/5) and `trial → free` is now correctly classified
- * as a downgrade (1 → 0).
- *
- * `owner` is internal and never user-facing, but we map it high so
- * admin/owner flips never get classified as a downgrade by accident.
- */
-const PLAN_RANK: Record<string, number> = {
-  free: 0,
-  trial: 1,
-  starter: 2,
-  pro: 3,
-  agency: 4,
-  enterprise: 5,
-  owner: 99,
-};
-
-export function getPlanRank(plan: string | null | undefined): number {
-  if (!plan) return 0;
-  return PLAN_RANK[plan] ?? 0;
-}
-
-export type PlanChangeKind = 'upgrade' | 'downgrade' | 'same';
-
-/**
- * Compare two plans by rank. Returns 'same' if the plans rank equally
- * (e.g. free ↔ trial), 'upgrade' if `to` is higher, 'downgrade' if
- * lower. Used to pick the correct confirmation-email template after a
- * webhook plan change.
- */
-export function comparePlans(
-  from: string | null | undefined,
-  to: string | null | undefined,
-): PlanChangeKind {
-  const a = getPlanRank(from);
-  const b = getPlanRank(to);
-  if (b > a) return 'upgrade';
-  if (b < a) return 'downgrade';
-  return 'same';
-}
+// Plan ranking (getPlanRank / comparePlans / getPlanSwitchDirection) lives
+// in plan-rank.ts so client components can import it without pulling in
+// this module's server-only deps. Re-exported here for existing callers.
+export {
+  getPlanRank,
+  comparePlans,
+  getPlanSwitchDirection,
+  isPaidPlan,
+  hasActivePaidSubscription,
+  PAID_PLANS,
+} from './plan-rank';
+export type { PlanChangeKind, PlanSwitchDirection } from './plan-rank';
 
 export function getPlanCredits(plan: string | undefined | null): PlanCreditConfig {
   if (!plan) return PLAN_CREDITS.free;

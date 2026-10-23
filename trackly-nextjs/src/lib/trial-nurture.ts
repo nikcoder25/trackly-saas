@@ -21,8 +21,9 @@
  * most one email per user per tick. Sent steps are recorded in
  * users.settings.trialNurture and the outbox idempotency key backs that up.
  *
- * Users stop receiving these the moment they leave the 'trial' plan (paid
- * upgrade) or opt out via the unsubscribe link in every email.
+ * Users stop receiving these the moment they move to a paid plan, or opt
+ * out via the unsubscribe link in every email. Expired trials (swept to
+ * 'free' with settings.trialExpiredAt) keep getting the post-trial steps.
  */
 import crypto from 'crypto';
 import { pool } from '@/lib/db';
@@ -366,11 +367,15 @@ export async function runTrialNurture(now = new Date()): Promise<TrialNurtureRes
   let sent = 0;
   try {
     // Window: anyone still in trial, or whose trial ended within the
-    // winback window. plan='trial' drops users as soon as they pay.
+    // winback window. Expired trials are moved to plan='free' by the
+    // trial-expiry sweep (stamping settings.trialExpiredAt), so those are
+    // still eligible for the expired/winback steps. Paying users leave
+    // both states and drop out.
     const res = await pool.query(
       `SELECT id, email, name, username, created_at, trial_ends_at, settings
          FROM users
-        WHERE plan = 'trial'
+        WHERE (plan = 'trial'
+               OR (plan = 'free' AND settings->>'trialExpiredAt' IS NOT NULL))
           AND email_verified = TRUE
           AND trial_ends_at IS NOT NULL
           AND trial_ends_at > $1::timestamptz - INTERVAL '11 days'

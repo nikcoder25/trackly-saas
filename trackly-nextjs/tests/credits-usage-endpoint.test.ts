@@ -181,6 +181,23 @@ describe('GET /api/credits/usage', () => {
     expect(Number.isFinite(new Date(body.geoAuditsResetAt as string).getTime())).toBe(true);
   });
 
+  it('returns per-platform totals and never ships full brand data', async () => {
+    queryMock.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM users')) return { rows: [{ '?column?': 1 }] };
+      if (sql.includes('GROUP BY platform')) {
+        return { rows: [{ platform: 'ChatGPT', credits: 40 }, { platform: 'Claude', credits: 12 }] };
+      }
+      return { rows: [] };
+    });
+    const resp = await GET(fakeRequest());
+    const body = await resp.json();
+    expect(body.platformTotalsLast30Days).toEqual({ ChatGPT: 40, Claude: 12 });
+    const brandSql = queryMock.mock.calls.map(([sql]) => sql).find((sql) => sql.includes('FROM brands'));
+    expect(brandSql).toBeDefined();
+    expect(brandSql).toMatch(/jsonb_build_object/);
+    expect(brandSql).not.toMatch(/SELECT id, data\b/);
+  });
+
   it('returns 401 when the user has no row', async () => {
     queryMock.mockImplementation(async (sql: string) => {
       if (sql.includes('FROM users')) return { rows: [] };

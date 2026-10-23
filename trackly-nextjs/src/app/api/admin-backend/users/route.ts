@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { logError, serverError } from '@/lib/api-error';
 import { getClientIp } from '@/lib/rate-limit';
 import { uid } from '@/lib/helpers';
+import { toAdminUserRow } from '@/lib/admin-user-row';
 
 export async function GET(request: Request) {
   const admin = await requireAdmin(request);
@@ -41,7 +42,7 @@ export async function GET(request: Request) {
     const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
     const query = `
-      SELECT u.id, u.email, u.username, u.name, u.plan, u.role, u.email_verified, u.created_at,
+      SELECT u.id, u.email, u.username, u.name, u.plan, u.trial_ends_at, u.role, u.email_verified, u.created_at,
         u.settings->>'subscription_id' AS subscription_id,
         (SELECT COUNT(*)::int FROM brands WHERE user_id = u.id) AS brand_count,
         (SELECT COUNT(*)::int FROM prompt_runs WHERE brand_id IN (SELECT id FROM brands WHERE user_id = u.id)) AS total_queries
@@ -61,7 +62,7 @@ export async function GET(request: Request) {
     ]);
 
     return Response.json({
-      users: result.rows,
+      users: result.rows.map(toAdminUserRow),
       total: countResult.rows[0].total,
       limit,
       offset,

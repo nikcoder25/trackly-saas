@@ -169,8 +169,12 @@ function TrialEndedBanner() {
     }
   }, [storageKey]);
 
-  if (!user || user.rawPlan !== 'trial' || !trialEndsAtISO) return null;
-  // Use rawPlan (DB plan, exposed by safeUser) not plan (effective): once the trial expires, effective plan flips to 'free' while rawPlan stays 'trial' - that's exactly the post-trial state we want to detect.
+  // Post-trial state: either the DB row still says 'trial' (expired, but the
+  // hourly trial-expiry sweep hasn't run yet) or the sweep already moved it
+  // to 'free' and stamped settings.trialExpiredAt.
+  const expiredTrial = user?.rawPlan === 'trial'
+    || (user?.rawPlan === 'free' && !!user?.settings?.trialExpiredAt);
+  if (!user || !expiredTrial || user.plan !== 'free' || !trialEndsAtISO) return null;
   const endMs = new Date(trialEndsAtISO).getTime();
   if (isNaN(endMs) || endMs > Date.now()) return null;
   if (dismissed) return null;
