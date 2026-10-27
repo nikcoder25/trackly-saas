@@ -1,10 +1,11 @@
 'use client';
-/** Rank Tracking: all websites (screen 1). Tiles, position spread and the websites table. */
+/** Rank Tracking: all websites (screen 1). Tiles, position spread, the websites table and every keyword with its rank. */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { PageHead } from '@/app/dashboard-v2/ui';
 import type { ComparePeriod, RankSummary } from '@/lib/rank-tracking/types';
 import { RT, rtFetch, RankTabs, CreditsCard, Toggle, fmtDay, btnPrimary, btnSecondary, cardStyle } from '@/components/rank-tracking/RankUi';
+import SummaryKeywordsTable from '@/components/rank-tracking/SummaryKeywordsTable';
 import SummaryWebsitesTable, { siteRow, groupRow, srOnly, type SummaryRow } from '@/components/rank-tracking/SummaryWebsitesTable';
 
 const PERIODS: { value: ComparePeriod; label: string }[] = [
@@ -223,6 +224,8 @@ export default function RankTrackingPage() {
                 </p>
               )}
             </section>
+
+            <SummaryKeywordsTable websites={data.websites} reloadKey={data} />
           </>
         )}
       </div>
