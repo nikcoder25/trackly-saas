@@ -37,5 +37,8 @@ export function getServerKeys(): Record<string, string[]> {
     gemini: parseKeys('GEMINI_API_KEY'),
     claude: parseKeys('CLAUDE_API_KEY'),
     grok: parseKeysMulti('GROK_API_KEY', 'XAI_API_KEY'),
+    // Server-only: Google AI Overview and Google AI Mode (and Gemini via
+    // consumer Gemini) are read through Litescrape. No tenant BYOK.
+    litescrape: parseKeys('LITESCRAPE_API_KEY'),
   };
 }

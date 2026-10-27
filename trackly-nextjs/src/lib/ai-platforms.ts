@@ -271,6 +271,10 @@ export const PLATFORM_LIMITS: Record<string, PlatformLimit> = {
   Gemini:     { maxConcurrent: Number(process.env.AI_LIMITS_GEMINI_CONCURRENCY)     || 6, rpm: Number(process.env.AI_LIMITS_GEMINI_RPM)     || 400, windowMs: 60000 },
   Grok:       { maxConcurrent: Number(process.env.AI_LIMITS_GROK_CONCURRENCY)       || 3, rpm: Number(process.env.AI_LIMITS_GROK_RPM)       || 100, windowMs: 60000 },
   Perplexity: { maxConcurrent: Number(process.env.AI_LIMITS_PERPLEXITY_CONCURRENCY) || 3, rpm: Number(process.env.AI_LIMITS_PERPLEXITY_RPM) || 80,  windowMs: 60000 },
+  // Litescrape allows 5 concurrent calls per account, shared by both Google
+  // engines, consumer Gemini and the rank tracker.
+  'Google AI Overview': { maxConcurrent: Number(process.env.AI_LIMITS_GOOGLE_AIO_CONCURRENCY) || 2, rpm: 120, windowMs: 60000 },
+  'Google AI Mode':     { maxConcurrent: Number(process.env.AI_LIMITS_GOOGLE_AIMODE_CONCURRENCY) || 2, rpm: 60, windowMs: 60000 },
 };
 
 // RPM sliding window stays per-platform global (independent of which
@@ -692,6 +696,8 @@ const PLATFORM_RATE_LIMITS: Record<string, RateLimit> = {
   Gemini:     { minDelayMs: 300 },
   Grok:       { minDelayMs: 250 },
   Perplexity: { minDelayMs: 300 },
+  'Google AI Overview': { minDelayMs: 300 },
+  'Google AI Mode': { minDelayMs: 300 },
 };
 const lastRequestTimePerKey = new Map<string, number>();
 const rateLimitQueues = new Map<string, Promise<void>>();
@@ -883,6 +889,9 @@ export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; 
     { id: 'sonar', label: 'Sonar', default: true },
     { id: 'sonar-pro', label: 'Sonar Pro' },
   ],
+  // Read from Google itself via Litescrape: one "model", no tiers.
+  'Google AI Overview': [{ id: 'google-ai-overview', label: 'Google AI Overview', search: true, default: true }],
+  'Google AI Mode': [{ id: 'google-ai-mode', label: 'Google AI Mode', search: true, default: true }],
 };
 
 export const MODEL_PRICING: Record<string, { input: number; output: number }> = {
@@ -2288,6 +2297,22 @@ export async function queryAI(
           tokensOut: d.usage?.completion_tokens || 0,
           citations: [],
         };
+      } else if (platform === 'Google AI Overview' || platform === 'Google AI Mode') {
+        // Google's own AI answer for the tracked prompt, searched from the
+        // brand's city. A query Google shows no AI Overview for is a real
+        // result ("not shown"), not an error, and Litescrape doesn't bill it.
+        const isOverview = platform === 'Google AI Overview';
+        const a = isOverview
+          ? await googleAiOverview(query, brandCity || null, signal)
+          : await googleAiMode(query, brandCity || null, signal);
+        result = {
+          text: a.empty ? '' : a.text,
+          model: isOverview ? 'google-ai-overview' : 'google-ai-mode',
+          tokensIn: 0,
+          tokensOut: 0,
+          citations: a.citations,
+        };
+        retrievalCostUsd = isOverview && a.empty ? 0 : LITESCRAPE_CALL_USD;
       } else {
         throw new Error(`Unknown platform: ${platform}`);
       }

@@ -2,7 +2,7 @@ import { after } from 'next/server';
 import { pool, safeConnect, ensureColumns } from '@/lib/db';
 import { verifyRequestAuth, requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
-import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
+import { getPlanLimits, getEffectivePlan, GOOGLE_AI_ENGINES } from '@/lib/constants';
 import { countTrackedPromptsForOwnerExcluding } from '@/lib/prompt-quota';
 import { logError, serverError } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
@@ -149,9 +149,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
     if (safeBody.platforms !== undefined) {
       if (!Array.isArray(safeBody.platforms)) return Response.json({ error: 'Platforms must be an array' }, { status: 400 });
-      const ALLOWED_PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok'];
-      // Silently drop legacy/unknown platform values (e.g. "Google AI Overview"
-      // from a previous product version) so old brand rows can still be saved.
+      const ALLOWED_PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok', ...GOOGLE_AI_ENGINES];
+      // Silently drop unknown platform values so old brand rows can still be saved.
       // Dedupe while preserving order so selection priority is kept for
       // plan-cap truncation.
       const cleaned = (safeBody.platforms as unknown[]).filter(

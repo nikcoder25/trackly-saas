@@ -11,7 +11,7 @@ import { cleanCitationCounts } from '@/lib/citation-hosts';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type AnyObj = Record<string, any>;
 
-export const ENGINES = ['ChatGPT', 'Claude', 'Gemini', 'Perplexity', 'Grok'] as const;
+export const ENGINES = ['ChatGPT', 'Claude', 'Gemini', 'Perplexity', 'Grok', 'Google AI Overview', 'Google AI Mode'] as const;
 
 function runTime(r: AnyObj): number {
   const t = new Date(r?.time || r?.date || r?.created_at || 0).getTime();
@@ -36,6 +36,8 @@ export function engineName(raw: unknown): string | null {
   if (!s) return null;
   if (s.includes('gpt') || s.includes('openai') || s.includes('chatgpt')) return 'ChatGPT';
   if (s.includes('claude') || s.includes('anthropic')) return 'Claude';
+  if (s.includes('ai overview') || s.includes('ai-overview')) return 'Google AI Overview';
+  if (s.includes('ai mode') || s.includes('ai-mode')) return 'Google AI Mode';
   if (s.includes('gemini') || s.includes('google')) return 'Gemini';
   if (s.includes('perplexity') || s.includes('sonar')) return 'Perplexity';
   if (s.includes('grok') || s.includes('xai')) return 'Grok';

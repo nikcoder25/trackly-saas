@@ -252,7 +252,26 @@ export const PLATFORM_COLORS: Record<string, string> = {
   Claude: '#d97706',
   Gemini: '#4285f4',
   Grok: '#1d9bf0',
+  'Google AI Overview': '#ea4335',
+  'Google AI Mode': '#34a853',
 };
+
+/**
+ * Google's own AI answers, read through Litescrape at $0.00015 a call.
+ * They don't count toward a plan's AI platform limit: the limit exists
+ * because LLM calls are expensive, and these cost almost nothing.
+ */
+export const GOOGLE_AI_ENGINES = ['Google AI Overview', 'Google AI Mode'] as const;
+
+export function isGoogleAiEngine(platform: string): boolean {
+  return (GOOGLE_AI_ENGINES as readonly string[]).includes(platform);
+}
+
+/** Keep the first `limit` LLM platforms in saved order, plus every Google AI engine. */
+export function capPlatformsForPlan(platforms: string[], limit: number): string[] {
+  let llm = 0;
+  return platforms.filter((p) => isGoogleAiEngine(p) || ++llm <= limit);
+}
 
 // Plan-specific default platforms - mirrors backend PLAN_DEFAULT_PLATFORMS
 export const PLAN_DEFAULT_PLATFORMS: Record<string, string[]> = {

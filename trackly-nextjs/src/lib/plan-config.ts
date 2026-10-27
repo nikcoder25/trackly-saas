@@ -240,6 +240,8 @@ export const ECONOMY_MODEL_BY_PLATFORM: Record<string, string> = {
   Gemini: 'gemini-2.5-flash-lite',
   Grok: 'grok-3-mini',
   Perplexity: 'sonar',
+  'Google AI Overview': 'google-ai-overview',
+  'Google AI Mode': 'google-ai-mode',
 };
 
 // ChatGPT economy is `gpt-5.4-nano` (cheapest) and premium `gpt-5.4-mini`;
@@ -255,6 +257,8 @@ export const PREMIUM_MODEL_BY_PLATFORM: Record<string, string> = {
   Gemini: 'gemini-2.5-pro',
   Grok: 'grok-4',
   Perplexity: 'sonar-pro',
+  'Google AI Overview': 'google-ai-overview',
+  'Google AI Mode': 'google-ai-mode',
 };
 
 /**

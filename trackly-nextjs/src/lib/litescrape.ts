@@ -50,7 +50,10 @@ export function flattenTextBlocks(blocks: TextBlock[] | undefined): string {
   const out: string[] = [];
   const walk = (b: TextBlock, depth: number) => {
     if (!b || depth > 4) return;
-    const line = [b.title, b.snippet].filter(Boolean).join(' ').trim();
+    // AI Mode business cards come back as "GoogleThe Comfort Specialists...":
+    // a source label glued to the name, which would hide the brand from a
+    // word-boundary match. Split it off.
+    const line = [b.title, b.snippet].filter(Boolean).join(' ').replace(/\bGoogle(?=[A-Z0-9])/g, '').trim();
     // Google's own UI chrome, not part of the answer.
     if (line && !/^(shared|share public link)$/i.test(line)) out.push(line);
     for (const item of b.list || []) walk(item, depth + 1);
