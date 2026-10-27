@@ -21,6 +21,7 @@ import {
 } from './redis-platform-state';
 import { PROVIDER_SPECS } from './provider-specs';
 import { logger } from './logger';
+import { geminiChat, googleAiMode, googleAiOverview, litescrapeConfigured, LITESCRAPE_CALL_USD } from './litescrape';
 import { isRedirectCitationHost, looksLikeDomain } from './citation-hosts';
 import { recordAiCall, classifyOutcome, type Outcome } from './metrics';
 import {
@@ -270,6 +271,10 @@ export const PLATFORM_LIMITS: Record<string, PlatformLimit> = {
   Gemini:     { maxConcurrent: Number(process.env.AI_LIMITS_GEMINI_CONCURRENCY)     || 6, rpm: Number(process.env.AI_LIMITS_GEMINI_RPM)     || 400, windowMs: 60000 },
   Grok:       { maxConcurrent: Number(process.env.AI_LIMITS_GROK_CONCURRENCY)       || 3, rpm: Number(process.env.AI_LIMITS_GROK_RPM)       || 100, windowMs: 60000 },
   Perplexity: { maxConcurrent: Number(process.env.AI_LIMITS_PERPLEXITY_CONCURRENCY) || 3, rpm: Number(process.env.AI_LIMITS_PERPLEXITY_RPM) || 80,  windowMs: 60000 },
+  // Litescrape allows 5 concurrent calls per account, shared by both Google
+  // engines, consumer Gemini and the rank tracker.
+  'Google AI Overview': { maxConcurrent: Number(process.env.AI_LIMITS_GOOGLE_AIO_CONCURRENCY) || 2, rpm: 120, windowMs: 60000 },
+  'Google AI Mode':     { maxConcurrent: Number(process.env.AI_LIMITS_GOOGLE_AIMODE_CONCURRENCY) || 2, rpm: 60, windowMs: 60000 },
 };
 
 // RPM sliding window stays per-platform global (independent of which
@@ -691,6 +696,8 @@ const PLATFORM_RATE_LIMITS: Record<string, RateLimit> = {
   Gemini:     { minDelayMs: 300 },
   Grok:       { minDelayMs: 250 },
   Perplexity: { minDelayMs: 300 },
+  'Google AI Overview': { minDelayMs: 300 },
+  'Google AI Mode': { minDelayMs: 300 },
 };
 const lastRequestTimePerKey = new Map<string, number>();
 const rateLimitQueues = new Map<string, Promise<void>>();
@@ -882,6 +889,9 @@ export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; 
     { id: 'sonar', label: 'Sonar', default: true },
     { id: 'sonar-pro', label: 'Sonar Pro' },
   ],
+  // Read from Google itself via Litescrape: one "model", no tiers.
+  'Google AI Overview': [{ id: 'google-ai-overview', label: 'Google AI Overview', search: true, default: true }],
+  'Google AI Mode': [{ id: 'google-ai-mode', label: 'Google AI Mode', search: true, default: true }],
 };
 
 export const MODEL_PRICING: Record<string, { input: number; output: number }> = {
@@ -1656,6 +1666,29 @@ export function extractGeminiGrounding(
   return { citations, fanout, grounded: true };
 }
 
+/** Model label recorded for Gemini answers read from gemini.google.com via Litescrape. */
+export const GEMINI_LITESCRAPE_MODEL = 'gemini-web-litescrape';
+
+/**
+ * Gemini visibility answer from consumer Gemini via Litescrape, or null
+ * when the caller should use the Gemini API instead: Litescrape not
+ * configured, GEMINI_VIA_LITESCRAPE=false, a JSON-mode or custom-prompt
+ * caller, or any Litescrape error / timeout / empty reply.
+ */
+export async function geminiViaLitescrape(query: string, sysPrompt: string, options?: QueryOptions): Promise<QueryResult | null> {
+  if (process.env.GEMINI_VIA_LITESCRAPE === 'false' || !litescrapeConfigured()) return null;
+  if (options?.jsonMode || (options?.systemPrompt !== undefined && options.systemPrompt !== SYSTEM_PROMPT)) return null;
+  try {
+    const a = await geminiChat(`${sysPrompt}\n\n${query}`, options?.signal);
+    if (a.empty) return null;
+    return { text: a.text, model: GEMINI_LITESCRAPE_MODEL, tokensIn: 0, tokensOut: 0, citations: a.citations };
+  } catch (e) {
+    if (options?.signal?.aborted) throw e;
+    logger.warn('[gemini.litescrape_fallback]', { errorMessage: ((e as Error).message || '').slice(0, 240) });
+    return null;
+  }
+}
+
 async function callGemini(model: string, query: string, apiKey: string, sysPrompt: string, maxTok: number, options?: QueryOptions): Promise<QueryResult> {
   const attemptModels = GEMINI_FALLBACK_CHAIN[model] || [model];
   const signal = options?.signal;
@@ -2207,6 +2240,15 @@ export async function queryAI(
           citations: [],
         };
       } else if (platform === 'Gemini') {
+        // Visibility answers go to consumer Gemini through Litescrape first
+        // ($0.00015 a call vs ~$0.035 for a grounded API call). JSON-mode
+        // and custom-system-prompt callers (parsers, Fix Engine) keep the
+        // API, as does any Litescrape failure or timeout.
+        const viaLitescrape = await geminiViaLitescrape(query, sysPrompt, options);
+        if (viaLitescrape) {
+          result = viaLitescrape;
+          retrievalCostUsd = LITESCRAPE_CALL_USD;
+        } else {
         result = await callGemini(useModel, query, apiKey, sysPrompt, maxTok, options);
         // Google charges per grounded prompt. Bill on evidence that
         // grounding actually ran (the response carried groundingMetadata)
@@ -2216,6 +2258,7 @@ export async function queryAI(
           retrievalCostUsd =
             estimateCostUsd(result.model, result.tokensIn, result.tokensOut)
             + GEMINI_GROUNDING_CALL_USD;
+        }
         }
       } else if (platform === 'Perplexity') {
         const d = await fetchAI(API_ENDPOINTS.perplexity.chat, {
@@ -2254,6 +2297,22 @@ export async function queryAI(
           tokensOut: d.usage?.completion_tokens || 0,
           citations: [],
         };
+      } else if (platform === 'Google AI Overview' || platform === 'Google AI Mode') {
+        // Google's own AI answer for the tracked prompt, searched from the
+        // brand's city. A query Google shows no AI Overview for is a real
+        // result ("not shown"), not an error, and Litescrape doesn't bill it.
+        const isOverview = platform === 'Google AI Overview';
+        const a = isOverview
+          ? await googleAiOverview(query, brandCity || null, signal)
+          : await googleAiMode(query, brandCity || null, signal);
+        result = {
+          text: a.empty ? '' : a.text,
+          model: isOverview ? 'google-ai-overview' : 'google-ai-mode',
+          tokensIn: 0,
+          tokensOut: 0,
+          citations: a.citations,
+        };
+        retrievalCostUsd = isOverview && a.empty ? 0 : LITESCRAPE_CALL_USD;
       } else {
         throw new Error(`Unknown platform: ${platform}`);
       }

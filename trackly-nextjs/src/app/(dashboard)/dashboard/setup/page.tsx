@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { PLATFORM_COLORS, getPlanPlatforms } from '@/lib/constants';
+import { PLATFORM_COLORS, getPlanPlatforms, isGoogleAiEngine } from '@/lib/constants';
 import { getPlanCredits } from '@/lib/plan-config';
 import { useAuth } from '@/contexts/AuthContext';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
@@ -86,6 +86,8 @@ async function api(method: string, path: string, body?: unknown) {
 }
 
 const ALL_PLATFORMS = Object.keys(PLATFORM_COLORS);
+// Google AI Overview / AI Mode are free to add: they don't count toward the plan limit.
+const LLM_PLATFORMS = ALL_PLATFORMS.filter(p => !isGoogleAiEngine(p));
 
 export default function SetupPage() {
   const { user } = useAuth();
@@ -313,12 +315,13 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
   const v2 = getPlanCredits(user?.plan || 'free');
   const platformLimit = v2.maxPlatforms
     || (user?.limits as Record<string, number>)?.platforms
-    || ALL_PLATFORMS.length;
+    || LLM_PLATFORMS.length;
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(
     Array.isArray(brand.platforms) && brand.platforms.length
       ? brand.platforms
       : planPlatforms
   );
+  const selectedLlmCount = selectedPlatforms.filter(p => !isGoogleAiEngine(p)).length;
   const [nearbyAreas, setNearbyAreas] = useState<string[]>(brand.nearbyAreas || []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -760,7 +763,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
       </Card>
 
       <Card title="AI platforms to track"
-        right={<Badge tone={selectedPlatforms.length > platformLimit ? 'warn' : 'neu'}>{selectedPlatforms.length} / {ALL_PLATFORMS.length}</Badge>}>
+        right={<Badge tone={selectedLlmCount > platformLimit ? 'warn' : 'neu'}>{selectedPlatforms.length} / {ALL_PLATFORMS.length}</Badge>}>
         <p className="quiet" style={{ fontSize: 13, margin: '0 0 12px', lineHeight: 1.5 }}>
           Select which AI platforms to query when running keyword tracking. Only the platforms you pick will be scanned.
         </p>
@@ -783,10 +786,10 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
             );
           })}
         </div>
-        <div className="quiet mono" style={{ fontSize: 11, color: selectedPlatforms.length > platformLimit ? 'var(--warn)' : undefined, marginTop: 8 }}>
-          {selectedPlatforms.length > platformLimit
-            ? `Plan allows ${platformLimit} platforms - only the first ${platformLimit} you selected will be tracked.`
-            : `${selectedPlatforms.length} of ${ALL_PLATFORMS.length} selected (plan limit: ${platformLimit})`}
+        <div className="quiet mono" style={{ fontSize: 11, color: selectedLlmCount > platformLimit ? 'var(--warn)' : undefined, marginTop: 8 }}>
+          {selectedLlmCount > platformLimit
+            ? `Plan allows ${platformLimit} AI chat platforms - only the first ${platformLimit} you selected will be tracked. Google AI Overview and AI Mode are always included.`
+            : `${selectedLlmCount} of ${LLM_PLATFORMS.length} AI chat platforms selected (plan limit: ${platformLimit}). Google AI Overview and AI Mode don't count toward the limit.`}
         </div>
       </Card>
 

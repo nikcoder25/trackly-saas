@@ -135,6 +135,8 @@ export function isSearchEnabled(
   opts?: { geminiGrounding?: boolean },
 ): boolean {
   if (platform === 'Perplexity') return true;
+  // Live Google results, read through Litescrape.
+  if (platform === 'Google AI Overview' || platform === 'Google AI Mode') return true;
   if (platform === 'ChatGPT' && model.includes('search')) return true;
   // Grounded Gemini genuinely hits Google Search, so it must be keyed and
   // expired like the other retrieval paths. Getting this wrong would let a

@@ -4,7 +4,7 @@ import { isRedirectCitationHost } from '@/lib/citation-hosts';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid, decryptApiKeys, loadTenantFairnessSettings } from '@/lib/helpers';
 import { setTenantFairness } from '@/lib/fairness-scheduler';
-import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
+import { getPlanLimits, getEffectivePlan, capPlatformsForPlan, GOOGLE_AI_ENGINES } from '@/lib/constants';
 import { countTrackedPromptsForOwner } from '@/lib/prompt-quota';
 import { reserveTrialPromptBudget, releaseTrialPromptBudget } from '@/lib/anti-abuse';
 import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, pickBestKey, withDeepRetry, withCacheAndRetry, isTransientError, acquirePlatformSlot, resolveChatGPTModel } from '@/lib/ai-platforms';
@@ -38,8 +38,9 @@ import { sendLowCreditsEmail, sendAutoSkipEmail, sendMonthlyResetEmail } from '@
 const PLATFORM_KEY_MAP: Record<string, string> = {
   ChatGPT: 'openai', Perplexity: 'perplexity', Claude: 'claude',
   Gemini: 'gemini', Grok: 'grok',
+  'Google AI Overview': 'litescrape', 'Google AI Mode': 'litescrape',
 };
-const PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok'];
+const PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok', ...GOOGLE_AI_ENGINES];
 const PLAN_DEFAULT_PLATFORMS: Record<string, string[]> = {
   starter: ['ChatGPT', 'Claude'],
   free:    ['Gemini', 'Grok'],
@@ -252,10 +253,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   let activePlatforms: string[];
   if (requestedPlatforms && requestedPlatforms.length) {
-    activePlatforms = requestedPlatforms.filter(p => runnablePlatforms.includes(p));
-    if (activePlatforms.length > limits.platforms) {
-      activePlatforms = activePlatforms.slice(0, limits.platforms);
-    }
+    activePlatforms = capPlatformsForPlan(requestedPlatforms.filter(p => runnablePlatforms.includes(p)), limits.platforms);
     if (!activePlatforms.length) {
       return Response.json({ error: 'None of the selected AI platforms have API keys configured.' }, { status: 400 });
     }
@@ -265,7 +263,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       ? planDefaults.filter(p => runnablePlatforms.includes(p))
       : runnablePlatforms.slice();
     if (!defaults.length) defaults = runnablePlatforms.slice();
-    activePlatforms = defaults.slice(0, limits.platforms);
+    activePlatforms = capPlatformsForPlan(defaults, limits.platforms);
     if (!activePlatforms.length) return Response.json({ error: 'No API keys configured.' }, { status: 400 });
   }
 

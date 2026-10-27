@@ -32,6 +32,7 @@ import { getEffectivePlan } from './constants';
 const PLATFORM_KEY_MAP: Record<string, string> = {
   ChatGPT: 'openai', Perplexity: 'perplexity', Claude: 'claude',
   Gemini: 'gemini', Grok: 'grok',
+  'Google AI Overview': 'litescrape', 'Google AI Mode': 'litescrape',
 };
 const FAIL_THRESHOLD = Number(process.env.RUN_PLATFORM_FAIL_THRESHOLD) || 5;
 const WORKER_TIMEOUT_MS = Number(process.env.RUN_PER_QUERY_TIMEOUT_MS) || 180000;
