@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { GEO_AUDIT_PLATFORMS } from '@/lib/geo-audits';
 import { getActiveOffer, offerSurfaces } from '@/lib/promo-offer';
+import { getPlanCredits } from '@/lib/plan-config';
 
 // llms.txt - discovery file for AI crawlers per https://llmstxt.org/
-// Factual product description; per-plan limits intentionally omitted
-// to prevent drift between this file and the live /pricing page.
+// Factual product description. Per-plan limits are omitted to prevent drift
+// from the live /pricing page, except the platform count per plan, which is
+// read from the plan config below.
 
 const BASE_URL = process.env.APP_URL || 'https://livesov.com';
 
@@ -40,14 +42,19 @@ const DISPLAY_ORDER: ReadonlyArray<typeof GEO_AUDIT_PLATFORMS[number]> = [
 //     which is the one thing the spec says a useful file must not be.
 const PLATFORM_LIST = DISPLAY_ORDER.map(name => `${name} (${VENDORS[name]})`).join(', ');
 
+// Platforms per plan, read from the plan config so this line cannot drift
+// from what each plan actually runs.
+const PLATFORMS = (plan: string) => getPlanCredits(plan).maxPlatforms;
+const agencyPlatforms = PLATFORMS('agency') >= DISPLAY_ORDER.length ? `all ${DISPLAY_ORDER.length}` : String(PLATFORMS('agency'));
+
 const STATIC_BODY = [
   '# Livesov',
   '',
-  '> AI brand-visibility tracking across ChatGPT, Claude, Perplexity, Gemini, and Grok. Monitor share of voice, run GEO audits, and surface optimization recommendations from a single dashboard.',
+  '> Google rank tracking and AI brand-visibility tracking across ChatGPT, Claude, Perplexity, Gemini, and Grok. Track city-level Google rankings, monitor AI share of voice, run GEO audits, and surface optimization recommendations from a single dashboard.',
   '',
-  'Livesov is a SaaS platform that tracks how generative AI assistants reference brands. It runs scheduled prompts against five AI platforms, records mentions, computes share of voice against competitors, and produces GEO (generative engine optimization) audits with prioritized recommendations. It is built first for SEO and marketing agencies (including local SEO agencies), plus in-house growth teams as buyer discovery shifts from traditional search to AI assistants.',
+  'Livesov is a SaaS platform that tracks how generative AI assistants reference brands. It runs scheduled prompts against five AI platforms, records mentions, computes share of voice against competitors, and produces GEO (generative engine optimization) audits with prioritized recommendations. It also tracks Google rankings per keyword from the client\'s own city, shown next to AI visibility for the same keyword. It is built first for SEO and marketing agencies (including local SEO agencies), plus in-house growth teams as buyer discovery shifts from traditional search to AI assistants.',
   '',
-  `Platforms queried for every tracked prompt and every GEO audit, on every plan: ${PLATFORM_LIST}.`,
+  `Supported AI platforms: ${PLATFORM_LIST}. Starter tracks ${PLATFORMS('starter')} of them, Pro ${PLATFORMS('pro')}, and Agency ${agencyPlatforms}.`,
   '',
   'Plans are Free, Starter, Pro, and Agency. Per-plan limits (credits, brands, audits) are deliberately not listed here, so this file can never drift from the live pricing page.',
   '',
