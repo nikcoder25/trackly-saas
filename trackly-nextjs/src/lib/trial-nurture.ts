@@ -31,6 +31,13 @@ import { enqueueEmail } from '@/lib/email';
 import { escapeHtml } from '@/lib/sanitize';
 import { acquireCronLock } from '@/lib/cron-lock';
 import { logger } from '@/lib/logger';
+import { PRICING_PLANS } from '@/lib/constants';
+
+/** "$19/mo ($15/mo billed yearly)", read from PRICING_PLANS so emails match /pricing. */
+function planPrice(name: string): string {
+  const p = PRICING_PLANS.find((x) => x.name === name);
+  return p ? `${p.price}/mo (${p.annualPrice}/mo billed yearly)` : '';
+}
 
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 const HOUR = 60 * 60 * 1000;
@@ -244,9 +251,9 @@ export function renderStep(step: NurtureStep, ctx: NurtureContext): Rendered {
             : 'There is still time to run a full scan across all 5 AI engines.'}</p>
           <p style="${P}">AI answers change every week. A paid plan keeps your scans running on autopilot so you see drops before they cost you customers.</p>
           <ul style="${P}">
-            <li><strong>Starter</strong> $9/mo ($7/mo billed yearly)</li>
-            <li><strong>Pro</strong> $29/mo ($23/mo billed yearly), daily scans</li>
-            <li><strong>Agency</strong> $89/mo ($71/mo billed yearly), all 5 engines</li>
+            <li><strong>Starter</strong> ${planPrice('Starter')}</li>
+            <li><strong>Pro</strong> ${planPrice('Pro')}, daily scans, top 100 rank checks</li>
+            <li><strong>Agency</strong> ${planPrice('Agency')}, all 5 engines, daily rank checks</li>
           </ul>
           ${btn(billing, 'Choose a plan')}
         `),
@@ -270,7 +277,7 @@ export function renderStep(step: NurtureStep, ctx: NurtureContext): Rendered {
         html: wrap(ctx, `
           <p style="${P}">${hi}</p>
           <p style="${P}">Your Livesov trial has ended and scheduled tracking for <strong>${brand}</strong> is paused.</p>
-          <p style="${P}">We've kept your brand, prompts and results. Pick a plan any time and you'll continue right where you left off, starting at $9/month.</p>
+          <p style="${P}">We've kept your brand, prompts and results. Pick a plan any time and you'll continue right where you left off, starting at ${PRICING_PLANS.find((p) => p.name === 'Starter')?.price ?? ''}/month.</p>
           ${btn(billing, 'Resume tracking')}
         `),
       };

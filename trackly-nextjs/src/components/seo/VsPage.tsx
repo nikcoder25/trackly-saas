@@ -48,7 +48,7 @@ const LIVESOV_STRENGTHS = [
     icon: '$',
     title: 'Honest entry pricing',
     description:
-      'Plans from $9/mo with a 7-day trial and no credit card. Built for SMBs, startups, and agencies, not just enterprise budgets.',
+      'Plans from $19/mo with a 7-day trial and no credit card. Built for SMBs, startups, and agencies, not just enterprise budgets.',
   },
   {
     icon: '🛠',
@@ -102,7 +102,7 @@ export default function VsPage({ data }: { data: VsComparison }) {
           <Link href="/signup" className="ls-btn ls-btn-pri ls-btn-lg">Try Livesov free - no card</Link>
           <Link href="/pricing" className="ls-btn ls-btn-out ls-btn-lg">See pricing</Link>
         </div>
-        <p className="ls-trust">7 day free trial · No credit card · Plans from $9/mo</p>
+        <p className="ls-trust">7 day free trial · No credit card · Plans from $19/mo</p>
       </section>
 
       <Section pad="0 24px 56px" width={1000}>

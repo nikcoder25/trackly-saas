@@ -213,7 +213,8 @@ export default function AdminPage() {
 
       {isV3 ? (
         // v3: standard page header; the gradient hero card is folded into it.
-        <PageHead title="Admin Panel" sub={<span className="v3-mono">{total} {total === 1 ? 'user' : 'users'} in total</span>} />
+        <PageHead title="Admin Panel" sub={<span className="v3-mono">{total} {total === 1 ? 'user' : 'users'} in total</span>}
+          actions={<a href="/dashboard/admin/rank-spend" style={{ fontSize: 14, fontWeight: 600, color: '#4338ca' }}>Rank tracking data spend</a>} />
       ) : (<>
       {/* ── Header ── */}
       <div style={{ marginBottom: 28 }}>

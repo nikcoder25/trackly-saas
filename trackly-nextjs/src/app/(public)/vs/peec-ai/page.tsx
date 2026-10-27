@@ -55,7 +55,7 @@ const livesovStrengths = [
     icon: '$',
     title: '10x lower entry price',
     description:
-      'Livesov starts at $9/mo with a 7-day no-card trial. Peec&rsquo;s starter plan lists around $100/mo before add-ons.',
+      'Livesov starts at $19/mo with a 7-day no-card trial. Peec&rsquo;s starter plan lists around $100/mo before add-ons.',
   },
   {
     icon: '◎',
@@ -128,7 +128,7 @@ const comparisonRows = [
   ['Query method', 'Direct APIs', 'UI scraping (real sessions)'],
   ['Hallucination / fact-drift detection', '✓', '✗ Not advertised'],
   ['Free trial without a credit card', '✓ 7 days', '✗ Not advertised'],
-  ['Entry price', '$9/mo', '~$100/mo + add-ons'],
+  ['Entry price', '$19/mo', '~$100/mo + add-ons'],
   ['GEO audit included', '✓', '✗'],
 ];
 
@@ -141,7 +141,7 @@ const faqs = [
   {
     question: 'How does pricing compare between Livesov and Peec AI?',
     answer:
-      'Livesov runs $0-$89/mo with everything included. Peec lists a starter around $100/mo with ChatGPT, Perplexity, and Google AI Overviews in the base, while Claude, Gemini, DeepSeek, and Grok are paid add-ons (roughly €20-30/mo each) as of June 2026. A five-platform Peec setup can cost 10x a five-platform Livesov setup. Verify current pricing at peec.ai.',
+      'Livesov runs $0-$129/mo with everything included. Peec lists a starter around $100/mo with ChatGPT, Perplexity, and Google AI Overviews in the base, while Claude, Gemini, DeepSeek, and Grok are paid add-ons (roughly €20-30/mo each) as of June 2026. A five-platform Peec setup can cost 10x a five-platform Livesov setup. Verify current pricing at peec.ai.',
   },
   {
     question: 'Does API-based querying vs UI scraping matter?',
@@ -151,7 +151,7 @@ const faqs = [
   {
     question: 'Which tool is better for agencies?',
     answer:
-      'Both target agencies. Livesov&rsquo;s Agency plan ($89/mo) covers multi-brand tracking with premium AI models and API access. Peec&rsquo;s team features are strong but the per-platform add-on pricing multiplies across client portfolios. Agencies managing many SMB clients tend to feel that multiplication quickly.',
+      'Both target agencies. Livesov&rsquo;s Agency plan ($129/mo) covers multi-brand tracking with premium AI models and API access. Peec&rsquo;s team features are strong but the per-platform add-on pricing multiplies across client portfolios. Agencies managing many SMB clients tend to feel that multiplication quickly.',
   },
   {
     question: 'Can I try both before deciding?',
@@ -180,7 +180,7 @@ export default function VsPeecAiPage() {
           stats={[
             { value: '5', label: 'LLMs supported (Livesov, no add-ons)' },
             { value: '2-3', label: 'LLMs in Peec base plan' },
-            { value: '$9', label: 'Livesov entry price /mo' },
+            { value: '$19', label: 'Livesov entry price /mo' },
             { value: '~$100', label: 'Peec entry price /mo' },
           ]}
         />

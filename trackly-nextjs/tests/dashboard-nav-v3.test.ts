@@ -9,7 +9,7 @@ describe('v3 dashboard nav', () => {
     const classic = allNavItems.filter(i => !i.hidden).map(i => i.href).sort();
     expect([...V3_ALL_HREFS].sort()).toEqual(classic);
     expect(new Set(V3_ALL_HREFS).size).toBe(V3_ALL_HREFS.length);
-    expect(V3_ALL_HREFS.length).toBe(23);
+    expect(V3_ALL_HREFS.length).toBe(28);
   });
 
   it('maps routes to their section and tab', () => {

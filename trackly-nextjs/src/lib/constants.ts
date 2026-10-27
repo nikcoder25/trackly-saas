@@ -125,6 +125,12 @@ export interface PricingPlan {
    *  (the dashboard's Plan Comparison treats this as the primary quota). */
   headline: string;
   features: string[];
+  /** Google rank tracking credits a month (1 credit = 1 keyword check to the
+   *  top 30, top 100 = 2 credits). Mirrors RANK_CREDITS_BY_PLAN in
+   *  src/lib/rank-tracking/credits.ts. 0 = no rank tracking. */
+  rankCredits: number;
+  /** Google rank tracking bullets, shown above the AI visibility features. */
+  rankFeatures: string[];
   cta: string;
   featured?: boolean;
 }
@@ -149,6 +155,8 @@ export const PRICING_PLANS: PricingPlan[] = [
     name: 'Free', price: '$0', annualPrice: '$0',
     sub: 'Try it out', cta: 'Start Free',
     headline: '150 AI credits/month',
+    rankCredits: 0,
+    rankFeatures: [],
     features: [
       '1 brand',
       '5 tracked prompts',
@@ -158,9 +166,14 @@ export const PRICING_PLANS: PricingPlan[] = [
     ],
   },
   {
-    name: 'Starter', price: '$9', annualPrice: '$7',
+    name: 'Starter', price: '$19', annualPrice: '$15',
     sub: 'Perfect for getting started', cta: 'Get Started',
     headline: '750 AI credits/month',
+    rankCredits: 1000,
+    rankFeatures: [
+      '1,000 credits (250 keywords weekly)',
+      'City-level tracking',
+    ],
     features: [
       '3 brands',
       '15 tracked prompts (shared across all brands)',
@@ -171,9 +184,15 @@ export const PRICING_PLANS: PricingPlan[] = [
     ],
   },
   {
-    name: 'Pro', price: '$29', annualPrice: '$23',
+    name: 'Pro', price: '$49', annualPrice: '$39',
     sub: 'For growing businesses', cta: 'Start Pro', featured: true,
     headline: '2,500 AI credits/month',
+    rankCredits: 4000,
+    rankFeatures: [
+      '4,000 credits (1,000 keywords weekly)',
+      'City-level tracking, top 100',
+      'Client share links',
+    ],
     features: [
       'Unlimited brands',
       '25 tracked prompts (shared across all brands)',
@@ -185,9 +204,16 @@ export const PRICING_PLANS: PricingPlan[] = [
     ],
   },
   {
-    name: 'Agency', price: '$89', annualPrice: '$71',
+    name: 'Agency', price: '$129', annualPrice: '$103',
     sub: 'For agencies & teams', cta: 'Start Agency',
     headline: '8,000 AI credits/month',
+    rankCredits: 20000,
+    rankFeatures: [
+      '20,000 credits (5,000 keywords weekly)',
+      'Daily checks available',
+      'White-label PDF reports',
+      'Rank drop alerts',
+    ],
     features: [
       'Unlimited brands',
       '100 tracked prompts (shared across all brands)',
@@ -210,7 +236,7 @@ export const PRICING_COMPARISON = {
     // Ahrefs (Brand Radar) and Semrush (AI Toolkit) do track AI answers, as
     // paid add-ons. Keep this hedged: their engine lists change often.
     ['AI Brand Tracking', '\u2713 (up to 5 platforms)', 'Paid add-on', 'Paid add-on'],
-    ['Starting Price', '$9/mo', '$99/mo', '$129/mo'],
+    ['Starting Price', '$19/mo', '$99/mo', '$129/mo'],
     ['AI Response Proof', '\u2713', 'With add-on', 'With add-on'],
     ['Share of Voice', '\u2713 Automatic', 'With add-on', 'With add-on'],
     ['Sentiment Analysis', '\u2713 Built-in', '\u2717', 'Partial'],

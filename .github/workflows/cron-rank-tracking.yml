@@ -1,0 +1,32 @@
+# Rank tracking scheduler (Google rank checks).
+#
+# Every 10 minutes: collects finished DataForSEO Standard-queue tasks,
+# posts the next page where the domain was not found yet (early stop),
+# and starts the checks that are due (a bounded batch per tick, so checks
+# spread across the day). A keyword added in the app gets its first check
+# from the request itself; this tick finishes anything still pending.
+#
+# Required repository secrets: CRON_SECRET (matches the env var on
+# DigitalOcean).
+
+name: Rank tracking cron
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  tick:
+    name: Rank tracking tick
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Call /api/cron/rank-tracking
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --max-time 320 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://livesov.com/api/cron/rank-tracking"

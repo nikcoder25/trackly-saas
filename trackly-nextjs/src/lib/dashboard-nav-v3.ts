@@ -12,7 +12,7 @@
  */
 
 export type V3SectionId =
-  | 'overview' | 'prompts' | 'competitors' | 'sources' | 'fixes' | 'reports' | 'audits' | 'settings';
+  | 'overview' | 'rankings' | 'prompts' | 'competitors' | 'sources' | 'fixes' | 'reports' | 'audits' | 'settings';
 
 export interface V3Tab {
   href: string;
@@ -34,6 +34,16 @@ export interface V3Section {
 
 export const V3_SECTIONS: V3Section[] = [
   { id: 'overview', label: 'Overview', tabs: [{ href: '/dashboard', label: 'Overview' }] },
+  {
+    id: 'rankings', label: 'Rank tracking', short: 'Ranks',
+    tabs: [
+      { href: '/dashboard/rank-tracking', label: 'Websites' },
+      { href: '/dashboard/rank-tracking/overview', label: 'Overview' },
+      { href: '/dashboard/rank-tracking/alerts', label: 'Alerts' },
+      { href: '/dashboard/rank-tracking/reports', label: 'Reports' },
+      { href: '/dashboard/rank-tracking/clients', label: 'Clients' },
+    ],
+  },
   {
     id: 'prompts', label: 'Prompts & answers', short: 'Prompts',
     tabs: [
@@ -123,6 +133,11 @@ export const V3_ALL_HREFS: string[] = V3_SECTIONS.flatMap(s => s.tabs.map(t => t
  */
 export const V3_PAGE_BLURBS: Record<string, string> = {
   '/dashboard': 'How often AI engines name you, and what to do next.',
+  '/dashboard/rank-tracking': 'Google rankings checked from each client\'s city, next to their AI share of voice.',
+  '/dashboard/rank-tracking/overview': 'Google rankings and AI mentions across all your clients.',
+  '/dashboard/rank-tracking/alerts': 'Get an email or Slack message when a ranking or AI mention moves the way you care about.',
+  '/dashboard/rank-tracking/reports': 'PDF and CSV reports with your logo. One-off, or emailed to clients on a schedule.',
+  '/dashboard/rank-tracking/clients': 'Give each client their own read-only login with your branding, showing only their keywords.',
   '/dashboard/mentions': 'Every AI answer that named your brand, with the exact words it used.',
   '/dashboard/proof': 'Saved screenshots and quotes you can show a client or your boss.',
   '/dashboard/results': 'The full answer each AI engine gave for every prompt in your last scans.',
@@ -154,6 +169,8 @@ const V3_EXTRA_BLURBS: Record<string, { eyebrow: string; blurb: string }> = {
   '/dashboard/connect': { eyebrow: 'Tools', blurb: 'Connect your website so fixes can be applied for you.' },
   '/dashboard/fixes': { eyebrow: 'Tools', blurb: 'Changes we can make to your site to help AI engines quote it.' },
   '/dashboard/billing/ledger': { eyebrow: 'Settings · Billing & Usage', blurb: 'Every credit added to or taken from your account.' },
+  '/dashboard/rank-tracking/add': { eyebrow: 'Rank tracking · Websites', blurb: 'We check Google from the city you pick, the way a local customer searches.' },
+  '/dashboard/admin/rank-spend': { eyebrow: 'Settings · Admin Panel', blurb: 'What rank tracking data costs per day, per provider.' },
   '/dashboard/admin/runs': { eyebrow: 'Settings · Admin Panel', blurb: 'Every scan running or recently finished, across all users.' },
   '/dashboard/geo-audits/': { eyebrow: 'Audits · Regional Audits', blurb: 'One regional audit, question by question.' },
   '/dashboard/nap-audits/': { eyebrow: 'Audits · NAP Audits', blurb: 'Where your name, address and phone match, and where they do not.' },

@@ -92,7 +92,7 @@ const tableRows: string[][] = [
   ['Citation / source tracking', 'Yes', 'Yes', 'Limited', 'No'],
   ['Hallucination detection', 'Yes', 'Limited', 'No', 'No'],
   ['Free GEO audit included', 'Yes', 'No', 'No', 'No'],
-  ['Starting price', '$9/mo', '$$$ (enterprise)', '$$', '$$$'],
+  ['Starting price', '$19/mo', '$$$ (enterprise)', '$$', '$$$'],
   ['Best for', 'Founders, content & marketing teams', 'Enterprise brand teams', 'Small AI-SEO teams', 'Existing Semrush users'],
 ];
 
@@ -115,7 +115,7 @@ const faqs = [
   {
     question: 'What are the best AI search optimization tools for content creators?',
     answer:
-      'Content creators need accurate, affordable, multi-engine tracking plus a citation view that shows which pages AI quotes. Livesov starts at $9/mo, tracks all five engines (2 on Starter, 3 on Pro, all 5 on Agency), retains daily history, and includes a free GEO audit - which is why it fits creators and small teams better than enterprise-priced suites.',
+      'Content creators need accurate, affordable, multi-engine tracking plus a citation view that shows which pages AI quotes. Livesov starts at $19/mo, tracks all five engines (2 on Starter, 3 on Pro, all 5 on Agency), retains daily history, and includes a free GEO audit - which is why it fits creators and small teams better than enterprise-priced suites.',
   },
   {
     question: 'Do these tools measure real AI answers?',
@@ -151,7 +151,7 @@ export default function BestAiSearchOptimizationToolsPage() {
             { value: '5', label: 'AI engines that matter' },
             { value: 'Daily', label: 'History the best tools retain' },
             { value: '3–10×', label: 'Runs per prompt for accuracy' },
-            { value: '$9/mo', label: 'Where serious tracking can start' },
+            { value: '$19/mo', label: 'Where serious tracking can start' },
           ]}
         />
       </Section>
@@ -227,7 +227,7 @@ export default function BestAiSearchOptimizationToolsPage() {
           </p>
           <p>
             Livesov was built for that gap: all five engines, daily history, 3–10× runs per prompt, full
-            citation capture, and a free <a href="/geo-audit">GEO audit</a> to start - from $9/mo. If you
+            citation capture, and a free <a href="/geo-audit">GEO audit</a> to start - from $19/mo. If you
             want the framework behind the metrics, read <a href="/learn/ai-search-optimization">the
             complete AI search optimization guide</a>, or see <a href="/how-it-works">how the measurement
             works</a> end to end.
@@ -249,7 +249,7 @@ export default function BestAiSearchOptimizationToolsPage() {
           { href: '/vs/semrush', label: 'Livesov vs Semrush', description: 'Purpose-built vs bolt-on AI toolkit.' },
           { href: '/learn/ai-search-optimization', label: 'AI search optimization guide', description: 'The complete 2026 framework.' },
           { href: '/geo-audit', label: 'Free GEO audit', description: 'Score any page’s AI-citation readiness.' },
-          { href: '/pricing', label: 'Pricing & plans', description: 'Plans from $9/mo; all five engines on Agency.' },
+          { href: '/pricing', label: 'Pricing & plans', description: 'Plans from $19/mo; all five engines on Agency.' },
         ]}
       />
     </SeoLayout>

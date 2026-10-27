@@ -9,7 +9,7 @@ const POINTS = [
   '7 day free trial, no credit card',
   'Set up in under two minutes',
   'ChatGPT, Claude, Gemini, Perplexity and Grok',
-  'Plans from $9/mo',
+  'Plans from $19/mo',
 ];
 
 /* Sign up / sign in shell from the "Livesov Website" design: form on the

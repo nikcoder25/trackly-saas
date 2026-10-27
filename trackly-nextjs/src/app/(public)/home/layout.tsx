@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
+import { PRICING_PLANS } from '@/lib/constants';
 
 export const metadata: Metadata = {
   // Keyword first, brand last (absolute so no template can prepend the brand).
@@ -25,7 +26,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI Visibility Tracker for Agencies | Livesov',
     description:
-      'Track how ChatGPT, Gemini, Perplexity, Claude and Grok mention every client. Client reports, daily tracking, plans from $9/mo.',
+      'Track how ChatGPT, Gemini, Perplexity, Claude and Grok mention every client. Client reports, daily tracking, plans from $19/mo.',
     type: 'website',
     url: 'https://livesov.com/',
     siteName: 'Livesov',
@@ -40,7 +41,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'AI Visibility Tracker for Agencies | Livesov',
     description:
-      'Track how ChatGPT, Gemini, Perplexity, Claude and Grok mention every client. Client reports, daily tracking, plans from $9/mo.',
+      'Track how ChatGPT, Gemini, Perplexity, Claude and Grok mention every client. Client reports, daily tracking, plans from $19/mo.',
   },
   alternates: {
     canonical: '/',
@@ -91,9 +92,14 @@ const jsonLd = {
       applicationCategory: 'BusinessApplication',
       operatingSystem: 'Web',
       offers: [
-        { '@type': 'Offer', name: 'Starter', price: '9', priceCurrency: 'USD', url: 'https://livesov.com/signup' },
-        { '@type': 'Offer', name: 'Pro', price: '29', priceCurrency: 'USD', url: 'https://livesov.com/signup' },
-        { '@type': 'Offer', name: 'Agency', price: '89', priceCurrency: 'USD', url: 'https://livesov.com/signup' },
+        // Derived from PRICING_PLANS so the structured data cannot drift from the cards.
+        ...PRICING_PLANS.filter((p) => p.name !== 'Free').map((p) => ({
+          '@type': 'Offer',
+          name: p.name,
+          price: p.price.replace(/[^0-9.]/g, ''),
+          priceCurrency: 'USD',
+          url: 'https://livesov.com/signup',
+        })),
       ],
     },
     // NOTE: FAQPage schema intentionally omitted - the editorial homepage has

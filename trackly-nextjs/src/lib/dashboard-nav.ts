@@ -46,6 +46,16 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
+    label: 'Rank Tracking',
+    items: [
+      { href: '/dashboard/rank-tracking', label: 'Rank Tracking', icon: '↗' },
+      { href: '/dashboard/rank-tracking/overview', label: 'Rankings Overview', icon: '◆' },
+      { href: '/dashboard/rank-tracking/alerts', label: 'Rank Alerts', icon: '◈' },
+      { href: '/dashboard/rank-tracking/reports', label: 'Rank Reports', icon: '🗂️' },
+      { href: '/dashboard/rank-tracking/clients', label: 'Clients', icon: '◉' },
+    ],
+  },
+  {
     label: 'Analysis',
     items: [
       { href: '/dashboard/competitors', label: 'Competitors', icon: '⊘' },

@@ -195,7 +195,7 @@ export const LIVESOV_PROFILE: CompetitorProfile = {
   blurb:
     'A self-serve AI visibility tracker covering ChatGPT, Claude, Gemini, Perplexity, and Grok with no per-platform add-ons, with citation capture, hallucination detection, and the full AI response stored as evidence.',
   bestFor:
-    'SMBs, startups, and agencies that want complete multi-engine measurement with evidence, from $9/mo, with no demo call.',
+    'SMBs, startups, and agencies that want complete multi-engine measurement with evidence, from $19/mo, with no demo call.',
 };
 
 export function getCompetitor(name: string): CompetitorProfile | undefined {

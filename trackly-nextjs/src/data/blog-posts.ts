@@ -2042,7 +2042,7 @@ Use Livesov's evidence export to show:
 
 ## Getting Started
 
-1. [Sign up for Livesov Agency plan](https://livesov.com/signup) ($89/mo for unlimited brands)
+1. [Sign up for Livesov Agency plan](https://livesov.com/signup) ($129/mo for unlimited brands)
 2. Add your first client's brand
 3. Run an initial audit
 4. Package the results into a proposal
@@ -2443,7 +2443,7 @@ Most of what markets itself as a Perplexity SEO tracking tool is a checker: you 
 
 ### Livesov
 
-Purpose-built AI rank tracking across all five major engines, Perplexity included. Runs each prompt several times per scheduled check across Sonar, Sonar Pro, and Sonar Reasoning, records answer position and the full ranked citation list, benchmarks up to 20 competitors on the same prompts, stores every raw response, and charts the trend. Free 7-day trial with no card, plus a [free GEO audit](/geo-audit) and a set of [free tools](/tools) that need no signup. Paid plans start at $9/mo and include every engine - Perplexity is not an add-on.
+Purpose-built AI rank tracking across all five major engines, Perplexity included. Runs each prompt several times per scheduled check across Sonar, Sonar Pro, and Sonar Reasoning, records answer position and the full ranked citation list, benchmarks up to 20 competitors on the same prompts, stores every raw response, and charts the trend. Free 7-day trial with no card, plus a [free GEO audit](/geo-audit) and a set of [free tools](/tools) that need no signup. Paid plans start at $19/mo and include every engine - Perplexity is not an add-on.
 
 Best for: teams that want Perplexity tracked properly alongside the other four engines without paying per engine.
 
@@ -2489,7 +2489,7 @@ The fix is not complicated: track it alongside the others and look at the spread
 
 ### What is the best Perplexity rank tracker?
 
-The one that samples each prompt multiple times across Sonar models, stores the full citation list, benchmarks competitors on identical prompts, and re-runs on a schedule. Livesov does this from $9/mo (all five engines on Agency); Profound and Peec AI do it at enterprise price points; Otterly adds Google AI surfaces. Match the tool to which engines you actually need.
+The one that samples each prompt multiple times across Sonar models, stores the full citation list, benchmarks competitors on identical prompts, and re-runs on a schedule. Livesov does this from $19/mo (all five engines on Agency); Profound and Peec AI do it at enterprise price points; Otterly adds Google AI surfaces. Match the tool to which engines you actually need.
 
 ### Is there a free Perplexity SEO tracking tool?
 
@@ -2555,7 +2555,7 @@ The practical consequence: **you cannot fix a Claude ranking with a landing page
 
 ### Livesov
 
-Tracks Claude across Haiku 4.5, Sonnet 4, and Fable 5, on a schedule, with multi-run sampling, sentiment, competitor benchmarking against up to 20 rivals, and full response storage. Claude is included on every paid plan from $9/mo rather than sold as an engine add-on, and the 7-day trial needs no card. See the [Claude rank tracker](/claude-rank-tracker) for the mechanics and [Claude brand tracking](/claude-rank-tracker) for the mention-and-sentiment view.
+Tracks Claude across Haiku 4.5, Sonnet 4, and Fable 5, on a schedule, with multi-run sampling, sentiment, competitor benchmarking against up to 20 rivals, and full response storage. Claude is included on every paid plan from $19/mo rather than sold as an engine add-on, and the 7-day trial needs no card. See the [Claude rank tracker](/claude-rank-tracker) for the mechanics and [Claude brand tracking](/claude-rank-tracker) for the mention-and-sentiment view.
 
 ### Profound
 
@@ -2595,7 +2595,7 @@ Then run the same five prompts in [ChatGPT](/chatgpt-rank-tracker) and [Perplexi
 
 ### What is the best Claude rank tracking tool?
 
-The one that covers every Claude model, samples each prompt several times on a schedule, captures sentiment as well as presence, and stores the raw answers. Livesov does this from $9/mo with Claude included; Profound and Peec AI do it at enterprise pricing. Verify current engine coverage on any tool before buying - it changes often.
+The one that covers every Claude model, samples each prompt several times on a schedule, captures sentiment as well as presence, and stores the raw answers. Livesov does this from $19/mo with Claude included; Profound and Peec AI do it at enterprise pricing. Verify current engine coverage on any tool before buying - it changes often.
 
 ### Is there a free Claude rank tracker?
 
@@ -2885,7 +2885,7 @@ Two consequences follow. First, sample size matters more here: three runs per ch
 
 ### Livesov
 
-Tracks Grok across Grok 3 Mini and Grok 4 on a schedule, with multi-run sampling sized for the volatility, sentiment capture, competitor benchmarking against up to 20 rivals, and full response storage. Grok is included on every paid plan from $9/mo rather than being an engine add-on, which matters because Grok is the engine most often sold separately. See the [Grok rank tracker](/grok-rank-tracker) for the mechanics and [Grok brand tracking](/grok-rank-tracker) for mentions and sentiment.
+Tracks Grok across Grok 3 Mini and Grok 4 on a schedule, with multi-run sampling sized for the volatility, sentiment capture, competitor benchmarking against up to 20 rivals, and full response storage. Grok is included on every paid plan from $19/mo rather than being an engine add-on, which matters because Grok is the engine most often sold separately. See the [Grok rank tracker](/grok-rank-tracker) for the mechanics and [Grok brand tracking](/grok-rank-tracker) for mentions and sentiment.
 
 ### Profound
 
@@ -2926,7 +2926,7 @@ Grok has live access to X and can draw on posts and threads in real time, which 
 
 ### What is the best Grok rank tracker tool?
 
-The one that covers both Grok models, runs daily with enough repeats to absorb the volatility, and stores raw answers as evidence. Livesov includes Grok on every paid plan from $9/mo; Profound and Peec AI cover it at enterprise pricing - check which tier includes it.
+The one that covers both Grok models, runs daily with enough repeats to absorb the volatility, and stores raw answers as evidence. Livesov includes Grok on every paid plan from $19/mo; Profound and Peec AI cover it at enterprise pricing - check which tier includes it.
 
 ### Is there a free Grok rank tracker?
 
@@ -2975,7 +2975,7 @@ A ChatGPT SEO tracking tool closes that loop artificially: it asks the questions
 
 ### Livesov
 
-Tracks ChatGPT across GPT-5, GPT-5 mini and ChatGPT Search on a schedule, with multi-run sampling, sentiment, share of voice, competitor benchmarking against up to 20 rivals, citation capture, and every raw response stored. All five major engines are included on every paid plan from $9/mo, so ChatGPT is not billed separately. 7-day trial, no card. The [ChatGPT rank tracker](/chatgpt-rank-tracker) covers the position mechanics; [ChatGPT brand tracking](/chatgpt-rank-tracker) covers mentions and sentiment. There is also a [free ChatGPT mention checker](/tools/chatgpt-mention-checker) with no signup.
+Tracks ChatGPT across GPT-5, GPT-5 mini and ChatGPT Search on a schedule, with multi-run sampling, sentiment, share of voice, competitor benchmarking against up to 20 rivals, citation capture, and every raw response stored. All five major engines are included on every paid plan from $19/mo, so ChatGPT is not billed separately. 7-day trial, no card. The [ChatGPT rank tracker](/chatgpt-rank-tracker) covers the position mechanics; [ChatGPT brand tracking](/chatgpt-rank-tracker) covers mentions and sentiment. There is also a [free ChatGPT mention checker](/tools/chatgpt-mention-checker) with no signup.
 
 ### Profound
 
@@ -3015,7 +3015,7 @@ The work that moves that number is mostly off your own site. Get accurate curren
 
 ### What is the best ChatGPT SEO tracking tool?
 
-The one that samples every model repeatedly on a schedule, benchmarks competitors on identical prompts, captures ChatGPT Search citations, and stores raw answers. Livesov does this from $9/mo (all five engines on Agency); Profound and Peec AI do it at enterprise pricing; Otterly adds Google's AI surfaces. Pick on engine coverage and sampling depth, not dashboard design.
+The one that samples every model repeatedly on a schedule, benchmarks competitors on identical prompts, captures ChatGPT Search citations, and stores raw answers. Livesov does this from $19/mo (all five engines on Agency); Profound and Peec AI do it at enterprise pricing; Otterly adds Google's AI surfaces. Pick on engine coverage and sampling depth, not dashboard design.
 
 ### Can I track ChatGPT visibility for free?
 
@@ -3037,9 +3037,9 @@ It is the largest single engine, so it is a defensible starting point - but the 
   {
     slug: 'free-ai-rank-trackers',
     title: 'Free AI Rank Trackers for Perplexity, Claude and Grok (What Actually Exists)',
-    description: 'An honest look at what free AI rank tracking gets you, where the free tier stops, what you can build yourself with an API key, and when paying $9 is cheaper than not paying.',
+    description: 'An honest look at what free AI rank tracking gets you, where the free tier stops, what you can build yourself with an API key, and when paying $19 is cheaper than not paying.',
     seoTitle: 'Free AI Rank Trackers: Perplexity, Claude & Grok | Livesov',
-    metaDescription: 'An honest look at free AI rank trackers: what free tiers give you, where they stop, what you can build with an API key, and when $9 a month is cheaper.',
+    metaDescription: 'An honest look at free AI rank trackers: what free tiers give you, where they stop, what you can build with an API key, and when $19 a month is cheaper.',
     tag: 'Guide',
     date: '2026-09-07',
     readTime: '10 min read',
@@ -3118,7 +3118,7 @@ Three signals that the free approach has run out:
 
 **You need to defend a number.** "I checked and we were not there" does not survive a client meeting. Stored, timestamped, exportable evidence does.
 
-**You are spending more than an hour a month on it.** An hour of your time is worth more than $9. If you are manually re-running prompts and pasting into a sheet, you are paying for tracking - just in the currency that does not show up on the invoice.
+**You are spending more than an hour a month on it.** An hour of your time is worth more than $19. If you are manually re-running prompts and pasting into a sheet, you are paying for tracking - just in the currency that does not show up on the invoice.
 
 ## FAQ
 
@@ -3136,7 +3136,7 @@ You can, and for ten prompts checked monthly it is defensible. It stops scaling 
 
 ### What is the cheapest paid AI rank tracker?
 
-Livesov starts at $9/mo (2 engines on Starter, all five on Agency). Otterly's entry plan is around $29/mo for a smaller prompt allowance but adds Google AI Overviews coverage. Most enterprise platforms start near $99/mo. Compare on engines-per-dollar rather than headline price - engine add-ons are where these comparisons usually turn.
+Livesov starts at $19/mo (2 engines on Starter, all five on Agency). Otterly's entry plan is around $29/mo for a smaller prompt allowance but adds Google AI Overviews coverage. Most enterprise platforms start near $99/mo. Compare on engines-per-dollar rather than headline price - engine add-ons are where these comparisons usually turn.
 
 ### Do free AI visibility tools give accurate data?
 

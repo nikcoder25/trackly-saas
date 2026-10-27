@@ -4,7 +4,7 @@
 import * as React from 'react';
 
 export type V3IconName =
-  | 'overview' | 'prompts' | 'competitors' | 'sources' | 'fixes' | 'reports' | 'audits' | 'settings'
+  | 'overview' | 'rankings' | 'prompts' | 'competitors' | 'sources' | 'fixes' | 'reports' | 'audits' | 'settings'
   | 'search' | 'bell' | 'menu' | 'close' | 'chevron-down' | 'chevron-right' | 'plus' | 'play'
   | 'download' | 'arrow-right' | 'check' | 'logout' | 'user' | 'card' | 'sparkle' | 'switch' | 'clock'
   | 'flame' | 'trophy' | 'target' | 'arrow-up' | 'arrow-down' | 'check-circle';
@@ -12,6 +12,7 @@ export type V3IconName =
 const PATHS: Record<V3IconName, React.ReactNode> = {
   overview: <><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><rect x="14" y="14" width="7" height="7" rx="2" /></>,
   prompts: <><path d="M4 5h16v11H9l-5 4z" /><path d="M8 9h8M8 12h5" /></>,
+  rankings: <><path d="M3 20h18" /><path d="M4 16l5-5 4 3 7-8" /><path d="M16 6h4v4" /></>,
   competitors: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
   sources: <><path d="M4 5a2 2 0 012-2h9l5 5v11a2 2 0 01-2 2H6a2 2 0 01-2-2z" /><path d="M14 3v5h5M8 13h8M8 17h5" /></>,
   fixes: <><path d="M14.7 6.3a4 4 0 00-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 005.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z" /></>,

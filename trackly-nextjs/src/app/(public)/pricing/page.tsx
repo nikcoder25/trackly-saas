@@ -6,6 +6,7 @@ import { Breadcrumbs } from '@/components/seo/SeoLayout';
 import SiteShell from '@/components/site/SiteShell';
 import { PLAN_LIMITS, PRICING_PLANS, PRICING_COMPARISON } from '@/lib/constants';
 import { PLAN_CREDITS, ECONOMY_MODEL_BY_PLATFORM, PREMIUM_MODEL_BY_PLATFORM } from '@/lib/plan-config';
+import { TOP100_PLANS, DAILY_PLANS, RANK_CREDITS_BY_PLAN } from '@/lib/rank-tracking/credits';
 
 /**
  * Human names for the model ids in plan-config, so this FAQ can never drift
@@ -43,6 +44,20 @@ const TIER_TO_PLAN: Record<Tier, (typeof PRICING_PLANS)[number] | undefined> =
   ) as Record<Tier, (typeof PRICING_PLANS)[number] | undefined>;
 
 const num = (n: number) => (n >= 9999 ? 'Unlimited' : n.toLocaleString());
+/** Rank credits are real numbers even past 9,999 (Agency has 20,000). */
+const rankNum = (t: Tier, perCheck = 1) =>
+  Math.floor((TIER_TO_PLAN[t]?.rankCredits ?? 0) / perCheck).toLocaleString('en-US');
+
+/** Rank checks a keyword uses per month (1 credit each to the top 30). */
+const RANK_CHECKS_PER_MONTH = { weekly: 4, daily: 30 } as const;
+
+/** The design's "why rank tracking here" strip under the plan cards. */
+const RANK_STRIP = [
+  { t: 'Checked from the city', d: 'Not just "United States". Real local results.' },
+  { t: 'Weekly or daily', d: `Weekly uses ${RANK_CHECKS_PER_MONTH.weekly} credits a month. Daily uses ${RANK_CHECKS_PER_MONTH.daily}.` },
+  { t: 'White-label reports', d: 'Your logo, a share link for every client.' },
+  { t: 'Rank + AI in one row', d: 'See Google position and AI mentions per keyword.' },
+];
 const cooldownLabel = (s: number) => {
   if (s === 0) return 'None';
   if (s >= 60 && s % 60 === 0) {
@@ -84,6 +99,38 @@ const COMPARISON_ROWS: Array<{
   values: Record<Tier, string>;
 }> = [
   {
+    feature: 'Google rank tracking credits / month',
+    values: {
+      starter: rankNum('starter'),
+      pro: rankNum('pro'),
+      agency: rankNum('agency'),
+    },
+  },
+  {
+    feature: 'Keywords checked weekly (top 30)',
+    values: {
+      starter: rankNum('starter', RANK_CHECKS_PER_MONTH.weekly),
+      pro: rankNum('pro', RANK_CHECKS_PER_MONTH.weekly),
+      agency: rankNum('agency', RANK_CHECKS_PER_MONTH.weekly),
+    },
+  },
+  {
+    feature: 'Rank checks to the top 100',
+    values: {
+      starter: TOP100_PLANS.has('starter') ? '✓' : '✗',
+      pro: TOP100_PLANS.has('pro') ? '✓' : '✗',
+      agency: TOP100_PLANS.has('agency') ? '✓' : '✗',
+    },
+  },
+  {
+    feature: 'Daily rank checks',
+    values: {
+      starter: DAILY_PLANS.has('starter') ? '✓' : '✗',
+      pro: DAILY_PLANS.has('pro') ? '✓' : '✗',
+      agency: DAILY_PLANS.has('agency') ? '✓' : '✗',
+    },
+  },
+  {
     feature: 'Tracked prompts (account-wide)',
     values: {
       starter: num(PLAN_CREDITS.starter.trackedPromptsPerAccount),
@@ -116,7 +163,7 @@ const COMPARISON_ROWS: Array<{
     },
   },
   {
-    feature: 'Monthly credits',
+    feature: 'AI credits / month',
     values: {
       starter: num(PLAN_CREDITS.starter.monthlyCredits),
       pro: num(PLAN_CREDITS.pro.monthlyCredits),
@@ -286,12 +333,16 @@ const FAQ = [
     a: 'One credit = one query sent to one AI platform. A run with 10 queries across 3 platforms uses 30 credits. Credits refresh at the start of every UTC month.',
   },
   {
+    q: 'What is one rank tracking credit?',
+    a: `Rank tracking has its own allowance, separate from AI credits. One rank credit = one Google keyword check to the top 30, and a check to the top 100 uses 2 credits. A keyword checked weekly uses ${RANK_CHECKS_PER_MONTH.weekly} checks a month and a keyword checked daily uses ${RANK_CHECKS_PER_MONTH.daily}. So Starter's ${rankNum('starter')} credits cover ${rankNum('starter', RANK_CHECKS_PER_MONTH.weekly)} keywords checked weekly. Top 100 checks are on Pro and Agency, and daily checks are on Agency.`,
+  },
+  {
     q: 'What happens when I run out of credits?',
     a: 'Manual runs are blocked until the next monthly reset or you upgrade. Scheduled runs pause and resume automatically when credits return.',
   },
   {
     q: 'Is there a free trial?',
-    a: `Yes. Every paid plan starts with a 7-day free trial - no credit card required. You get ${PLAN_CREDITS.trial.monthlyCredits.toLocaleString()} credits (scans), all 5 AI platforms, and 30 tracked prompts (account-wide) to evaluate the product.`,
+    a: `Yes. Every paid plan starts with a 7-day free trial - no credit card required. You get ${PLAN_CREDITS.trial.monthlyCredits.toLocaleString()} credits (scans), all 5 AI platforms, 30 tracked prompts (account-wide) and ${RANK_CREDITS_BY_PLAN.trial.toLocaleString('en-US')} Google rank tracking credits to evaluate the product.`,
   },
   {
     q: 'Can I cancel anytime?',
@@ -377,10 +428,13 @@ export default function PricingPage() {
 
       {/* ── Hero ───────────────────────────────── */}
       <section className="ls-wrap ls-hero-c" style={{ paddingBottom: 40, gap: 20 }}>
-        <span className="ls-eyebrow">AI visibility tracker pricing</span>
-        <h1 className="ls-h1 lg" style={{ maxWidth: 900 }}>One coffee a month to see <span className="ls-em">what AI says about you.</span></h1>
-        <p className="ls-lead" style={{ maxWidth: 600 }}>
-          Livesov starts at $9/mo. Every plan has a 7 day free trial with all 5 AI platforms. No credit card needed.
+        <span className="ls-pill">New: Google rank tracking</span>
+        <h1 className="ls-h1 lg" style={{ maxWidth: 900 }}>Google rankings and AI visibility. <span className="ls-em">One tool, one bill.</span></h1>
+        <p className="ls-lead" style={{ maxWidth: 640 }}>
+          Track where your clients rank in Google from their own city, and whether ChatGPT, Gemini and Perplexity recommend them.
+        </p>
+        <p className="ls-note">
+          Plans from {TIER_TO_PLAN.starter?.price}/mo. Every plan has a 7 day free trial. No credit card needed.
         </p>
         <div className="ls-toggle" role="group" aria-label="Billing period" style={{ marginTop: 8 }}>
           <button type="button" aria-pressed={!annual} onClick={() => setAnnual(false)}>Monthly</button>
@@ -409,14 +463,33 @@ export default function PricingPage() {
                 <Link href={`/signup?plan=${plan.name.toLowerCase()}&billing=${annual ? 'annual' : 'monthly'}`} className={'ls-btn ls-btn-block ' + (pop ? 'ls-btn-pri' : 'ls-btn-out')}>{plan.cta}</Link>
                 <p className="ls-mono muted" style={{ fontSize: 12, textAlign: 'center', marginTop: -6 }}>7 day free trial · No credit card</p>
                 <hr />
-                <ul>
+                {plan.rankFeatures.length > 0 && (
+                  <>
+                    <div className="ls-tier-group">Google rank tracking</div>
+                    <ul aria-label={`${plan.name} Google rank tracking`}>
+                      {plan.rankFeatures.map((f) => <li key={f}><CheckIcon /><span>{f}</span></li>)}
+                    </ul>
+                  </>
+                )}
+                <div className="ls-tier-group">AI visibility</div>
+                <ul aria-label={`${plan.name} AI visibility`}>
                   {plan.features.map((f) => <li key={f}><CheckIcon /><span>{f}</span></li>)}
                 </ul>
               </div>
             );
           })}
         </div>
-        <p className="ls-note" style={{ marginTop: 24, textAlign: 'center' }}>1 credit = 1 prompt checked on 1 engine. Cancel anytime. No setup fees.</p>
+        <div className="ls-strip" style={{ marginTop: 32 }}>
+          {RANK_STRIP.map((i) => (
+            <div key={i.t}>
+              <b>{i.t}</b>
+              <span>{i.d}</span>
+            </div>
+          ))}
+        </div>
+        <p className="ls-note" style={{ marginTop: 24, textAlign: 'center' }}>
+          1 AI credit = 1 prompt checked on 1 engine. 1 rank credit = 1 keyword checked to the top 30 (top 100 uses 2). Cancel anytime. No setup fees.
+        </p>
       </section>
 
       {/* ── Detailed plan comparison (mirrors dashboard) ───────── */}
@@ -466,7 +539,7 @@ export default function PricingPage() {
             What {PUBLIC_TIERS.map((t) => PLAN_CREDITS[t].monthlyCredits.toLocaleString()).join(', ')} credits <span className="ls-em">actually buy.</span>
           </h2>
           <p className="ls-body">
-            One credit = one prompt sent to one AI platform, so a <strong>full scan</strong> (every tracked prompt
+            One AI credit = one prompt sent to one AI platform, so a <strong>full scan</strong> (every tracked prompt
             against every platform your plan allows) costs prompts &times; platforms credits. Here is that
             arithmetic, worked out per plan.
           </p>

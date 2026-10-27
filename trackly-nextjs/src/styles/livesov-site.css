@@ -330,6 +330,17 @@
 .ls-tier ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; font-size: 15px; }
 .ls-tier li { display: flex; gap: 10px; align-items: flex-start; }
 .ls-tier li svg { flex: none; margin-top: 2px; }
+.ls-tier-group { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ls-muted); }
+.ls-tier.pop .ls-tier-group { color: var(--ls-ft-text); }
+.ls-tier ul + .ls-tier-group { margin-top: 8px; }
+.ls-pill { font-size: 13px; font-weight: 600; color: var(--ls-accent-ink); background: var(--ls-accent-tint); padding: 6px 12px; border-radius: 999px; }
+.ls-strip {
+  background: #fff; border: 1px solid var(--ls-line); border-radius: 16px; padding: 24px 28px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;
+}
+.ls-strip > div { display: flex; flex-direction: column; gap: 6px; }
+.ls-strip b { font-weight: 600; }
+.ls-strip span { font-size: 14px; color: var(--ls-muted); }
 .ls-math dl { margin: 0; display: flex; flex-direction: column; gap: 10px; }
 .ls-math dl > div { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; border-bottom: 1px dashed var(--ls-line); padding-bottom: 8px; }
 .ls-math dt { color: var(--ls-muted); }
