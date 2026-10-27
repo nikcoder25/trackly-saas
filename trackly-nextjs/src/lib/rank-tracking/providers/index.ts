@@ -1,25 +1,27 @@
 /**
  * Provider choice and fallback.
  *
- * RANK_SERP_PROVIDER picks the primary (default dataforseo),
- * RANK_SERP_FALLBACK the second (default serper). Either can be any
- * registered adapter; adding a cheaper API later (Serpent, Litescrape) is
- * one new file plus one line in PROVIDERS.
+ * RANK_SERP_PROVIDER picks the primary (default litescrape when
+ * LITESCRAPE_API_KEY is set, else dataforseo), RANK_SERP_FALLBACK the
+ * second (default serper). Either can be any registered adapter.
  *
  * fetchPageWithFallback: a provider error or an empty page is retried once
  * on the same provider, then the other provider gets the request.
  */
 import { dataForSeoProvider } from './dataforseo';
+import { litescrapeProvider } from './litescrape';
 import { serperProvider } from './serper';
 import { ProviderError, type SerpPage, type SerpPageRequest, type SerpProvider } from './types';
 
 export const PROVIDERS: Record<string, SerpProvider> = {
   dataforseo: dataForSeoProvider,
+  litescrape: litescrapeProvider,
   serper: serperProvider,
 };
 
 export function primaryProvider(): SerpProvider {
-  return PROVIDERS[(process.env.RANK_SERP_PROVIDER || 'dataforseo').toLowerCase()] || dataForSeoProvider;
+  const fallbackDefault = litescrapeProvider.configured() ? 'litescrape' : 'dataforseo';
+  return PROVIDERS[(process.env.RANK_SERP_PROVIDER || fallbackDefault).toLowerCase()] || dataForSeoProvider;
 }
 
 export function fallbackProvider(): SerpProvider | null {
@@ -48,7 +50,7 @@ export async function fetchPageWithFallback(
   chain: SerpProvider[] = providerChain(),
   sleep: Sleep = defaultSleep,
 ): Promise<FetchedPage> {
-  if (!chain.length) throw new ProviderError('rank', 'no SERP provider is configured (DATAFORSEO_LOGIN/PASSWORD or SERPER_API_KEY)', false);
+  if (!chain.length) throw new ProviderError('rank', 'no SERP provider is configured (LITESCRAPE_API_KEY, DATAFORSEO_LOGIN/PASSWORD or SERPER_API_KEY)', false);
   let lastErr: unknown = null;
   let totalCost = 0;
   for (const p of chain) {
