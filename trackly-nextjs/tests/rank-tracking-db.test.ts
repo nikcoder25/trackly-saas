@@ -86,6 +86,11 @@ describe.skipIf(!DB)('rank tracking with a database', () => {
     process.env.DATAFORSEO_LOGIN = 'test';
     process.env.DATAFORSEO_PASSWORD = 'test';
     process.env.RANK_SERP_FALLBACK = 'none';
+    // CI's Postgres service has no TLS; the app pool only skips TLS when told to.
+    const dbUrl = process.env.DATABASE_URL || '';
+    if (!/sslmode=/.test(dbUrl) && /@(localhost|127\.0\.0\.1)[:/]/.test(dbUrl)) {
+      process.env.DATABASE_URL = dbUrl + (dbUrl.includes('?') ? '&' : '?') + 'sslmode=disable';
+    }
     m = {
       db: await import('@/lib/db'),
       schema: await import('@/lib/rank-tracking/schema'),
