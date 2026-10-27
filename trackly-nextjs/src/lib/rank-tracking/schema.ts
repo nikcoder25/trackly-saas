@@ -98,6 +98,7 @@ export const ensureRankSchema: () => Promise<void> = schemaOnce(async () => {
       type          TEXT,
       name_lc       TEXT NOT NULL
     );
+    ALTER TABLE rt_locations ADD COLUMN IF NOT EXISTS rank INTEGER;
     CREATE INDEX IF NOT EXISTS rt_locations_name_idx ON rt_locations(name_lc text_pattern_ops);
     CREATE TABLE IF NOT EXISTS rt_alert_rules (
       id            TEXT PRIMARY KEY,

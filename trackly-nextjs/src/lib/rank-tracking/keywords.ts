@@ -102,7 +102,7 @@ export async function addKeywords(input: AddKeywordsInput): Promise<AddKeywordsR
   // Search volume: one call per add, stored on the keyword. Best effort.
   if (ids.length) {
     try {
-      const v = await fetchSearchVolume(fresh, loc.code);
+      const v = await fetchSearchVolume(fresh, loc.code, 'en', loc.name);
       if (v.volumes.size) {
         await pool.query(
           `UPDATE rt_keywords k SET volume = v.vol FROM unnest($2::text[], $3::int[]) AS v(kw, vol) WHERE k.website_id = $1 AND k.keyword = v.kw AND k.location_code = $4`,

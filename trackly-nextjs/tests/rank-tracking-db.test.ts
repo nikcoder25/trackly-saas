@@ -219,4 +219,28 @@ describe.skipIf(!DB)('rank tracking with a database', () => {
     expect(d?.keywords.map((k) => k.keyword)).toEqual(['ac repair austin']);
     expect(await m.cl.clientByToken('not-a-real-token-at-all-123')).toBeNull();
   });
+
+  it('falls back to the bundled city list without DataForSEO', async () => {
+    const loc = await import('@/lib/rank-tracking/locations');
+    const login = process.env.DATAFORSEO_LOGIN;
+    await m.db.pool.query(`DELETE FROM rt_locations`);
+    delete process.env.DATAFORSEO_LOGIN;
+    try {
+      const hits = await loc.searchLocations('London', 3);
+      expect(hits[0]).toMatchObject({ name: 'London,England,United Kingdom', type: 'City' });
+      expect(hits[0].code).toBeLessThan(0);
+      expect((await loc.resolveLocation({ name: 'Toronto' }))?.name).toBe('Toronto,Ontario,Canada');
+      const r = await m.kw.addKeywords({
+        accountId: user, plan: 'pro', domain: 'example.co.uk', keywords: ['boiler repair london'],
+        location: { code: hits[0].code }, device: 'desktop', frequency: 'weekly', depth: 30,
+      });
+      expect(r.ok && r.location).toBe('London,England,United Kingdom');
+    } finally {
+      process.env.DATAFORSEO_LOGIN = login;
+    }
+    // A DataForSEO load replaces the bundled rows.
+    await loc.refreshLocations();
+    const n = await m.db.pool.query(`SELECT COUNT(*)::int AS n FROM rt_locations WHERE code < 0`);
+    expect(n.rows[0].n).toBe(0);
+  }, 30_000);
 });
