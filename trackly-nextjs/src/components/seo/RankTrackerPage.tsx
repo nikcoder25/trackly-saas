@@ -119,7 +119,7 @@ export default function RankTrackerPage({ data }: { data: RankTracker }) {
           <Link href="/signup" className="ls-btn ls-btn-pri ls-btn-lg">{`Start tracking ${data.engine} rank - free`}</Link>
           <Link href="/geo-audit" className="ls-btn ls-btn-out ls-btn-lg">Run a free audit</Link>
         </div>
-        <p className="ls-trust">7 day free trial · No credit card · Plans from $9/mo</p>
+        <p className="ls-trust">7 day free trial · No credit card · Plans from $19/mo</p>
       </section>
 
       <div className="ls-wrap ls-tpl-shot">

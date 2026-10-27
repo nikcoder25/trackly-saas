@@ -31,7 +31,8 @@ import {
   tryClaimLowBalanceNotify,
   tryClaimMonthlyResetNotify,
 } from '@/lib/credits';
-import { getPlanCredits, isLowBalance, resolveModelForPlan, applyChatGPTCohortOverride, geminiGroundingAllowedForPlan } from '@/lib/plan-config';
+import { getPlanCredits, isLowBalance, resolveModelForPlan, applyChatGPTCohortOverride } from '@/lib/plan-config';
+import { geminiGroundingWithinBudget } from '@/lib/gemini-grounding-budget';
 import { sendLowCreditsEmail, sendAutoSkipEmail, sendMonthlyResetEmail } from '@/lib/email';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
@@ -1086,10 +1087,12 @@ async function executeRunBackgroundInner(
         // pod cannot exceed the configured limit. Fail-open: if Redis is
         // unavailable the helper returns `allowed=true` so quota
         // telemetry never blocks paid traffic.
+        // Grounded Gemini: plan-gated and capped per month (gemini-grounding-budget.ts).
+        const geminiGroundingOk = plat === 'Gemini' && await geminiGroundingWithinBudget(userId, ownerPlan);
         const budgetResolved = await resolveSearchModelWithBudget({
           platform: plat,
           model: smartRoutedModel,
-          isSearch: isSearchEnabled(plat, smartRoutedModel, { geminiGrounding: geminiGroundingAllowedForPlan(ownerPlan) }),
+          isSearch: isSearchEnabled(plat, smartRoutedModel, { geminiGrounding: geminiGroundingOk }),
         });
         const effectiveModel = budgetResolved.model;
         const singleAttempt = async () => {
@@ -1150,7 +1153,7 @@ async function executeRunBackgroundInner(
                 // subject to the daily search budget: once the Gemini
                 // grounding budget is spent, budgetResolved.searchEnabled
                 // is false and the call goes out ungrounded.
-                geminiGrounding: geminiGroundingAllowedForPlan(ownerPlan) && budgetResolved.searchEnabled,
+                geminiGrounding: geminiGroundingOk && budgetResolved.searchEnabled,
                 // ChatGPT batch path (CHATGPT_BATCH_ENABLED) opts in
                 // only for cron-scheduled ticks. Manual user-clicked
                 // runs stay synchronous so the dashboard isn't waiting

@@ -80,10 +80,10 @@ export const vsComparisons: VsComparison[] = [
     keywords:
       'livesov vs scrunch ai, scrunch ai vs livesov, ai visibility tool comparison, ai search monitoring tools, geo tool',
     heroSubtitle:
-      'Two AI visibility tools with different centers of gravity. Livesov is a self-serve tracker across all five major LLMs with citations and stored evidence, from $9/mo. Scrunch AI leans toward content and brand teams at the enterprise end.',
+      'Two AI visibility tools with different centers of gravity. Livesov is a self-serve tracker across all five major LLMs with citations and stored evidence, from $19/mo. Scrunch AI leans toward content and brand teams at the enterprise end.',
     stats: [
       { value: '5', label: 'LLMs on every Livesov plan' },
-      { value: '$9', label: 'Livesov entry price /mo' },
+      { value: '$19', label: 'Livesov entry price /mo' },
       { value: '0', label: 'Sales calls to start' },
       { value: '7-day', label: 'Free Livesov trial' },
     ],
@@ -95,16 +95,16 @@ export const vsComparisons: VsComparison[] = [
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', 'Verify on site'],
       ['Full AI response stored as evidence', '✓', 'Verify on site'],
       ['Free trial without a credit card', '✓ 7 days', 'Verify on site'],
-      ['Entry price', '$9/mo', 'Verify on site'],
+      ['Entry price', '$19/mo', 'Verify on site'],
     ],
     competitorFit: [
       { icon: '📝', title: 'Content-team workflow', description: 'Scrunch AI is positioned for content and brand teams that want visibility tied closely to a content production process.' },
-      { icon: '🏢', title: 'Enterprise leaning', description: 'If you need an enterprise motion with managed onboarding, Scrunch sits nearer that end than a $9/mo self-serve tool.' },
+      { icon: '🏢', title: 'Enterprise leaning', description: 'If you need an enterprise motion with managed onboarding, Scrunch sits nearer that end than a $19/mo self-serve tool.' },
       { icon: '🔎', title: 'Verify current scope', description: 'Scrunch\'s platform coverage and features move; confirm the current feature set on scrunchai.com against your must-haves.' },
     ],
     chooseIntro: 'The decision usually comes down to how self-serve you want to be, and whether visibility should live inside a content workflow.',
     chooseBullets: [
-      ['You want to start measuring today, self-serve:', 'Livesov is $9/mo with a 7-day no-card trial and all five engines from minute one.'],
+      ['You want to start measuring today, self-serve:', 'Livesov is $19/mo with a 7-day no-card trial and all five engines from minute one.'],
       ['You want visibility bundled with content production:', 'Scrunch AI is positioned for that content-team workflow - evaluate it directly.'],
       ['You need evidence behind every metric:', 'Livesov stores the full AI response, so each number traces back to the answer a buyer saw.'],
     ],
@@ -119,7 +119,7 @@ export const vsComparisons: VsComparison[] = [
       {
         question: 'How do Livesov and Scrunch AI pricing compare?',
         answer:
-          'Livesov is $9 (Starter), $29 (Pro), and $89 (Agency) per month, each with a 7-day free trial and no credit card. Scrunch AI does not publish simple self-serve pricing in the same way - confirm current terms on scrunchai.com.',
+          'Livesov is $19 (Starter), $49 (Pro), and $129 (Agency) per month, each with a 7-day free trial and no credit card. Scrunch AI does not publish simple self-serve pricing in the same way - confirm current terms on scrunchai.com.',
       },
       {
         question: 'Which AI platforms does each track?',
@@ -142,10 +142,10 @@ export const vsComparisons: VsComparison[] = [
     keywords:
       'livesov vs rankscale, rankscale vs livesov, ai visibility tool comparison, ai rank tracker, geo tool',
     heroSubtitle:
-      'Rankscale frames AI visibility as rank-style scoring. Livesov reports rank alongside mention rate, citations, per-platform sentiment, and fact-drift - each traceable to the stored AI response - across all five major LLMs from $9/mo.',
+      'Rankscale frames AI visibility as rank-style scoring. Livesov reports rank alongside mention rate, citations, per-platform sentiment, and fact-drift - each traceable to the stored AI response - across all five major LLMs from $19/mo.',
     stats: [
       { value: '5', label: 'LLMs on every Livesov plan' },
-      { value: '$9', label: 'Livesov entry price /mo' },
+      { value: '$19', label: 'Livesov entry price /mo' },
       { value: '20', label: 'Competitors benchmarked' },
       { value: '7-day', label: 'Free Livesov trial' },
     ],
@@ -157,7 +157,7 @@ export const vsComparisons: VsComparison[] = [
       ['Competitor share of voice', '✓ Up to 20 brands', 'Verify on site'],
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', 'Verify on site'],
       ['Full AI response stored as evidence', '✓', 'Verify on site'],
-      ['Entry price', '$9/mo', 'Verify on site'],
+      ['Entry price', '$19/mo', 'Verify on site'],
     ],
     competitorFit: [
       { icon: '📊', title: 'Rank-first framing', description: 'If you want AI visibility expressed primarily in familiar rank-tracking terms, that framing is Rankscale\'s core.' },
@@ -181,7 +181,7 @@ export const vsComparisons: VsComparison[] = [
       {
         question: 'How do Livesov and Rankscale pricing compare?',
         answer:
-          'Livesov is $9 (Starter), $29 (Pro), and $89 (Agency) per month with a 7-day free trial and no credit card. Confirm current Rankscale pricing on rankscale.ai.',
+          'Livesov is $19 (Starter), $49 (Pro), and $129 (Agency) per month with a 7-day free trial and no credit card. Confirm current Rankscale pricing on rankscale.ai.',
       },
       {
         question: 'Do both tools track the same AI platforms?',
@@ -204,10 +204,10 @@ export const vsComparisons: VsComparison[] = [
     keywords:
       'livesov vs athenahq, athenahq vs livesov, ai visibility tool comparison, generative engine optimization tool, geo tool',
     heroSubtitle:
-      'AthenaHQ positions around agentic GEO workflows - optimization bundled with the tracking. Livesov is the measurement layer: accurate, evidence-backed visibility across all five major LLMs, so you decide what to act on, from $9/mo.',
+      'AthenaHQ positions around agentic GEO workflows - optimization bundled with the tracking. Livesov is the measurement layer: accurate, evidence-backed visibility across all five major LLMs, so you decide what to act on, from $19/mo.',
     stats: [
       { value: '5', label: 'LLMs on every Livesov plan' },
-      { value: '$9', label: 'Livesov entry price /mo' },
+      { value: '$19', label: 'Livesov entry price /mo' },
       { value: '✓', label: 'Evidence behind every metric' },
       { value: '7-day', label: 'Free Livesov trial' },
     ],
@@ -218,7 +218,7 @@ export const vsComparisons: VsComparison[] = [
       ['Per-platform sentiment', '✓', 'Verify on site'],
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', 'Verify on site'],
       ['Agentic optimization workflows', 'Free GEO audit + 10 tools', '✓ Core framing'],
-      ['Self-serve entry price', '$9/mo', 'Verify on site'],
+      ['Self-serve entry price', '$19/mo', 'Verify on site'],
     ],
     competitorFit: [
       { icon: '🤖', title: 'Agentic workflows', description: 'AthenaHQ is positioned around bundled optimization and execution, not measurement alone - useful if you want the tool to also act.' },
@@ -242,7 +242,7 @@ export const vsComparisons: VsComparison[] = [
       {
         question: 'How do Livesov and AthenaHQ pricing compare?',
         answer:
-          'Livesov is $9 (Starter), $29 (Pro), and $89 (Agency) per month with a 7-day free trial and no credit card. Confirm current AthenaHQ pricing on athenahq.ai.',
+          'Livesov is $19 (Starter), $49 (Pro), and $129 (Agency) per month with a 7-day free trial and no credit card. Confirm current AthenaHQ pricing on athenahq.ai.',
       },
       {
         question: 'Does Livesov give optimization recommendations?',
@@ -265,10 +265,10 @@ export const vsComparisons: VsComparison[] = [
     keywords:
       'livesov vs knowatoa, knowatoa vs livesov, ai visibility tool comparison, ai search console, geo tool',
     heroSubtitle:
-      'Knowatoa checks how AI assistants read and represent your site. Livesov turns that check into continuous monitoring: all five major LLMs on a schedule, with citations, sentiment, evidence, and competitor benchmarking, from $9/mo.',
+      'Knowatoa checks how AI assistants read and represent your site. Livesov turns that check into continuous monitoring: all five major LLMs on a schedule, with citations, sentiment, evidence, and competitor benchmarking, from $19/mo.',
     stats: [
       { value: '5', label: 'LLMs on every Livesov plan' },
-      { value: '$9', label: 'Livesov entry price /mo' },
+      { value: '$19', label: 'Livesov entry price /mo' },
       { value: '20', label: 'Competitors benchmarked' },
       { value: '7-day', label: 'Free Livesov trial' },
     ],
@@ -279,7 +279,7 @@ export const vsComparisons: VsComparison[] = [
       ['Citation capture (ranked sources)', '✓ Perplexity + ChatGPT Search', 'Verify on site'],
       ['Competitor share of voice', '✓ Up to 20 brands', 'Verify on site'],
       ['Full AI response stored as evidence', '✓', 'Verify on site'],
-      ['Entry price', '$9/mo', 'Verify on site'],
+      ['Entry price', '$19/mo', 'Verify on site'],
     ],
     competitorFit: [
       { icon: '🛠', title: 'Console-style diagnostics', description: 'Knowatoa is positioned as an AI search console - a natural fit for technical SEOs who want representation-and-crawler diagnostics.' },
@@ -303,7 +303,7 @@ export const vsComparisons: VsComparison[] = [
       {
         question: 'How do Livesov and Knowatoa pricing compare?',
         answer:
-          'Livesov is $9 (Starter), $29 (Pro), and $89 (Agency) per month with a 7-day free trial and no credit card. Confirm current Knowatoa pricing on knowatoa.com.',
+          'Livesov is $19 (Starter), $49 (Pro), and $129 (Agency) per month with a 7-day free trial and no credit card. Confirm current Knowatoa pricing on knowatoa.com.',
       },
       {
         question: 'Does Livesov check how AI reads my site like Knowatoa?',
@@ -326,10 +326,10 @@ export const vsComparisons: VsComparison[] = [
     keywords:
       'livesov vs llmrefs, llmrefs vs livesov, ai visibility tool comparison, llm visibility tracker, ai rank tracker',
     heroSubtitle:
-      'LLMrefs is a keyword-and-ranking LLM visibility tracker with a free tier used widely for first checks. Livesov is the full measurement layer: all five major LLMs, citations, sentiment, evidence, and competitor benchmarking, from $9/mo.',
+      'LLMrefs is a keyword-and-ranking LLM visibility tracker with a free tier used widely for first checks. Livesov is the full measurement layer: all five major LLMs, citations, sentiment, evidence, and competitor benchmarking, from $19/mo.',
     stats: [
       { value: '5', label: 'LLMs on every Livesov plan' },
-      { value: '$9', label: 'Livesov entry price /mo' },
+      { value: '$19', label: 'Livesov entry price /mo' },
       { value: '✓', label: 'Citations + evidence' },
       { value: '7-day', label: 'Free Livesov trial' },
     ],
@@ -341,7 +341,7 @@ export const vsComparisons: VsComparison[] = [
       ['Per-platform sentiment', '✓', 'Verify on site'],
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', 'Verify on site'],
       ['Full AI response stored as evidence', '✓', 'Verify on site'],
-      ['Entry price', '$9/mo', 'Verify on site'],
+      ['Entry price', '$19/mo', 'Verify on site'],
     ],
     competitorFit: [
       { icon: '🆓', title: 'Free first look', description: 'LLMrefs\' free tier is a genuinely useful zero-cost way to run a first visibility check before paying for anything.' },
@@ -352,7 +352,7 @@ export const vsComparisons: VsComparison[] = [
     chooseBullets: [
       ['You want a zero-cost first look:', 'LLMrefs\' free tier is a good place to start - so is Livesov\'s free GEO audit and free tools, no signup needed.'],
       ['You need evidence and citations to act on:', 'Livesov stores the full response and ranked citation list behind every metric.'],
-      ['You need all five engines and competitor share of voice:', 'Livesov supports all five with no add-ons from $9/mo (2 engines on Starter, 3 on Pro, all five on Agency).'],
+      ['You need all five engines and competitor share of voice:', 'Livesov supports all five with no add-ons from $19/mo (2 engines on Starter, 3 on Pro, all five on Agency).'],
     ],
     calloutBody:
       'Start free on either. When you need the citation lists, stored evidence, and competitor benchmarking that turn a rank number into a decision, that is where Livesov goes further.',
@@ -365,7 +365,7 @@ export const vsComparisons: VsComparison[] = [
       {
         question: 'How do Livesov and LLMrefs pricing compare?',
         answer:
-          'Livesov is $9 (Starter), $29 (Pro), and $89 (Agency) per month with a 7-day free trial and no credit card, plus a free GEO audit and free tools. Confirm current LLMrefs pricing and free-tier limits on llmrefs.com.',
+          'Livesov is $19 (Starter), $49 (Pro), and $129 (Agency) per month with a 7-day free trial and no credit card, plus a free GEO audit and free tools. Confirm current LLMrefs pricing and free-tier limits on llmrefs.com.',
       },
       {
         question: 'Does Livesov have a free option like LLMrefs?',
@@ -388,10 +388,10 @@ export const vsComparisons: VsComparison[] = [
     keywords:
       'livesov vs waikay, waikay vs livesov, ai visibility tool comparison, answer engine optimization tool, geo tool',
     heroSubtitle:
-      'Waikay analyzes what AI models know about a brand and its topics. Livesov measures what the live engines actually said this week - mentions, citations, sentiment, and share of voice - across all five major LLMs, with evidence, from $9/mo.',
+      'Waikay analyzes what AI models know about a brand and its topics. Livesov measures what the live engines actually said this week - mentions, citations, sentiment, and share of voice - across all five major LLMs, with evidence, from $19/mo.',
     stats: [
       { value: '5', label: 'LLMs on every Livesov plan' },
-      { value: '$9', label: 'Livesov entry price /mo' },
+      { value: '$19', label: 'Livesov entry price /mo' },
       { value: '20', label: 'Competitors benchmarked' },
       { value: '7-day', label: 'Free Livesov trial' },
     ],
@@ -402,7 +402,7 @@ export const vsComparisons: VsComparison[] = [
       ['Citation capture (ranked sources)', '✓ Perplexity + ChatGPT Search', 'Verify on site'],
       ['Competitor share of voice', '✓ Up to 20 brands', 'Verify on site'],
       ['Full AI response stored as evidence', '✓', 'Verify on site'],
-      ['Entry price', '$9/mo', 'Verify on site'],
+      ['Entry price', '$19/mo', 'Verify on site'],
     ],
     competitorFit: [
       { icon: '🧠', title: 'Entity & knowledge focus', description: 'Waikay centers on what models know about a brand and topic - a fit if knowledge-graph accuracy is your main worry.' },
@@ -426,7 +426,7 @@ export const vsComparisons: VsComparison[] = [
       {
         question: 'How do Livesov and Waikay pricing compare?',
         answer:
-          'Livesov is $9 (Starter), $29 (Pro), and $89 (Agency) per month with a 7-day free trial and no credit card. Confirm current Waikay pricing on waikay.io.',
+          'Livesov is $19 (Starter), $49 (Pro), and $129 (Agency) per month with a 7-day free trial and no credit card. Confirm current Waikay pricing on waikay.io.',
       },
       {
         question: 'Does Livesov analyze what AI knows about my brand like Waikay?',

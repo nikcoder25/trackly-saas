@@ -73,7 +73,7 @@ const livesovStrengths = [
     icon: '$',
     title: 'Lower entry price',
     description:
-      'Plans from $9/mo with a 7-day no-card trial. Strong fit for SMBs and early-stage teams priced out of enterprise tools.',
+      'Plans from $19/mo with a 7-day no-card trial. Strong fit for SMBs and early-stage teams priced out of enterprise tools.',
   },
   {
     icon: '⟁',
@@ -132,7 +132,7 @@ const comparisonRows = [
   ['Hallucination / fact-drift detection', '✓', '✗'],
   ['Full AI response stored as evidence', '✓', 'Partial'],
   ['Free trial without a credit card', '✓ 7 days', '14-day trial'],
-  ['Entry price', '$9/mo (Starter)', '$29/mo (Lite, ~10 prompts)'],
+  ['Entry price', '$19/mo (Starter)', '$29/mo (Lite, ~10 prompts)'],
 ];
 
 const faqs = [
@@ -144,7 +144,7 @@ const faqs = [
   {
     question: 'How do Livesov and Otterly pricing compare?',
     answer:
-      'Livesov plans run $9-$89/mo, each with a 7-day no-card trial. Otterly lists Lite at $29/mo (around 10 prompts), Standard at $189/mo, and Pro at $989/mo on its public pricing page as of June 2026. Pricing changes - always confirm on each vendor’s site.',
+      'Livesov plans run $19-$129/mo, each with a 7-day no-card trial. Otterly lists Lite at $29/mo (around 10 prompts), Standard at $189/mo, and Pro at $989/mo on its public pricing page as of June 2026. Pricing changes - always confirm on each vendor’s site.',
   },
   {
     question: 'Which AI platforms does each tool track?',
@@ -182,7 +182,7 @@ export default function VsOtterlyPage() {
         <StatsBar
           stats={[
             { value: '5', label: 'LLMs on every Livesov plan' },
-            { value: '$9', label: 'Livesov entry price /mo' },
+            { value: '$19', label: 'Livesov entry price /mo' },
             { value: '$29', label: 'Otterly entry price /mo' },
             { value: '7-day', label: 'Free Livesov trial' },
           ]}
@@ -236,7 +236,7 @@ export default function VsOtterlyPage() {
             </li>
             <li>
               <strong>Budget-constrained or testing the category:</strong> Livesov&rsquo;s
-              free no-signup GEO audit and $9 entry plan are the lowest-friction way to start
+              free no-signup GEO audit and $19 entry plan are the lowest-friction way to start
               measuring AI visibility at all.
             </li>
           </ul>

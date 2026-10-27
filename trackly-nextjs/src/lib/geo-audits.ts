@@ -39,7 +39,8 @@ import {
 import { resolveKeysForTenant } from '@/lib/tenant-keys';
 import { getServerKeys } from '@/lib/server-keys';
 import { getAdminModel } from '@/lib/site-config';
-import { resolveModelForPlan, geminiGroundingAllowedForPlan } from '@/lib/plan-config';
+import { resolveModelForPlan } from '@/lib/plan-config';
+import { geminiGroundingWithinBudget } from '@/lib/gemini-grounding-budget';
 import { getUserEffectivePlan } from '@/lib/helpers';
 import { buildBrandMatcher, parseResponse } from '@/lib/parser';
 import type { BrandInput } from '@/lib/parser';
@@ -423,7 +424,7 @@ const defaultCallProvider: CallProvider = async ({
       systemPrompt,
       tenantId: userId,
       // Grounded Gemini is Pro-and-above (per-request fee).
-      geminiGrounding: geminiGroundingAllowedForPlan(ownerPlan),
+      geminiGrounding: platform === 'Gemini' && await geminiGroundingWithinBudget(userId, ownerPlan),
     });
     const parsed = parseResponse(result.text || '', brand, promptText, matcher);
     return {

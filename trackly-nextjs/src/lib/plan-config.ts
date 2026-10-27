@@ -129,7 +129,7 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     autoRunFrequency: 'every_2_days',
     brandsCap: 3,
     label: 'Starter',
-    price: '$9',
+    price: '$19',
   },
   pro: {
     monthlyCredits: 2500,
@@ -143,7 +143,7 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     autoRunFrequency: 'daily',
     brandsCap: 9999,
     label: 'Pro',
-    price: '$29',
+    price: '$49',
     featured: true,
   },
   agency: {
@@ -158,7 +158,7 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     autoRunFrequency: 'daily',
     brandsCap: 9999,
     label: 'Agency',
-    price: '$89',
+    price: '$129',
   },
   enterprise: {
     monthlyCredits: 50000,

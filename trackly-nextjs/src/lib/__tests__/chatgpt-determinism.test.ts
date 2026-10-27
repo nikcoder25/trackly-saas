@@ -56,6 +56,7 @@ vi.mock('../cost-tracker', () => ({
   recordCostEvent: vi.fn().mockResolvedValue(undefined),
   recordCall: vi.fn().mockResolvedValue(undefined),
   CHATGPT_WEB_SEARCH_CALL_USD: 0.030,
+  perplexityRequestFeeUsd: vi.fn().mockReturnValue(0),
   estimateCostUsd: vi.fn().mockReturnValue(0),
   CostCapExceededError: class CostCapExceededError extends Error {},
 }));

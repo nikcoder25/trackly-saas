@@ -97,7 +97,7 @@ const faqs = [
   {
     question: 'Who is Livesov for?',
     answer:
-      'Marketing teams, brand teams, PR teams, SEO professionals, and agencies whose work is increasingly shaped by what AI says about their brand. We support solo founders on the $9 Starter plan all the way through multi-brand agencies on the Agency plan.',
+      'Marketing teams, brand teams, PR teams, SEO professionals, and agencies whose work is increasingly shaped by what AI says about their brand. We support solo founders on the $19 Starter plan all the way through multi-brand agencies on the Agency plan.',
   },
   {
     question: 'How is Livesov different from a traditional SEO tool?',

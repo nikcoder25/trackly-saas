@@ -151,7 +151,7 @@ const faqs = [
   {
     question: 'Does Semrush track AI mentions?',
     answer:
-      'Yes, through the Semrush AI Toolkit, which is sold as a paid add-on on top of its SEO plans. It reports brand mentions and some sentiment across several AI assistants; check their current engine list, since it changes. Livesov is built only for AI visibility and starts at $9 a month with no SEO suite or add-on needed.',
+      'Yes, through the Semrush AI Toolkit, which is sold as a paid add-on on top of its SEO plans. It reports brand mentions and some sentiment across several AI assistants; check their current engine list, since it changes. Livesov is built only for AI visibility and starts at $19 a month with no SEO suite or add-on needed.',
   },
   {
     question: 'How do GEO and traditional SEO fit together?',

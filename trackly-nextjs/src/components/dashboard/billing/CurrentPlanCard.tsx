@@ -17,7 +17,7 @@ const PROGRESS_FILL = '#161614';
 
 interface CurrentPlanCardProps {
   planLabel: string; // "Agency", "Free", "Owner", etc.
-  priceLabel: string; // "$89/mo", "$0", "Custom"
+  priceLabel: string; // "$129/mo", "$0", "Custom"
   cycleSuffix: string; // "billed monthly", "free tier", etc.
   renewsOn: string | null; // ISO date for nextResetAt
   memberSince: string | null; // ISO date for user.createdAt

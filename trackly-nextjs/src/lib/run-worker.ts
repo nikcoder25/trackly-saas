@@ -25,7 +25,8 @@ import { isRedirectCitationHost } from './citation-hosts';
 import { getServerKeys } from './server-keys';
 import { resolveKeysForTenant, recordTenantKeyResult } from './tenant-keys';
 import type { BrandRunJobData } from './job-queue';
-import { applyChatGPTCohortOverride, resolveModelForPlan, geminiGroundingAllowedForPlan } from './plan-config';
+import { applyChatGPTCohortOverride, resolveModelForPlan } from './plan-config';
+import { geminiGroundingWithinBudget } from './gemini-grounding-budget';
 import { getEffectivePlan } from './constants';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
@@ -269,10 +270,12 @@ async function processRun(job: Job<BrandRunJobData>) {
         // fallback exists (Perplexity is search-native), the helper logs
         // and returns the original model unchanged - fail-open, never
         // block traffic on a quota-saver.
+        // Grounded Gemini: plan-gated and capped per month (gemini-grounding-budget.ts).
+        const geminiGroundingOk = plat === 'Gemini' && await geminiGroundingWithinBudget(userId, ownerPlan);
         const budgetResolved = await resolveSearchModelWithBudget({
           platform: plat,
           model: smartRoutedModel,
-          isSearch: isSearchEnabled(plat, smartRoutedModel, { geminiGrounding: geminiGroundingAllowedForPlan(ownerPlan) }),
+          isSearch: isSearchEnabled(plat, smartRoutedModel, { geminiGrounding: geminiGroundingOk }),
         });
         const modelForTask = budgetResolved.model;
         const searchEnabledForTask = budgetResolved.searchEnabled;
@@ -324,7 +327,7 @@ async function processRun(job: Job<BrandRunJobData>) {
                   signal: taskController.signal,
                   tenantId: userId,
                   // Grounded Gemini is Pro-and-above (per-request fee).
-                  geminiGrounding: geminiGroundingAllowedForPlan(ownerPlan) && searchEnabledForTask,
+                  geminiGrounding: geminiGroundingOk && searchEnabledForTask,
                   runId,
                   // BullMQ worker processes background queued tasks
                   // only - never user-blocking - so no-search ChatGPT

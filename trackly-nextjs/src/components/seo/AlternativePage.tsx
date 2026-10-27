@@ -31,7 +31,7 @@ const LIVESOV_STRENGTHS = [
     icon: '$',
     title: 'Honest entry pricing',
     description:
-      'Plans from $9/mo with a 7-day trial and no credit card. Built for SMBs, startups, and agencies, not just enterprise budgets.',
+      'Plans from $19/mo with a 7-day trial and no credit card. Built for SMBs, startups, and agencies, not just enterprise budgets.',
   },
   {
     icon: '⚠',
@@ -134,7 +134,7 @@ export default function AlternativePage({ data }: { data: Alternative }) {
           <Link href="/signup" className="ls-btn ls-btn-pri ls-btn-lg">Try Livesov free - no card</Link>
           <Link href="/geo-audit" className="ls-btn ls-btn-out ls-btn-lg">Run a free audit</Link>
         </div>
-        <p className="ls-trust">7 day free trial · No credit card · Plans from $9/mo</p>
+        <p className="ls-trust">7 day free trial · No credit card · Plans from $19/mo</p>
       </section>
 
       <div className="ls-wrap ls-tpl-shot">

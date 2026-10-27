@@ -34,6 +34,13 @@ const NAV: { label: string; items: NavItem[] }[] = [
     { id: 'proof', href: '/dashboard/proof', label: 'Evidence & Proof' },
     { id: 'platforms', href: '/dashboard/platforms', label: 'Platform Status' },
   ] },
+  { label: 'Rank Tracking', items: [
+    { id: 'rank-tracking', href: '/dashboard/rank-tracking', label: 'Rank Tracking', badge: 'NEW' },
+    { id: 'rank-overview', href: '/dashboard/rank-tracking/overview', label: 'Rankings Overview' },
+    { id: 'rank-alerts', href: '/dashboard/rank-tracking/alerts', label: 'Rank Alerts' },
+    { id: 'rank-reports', href: '/dashboard/rank-tracking/reports', label: 'Rank Reports' },
+    { id: 'rank-clients', href: '/dashboard/rank-tracking/clients', label: 'Clients' },
+  ] },
   { label: 'Analysis', items: [
     { id: 'competitors', href: '/dashboard/competitors', label: 'Competitors' },
     { id: 'trends', href: '/dashboard/trends', label: 'SOV Trends' },
@@ -114,6 +121,11 @@ function NavIcon({ id }: { id: string }) {
     case 'recommendations': return <svg {...s}><path d="M7 2l1.8 3.6 4 .6-2.9 2.8.7 4-3.6-1.9-3.6 1.9.7-4-2.9-2.8 4-.6z" /></svg>;
     case 'geo-audit': return <svg {...s}><circle cx="7" cy="6" r="3" /><path d="M7 9v3M4 12h6" /></svg>;
     case 'regional': return <svg {...s}><circle cx="7" cy="7" r="5" /><path d="M2 7h10M7 2c2 2 2 8 0 10M7 2c-2 2-2 8 0 10" /></svg>;
+    case 'rank-tracking': return <svg {...s}><path d="M2 12h10" /><path d="M2.5 9.5l3-3 2.5 2 4-4.5" /></svg>;
+    case 'rank-overview': return <svg {...s}><path d="M2 12V7M5.5 12V4M9 12V8M12.5 12V2" /></svg>;
+    case 'rank-alerts': return <svg {...s}><path d="M4 6a3 3 0 016 0v2.5l1 1.5H3l1-1.5z" /><path d="M6 11.5a1 1 0 002 0" /></svg>;
+    case 'rank-reports': return <svg {...s}><path d="M3 2h6l2 2v8H3z" /><path d="M5 10V8M7 10V6M9 10V9" /></svg>;
+    case 'rank-clients': return <svg {...s}><circle cx="7" cy="5" r="2.2" /><path d="M2.5 12c0-2.3 2-3.6 4.5-3.6s4.5 1.3 4.5 3.6" /></svg>;
     case 'nap-audits': return <svg {...s}><path d="M7 1.5c-2.5 0-4.5 2-4.5 4.5 0 3 4.5 6.5 4.5 6.5s4.5-3.5 4.5-6.5c0-2.5-2-4.5-4.5-4.5z" /><circle cx="7" cy="6" r="1.6" /></svg>;
     case 'setup': return <svg {...s}><circle cx="7" cy="7" r="2" /><path d="M7 2v1.5M7 10.5V12M2 7h1.5M10.5 7H12M3.5 3.5l1 1M9.5 9.5l1 1M3.5 10.5l1-1M9.5 4.5l1-1" /></svg>;
     case 'prompts': return <svg {...s}><path d="M5 2L3 7l2 5M9 2l2 5-2 5" /></svg>;

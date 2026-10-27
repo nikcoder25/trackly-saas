@@ -35,6 +35,7 @@ import {
   recordCall,
   CHATGPT_WEB_SEARCH_CALL_USD,
   GEMINI_GROUNDING_CALL_USD,
+  perplexityRequestFeeUsd,
   estimateCostUsd,
 } from './cost-tracker';
 import {
@@ -2229,6 +2230,9 @@ export async function queryAI(
           tokensOut: d.usage?.completion_tokens || 0,
           citations: extractPerplexityCitations(d),
         };
+        // Tokens plus Perplexity's flat per-request fee (see cost-tracker).
+        retrievalCostUsd = estimateCostUsd(result.model, result.tokensIn, result.tokensOut)
+          + perplexityRequestFeeUsd(result.model);
       } else if (platform === 'Grok') {
         const d = await fetchAI(API_ENDPOINTS.grok.chat, {
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },

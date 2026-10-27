@@ -73,14 +73,14 @@ export const alternatives: Alternative[] = [
       'an enterprise answer-engine-optimization platform for large brands, with monitoring, content generation, and automation agents.',
     metaTitle: '7 Best Profound Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
-      'Looking for a Profound alternative? Livesov tracks all 5 LLMs with citations and proof from $9/mo, with no sales call. See how it compares to Profound.',
+      'Looking for a Profound alternative? Livesov tracks all 5 LLMs with citations and proof from $19/mo, with no sales call. See how it compares to Profound.',
     primaryKeyword: 'profound alternative',
     keywords:
       'profound alternative, best profound alternative, tryprofound alternative, profound alternatives, ai visibility tool, geo tool, answer engine optimization tool',
     heroSubtitle:
       'Profound is the best-funded enterprise platform in AI visibility - and priced for it. Livesov gives you the same core measurement across all five major LLMs, with citations and stored evidence, starting free and self-serve. No demo call, no annual contract.',
     stats: [
-      { value: '$9', label: 'Livesov entry price /mo' },
+      { value: '$19', label: 'Livesov entry price /mo' },
       { value: '$99+', label: 'Profound entry price /mo' },
       { value: '5', label: 'LLMs on every Livesov plan' },
       { value: '0', label: 'Sales calls to start' },
@@ -88,7 +88,7 @@ export const alternatives: Alternative[] = [
     comparisonRows: [
       ['Self-serve signup (no sales call)', '✓', '✗ Demo-led'],
       ['Free trial without a credit card', '✓ 7 days', '✗ No self-serve trial'],
-      ['Entry price', '$9/mo', '$99/mo (ChatGPT-only, public reports)'],
+      ['Entry price', '$19/mo', '$99/mo (ChatGPT-only, public reports)'],
       ['All 5 major LLMs on entry plan', '✓ ChatGPT, Claude, Gemini, Perplexity, Grok', '✗ Single engine at entry'],
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', '✗ Not advertised'],
       ['Full AI response stored as evidence', '✓', 'Partial'],
@@ -115,7 +115,7 @@ export const alternatives: Alternative[] = [
       {
         question: 'How does pricing compare between Livesov and Profound?',
         answer:
-          'Livesov runs $9 (Starter), $29 (Pro), and $89 (Agency) per month, each with a 7-day free trial and no credit card. Public reporting as of 2026 lists Profound Starter at around $99/mo limited to ChatGPT, Growth at around $399/mo for multi-engine coverage, and custom enterprise pricing, with no self-serve trial. Verify current pricing on tryprofound.com.',
+          'Livesov runs $19 (Starter), $49 (Pro), and $129 (Agency) per month, each with a 7-day free trial and no credit card. Public reporting as of 2026 lists Profound Starter at around $99/mo limited to ChatGPT, Growth at around $399/mo for multi-engine coverage, and custom enterprise pricing, with no self-serve trial. Verify current pricing on tryprofound.com.',
       },
       {
         question: 'Does Livesov cover the same AI platforms as Profound?',
@@ -142,21 +142,21 @@ export const alternatives: Alternative[] = [
       'an AI visibility tracker popular with agencies, focused on reporting across AI answer engines.',
     metaTitle: '7 Best Peec AI Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
-      'Looking for a Peec AI alternative? Livesov tracks all 5 LLMs with no add-ons from $9/mo, plus a 7-day trial with no card. See how it compares to Peec AI.',
+      'Looking for a Peec AI alternative? Livesov tracks all 5 LLMs with no add-ons from $19/mo, plus a 7-day trial with no card. See how it compares to Peec AI.',
     primaryKeyword: 'peec ai alternative',
     keywords:
       'peec ai alternative, best peec ai alternative, peec.ai alternatives, peec ai alternatives, ai visibility tracker, geo tool, llm seo tool',
     heroSubtitle:
-      'Peec AI is a capable agency-focused AI visibility tracker - but Claude, Gemini, and Grok are listed as paid add-ons on top of the base subscription. Livesov supports all five major LLMs with no add-ons (2 on Starter, 3 on Pro, all 5 on Agency), starting at $9/mo with a 7-day no-card trial.',
+      'Peec AI is a capable agency-focused AI visibility tracker - but Claude, Gemini, and Grok are listed as paid add-ons on top of the base subscription. Livesov supports all five major LLMs with no add-ons (2 on Starter, 3 on Pro, all 5 on Agency), starting at $19/mo with a 7-day no-card trial.',
     stats: [
       { value: '5', label: 'LLMs supported, no add-ons' },
       { value: '$0', label: 'Per-platform add-ons' },
-      { value: '$9', label: 'Livesov entry price /mo' },
+      { value: '$19', label: 'Livesov entry price /mo' },
       { value: '7-day', label: 'Free trial, no card' },
     ],
     comparisonRows: [
       ['All 5 LLMs included (no add-ons)', '✓ ChatGPT, Claude, Gemini, Perplexity, Grok', 'Claude / Gemini / Grok as paid add-ons'],
-      ['Entry price', '$9/mo', 'Around $100/mo (public reports)'],
+      ['Entry price', '$19/mo', 'Around $100/mo (public reports)'],
       ['Free trial without a credit card', '✓ 7 days', 'Varies - verify on site'],
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', '✗ Not advertised'],
       ['Full AI response stored as evidence', '✓', 'Partial'],
@@ -168,7 +168,7 @@ export const alternatives: Alternative[] = [
     switchHeading: 'Should you switch from Peec AI to Livesov?',
     switchParagraphs: [
       'Peec AI and Livesov are both self-serve AI visibility trackers, so the decision usually comes down to two things: how many AI engines you actually need, and how the pricing is structured for them.',
-      'Peec AI structures Claude, Gemini, and Grok as add-ons on top of a base subscription that starts around $100/mo, which adds up quickly once you want full coverage. Livesov includes all five major LLMs with no add-ons - the $9 Starter tier picks two engines rather than being locked to one - and adds hallucination detection and a URL-level GEO audit that Peec does not center on.',
+      'Peec AI structures Claude, Gemini, and Grok as add-ons on top of a base subscription that starts around $100/mo, which adds up quickly once you want full coverage. Livesov includes all five major LLMs with no add-ons - the $19 Starter tier picks two engines rather than being locked to one - and adds hallucination detection and a URL-level GEO audit that Peec does not center on.',
       'If your team is already committed to Peec AI reporting workflows, that has real value. If you are choosing now, or your add-on bill is climbing, Livesov is the no-add-ons Peec AI alternative.',
     ],
     calloutTitle: 'Watch the add-on math',
@@ -183,7 +183,7 @@ export const alternatives: Alternative[] = [
       {
         question: 'How does Livesov pricing compare to Peec AI?',
         answer:
-          'Livesov is $9 (Starter), $29 (Pro), and $89 (Agency) per month with a 7-day no-card trial, and the tiers include 2, 3, and all 5 LLMs respectively. Public reports put Peec AI around $100/mo to start, with Claude, Gemini, and Grok as paid add-ons. Confirm current pricing on peec.ai before deciding.',
+          'Livesov is $19 (Starter), $49 (Pro), and $129 (Agency) per month with a 7-day no-card trial, and the tiers include 2, 3, and all 5 LLMs respectively. Public reports put Peec AI around $100/mo to start, with Claude, Gemini, and Grok as paid add-ons. Confirm current pricing on peec.ai before deciding.',
       },
       {
         question: 'Does Livesov track the same AI engines as Peec AI?',
@@ -210,15 +210,15 @@ export const alternatives: Alternative[] = [
       'one of the earliest AI search monitoring tools, with a focus on Google AI Overviews, AI Mode, and Microsoft Copilot.',
     metaTitle: '7 Best Otterly.ai Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
-      'Looking for an Otterly.ai alternative? Livesov tracks all 5 LLMs, including Claude and Grok, with no add-ons from $9/mo. See how it compares to Otterly.',
+      'Looking for an Otterly.ai alternative? Livesov tracks all 5 LLMs, including Claude and Grok, with no add-ons from $19/mo. See how it compares to Otterly.',
     primaryKeyword: 'otterly ai alternative',
     keywords:
       'otterly ai alternative, otterly alternative, best otterly ai alternative, otterly.ai alternatives, ai visibility tool, ai search monitoring tool',
     heroSubtitle:
-      'Otterly.ai is a well-established AI search monitor that leans into Google AI Overviews and Microsoft Copilot. Livesov covers all five major LLMs - including Claude and Grok - with no add-ons, stores full responses as evidence, and flags hallucinated brand facts, from $9/mo.',
+      'Otterly.ai is a well-established AI search monitor that leans into Google AI Overviews and Microsoft Copilot. Livesov covers all five major LLMs - including Claude and Grok - with no add-ons, stores full responses as evidence, and flags hallucinated brand facts, from $19/mo.',
     stats: [
       { value: '5', label: 'LLMs on every Livesov plan' },
-      { value: '$9', label: 'Livesov entry price /mo' },
+      { value: '$19', label: 'Livesov entry price /mo' },
       { value: '$29', label: 'Otterly entry price /mo' },
       { value: '7-day', label: 'Free Livesov trial' },
     ],
@@ -232,12 +232,12 @@ export const alternatives: Alternative[] = [
       ['Microsoft Copilot', '✗', '✓'],
       ['Hallucination / fact-drift detection', '✓', '✗'],
       ['Full AI response stored as evidence', '✓', 'Partial'],
-      ['Entry price', '$9/mo (Starter)', '$29/mo (Lite, ~10 prompts)'],
+      ['Entry price', '$19/mo (Starter)', '$29/mo (Lite, ~10 prompts)'],
     ],
     switchHeading: 'Should you switch from Otterly to Livesov?',
     switchParagraphs: [
       'This decision usually reduces to one question: which AI surfaces matter most to your buyers?',
-      'If your buyers research in ChatGPT, Claude, Perplexity, Gemini, or Grok, Livesov tracks all five with no add-ons, stores the full responses as evidence, and flags hallucinated facts - and it starts lower, at $9/mo. This is Livesov home turf.',
+      'If your buyers research in ChatGPT, Claude, Perplexity, Gemini, or Grok, Livesov tracks all five with no add-ons, stores the full responses as evidence, and flags hallucinated facts - and it starts lower, at $19/mo. This is Livesov home turf.',
       'If your biggest traffic risk is Google AI Overviews, Google AI Mode, or Microsoft Copilot, Otterly treats those surfaces as first-class citizens and Livesov does not cover them today. Many teams pick based on that single line.',
     ],
     calloutTitle: 'Run both for a week',
@@ -252,7 +252,7 @@ export const alternatives: Alternative[] = [
       {
         question: 'How do Livesov and Otterly pricing compare?',
         answer:
-          'Livesov plans run $9-$89/mo, each with a 7-day no-card trial. Otterly has listed Lite around $29/mo (about 10 prompts), with higher Standard and Pro tiers, on its public pricing page. Pricing changes - always confirm on otterly.ai.',
+          'Livesov plans run $19-$129/mo, each with a 7-day no-card trial. Otterly has listed Lite around $29/mo (about 10 prompts), with higher Standard and Pro tiers, on its public pricing page. Pricing changes - always confirm on otterly.ai.',
       },
       {
         question: 'Which AI platforms does each tool track?',
@@ -279,21 +279,21 @@ export const alternatives: Alternative[] = [
       'an AI visibility platform used by content teams to track brand presence across AI answer engines.',
     metaTitle: '7 Best Scrunch AI Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
-      'Looking for a Scrunch AI alternative? Livesov tracks all 5 LLMs with citations, sentiment, and stored evidence from $9/mo and a 7-day no-card trial.',
+      'Looking for a Scrunch AI alternative? Livesov tracks all 5 LLMs with citations, sentiment, and stored evidence from $19/mo and a 7-day no-card trial.',
     primaryKeyword: 'scrunch ai alternative',
     keywords:
       'scrunch ai alternative, best scrunch ai alternative, scrunch alternatives, ai visibility tool, geo tool, ai brand monitoring',
     heroSubtitle:
-      'Scrunch AI helps content teams track brand presence in AI answers. Livesov is the no-add-ons alternative: ChatGPT, Claude, Gemini, Perplexity, and Grok (no add-ons), with citation capture, per-platform sentiment, and stored evidence, from $9/mo.',
+      'Scrunch AI helps content teams track brand presence in AI answers. Livesov is the no-add-ons alternative: ChatGPT, Claude, Gemini, Perplexity, and Grok (no add-ons), with citation capture, per-platform sentiment, and stored evidence, from $19/mo.',
     stats: [
       { value: '5', label: 'LLMs supported, no add-ons' },
-      { value: '$9', label: 'Entry price /mo' },
+      { value: '$19', label: 'Entry price /mo' },
       { value: '20', label: 'Competitors benchmarked' },
       { value: '7-day', label: 'Free trial, no card' },
     ],
     comparisonRows: [
       ['Tracks all 5 major LLMs', '✓ ChatGPT, Claude, Gemini, Perplexity, Grok', 'Varies by plan'],
-      ['Entry price', '$9/mo', 'Check current plan'],
+      ['Entry price', '$19/mo', 'Check current plan'],
       ['Free trial without a credit card', '✓ 7 days', 'Check current plan'],
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', 'Not advertised'],
       ['Full AI response stored as evidence', '✓', 'Varies'],
@@ -324,7 +324,7 @@ export const alternatives: Alternative[] = [
       {
         question: 'How much does Livesov cost?',
         answer:
-          'Livesov starts at $9/mo (Starter), with Pro at $29/mo and Agency at $89/mo, including 2, 3, and all 5 LLMs respectively, and a 7-day free trial with no credit card required.',
+          'Livesov starts at $19/mo (Starter), with Pro at $49/mo and Agency at $129/mo, including 2, 3, and all 5 LLMs respectively, and a 7-day free trial with no credit card required.',
       },
       {
         question: 'How do I compare Livesov and Scrunch AI fairly?',
@@ -346,15 +346,15 @@ export const alternatives: Alternative[] = [
       'an AI search rank-tracking and answer-engine-optimization tool for monitoring how brands appear in AI answers.',
     metaTitle: '7 Best Rankscale Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
-      'Looking for a Rankscale alternative? Livesov tracks brand mentions and rank in all 5 LLMs with citations, from $9/mo. Try it free for 7 days, no card.',
+      'Looking for a Rankscale alternative? Livesov tracks brand mentions and rank in all 5 LLMs with citations, from $19/mo. Try it free for 7 days, no card.',
     primaryKeyword: 'rankscale alternative',
     keywords:
       'rankscale alternative, best rankscale alternative, rankscale.ai alternatives, ai rank tracker, ai visibility tool, geo tool',
     heroSubtitle:
-      'Rankscale focuses on AI search rank tracking. Livesov gives you rank plus the full visibility picture - mention rate, share of voice, citations, sentiment, and hallucination detection across all five major LLMs - from $9/mo.',
+      'Rankscale focuses on AI search rank tracking. Livesov gives you rank plus the full visibility picture - mention rate, share of voice, citations, sentiment, and hallucination detection across all five major LLMs - from $19/mo.',
     stats: [
       { value: '5', label: 'LLMs supported, no add-ons' },
-      { value: '$9', label: 'Entry price /mo' },
+      { value: '$19', label: 'Entry price /mo' },
       { value: '24/7', label: 'Automated tracking' },
       { value: '7-day', label: 'Free trial, no card' },
     ],
@@ -365,13 +365,13 @@ export const alternatives: Alternative[] = [
       ['Citation capture', '✓ Full ranked list', 'Varies'],
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', 'Not advertised'],
       ['Full AI response stored as evidence', '✓', 'Varies'],
-      ['Entry price', '$9/mo', 'Check current plan'],
+      ['Entry price', '$19/mo', 'Check current plan'],
       ['Free GEO audit + free tools', '✓ 10 free tools', 'Varies'],
     ],
     switchHeading: 'Should you switch from Rankscale to Livesov?',
     switchParagraphs: [
       'Rank tracking answers "where do I appear when the AI lists options?" - a genuinely useful metric. But rank alone misses whether you were mentioned at all, how you were described, and which sources the AI cited.',
-      'Livesov reports rank alongside mention rate, share of voice against up to 20 competitors, per-platform sentiment, full citation lists, and fact-drift alerts - each traceable to the stored AI response. All five major LLMs are supported with no add-ons, from $9/mo.',
+      'Livesov reports rank alongside mention rate, share of voice against up to 20 competitors, per-platform sentiment, full citation lists, and fact-drift alerts - each traceable to the stored AI response. All five major LLMs are supported with no add-ons, from $19/mo.',
       'If you only need a rank number, a focused rank tracker may be enough. If you want the full answer-engine picture with evidence, Livesov is a broader Rankscale alternative.',
     ],
     calloutTitle: 'Rank is one metric, not the whole picture',
@@ -396,7 +396,7 @@ export const alternatives: Alternative[] = [
       {
         question: 'How much does Livesov cost?',
         answer:
-          'From $9/mo (Starter), with Pro at $29/mo and Agency at $89/mo, with 2, 3, and all 5 LLMs respectively, and a 7-day free trial with no credit card.',
+          'From $19/mo (Starter), with Pro at $49/mo and Agency at $129/mo, with 2, 3, and all 5 LLMs respectively, and a 7-day free trial with no credit card.',
       },
     ],
     vsHref: '/vs/rankscale',
@@ -413,15 +413,15 @@ export const alternatives: Alternative[] = [
       'an AI search visibility tool for checking how AI assistants represent your brand.',
     metaTitle: '7 Best Knowatoa Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
-      'Looking for a Knowatoa alternative? Livesov tracks all 5 LLMs with citations, sentiment, and stored evidence, on an automated schedule, from $9/mo.',
+      'Looking for a Knowatoa alternative? Livesov tracks all 5 LLMs with citations, sentiment, and stored evidence, on an automated schedule, from $19/mo.',
     primaryKeyword: 'knowatoa alternative',
     keywords:
       'knowatoa alternative, best knowatoa alternative, knowatoa alternatives, ai visibility tool, ai search monitoring, geo tool',
     heroSubtitle:
-      'Knowatoa helps you check how AI assistants see your brand. Livesov turns that check into continuous monitoring: all five major LLMs, run on a schedule, with citations, sentiment, evidence, and competitor benchmarking, from $9/mo.',
+      'Knowatoa helps you check how AI assistants see your brand. Livesov turns that check into continuous monitoring: all five major LLMs, run on a schedule, with citations, sentiment, evidence, and competitor benchmarking, from $19/mo.',
     stats: [
       { value: '5', label: 'LLMs supported, no add-ons' },
-      { value: '$9', label: 'Entry price /mo' },
+      { value: '$19', label: 'Entry price /mo' },
       { value: '24/7', label: 'Scheduled monitoring' },
       { value: '7-day', label: 'Free trial, no card' },
     ],
@@ -433,7 +433,7 @@ export const alternatives: Alternative[] = [
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', 'Not advertised'],
       ['Full AI response stored as evidence', '✓', 'Varies'],
       ['Competitor benchmarking', '✓ Up to 20', 'Varies'],
-      ['Entry price', '$9/mo', 'Check current plan'],
+      ['Entry price', '$19/mo', 'Check current plan'],
     ],
     switchHeading: 'Should you switch from Knowatoa to Livesov?',
     switchParagraphs: [
@@ -480,22 +480,22 @@ export const alternatives: Alternative[] = [
       'a generative-engine-optimization platform for monitoring and improving AI search presence.',
     metaTitle: '7 Best AthenaHQ Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
-      'Looking for an AthenaHQ alternative? Livesov tracks all 5 LLMs with citations, sentiment and stored proof from $9/mo. Try it free for 7 days today.',
+      'Looking for an AthenaHQ alternative? Livesov tracks all 5 LLMs with citations, sentiment and stored proof from $19/mo. Try it free for 7 days today.',
     primaryKeyword: 'athenahq alternative',
     keywords:
       'athenahq alternative, best athenahq alternative, athenahq alternatives, generative engine optimization tool, ai visibility tool, geo tool',
     heroSubtitle:
-      'AthenaHQ is a GEO platform for improving AI search presence. Livesov is the self-serve alternative that measures it across all five major LLMs - mention rate, share of voice, citations, sentiment, and hallucinations - with stored evidence, from $9/mo.',
+      'AthenaHQ is a GEO platform for improving AI search presence. Livesov is the self-serve alternative that measures it across all five major LLMs - mention rate, share of voice, citations, sentiment, and hallucinations - with stored evidence, from $19/mo.',
     stats: [
       { value: '5', label: 'LLMs supported, no add-ons' },
-      { value: '$9', label: 'Entry price /mo' },
+      { value: '$19', label: 'Entry price /mo' },
       { value: '10', label: 'Free tools included' },
       { value: '7-day', label: 'Free trial, no card' },
     ],
     comparisonRows: [
       ['Tracks all 5 major LLMs', '✓ ChatGPT, Claude, Gemini, Perplexity, Grok', 'Varies by plan'],
       ['Self-serve signup', '✓ Start in minutes', 'Varies'],
-      ['Entry price', '$9/mo', 'Check current plan'],
+      ['Entry price', '$19/mo', 'Check current plan'],
       ['Free trial without a credit card', '✓ 7 days', 'Check current plan'],
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', 'Not advertised'],
       ['Full AI response stored as evidence', '✓', 'Varies'],
@@ -505,7 +505,7 @@ export const alternatives: Alternative[] = [
     switchHeading: 'Should you switch from AthenaHQ to Livesov?',
     switchParagraphs: [
       'GEO platforms help you improve how AI engines describe your brand. To know whether that work is paying off, you need clean, continuous measurement across the engines your buyers actually use.',
-      'Livesov is that measurement layer: all five major LLMs with no add-ons, scheduled multi-run tracking, citations, per-platform sentiment, competitor share of voice, and fact-drift alerts - every metric traceable to a stored AI response. It is self-serve from minute one, starting at $9/mo.',
+      'Livesov is that measurement layer: all five major LLMs with no add-ons, scheduled multi-run tracking, citations, per-platform sentiment, competitor share of voice, and fact-drift alerts - every metric traceable to a stored AI response. It is self-serve from minute one, starting at $19/mo.',
       'If AthenaHQ fits your optimization workflow, Livesov can sit alongside it as the measurement source of truth - or replace it if you want measurement plus a free GEO audit at a lower entry price.',
     ],
     calloutTitle: 'Optimization needs a measurement baseline',
@@ -530,7 +530,7 @@ export const alternatives: Alternative[] = [
       {
         question: 'How much does Livesov cost?',
         answer:
-          'From $9/mo (Starter), $29/mo (Pro), and $89/mo (Agency), with 2, 3, and all 5 LLMs respectively, plus a 7-day free trial and no credit card required.',
+          'From $19/mo (Starter), $49/mo (Pro), and $129/mo (Agency), with 2, 3, and all 5 LLMs respectively, plus a 7-day free trial and no credit card required.',
       },
     ],
     vsHref: '/vs/athenahq',
@@ -547,15 +547,15 @@ export const alternatives: Alternative[] = [
       'an LLM visibility and AI keyword rank tracker for AI search results.',
     metaTitle: '7 Best LLMrefs Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
-      'Looking for an LLMrefs alternative? Livesov tracks brand mentions, rank, citations, and sentiment across all 5 LLMs, with stored evidence, from $9/mo.',
+      'Looking for an LLMrefs alternative? Livesov tracks brand mentions, rank, citations, and sentiment across all 5 LLMs, with stored evidence, from $19/mo.',
     primaryKeyword: 'llmrefs alternative',
     keywords:
       'llmrefs alternative, best llmrefs alternative, llmrefs alternatives, llm visibility tracker, ai rank tracker, ai visibility tool',
     heroSubtitle:
-      'LLMrefs tracks LLM visibility and AI keyword rankings. Livesov adds the full brand picture on top - mention rate, share of voice, citations, sentiment, and hallucination detection across all five major LLMs, with stored evidence, from $9/mo.',
+      'LLMrefs tracks LLM visibility and AI keyword rankings. Livesov adds the full brand picture on top - mention rate, share of voice, citations, sentiment, and hallucination detection across all five major LLMs, with stored evidence, from $19/mo.',
     stats: [
       { value: '5', label: 'LLMs supported, no add-ons' },
-      { value: '$9', label: 'Entry price /mo' },
+      { value: '$19', label: 'Entry price /mo' },
       { value: '20', label: 'Competitors benchmarked' },
       { value: '7-day', label: 'Free trial, no card' },
     ],
@@ -567,12 +567,12 @@ export const alternatives: Alternative[] = [
       ['Per-platform sentiment', '✓ Tuned per model', 'Varies'],
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', 'Not advertised'],
       ['Full AI response stored as evidence', '✓', 'Varies'],
-      ['Entry price', '$9/mo', 'Check current plan'],
+      ['Entry price', '$19/mo', 'Check current plan'],
     ],
     switchHeading: 'Should you switch from LLMrefs to Livesov?',
     switchParagraphs: [
       'LLMrefs is built around LLM visibility and AI keyword rankings. That is a solid core, but brand teams usually also need to know how they are described, which sources the AI cited, and whether it said anything false.',
-      'Livesov reports rank and visibility alongside per-platform sentiment, full citation lists, competitor share of voice across up to 20 brands, and fact-drift alerts - each traceable to the stored AI response. All five major LLMs are supported with no add-ons, from $9/mo.',
+      'Livesov reports rank and visibility alongside per-platform sentiment, full citation lists, competitor share of voice across up to 20 brands, and fact-drift alerts - each traceable to the stored AI response. All five major LLMs are supported with no add-ons, from $19/mo.',
       'If you want a focused keyword-rank view, LLMrefs may suffice. If you want the complete answer-engine picture with evidence, Livesov is a broader LLMrefs alternative.',
     ],
     calloutTitle: 'Keywords are the start, not the finish',
@@ -597,7 +597,7 @@ export const alternatives: Alternative[] = [
       {
         question: 'How much does Livesov cost?',
         answer:
-          'From $9/mo (Starter), with Pro at $29/mo and Agency at $89/mo, with 2, 3, and all 5 LLMs respectively, and a 7-day free trial with no credit card.',
+          'From $19/mo (Starter), with Pro at $49/mo and Agency at $129/mo, with 2, 3, and all 5 LLMs respectively, and a 7-day free trial with no credit card.',
       },
     ],
     vsHref: '/vs/llmrefs',
@@ -614,15 +614,15 @@ export const alternatives: Alternative[] = [
       'an answer-engine-optimization tool that analyzes how AI models talk about your brand and topics.',
     metaTitle: '7 Best Waikay Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
-      'Looking for a Waikay alternative? Livesov tracks all 5 LLMs with mention rate, citations, sentiment and saved proof from $9/mo. See how they compare.',
+      'Looking for a Waikay alternative? Livesov tracks all 5 LLMs with mention rate, citations, sentiment and saved proof from $19/mo. See how they compare.',
     primaryKeyword: 'waikay alternative',
     keywords:
       'waikay alternative, best waikay alternative, waikay alternatives, answer engine optimization tool, ai visibility tool, geo tool',
     heroSubtitle:
-      'Waikay analyzes how AI models talk about your brand and topics. Livesov is the no-add-ons alternative: continuous tracking across ChatGPT, Claude, Gemini, Perplexity, and Grok, with citations, sentiment, evidence, and competitor benchmarking, from $9/mo.',
+      'Waikay analyzes how AI models talk about your brand and topics. Livesov is the no-add-ons alternative: continuous tracking across ChatGPT, Claude, Gemini, Perplexity, and Grok, with citations, sentiment, evidence, and competitor benchmarking, from $19/mo.',
     stats: [
       { value: '5', label: 'LLMs supported, no add-ons' },
-      { value: '$9', label: 'Entry price /mo' },
+      { value: '$19', label: 'Entry price /mo' },
       { value: '24/7', label: 'Automated tracking' },
       { value: '7-day', label: 'Free trial, no card' },
     ],
@@ -634,7 +634,7 @@ export const alternatives: Alternative[] = [
       ['Per-platform sentiment', '✓ Tuned per model', 'Varies'],
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', 'Not advertised'],
       ['Full AI response stored as evidence', '✓', 'Varies'],
-      ['Entry price', '$9/mo', 'Check current plan'],
+      ['Entry price', '$19/mo', 'Check current plan'],
     ],
     switchHeading: 'Should you switch from Waikay to Livesov?',
     switchParagraphs: [
@@ -664,7 +664,7 @@ export const alternatives: Alternative[] = [
       {
         question: 'How much does Livesov cost?',
         answer:
-          'From $9/mo (Starter), $29/mo (Pro), and $89/mo (Agency), with 2, 3, and all 5 LLMs respectively, plus a 7-day free trial and no credit card required.',
+          'From $19/mo (Starter), $49/mo (Pro), and $129/mo (Agency), with 2, 3, and all 5 LLMs respectively, plus a 7-day free trial and no credit card required.',
       },
     ],
     vsHref: '/vs/waikay',
@@ -681,15 +681,15 @@ export const alternatives: Alternative[] = [
       'a prompt-monitoring tool that logs how the answers to a set of tracked prompts change over time.',
     metaTitle: '7 Best Promptwatch Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
-      'Looking for a Promptwatch alternative? Livesov tracks all 5 LLMs with citations, sentiment and saved proof from $9/mo. See how it compares to Promptwatch.',
+      'Looking for a Promptwatch alternative? Livesov tracks all 5 LLMs with citations, sentiment and saved proof from $19/mo. See how it compares to Promptwatch.',
     primaryKeyword: 'promptwatch alternative',
     keywords:
       'promptwatch alternative, best promptwatch alternative, promptwatch alternatives, promptwatch.io alternative, ai visibility tracker, geo tool, llm seo tool',
     heroSubtitle:
-      'Promptwatch logs how answers to your tracked prompts change over time. Livesov does that and adds the layers most teams need next - citations, per-platform sentiment, competitor share of voice, and fact-drift alerts - across all five major LLMs from $9/mo.',
+      'Promptwatch logs how answers to your tracked prompts change over time. Livesov does that and adds the layers most teams need next - citations, per-platform sentiment, competitor share of voice, and fact-drift alerts - across all five major LLMs from $19/mo.',
     stats: [
       { value: '5', label: 'LLMs supported, no add-ons' },
-      { value: '$9', label: 'Livesov entry price /mo' },
+      { value: '$19', label: 'Livesov entry price /mo' },
       { value: '20', label: 'Competitors benchmarked' },
       { value: '7-day', label: 'Free trial, no card' },
     ],
@@ -701,7 +701,7 @@ export const alternatives: Alternative[] = [
       ['Competitor share of voice', '✓ Up to 20 brands', 'Verify on site'],
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', '✗ Not advertised'],
       ['Full AI response stored as evidence', '✓', 'Partial'],
-      ['Entry price', '$9/mo', 'Verify on site'],
+      ['Entry price', '$19/mo', 'Verify on site'],
     ],
     switchHeading: 'Should you switch from Promptwatch to Livesov?',
     switchParagraphs: [
@@ -726,7 +726,7 @@ export const alternatives: Alternative[] = [
       {
         question: 'How much does Livesov cost compared to Promptwatch?',
         answer:
-          'Livesov is $9 (Starter), $29 (Pro), and $89 (Agency) per month, each with a 7-day free trial and no credit card. Verify current Promptwatch pricing on promptwatch.io.',
+          'Livesov is $19 (Starter), $49 (Pro), and $129 (Agency) per month, each with a 7-day free trial and no credit card. Verify current Promptwatch pricing on promptwatch.io.',
       },
     ],
   },
@@ -740,14 +740,14 @@ export const alternatives: Alternative[] = [
       'an enterprise AI-agent visibility and brand-management platform aimed at large organizations.',
     metaTitle: '7 Best Bluefish Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
-      'Looking for a Bluefish alternative? Livesov is a self-serve AI visibility tracker for all 5 LLMs from $9/mo, with no sales call. See how it compares.',
+      'Looking for a Bluefish alternative? Livesov is a self-serve AI visibility tracker for all 5 LLMs from $19/mo, with no sales call. See how it compares.',
     primaryKeyword: 'bluefish ai alternative',
     keywords:
       'bluefish ai alternative, best bluefish alternative, bluefish alternatives, bluefish.ai alternative, enterprise ai visibility, geo tool, ai brand monitoring',
     heroSubtitle:
-      'Bluefish is an enterprise platform that treats AI representation as a governance problem for large brands. Livesov gives you the core measurement - all five major LLMs, citations, sentiment, and evidence - self-serve from $9/mo, with no demo call or annual contract.',
+      'Bluefish is an enterprise platform that treats AI representation as a governance problem for large brands. Livesov gives you the core measurement - all five major LLMs, citations, sentiment, and evidence - self-serve from $19/mo, with no demo call or annual contract.',
     stats: [
-      { value: '$9', label: 'Livesov entry price /mo' },
+      { value: '$19', label: 'Livesov entry price /mo' },
       { value: '5', label: 'LLMs supported, no add-ons' },
       { value: '0', label: 'Sales calls to start' },
       { value: '7-day', label: 'Free trial, no card' },
@@ -759,7 +759,7 @@ export const alternatives: Alternative[] = [
       ['Citation capture (ranked sources)', '✓ Perplexity + ChatGPT Search', 'Verify on site'],
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', 'Verify on site'],
       ['Full AI response stored as evidence', '✓', 'Verify on site'],
-      ['Entry price', '$9/mo', 'Enterprise (contact sales)'],
+      ['Entry price', '$19/mo', 'Enterprise (contact sales)'],
       ['Enterprise governance / SSO', 'Contact us', '✓ Core motion'],
     ],
     switchHeading: 'Should you choose Bluefish or Livesov?',
@@ -785,7 +785,7 @@ export const alternatives: Alternative[] = [
       {
         question: 'How does pricing compare?',
         answer:
-          'Livesov is $9 (Starter), $29 (Pro), and $89 (Agency) per month with a 7-day free trial and no credit card. Bluefish is an enterprise platform with sales-led pricing - verify current terms on bluefish.ai.',
+          'Livesov is $19 (Starter), $49 (Pro), and $129 (Agency) per month with a 7-day free trial and no credit card. Bluefish is an enterprise platform with sales-led pricing - verify current terms on bluefish.ai.',
       },
     ],
   },
@@ -799,15 +799,15 @@ export const alternatives: Alternative[] = [
       'an AI brand analytics platform built around model-level brand association research.',
     metaTitle: '7 Best Evertune Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
-      'Looking for an Evertune alternative? Livesov tracks day-to-day AI visibility across all 5 LLMs with citations and evidence from $9/mo. Compare it to Evertune.',
+      'Looking for an Evertune alternative? Livesov tracks day-to-day AI visibility across all 5 LLMs with citations and evidence from $19/mo. Compare it to Evertune.',
     primaryKeyword: 'evertune alternative',
     keywords:
       'evertune alternative, best evertune alternative, evertune alternatives, evertune.ai alternative, ai brand analytics, ai visibility tool, geo tool',
     heroSubtitle:
-      'Evertune focuses on model-level brand association research - what an AI model tends to associate with your brand. Livesov focuses on day-to-day measurement: what the live engines actually said this week, who they cited, and how that trends, across all five major LLMs from $9/mo.',
+      'Evertune focuses on model-level brand association research - what an AI model tends to associate with your brand. Livesov focuses on day-to-day measurement: what the live engines actually said this week, who they cited, and how that trends, across all five major LLMs from $19/mo.',
     stats: [
       { value: '5', label: 'LLMs supported, no add-ons' },
-      { value: '$9', label: 'Livesov entry price /mo' },
+      { value: '$19', label: 'Livesov entry price /mo' },
       { value: '✓', label: 'Citations + evidence' },
       { value: '7-day', label: 'Free trial, no card' },
     ],
@@ -818,7 +818,7 @@ export const alternatives: Alternative[] = [
       ['Competitor share of voice over time', '✓ Up to 20 brands', 'Verify on site'],
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', 'Verify on site'],
       ['Full AI response stored as evidence', '✓', 'Verify on site'],
-      ['Self-serve entry price', '$9/mo', 'Verify on site'],
+      ['Self-serve entry price', '$19/mo', 'Verify on site'],
     ],
     switchHeading: 'Should you choose Evertune or Livesov?',
     switchParagraphs: [
@@ -843,7 +843,7 @@ export const alternatives: Alternative[] = [
       {
         question: 'How much does Livesov cost?',
         answer:
-          'From $9/mo (Starter), $29/mo (Pro), and $89/mo (Agency), with 2, 3, and all 5 LLMs respectively, plus a 7-day free trial and no credit card.',
+          'From $19/mo (Starter), $49/mo (Pro), and $129/mo (Agency), with 2, 3, and all 5 LLMs respectively, plus a 7-day free trial and no credit card.',
       },
     ],
   },
@@ -857,15 +857,15 @@ export const alternatives: Alternative[] = [
       'an AI-native marketing platform where AI search visibility sits inside a broader growth toolset.',
     metaTitle: '7 Best Daydream Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
-      'Looking for a Daydream alternative? Livesov is a focused AI visibility tracker - all 5 LLMs, citations, and evidence from $9/mo. Compare it to Daydream.',
+      'Looking for a Daydream alternative? Livesov is a focused AI visibility tracker - all 5 LLMs, citations, and evidence from $19/mo. Compare it to Daydream.',
     primaryKeyword: 'daydream ai alternative',
     keywords:
       'daydream ai alternative, best daydream alternative, daydream alternatives, withdaydream alternative, ai visibility tool, geo tool, ai marketing platform',
     heroSubtitle:
-      'Daydream bundles AI search visibility into a broader AI-native marketing platform. Livesov is the focused alternative: a dedicated AI visibility tracker across all five major LLMs, with citations, sentiment, and stored evidence, from $9/mo.',
+      'Daydream bundles AI search visibility into a broader AI-native marketing platform. Livesov is the focused alternative: a dedicated AI visibility tracker across all five major LLMs, with citations, sentiment, and stored evidence, from $19/mo.',
     stats: [
       { value: '5', label: 'LLMs supported, no add-ons' },
-      { value: '$9', label: 'Livesov entry price /mo' },
+      { value: '$19', label: 'Livesov entry price /mo' },
       { value: '✓', label: 'Purpose-built for AI visibility' },
       { value: '7-day', label: 'Free trial, no card' },
     ],
@@ -876,7 +876,7 @@ export const alternatives: Alternative[] = [
       ['Per-platform sentiment', '✓', 'Verify on site'],
       ['Competitor share of voice', '✓ Up to 20 brands', 'Verify on site'],
       ['Full AI response stored as evidence', '✓', 'Verify on site'],
-      ['Entry price', '$9/mo', 'Verify on site'],
+      ['Entry price', '$19/mo', 'Verify on site'],
       ['Broader marketing suite', 'Focused tool', '✓ Platform play'],
     ],
     switchHeading: 'Should you choose Daydream or Livesov?',
@@ -902,7 +902,7 @@ export const alternatives: Alternative[] = [
       {
         question: 'How much does Livesov cost?',
         answer:
-          'From $9/mo (Starter), $29/mo (Pro), and $89/mo (Agency), with 2, 3, and all 5 LLMs respectively, plus a 7-day free trial and no credit card.',
+          'From $19/mo (Starter), $49/mo (Pro), and $129/mo (Agency), with 2, 3, and all 5 LLMs respectively, plus a 7-day free trial and no credit card.',
       },
     ],
   },
@@ -916,15 +916,15 @@ export const alternatives: Alternative[] = [
       'a buyer-journey oriented AI visibility tool that maps mentions to funnel stages.',
     metaTitle: '7 Best Xfunnel Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
-      'Looking for an Xfunnel alternative? Livesov tracks AI visibility across all 5 LLMs with citations, sentiment, and evidence from $9/mo. Compare it to Xfunnel.',
+      'Looking for an Xfunnel alternative? Livesov tracks AI visibility across all 5 LLMs with citations, sentiment, and evidence from $19/mo. Compare it to Xfunnel.',
     primaryKeyword: 'xfunnel alternative',
     keywords:
       'xfunnel alternative, best xfunnel alternative, xfunnel alternatives, xfunnel.ai alternative, ai visibility tool, geo tool, b2b ai visibility',
     heroSubtitle:
-      'Xfunnel frames AI visibility around the buyer journey, mapping mentions to funnel stages. Livesov measures the same underlying signal - mentions, citations, sentiment, and share of voice - across all five major LLMs, with the full response stored as evidence, from $9/mo.',
+      'Xfunnel frames AI visibility around the buyer journey, mapping mentions to funnel stages. Livesov measures the same underlying signal - mentions, citations, sentiment, and share of voice - across all five major LLMs, with the full response stored as evidence, from $19/mo.',
     stats: [
       { value: '5', label: 'LLMs supported, no add-ons' },
-      { value: '$9', label: 'Livesov entry price /mo' },
+      { value: '$19', label: 'Livesov entry price /mo' },
       { value: '20', label: 'Competitors benchmarked' },
       { value: '7-day', label: 'Free trial, no card' },
     ],
@@ -936,7 +936,7 @@ export const alternatives: Alternative[] = [
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', '✗ Not advertised'],
       ['Full AI response stored as evidence', '✓', 'Verify on site'],
       ['Buyer-journey / funnel mapping', 'Via prompt design + tags', '✓ Core framing'],
-      ['Entry price', '$9/mo', 'Verify on site'],
+      ['Entry price', '$19/mo', 'Verify on site'],
     ],
     switchHeading: 'Should you choose Xfunnel or Livesov?',
     switchParagraphs: [
@@ -961,7 +961,7 @@ export const alternatives: Alternative[] = [
       {
         question: 'How much does Livesov cost?',
         answer:
-          'From $9/mo (Starter), $29/mo (Pro), and $89/mo (Agency), with 2, 3, and all 5 LLMs respectively, plus a 7-day free trial and no credit card.',
+          'From $19/mo (Starter), $49/mo (Pro), and $129/mo (Agency), with 2, 3, and all 5 LLMs respectively, plus a 7-day free trial and no credit card.',
       },
     ],
   },
@@ -975,15 +975,15 @@ export const alternatives: Alternative[] = [
       'an AI search optimization platform that combines monitoring with content recommendations.',
     metaTitle: '7 Best Goodie Alternatives in 2026 (Tested) | Livesov',
     metaDescription:
-      'Looking for a Goodie alternative? Livesov is a measurement-first AI visibility tracker - all 5 LLMs, citations, and evidence from $9/mo. Compare it to Goodie.',
+      'Looking for a Goodie alternative? Livesov is a measurement-first AI visibility tracker - all 5 LLMs, citations, and evidence from $19/mo. Compare it to Goodie.',
     primaryKeyword: 'goodie ai alternative',
     keywords:
       'goodie ai alternative, best goodie alternative, goodie alternatives, higoodie alternative, ai search optimization, ai visibility tool, geo tool',
     heroSubtitle:
-      'Goodie pairs AI search monitoring with content recommendations - it tells you what to publish next. Livesov is measurement-first: accurate, evidence-backed visibility across all five major LLMs, so you decide what to act on, from $9/mo.',
+      'Goodie pairs AI search monitoring with content recommendations - it tells you what to publish next. Livesov is measurement-first: accurate, evidence-backed visibility across all five major LLMs, so you decide what to act on, from $19/mo.',
     stats: [
       { value: '5', label: 'LLMs supported, no add-ons' },
-      { value: '$9', label: 'Livesov entry price /mo' },
+      { value: '$19', label: 'Livesov entry price /mo' },
       { value: '✓', label: 'Evidence behind every metric' },
       { value: '7-day', label: 'Free trial, no card' },
     ],
@@ -995,7 +995,7 @@ export const alternatives: Alternative[] = [
       ['Hallucination / fact-drift detection', '✓ Canonical facts store', 'Verify on site'],
       ['Full AI response stored as evidence', '✓', 'Verify on site'],
       ['Built-in content recommendations', 'Free GEO audit + 10 tools', '✓ Core feature'],
-      ['Entry price', '$9/mo', 'Verify on site'],
+      ['Entry price', '$19/mo', 'Verify on site'],
     ],
     switchHeading: 'Should you choose Goodie or Livesov?',
     switchParagraphs: [
@@ -1020,7 +1020,7 @@ export const alternatives: Alternative[] = [
       {
         question: 'How much does Livesov cost?',
         answer:
-          'From $9/mo (Starter), $29/mo (Pro), and $89/mo (Agency), with 2, 3, and all 5 LLMs respectively, plus a 7-day free trial and no credit card.',
+          'From $19/mo (Starter), $49/mo (Pro), and $129/mo (Agency), with 2, 3, and all 5 LLMs respectively, plus a 7-day free trial and no credit card.',
       },
     ],
   },

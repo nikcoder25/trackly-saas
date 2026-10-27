@@ -463,7 +463,7 @@ export default function AccountPage() {
                 <Card key={p.name} title={p.name} right={p.featured ? <Badge tone="acc">Popular</Badge> : isCurrent ? <Badge tone="pos">Current</Badge> : undefined}>
                   <div className="kpi-v mono" style={{ fontSize: 28 }}>{p.price}<i>/mo</i></div>
                   <div className="quiet" style={{ fontSize: 13, margin: '6px 0 14px' }}>{p.sub}</div>
-                  <ul className="plan-feat">{p.features.map(f => <li key={f}>{f}</li>)}</ul>
+                  <ul className="plan-feat">{[...p.rankFeatures.map(f => `Rank tracking: ${f}`), ...p.features].map(f => <li key={f}>{f}</li>)}</ul>
                   <div style={{ marginTop: 14 }}>
                     {isCurrent ? (
                       <button className="btn-d" style={{ width: '100%', opacity: 0.7, cursor: 'default' }} disabled>Current plan</button>

@@ -21,7 +21,7 @@ import { OpenRecsProvider, useOpenRecommendations, lastRunMs, agoLabel, nextScan
 import './v3.css';
 
 const SECTION_ICON: Record<V3SectionId, V3IconName> = {
-  overview: 'overview', prompts: 'prompts', competitors: 'competitors', sources: 'sources',
+  overview: 'overview', rankings: 'rankings', prompts: 'prompts', competitors: 'competitors', sources: 'sources',
   fixes: 'fixes', reports: 'reports', audits: 'audits', settings: 'settings',
 };
 

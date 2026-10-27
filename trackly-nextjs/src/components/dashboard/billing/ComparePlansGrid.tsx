@@ -80,6 +80,13 @@ function creditsCopy(p: string): string {
   return `${n.toLocaleString()} credits/mo`;
 }
 
+/** Google rank tracking allowance, from the same PRICING_PLANS the /pricing cards use. */
+function rankCreditsCopy(p: string): string {
+  const n = PRICING_PLANS.find((x) => x.name.toLowerCase() === p)?.rankCredits ?? 0;
+  if (n <= 0) return '';
+  return `${n.toLocaleString('en-US')} rank tracking credits/mo`;
+}
+
 function cooldownSuffix(p: string): string {
   const s = PLAN_CREDITS[p]?.cooldownSeconds ?? 0;
   if (s <= 0) return '';
@@ -92,6 +99,8 @@ function buildBullets(planKey: string): string[] {
   bullets.push(`${promptsCopy(planKey)} · ${brandsCopy(planKey)}`);
   bullets.push(platformCopy(planKey));
   bullets.push(creditsCopy(planKey));
+  const rank = rankCreditsCopy(planKey);
+  if (rank) bullets.push(rank);
 
   const auto = autoRunCopy(planKey);
   const cool = cooldownSuffix(planKey);

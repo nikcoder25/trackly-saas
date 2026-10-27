@@ -35,7 +35,7 @@ function Hero() {
           <Link href="/geo-audit" className="ls-btn ls-btn-pri ls-btn-lg">Run my free audit</Link>
           <Link href="/pricing" className="ls-btn ls-btn-out ls-btn-lg">See pricing</Link>
         </div>
-        <p className="ls-trust">No credit card · Report in about 90 seconds · Plans from $9/mo</p>
+        <p className="ls-trust">No credit card · Report in about 90 seconds · Plans from $19/mo</p>
       </section>
 
       <section className="ls-wrap" style={{ paddingTop: 24, paddingBottom: 64 }}>
@@ -143,7 +143,7 @@ function Problem() {
           <Link href="/ai-search-statistics-2026" className="ls-mono" style={{ fontSize: 12 }}>Source</Link>
         </div>
         <div className="ls-stack ls-gap-8">
-          <span className="ls-stat-v">$9</span>
+          <span className="ls-stat-v">$19</span>
           <span className="ls-small">a month to start, no SEO suite or add-on needed</span>
         </div>
         <div className="ls-stack ls-gap-8">
@@ -224,7 +224,7 @@ function Compare() {
     { k: 'Sentiment', a: 'Yes', b: 'No', c: 'Partial' },
     { k: 'Hallucination detection', a: 'Yes', b: 'No', c: 'No' },
     { k: 'Cited source attribution', a: 'Yes', b: 'With add-on', c: 'With add-on' },
-    { k: 'Starting price', a: '$9/mo', b: '$99/mo', c: '$129/mo' },
+    { k: 'Starting price', a: '$19/mo', b: '$99/mo', c: '$129/mo' },
     { k: 'Setup time', a: '2 min', b: 'About 1 hr', c: 'About 1 hr' },
   ];
   return (

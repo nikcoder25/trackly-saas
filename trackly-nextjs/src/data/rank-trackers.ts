@@ -109,7 +109,7 @@ export const rankTrackers: RankTracker[] = [
       {
         question: 'Is there a free Perplexity rank tracker?',
         answer:
-          'Livesov offers a 7-day free trial with no credit card, plus a free GEO audit and free one-off tools that need no signup. That lets you track your Perplexity rankings and citations before paying anything. Paid plans start at $9/mo.',
+          'Livesov offers a 7-day free trial with no credit card, plus a free GEO audit and free one-off tools that need no signup. That lets you track your Perplexity rankings and citations before paying anything. Paid plans start at $19/mo.',
       },
       {
         question: 'How does Livesov track Perplexity rankings?',
@@ -178,7 +178,7 @@ export const rankTrackers: RankTracker[] = [
       {
         question: 'Is there a free ChatGPT rank tracker?',
         answer:
-          'Livesov offers a 7-day free trial with no credit card, plus a free GEO audit and free one-off tools with no signup, so you can track your ChatGPT rankings before paying. A free ChatGPT mention checker is also available in the tools hub. Paid plans start at $9/mo.',
+          'Livesov offers a 7-day free trial with no credit card, plus a free GEO audit and free one-off tools with no signup, so you can track your ChatGPT rankings before paying. A free ChatGPT mention checker is also available in the tools hub. Paid plans start at $19/mo.',
       },
       {
         question: 'How does Livesov track ChatGPT rankings?',
@@ -268,7 +268,7 @@ export const rankTrackers: RankTracker[] = [
       {
         question: 'Is there a free LLM rank tracker?',
         answer:
-          'Livesov offers a 7-day free trial with no credit card, plus a free GEO audit and a set of free one-off tools that need no signup at all. That is enough to see your LLM rankings before paying anything. Paid plans start at $9/mo.',
+          'Livesov offers a 7-day free trial with no credit card, plus a free GEO audit and a set of free one-off tools that need no signup at all. That is enough to see your LLM rankings before paying anything. Paid plans start at $19/mo.',
       },
       {
         question: 'Can I track competitor rankings across LLMs?',
@@ -329,7 +329,7 @@ export const rankTrackers: RankTracker[] = [
       {
         question: 'Is there a free Claude rank tracker?',
         answer:
-          'Livesov offers a 7-day free trial with no credit card, plus a free GEO audit and a set of free one-off tools that need no signup at all. That is enough to see your Claude rankings before paying anything. Paid plans start at $9/mo.',
+          'Livesov offers a 7-day free trial with no credit card, plus a free GEO audit and a set of free one-off tools that need no signup at all. That is enough to see your Claude rankings before paying anything. Paid plans start at $19/mo.',
       },
       {
         question: 'How does Livesov track Claude rankings?',
@@ -401,7 +401,7 @@ export const rankTrackers: RankTracker[] = [
       {
         question: 'Is there a free Gemini rank tracker?',
         answer:
-          'Livesov offers a 7-day free trial with no credit card, plus a free GEO audit and free one-off tools that need no signup. That lets you see your Gemini rankings before paying anything. Paid plans start at $9/mo.',
+          'Livesov offers a 7-day free trial with no credit card, plus a free GEO audit and free one-off tools that need no signup. That lets you see your Gemini rankings before paying anything. Paid plans start at $19/mo.',
       },
       {
         question: 'How does Livesov track Gemini rankings?',
@@ -478,7 +478,7 @@ export const rankTrackers: RankTracker[] = [
       {
         question: 'Is there a free Grok rank tracker?',
         answer:
-          'Livesov offers a 7-day free trial with no credit card, plus a free GEO audit and free one-off tools that need no signup. That is enough to see your Grok rankings before paying anything. Paid plans start at $9/mo.',
+          'Livesov offers a 7-day free trial with no credit card, plus a free GEO audit and free one-off tools that need no signup. That is enough to see your Grok rankings before paying anything. Paid plans start at $19/mo.',
       },
       {
         question: 'How does Livesov track Grok rankings?',
