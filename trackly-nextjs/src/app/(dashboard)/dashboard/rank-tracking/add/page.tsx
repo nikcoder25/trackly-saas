@@ -22,7 +22,6 @@ interface AddResult {
   location: string;
   ai: { added: number; brandId: string | null; reason?: 'no_brand' | 'prompt_limit' } | null;
 }
-interface ImportResult { websites: number; keywords: number; checks: number; skippedLocations: string[] }
 
 const MAX_PER_ADD = 1000;
 const fmt = (n: number) => n.toLocaleString('en-US');
@@ -221,101 +220,10 @@ function AddForm({ initialWebsite, websites, credits, creditsError }: { initialW
   );
 }
 
-/* ─── Import from Serpfox ───────────────────────────────────────── */
-
-function ImportForm({ websites, initialWebsite }: { websites: string[]; initialWebsite: string }) {
-  const [file, setFile] = useState<{ name: string; text: string } | null>(null);
-  const [fileError, setFileError] = useState('');
-  const [domain, setDomain] = useState(initialWebsite);
-  const [city, setCity] = useState<CityValue>({ code: null, name: '' });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<{ msg: string; upgrade: boolean } | null>(null);
-  const [result, setResult] = useState<ImportResult | null>(null);
-
-  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    setFile(null); setFileError(''); setResult(null); setError(null);
-    if (!f) return;
-    if (f.size > 15_000_000) { setFileError('This file is too big. The limit is 15 MB.'); return; }
-    try {
-      setFile({ name: f.name, text: await f.text() });
-    } catch {
-      setFileError('Could not read this file.');
-    }
-  }
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!file || busy) return;
-    setBusy(true); setError(null); setResult(null);
-    try {
-      const r = await rtFetch<ImportResult>('/api/rank-tracking/import', 'POST', {
-        csv: file.text, domain: domain.trim() || undefined, location: city.name || undefined,
-      });
-      setResult(r);
-    } catch (err) {
-      const status = err instanceof ApiError ? err.status : 0;
-      setError({ msg: (err as Error).message || 'Import failed.', upgrade: status === 402 });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <p style={{ margin: 0, fontSize: 14, color: RT.muted }}>
-        Export your keywords from Serpfox as CSV and bring them here with their rank history. Imported keywords are checked weekly, top 30 (top 100 if the history goes past 30).
-      </p>
-
-      <label style={labelStyle}>
-        CSV file
-        <input type="file" accept=".csv,text/csv" onChange={onFile}
-          style={{ ...inputStyle, fontWeight: 400, padding: '10px 12px', minHeight: 48 }} />
-        {file && <span style={{ fontWeight: 400, color: RT.muted }}>{file.name}, ready to import.</span>}
-        {fileError && <span role="alert" style={{ fontWeight: 400, color: RT.down }}>{fileError}</span>}
-      </label>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
-        <label style={labelStyle}>
-          <span>Website <span style={{ fontWeight: 400, color: RT.muted }}>(optional)</span></span>
-          <input type="text" list="rt-import-websites" value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="example.com"
-            autoComplete="off" style={{ ...inputStyle, fontWeight: 400 }} />
-          <datalist id="rt-import-websites">{websites.map((w) => <option key={w} value={w} />)}</datalist>
-          <span style={{ fontWeight: 400, color: RT.muted }}>Used when the CSV has no URL column.</span>
-        </label>
-        <AddCityInput label="Default city (optional)" value={city} onChange={setCity}
-          hint="Used for rows with no location." />
-      </div>
-
-      {error && <Notice tone="error">{error.msg}{error.upgrade && <> {upgradeLink}</>}</Notice>}
-
-      {result && (
-        <Notice tone={result.keywords ? 'ok' : 'info'}>
-          <strong>Imported {fmt(result.keywords)} {result.keywords === 1 ? 'keyword' : 'keywords'}</strong> on {fmt(result.websites)} {result.websites === 1 ? 'website' : 'websites'} with {fmt(result.checks)} past {result.checks === 1 ? 'check' : 'checks'}.
-          {result.skippedLocations.length > 0 && (
-            <> Skipped rows with an unknown city: {result.skippedLocations.slice(0, 10).join('; ')}{result.skippedLocations.length > 10 ? ` and ${result.skippedLocations.length - 10} more` : ''}. Pick a default city and import again to add them.</>
-          )}
-          {' '}<Link href="/dashboard/rank-tracking" style={{ color: '#3730a3', fontWeight: 600 }}>Go to Rank Tracking</Link>
-        </Notice>
-      )}
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
-        <Link href="/dashboard/rank-tracking" style={btnSecondary}>Cancel</Link>
-        <button type="submit" disabled={!file || busy} aria-disabled={!file || busy}
-          style={{ ...btnPrimary, opacity: file && !busy ? 1 : 0.55, cursor: file && !busy ? 'pointer' : 'not-allowed' }}>
-          {busy ? 'Importing…' : 'Import'}
-        </button>
-      </div>
-    </form>
-  );
-}
-
 /* ─── Page ──────────────────────────────────────────────────────── */
 
 function AddKeywordsInner() {
   const params = useSearchParams();
-  const router = useRouter();
-  const tab: 'add' | 'import' = params.get('tab') === 'import' ? 'import' : 'add';
   const initialWebsite = (params.get('website') || '').trim();
   const [websites, setWebsites] = useState<string[]>([]);
   const [credits, setCredits] = useState<Credits | null>(null);
@@ -330,42 +238,19 @@ function AddKeywordsInner() {
       .catch((e) => setCreditsError((e as Error).message || 'Could not load credits'));
   }, []);
 
-  const setTab = (t: 'add' | 'import') => {
-    const q = new URLSearchParams(params.toString());
-    if (t === 'import') q.set('tab', 'import'); else q.delete('tab');
-    const s = q.toString();
-    router.replace(`/dashboard/rank-tracking/add${s ? `?${s}` : ''}`, { scroll: false });
-  };
-
-  const tabBtn = (t: 'add' | 'import', label: string) => (
-    <button type="button" role="tab" id={`rt-tab-${t}`} aria-selected={tab === t} aria-controls={`rt-panel-${t}`} onClick={() => setTab(t)}
-      style={{ font: 'inherit', fontSize: 14, fontWeight: 600, minHeight: 44, padding: '10px 16px', border: 0, borderRadius: 8, cursor: 'pointer',
-        background: tab === t ? '#fff' : 'transparent', color: tab === t ? RT.ink : RT.muted, boxShadow: tab === t ? '0 1px 2px rgba(15,23,42,0.08)' : 'none' }}>
-      {label}
-    </button>
-  );
-
   return (
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif', color: RT.ink }}>
       <PageHead title="Add keywords" sub="Track Google rankings from the city your customers search in." />
       <RankTabs />
       <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 48px' }}>
         <div style={{ ...cardStyle, borderRadius: 18, width: '100%', maxWidth: 760, padding: 'clamp(20px, 4vw, 32px)', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-            <div role="tablist" aria-label="Add keywords" style={{ display: 'flex', flexWrap: 'wrap', background: RT.lineSoft, borderRadius: 10, padding: 4, gap: 4 }}>
-              {tabBtn('add', 'Add keywords')}
-              {tabBtn('import', 'Import from Serpfox')}
-            </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
             <Link href="/dashboard/rank-tracking" aria-label="Close"
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, borderRadius: 10, color: RT.muted, textDecoration: 'none', flex: 'none' }}>
               <CloseIcon />
             </Link>
           </div>
-          <div role="tabpanel" id={`rt-panel-${tab}`} aria-labelledby={`rt-tab-${tab}`}>
-            {tab === 'add'
-              ? <AddForm initialWebsite={initialWebsite} websites={websites} credits={credits} creditsError={creditsError} />
-              : <ImportForm websites={websites} initialWebsite={initialWebsite} />}
-          </div>
+          <AddForm initialWebsite={initialWebsite} websites={websites} credits={credits} creditsError={creditsError} />
         </div>
       </div>
     </div>
