@@ -145,7 +145,6 @@ export default function RankTrackingPage() {
             </p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 8 }}>
               <Link href="/dashboard/rank-tracking/add" style={btnPrimary}>+ Add keywords</Link>
-              <Link href="/dashboard/rank-tracking/add?tab=import" style={btnSecondary}>Import CSV</Link>
             </div>
           </section>
         )}
