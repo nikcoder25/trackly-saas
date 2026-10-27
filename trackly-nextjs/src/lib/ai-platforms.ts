@@ -21,6 +21,7 @@ import {
 } from './redis-platform-state';
 import { PROVIDER_SPECS } from './provider-specs';
 import { logger } from './logger';
+import { geminiChat, googleAiMode, googleAiOverview, litescrapeConfigured, LITESCRAPE_CALL_USD } from './litescrape';
 import { isRedirectCitationHost, looksLikeDomain } from './citation-hosts';
 import { recordAiCall, classifyOutcome, type Outcome } from './metrics';
 import {
@@ -1656,6 +1657,29 @@ export function extractGeminiGrounding(
   return { citations, fanout, grounded: true };
 }
 
+/** Model label recorded for Gemini answers read from gemini.google.com via Litescrape. */
+export const GEMINI_LITESCRAPE_MODEL = 'gemini-web-litescrape';
+
+/**
+ * Gemini visibility answer from consumer Gemini via Litescrape, or null
+ * when the caller should use the Gemini API instead: Litescrape not
+ * configured, GEMINI_VIA_LITESCRAPE=false, a JSON-mode or custom-prompt
+ * caller, or any Litescrape error / timeout / empty reply.
+ */
+export async function geminiViaLitescrape(query: string, sysPrompt: string, options?: QueryOptions): Promise<QueryResult | null> {
+  if (process.env.GEMINI_VIA_LITESCRAPE === 'false' || !litescrapeConfigured()) return null;
+  if (options?.jsonMode || (options?.systemPrompt !== undefined && options.systemPrompt !== SYSTEM_PROMPT)) return null;
+  try {
+    const a = await geminiChat(`${sysPrompt}\n\n${query}`, options?.signal);
+    if (a.empty) return null;
+    return { text: a.text, model: GEMINI_LITESCRAPE_MODEL, tokensIn: 0, tokensOut: 0, citations: a.citations };
+  } catch (e) {
+    if (options?.signal?.aborted) throw e;
+    logger.warn('[gemini.litescrape_fallback]', { errorMessage: ((e as Error).message || '').slice(0, 240) });
+    return null;
+  }
+}
+
 async function callGemini(model: string, query: string, apiKey: string, sysPrompt: string, maxTok: number, options?: QueryOptions): Promise<QueryResult> {
   const attemptModels = GEMINI_FALLBACK_CHAIN[model] || [model];
   const signal = options?.signal;
@@ -2207,6 +2231,15 @@ export async function queryAI(
           citations: [],
         };
       } else if (platform === 'Gemini') {
+        // Visibility answers go to consumer Gemini through Litescrape first
+        // ($0.00015 a call vs ~$0.035 for a grounded API call). JSON-mode
+        // and custom-system-prompt callers (parsers, Fix Engine) keep the
+        // API, as does any Litescrape failure or timeout.
+        const viaLitescrape = await geminiViaLitescrape(query, sysPrompt, options);
+        if (viaLitescrape) {
+          result = viaLitescrape;
+          retrievalCostUsd = LITESCRAPE_CALL_USD;
+        } else {
         result = await callGemini(useModel, query, apiKey, sysPrompt, maxTok, options);
         // Google charges per grounded prompt. Bill on evidence that
         // grounding actually ran (the response carried groundingMetadata)
@@ -2216,6 +2249,7 @@ export async function queryAI(
           retrievalCostUsd =
             estimateCostUsd(result.model, result.tokensIn, result.tokensOut)
             + GEMINI_GROUNDING_CALL_USD;
+        }
         }
       } else if (platform === 'Perplexity') {
         const d = await fetchAI(API_ENDPOINTS.perplexity.chat, {
