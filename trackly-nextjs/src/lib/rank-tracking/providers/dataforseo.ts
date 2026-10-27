@@ -71,7 +71,8 @@ function task(req: SerpPageRequest): Record<string, unknown> {
     device: req.device,
     depth: 10,
   };
-  if (req.locationCode) t.location_code = req.locationCode;
+  // Codes below zero come from the bundled city list, not DataForSEO.
+  if (req.locationCode && req.locationCode > 0) t.location_code = req.locationCode;
   else t.location_name = req.locationName || 'United States';
   if (req.page > 1) t.search_param = `&start=${(req.page - 1) * 10}`;
   return t;
@@ -151,13 +152,13 @@ export async function fetchDfsLocations(): Promise<DfsLocation[]> {
 }
 
 /** Monthly Google search volume per keyword for one location. Best effort: errors return an empty map. */
-export async function fetchSearchVolume(keywords: string[], locationCode: number | null, language = 'en'): Promise<{ volumes: Map<string, number>; cost: number }> {
+export async function fetchSearchVolume(keywords: string[], locationCode: number | null, language = 'en', locationName = 'United States'): Promise<{ volumes: Map<string, number>; cost: number }> {
   const volumes = new Map<string, number>();
   if (!keywords.length || !auth()) return { volumes, cost: 0 };
   try {
     const body: Record<string, unknown> = { keywords: keywords.slice(0, 1000), language_code: language };
-    if (locationCode) body.location_code = locationCode;
-    else body.location_name = 'United States';
+    if (locationCode && locationCode > 0) body.location_code = locationCode;
+    else body.location_name = locationName;
     const t = await call<{ keyword?: string; search_volume?: number | null }>('/keywords_data/google_ads/search_volume/live', [body]);
     for (const r of t.result || []) {
       if (r.keyword && typeof r.search_volume === 'number') volumes.set(r.keyword.toLowerCase(), r.search_volume);
