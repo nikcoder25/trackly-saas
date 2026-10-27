@@ -54,6 +54,30 @@ export const CHATGPT_WEB_SEARCH_CALL_USD = 0.030;
 // web_search surcharge.
 export const GEMINI_GROUNDING_CALL_USD = 0.035;
 
+// Perplexity bills a flat request fee on top of tokens for the Sonar
+// family, by search context size. We send no search_context_size, so the
+// provider default ("low") applies: $5 / 1K requests on sonar, $6 / 1K on
+// sonar-pro and sonar-reasoning-pro (docs.perplexity.ai/getting-started/pricing).
+// For a typical brand-mention answer the fee is ~85% of the call, so leaving
+// it out made Perplexity read about 6x cheaper in the ledger than invoiced.
+// Same policy as above: NOT read from env.
+export const PERPLEXITY_REQUEST_FEE_USD: Record<string, number> = {
+  'sonar': 0.005,
+  'sonar-pro': 0.006,
+  'sonar-reasoning-pro': 0.006,
+  'sonar-reasoning': 0.005,
+  // Billed per search and per reasoning token instead of a request fee.
+  'sonar-deep-research': 0,
+};
+
+/** Perplexity's per-request fee for a model; 0 for models without one (e.g. sonar-deep-research). */
+export function perplexityRequestFeeUsd(model: string): number {
+  const m = String(model || '').toLowerCase();
+  if (PERPLEXITY_REQUEST_FEE_USD[m] !== undefined) return PERPLEXITY_REQUEST_FEE_USD[m];
+  const key = Object.keys(PERPLEXITY_REQUEST_FEE_USD).sort((a, b) => b.length - a.length).find((k) => m.startsWith(k));
+  return key ? PERPLEXITY_REQUEST_FEE_USD[key] : 0;
+}
+
 // Per-platform daily cost-alarm threshold (USD). When today's cost_usd_total
 // for any single platform crosses this number, we WARN once per UTC day per
 // platform. Default $3.00 keeps alarm noise low for the dev workload while

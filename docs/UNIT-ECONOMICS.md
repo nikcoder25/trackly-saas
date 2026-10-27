@@ -5,6 +5,42 @@ cost us" and "what should we charge". Re-derive it whenever model pricing,
 default models, or plan limits change — every number below is computed from
 source, not quoted from a vendor page, so it can be rebuilt exactly.
 
+## October 2026 update: new prices, rank tracking, cost caps
+
+Prices moved to Starter $19, Pro $49, Agency $129, and each plan gained
+rank tracking credits (1,000 / 4,000 / 20,000). Two cost controls shipped
+with it:
+
+- **Grounded Gemini is capped per month** (`GROUNDED_GEMINI_CALLS_PER_MONTH`
+  in `src/lib/gemini-grounding-budget.ts`): Pro 400 calls, Agency 1,200.
+  Past the cap Gemini answers ungrounded until the month rolls over. Read
+  from `tenant_cost_events`, so it needs no counter of its own.
+- **Perplexity's request fee is now in the ledger** (`PERPLEXITY_REQUEST_FEE_USD`
+  in `src/lib/cost-tracker.ts`): $5 / 1K on sonar, $6 / 1K on sonar-pro, at
+  the default low search context. Sonar is ~$0.006 a call, not $0.00095.
+
+Agency already runs the economy models by default: `resolveModelForPlan`
+returns the requested model, which is the platform default unless an admin
+picks a premium model on the Models page. Picking one there moves every
+Agency account onto it, at roughly 2x the AI cost below.
+
+Rank tracking (DataForSEO Standard queue, $0.0006 a results page, early stop
+after the page the domain is on) averages ~2 pages a top-30 check, about
+$0.0012 a credit; the worst case is 3 pages, $0.0018.
+
+Worst case per account at full use, economy models, payment fees at Dodo's
+4% + $0.40 + 0.5% subscription + 1.5% international:
+
+| Plan | Price | AI | Rank tracking | Fees | Cost | Margin |
+|---|---|---|---|---|---|---|
+| Starter | $19 | $3.80 | $1.80 | $1.54 | $7.14 | 62% |
+| Pro | $49 | $22.70 | $7.20 | $3.34 | $33.24 | 32% |
+| Agency | $129 | $61 | $36 | $8.14 | $105 | 19% |
+
+At normal use (about half the AI credits, 60% of rank credits) margins are
+roughly 84%, 67% and 45%. A top-100 check that never finds the domain pays
+for 10 pages; an Agency account doing that for every keyword adds ~$24.
+
 ## Where the inputs live
 
 | Input | Source |
