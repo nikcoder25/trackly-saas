@@ -46,7 +46,7 @@ export default function WebsiteHistoryChart({ points, depth, label }: { points: 
 
   return (
     <svg viewBox="0 0 1000 250" role="img" aria-label={label}
-      style={{ width: '100%', height: 250, background: '#fff', border: `1px solid ${RT.line}`, borderRadius: 12, boxSizing: 'border-box' }}>
+      style={{ width: '100%', height: 250, background: '#fff', boxSizing: 'border-box' }}>
       {ticks.map((t) => (
         <g key={t}>
           <line x1={56} y1={Y(t)} x2={980} y2={Y(t)} stroke={RT.lineSoft} strokeWidth={1} />

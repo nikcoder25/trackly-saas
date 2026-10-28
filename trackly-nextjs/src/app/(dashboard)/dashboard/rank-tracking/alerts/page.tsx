@@ -4,7 +4,7 @@ import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { PageHead } from '@/app/dashboard-v2/ui';
-import { RT, RankTabs, rtFetch, fmtDay, btnPrimary, btnSecondary, cardStyle, inputStyle, labelStyle } from '@/components/rank-tracking/RankUi';
+import { RT, RankTabs, rtFetch, fmtDay, activityTag, btnPrimary, btnSecondary, cardStyle, inputStyle, labelStyle } from '@/components/rank-tracking/RankUi';
 
 type RuleType = 'changes_by' | 'enters_top' | 'leaves_top' | 'gains' | 'loses' | 'new_best' | 'new_worst' | 'ai_mentioned';
 
@@ -31,8 +31,8 @@ interface SitesResp { websites: { id: string; domain: string }[]; groups: { id: 
 
 const selectStyle: React.CSSProperties = { ...inputStyle, fontSize: 14, padding: '11px 12px', minHeight: 46 };
 const checkStyle: React.CSSProperties = { width: 20, height: 20, accentColor: RT.indigo, margin: 0 };
-const sectionStyle: React.CSSProperties = { ...cardStyle, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 4 };
-const h2Style: React.CSSProperties = { margin: '0 0 8px', fontSize: 17, fontWeight: 600, color: RT.ink };
+const sectionStyle: React.CSSProperties = { ...cardStyle, borderRadius: 16, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 };
+const h2Style: React.CSSProperties = { margin: 0, fontSize: 16, fontWeight: 600, color: RT.ink };
 
 function scopeText(r: Rule): string {
   const parts = [r.domain || 'All websites'];
@@ -139,7 +139,7 @@ function AlertsInner() {
   return (
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif', color: RT.ink }}>
       <RankTabs />
-      <PageHead title="Alerts" sub="Get an email or Slack message when a ranking or AI mention moves the way you care about." />
+      <PageHead title="Alerts and reports" sub="Get told when rankings move, send clients a report on schedule, or give them a live view." />
 
       {error && (
         <div role="alert" style={{ ...cardStyle, padding: 16, marginBottom: 20, color: RT.down, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -149,8 +149,8 @@ function AlertsInner() {
       )}
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-start' }}>
-        <form onSubmit={submit} style={{ ...cardStyle, flex: '1 1 420px', minWidth: 0, padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>New alert rule</h2>
+        <form onSubmit={submit} style={{ ...cardStyle, borderRadius: 16, flex: '1 1 420px', minWidth: 0, padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <h2 style={h2Style}>New alert rule</h2>
 
           <fieldset style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
             <legend style={{ fontSize: 13, fontWeight: 600, color: RT.text, marginBottom: 8, padding: 0 }}>When a keyword</legend>
@@ -159,8 +159,8 @@ function AlertsInner() {
                 const on = r.type === rule;
                 return (
                   <button key={r.type} type="button" aria-pressed={on} onClick={() => pick(r.type)}
-                    style={{ font: 'inherit', fontSize: 14, textAlign: 'left', padding: '10px 12px', minHeight: 44, borderRadius: 10, cursor: 'pointer',
-                      border: on ? `2px solid ${RT.indigo}` : '1px solid #cbd5e1', background: on ? RT.indigoSoft : '#fff', color: on ? RT.indigoDark : RT.ink, fontWeight: on ? 600 : 400 }}>
+                    style={{ font: 'inherit', fontSize: 13, textAlign: 'left', padding: '10px 12px', minHeight: 44, borderRadius: 10, cursor: 'pointer',
+                      border: `1px solid ${on ? RT.indigo : RT.line}`, background: on ? RT.indigoSoft : '#fff', color: on ? RT.indigoDark : RT.ink, fontWeight: on ? 600 : 500 }}>
                     {r.label}
                   </button>
                 );
@@ -223,17 +223,20 @@ function AlertsInner() {
 
         <div style={{ flex: '1 1 420px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>
           <section style={sectionStyle} aria-busy={loading}>
-            <h2 style={h2Style}>Active rules</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <h2 style={h2Style}>Alert rules</h2>
+              {!!data?.rules.length && <span style={{ fontSize: 12, color: RT.muted }}>{data.rules.length} active</span>}
+            </div>
             {loading ? (
               <p style={{ margin: 0, fontSize: 14, color: RT.muted }}>Loading...</p>
             ) : !data?.rules.length ? (
-              <p style={{ margin: 0, fontSize: 14, color: RT.muted, padding: '12px 0', borderTop: `1px solid ${RT.lineSoft}` }}>
-                No rules yet. Pick what to watch for on the left and press Add rule.
+              <p style={{ margin: 0, fontSize: 14, color: RT.muted, padding: 14, border: `1px dashed ${RT.line}`, borderRadius: 12 }}>
+                No rules yet. Pick what to watch for and press Add rule.
               </p>
             ) : data.rules.map((r) => (
-              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '12px 0', borderTop: `1px solid ${RT.lineSoft}`, alignItems: 'center' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                  <span style={{ fontSize: 14, fontWeight: 500 }}>{r.label}</span>
+              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: 14, border: `1px solid ${RT.line}`, borderRadius: 12, alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>{r.label}</span>
                   <span style={{ fontSize: 12, color: RT.muted }}>{scopeText(r)}</span>
                 </div>
                 <button type="button" onClick={() => remove(r)} disabled={deleting === r.id} aria-label={`Delete rule: ${r.label}`}
@@ -245,21 +248,42 @@ function AlertsInner() {
           </section>
 
           <section style={sectionStyle} aria-busy={loading}>
-            <h2 style={h2Style}>Log</h2>
+            <h2 style={h2Style}>Recent alerts</h2>
             {loading ? (
               <p style={{ margin: 0, fontSize: 14, color: RT.muted }}>Loading...</p>
             ) : !data?.log.length ? (
-              <p style={{ margin: 0, fontSize: 14, color: RT.muted, padding: '12px 0', borderTop: `1px solid ${RT.lineSoft}` }}>
+              <p style={{ margin: 0, fontSize: 14, color: RT.muted }}>
                 Nothing yet. Alerts show here when a rule fires after a rank check.
               </p>
-            ) : data.log.map((l) => (
-              <div key={l.id} style={{ display: 'flex', gap: 12, padding: '10px 0', borderTop: `1px solid ${RT.lineSoft}`, fontSize: 14, justifyContent: 'space-between' }}>
-                <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{l.message}</span>
-                <span style={{ color: RT.muted, flex: 'none' }}>{fmtDay(l.createdAt)}</span>
-              </div>
-            ))}
+            ) : data.log.map((l) => {
+              const t = activityTag(l.message, l.kind);
+              return (
+                <div key={l.id} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 10, background: t.bg, fontSize: 13, alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: t.fg, whiteSpace: 'nowrap' }}>{t.label}</span>
+                  <span style={{ minWidth: 0, flex: 1, overflowWrap: 'anywhere', color: RT.ink }}>{l.message}</span>
+                  <span style={{ color: RT.muted, flex: 'none', fontSize: 12 }}>{fmtDay(l.createdAt)}</span>
+                </div>
+              );
+            })}
           </section>
         </div>
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 20 }}>
+        <section style={{ ...sectionStyle, flex: '1 1 340px', minWidth: 0 }}>
+          <h2 style={h2Style}>Scheduled reports</h2>
+          <p style={{ margin: 0, fontSize: 13, color: RT.muted }}>
+            Send a PDF or CSV to a client on a schedule: position spread, gainers and losers, the keyword table with start vs now, AI answers, and your logo and colours.
+          </p>
+          <div><Link href="/dashboard/rank-tracking/reports" style={{ ...btnSecondary, fontSize: 13 }}>Manage reports</Link></div>
+        </section>
+        <section style={{ ...sectionStyle, flex: '1 1 340px', minWidth: 0 }}>
+          <h2 style={h2Style}>Client view</h2>
+          <p style={{ margin: 0, fontSize: 13, color: RT.muted }}>
+            A read-only live dashboard for one site, under your branding. Share a link from the Websites table, or invite clients to log in.
+          </p>
+          <div><Link href="/dashboard/rank-tracking/clients" style={{ ...btnSecondary, fontSize: 13 }}>Manage client access</Link></div>
+        </section>
       </div>
     </div>
   );
