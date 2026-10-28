@@ -82,7 +82,14 @@ export default function SummaryKeywordsTable({ websites, reloadKey }: { websites
             ))}
           </div>
         </div>
-        <div style={{ fontSize: 13, color: RT.muted }}>Click any keyword to see its rank history</div>
+        {websites.length === 1 ? (
+          <Link href={`/dashboard/rank-tracking/${encodeURIComponent(websites[0].id)}`}
+            style={{ fontSize: 13, fontWeight: 600, color: RT.indigo, textDecoration: 'none', padding: '10px 12px', minHeight: 44, boxSizing: 'border-box', border: `1px solid ${RT.line}`, borderRadius: 10 }}>
+            Edit or delete keywords
+          </Link>
+        ) : (
+          <div style={{ fontSize: 13, color: RT.muted }}>Open a website to edit or delete its keywords</div>
+        )}
       </div>
 
       {error ? (

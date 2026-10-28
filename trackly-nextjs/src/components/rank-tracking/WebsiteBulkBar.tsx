@@ -1,7 +1,8 @@
 'use client';
 /**
  * Bulk actions for selected keywords on the website page: move to group,
- * change location (city autocomplete), export CSV and delete.
+ * change location (city, state or country), change device, change how
+ * often and how deep they are checked, export CSV and delete.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import type { KeywordDto } from '@/lib/rank-tracking/types';
@@ -46,7 +47,10 @@ export default function WebsiteBulkBar({ selected, groups, domain, onDone, onErr
   onDone: (message: string, clearSelection: boolean) => void;
   onError: (message: string) => void;
 }) {
-  const [mode, setMode] = useState<null | 'group' | 'location'>(null);
+  const [mode, setMode] = useState<null | 'group' | 'location' | 'device' | 'schedule'>(null);
+  const [device, setDevice] = useState<'desktop' | 'mobile'>(selected[0]?.device === 'mobile' ? 'mobile' : 'desktop');
+  const [frequency, setFrequency] = useState<'weekly' | 'daily'>(selected[0]?.frequency === 'daily' ? 'daily' : 'weekly');
+  const [depth, setDepth] = useState<30 | 100>(selected[0]?.depth === 100 ? 100 : 30);
   const [busy, setBusy] = useState(false);
   const [groupPick, setGroupPick] = useState<string>(groups[0]?.id ?? '__new');
   const [groupName, setGroupName] = useState('');
@@ -100,9 +104,21 @@ export default function WebsiteBulkBar({ selected, groups, domain, onDone, onErr
 
   function applyLocation(e: React.FormEvent) {
     e.preventDefault();
-    if (!loc) { onError('Pick a city from the list.'); return; }
+    if (!loc) { onError('Pick a place from the list.'); return; }
     run(() => rtFetch('/api/rank-tracking/keywords', 'PATCH', { ids, locationCode: loc.code, locationName: loc.name }),
       `${what} now checked from ${loc.name}. New ranks show after the next check.`, true);
+  }
+
+  function applyDevice(e: React.FormEvent) {
+    e.preventDefault();
+    run(() => rtFetch('/api/rank-tracking/keywords', 'PATCH', { ids, device }),
+      `${what} now checked on ${device}. New ranks show after the next check.`, true);
+  }
+
+  function applySchedule(e: React.FormEvent) {
+    e.preventDefault();
+    run(() => rtFetch('/api/rank-tracking/keywords', 'PATCH', { ids, frequency, depth }),
+      `${what} now checked ${frequency}, top ${depth}.`, true);
   }
 
   function remove() {
@@ -116,6 +132,8 @@ export default function WebsiteBulkBar({ selected, groups, domain, onDone, onErr
         <span style={{ fontSize: 13, fontWeight: 600, color: '#3730a3' }} aria-live="polite">{n} selected</span>
         <button type="button" style={btn} disabled={busy} aria-expanded={mode === 'group'} onClick={() => setMode(mode === 'group' ? null : 'group')}>Move to group</button>
         <button type="button" style={btn} disabled={busy} aria-expanded={mode === 'location'} onClick={() => { setMode(mode === 'location' ? null : 'location'); setLoc(null); setQ(''); setOpts([]); }}>Change location</button>
+        <button type="button" style={btn} disabled={busy} aria-expanded={mode === 'device'} onClick={() => setMode(mode === 'device' ? null : 'device')}>Change device</button>
+        <button type="button" style={btn} disabled={busy} aria-expanded={mode === 'schedule'} onClick={() => setMode(mode === 'schedule' ? null : 'schedule')}>How often</button>
         <button type="button" style={btn} disabled={busy} onClick={() => exportCsv(selected, domain)}>Export CSV</button>
         <button type="button" style={btnDanger} disabled={busy} onClick={remove}>Delete</button>
       </div>
@@ -144,14 +162,14 @@ export default function WebsiteBulkBar({ selected, groups, domain, onDone, onErr
       {mode === 'location' && (
         <form onSubmit={applyLocation} style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap', background: RT.bg, border: `1px solid ${RT.line}`, borderRadius: 10, padding: 12, position: 'relative' }}>
           <div style={{ position: 'relative' }}>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 600, color: RT.text }}>City
-              <input value={q} autoFocus placeholder="Type a city, like Austin" autoComplete="off"
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 600, color: RT.text }}>City, state or country
+              <input value={q} autoFocus placeholder="Like Austin, Texas or United Kingdom" autoComplete="off"
                 role="combobox" aria-expanded={opts.length > 0 && !loc} aria-controls="rt-loc-list" aria-autocomplete="list"
                 onChange={(e) => { setQ(e.target.value); setLoc(null); }}
                 style={{ ...inputStyle, fontSize: 14, padding: '10px 12px', minHeight: 44, width: 240 }} />
             </label>
             {opts.length > 0 && !loc && (
-              <ul id="rt-loc-list" role="listbox" aria-label="Matching cities"
+              <ul id="rt-loc-list" role="listbox" aria-label="Matching places"
                 style={{ position: 'absolute', zIndex: 20, top: '100%', left: 0, right: 0, margin: '4px 0 0', padding: 4, listStyle: 'none', background: '#fff',
                   border: `1px solid ${RT.line}`, borderRadius: 10, boxShadow: '0 8px 24px rgba(15,23,42,.12)', maxHeight: 260, overflowY: 'auto' }}>
                 {opts.map((o) => (
@@ -167,7 +185,42 @@ export default function WebsiteBulkBar({ selected, groups, domain, onDone, onErr
           </div>
           <button type="submit" style={btnGo} disabled={busy || !loc}>{busy ? 'Saving…' : 'Change'}</button>
           <button type="button" style={btn} onClick={() => setMode(null)}>Cancel</button>
-          <span style={srOnly} aria-live="polite">{opts.length && !loc ? `${opts.length} cities found` : ''}</span>
+          <span style={srOnly} aria-live="polite">{opts.length && !loc ? `${opts.length} places found` : ''}</span>
+        </form>
+      )}
+
+      {mode === 'device' && (
+        <form onSubmit={applyDevice} style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap', background: RT.bg, border: `1px solid ${RT.line}`, borderRadius: 10, padding: 12 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 600, color: RT.text }}>Device
+            <select value={device} onChange={(e) => setDevice(e.target.value === 'mobile' ? 'mobile' : 'desktop')}
+              style={{ font: 'inherit', fontSize: 14, padding: '10px', minHeight: 44, border: '1px solid #cbd5e1', borderRadius: 10, background: '#fff', color: RT.ink }}>
+              <option value="desktop">Desktop</option>
+              <option value="mobile">Mobile</option>
+            </select>
+          </label>
+          <button type="submit" style={btnGo} disabled={busy}>{busy ? 'Saving…' : 'Change'}</button>
+          <button type="button" style={btn} onClick={() => setMode(null)}>Cancel</button>
+        </form>
+      )}
+
+      {mode === 'schedule' && (
+        <form onSubmit={applySchedule} style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap', background: RT.bg, border: `1px solid ${RT.line}`, borderRadius: 10, padding: 12 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 600, color: RT.text }}>How often
+            <select value={frequency} onChange={(e) => setFrequency(e.target.value === 'daily' ? 'daily' : 'weekly')}
+              style={{ font: 'inherit', fontSize: 14, padding: '10px', minHeight: 44, border: '1px solid #cbd5e1', borderRadius: 10, background: '#fff', color: RT.ink }}>
+              <option value="weekly">Weekly</option>
+              <option value="daily">Daily</option>
+            </select>
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 600, color: RT.text }}>How deep
+            <select value={depth} onChange={(e) => setDepth(e.target.value === '100' ? 100 : 30)}
+              style={{ font: 'inherit', fontSize: 14, padding: '10px', minHeight: 44, border: '1px solid #cbd5e1', borderRadius: 10, background: '#fff', color: RT.ink }}>
+              <option value={30}>Top 30</option>
+              <option value={100}>Top 100</option>
+            </select>
+          </label>
+          <button type="submit" style={btnGo} disabled={busy}>{busy ? 'Saving…' : 'Change'}</button>
+          <button type="button" style={btn} onClick={() => setMode(null)}>Cancel</button>
         </form>
       )}
     </div>

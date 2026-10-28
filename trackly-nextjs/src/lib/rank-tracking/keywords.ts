@@ -8,7 +8,8 @@ import { ensureRankSchema } from './schema';
 import { normalizeDomain } from './domain';
 import { canAddKeywords, addRefusalMessage, monthlyCreditsFor, type Frequency, type AddCheck } from './credits';
 import { creditStatus } from './queries';
-import { resolveLocation } from './locations';
+import { resolveLocation, type LocationOption } from './locations';
+import { placesIn } from './place';
 import { fetchSearchVolume } from './providers/dataforseo';
 import { addKeywordsAsPrompts, type AddPromptsResult } from './ai';
 
@@ -61,10 +62,12 @@ export interface AddKeywordsInput {
   depth: 30 | 100;
   groupName?: string | null;
   checkAi?: boolean;
+  /** Check a keyword that names a place ("ai consulting austin") from that place. Default on. */
+  localize?: boolean;
 }
 
 export type AddKeywordsResult =
-  | { ok: true; websiteId: string; added: string[]; skipped: number; location: string; ai: AddPromptsResult | null }
+  | { ok: true; websiteId: string; added: string[]; skipped: number; location: string; localized: { keyword: string; location: string }[]; ai: AddPromptsResult | null }
   | { ok: false; status: number; error: string; credit?: AddCheck };
 
 export async function addKeywords(input: AddKeywordsInput): Promise<AddKeywordsResult> {
@@ -72,50 +75,77 @@ export async function addKeywords(input: AddKeywordsInput): Promise<AddKeywordsR
   const words = input.keywords.slice(0, MAX_KEYWORDS_PER_ADD);
   if (!words.length) return { ok: false, status: 400, error: 'Add at least one keyword, one per line.' };
   const loc = await resolveLocation(input.location);
-  if (!loc) return { ok: false, status: 400, error: 'Pick the city to check from in the list.' };
+  if (!loc) return { ok: false, status: 400, error: 'Pick the city, state or country to check from in the list.' };
   const site = await getOrCreateWebsite(input.accountId, input.domain);
   if (!site) return { ok: false, status: 400, error: 'Enter the website domain, like example.com.' };
 
-  const existing = await pool.query(
-    `SELECT keyword FROM rt_keywords WHERE website_id = $1 AND location_code = $2 AND device = $3 AND keyword = ANY($4::text[])`,
-    [site.id, loc.code, input.device, words]);
-  const have = new Set(existing.rows.map((r) => r.keyword));
-  const fresh = words.filter((w) => !have.has(w));
+  // Each keyword's location: the place it names, else the one picked.
+  const where = new Map<string, LocationOption>(words.map((w) => [w, loc]));
+  const localized: { keyword: string; location: string }[] = [];
+  if (input.localize !== false) {
+    const places = await placesIn(words, loc.name);
+    const resolved = new Map<string, LocationOption | null>();
+    for (const [w, place] of places) {
+      if (!resolved.has(place)) resolved.set(place, await resolveLocation({ name: place }));
+      const at = resolved.get(place);
+      if (at && at.code !== loc.code) { where.set(w, at); localized.push({ keyword: w, location: at.name }); }
+    }
+  }
+  const byLoc = new Map<number, { loc: LocationOption; words: string[] }>();
+  for (const w of words) {
+    const l = where.get(w) as LocationOption;
+    const b = byLoc.get(l.code) || { loc: l, words: [] };
+    b.words.push(w);
+    byLoc.set(l.code, b);
+  }
+
+  const fresh: { loc: LocationOption; words: string[] }[] = [];
+  for (const b of byLoc.values()) {
+    const existing = await pool.query(
+      `SELECT keyword FROM rt_keywords WHERE website_id = $1 AND location_code = $2 AND device = $3 AND keyword = ANY($4::text[])`,
+      [site.id, b.loc.code, input.device, b.words]);
+    const have = new Set(existing.rows.map((r) => r.keyword));
+    const f = b.words.filter((w) => !have.has(w));
+    if (f.length) fresh.push({ loc: b.loc, words: f });
+  }
+  const freshWords = fresh.flatMap((b) => b.words);
 
   const credits = await creditStatus(input.accountId, input.plan);
-  const check = canAddKeywords(input.plan, credits.committed, fresh.length, input.frequency, input.depth);
-  if (!check.ok && fresh.length) return { ok: false, status: 402, error: addRefusalMessage(check), credit: check };
+  const check = canAddKeywords(input.plan, credits.committed, freshWords.length, input.frequency, input.depth);
+  if (!check.ok && freshWords.length) return { ok: false, status: 402, error: addRefusalMessage(check), credit: check };
 
   const groupId = input.groupName ? await getOrCreateGroup(site.id, input.groupName) : null;
   const ids: string[] = [];
-  if (fresh.length) {
-    const rows = fresh.map(() => uid());
+  for (const b of fresh) {
+    const rows = b.words.map(() => uid());
     const r = await pool.query(
       `INSERT INTO rt_keywords (id, website_id, group_id, keyword, location_code, location_name, device, frequency, depth, next_check_at)
        SELECT unnest($1::text[]), $2, $3, unnest($4::text[]), $5, $6, $7, $8, $9, NOW()
        ON CONFLICT (website_id, keyword, location_code, device) DO NOTHING
        RETURNING id`,
-      [rows, site.id, groupId, fresh, loc.code, loc.name, input.device, input.frequency, input.depth]);
+      [rows, site.id, groupId, b.words, b.loc.code, b.loc.name, input.device, input.frequency, input.depth]);
     ids.push(...r.rows.map((x) => x.id));
   }
 
-  // Search volume: one call per add, stored on the keyword. Best effort.
+  // Search volume: one call per location in this add, stored on the keyword. Best effort.
   if (ids.length) {
-    try {
-      const v = await fetchSearchVolume(fresh, loc.code, 'en', loc.name);
-      if (v.volumes.size) {
-        await pool.query(
-          `UPDATE rt_keywords k SET volume = v.vol FROM unnest($2::text[], $3::int[]) AS v(kw, vol) WHERE k.website_id = $1 AND k.keyword = v.kw AND k.location_code = $4`,
-          [site.id, [...v.volumes.keys()], [...v.volumes.values()], loc.code]);
+    for (const b of fresh.slice(0, 10)) {
+      try {
+        const v = await fetchSearchVolume(b.words, b.loc.code, 'en', b.loc.name);
+        if (v.volumes.size) {
+          await pool.query(
+            `UPDATE rt_keywords k SET volume = v.vol FROM unnest($2::text[], $3::int[]) AS v(kw, vol) WHERE k.website_id = $1 AND k.keyword = v.kw AND k.location_code = $4`,
+            [site.id, [...v.volumes.keys()], [...v.volumes.values()], b.loc.code]);
+        }
+        if (v.cost > 0) await pool.query(`INSERT INTO rt_spend (account_id, provider, kind, units, cost_usd) VALUES ($1, 'dataforseo', 'volume', $2, $3)`, [input.accountId, b.words.length, v.cost.toFixed(5)]);
+      } catch (e) {
+        logger.warn('rank.volume_failed', { err: (e as Error).message });
       }
-      if (v.cost > 0) await pool.query(`INSERT INTO rt_spend (account_id, provider, kind, units, cost_usd) VALUES ($1, 'dataforseo', 'volume', $2, $3)`, [input.accountId, fresh.length, v.cost.toFixed(5)]);
-    } catch (e) {
-      logger.warn('rank.volume_failed', { err: (e as Error).message });
     }
   }
 
-  const ai = input.checkAi ? await addKeywordsAsPrompts(input.accountId, input.plan, site.domain, fresh.length ? fresh : words) : null;
-  return { ok: true, websiteId: site.id, added: ids, skipped: words.length - ids.length, location: loc.name, ai };
+  const ai = input.checkAi ? await addKeywordsAsPrompts(input.accountId, input.plan, site.domain, freshWords.length ? freshWords : words) : null;
+  return { ok: true, websiteId: site.id, added: ids, skipped: words.length - ids.length, location: loc.name, localized, ai };
 }
 
 /** Keyword ids that belong to the account, out of the given ones. */
@@ -134,6 +164,7 @@ export interface BulkUpdate {
   location?: { code?: number | null; name?: string | null };
   frequency?: Frequency;
   depth?: 30 | 100;
+  device?: 'desktop' | 'mobile';
 }
 
 export async function updateKeywords(accountId: string, plan: string, ids: string[], u: BulkUpdate): Promise<{ ok: true; updated: number } | { ok: false; status: number; error: string }> {
@@ -158,13 +189,21 @@ export async function updateKeywords(accountId: string, plan: string, ids: strin
   }
   if (u.location) {
     const loc = await resolveLocation(u.location);
-    if (!loc) return { ok: false, status: 400, error: 'Pick the city to check from in the list.' };
+    if (!loc) return { ok: false, status: 400, error: 'Pick the city, state or country to check from in the list.' };
     // Moving a keyword to a city it is already tracked from on that site would collide: those are left as they are.
     await pool.query(
       `UPDATE rt_keywords k SET location_code = $2, location_name = $3, next_check_at = NOW()
         WHERE k.id = ANY($1::text[]) AND NOT EXISTS (
           SELECT 1 FROM rt_keywords o WHERE o.website_id = k.website_id AND o.keyword = k.keyword AND o.device = k.device AND o.location_code = $2 AND o.id <> k.id)`,
       [own, loc.code, loc.name]);
+  }
+  if (u.device) {
+    // Same rule as a location move: a keyword already tracked on that device in that place is left as it is.
+    await pool.query(
+      `UPDATE rt_keywords k SET device = $2, next_check_at = NOW()
+        WHERE k.id = ANY($1::text[]) AND k.device <> $2 AND NOT EXISTS (
+          SELECT 1 FROM rt_keywords o WHERE o.website_id = k.website_id AND o.keyword = k.keyword AND o.location_code = k.location_code AND o.device = $2 AND o.id <> k.id)`,
+      [own, u.device]);
   }
   if (u.frequency || u.depth) {
     const cur = await pool.query(`SELECT frequency, depth FROM rt_keywords WHERE id = ANY($1::text[])`, [own]);

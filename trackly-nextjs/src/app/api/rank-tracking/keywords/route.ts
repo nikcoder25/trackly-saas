@@ -1,6 +1,6 @@
 /**
  * POST   /api/rank-tracking/keywords - add keywords to a website (the first check starts right away).
- * PATCH  /api/rank-tracking/keywords {ids, starred?, groupId?, groupName?, location?, frequency?, depth?} - bulk edit.
+ * PATCH  /api/rank-tracking/keywords {ids, starred?, groupId?, groupName?, location?, frequency?, depth?, device?} - bulk edit.
  * DELETE /api/rank-tracking/keywords {ids} - stop tracking.
  */
 import { after } from 'next/server';
@@ -36,6 +36,7 @@ export async function POST(request: Request): Promise<Response> {
       depth: Number(b.depth) === 100 ? 100 : 30,
       groupName: str(b.groupName, 80) || null,
       checkAi: b.checkAi === true,
+      localize: b.localize !== false,
     });
     if (!r.ok) return Response.json({ error: r.error, credit: r.credit }, { status: r.status });
     if (r.added.length) {
@@ -43,7 +44,7 @@ export async function POST(request: Request): Promise<Response> {
         try { await startFirstChecks(r.added); } catch (e) { logger.error('rank.first_checks_failed', { err: (e as Error).message }); }
       });
     }
-    return Response.json({ websiteId: r.websiteId, added: r.added.length, skipped: r.skipped, location: r.location, ai: r.ai });
+    return Response.json({ websiteId: r.websiteId, added: r.added.length, skipped: r.skipped, location: r.location, localized: r.localized, ai: r.ai });
   } catch (e) {
     logger.error('rank.add_failed', { err: (e as Error).message, userId: c.userId });
     return Response.json({ error: 'Failed to add keywords' }, { status: 500 });
@@ -63,6 +64,7 @@ export async function PATCH(request: Request): Promise<Response> {
   if (b.locationCode || b.locationName) u.location = location(b);
   if (b.frequency === 'weekly' || b.frequency === 'daily') u.frequency = b.frequency;
   if (Number(b.depth) === 30 || Number(b.depth) === 100) u.depth = Number(b.depth) as 30 | 100;
+  if (b.device === 'desktop' || b.device === 'mobile') u.device = b.device;
   const r = await updateKeywords(c.accountId, c.plan, ids, u);
   return r.ok ? Response.json(r) : Response.json({ error: r.error }, { status: r.status });
 }

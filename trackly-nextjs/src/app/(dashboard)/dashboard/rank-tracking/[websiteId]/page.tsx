@@ -244,7 +244,7 @@ export default function WebsiteKeywordsPage() {
                     onDone={(msg, clear) => { setNotice({ text: msg }); if (clear) setSel(new Set()); load(); }}
                     onError={(msg) => setNotice({ text: msg, bad: true })} />
                 ) : (
-                  <div style={{ fontSize: 13, color: RT.muted }}>Click any keyword to see its rank history</div>
+                  <div style={{ fontSize: 13, color: RT.muted }}>Tick keywords to change their location, device or schedule, or delete them. Click a keyword to see its history.</div>
                 )}
               </div>
 
