@@ -80,6 +80,20 @@ export function AiStatusText({ status }: { status: string | null }) {
   return <span style={{ color, fontWeight: 500 }}>{status ? AI_LABEL[status] : 'Not tracked'}</span>;
 }
 
+/** Short tag for an activity line, from its wording. */
+export function activityTag(message: string, kind: string): { label: string; fg: string; bg: string } {
+  const m = message.toLowerCase();
+  const up = { fg: RT.up, bg: '#ecfdf3' };
+  if (/ai answers|mentioned/.test(m)) return { label: 'AI', fg: RT.indigoDark, bg: RT.indigoSoft };
+  const top = m.match(/entered the top (\d+)/);
+  if (top) return { label: `TOP ${top[1]}`, ...up };
+  if (/new best/.test(m)) return { label: 'BEST', ...up };
+  if (/gained/.test(m)) return { label: 'UP', ...up };
+  if (/left the top|new worst|lost|drop/.test(m)) return { label: 'DROP', fg: RT.down, bg: '#fef2f2' };
+  if (/report/.test(m)) return { label: 'REPORT', fg: RT.text, bg: RT.lineSoft };
+  return { label: kind === 'alert' ? 'ALERT' : 'MOVE', fg: RT.indigoDark, bg: RT.indigoSoft };
+}
+
 export function fmtDay(iso: string | null | undefined, withWeekday = false): string {
   if (!iso) return '-';
   const d = new Date(iso);
@@ -137,21 +151,71 @@ export const btnSecondary: React.CSSProperties = {
   font: 'inherit', fontSize: 14, fontWeight: 500, padding: '12px 16px', minHeight: 44, boxSizing: 'border-box', borderRadius: 10, border: `1px solid #cbd5e1`,
   background: '#fff', color: RT.ink, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', gap: 6,
 };
+export const srOnly: React.CSSProperties = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' };
 export const cardStyle: React.CSSProperties = { background: '#fff', border: `1px solid ${RT.line}`, borderRadius: 14 };
 export const inputStyle: React.CSSProperties = { font: 'inherit', fontSize: 15, padding: '12px 14px', border: '1px solid #cbd5e1', borderRadius: 10, color: RT.ink, background: '#fff', boxSizing: 'border-box', width: '100%' };
 export const labelStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13, fontWeight: 600, color: RT.text };
 
-/** Two-or-more option toggle in the design's grey pill. */
-export function Toggle<T extends string | number>({ value, options, onChange, label }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string }) {
+/** Two-or-more option segmented toggle: white bordered track, the picked option filled dark. */
+export function Toggle<T extends string | number>({ value, options, onChange, label, small = false }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string; small?: boolean }) {
   return (
-    <div role="group" aria-label={label} style={{ display: 'flex', background: RT.lineSoft, borderRadius: 10, padding: 4, gap: 4 }}>
-      {options.map((o) => (
-        <button key={String(o.value)} type="button" aria-pressed={o.value === value} onClick={() => onChange(o.value)}
-          style={{ flex: 1, font: 'inherit', fontSize: 13, fontWeight: 600, minHeight: 40, padding: '8px 14px', border: 0, borderRadius: 8, cursor: 'pointer',
-            background: o.value === value ? '#fff' : 'transparent', color: o.value === value ? RT.ink : RT.muted }}>
-          {o.label}
-        </button>
+    <div role="group" aria-label={label} style={{ display: 'flex', background: '#fff', border: `1px solid ${RT.line}`, borderRadius: small ? 8 : 10, padding: 3, gap: 2 }}>
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <button key={String(o.value)} type="button" aria-pressed={on} onClick={() => onChange(o.value)}
+            style={{ flex: 1, font: 'inherit', fontSize: small ? 12 : 13, fontWeight: on ? 600 : 500, minHeight: small ? 32 : 38, padding: small ? '4px 10px' : '6px 12px', border: 0,
+              borderRadius: small ? 6 : 7, cursor: 'pointer', whiteSpace: 'nowrap', background: on ? RT.ink : 'transparent', color: on ? '#fff' : RT.text }}>
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Position bands, best first, matching the spread arrays the API returns. */
+export const SPREAD_BANDS = [
+  { label: '1 to 3', color: '#312e81' },
+  { label: '4 to 10', color: '#6366f1' },
+  { label: '11 to 20', color: '#a5b4fc' },
+  { label: '21 to 100', color: '#dde1fb' },
+  { label: 'Not ranking', color: '#eef0f5' },
+];
+
+/** Thin stacked bar of keywords per position band. */
+export function SpreadBar({ spread, height = 10, label }: { spread: number[]; height?: number; label?: string }) {
+  const total = spread.reduce((a, b) => a + b, 0);
+  return (
+    <div role="img" aria-label={label ?? SPREAD_BANDS.map((b, i) => `${b.label}: ${spread[i] ?? 0}`).join(', ')}
+      style={{ display: 'flex', height, borderRadius: 999, overflow: 'hidden', background: '#eef0f5', width: '100%' }}>
+      {total > 0 && spread.map((n, i) => n > 0 && i < 4 && <span key={i} style={{ width: `${(n / total) * 100}%`, background: SPREAD_BANDS[i].color }} />)}
+    </div>
+  );
+}
+
+export function SpreadLegend({ withNone = true }: { withNone?: boolean }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, fontSize: 12, color: RT.text }}>
+      {SPREAD_BANDS.slice(0, withNone ? 5 : 4).map((b, i) => (
+        <span key={b.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 3, background: b.color, boxSizing: 'border-box', border: i === 4 ? '1px solid #cbd5e1' : 0 }} />
+          {b.label}
+        </span>
       ))}
     </div>
+  );
+}
+
+const SITE_COLORS = ['#4f46e5', '#0f766e', '#b45309', '#7c3aed', '#be185d', '#0369a1'];
+/** Letter tile for a website, its colour fixed by the domain. */
+export function SiteMark({ domain, size = 30 }: { domain: string; size?: number }) {
+  let h = 0;
+  for (const ch of domain) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return (
+    <span aria-hidden="true" style={{ width: size, height: size, flex: 'none', borderRadius: 8, background: SITE_COLORS[h % SITE_COLORS.length], color: '#fff',
+      fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {(domain.replace(/^www\./, '').charAt(0) || '?').toUpperCase()}
+    </span>
   );
 }

@@ -31,6 +31,19 @@ const pos = (r: number | null, depth: number) => (r == null ? depth + 1 : r);
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const avgOf = (xs: (number | null)[]) => { const r = xs.filter((x): x is number => x != null); return r.length ? round1(r.reduce((s, x) => s + x, 0) / r.length) : null; };
 
+/** Top 3, 4-10, 11-20, 21+, not ranking. */
+function spreadOf(ranks: (number | null)[]): [number, number, number, number, number] {
+  const out: [number, number, number, number, number] = [0, 0, 0, 0, 0];
+  for (const r of ranks) out[r == null ? 4 : r <= 3 ? 0 : r <= 10 ? 1 : r <= 20 ? 2 : 3] += 1;
+  return out;
+}
+
+/** Typical Google organic click-through rate by position (%); 0 when not ranking. */
+const CTR = [31.7, 24.7, 18.7, 13.6, 9.5, 6.2, 4.2, 3.1, 3.0, 2.6];
+const ctr = (r: number | null) => (r == null ? 0 : r <= 10 ? CTR[r - 1] : r <= 20 ? 1 : 0.3);
+/** Share (0-100) of the clicks the keywords would get if each ranked #1. */
+const visibilityOf = (ranks: (number | null)[]) => (ranks.length ? round1((ranks.reduce<number>((s, r) => s + ctr(r), 0) / (ranks.length * CTR[0])) * 100) : null);
+
 export async function creditStatus(accountId: string, plan: string): Promise<RankCreditStatus> {
   await ensureRankSchema();
   const load = await pool.query(
@@ -131,7 +144,9 @@ function rollup(rows: RawKw[]) {
   return {
     keywords: rows.length,
     avg: now,
+    top3: ranked.filter((r) => r.rank != null && r.rank <= 3).length,
     top10: ranked.filter((r) => r.rank != null && r.rank <= 10).length,
+    spread: spreadOf(ranked.map((r) => r.rank)),
     change: now != null && prev != null ? round1(prev - now) : 0,
     city: [...cities].sort((a, b) => b[1] - a[1])[0]?.[0] || '',
   };
@@ -180,6 +195,9 @@ export async function rankSummary(accountId: string, plan: string, period: Compa
   const next = rows.reduce<Date | null>((m, r) => (!m || r.next_check_at < m ? r.next_check_at : m), null);
   const top3 = ranks.filter((r) => r != null && r <= 3).length;
   const top10 = ranks.filter((r) => r != null && r <= 10).length;
+  const visNow = visibilityOf(ranks);
+  const visPrev = visibilityOf(prevChecked.map((r) => r.prev_rank));
+  const sovVals = websites.map((w) => w.sov).filter((x): x is number => x != null);
   return {
     credits,
     stats: {
@@ -187,14 +205,10 @@ export async function rankSummary(accountId: string, plan: string, period: Compa
       top3, top3Change: top3 - prevChecked.filter((r) => r.prev_rank != null && r.prev_rank <= 3).length - checked.filter((r) => !r.has_prev && r.rank != null && r.rank <= 3).length,
       top10, top10Change: top10 - prevChecked.filter((r) => r.prev_rank != null && r.prev_rank <= 10).length - checked.filter((r) => !r.has_prev && r.rank != null && r.rank <= 10).length,
       dropped: prevChecked.filter((r) => r.prev_rank != null && r.rank == null).length,
+      visibility: visNow, visibilityChange: visNow != null && visPrev != null ? round1(visNow - visPrev) : 0,
+      sov: sovVals.length ? Math.round(sovVals.reduce((a, x) => a + x, 0) / sovVals.length) : null,
     },
-    spread: [
-      ranks.filter((r) => r != null && r <= 3).length,
-      ranks.filter((r) => r != null && r > 3 && r <= 10).length,
-      ranks.filter((r) => r != null && r > 10 && r <= 20).length,
-      ranks.filter((r) => r != null && r > 20 && r <= 30).length,
-      ranks.filter((r) => r == null || r > 30).length,
-    ],
+    spread: spreadOf(ranks),
     lastCheck: last ? last.toISOString() : null,
     nextCheck: next ? new Date(next).toISOString() : null,
     websites,
@@ -249,6 +263,26 @@ export async function keywordHistory(accountId: string, keywordId: string, range
   };
 }
 
+/** Each keyword's last rank in each of the last 12 weeks, bucketed into position bands per week (oldest first). */
+async function weeklyBands(accountId: string, siteIds: Set<string>): Promise<RankOverview['weeks']> {
+  const r = await pool.query(
+    `SELECT DISTINCT ON (c.keyword_id, wk) k.website_id, c.rank, floor(EXTRACT(EPOCH FROM (NOW() - c.checked_at)) / 604800)::int AS wk
+       FROM rt_checks c JOIN rt_keywords k ON k.id = c.keyword_id JOIN rt_websites w ON w.id = k.website_id
+      WHERE w.account_id = $1 AND c.checked_at >= NOW() - INTERVAL '84 days'
+      ORDER BY c.keyword_id, wk, c.checked_at DESC`, [accountId]);
+  const weeks = Array.from({ length: 12 }, (_, i) => ({
+    end: new Date(Date.now() - (11 - i) * 604800000).toISOString(),
+    spread: [0, 0, 0, 0] as [number, number, number, number],
+  }));
+  for (const row of r.rows) {
+    if (!siteIds.has(row.website_id) || row.rank == null || row.wk < 0 || row.wk > 11) continue;
+    const s = spreadOf([row.rank]);
+    const b = s.findIndex((x) => x > 0);
+    if (b < 4) weeks[11 - row.wk].spread[b] += 1;
+  }
+  return weeks;
+}
+
 export async function rankOverview(accountId: string, period: ComparePeriod, domain?: string): Promise<RankOverview> {
   await ensureRankSchema();
   const allRows = await keywordRows('w.account_id = $1', [accountId], period, false);
@@ -271,6 +305,8 @@ export async function rankOverview(accountId: string, period: ComparePeriod, dom
     stats: {
       up: moves.filter((m) => m.change > 0).length,
       down: moves.filter((m) => m.change < 0).length,
+      upAvg: avgOf(moves.filter((m) => m.change > 0).map((m) => m.change)) ?? 0,
+      downAvg: avgOf(moves.filter((m) => m.change < 0).map((m) => -m.change)) ?? 0,
       top10: rows.filter((r) => r.rank != null && r.rank <= 10).length,
       ranking: rows.filter((r) => r.rank != null).length,
       total: rows.length,
@@ -284,5 +320,6 @@ export async function rankOverview(accountId: string, period: ComparePeriod, dom
       return { id: s.id, domain: s.domain, keywords: list.length, city: ro.city, change: ro.change };
     }),
     activity: activity.rows.map((a) => ({ message: a.message, kind: a.kind, at: new Date(a.created_at).toISOString() })),
+    weeks: await weeklyBands(accountId, new Set(siteRows.map((x) => x.id))),
   };
 }

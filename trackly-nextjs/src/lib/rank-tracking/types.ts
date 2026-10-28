@@ -23,7 +23,10 @@ export interface WebsiteSummary {
   city: string;
   keywords: number;
   avg: number | null;
+  top3: number;
   top10: number;
+  /** Top 3, 4-10, 11-20, 21+, not ranking (latest check). */
+  spread: [number, number, number, number, number];
   /** Average position change (positive = better). */
   change: number;
   sov: number | null;
@@ -39,8 +42,14 @@ export interface GroupSummary extends Omit<WebsiteSummary, 'domain' | 'sov'> {
 
 export interface RankSummary {
   credits: RankCreditStatus;
-  stats: { keywords: number; websites: number; avg: number | null; avgChange: number; top3: number; top3Change: number; top10: number; top10Change: number; dropped: number };
-  /** Top 3, 4-10, 11-20, 21-30, not ranking. */
+  stats: {
+    keywords: number; websites: number; avg: number | null; avgChange: number; top3: number; top3Change: number; top10: number; top10Change: number; dropped: number;
+    /** Click-weighted share of the clicks the keywords could get (0-100), from Google CTR by position. */
+    visibility: number | null; visibilityChange: number;
+    /** Average AI share of voice of the websites. */
+    sov: number | null;
+  };
+  /** Top 3, 4-10, 11-20, 21+, not ranking. */
   spread: [number, number, number, number, number];
   lastCheck: string | null;
   nextCheck: string | null;
@@ -91,9 +100,11 @@ export interface KeywordHistory { points: HistoryPoint[]; best: number | null; w
 export interface MoverDto { keywordId: string; websiteId: string; keyword: string; domain: string; rank: number | null; change: number }
 
 export interface RankOverview {
-  stats: { up: number; down: number; top10: number; ranking: number; total: number; sov: number | null };
+  stats: { up: number; down: number; upAvg: number; downAvg: number; top10: number; ranking: number; total: number; sov: number | null };
   gainers: MoverDto[];
   losers: MoverDto[];
   sites: { id: string; domain: string; keywords: number; city: string; change: number }[];
   activity: { message: string; kind: string; at: string }[];
+  /** Keywords per position band at the end of each of the last 12 weeks, oldest first: top 3, 4-10, 11-20, 21+. */
+  weeks: { end: string; spread: [number, number, number, number] }[];
 }
