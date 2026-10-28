@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { api } from '@/lib/fetch-client';
 import { useUiFlag } from '@/contexts/UiFlagContext';
+import { useBrands } from '@/contexts/BrandContext';
 import type { RankCreditStatus } from '@/lib/rank-tracking/types';
 
 export const RT = {
@@ -17,6 +18,18 @@ export const RT = {
   ink: '#0f172a', text: '#334155', muted: '#475569', line: '#e2e8f0', lineSoft: '#f1f5f9', bg: '#f8fafc',
   up: '#15803d', down: '#b91c1c',
 };
+
+/**
+ * The brand picked in the sidebar, as a rank tracking scope. `domain` is the
+ * brand's website ('' when it has none) and `query` is the `domain=` param the
+ * summary and overview APIs filter on. No brand selected means every website.
+ */
+export function useBrandScope(): { ready: boolean; name: string | null; domain: string | undefined; query: string } {
+  const { selectedBrand, loading } = useBrands();
+  if (!selectedBrand) return { ready: !loading, name: null, domain: undefined, query: '' };
+  const domain = typeof selectedBrand.website === 'string' ? selectedBrand.website.trim() : '';
+  return { ready: true, name: selectedBrand.name, domain, query: `domain=${encodeURIComponent(domain)}` };
+}
 
 /** GET/POST/PATCH/DELETE JSON with the session cookie and CSRF header. Throws Error(message) on failure. */
 export async function rtFetch<T = unknown>(path: string, method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE' = 'GET', body?: unknown): Promise<T> {

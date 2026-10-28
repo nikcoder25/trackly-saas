@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PageHead } from '@/app/dashboard-v2/ui';
 import type { MoverDto, RankOverview } from '@/lib/rank-tracking/types';
-import { RT, rtFetch, RankTabs, RankBadge, Change, Toggle, fmtDay, btnPrimary, btnSecondary, cardStyle } from '@/components/rank-tracking/RankUi';
+import { RT, rtFetch, useBrandScope, RankTabs, RankBadge, Change, Toggle, fmtDay, btnPrimary, btnSecondary, cardStyle } from '@/components/rank-tracking/RankUi';
 
 type Period = 'last' | '30' | '90';
 
@@ -54,19 +54,23 @@ export default function RankOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const brand = useBrandScope();
+
   const load = useCallback(async (p: Period) => {
     setLoading(true);
     setError('');
     try {
-      setData(await rtFetch<RankOverview>(`/api/rank-tracking/overview?period=${p}`));
+      setData(await rtFetch<RankOverview>(`/api/rank-tracking/overview?period=${p}${brand.query ? `&${brand.query}` : ''}`));
     } catch (e) {
       setError((e as Error).message || 'Could not load the overview.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [brand.query]);
 
-  useEffect(() => { load(period); }, [load, period]);
+  // Wait for the brand list so the page never shows another brand's websites.
+  useEffect(() => { setData(null); }, [brand.query]);
+  useEffect(() => { if (brand.ready) load(period); }, [load, period, brand.ready]);
 
   const s = data?.stats;
   const noKeywords = !!data && data.stats.total === 0;

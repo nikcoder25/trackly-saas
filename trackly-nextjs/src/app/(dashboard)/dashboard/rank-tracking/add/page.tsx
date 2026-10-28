@@ -8,6 +8,7 @@ import { ApiError } from '@/lib/fetch-client';
 import type { RankCreditStatus } from '@/lib/rank-tracking/types';
 import {
   RT, rtFetch, RankTabs, Toggle, btnPrimary, btnSecondary, cardStyle, inputStyle, labelStyle,
+  useBrandScope,
 } from '@/components/rank-tracking/RankUi';
 import AddCityInput, { cityLabel, type CityValue } from '@/components/rank-tracking/AddCityInput';
 
@@ -224,7 +225,9 @@ function AddForm({ initialWebsite, websites, credits, creditsError }: { initialW
 
 function AddKeywordsInner() {
   const params = useSearchParams();
-  const initialWebsite = (params.get('website') || '').trim();
+  const brand = useBrandScope();
+  // Default to the brand picked in the sidebar when no website is in the URL.
+  const initialWebsite = (params.get('website') || brand.domain || '').trim();
   const [websites, setWebsites] = useState<string[]>([]);
   const [credits, setCredits] = useState<Credits | null>(null);
   const [creditsError, setCreditsError] = useState('');
@@ -250,7 +253,7 @@ function AddKeywordsInner() {
               <CloseIcon />
             </Link>
           </div>
-          <AddForm initialWebsite={initialWebsite} websites={websites} credits={credits} creditsError={creditsError} />
+          <AddForm key={initialWebsite} initialWebsite={initialWebsite} websites={websites} credits={credits} creditsError={creditsError} />
         </div>
       </div>
     </div>

@@ -7,6 +7,7 @@ import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getUserEffectivePlan } from '@/lib/helpers';
 import { ensureRankSchema } from './schema';
+import { normalizeDomain } from './domain';
 
 export interface RankCaller { userId: string; accountId: string; email: string; plan: string }
 
@@ -30,3 +31,12 @@ export async function jsonBody(request: Request): Promise<Record<string, unknown
 export const noStore = { headers: { 'Cache-Control': 'no-store' } };
 export const str = (v: unknown, max = 500) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 export const strList = (v: unknown, max = 1000) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(0, max) : []);
+
+/**
+ * The selected brand's domain from `?domain=`. Absent means every website on
+ * the account; present but empty means the brand has no website yet.
+ */
+export function scopeDomain(request: Request): string | undefined {
+  const q = new URL(request.url).searchParams;
+  return q.has('domain') ? normalizeDomain(q.get('domain')) : undefined;
+}

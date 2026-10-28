@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { PageHead } from '@/app/dashboard-v2/ui';
 import type { ComparePeriod, RankSummary } from '@/lib/rank-tracking/types';
-import { RT, rtFetch, RankTabs, CreditsCard, Toggle, fmtDay, btnPrimary, btnSecondary, cardStyle } from '@/components/rank-tracking/RankUi';
+import { RT, rtFetch, useBrandScope, RankTabs, CreditsCard, Toggle, fmtDay, btnPrimary, btnSecondary, cardStyle } from '@/components/rank-tracking/RankUi';
 import SummaryKeywordsTable from '@/components/rank-tracking/SummaryKeywordsTable';
 import SummaryWebsitesTable, { siteRow, groupRow, srOnly, type SummaryRow } from '@/components/rank-tracking/SummaryWebsitesTable';
 
@@ -48,16 +48,20 @@ export default function RankTrackingPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ text: string; url?: string; bad?: boolean } | null>(null);
 
+  const brand = useBrandScope();
+
   const load = useCallback(async (p: ComparePeriod) => {
     try {
       setError(null);
-      setData(await rtFetch<RankSummary>(`/api/rank-tracking/summary?period=${p}`));
+      setData(await rtFetch<RankSummary>(`/api/rank-tracking/summary?period=${p}${brand.query ? `&${brand.query}` : ''}`));
     } catch (e) {
       setError((e as Error).message || 'Failed to load rankings');
     }
-  }, []);
+  }, [brand.query]);
 
-  useEffect(() => { load(period); }, [load, period]);
+  // Wait for the brand list so the page never flashes another brand's websites.
+  useEffect(() => { setData(null); }, [brand.query]);
+  useEffect(() => { if (brand.ready) load(period); }, [load, period, brand.ready]);
 
   const rows: SummaryRow[] = useMemo(() => {
     if (!data) return [];
@@ -99,6 +103,7 @@ export default function RankTrackingPage() {
   const s = data?.stats;
   const spreadTotal = data ? data.spread.reduce((a, b) => a + b, 0) : 0;
   const vs = VS[period];
+  const addHref = brand.domain ? `/dashboard/rank-tracking/add?website=${encodeURIComponent(brand.domain)}` : '/dashboard/rank-tracking/add';
 
   return (
     <div className="lvx" style={{ fontFamily: 'Inter, system-ui, sans-serif', color: RT.ink }}>
@@ -110,7 +115,7 @@ export default function RankTrackingPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'stretch' }}>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <Link href="/dashboard/rank-tracking/reports" style={btnSecondary}>Export report</Link>
-              <Link href="/dashboard/rank-tracking/add" style={btnPrimary}>+ Add keywords</Link>
+              <Link href={addHref} style={btnPrimary}>+ Add keywords</Link>
             </div>
             {data && <CreditsCard credits={data.credits} />}
           </div>
@@ -140,12 +145,20 @@ export default function RankTrackingPage() {
 
         {data && s && data.websites.length === 0 && (
           <section style={{ ...cardStyle, padding: '40px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>No websites tracked yet</h2>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
+              {brand.name ? `No keywords tracked for ${brand.name} yet` : 'No websites tracked yet'}
+            </h2>
             <p style={{ margin: 0, fontSize: 14, color: RT.muted, maxWidth: 520 }}>
-              Add a website and the keywords you want to rank for. We check Google from the city you pick and show the results here.
+              {brand.name && !brand.domain
+                ? `${brand.name} has no website set. Add its website in Brand Setup, then add keywords here.`
+                : brand.name
+                  ? `Add the keywords ${brand.domain} should rank for. We check Google from the city you pick and show the results here.`
+                  : 'Add a website and the keywords you want to rank for. We check Google from the city you pick and show the results here.'}
             </p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 8 }}>
-              <Link href="/dashboard/rank-tracking/add" style={btnPrimary}>+ Add keywords</Link>
+              {brand.name && !brand.domain
+                ? <Link href="/dashboard/setup" style={btnPrimary}>Open Brand Setup</Link>
+                : <Link href={addHref} style={btnPrimary}>+ Add keywords</Link>}
             </div>
           </section>
         )}
@@ -163,7 +176,7 @@ export default function RankTrackingPage() {
 
             <section style={{ ...cardStyle, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Position spread, all websites</h2>
+                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Position spread, {brand.name ? brand.name : 'all websites'}</h2>
                 <div style={{ fontSize: 13, color: RT.muted }}>Last check: {fmtDay(data.lastCheck, true)} · Next: {fmtDay(data.nextCheck, true)}</div>
               </div>
               <div role="img" aria-label={SPREAD.map((x, i) => `${x.label}: ${data.spread[i]}`).join(', ')}
