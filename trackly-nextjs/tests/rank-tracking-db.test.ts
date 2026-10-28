@@ -220,6 +220,21 @@ describe.skipIf(!DB)('rank tracking with a database', () => {
     expect(await m.cl.clientByToken('not-a-real-token-at-all-123')).toBeNull();
   });
 
+  it('changes the device of chosen keywords', async () => {
+    const k = await m.db.pool.query(`SELECT id FROM rt_keywords WHERE website_id = $1 AND keyword = 'ghost keyword'`, [websiteId]);
+    const r = await m.kw.updateKeywords(user, 'pro', [k.rows[0].id], { device: 'mobile' });
+    expect(r.ok).toBe(true);
+    const after = await m.db.pool.query(`SELECT device FROM rt_keywords WHERE id = $1`, [k.rows[0].id]);
+    expect(after.rows[0].device).toBe('mobile');
+    await m.kw.updateKeywords(user, 'pro', [k.rows[0].id], { device: 'desktop' });
+  });
+
+  it('scopes the summary to one brand domain', async () => {
+    expect((await m.q.rankSummary(user, 'pro', 'last', 'example.com')).websites.map((w) => w.domain)).toEqual(['example.com']);
+    expect((await m.q.rankSummary(user, 'pro', 'last', 'other.com')).websites).toEqual([]);
+    expect((await m.q.rankSummary(user, 'pro', 'last', '')).stats.keywords).toBe(0);
+  });
+
   it('falls back to the bundled city list without DataForSEO', async () => {
     const loc = await import('@/lib/rank-tracking/locations');
     const login = process.env.DATAFORSEO_LOGIN;
@@ -235,6 +250,25 @@ describe.skipIf(!DB)('rank tracking with a database', () => {
         location: { code: hits[0].code }, device: 'desktop', frequency: 'weekly', depth: 30,
       });
       expect(r.ok && r.location).toBe('London,England,United Kingdom');
+      // Countries and states can be picked, and are found before their cities.
+      expect((await loc.searchLocations('United Kingdom', 3))[0]).toMatchObject({ name: 'United Kingdom', type: 'Country' });
+      expect((await loc.searchLocations('Texas', 5)).map((h) => h.name)).toContain('Texas,United States');
+      const uk = await m.kw.addKeywords({
+        accountId: user, plan: 'pro', domain: 'example.co.uk', keywords: ['ai consulting', 'ai consulting edinburgh', 'ai consulting austin'],
+        location: { name: 'United Kingdom' }, device: 'desktop', frequency: 'weekly', depth: 30,
+      });
+      expect(uk.ok).toBe(true);
+      if (uk.ok) {
+        expect(uk.location).toBe('United Kingdom');
+        expect(uk.localized).toEqual([
+          { keyword: 'ai consulting edinburgh', location: 'Edinburgh,Scotland,United Kingdom' },
+          { keyword: 'ai consulting austin', location: 'Austin,Texas,United States' },
+        ]);
+        const rows = await m.db.pool.query(`SELECT keyword, location_name FROM rt_keywords WHERE website_id = $1 ORDER BY keyword`, [uk.websiteId]);
+        expect(Object.fromEntries(rows.rows.map((x) => [x.keyword, x.location_name]))).toMatchObject({
+          'ai consulting': 'United Kingdom', 'ai consulting edinburgh': 'Edinburgh,Scotland,United Kingdom', 'ai consulting austin': 'Austin,Texas,United States',
+        });
+      }
     } finally {
       process.env.DATAFORSEO_LOGIN = login;
     }

@@ -1,6 +1,6 @@
 'use client';
 /**
- * City autocomplete for rank tracking: types into GET /api/rank-tracking/locations?q=
+ * Location autocomplete for rank tracking (city, state or country): types into GET /api/rank-tracking/locations?q=
  * (debounced 250 ms) and shows a keyboard friendly listbox. The stored name is
  * the provider's "Austin,Texas,United States"; we show it with spaces.
  */
@@ -13,7 +13,7 @@ export interface CityValue { code: number | null; name: string }
 
 export const cityLabel = (name: string): string => name.split(',').map((s) => s.trim()).filter(Boolean).join(', ');
 
-export default function AddCityInput({ label, value, onChange, placeholder = 'Start typing a city', hint, required }: {
+export default function AddCityInput({ label, value, onChange, placeholder = 'City, state or country', hint, required }: {
   label: string;
   value: CityValue;
   onChange: (v: CityValue) => void;
@@ -53,7 +53,7 @@ export default function AddCityInput({ label, value, onChange, placeholder = 'St
       } catch (e) {
         if (id !== reqRef.current) return;
         setOptions([]);
-        setError((e as Error).message || 'Could not load cities');
+        setError((e as Error).message || 'Could not load locations');
       } finally {
         if (id === reqRef.current) setLoading(false);
       }
@@ -84,7 +84,7 @@ export default function AddCityInput({ label, value, onChange, placeholder = 'St
   };
 
   const showList = open && query.trim().length >= 2;
-  const status = loading ? 'Searching…' : error ? error : options.length ? '' : 'No city found. Try the city name only.';
+  const status = loading ? 'Searching…' : error ? error : options.length ? '' : 'Nothing found. Try just the city, state or country name.';
 
   return (
     <div style={{ ...labelStyle, position: 'relative' }}>

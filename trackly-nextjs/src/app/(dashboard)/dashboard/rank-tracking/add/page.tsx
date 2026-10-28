@@ -21,6 +21,7 @@ interface AddResult {
   added: number;
   skipped: number;
   location: string;
+  localized?: { keyword: string; location: string }[];
   ai: { added: number; brandId: string | null; reason?: 'no_brand' | 'prompt_limit' } | null;
 }
 
@@ -70,6 +71,7 @@ function AddForm({ initialWebsite, websites, credits, creditsError }: { initialW
   const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
   const [group, setGroup] = useState('');
   const [checkAi, setCheckAi] = useState(true);
+  const [localize, setLocalize] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ msg: string; upgrade: boolean } | null>(null);
   const [result, setResult] = useState<AddResult | null>(null);
@@ -102,9 +104,9 @@ function AddForm({ initialWebsite, websites, credits, creditsError }: { initialW
       const r = await rtFetch<AddResult>('/api/rank-tracking/keywords', 'POST', {
         domain: domain.trim(), keywords: keywords.join('\n'),
         locationCode: city.code ?? undefined, locationName: city.name,
-        device, frequency, depth, groupName: group.trim() || undefined, checkAi,
+        device, frequency, depth, groupName: group.trim() || undefined, checkAi, localize,
       });
-      const hasNews = (r.ai && (r.ai.reason || r.ai.added)) || r.skipped > 0 || r.added === 0;
+      const hasNews = (r.ai && (r.ai.reason || r.ai.added)) || r.skipped > 0 || r.added === 0 || !!r.localized?.length;
       if (!hasNews) { router.push(`/dashboard/rank-tracking/${r.websiteId}`); return; }
       setResult(r);
     } catch (err) {
@@ -122,9 +124,18 @@ function AddForm({ initialWebsite, websites, credits, creditsError }: { initialW
         <Notice tone="ok">
           <strong>{result.added ? `Tracking ${fmt(result.added)} new ${result.added === 1 ? 'keyword' : 'keywords'}` : 'No new keywords added'}</strong>
           {' '}from {cityLabel(result.location)}.
-          {result.skipped > 0 && <> {fmt(result.skipped)} {result.skipped === 1 ? 'was' : 'were'} already tracked from this city and device.</>}
+          {result.skipped > 0 && <> {fmt(result.skipped)} {result.skipped === 1 ? 'was' : 'were'} already tracked from this location and device.</>}
           {result.added > 0 && <> The first check runs within 10 minutes.</>}
         </Notice>
+        {!!result.localized?.length && (
+          <Notice tone="info">
+            <strong>{fmt(result.localized.length)} {result.localized.length === 1 ? 'keyword names a place' : 'keywords name a place'}, so {result.localized.length === 1 ? 'it is' : 'they are'} checked from there:</strong>
+            <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+              {result.localized.slice(0, 8).map((l) => <li key={l.keyword}>{l.keyword} → {cityLabel(l.location)}</li>)}
+              {result.localized.length > 8 && <li>and {fmt(result.localized.length - 8)} more</li>}
+            </ul>
+          </Notice>
+        )}
         {note && <Notice tone="info">{note}{result.ai?.reason === 'no_brand' && <> <Link href="/dashboard/setup" style={{ color: '#3730a3', fontWeight: 600 }}>Add a brand</Link></>}</Notice>}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
           <button type="button" style={btnSecondary} onClick={() => { setResult(null); setText(''); }}>Add more</button>
@@ -136,7 +147,7 @@ function AddForm({ initialWebsite, websites, credits, creditsError }: { initialW
 
   return (
     <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 24 }} noValidate>
-      <p style={{ margin: 0, fontSize: 14, color: RT.muted }}>We check Google from the city you pick, the way a local customer searches.</p>
+      <p style={{ margin: 0, fontSize: 14, color: RT.muted }}>We check Google from the city, state or country you pick, the way a customer there searches.</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
         <label style={labelStyle}>
@@ -145,8 +156,8 @@ function AddForm({ initialWebsite, websites, credits, creditsError }: { initialW
             autoComplete="off" required style={{ ...inputStyle, fontWeight: 400 }} />
           <datalist id="rt-add-websites">{websites.map((w) => <option key={w} value={w} />)}</datalist>
         </label>
-        <AddCityInput label="Track from city" value={city} onChange={setCity} required
-          hint={city.name && !city.code ? 'Pick the city from the list.' : undefined} />
+        <AddCityInput label="Track from" value={city} onChange={setCity} required placeholder="City, state or country"
+          hint={city.name && !city.code ? 'Pick a place from the list.' : undefined} />
       </div>
 
       <label style={labelStyle}>
@@ -181,6 +192,11 @@ function AddForm({ initialWebsite, websites, credits, creditsError }: { initialW
         <span>Group <span style={{ fontWeight: 400, color: RT.muted }}>(optional)</span></span>
         <input type="text" value={group} onChange={(e) => setGroup(e.target.value)} maxLength={80} placeholder="Like: Service pages"
           style={{ ...inputStyle, fontWeight: 400 }} />
+      </label>
+
+      <label style={{ display: 'flex', gap: 12, alignItems: 'flex-start', fontSize: 14, color: RT.text, cursor: 'pointer' }}>
+        <input type="checkbox" checked={localize} onChange={(e) => setLocalize(e.target.checked)} style={{ width: 20, height: 20, margin: '2px 0 0', accentColor: RT.indigo, flex: 'none' }} />
+        <span><strong style={{ color: RT.ink }}>Check keywords that name a place from that place</strong><br />&quot;ai consulting austin&quot; is checked from Austin and &quot;ai consulting edinburgh&quot; from Edinburgh. The rest use the location above.</span>
       </label>
 
       <label style={{ display: 'flex', gap: 12, alignItems: 'flex-start', fontSize: 14, color: RT.text, cursor: 'pointer' }}>
