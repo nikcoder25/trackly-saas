@@ -8,24 +8,26 @@
  * bakes the values into the generated HTML, so the changes live in their source
  * and survive removal of any livesov snippet or Worker.
  *
- * Like the edge adapter, the per-field write methods here don't push — the value
- * is delivered by the manifest the moment the fix's row turns shipped. They just
- * report ok so `module.ship()` and the ship fast-path stay uniform. The real
- * commit happens in the ship handler's git branch, which calls syncBrandSeoToRepo.
+ * The write methods deliberately do NOT report ok. The manifest only carries
+ * the edge-serveable modules (EDGE_SERVEABLE_MODULE_KEYS), and the engine's
+ * ship fast-path intercepts exactly those before `module.ship()` ever runs —
+ * so by construction, every call that actually reaches a write method here is
+ * for a module whose change the manifest will NEVER contain (striking-distance,
+ * geo-page-rewrite, keyword-opportunities, …). Returning ok for those marked
+ * the fix "shipped" while nothing was committed, served, or scheduled — the
+ * change simply did not exist anywhere. Throwing CmsUnsupportedError instead
+ * routes the engine to verify-by-fetch (the change may already be live in the
+ * repo, published by hand) and otherwise to an actionable "publish manually"
+ * failure.
  */
 
 import { getDefaultBranch } from '../git/github';
-import { isGitConnectorCreds, type GitConnectorCreds } from '../git/sync';
+import { isGitConnectorCreds } from '../git/sync';
 import type { CmsAdapter, CmsCreds, CmsWriteResult } from './types';
 import { CmsUnsupportedError } from './types';
 
-function creds(c: CmsCreds): GitConnectorCreds {
-  if (!isGitConnectorCreds(c)) throw new CmsUnsupportedError('git-write', 'git');
-  return c;
-}
-
-function delivered(field: string, value: string): CmsWriteResult {
-  return { ok: true, detail: { delivery: 'git', field, value } };
+function notInManifest(op: string): never {
+  throw new CmsUnsupportedError(op, 'git');
 }
 
 export const gitAdapter: CmsAdapter = {
@@ -37,15 +39,14 @@ export const gitAdapter: CmsAdapter = {
     return r.ok ? { ok: true, detail: `Connected to ${c.owner}/${c.repo} (base: ${r.branch})` } : { ok: false, detail: r.error };
   },
 
-  async updateTitle(c, _t, title): Promise<CmsWriteResult> { creds(c); return delivered('title', title); },
-  async updateMetaDescription(c, _t, d): Promise<CmsWriteResult> { creds(c); return delivered('description', d); },
-  async updateCanonical(c, _t, canonical): Promise<CmsWriteResult> { creds(c); return delivered('canonical', canonical); },
-  async injectSchema(c, _t, jsonLd): Promise<CmsWriteResult> { creds(c); return delivered('jsonLd', jsonLd); },
-  async updateBody(c, _t, _html, mode): Promise<CmsWriteResult> { creds(c); return { ok: true, detail: { delivery: 'git', field: 'body', mode } }; },
-  async setIndexable(c): Promise<CmsWriteResult> { creds(c); return delivered('indexable', 'true'); },
+  async updateTitle(): Promise<CmsWriteResult> { return notInManifest('updateTitle'); },
+  async updateMetaDescription(): Promise<CmsWriteResult> { return notInManifest('updateMetaDescription'); },
+  async updateCanonical(): Promise<CmsWriteResult> { return notInManifest('updateCanonical'); },
+  async injectSchema(): Promise<CmsWriteResult> { return notInManifest('injectSchema'); },
+  async updateBody(): Promise<CmsWriteResult> { return notInManifest('updateBody'); },
+  async setIndexable(): Promise<CmsWriteResult> { return notInManifest('setIndexable'); },
 
-  async replaceInBody(c): Promise<CmsWriteResult & { found?: boolean }> {
-    creds(c);
+  async replaceInBody(): Promise<CmsWriteResult & { found?: boolean }> {
     // Passage rewrites aren't part of the deterministic override feed the
     // manifest carries, so they can't be delivered by the git manifest.
     return { ok: false, found: false, error: 'Passage rewrites are not delivered via the git manifest.' };

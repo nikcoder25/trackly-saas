@@ -2,9 +2,33 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import SeoLayout, { Breadcrumbs } from '@/components/seo/SeoLayout';
+import { Breadcrumbs } from '@/components/seo/SeoLayout';
+import SiteShell from '@/components/site/SiteShell';
 import { PLAN_LIMITS, PRICING_PLANS, PRICING_COMPARISON } from '@/lib/constants';
-import { PLAN_CREDITS } from '@/lib/plan-config';
+import { PLAN_CREDITS, ECONOMY_MODEL_BY_PLATFORM, PREMIUM_MODEL_BY_PLATFORM } from '@/lib/plan-config';
+import { TOP100_PLANS, DAILY_PLANS, RANK_CREDITS_BY_PLAN } from '@/lib/rank-tracking/credits';
+
+/**
+ * Human names for the model ids in plan-config, so this FAQ can never drift
+ * from what the engine actually calls. Unknown ids fall back to the raw id.
+ */
+const MODEL_LABELS: Record<string, string> = {
+  'gpt-5.4-nano': 'GPT-5.4 nano',
+  'gpt-5.4-mini': 'GPT-5.4 mini',
+  'gpt-5.4': 'GPT-5.4',
+  'claude-haiku-4-5-20251001': 'Claude Haiku 4.5',
+  'claude-sonnet-4-20250514': 'Claude Sonnet 4',
+  'gemini-2.5-flash-lite': 'Gemini 2.5 Flash-Lite',
+  'gemini-2.5-pro': 'Gemini 2.5 Pro',
+  'grok-3-mini': 'Grok 3 mini',
+  'grok-4': 'Grok 4',
+  'sonar': 'Perplexity Sonar',
+  'sonar-pro': 'Perplexity Sonar Pro',
+};
+const MODEL_ORDER = ['ChatGPT', 'Claude', 'Gemini', 'Perplexity', 'Grok'];
+function modelList(map: Record<string, string>): string {
+  return MODEL_ORDER.filter((k) => map[k]).map((k) => MODEL_LABELS[map[k]] || map[k]).join(', ');
+}
 import type { AutoRunFrequency } from '@/lib/plan-config';
 
 // The internal `free` tier still exists in plan-config (it's where
@@ -20,6 +44,20 @@ const TIER_TO_PLAN: Record<Tier, (typeof PRICING_PLANS)[number] | undefined> =
   ) as Record<Tier, (typeof PRICING_PLANS)[number] | undefined>;
 
 const num = (n: number) => (n >= 9999 ? 'Unlimited' : n.toLocaleString());
+/** Rank credits are real numbers even past 9,999 (Agency has 20,000). */
+const rankNum = (t: Tier, perCheck = 1) =>
+  Math.floor((TIER_TO_PLAN[t]?.rankCredits ?? 0) / perCheck).toLocaleString('en-US');
+
+/** Rank checks a keyword uses per month (1 credit each to the top 30). */
+const RANK_CHECKS_PER_MONTH = { weekly: 4, daily: 30 } as const;
+
+/** The design's "why rank tracking here" strip under the plan cards. */
+const RANK_STRIP = [
+  { t: 'Checked from the city', d: 'Not just "United States". Real local results.' },
+  { t: 'Weekly or daily', d: `Weekly uses ${RANK_CHECKS_PER_MONTH.weekly} credits a month. Daily uses ${RANK_CHECKS_PER_MONTH.daily}.` },
+  { t: 'White-label reports', d: 'Your logo, a share link for every client.' },
+  { t: 'Rank + AI in one row', d: 'See Google position and AI mentions per keyword.' },
+];
 const cooldownLabel = (s: number) => {
   if (s === 0) return 'None';
   if (s >= 60 && s % 60 === 0) {
@@ -61,6 +99,38 @@ const COMPARISON_ROWS: Array<{
   values: Record<Tier, string>;
 }> = [
   {
+    feature: 'Google rank tracking credits / month',
+    values: {
+      starter: rankNum('starter'),
+      pro: rankNum('pro'),
+      agency: rankNum('agency'),
+    },
+  },
+  {
+    feature: 'Keywords checked weekly (top 30)',
+    values: {
+      starter: rankNum('starter', RANK_CHECKS_PER_MONTH.weekly),
+      pro: rankNum('pro', RANK_CHECKS_PER_MONTH.weekly),
+      agency: rankNum('agency', RANK_CHECKS_PER_MONTH.weekly),
+    },
+  },
+  {
+    feature: 'Rank checks to the top 100',
+    values: {
+      starter: TOP100_PLANS.has('starter') ? '✓' : '✗',
+      pro: TOP100_PLANS.has('pro') ? '✓' : '✗',
+      agency: TOP100_PLANS.has('agency') ? '✓' : '✗',
+    },
+  },
+  {
+    feature: 'Daily rank checks',
+    values: {
+      starter: DAILY_PLANS.has('starter') ? '✓' : '✗',
+      pro: DAILY_PLANS.has('pro') ? '✓' : '✗',
+      agency: DAILY_PLANS.has('agency') ? '✓' : '✗',
+    },
+  },
+  {
     feature: 'Tracked prompts (account-wide)',
     values: {
       starter: num(PLAN_CREDITS.starter.trackedPromptsPerAccount),
@@ -93,7 +163,7 @@ const COMPARISON_ROWS: Array<{
     },
   },
   {
-    feature: 'Monthly credits',
+    feature: 'AI credits / month',
     values: {
       starter: num(PLAN_CREDITS.starter.monthlyCredits),
       pro: num(PLAN_CREDITS.pro.monthlyCredits),
@@ -162,10 +232,109 @@ const COMPARISON_ROWS: Array<{
   },
 ];
 
+// ── Credit maths + total cost ────────────────────────────────────────────
+// Every number below is DERIVED from PLAN_CREDITS / PRICING_PLANS rather
+// than typed by hand, so "what 750 credits actually buys" can never drift
+// from what the backend enforces or from the price on the card above.
+//
+// One credit = one query sent to one AI platform. So a *full scan* - every
+// tracked prompt run against every platform the plan allows - costs
+// (trackedPromptsPerAccount x maxPlatforms) credits.
+const priceNum = (s: string) => Number(s.replace(/[^0-9.]/g, '')) || 0;
+const money = (n: number) =>
+  n >= 100 ? `$${Math.round(n).toLocaleString()}` : `$${n.toFixed(2).replace(/\.00$/, '')}`;
+
+/** Scheduled runs a plan's cadence fires in a 30-day month. */
+const RUNS_PER_MONTH: Record<AutoRunFrequency, number> = {
+  weekly: 4,
+  every_2_days: 15,
+  daily: 30,
+};
+
+interface CreditMath {
+  tier: Tier;
+  monthlyCredits: number;
+  prompts: number;
+  platforms: number;
+  /** Credits burned by one full scan of every prompt on every platform. */
+  fullScanCost: number;
+  fullScansPerMonth: number;
+  scheduledRuns: number;
+  scheduledSpend: number;
+  /** Extra full scans still affordable after the scheduled cadence runs. */
+  headroomScans: number;
+  /** Prompts you can scan on EVERY platform, every day, within budget. */
+  dailyPromptCapacity: number;
+  monthlyPrice: number;
+  annualMonthlyPrice: number;
+}
+
+const buildCreditMath = (t: Tier): CreditMath => {
+  const cfg = PLAN_CREDITS[t];
+  const plan = TIER_TO_PLAN[t];
+  const fullScanCost = cfg.trackedPromptsPerAccount * cfg.maxPlatforms;
+  // A daily cadence on a large prompt set can exceed the monthly budget -
+  // clamp so we never advertise more scheduled scans (or spend) than the
+  // credits actually cover.
+  const cadenceRuns = RUNS_PER_MONTH[cfg.autoRunFrequency];
+  const scheduledRuns = Math.min(cadenceRuns, Math.floor(cfg.monthlyCredits / fullScanCost));
+  const scheduledSpend = Math.min(cfg.monthlyCredits, scheduledRuns * fullScanCost);
+  const monthlyPrice = priceNum(plan?.price ?? cfg.price);
+  return {
+    tier: t,
+    monthlyCredits: cfg.monthlyCredits,
+    prompts: cfg.trackedPromptsPerAccount,
+    platforms: cfg.maxPlatforms,
+    fullScanCost,
+    fullScansPerMonth: Math.floor(cfg.monthlyCredits / fullScanCost),
+    scheduledRuns,
+    scheduledSpend,
+    headroomScans: Math.floor((cfg.monthlyCredits - scheduledSpend) / fullScanCost),
+    dailyPromptCapacity: Math.floor(cfg.monthlyCredits / 30 / cfg.maxPlatforms),
+    monthlyPrice,
+    annualMonthlyPrice: priceNum(plan?.annualPrice ?? cfg.price),
+  };
+};
+
+const CREDIT_MATH: Record<Tier, CreditMath> = Object.fromEntries(
+  PUBLIC_TIERS.map((t) => [t, buildCreditMath(t)]),
+) as Record<Tier, CreditMath>;
+
+/**
+ * Plain-English answer to "what does my monthly credit allowance actually
+ * get me?" - the sentence a buyer needs before they can compare plans.
+ */
+const creditVerdict = (m: CreditMath): string => {
+  const scan = `${m.prompts} prompts x ${m.platforms} platforms = ${m.fullScanCost.toLocaleString()} credits`;
+  if (m.dailyPromptCapacity >= m.prompts) {
+    return `${scan}. Your full set runs every single day (${m.scheduledSpend.toLocaleString()} credits/month) and still leaves ${(m.monthlyCredits - m.scheduledSpend).toLocaleString()} credits - about ${m.headroomScans} extra on-demand scans - for the weeks you need to check something now.`;
+  }
+  if (m.headroomScans > 0) {
+    return `${scan}. The ${m.scheduledRuns} scheduled scans in a month use ${m.scheduledSpend.toLocaleString()} credits, leaving ${(m.monthlyCredits - m.scheduledSpend).toLocaleString()} credits - roughly ${m.headroomScans} extra on-demand scans - for launches, PR moments, and spot checks.`;
+  }
+  return `${scan}. That funds ${m.fullScansPerMonth} complete scans a month. If you want to scan daily instead, budget covers about ${m.dailyPromptCapacity} prompts across all ${m.platforms} platforms every day - so track your ${m.dailyPromptCapacity} highest-intent prompts daily and rotate the long tail weekly.`;
+};
+
 const FAQ = [
+  {
+    q: 'Does "unlimited brands" mean unlimited websites?',
+    a: 'Yes. On Pro and Agency you can add as many websites or brands as you like. Free includes 1 brand and Starter includes 3.',
+  },
+  {
+    q: 'Are tracked prompts per brand or for the whole account?',
+    a: `For the whole account. Your plan's tracked prompts are shared across all your brands, and you decide how to split them. For example, Pro's ${PLAN_CREDITS.pro.trackedPromptsPerAccount} prompts could be 5 prompts for each of 5 brands, or 20 for one brand and 5 for another.`,
+  },
+  {
+    q: 'Which AI platforms are included in my plan?',
+    a: `We support 5 AI platforms: ChatGPT, Perplexity, Claude, Gemini and Grok. Free and Starter let you pick any ${PLAN_CREDITS.starter.maxPlatforms}, Pro lets you pick any ${PLAN_CREDITS.pro.maxPlatforms}, and Agency includes all ${PLAN_CREDITS.agency.maxPlatforms}. You choose them per brand in Brand Setup and can change them at any time.`,
+  },
   {
     q: 'What is one AI credit?',
     a: 'One credit = one query sent to one AI platform. A run with 10 queries across 3 platforms uses 30 credits. Credits refresh at the start of every UTC month.',
+  },
+  {
+    q: 'What is one rank tracking credit?',
+    a: `Rank tracking has its own allowance, separate from AI credits. One rank credit = one Google keyword check to the top 30, and a check to the top 100 uses 2 credits. A keyword checked weekly uses ${RANK_CHECKS_PER_MONTH.weekly} checks a month and a keyword checked daily uses ${RANK_CHECKS_PER_MONTH.daily}. So Starter's ${rankNum('starter')} credits cover ${rankNum('starter', RANK_CHECKS_PER_MONTH.weekly)} keywords checked weekly. Top 100 checks are on Pro and Agency, and daily checks are on Agency.`,
   },
   {
     q: 'What happens when I run out of credits?',
@@ -173,7 +342,7 @@ const FAQ = [
   },
   {
     q: 'Is there a free trial?',
-    a: `Yes. Every paid plan starts with a 7-day free trial - no credit card required. You get ${PLAN_CREDITS.trial.monthlyCredits.toLocaleString()} credits (scans), all 5 AI platforms, and 30 tracked prompts (account-wide) to evaluate the product.`,
+    a: `Yes. Every paid plan starts with a 7-day free trial - no credit card required. You get ${PLAN_CREDITS.trial.monthlyCredits.toLocaleString()} credits (scans), all 5 AI platforms, 30 tracked prompts (account-wide) and ${RANK_CREDITS_BY_PLAN.trial.toLocaleString('en-US')} Google rank tracking credits to evaluate the product.`,
   },
   {
     q: 'Can I cancel anytime?',
@@ -181,11 +350,27 @@ const FAQ = [
   },
   {
     q: 'Economy vs. Premium AI models - what changes?',
-    a: 'Economy uses fast, cost-efficient models (GPT-5 mini, Claude Haiku 4.5, Gemini 3 Flash-Lite, Perplexity Sonar, Grok 4 Mini). Premium tier (Agency) unlocks Claude Sonnet 4.5, Gemini 3 Pro, Sonar Pro, and Grok 5 for deeper reasoning.',
+    a: `Economy uses fast, cost-efficient models (${modelList(ECONOMY_MODEL_BY_PLATFORM)}). The Premium tier on Agency unlocks ${modelList(PREMIUM_MODEL_BY_PLATFORM)} for deeper reasoning.`,
   },
   {
     q: 'How does annual billing work?',
-    a: 'Annual billing saves roughly 20% on every paid plan. Toggle the switch at the top of this page to see annual prices.',
+    a: `Annual billing is charged once, up front, for 12 months and saves roughly 20% versus paying monthly. Starter is ${money(CREDIT_MATH.starter.monthlyPrice * 12)}/year billed monthly or ${money(CREDIT_MATH.starter.annualMonthlyPrice * 12)} billed annually. Pro is ${money(CREDIT_MATH.pro.monthlyPrice * 12)} vs ${money(CREDIT_MATH.pro.annualMonthlyPrice * 12)}. Agency is ${money(CREDIT_MATH.agency.monthlyPrice * 12)} vs ${money(CREDIT_MATH.agency.annualMonthlyPrice * 12)}. Your credit allowance still resets monthly - annual billing changes the invoice, not the limits. Toggle the switch at the top of this page to see annual prices on the cards.`,
+  },
+  {
+    q: `What does ${PLAN_CREDITS.starter.monthlyCredits.toLocaleString()} credits actually buy me on Starter?`,
+    a: creditVerdict(CREDIT_MATH.starter),
+  },
+  {
+    q: `What does ${PLAN_CREDITS.pro.monthlyCredits.toLocaleString()} credits actually buy me on Pro?`,
+    a: creditVerdict(CREDIT_MATH.pro),
+  },
+  {
+    q: `What does ${PLAN_CREDITS.agency.monthlyCredits.toLocaleString()} credits actually buy me on Agency?`,
+    a: creditVerdict(CREDIT_MATH.agency),
+  },
+  {
+    q: 'Are there setup fees, overage charges, or per-seat costs?',
+    a: 'No. The monthly or annual price is the total cost - there is no setup fee, no per-seat charge, and no overage billing. Credits are a hard ceiling rather than a meter: when they run out, runs pause until the next monthly reset or until you upgrade. You can never receive a surprise invoice larger than the plan price you agreed to.',
   },
   {
     q: 'I need more than Agency offers.',
@@ -193,11 +378,36 @@ const FAQ = [
   },
 ];
 
+/** Worked "is this worth it" arithmetic, one per plan. */
+const SCENARIOS = [
+  {
+    who: 'Solo founder, one brand',
+    plan: 'Starter',
+    body: `${money(CREDIT_MATH.starter.monthlyPrice)}/mo (${money(CREDIT_MATH.starter.annualMonthlyPrice * 12)}/year on annual). Tracks ${CREDIT_MATH.starter.prompts} buyer-intent prompts across ${CREDIT_MATH.starter.platforms} platforms, scanned ${autoRunLabel(PLAN_CREDITS.starter.autoRunFrequency).toLowerCase()}.`,
+  },
+  {
+    who: 'In-house marketing team',
+    plan: 'Pro',
+    body: `${money(CREDIT_MATH.pro.monthlyPrice)}/mo (${money(CREDIT_MATH.pro.annualMonthlyPrice * 12)}/year on annual). ${CREDIT_MATH.pro.prompts} prompts across ${CREDIT_MATH.pro.platforms} platforms with daily scans and sentiment analysis, for about ${money(CREDIT_MATH.pro.monthlyPrice / 30)} a day.`,
+  },
+  {
+    who: 'Agency, 10 client brands',
+    plan: 'Agency',
+    body: `${money(CREDIT_MATH.agency.monthlyPrice)}/mo (${money(CREDIT_MATH.agency.annualMonthlyPrice * 12)}/year on annual) covers unlimited brands, so ten clients is ${money(CREDIT_MATH.agency.monthlyPrice / 10)} per client per month. ${CREDIT_MATH.agency.prompts} prompts account-wide across all ${CREDIT_MATH.agency.platforms} platforms, plus API access and premium models.`,
+  },
+];
+
+function CheckIcon() {
+  return (
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7" /></svg>
+  );
+}
+
 export default function PricingPage() {
   const [annual, setAnnual] = useState(false);
 
   return (
-    <SeoLayout>
+    <SiteShell>
       <Breadcrumbs items={[{ name: 'Pricing', url: '/pricing' }]} />
       {/* FAQPage JSON-LD: the FAQ below renders custom markup instead of the
           shared FaqSection (which injects schema itself), so emit it here. */}
@@ -217,517 +427,264 @@ export default function PricingPage() {
       />
 
       {/* ── Hero ───────────────────────────────── */}
-      <section style={{ padding: '80px 24px 32px', textAlign: 'center', background: 'var(--bg-landing)' }}>
-        <div style={{ maxWidth: 760, margin: '0 auto' }}>
-          <span style={{
-            display: 'inline-block', padding: '6px 14px', borderRadius: 100,
-            background: 'rgba(99,102,241,.08)', color: 'var(--primary)',
-            fontSize: 12, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase',
-            marginBottom: 18,
-          }}>
-            Pricing
-          </span>
-          <h1 style={{
-            fontSize: 48, fontWeight: 800, letterSpacing: -1.5,
-            color: 'var(--text-primary)', marginBottom: 14, lineHeight: 1.1,
-          }}>
-            Simple pricing for generative engine optimization tools
-          </h1>
-          <p style={{
-            fontSize: 18, color: 'var(--text-secondary)', lineHeight: 1.6,
-            margin: '0 auto 8px', maxWidth: 580,
-          }}>
-            Livesov&apos;s generative engine optimization tools start at $9/mo. Every paid plan begins with a 7-day free trial - all 5 AI platforms included, no credit card required.
-          </p>
-          <p style={{ fontSize: 13, color: 'var(--text-muted, #94a3b8)', marginBottom: 36 }}>
-            Cancel anytime · 14-day money-back guarantee · No setup fees
-          </p>
-
-          {/* Billing toggle */}
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14 }}>
-            <span style={{
-              fontSize: 14, fontWeight: annual ? 500 : 700,
-              color: annual ? 'var(--text-secondary)' : 'var(--text-primary)',
-            }}>
-              Monthly
-            </span>
-            <button
-              type="button"
-              onClick={() => setAnnual(!annual)}
-              aria-label="Toggle annual billing"
-              aria-pressed={annual}
-              style={{
-                position: 'relative', width: 52, height: 28, border: 'none', borderRadius: 100,
-                background: annual ? 'var(--primary)' : '#cbd5e1',
-                cursor: 'pointer', transition: 'background .2s',
-              }}
-            >
-              <span style={{
-                position: 'absolute', top: 3, left: annual ? 27 : 3,
-                width: 22, height: 22, borderRadius: '50%', background: '#fff',
-                transition: 'left .2s', boxShadow: '0 1px 3px rgba(0,0,0,.18)',
-              }} />
-            </button>
-            <span style={{
-              fontSize: 14, fontWeight: annual ? 700 : 500,
-              color: annual ? 'var(--text-primary)' : 'var(--text-secondary)',
-              display: 'flex', alignItems: 'center', gap: 8,
-            }}>
-              Annual
-              <span style={{
-                fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 100,
-                background: 'rgba(16,185,129,.12)', color: '#059669',
-              }}>
-                save 20%
-              </span>
-            </span>
-          </div>
+      <section className="ls-wrap ls-hero-c" style={{ paddingBottom: 40, gap: 20 }}>
+        <span className="ls-pill">New: Google rank tracking</span>
+        <h1 className="ls-h1 lg" style={{ maxWidth: 900 }}>Google rankings and AI visibility. <span className="ls-em">One tool, one bill.</span></h1>
+        <p className="ls-lead" style={{ maxWidth: 640 }}>
+          Track where your clients rank in Google from their own city, and whether ChatGPT, Gemini and Perplexity recommend them.
+        </p>
+        <p className="ls-note">
+          Plans from {TIER_TO_PLAN.starter?.price}/mo. Every plan has a 7 day free trial. No credit card needed.
+        </p>
+        <div className="ls-toggle" role="group" aria-label="Billing period" style={{ marginTop: 8 }}>
+          <button type="button" aria-pressed={!annual} onClick={() => setAnnual(false)}>Monthly</button>
+          <button type="button" aria-pressed={annual} onClick={() => setAnnual(true)}>Annual <span className="save">-20%</span></button>
         </div>
       </section>
 
       {/* ── Plan cards ─────────────────────────────── */}
-      <section style={{ padding: '24px 24px 64px', background: 'var(--bg-landing)' }}>
-        <div style={{
-          maxWidth: 1200, margin: '0 auto', display: 'grid', gap: 20,
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-        }}>
+      <section className="ls-wrap" style={{ paddingTop: 24, paddingBottom: 72 }}>
+        <div className="ls-grid ls-grid-3w" style={{ alignItems: 'stretch' }}>
           {PRICING_PLANS.filter((plan) => plan.name !== 'Free').map((plan) => {
-            const featured = !!plan.featured;
-            const showTrial = plan.name !== 'Free';
-            const isAnnual = annual && plan.price !== '$0';
-            const displayPrice = annual ? plan.annualPrice : plan.price;
+            const pop = !!plan.featured;
             return (
-              <div
-                key={plan.name}
-                style={{
-                  position: 'relative', display: 'flex', flexDirection: 'column',
-                  padding: '32px 24px', borderRadius: 16,
-                  background: featured ? 'linear-gradient(160deg, #6366f1 0%, #818cf8 100%)' : '#fff',
-                  color: featured ? '#fff' : 'var(--text-primary)',
-                  border: featured ? 'none' : '1px solid var(--card-border)',
-                  boxShadow: featured
-                    ? '0 20px 40px -12px rgba(99,102,241,.45)'
-                    : '0 1px 3px rgba(15,23,42,.04), 0 1px 2px rgba(15,23,42,.03)',
-                  transition: 'transform .2s, box-shadow .2s',
-                }}
-              >
-                {featured && (
-                  <span style={{
-                    position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
-                    fontSize: 10, fontWeight: 800, letterSpacing: 1,
-                    padding: '5px 14px', borderRadius: 100,
-                    background: '#fff', color: 'var(--primary)',
-                    textTransform: 'uppercase', whiteSpace: 'nowrap',
-                    boxShadow: '0 4px 12px rgba(0,0,0,.12)',
-                  }}>
-                    Most popular
-                  </span>
+              <div key={plan.name} className={'ls-tier' + (pop ? ' pop' : '')}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 20, fontWeight: 600 }}>{plan.name}</span>
+                  {pop && <span className="ls-badge">Most popular</span>}
+                </div>
+                <p className="muted" style={{ fontSize: 15, lineHeight: 1.5 }}>{plan.sub}</p>
+                <div className="ls-tier-price" style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                  <b>{annual ? plan.annualPrice : plan.price}</b>
+                  {annual && <s>{plan.price}</s>}
+                  <span className="muted">{annual ? '/mo, billed yearly' : '/mo'}</span>
+                </div>
+                <div className="ls-mono muted" style={{ fontSize: 13 }}>{plan.headline.replace(/\/month$/, ' / month')}</div>
+                <Link href={`/signup?plan=${plan.name.toLowerCase()}&billing=${annual ? 'annual' : 'monthly'}`} className={'ls-btn ls-btn-block ' + (pop ? 'ls-btn-pri' : 'ls-btn-out')}>{plan.cta}</Link>
+                <p className="ls-mono muted" style={{ fontSize: 12, textAlign: 'center', marginTop: -6 }}>7 day free trial · No credit card</p>
+                <hr />
+                {plan.rankFeatures.length > 0 && (
+                  <>
+                    <div className="ls-tier-group">Google rank tracking</div>
+                    <ul aria-label={`${plan.name} Google rank tracking`}>
+                      {plan.rankFeatures.map((f) => <li key={f}><CheckIcon /><span>{f}</span></li>)}
+                    </ul>
+                  </>
                 )}
-
-                <div style={{
-                  fontSize: 14, fontWeight: 700, letterSpacing: 0.3, textTransform: 'uppercase',
-                  color: featured ? 'rgba(255,255,255,.85)' : 'var(--text-secondary)',
-                  marginBottom: 10,
-                }}>
-                  {plan.name}
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 4 }}>
-                  <span style={{ fontSize: 44, fontWeight: 800, letterSpacing: -1.5, lineHeight: 1 }}>
-                    {displayPrice}
-                  </span>
-                  {isAnnual && (
-                    <span style={{
-                      fontSize: 18, fontWeight: 600, textDecoration: 'line-through',
-                      color: featured ? 'rgba(255,255,255,.6)' : 'var(--text-muted, #94a3b8)',
-                    }}>
-                      {plan.price}
-                    </span>
-                  )}
-                  <span style={{
-                    fontSize: 14, fontWeight: 500,
-                    color: featured ? 'rgba(255,255,255,.75)' : 'var(--text-muted, #94a3b8)',
-                  }}>
-                    /mo
-                  </span>
-                </div>
-                <div style={{
-                  fontSize: 12, minHeight: 18, marginBottom: 14,
-                  color: featured ? 'rgba(255,255,255,.75)' : 'var(--text-muted, #94a3b8)',
-                }}>
-                  {plan.price === '$0'
-                    ? ' '
-                    : isAnnual
-                      ? 'Billed annually · save 20%'
-                      : 'Billed monthly'}
-                </div>
-
-                <div style={{
-                  padding: '14px 16px', borderRadius: 12, marginBottom: 18,
-                  background: featured ? 'rgba(255,255,255,.14)' : 'rgba(99,102,241,.06)',
-                  border: featured ? '1px solid rgba(255,255,255,.18)' : '1px solid rgba(99,102,241,.14)',
-                }}>
-                  <div style={{
-                    fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase',
-                    color: featured ? 'rgba(255,255,255,.8)' : 'var(--primary)',
-                    marginBottom: 2,
-                  }}>
-                    Includes
-                  </div>
-                  <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: -0.3 }}>
-                    {plan.headline}
-                  </div>
-                </div>
-
-                <p style={{
-                  fontSize: 13, lineHeight: 1.5, marginBottom: 14,
-                  color: featured ? 'rgba(255,255,255,.85)' : 'var(--text-secondary)',
-                }}>
-                  {plan.sub}
-                </p>
-
-                <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {plan.features.map((f) => (
-                    <li
-                      key={f}
-                      style={{
-                        display: 'flex', alignItems: 'flex-start', gap: 10,
-                        fontSize: 13.5, lineHeight: 1.5,
-                        color: featured ? 'rgba(255,255,255,.92)' : 'var(--text-primary)',
-                      }}
-                    >
-                      <svg
-                        width="16" height="16" viewBox="0 0 16 16" fill="none"
-                        style={{ flexShrink: 0, marginTop: 2 }}
-                        aria-hidden="true"
-                      >
-                        <path
-                          d="M13.3 4.3L6 11.6L2.7 8.3"
-                          stroke={featured ? '#fff' : '#10b981'}
-                          strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-                        />
-                      </svg>
-                      {f}
-                    </li>
-                  ))}
+                <div className="ls-tier-group">AI visibility</div>
+                <ul aria-label={`${plan.name} AI visibility`}>
+                  {plan.features.map((f) => <li key={f}><CheckIcon /><span>{f}</span></li>)}
                 </ul>
-
-                <Link
-                  href="/signup"
-                  style={{
-                    display: 'block', textAlign: 'center', textDecoration: 'none',
-                    padding: '12px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700,
-                    transition: 'transform .15s, background .15s',
-                    background: featured ? '#fff' : 'var(--primary)',
-                    color: featured ? 'var(--primary)' : '#fff',
-                    boxShadow: featured ? 'none' : '0 1px 2px rgba(99,102,241,.4)',
-                    marginTop: 'auto',
-                  }}
-                >
-                  {plan.cta}
-                </Link>
-
-                {showTrial && (
-                  <p style={{
-                    fontSize: 11, textAlign: 'center', marginTop: 10, marginBottom: 0,
-                    color: featured ? 'rgba(255,255,255,.75)' : 'var(--text-muted, #94a3b8)',
-                  }}>
-                    7-day free trial · No credit card
-                  </p>
-                )}
               </div>
             );
           })}
         </div>
+        <div className="ls-strip" style={{ marginTop: 32 }}>
+          {RANK_STRIP.map((i) => (
+            <div key={i.t}>
+              <b>{i.t}</b>
+              <span>{i.d}</span>
+            </div>
+          ))}
+        </div>
+        <p className="ls-note" style={{ marginTop: 24, textAlign: 'center' }}>
+          1 AI credit = 1 prompt checked on 1 engine. 1 rank credit = 1 keyword checked to the top 30 (top 100 uses 2). Cancel anytime. No setup fees.
+        </p>
       </section>
 
       {/* ── Detailed plan comparison (mirrors dashboard) ───────── */}
-      <section style={{ padding: '64px 24px', background: 'var(--bg-section)' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <h2 style={{
-              fontSize: 32, fontWeight: 800, letterSpacing: -0.6,
-              color: 'var(--text-primary)', marginBottom: 10,
-            }}>
-              Compare every feature
-            </h2>
-            <p style={{
-              fontSize: 15, color: 'var(--text-secondary)',
-              maxWidth: 560, margin: '0 auto', lineHeight: 1.6,
-            }}>
-              The same comparison your dashboard shows after sign-in. No fine print.
-            </p>
-          </div>
-
-          <div style={{
-            background: '#fff', borderRadius: 16, overflow: 'hidden',
-            border: '1px solid var(--card-border)',
-            boxShadow: '0 1px 3px rgba(15,23,42,.04)',
-          }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{
-                width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 720,
-              }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--card-border)' }}>
-                    <th style={{
-                      textAlign: 'left', padding: '20px 22px', fontWeight: 700,
-                      color: 'var(--text-secondary)', fontSize: 12, letterSpacing: 0.5,
-                      textTransform: 'uppercase', width: '32%',
-                    }}>
-                      Feature
+      <section className="ls-wrap ls-sec" style={{ paddingTop: 48, paddingBottom: 48, gap: 32 }}>
+        <div className="ls-sec-head">
+          <h2 className="ls-h2" style={{ fontSize: 'clamp(34px, 4vw, 48px)' }}>Compare <span className="ls-em">every plan.</span></h2>
+          <p className="ls-body">The same comparison your dashboard shows after sign in. Numbers come straight from the plan configuration, so they never drift.</p>
+        </div>
+        <div className="ls-table-box">
+          <table className="ls-table">
+            <caption className="ls-sr">Plan limits for Starter, Pro and Agency</caption>
+            <thead>
+              <tr>
+                <th className="lbl" scope="col">Feature</th>
+                {PUBLIC_TIERS.map((t) => {
+                  const plan = TIER_TO_PLAN[t];
+                  const displayPrice = annual && plan ? plan.annualPrice : (plan?.price ?? PLAN_CREDITS[t].price);
+                  return (
+                    <th key={t} scope="col" className={t === 'pro' ? 'hl' : undefined}>
+                      {TIER_LABEL[t]} <span className="ls-mono" style={{ fontWeight: 400, fontSize: 13, opacity: 0.75 }}>{displayPrice}/mo</span>
                     </th>
-                    {PUBLIC_TIERS.map((t) => {
-                      const isPro = t === 'pro';
-                      const plan = TIER_TO_PLAN[t];
-                      const displayPrice = annual && plan ? plan.annualPrice : (plan?.price ?? PLAN_CREDITS[t].price);
-                      return (
-                        <th
-                          key={t}
-                          style={{
-                            padding: '20px 14px', textAlign: 'center',
-                            background: isPro ? 'rgba(99,102,241,.06)' : 'transparent',
-                            borderLeft: isPro ? '2px solid var(--primary)' : 'none',
-                            borderRight: isPro ? '2px solid var(--primary)' : 'none',
-                          }}
-                        >
-                          <div style={{
-                            fontSize: 13, fontWeight: 700, letterSpacing: 0.4,
-                            textTransform: 'uppercase',
-                            color: isPro ? 'var(--primary)' : 'var(--text-secondary)',
-                            marginBottom: 4,
-                          }}>
-                            {TIER_LABEL[t]}
-                          </div>
-                          <div style={{
-                            fontSize: 22, fontWeight: 800, color: 'var(--text-primary)',
-                            letterSpacing: -0.5,
-                          }}>
-                            {displayPrice}
-                            <span style={{
-                              fontSize: 12, fontWeight: 500,
-                              color: 'var(--text-muted, #94a3b8)',
-                            }}>
-                              /mo
-                            </span>
-                          </div>
-                          {isPro && (
-                            <span style={{
-                              display: 'inline-block', marginTop: 6,
-                              fontSize: 9, fontWeight: 800, letterSpacing: 0.6,
-                              padding: '2px 8px', borderRadius: 100,
-                              background: 'var(--primary)', color: '#fff',
-                              textTransform: 'uppercase',
-                            }}>
-                              Most popular
-                            </span>
-                          )}
-                        </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {COMPARISON_ROWS.map((row, i) => (
-                    <tr
-                      key={row.feature}
-                      style={{
-                        borderBottom: i < COMPARISON_ROWS.length - 1
-                          ? '1px solid var(--card-border)'
-                          : 'none',
-                        background: i % 2 === 1 ? 'rgba(15,23,42,.015)' : 'transparent',
-                      }}
-                    >
-                      <td style={{
-                        textAlign: 'left', padding: '14px 22px',
-                        fontWeight: 500, color: 'var(--text-primary)',
-                      }}>
-                        {row.feature}
-                      </td>
-                      {PUBLIC_TIERS.map((t) => {
-                        const v = row.values[t];
-                        const isPro = t === 'pro';
-                        const isCheck = v === '✓';
-                        const isDash = v === '–';
-                        return (
-                          <td
-                            key={t}
-                            style={{
-                              padding: '14px 14px', textAlign: 'center',
-                              background: isPro ? 'rgba(99,102,241,.04)' : 'transparent',
-                              borderLeft: isPro ? '2px solid var(--primary)' : 'none',
-                              borderRight: isPro ? '2px solid var(--primary)' : 'none',
-                              fontWeight: isPro ? 700 : 500,
-                              color: isCheck
-                                ? '#10b981'
-                                : isDash
-                                  ? 'var(--text-muted, #94a3b8)'
-                                  : isPro
-                                    ? 'var(--primary)'
-                                    : 'var(--text-primary)',
-                              fontSize: isCheck ? 18 : 14,
-                            }}
-                          >
-                            {v}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {COMPARISON_ROWS.map((row) => (
+                <tr key={row.feature}>
+                  <th scope="row" className="k">{row.feature}</th>
+                  {PUBLIC_TIERS.map((t) => {
+                    const v = row.values[t];
+                    const label = v === '✓' ? 'Yes' : v === '✗' ? 'No' : v;
+                    return <td key={t} className={t === 'pro' ? 'hl' : undefined}>{label}</td>;
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-          <p style={{
-            fontSize: 12, color: 'var(--text-muted, #94a3b8)',
-            textAlign: 'center', marginTop: 20,
-          }}>
-            Numbers above are sourced directly from the dashboard&apos;s plan configuration.
-            Backend limits and these published values can never drift.
+      {/* ── Credit maths: what the allowance actually buys ─────── */}
+      <section className="ls-wrap ls-sec" style={{ gap: 32 }}>
+        <div className="ls-sec-head">
+          <span className="ls-eyebrow">Credit maths</span>
+          <h2 className="ls-h2" style={{ fontSize: 'clamp(34px, 4vw, 48px)' }}>
+            What {PUBLIC_TIERS.map((t) => PLAN_CREDITS[t].monthlyCredits.toLocaleString()).join(', ')} credits <span className="ls-em">actually buy.</span>
+          </h2>
+          <p className="ls-body">
+            One AI credit = one prompt sent to one AI platform, so a <strong>full scan</strong> (every tracked prompt
+            against every platform your plan allows) costs prompts &times; platforms credits. Here is that
+            arithmetic, worked out per plan.
           </p>
         </div>
+        <div className="ls-grid ls-grid-3">
+          {PUBLIC_TIERS.map((t) => {
+            const m = CREDIT_MATH[t];
+            return (
+              <div key={t} className="ls-card ls-math ls-stack ls-gap-16" style={t === 'pro' ? { borderColor: 'var(--ls-accent)' } : undefined}>
+                <span className="ls-kicker">{TIER_LABEL[t]}</span>
+                <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: '-0.03em' }}>
+                  {m.monthlyCredits.toLocaleString()}
+                  <span className="ls-note" style={{ fontSize: 14, fontWeight: 400 }}> credits / mo</span>
+                </div>
+                <dl>
+                  {[
+                    ['One full scan costs', `${m.prompts} x ${m.platforms} = ${m.fullScanCost.toLocaleString()} credits`],
+                    ['Full scans per month', `${m.fullScansPerMonth}`],
+                    ['Scheduled scans included', `${m.scheduledRuns} (${autoRunLabel(PLAN_CREDITS[t].autoRunFrequency).toLowerCase()}${RUNS_PER_MONTH[PLAN_CREDITS[t].autoRunFrequency] > m.scheduledRuns ? ', capped by credits' : ''})`],
+                  ].map(([k, v]) => (
+                    <div key={k}><dt>{k}</dt><dd>{v}</dd></div>
+                  ))}
+                </dl>
+                <p className="ls-small" style={{ fontSize: 14 }}>{creditVerdict(m)}</p>
+              </div>
+            );
+          })}
+        </div>
+        <p className="ls-note">
+          Scheduled scan counts assume a 30 day month. Credits reset at the start of every UTC month
+          and do not roll over. Failed provider calls are refunded automatically, so a platform outage
+          never costs you credits.
+        </p>
+      </section>
+
+      {/* ── Total cost of ownership ──────────────────────── */}
+      <section className="ls-wrap ls-sec" style={{ gap: 32 }}>
+        <div className="ls-sec-head">
+          <span className="ls-eyebrow">Total cost</span>
+          <h2 className="ls-h2" style={{ fontSize: 'clamp(34px, 4vw, 48px)' }}>Total cost, <span className="ls-em">written out in full.</span></h2>
+          <p className="ls-body">What you will actually be charged over twelve months, on both billing cycles. No setup fee, no per seat charge, no overage billing.</p>
+        </div>
+        <div className="ls-table-box">
+          <table className="ls-table" aria-label="Total 12-month cost by plan and billing cycle">
+            <caption className="ls-sr">Twelve-month total cost for each Livesov plan on monthly and annual billing</caption>
+            <thead>
+              <tr>
+                {['Plan', 'Billed monthly', '12 month total', 'Billed annually', '12 month total', 'You save'].map((h, i) => (
+                  <th key={h + i} scope="col" className={i === 0 ? 'lbl' : 'num'}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {PUBLIC_TIERS.map((t) => {
+                const m = CREDIT_MATH[t];
+                const monthlyYear = m.monthlyPrice * 12;
+                const annualYear = m.annualMonthlyPrice * 12;
+                return (
+                  <tr key={t}>
+                    <th scope="row" className="k" style={{ fontWeight: 600 }}>{TIER_LABEL[t]}</th>
+                    <td className="num">{money(m.monthlyPrice)}/mo</td>
+                    <td className="num" style={{ color: 'var(--ls-ink)', fontWeight: 600 }}>{money(monthlyYear)}</td>
+                    <td className="num">{money(m.annualMonthlyPrice)}/mo</td>
+                    <td className="num" style={{ color: 'var(--ls-ink)', fontWeight: 600 }}>{money(annualYear)}</td>
+                    <td className="num" style={{ color: 'var(--ls-green-ink)', fontWeight: 600 }}>{money(monthlyYear - annualYear)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="ls-grid ls-grid-3">
+          {SCENARIOS.map((s) => (
+            <div key={s.plan} className="ls-card ls-stack ls-gap-10" style={{ padding: 28 }}>
+              <span className="ls-kicker">{s.plan}</span>
+              <h3 style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>{s.who}</h3>
+              <p className="ls-small" style={{ fontSize: 14 }}>{s.body}</p>
+            </div>
+          ))}
+        </div>
+        <p className="ls-note">
+          Prices in USD. Annual plans are charged once for the full 12 months; the credit
+          allowance still resets monthly. Cancel anytime and keep access to the end of the paid period.
+        </p>
       </section>
 
       {/* ── Competitor comparison ──────────────────────── */}
-      <section style={{ padding: '64px 24px', background: 'var(--bg-landing)' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <h2 style={{
-              fontSize: 30, fontWeight: 800, letterSpacing: -0.5,
-              color: 'var(--text-primary)', marginBottom: 10,
-            }}>
-              How our generative engine optimization tools compare
-            </h2>
-            <p style={{
-              fontSize: 15, color: 'var(--text-secondary)',
-              maxWidth: 560, margin: '0 auto', lineHeight: 1.6,
-            }}>
-              Built as AI brand monitoring software from day one - not bolted on to a legacy SEO suite.
-            </p>
-          </div>
-
-          <div style={{
-            background: '#fff', borderRadius: 16, overflow: 'hidden',
-            border: '1px solid var(--card-border)',
-          }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table
-                style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}
-                aria-label="Livesov vs Ahrefs vs Semrush feature comparison"
-              >
-                <caption className="sr-only">Feature comparison between Livesov, Ahrefs, and Semrush</caption>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--card-border)' }}>
-                    {PRICING_COMPARISON.headers.map((h, i) => (
-                      <th
-                        key={h}
-                        style={{
-                          padding: '18px 20px', textAlign: 'left',
-                          fontSize: 12, fontWeight: 700, letterSpacing: 0.5,
-                          textTransform: 'uppercase',
-                          color: i === 1 ? 'var(--primary)' : 'var(--text-secondary)',
-                          background: i === 1 ? 'rgba(99,102,241,.04)' : 'transparent',
-                        }}
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {PRICING_COMPARISON.rows.map((row, ri) => (
-                    <tr
-                      key={ri}
-                      style={{
-                        borderBottom: ri < PRICING_COMPARISON.rows.length - 1
-                          ? '1px solid var(--card-border)'
-                          : 'none',
-                      }}
-                    >
-                      {row.map((cell, ci) => (
-                        <td
-                          key={ci}
-                          style={{
-                            padding: '14px 20px',
-                            fontWeight: ci === 0 ? 600 : ci === 1 ? 700 : 500,
-                            color: ci === 0
-                              ? 'var(--text-primary)'
-                              : ci === 1
-                                ? 'var(--primary)'
-                                : 'var(--text-secondary)',
-                            background: ci === 1 ? 'rgba(99,102,241,.04)' : 'transparent',
-                          }}
-                        >
-                          {cell}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+      <section className="ls-wrap ls-sec" style={{ gap: 32 }}>
+        <div className="ls-sec-head">
+          <span className="ls-eyebrow">Compare</span>
+          <h2 className="ls-h2" style={{ fontSize: 'clamp(34px, 4vw, 48px)' }}>How our GEO tools <span className="ls-em">compare.</span></h2>
+          <p className="ls-body">Built as AI brand monitoring software from day one, not bolted on to a legacy SEO suite.</p>
         </div>
+        <div className="ls-table-box">
+          <table className="ls-table" aria-label="Livesov vs Ahrefs vs Semrush feature comparison">
+            <caption className="ls-sr">Feature comparison between Livesov, Ahrefs, and Semrush</caption>
+            <thead>
+              <tr>
+                {PRICING_COMPARISON.headers.map((h, i) => (
+                  <th key={h} scope="col" className={i === 0 ? 'lbl' : i === 1 ? 'hl-dark' : undefined}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {PRICING_COMPARISON.rows.map((row) => (
+                <tr key={row[0]}>
+                  {row.map((cell, ci) => (
+                    ci === 0
+                      ? <th key={ci} scope="row" className="k">{cell}</th>
+                      : <td key={ci} className={ci === 1 ? 'hl' : undefined}>{cell}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="ls-note">Ahrefs Brand Radar and the Semrush AI Toolkit track AI answers as paid add-ons on top of the base plan. Check their current engine list before comparing.</p>
       </section>
 
       {/* ── FAQ ──────────────────────────────────── */}
-      <section style={{ padding: '64px 24px 96px', background: 'var(--bg-section)' }}>
-        <div style={{ maxWidth: 760, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 36 }}>
-            <h2 style={{
-              fontSize: 30, fontWeight: 800, letterSpacing: -0.5,
-              color: 'var(--text-primary)', marginBottom: 10,
-            }}>
-              Pricing questions
-            </h2>
-            <p style={{ fontSize: 15, color: 'var(--text-secondary)' }}>
-              Still wondering? <Link href="/contact" style={{ color: 'var(--primary)', fontWeight: 600 }}>Get in touch</Link>.
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {FAQ.map((item) => (
-              <details
-                key={item.q}
-                className="lp-faq-item"
-                style={{
-                  background: '#fff', borderRadius: 12,
-                  border: '1px solid var(--card-border)',
-                  padding: '18px 22px',
-                }}
-              >
-                <summary style={{
-                  cursor: 'pointer', listStyle: 'none',
-                  fontWeight: 700, fontSize: 15, color: 'var(--text-primary)',
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  gap: 12,
-                }}>
-                  <span>{item.q}</span>
-                  <span aria-hidden="true" className="lp-faq-icon" style={{
-                    flexShrink: 0, color: 'var(--primary)', fontSize: 22, fontWeight: 400,
-                    lineHeight: 1, transition: 'transform .2s',
-                  }}>
-                    +
-                  </span>
-                </summary>
-                <p style={{
-                  margin: '12px 0 0', fontSize: 14, lineHeight: 1.7,
-                  color: 'var(--text-secondary)',
-                }}>
-                  {item.a}
-                </p>
-              </details>
-            ))}
-          </div>
+      <section className="ls-wrap ls-sec" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 48 }}>
+        <div className="ls-stack ls-gap-16" style={{ flex: '1 1 320px' }}>
+          <h2 className="ls-h2" style={{ fontSize: 'clamp(34px, 4vw, 48px)' }}>Questions, <span className="ls-em">answered.</span></h2>
+          <p className="ls-body">Still unsure? <Link href="/contact">Talk to us</Link>.</p>
+        </div>
+        <div className="ls-faq" style={{ flex: '2 1 560px' }}>
+          {FAQ.map((item) => (
+            <details key={item.q}>
+              <summary><span>{item.q}</span><span className="pm" aria-hidden="true">+</span></summary>
+              <p>{item.a}</p>
+            </details>
+          ))}
         </div>
       </section>
 
-      <style>{`
-        .lp-faq-item summary::-webkit-details-marker { display: none; }
-        .lp-faq-item[open] .lp-faq-icon { transform: rotate(45deg); }
-        .lp-faq-item:hover { border-color: rgba(99,102,241,.4); }
-      `}</style>
-    </SeoLayout>
+      {/* ── Free audit CTA ──────────────────────────────── */}
+      <section className="ls-wrap" style={{ paddingTop: 24, paddingBottom: 112 }}>
+        <div className="ls-cta-band row">
+          <div className="ls-stack ls-gap-10" style={{ maxWidth: 620 }}>
+            <h2 className="ls-h2 sm">Not ready to pay? <span className="ls-em">Run a free audit.</span></h2>
+            <p style={{ fontSize: 17 }}>No signup. About 90 seconds.</p>
+          </div>
+          <Link href="/geo-audit" className="ls-btn ls-btn-dark ls-btn-lg">Run my free audit</Link>
+        </div>
+      </section>
+    </SiteShell>
   );
 }

@@ -1,6 +1,7 @@
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
-import { getBrandWithAccess } from '@/lib/helpers';
+import { getBrandLiteWithAccess } from '@/lib/helpers';
+import { computeShareOfVoice } from '@/lib/run-sov';
 
 /**
  * GET /api/brands/:id/competitor-stats
@@ -13,23 +14,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const user = authResult;
 
   const { id } = await params;
-  const access = await getBrandWithAccess(id, user.id);
+  const access = await getBrandLiteWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
 
   const brand = access.brand;
-  const competitors: string[] = brand.competitors || [];
+  const competitors: string[] = Array.isArray(brand.competitors) ? (brand.competitors as string[]) : [];
 
   if (!competitors.length) {
     return Response.json({ competitors: [], platforms: {}, totalQueries: 0, brandMentions: 0 });
   }
 
   try {
-    // Get all successful prompt_runs for this brand in last 30 days
+    // Get all successful prompt_runs for this brand in last 30 days. Only the
+    // columns the aggregation reads: prompt text and an ORDER BY the loop
+    // never relies on made this the slowest query on the Competitors page.
     const result = await pool.query(
-      `SELECT prompt, platform, mentioned, competitor_mentions, batch_id, created_at
+      `SELECT platform, mentioned, competitor_mentions, created_at
        FROM prompt_runs
-       WHERE brand_id = $1 AND success = true AND created_at >= NOW() - INTERVAL '30 days'
-       ORDER BY created_at DESC`,
+       WHERE brand_id = $1 AND success = true AND created_at >= NOW() - INTERVAL '30 days'`,
       [id]
     );
 
@@ -103,13 +105,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     // Build chronological day list (oldest → newest), capped to the last 14 days
     // with data, then derive a real SOV-per-day trend for the brand and each
-    // competitor (percentage of that day's queries that mentioned them).
+    // competitor: that day's share of all mentions, the same definition the
+    // page uses for the headline Share of Voice (see computeShareOfVoice).
     const trendDays = [...dayBuckets.keys()].sort().slice(-14);
-    const pctOf = (n: number, total: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
-    const brandTrend = trendDays.map(d => { const b = dayBuckets.get(d)!; return pctOf(b.brand, b.total); });
+    const BRAND_KEY = '\u0000brand';
+    const dayShares = trendDays.map(d => {
+      const b = dayBuckets.get(d)!;
+      return computeShareOfVoice({ [BRAND_KEY]: b.brand, ...b.comp });
+    });
+    const brandTrend = dayShares.map(s => s[BRAND_KEY] || 0);
     const compTrends: Record<string, number[]> = {};
     for (const comp of competitors) {
-      compTrends[comp] = trendDays.map(d => { const b = dayBuckets.get(d)!; return pctOf(b.comp[comp] || 0, b.total); });
+      compTrends[comp] = dayShares.map(s => s[comp] || 0);
     }
 
     // Build response

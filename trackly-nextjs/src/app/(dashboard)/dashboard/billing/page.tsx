@@ -4,11 +4,14 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { PLAN_LIMITS, BILLING_PORTAL_URL, PRICING_PLANS } from '@/lib/constants';
 import { PLAN_CREDITS } from '@/lib/plan-config';
+import { getPlanSwitchDirection, hasActivePaidSubscription } from '@/lib/plan-rank';
 import { useCredits } from '@/contexts/CreditsContext';
 import { useBrands } from '@/contexts/BrandContext';
 import UsageSection from '@/components/dashboard/billing/UsageSection';
 import type { ActivityEntry } from '@/components/dashboard/billing/RecentActivityCard';
+import type { UsageBreakdown } from '@/app/api/credits/usage/route';
 import ComparePlansGrid from '@/components/dashboard/billing/ComparePlansGrid';
+import { parsePlanIntent, takePlanIntent } from '@/lib/plan-intent';
 import { Card, Badge, Bar, Pill, Donut, PageHead } from '@/app/dashboard-v2/ui';
 
 const SURFACE = '#ffffff';
@@ -96,9 +99,9 @@ function UsageMeter({ label, used, limit, unit = '', sub, unlimited }: any) {
 }
 
 export default function BillingPage() {
-  const { user } = useAuth();
-  const { brands } = useBrands();
-  const { status: creditStatus } = useCredits();
+  const { user, loading: authLoading } = useAuth();
+  const { brands, loading: brandsLoading } = useBrands();
+  const { status: creditStatus, loading: creditsLoading } = useCredits();
 
   const currentPlan = user?.plan || 'free';
   const creditCfg = PLAN_CREDITS[currentPlan] || PLAN_CREDITS.free;
@@ -112,37 +115,41 @@ export default function BillingPage() {
   });
   const [billingHistory, setBillingHistory] = useState<ActivityEntry[]>([]);
   const [apiCosts, setApiCosts] = useState<Record<string, number>>({});
+  const [usage, setUsage] = useState<UsageBreakdown | null>(null);
+  const [usageLoaded, setUsageLoaded] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
-  // Page-level fetch only pulls the small period summary we need for the
-  // top card's day-of-period progress bar. The full UsageBreakdown is
-  // also fetched inside <UsageSection /> - both calls share the
-  // same HTTP cache window (max-age=15) so the dedupe is transparent.
+  // One /api/credits/usage fetch for the whole page (period summary for the
+  // header plus the full breakdown handed to <UsageSection />), fired in
+  // parallel with the billing history. UsageSection used to fetch usage a
+  // second time plus a 200-row ledger page on mount.
   useEffect(() => {
     let cancelled = false;
     fetch('/api/credits/usage', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (cancelled || !d) return;
+        setUsage(d as UsageBreakdown);
         setPeriodInfo({
           daysIntoMonth: Number(d.daysIntoMonth) || 0,
           daysRemainingInMonth: Number(d.daysRemainingInMonth) || 0,
         });
       })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setUsageLoaded(true); });
 
-  useEffect(() => {
     fetch('/api/payments/history', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (!d) return;
+        if (cancelled || !d) return;
         const rows: ActivityEntry[] = (d.history || []).map((h: Record<string, unknown>) =>
           mapHistoryRow(h),
         );
         setBillingHistory(rows);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setHistoryLoaded(true); });
+    return () => { cancelled = true; };
   }, []);
 
   // Owner-only API cost breakdown stays - admin operator view.
@@ -162,23 +169,57 @@ export default function BillingPage() {
       .catch(() => {});
   }, [currentPlan]);
 
+  const canCancel = hasActivePaidSubscription(currentPlan, user?.settings);
+
   // Plan change state
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [planSwitching, setPlanSwitching] = useState('');
   const [annualBilling, setAnnualBilling] = useState(false);
+  // Plans with a configured annual Dodo product, and the cycle the user is
+  // on now. Empty until loaded, which keeps the annual toggle hidden.
+  const [annualAvailable, setAnnualAvailable] = useState<Record<string, boolean>>({});
+  const [currentBilling, setCurrentBilling] = useState<'monthly' | 'annual' | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/payments/checkout', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d) return;
+        const available: Record<string, boolean> = d.annual && typeof d.annual === 'object' ? d.annual : {};
+        setAnnualAvailable(available);
+        setCurrentBilling(d.currentBilling === 'annual' || d.currentBilling === 'monthly' ? d.currentBilling : null);
+        // /pricing CTAs carry ?plan=pro&billing=annual (directly, or via
+        // signup's stash). Preselect the cycle when annual is actually
+        // sellable for that plan, and jump to the grid.
+        const intent = parsePlanIntent(window.location.search) ?? takePlanIntent();
+        if (!intent) return;
+        if (intent.billing === 'annual' && available[intent.plan]) setAnnualBilling(true);
+        document.getElementById('plan-comparison')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   async function switchPlan(targetPlan: string) {
     const target = targetPlan.toLowerCase();
-    const PLAN_TIERS: Record<string, number> = {
-      free: 0, starter: 1, pro: 2, agency: 3, enterprise: 4,
-    };
-    const currentTier = PLAN_TIERS[currentPlan] ?? 0;
-    const targetTier = PLAN_TIERS[target] ?? 0;
+    const direction = getPlanSwitchDirection(currentPlan, target);
 
-    if (target === currentPlan) return;
+    const billing: 'monthly' | 'annual' = annualBilling && annualAvailable[target] ? 'annual' : 'monthly';
+    // Same plan is only a valid checkout as a monthly -> annual switch.
+    const isAnnualSwitch = direction === 'current' && billing === 'annual' && currentBilling !== 'annual';
+    if (direction === 'unavailable') return;
+    if (direction === 'current' && !isAnnualSwitch) return;
 
     if (target === 'free') {
-      if (!confirm('Cancel your subscription? You will lose access to paid features at the end of your billing period.')) return;
+      // Nothing to cancel on trial or admin-granted plans.
+      if (!canCancel) {
+        alert(currentPlan === 'trial'
+          ? 'Your trial moves to the Free plan automatically when it ends. There is nothing to cancel.'
+          : 'There is no active subscription to cancel. Contact support if you want to change this plan.');
+        return;
+      }
+      if (!confirm('Cancel your subscription? You will be moved to the Free plan right away and lose access to paid features immediately. There is no proration or refund for the remainder of the period.')) return;
       setPlanSwitching(target);
       try {
         const res = await fetch('/api/payments/cancel', { method: 'POST', credentials: 'include' });
@@ -196,7 +237,7 @@ export default function BillingPage() {
       return;
     }
 
-    if (targetTier <= currentTier && currentPlan !== 'free') {
+    if (!isAnnualSwitch && direction === 'downgrade') {
       alert('To downgrade, please cancel your current subscription first or manage billing via the customer portal.');
       return;
     }
@@ -207,7 +248,7 @@ export default function BillingPage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: target }),
+        body: JSON.stringify({ plan: target, billing }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -235,10 +276,16 @@ export default function BillingPage() {
       ? 'owner account'
       : currentPlanPricing?.price === 'Custom'
         ? 'invoiced'
-        : 'billed monthly';
+        : currentBilling === 'annual'
+          ? 'billed yearly'
+          : 'billed monthly';
 
   const noChargeReason = noChargeReasonFor(currentPlan);
-  const monthlyPriceUsd = parsePriceUsd(currentPlanPricing?.price);
+  const onAnnual = currentBilling === 'annual' && !!currentPlanPricing && currentPlanPricing.price !== 'Custom';
+  // Annual subscribers are invoiced the full year up front.
+  const nextInvoiceUsd = onAnnual
+    ? parsePriceUsd(currentPlanPricing?.annualPrice) * 12
+    : parsePriceUsd(currentPlanPricing?.price);
 
   const handleManagePlan = () => {
     if (typeof window === 'undefined') return;
@@ -260,8 +307,17 @@ export default function BillingPage() {
     ? 0
     : Math.min(100, Math.round((monthlyUsed / monthlyCap) * 100));
   const planFeatures = currentPlanPricing?.features ?? [];
+  // NOTE: nextResetAt is the monthly CREDIT reset (1st of the next UTC month),
+  // NOT the subscription's billing anniversary. Dodo charges on the anniversary
+  // of the subscription start, which for anyone who didn't subscribe on the 1st
+  // is a different date. We don't currently store Dodo's next_billing_date, so
+  // this label describes the credit cycle truthfully rather than asserting a
+  // charge date we can't compute. (Follow-up: persist next_billing_date from
+  // the subscription webhook and show the real anniversary here.)
   const renewLabel = fmtBillDate(creditStatus?.nextResetAt ?? null);
   const daysRemaining = periodInfo.daysRemainingInMonth;
+  // "Active" = anything above free (trial, paid, owner). Cancel is only
+  // offered when there is a real paid subscription behind it.
   const planActive = currentPlan !== 'free';
 
   // Owner-only engine cost breakdown → "Queries by engine" card data.
@@ -269,6 +325,36 @@ export default function BillingPage() {
     .filter(([, c]) => c > 0)
     .sort((a, b) => b[1] - a[1]);
   const maxEngineCost = engineCosts.length ? Math.max(...engineCosts.map(([, c]) => c)) : 0;
+
+  // Until every source the page renders from has answered, show one neutral
+  // placeholder instead of the half-loaded page (which flashed "$0", "No
+  // billing activity yet" and zeroed meters before the real data arrived).
+  const pageLoading = authLoading || brandsLoading || (creditsLoading && !creditStatus)
+    || !usageLoaded || !historyLoaded;
+
+  if (pageLoading) {
+    return (
+      <div className="lvx">
+        <PageHead
+          title="Billing & Usage"
+          sub="Your plan, what you've used this cycle, and your billing activity - all in one place."
+        />
+        <div className="page-body">
+          <div
+            aria-busy="true"
+            aria-live="polite"
+            style={{
+              background: SURFACE, border: `1px solid ${SURFACE_BORDER}`, borderRadius: SURFACE_RADIUS,
+              minHeight: 320, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: TEXT_SECONDARY, fontSize: 13,
+            }}
+          >
+            Loading billing details…
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="lvx">
@@ -290,7 +376,7 @@ export default function BillingPage() {
         {/* Plan + spend header */}
         <section className="bill-head">
           <div className="bh-plan">
-            <div className="eyebrow">CURRENT PLAN</div>
+            <div className="eyebrow">Current plan</div>
             <div className="bh-name">
               {planLabel}{' '}
               <Badge tone={planActive ? 'pos' : 'neu'}>{planActive ? 'ACTIVE' : 'FREE'}</Badge>
@@ -298,14 +384,16 @@ export default function BillingPage() {
             <div className="bh-price">
               {currentPlanPricing?.price === 'Custom'
                 ? <span className="mono">Custom</span>
-                : <><span className="mono">{currentPlanPricing?.price ?? monthlyPriceLabel}</span><i>/ month</i></>}
+                : onAnnual
+                  ? <><span className="mono">{currentPlanPricing?.annualPrice}</span><i>/ month, billed yearly</i></>
+                  : <><span className="mono">{currentPlanPricing?.price ?? monthlyPriceLabel}</span><i>/ month</i></>}
             </div>
             <div className="bh-renew">
-              {cycleSuffix} · renews <b>{renewLabel}</b>
+              {cycleSuffix} · credits renew <b>{renewLabel}</b>
             </div>
             <div className="bh-actions">
               <button className="btn-p" onClick={handleManagePlan}>Change plan</button>
-              {planActive && (
+              {canCancel && (
                 <button
                   className="btn-g"
                   onClick={() => switchPlan('free')}
@@ -325,10 +413,10 @@ export default function BillingPage() {
           </div>
 
           <div className="bh-spend">
-            <div className="eyebrow" style={{ padding: '2px 0 2px' }}>SPEND</div>
+            <div className="eyebrow" style={{ padding: '2px 0 2px' }}>Spend</div>
             <div className="bhs-row">
               <span className="bhs-label">{noChargeReason ? 'This billing period' : 'Next invoice'}</span>
-              <span className="bhs-v mono">{noChargeReason ? 'No charge' : `$${monthlyPriceUsd.toFixed(2)}`}</span>
+              <span className="bhs-v mono">{noChargeReason ? 'No charge' : `$${nextInvoiceUsd.toFixed(2)}`}</span>
             </div>
             <div className="bhs-meta mono">
               {noChargeReason === 'free'
@@ -337,7 +425,9 @@ export default function BillingPage() {
                   ? 'owner account'
                   : noChargeReason === 'custom'
                     ? 'invoiced'
-                    : `due ${renewLabel}`}
+                    : onAnnual
+                      ? 'billed yearly'
+                      : 'billed monthly'}
             </div>
             <div className="bhs-row">
               <span className="bhs-label">Member since</span>
@@ -356,7 +446,7 @@ export default function BillingPage() {
           >
             <div className="bill-usage">
               <div className="bu-ring">
-                <Donut value={creditPct} size={150} label="OF MONTHLY CREDITS" color="var(--accent)" />
+                <Donut value={creditPct} size={150} label="Of monthly credits" color="var(--accent)" />
                 <div className="bu-ring-sub">
                   <div className="mono">
                     <b>{monthlyUsed.toLocaleString()}</b> of {isUnlimitedCredits ? '∞' : monthlyCap.toLocaleString()} credits
@@ -380,7 +470,7 @@ export default function BillingPage() {
               </div>
             </div>
             <div style={{ marginTop: 18 }}>
-              <UsageSection numBrandsFromPage={brands.length} />
+              <UsageSection numBrandsFromPage={brands.length} usage={usage} />
             </div>
           </Card>
         )}
@@ -421,7 +511,7 @@ export default function BillingPage() {
           ) : (
             <div className="tbl-wrap">
               <table className="tbl">
-                <thead><tr><th>DATE</th><th>EVENT</th><th className="right">AMOUNT</th><th>STATUS</th></tr></thead>
+                <thead><tr><th>Date</th><th>Event</th><th className="right">Amount</th><th>Status</th></tr></thead>
                 <tbody>
                   {billingHistory.map((row, i) => (
                     <tr key={i}>
@@ -447,6 +537,8 @@ export default function BillingPage() {
             currentPlan={currentPlan}
             annualBilling={annualBilling}
             onAnnualToggle={setAnnualBilling}
+            annualAvailable={annualAvailable}
+            currentBilling={currentBilling}
             onSwitchPlan={switchPlan}
             planSwitching={planSwitching}
           />
@@ -457,7 +549,7 @@ export default function BillingPage() {
           <Card title="API cost breakdown" padding={false}>
             <div className="tbl-wrap">
               <table className="tbl">
-                <thead><tr><th>PLATFORM</th><th className="right">TOTAL COST</th></tr></thead>
+                <thead><tr><th>Platform</th><th className="right">Total cost</th></tr></thead>
                 <tbody>
                   {Object.entries(apiCosts).sort((a, b) => b[1] - a[1]).map(([platform, cost]) => (
                     <tr key={platform}>
@@ -522,6 +614,8 @@ export default function BillingPage() {
                 currentPlan={currentPlan}
                 annualBilling={annualBilling}
                 onAnnualToggle={setAnnualBilling}
+                annualAvailable={annualAvailable}
+                currentBilling={currentBilling}
                 onSwitchPlan={switchPlan}
                 planSwitching={planSwitching}
               />

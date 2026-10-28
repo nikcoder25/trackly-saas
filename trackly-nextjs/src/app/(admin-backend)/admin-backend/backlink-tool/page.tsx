@@ -16,6 +16,11 @@ import {
 
 const STORAGE_KEY = 'trackly.backlink-tool.v2';
 const PRESETS_KEY = 'trackly.backlink-tool.presets.v1';
+// Earlier builds defaulted the model to Claude Sonnet 4.6, so most saved
+// sessions carry it without the operator ever having picked it. This flag
+// marks the one-time remap of that stale default to the cheaper Haiku;
+// models chosen after the migration are respected on later loads.
+const CHEAP_MODEL_MIGRATION_KEY = 'trackly.backlink-tool.cheap-model-migration.v1';
 // The Saved Batches library lives under its own key so archiving a campaign
 // survives "Clear All" or loading a different batch into the workspace.
 const SAVED_BATCHES_KEY = 'trackly.backlink-tool.saved-batches.v1';
@@ -235,8 +240,8 @@ OUTPUT FORMAT
 // pre-flight estimate; real billing comes from the provider invoice.
 const MODEL_RATES: Record<string, { input: number; output: number }> = {
   'claude-sonnet-4-6': { input: 3.0, output: 15.0 },
-  'claude-haiku-4-5': { input: 0.8, output: 4.0 },
-  'claude-opus-4-7': { input: 15.0, output: 75.0 },
+  'claude-haiku-4-5': { input: 1.0, output: 5.0 },
+  'claude-opus-4-7': { input: 5.0, output: 25.0 },
   'gpt-4o-mini': { input: 0.15, output: 0.6 },
   'gpt-4o': { input: 2.5, output: 10.0 },
   'gpt-4-turbo': { input: 10.0, output: 30.0 },
@@ -343,7 +348,9 @@ type GenStatus = { msg: string; type: 'loading' | 'success' | 'error' | 'warn' }
 
 export default function BacklinkToolPage() {
   const [provider, setProvider] = useState<'claude' | 'openai'>('claude');
-  const [model, setModel] = useState('claude-sonnet-4-6');
+  // Default to Haiku: article generation doesn't need a top-tier model and
+  // Haiku is ~3x cheaper and faster than Sonnet, so batches cost a fraction.
+  const [model, setModel] = useState('claude-haiku-4-5');
   const [concurrency, setConcurrency] = useState(3);
 
   const [moneySite, setMoneySite] = useState('');
@@ -434,10 +441,16 @@ export default function BacklinkToolPage() {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
+      const cheapMigrationDone = localStorage.getItem(CHEAP_MODEL_MIGRATION_KEY) === '1';
       if (raw) {
         const s = JSON.parse(raw) as Partial<PersistedState>;
         if (s.provider === 'claude' || s.provider === 'openai') setProvider(s.provider);
-        if (typeof s.model === 'string') setModel(s.model);
+        if (typeof s.model === 'string') {
+          // One-time remap of the stale Sonnet default to Haiku (see
+          // CHEAP_MODEL_MIGRATION_KEY). Any other saved model - including
+          // Sonnet re-picked after the migration - loads as saved.
+          setModel(!cheapMigrationDone && s.model === 'claude-sonnet-4-6' ? 'claude-haiku-4-5' : s.model);
+        }
         if (typeof s.concurrency === 'number') setConcurrency(s.concurrency);
         if (typeof s.moneySite === 'string') setMoneySite(s.moneySite);
         if (typeof s.niche === 'string') setNiche(s.niche);
@@ -482,6 +495,11 @@ export default function BacklinkToolPage() {
       }
     } catch {
       /* corrupt storage - ignore */
+    }
+    try {
+      localStorage.setItem(CHEAP_MODEL_MIGRATION_KEY, '1');
+    } catch {
+      /* quota - ignore */
     }
     setHydrated(true);
   }, []);
@@ -536,15 +554,15 @@ export default function BacklinkToolPage() {
 
   function handleProviderChange(p: 'claude' | 'openai') {
     setProvider(p);
-    setModel(p === 'claude' ? 'claude-sonnet-4-6' : 'gpt-4o-mini');
+    setModel(p === 'claude' ? 'claude-haiku-4-5' : 'gpt-4o-mini');
   }
 
   const modelOptions =
     provider === 'claude'
       ? [
-          { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (recommended)' },
-          { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (faster/cheaper)' },
-          { value: 'claude-opus-4-7', label: 'Claude Opus 4.7 (best quality)' },
+          { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (recommended - fastest/cheapest)' },
+          { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (higher quality, ~3x cost)' },
+          { value: 'claude-opus-4-7', label: 'Claude Opus 4.7 (best quality, ~5x cost)' },
         ]
       : [
           { value: 'gpt-4o-mini', label: 'GPT-4o Mini (recommended/cheap)' },

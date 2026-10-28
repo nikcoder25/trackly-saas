@@ -3,11 +3,15 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useRun } from '@/contexts/RunContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBrands } from '@/contexts/BrandContext';
 import Link from 'next/link';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { useBrandData } from '@/hooks/useBrandData';
 import { friendlyCompetitorName as friendlyName } from '@/lib/parser';
+import { isRedirectCitationHost } from '@/lib/citation-hosts';
+import { isNonCompetitorHost, normalizeCompetitorHost } from '@/lib/non-competitor-hosts';
+import { computeShareOfVoice, formatCountWithRate } from '@/lib/run-sov';
 import { Card, PageHead, Badge, Bar, StackBar, Spark } from '@/app/dashboard-v2/ui';
 
 const COMP_COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899', '#14b8a6', '#6366f1', '#ef4444'];
@@ -28,6 +32,11 @@ interface CompetitorStatsData {
 export default function CompetitorsPage() {
   const { brand: rawBrand, loading, reload } = useBrandData({ fullData: true });
   const brand = rawBrand as Brand | null;
+  // The stats routes only need the id, which the brand list already has, so
+  // they start in parallel with the (much heavier) full brand payload
+  // instead of waiting for it to finish first.
+  const { selectedBrand } = useBrands();
+  const brandId = selectedBrand?.id;
   const [newComp, setNewComp] = useState('');
   const { startRun, live } = useRun();
   const { user } = useAuth();
@@ -38,10 +47,12 @@ export default function CompetitorsPage() {
   // Citation-based competitor discovery
   const [citations, setCitations] = useState<CitationRow[]>([]);
   const [citLoading, setCitLoading] = useState(false);
+  const [citLoadedFor, setCitLoadedFor] = useState<string | null>(null);
 
   // Competitor stats from dedicated API (aggregated from prompt_runs)
   const [compStatsData, setCompStatsData] = useState<CompetitorStatsData | null>(null);
   const [compStatsLoading, setCompStatsLoading] = useState(false);
+  const [statsLoadedFor, setStatsLoadedFor] = useState<string | null>(null);
 
   const fetchCompetitorStats = useCallback(async (brandId: string) => {
     setCompStatsLoading(true);
@@ -53,6 +64,7 @@ export default function CompetitorsPage() {
       }
     } catch { /* fetch failed */ }
     setCompStatsLoading(false);
+    setStatsLoadedFor(brandId);
   }, []);
 
   const fetchCitations = useCallback(async (brandId: string) => {
@@ -61,18 +73,24 @@ export default function CompetitorsPage() {
       const res = await fetch(`/api/brands/${brandId}/citation-analysis`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
-        setCitations(data.citations || []);
+        // The route returns a { domain: count } map, not rows.
+        const own = String(data.ownDomainName || '');
+        setCitations(Object.entries((data.domains || {}) as Record<string, number>).map(([domain, total]) => ({
+          domain, total: String(total), is_brand: !!own && domain === own, is_competitor: false,
+          domain_type: '', avg_position: '', last_seen: '',
+        })));
       }
     } catch { /* fetch failed */ }
     setCitLoading(false);
+    setCitLoadedFor(brandId);
   }, []);
 
   useEffect(() => {
-    if (brand?.id) {
-      fetchCitations(brand.id);
-      fetchCompetitorStats(brand.id);
+    if (brandId) {
+      fetchCitations(brandId);
+      fetchCompetitorStats(brandId);
     }
-  }, [brand?.id, fetchCitations, fetchCompetitorStats]);
+  }, [brandId, fetchCitations, fetchCompetitorStats]);
 
   // Refresh aggregated competitor/citation stats when a run finishes so the
   // page reflects the new mentions in real time (matches the toast behaviour).
@@ -90,7 +108,6 @@ export default function CompetitorsPage() {
 
   // Use API data for stats (aggregated across all runs in last 30 days)
   const totalQueries = compStatsData?.totalQueries || 0;
-  const brandPct = compStatsData?.brandPercentage || 0;
   const hasData = compStatsData?.hasData || false;
 
   // Build compStats map from API data
@@ -124,11 +141,21 @@ export default function CompetitorsPage() {
   // Platform breakdown from API
   const platBreakdown = compStatsData?.platforms || {};
 
+  // Returns false (and shows the server's reason) when the save is rejected,
+  // e.g. the plan's competitor limit.
+  async function saveCompetitors(brandId: string, updated: string[]): Promise<boolean> {
+    const res = await fetch(`/api/brands/${brandId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ competitors: updated }) });
+    if (res.ok) return true;
+    const d = await res.json().catch(() => ({}));
+    setReprocessMsg(d.error || 'Could not save competitors');
+    return false;
+  }
+
   async function addComp() {
     if (!newComp.trim() || !brand) return;
     const updated = [...competitors, newComp.trim()];
     try {
-      await fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ competitors: updated }) });
+      if (!(await saveCompetitors(brand.id, updated))) return;
       setNewComp('');
       await reload();
       // Auto-reprocess existing data for the new competitor
@@ -141,7 +168,7 @@ export default function CompetitorsPage() {
     if (competitors.some(c => c.toLowerCase() === domain.toLowerCase())) return;
     const updated = [...competitors, domain];
     try {
-      await fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ competitors: updated }) });
+      if (!(await saveCompetitors(brand.id, updated))) return;
       await reload();
       await triggerReprocess(brand.id);
     } catch { /* failed to add */ }
@@ -175,11 +202,13 @@ export default function CompetitorsPage() {
   function removeComp(idx: number) {
     if (!brand) return;
     const updated = competitors.filter((_, i) => i !== idx);
-    fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ competitors: updated }) })
-      .then(async () => {
+    saveCompetitors(brand.id, updated)
+      .then(async (ok) => {
+        if (!ok) return;
         await reload();
         await fetchCompetitorStats(brand.id);
-      });
+      })
+      .catch(() => setReprocessMsg('Could not save competitors'));
   }
 
   // Discovered competitors from citations
@@ -188,12 +217,18 @@ export default function CompetitorsPage() {
     const brandDomain = brand?.website
       ? brand.website.replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '').toLowerCase()
       : '';
-    const competitorLower = new Set(competitors.map(c => c.toLowerCase()));
+    // Sister domains share the brand site's first label (acme.com / acme.net).
+    const brandLabel = brandDomain.split('.')[0] || '';
+    const competitorLower = new Set(competitors.map(normalizeCompetitorHost));
     return citations
       .filter((c: CitationRow) => {
         if (c.is_brand) return false;
-        const domLower = c.domain.toLowerCase();
+        const domLower = c.domain.toLowerCase().replace(/^www\./, '');
         if (brandDomain && domLower.includes(brandDomain)) return false;
+        if (isRedirectCitationHost(domLower)) return false;
+        if (brandLabel.length >= 6 && domLower.split('.')[0] === brandLabel) return false;
+        if (/^visit[a-z0-9-]*\.(com|org)$/.test(domLower)) return false;
+        if (isNonCompetitorHost(domLower)) return false;
         if (competitorLower.has(domLower)) return false;
         if (['social', 'encyclopedia', 'government', 'academic'].includes(c.domain_type)) return false;
         return true;
@@ -213,34 +248,47 @@ export default function CompetitorsPage() {
   }, [compStatsData]);
 
   // Build the ranked leaderboard from real data: brand + tracked competitors,
-  // sorted by share of voice (SOV = mentions / totalQueries).
+  // sorted by share of voice. SOV is each brand's share of all mentions in
+  // the set, so the slices add up to 100%. Mention rate (mentions /
+  // totalQueries) is shown separately; it is not a share and does not sum.
   const leaderboard = useMemo(() => {
+    const ME = '\u0000brand';
+    const brandMentions = compStatsData?.brandMentions || 0;
+    const shares = computeShareOfVoice({
+      [ME]: brandMentions,
+      ...Object.fromEntries(competitors.map(c => [c, compStats[c] || 0])),
+    });
+    const rateOf = (n: number) => (totalQueries ? Math.round((n / totalQueries) * 100) : 0);
     const rows = [
       {
         name: brand?.name || 'Your brand',
-        mentions: compStatsData?.brandMentions || 0,
-        sov: brandPct,
+        mentions: brandMentions,
+        sov: shares[ME] || 0,
+        rate: rateOf(brandMentions),
         color: 'var(--primary)',
         me: true,
         trend: compStatsData?.brandTrend || [],
       },
       ...competitors.map((c, i) => {
         const count = compStats[c] || 0;
-        const sov = totalQueries ? Math.round((count / totalQueries) * 100) : 0;
         return {
           name: friendlyName(c),
           mentions: count,
-          sov,
+          sov: shares[c] || 0,
+          rate: rateOf(count),
           color: COMP_COLORS[i % COMP_COLORS.length],
           me: false,
           trend: compTrends[c] || [],
         };
       }),
     ];
-    return rows.sort((a, b) => b.sov - a.sov);
-  }, [brand?.name, competitors, compStats, compStatsData, brandPct, totalQueries, compTrends]);
+    return rows.sort((a, b) => b.sov - a.sov || b.mentions - a.mentions);
+  }, [brand?.name, competitors, compStats, compStatsData, totalQueries, compTrends]);
 
-  if (loading || compStatsLoading) return (
+  // One loading state until the brand and both stats requests have landed,
+  // so the empty states never flash while data is still on its way.
+  const firstLoadPending = !!brandId && (statsLoadedFor !== brandId || citLoadedFor !== brandId);
+  if (loading || compStatsLoading || firstLoadPending) return (
     <div className="lvx">
       <div className="page-body" style={{ paddingTop: 28 }}>
         <Card>
@@ -296,24 +344,24 @@ export default function CompetitorsPage() {
 
         {/* Discovered in AI Responses */}
         {discoveredCompetitors.length > 0 && (
-          <Card title="Discovered in AI responses" lede="Domains that AI platforms cite alongside your brand. These may be competitors worth tracking.">
+          <Card title="Discovered in AI responses" lede="Business websites AI engines cite for your prompts (review sites and directories are hidden). Track the real rivals to compare against them.">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {discoveredCompetitors.map((c: CitationRow) => {
                 const maxTotal = Math.max(...discoveredCompetitors.map((d: CitationRow) => Number(d.total)), 1);
                 const alreadyTracked = competitors.some(comp => comp.toLowerCase() === c.domain.toLowerCase());
                 return (
-                  <div key={c.domain} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 70px', gap: 12, alignItems: 'center' }}>
+                  <div key={c.domain} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px auto', gap: 12, alignItems: 'center' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                       <span className="mono" style={{ fontSize: 12.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.domain}</span>
-                      {c.is_competitor && <Badge tone="acc">TRACKED</Badge>}
-                      {c.domain_type === 'review_site' && <Badge tone="info">REVIEW</Badge>}
-                      {c.domain_type === 'news' && <Badge tone="warn">NEWS</Badge>}
+                      {c.is_competitor && <Badge tone="acc">Tracked</Badge>}
+                      {c.domain_type === 'review_site' && <Badge tone="info">Review</Badge>}
+                      {c.domain_type === 'news' && <Badge tone="warn">News</Badge>}
                     </span>
                     <Bar value={Number(c.total)} max={maxTotal} color={c.is_competitor ? 'var(--primary)' : 'var(--info)'} />
-                    <span className="mono" style={{ textAlign: 'right', fontSize: 12, color: 'var(--text)' }}>
-                      {c.total}×
+                    <span className="mono" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, whiteSpace: 'nowrap', fontSize: 12, color: 'var(--text)' }}>
+                      <span style={{ minWidth: 40, textAlign: 'right' }}>{c.total}×</span>
                       {!alreadyTracked && !c.is_competitor && (
-                        <button onClick={() => addDiscoveredComp(c.domain)} className="btn-d" style={{ marginLeft: 8, padding: '2px 8px', fontSize: 11 }}>+ Track</button>
+                        <button onClick={() => addDiscoveredComp(c.domain)} className="btn-d" style={{ minHeight: 28, height: 28, padding: '0 10px', fontSize: 12, whiteSpace: 'nowrap' }}>+ Track</button>
                       )}
                     </span>
                   </div>
@@ -333,7 +381,7 @@ export default function CompetitorsPage() {
         {competitors.length > 0 && !hasData && (
           <Card>
             <div style={{ padding: 32, textAlign: 'center' }}>
-              <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>&#128202;</div>
+              <div className="lvx-emoji" style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>&#128202;</div>
               <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>Competitor data will populate after your next query run</div>
               <div style={{ fontSize: 13, color: 'var(--text-3)', maxWidth: 420, margin: '0 auto 20px' }}>
                 {isAdmin ? 'Run your first query scan to see how competitors appear in AI responses.' : 'Competitor data will appear after your next scheduled query run.'}
@@ -355,7 +403,7 @@ export default function CompetitorsPage() {
           <Card
             title="Share of Voice"
             info="sov"
-            lede="Everyone's slice of the AI conversation, across all engines. Your bar is highlighted."
+            lede="Each brand's share of all mentions in AI answers, across all engines. Shares add up to 100%. Your bar is highlighted."
             right={<span className="mono dim" style={{ fontSize: 11 }}>30D · {totalQueries} QUERIES</span>}
           >
             <StackBar items={leaderboard.filter(c => c.sov > 0).map(c => ({ label: c.name, value: c.sov, color: c.color }))} height={32} />
@@ -389,7 +437,7 @@ export default function CompetitorsPage() {
             <div className="tbl-wrap">
               <table className="tbl">
                 <thead><tr>
-                  <th>RANK</th><th>BRAND</th><th>SOV</th><th>MENTIONS</th><th>SOV TREND</th>
+                  <th>Rank</th><th>Brand</th><th>SOV</th><th>Mentions</th><th>Mention rate</th><th>SOV trend</th>
                 </tr></thead>
                 <tbody>
                   {leaderboard.map((c, i) => (
@@ -399,11 +447,12 @@ export default function CompetitorsPage() {
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ width: 10, height: 10, background: c.color, borderRadius: 2, display: 'inline-block' }} />
                           <b style={{ color: c.me ? 'var(--primary)' : 'var(--text)' }}>{c.name}</b>
-                          {c.me && <Badge tone="acc">YOU</Badge>}
+                          {c.me && <Badge tone="acc">You</Badge>}
                         </span>
                       </td>
                       <td className="num"><b>{c.sov}%</b></td>
                       <td className="num">{c.mentions.toLocaleString()}{!c.me && '×'}</td>
+                      <td className="num dim">{c.rate}%</td>
                       <td>
                         {c.trend && c.trend.length >= 2
                           ? <Spark data={c.trend} width={120} height={24} color={c.me ? 'var(--primary)' : c.color} />
@@ -419,7 +468,7 @@ export default function CompetitorsPage() {
 
         {/* Per-Platform Breakdown */}
         {competitors.length > 0 && hasData && Object.keys(platBreakdown).length > 0 && (
-          <Card title="Per-platform breakdown" lede="Competitor mentions broken down by AI platform.">
+          <Card title="Per-platform breakdown" lede="Competitor mentions on each AI platform, with the percent of that platform's answers that named them.">
             <div className="g3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
               {(Object.entries(platBreakdown) as [string, { total: number; competitors: Record<string, number> }][]).map(([plat, platData]) => {
                 const platColor = PLATFORM_COLORS[plat] || 'var(--mute)';
@@ -435,12 +484,11 @@ export default function CompetitorsPage() {
                     </div>
                     <div style={{ padding: '10px 12px', display: 'grid', gap: 8 }}>
                       {Object.entries(compCounts).map(([comp, count]) => {
-                        const ratePct = platTotal ? Math.round((count / platTotal) * 100) : 0;
                         return (
-                          <div key={comp} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 56px', gap: 10, alignItems: 'center' }}>
+                          <div key={comp} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 76px', gap: 10, alignItems: 'center' }}>
                             <span style={{ fontSize: 12.5, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={comp}>{friendlyName(comp)}</span>
                             <Bar value={count} max={maxCount} color={platColor} />
-                            <span className="mono" style={{ textAlign: 'right', fontSize: 12, color: 'var(--text)' }}>{count}<span className="dim" style={{ marginLeft: 4 }}>{ratePct}%</span></span>
+                            <span className="mono" style={{ textAlign: 'right', fontSize: 12, color: 'var(--text)', whiteSpace: 'nowrap' }} title={`${count} of ${platTotal} answers`}>{formatCountWithRate(count, platTotal)}</span>
                           </div>
                         );
                       })}

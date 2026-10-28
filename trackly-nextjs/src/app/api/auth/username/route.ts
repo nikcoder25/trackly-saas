@@ -1,6 +1,6 @@
 import { pool, auditLog } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 
 export async function PUT(request: Request) {
   const user = verifyRequestAuth(request);
@@ -10,8 +10,10 @@ export async function PUT(request: Request) {
   const rl = await rateLimit('username_change:' + user.id, 24 * 60 * 60 * 1000, 5);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const { username } = await request.json();
-  const trimmed = username ? username.trim().toLowerCase() : null;
+  const body = await request.json().catch(() => null);
+  const username = body?.username;
+  if (username != null && typeof username !== 'string') return Response.json({ error: 'Invalid username' }, { status: 400 });
+  const trimmed = username && username.trim() ? username.trim().toLowerCase() : null;
 
   if (trimmed) {
     if (trimmed.length < 3) return Response.json({ error: 'Username must be at least 3 characters' }, { status: 400 });
@@ -23,7 +25,7 @@ export async function PUT(request: Request) {
 
   try {
     await pool.query('UPDATE users SET username = $1 WHERE id = $2', [trimmed, user.id]);
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+    const ip = getClientIp(request);
     auditLog(user.id, 'username_change', 'user', user.id, { newUsername: trimmed }, ip);
     return Response.json({ username: trimmed, message: 'Username updated' });
   } catch {

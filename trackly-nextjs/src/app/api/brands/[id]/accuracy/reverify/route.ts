@@ -19,8 +19,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
+  if (access.role === 'viewer') return Response.json({ error: 'Viewers cannot run accuracy checks' }, { status: 403 });
 
-  const { platform, query, factKey } = await request.json();
+  const { platform, query, factKey } = (await request.json().catch(() => null)) || {};
   if (!platform || !factKey) return Response.json({ error: 'Missing platform or factKey' }, { status: 400 });
 
   try {
@@ -43,7 +44,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const runsResult = await pool.query(
         `SELECT id, platform, model, response_raw, created_at, prompt, citations
          FROM prompt_runs
-         WHERE brand_id = $1 AND platform = $2 AND success = TRUE
+         WHERE brand_id = $1 AND platform = $2 AND success = TRUE AND mentioned = TRUE
            AND response_raw IS NOT NULL AND response_raw != ''
          ORDER BY created_at DESC LIMIT 3`,
         [id, platform]
@@ -61,7 +62,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     // Run fact-check on just this platform's responses
-    const result = await runFactCheck(facts, runs);
+    const brandName = String((access.brand as { name?: string })?.name || '');
+    const result = await runFactCheck(facts, runs, brandName);
 
     // Check if the specific factKey is still inaccurate
     const normalizeKey = (k: string) => k.toLowerCase().replace(/[\s-]+/g, '_').trim();

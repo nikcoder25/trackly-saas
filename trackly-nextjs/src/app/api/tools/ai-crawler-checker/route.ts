@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { safeFetch, SSRFError } from '@/lib/safe-fetch';
 import { logError, serverError } from '@/lib/api-error';
 
@@ -114,11 +114,15 @@ function isAllowed(group: RobotsRule | null, target: string): { allowed: boolean
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const ip = getClientIp(req);
     const { allowed, retryAfter } = await rateLimit(`ai-crawler-check:${ip}`, 60 * 60 * 1000, 30);
     if (!allowed) return rateLimitResponse(retryAfter);
 
     const body = await req.json().catch(() => ({}));
+    // Honeypot: the page sends a hidden `website` field that humans leave empty.
+    if (typeof body?.website === 'string' && body.website) {
+      return Response.json({ error: 'Invalid request.' }, { status: 400 });
+    }
     const rawUrl = typeof body?.url === 'string' ? body.url : '';
     if (!rawUrl || rawUrl.length > 2000) {
       return Response.json({ error: 'URL is required (max 2000 chars).' }, { status: 400 });

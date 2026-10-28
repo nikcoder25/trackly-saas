@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import Link from 'next/link';
 import { PLATFORM_COLORS, getPlanPlatforms } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrandData } from '@/hooks/useBrandData';
@@ -41,6 +42,7 @@ interface Brand {
   name: string;
   runs?: Run[];
   selected_platforms?: string[];
+  platforms?: string[];
 }
 
 function normPlatform(pd: unknown): { sov: number; total: number; mentions: number; errors: number } {
@@ -76,6 +78,10 @@ export default function PlatformsPage() {
   const planPlatforms = getPlanPlatforms(user?.plan || 'free');
   const { brand: rawBrand, brands, loading } = useBrandData({ fullData: true });
   const selectedBrand = rawBrand as Brand | null;
+  // Engines this brand actually scans: its own selection, else the plan default.
+  const trackedPlatforms = Array.isArray(selectedBrand?.platforms) && selectedBrand.platforms.length > 0
+    ? selectedBrand.platforms
+    : planPlatforms;
 
   const sortedRuns = useMemo(
     () => [...(selectedBrand?.runs || [])].sort((a, b) => (runTimestampMs(a) ?? 0) - (runTimestampMs(b) ?? 0)),
@@ -147,11 +153,11 @@ export default function PlatformsPage() {
 
       <div className="page-body">
         <KPIRail items={[
-          { k: 'ACTIVE ENGINES', v: `${activePlatforms}/${totalPlatforms}` },
-          { k: 'HEALTHY', v: `${healthyCount}`, info: `of ${activePlatforms} active` },
-          { k: 'OVERALL SOV', v: `${overallSov}`, suffix: '%', term: 'sov', info: `${totalMentions} of ${totalQueries}` },
-          { k: 'MENTIONS', v: `${totalMentions}`, term: 'mention', info: `of ${totalQueries}` },
-          { k: 'ERRORS', v: `${totalErrors}`, danger: totalErrors > 0, info: totalErrors === 0 ? 'none' : 'total' },
+          { k: 'Active engines', v: `${activePlatforms}/${totalPlatforms}` },
+          { k: 'Healthy', v: `${healthyCount}`, info: `of ${activePlatforms} active` },
+          { k: 'Overall SOV', v: `${overallSov}`, suffix: '%', term: 'sov', info: `${totalMentions} of ${totalQueries}` },
+          { k: 'Mentions', v: `${totalMentions}`, term: 'mention', info: `of ${totalQueries}` },
+          { k: 'Errors', v: `${totalErrors}`, danger: totalErrors > 0, info: totalErrors === 0 ? 'none' : 'total' },
         ]} />
 
         {best && worst && best.name !== worst.name && (
@@ -176,31 +182,41 @@ export default function PlatformsPage() {
             const sovHistory = stats?.sovHistory || [];
 
             const operational = hasData && health.label !== 'Degraded' && health.label !== 'No Data';
+            const tracked = trackedPlatforms.includes(name);
 
             return (
               <Card key={name}
                 title={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}><PlatformTile p={tile} size={26} /> {name}</span>}
-                right={operational
+                right={!tracked
+                  ? <Pill tone="neu">OFF</Pill>
+                  : operational
                   ? <Pill tone="acc"><span className="pulse" style={{ width: 5, height: 5 }} /> {health.label.toUpperCase()}</Pill>
                   : <Pill tone={hasData ? 'neg' : 'neu'}>{hasData ? '⚠ ' : ''}{health.label.toUpperCase()}</Pill>}>
-                {hasData ? (
+                {!tracked ? (
+                  <div style={{ textAlign: 'center', padding: '20px 0 8px' }}>
+                    <Badge tone="neu">Not tracked</Badge>
+                    <p className="mono" style={{ fontSize: 12, color: 'var(--mute)', marginTop: 10 }}>
+                      {name} is turned off for this brand. <Link href="/dashboard/setup">Turn it on in Brand Setup</Link>
+                    </p>
+                  </div>
+                ) : hasData ? (
                   <div className="plat-grid">
                     <div>
-                      <div className="eyebrow">SHARE OF VOICE</div>
+                      <div className="eyebrow">Share of voice</div>
                       <div className="kpi-v mono" style={{ fontSize: 22 }}>{n.sov}<i>%</i></div>
                       {sovHistory.length >= 2
                         ? <Spark data={sovHistory} width={140} height={28} color={color} fill />
                         : <div className="mono" style={{ fontSize: 11, color: 'var(--mute)' }}>{n.mentions} mention{n.mentions === 1 ? '' : 's'} / {n.total} responses</div>}
                     </div>
                     <div>
-                      <div className="eyebrow">SUCCESS RATE</div>
+                      <div className="eyebrow">Success rate</div>
                       <div className="kpi-v mono" style={{ fontSize: 22 }}>{successRate !== null ? successRate : '-'}{successRate !== null && <i>%</i>}</div>
                       <div className="mono" style={{ fontSize: 11, color: 'var(--mute)' }}>
                         {stats && stats.totalCalls > 0 ? `last ${stats.totalCalls} calls` : 'no calls yet'}
                       </div>
                     </div>
                     <div>
-                      <div className="eyebrow">MENTIONS</div>
+                      <div className="eyebrow">Mentions</div>
                       <div className="kpi-v mono" style={{ fontSize: 22 }}>{n.mentions}<i> / {n.total}</i></div>
                       <Bar value={n.mentions} max={Math.max(n.total, 1)} color={color} />
                     </div>
@@ -221,8 +237,8 @@ export default function PlatformsPage() {
                   </div>
                 ) : (
                   <div style={{ textAlign: 'center', padding: '20px 0 8px' }}>
-                    <Badge tone="neu">NO DATA</Badge>
-                    <p className="mono" style={{ fontSize: 12, color: 'var(--mute)', marginTop: 10 }}>Run queries to see {name} results</p>
+                    <Badge tone="neu">No data</Badge>
+                    <p className="mono" style={{ fontSize: 12, color: 'var(--mute)', marginTop: 10 }}>{name} did not answer in the last scan</p>
                   </div>
                 )}
               </Card>

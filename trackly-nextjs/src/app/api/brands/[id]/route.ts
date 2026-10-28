@@ -1,9 +1,21 @@
+import { after } from 'next/server';
 import { pool, safeConnect, ensureColumns } from '@/lib/db';
 import { verifyRequestAuth, requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
-import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
+import { getPlanLimits, getEffectivePlan, GOOGLE_AI_ENGINES } from '@/lib/constants';
 import { countTrackedPromptsForOwnerExcluding } from '@/lib/prompt-quota';
 import { logError, serverError } from '@/lib/api-error';
+import { logger } from '@/lib/logger';
+import { classifyPrompts, selectImportantPages } from '@/lib/prompt-map';
+import {
+  ensurePromptMetaSchema,
+  getPromptMeta,
+  normalizePromptKey,
+  prunePromptMeta,
+  upsertPromptMeta,
+} from '@/lib/prompt-meta';
+import { ensureFanoutSchema } from '@/lib/fanout';
+import { ensureDiscoverySchema } from '@/lib/prompt-discovery';
 
 // GET /api/brands/:id
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -72,6 +84,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       if (body[key] !== undefined) safeBody[key] = body[key];
     }
 
+    if (safeBody.name !== undefined && typeof safeBody.name !== 'string') {
+      return Response.json({ error: 'Brand name must be a string' }, { status: 400 });
+    }
     if (safeBody.name !== undefined && !(safeBody.name as string).trim()) {
       return Response.json({ error: 'Brand name cannot be empty' }, { status: 400 });
     }
@@ -134,15 +149,23 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
     if (safeBody.platforms !== undefined) {
       if (!Array.isArray(safeBody.platforms)) return Response.json({ error: 'Platforms must be an array' }, { status: 400 });
-      const ALLOWED_PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok'];
-      // Silently drop legacy/unknown platform values (e.g. "Google AI Overview"
-      // from a previous product version) so old brand rows can still be saved.
+      const ALLOWED_PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok', ...GOOGLE_AI_ENGINES];
+      // Silently drop unknown platform values so old brand rows can still be saved.
       // Dedupe while preserving order so selection priority is kept for
       // plan-cap truncation.
       const cleaned = (safeBody.platforms as unknown[]).filter(
         (p): p is string => typeof p === 'string' && ALLOWED_PLATFORMS.includes(p)
       );
       safeBody.platforms = [...new Set(cleaned)];
+    }
+
+    // Stored as JSON arrays and read with jsonb_array_length / .map across the
+    // app; a scalar here would break every prompt-quota query for the owner.
+    for (const field of ['queries', 'competitors', 'nearbyAreas'] as const) {
+      const v = safeBody[field];
+      if (v !== undefined && (!Array.isArray(v) || v.some((x: unknown) => typeof x !== 'string'))) {
+        return Response.json({ error: `${field} must be an array of strings` }, { status: 400 });
+      }
     }
 
     // Deduplicate queries
@@ -194,8 +217,46 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 
     const updated = { ...brand, ...safeBody, id: brand.id, userId: brand.userId };
-    const { id: _id, userId: _uid, createdAt: _ca, updatedAt: _ua, ...dataOnly } = updated;
+    // shared/teamRole are per-viewer access flags added by getBrandWithAccess;
+    // persisting them would make the owner's own brand read as "shared".
+    const { id: _id, userId: _uid, createdAt: _ca, updatedAt: _ua, shared: _sh, teamRole: _tr, ...dataOnly } = updated as Record<string, unknown>;
     await pool.query('UPDATE brands SET data = $1, updated_at = NOW() WHERE id = $2', [JSON.stringify(dataOnly), id]);
+
+    // Keep the prompt map in step with the prompt list. Pruning is cheap
+    // and runs inline; classification is an LLM call, so it goes to
+    // after() - saving a prompt list must not wait on a model. Only the
+    // prompts that are genuinely new get classified, which keeps the
+    // common "added one prompt" edit down to a single small call.
+    if (safeBody.queries !== undefined) {
+      const nextQueries = (safeBody.queries as string[]) || [];
+      after(async () => {
+        try {
+          await prunePromptMeta(id, nextQueries);
+          const existing = await getPromptMeta(id);
+          const fresh = nextQueries.filter(q => !existing.has(normalizePromptKey(q)));
+          if (!fresh.length) return;
+          const pages = await selectImportantPages(updated.website);
+          const outcome = await classifyPrompts({
+            tenantId: updated.userId || user.id,
+            brandName: updated.name || 'the brand',
+            industry: updated.industry,
+            city: updated.city,
+            queries: fresh,
+            pages,
+          });
+          if (outcome.rows.length) await upsertPromptMeta(id, outcome.rows);
+        } catch (e) {
+          // A failed auto-classification leaves the prompts unclassified,
+          // which the prompts page shows as "Ungrouped" with a rebuild
+          // button. Never surface it as a brand-save failure.
+          logger.warn('brands.prompt_map_sync_failed', {
+            brandId: id,
+            errorMessage: (e as Error).message,
+          });
+        }
+      });
+    }
+
     return Response.json({ brand: updated });
   } catch (e) {
     logError('brands.update_failed', e);
@@ -211,6 +272,16 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   const { id } = await params;
   try {
+    // These three are created lazily by their own ensureSchema(), so a
+    // brand deleted before any of those features ever ran would hit
+    // "relation does not exist" mid-transaction - and in Postgres that
+    // poisons every statement after it, not just its own. Create them up
+    // front, outside the transaction, so the DELETEs below are guaranteed
+    // to have something to delete from.
+    await ensurePromptMetaSchema();
+    await ensureFanoutSchema();
+    await ensureDiscoverySchema();
+
     // Cascading delete in a transaction to clean up all related data
     const client = await safeConnect();
     try {
@@ -226,6 +297,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       await client.query('DELETE FROM recommendations WHERE brand_id = $1', [id]);
       await client.query('DELETE FROM brand_facts WHERE brand_id = $1', [id]);
       await client.query('DELETE FROM prompt_runs WHERE brand_id = $1', [id]);
+      await client.query('DELETE FROM prompt_meta WHERE brand_id = $1', [id]);
+      await client.query('DELETE FROM prompt_fanout WHERE brand_id = $1', [id]);
+      await client.query('DELETE FROM prompt_discovery_jobs WHERE brand_id = $1', [id]);
       await client.query('DELETE FROM active_runs WHERE brand_id = $1', [id]);
       await client.query('DELETE FROM alert_rules WHERE brand_id = $1', [id]);
       // geo_audits (+ geo_audit_results), nap_audits and report_drafts/

@@ -1,22 +1,23 @@
 import type { Metadata } from 'next';
 import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
+import EmailOff from '@/components/EmailOff';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy - Livesov',
-  description: 'Livesov Privacy Policy - learn how we collect, use, store, and protect your personal data. GDPR and CCPA compliant.',
+  title: 'Privacy Policy | Livesov',
+  description: 'Read the Livesov Privacy Policy to learn how we collect, use, store and protect your personal data, and how to exercise your GDPR and CCPA rights.',
   alternates: { canonical: '/privacy' },
   openGraph: {
-    title: 'Privacy Policy - Livesov',
-    description: 'Livesov Privacy Policy - learn how we collect, use, store, and protect your personal data. GDPR and CCPA compliant.',
+    title: 'Privacy Policy | Livesov',
+    description: 'Read the Livesov Privacy Policy to learn how we collect, use, store and protect your personal data, and how to exercise your GDPR and CCPA rights.',
     url: 'https://livesov.com/privacy',
     siteName: 'Livesov',
     type: 'website',
-    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Privacy Policy - Livesov' }],
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Privacy Policy | Livesov' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Privacy Policy - Livesov',
-    description: 'Livesov Privacy Policy - learn how we collect, use, store, and protect your personal data. GDPR and CCPA compliant.',
+    title: 'Privacy Policy | Livesov',
+    description: 'Read the Livesov Privacy Policy to learn how we collect, use, store and protect your personal data, and how to exercise your GDPR and CCPA rights.',
     images: ['https://livesov.com/og-image.png'],
   },
 };
@@ -56,10 +57,10 @@ export default function PrivacyPage() {
         <p>Account data is retained while your account is active. API logs are retained for 7 days. Query run data is retained for 90 days. You can delete your account at any time, which removes all associated data.</p>
 
         <h2>8. Your Rights (GDPR/CCPA)</h2>
-        <p>You have the right to access, correct, delete, and export your data. You can exercise these rights through your account settings or by contacting us at hello@livesov.com.</p>
+        <p>You have the right to access, correct, delete, and export your data. You can exercise these rights through your account settings or by contacting us at <EmailOff>hello@livesov.com</EmailOff>.</p>
 
         <h2>9. Contact</h2>
-        <p>For privacy-related inquiries, contact us at hello@livesov.com.</p>
+        <p>For privacy-related inquiries, contact us at <EmailOff>hello@livesov.com</EmailOff>.</p>
       </SeoContent>
     </SeoLayout>
   );

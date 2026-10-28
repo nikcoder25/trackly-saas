@@ -19,6 +19,7 @@ import { listFixes, ensureFixEngineSchema, getAttentionSummary } from '@/lib/fix
 import { dispatchScan } from '@/lib/fix-engine/engine';
 import { moduleCatalog, getModule, meetsPlan } from '@/lib/fix-engine/registry';
 import { getBrandAiVisibility } from '@/lib/fix-engine/ai-visibility';
+import { getModulePriors, fixWeight } from '@/lib/fix-engine/learning';
 import { computeGeoHealthScore } from '@/lib/fix-engine/health';
 import { getPageMetrics, refreshPageMetrics, normUrl } from '@/lib/fix-engine/page-metrics';
 
@@ -50,14 +51,30 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     // Page-weighted ranking: enrich each fix with its target page's 28-day
     // GSC impressions (cached; refresh is cheap-noop when GSC isn't linked).
-    let enriched: (typeof fixes[number] & { pageImpressions?: number })[] = fixes;
+    let enriched: (typeof fixes[number] & {
+      pageImpressions?: number; learnedWeight?: number; learnedBasis?: string; learnedSamples?: number;
+    })[] = fixes;
     try {
       await refreshPageMetrics(id, ownerId);
       const urls = fixes.map((f) => f.targetUrl).filter((u): u is string => !!u);
       const metrics = await getPageMetrics(id, urls);
+
+      // Learned prior: what has this module actually done for this brand (or
+      // failing that, this industry, or the platform) once shipped? Sent to
+      // the client alongside the raw score so ranking can use it and the UI
+      // can show its working rather than reordering for reasons nobody sees.
+      const priors = await getModulePriors(id, { industry: access.brand.industry ?? null });
+
       enriched = fixes.map((f) => {
         const m = f.targetUrl ? metrics.get(normUrl(f.targetUrl)) : undefined;
-        return m ? { ...f, pageImpressions: m.impressions } : f;
+        const prior = priors.get(f.moduleKey);
+        return {
+          ...f,
+          ...(m ? { pageImpressions: m.impressions } : {}),
+          learnedWeight: fixWeight(f.id, f.moduleKey, priors),
+          learnedBasis: prior?.basis ?? 'none',
+          learnedSamples: prior?.samples ?? 0,
+        };
       });
     } catch (e) {
       logger.warn('fix_engine.page_metrics_enrich_failed', { err: (e as Error).message });

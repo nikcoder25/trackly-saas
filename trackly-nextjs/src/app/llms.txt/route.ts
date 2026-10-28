@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
 import { GEO_AUDIT_PLATFORMS } from '@/lib/geo-audits';
+import { getActiveOffer, offerSurfaces } from '@/lib/promo-offer';
+import { getPlanCredits } from '@/lib/plan-config';
 
 // llms.txt - discovery file for AI crawlers per https://llmstxt.org/
-// Factual product description; per-plan limits intentionally omitted
-// to prevent drift between this file and the live /pricing page.
+// Factual product description. Per-plan limits are omitted to prevent drift
+// from the live /pricing page, except the platform count per plan, which is
+// read from the plan config below.
 
 const BASE_URL = process.env.APP_URL || 'https://livesov.com';
 
@@ -26,54 +29,82 @@ const DISPLAY_ORDER: ReadonlyArray<typeof GEO_AUDIT_PLATFORMS[number]> = [
   'ChatGPT', 'Claude', 'Perplexity', 'Gemini', 'Grok',
 ];
 
-const BODY = [
+// Structure follows the llms.txt spec literally, because our own free
+// validator at /tools/llms-txt-generator enforces it and a GEO product whose
+// own manifest fails its own checker is not a good look:
+//   - exactly one H1, first content in the file
+//   - a blockquote summary immediately after it
+//   - free prose BEFORE the first H2 (the spec allows this; putting the
+//     descriptive text here rather than under its own heading is what keeps
+//     every H2 section a real link list instead of a linkless section)
+//   - H2 sections whose bullets are `- [title](url): description` markdown
+//     links. The previous `- URL - Description` form parsed as zero links,
+//     which is the one thing the spec says a useful file must not be.
+const PLATFORM_LIST = DISPLAY_ORDER.map(name => `${name} (${VENDORS[name]})`).join(', ');
+
+// Platforms per plan, read from the plan config so this line cannot drift
+// from what each plan actually runs.
+const PLATFORMS = (plan: string) => getPlanCredits(plan).maxPlatforms;
+const agencyPlatforms = PLATFORMS('agency') >= DISPLAY_ORDER.length ? `all ${DISPLAY_ORDER.length}` : String(PLATFORMS('agency'));
+
+const STATIC_BODY = [
   '# Livesov',
   '',
-  '> AI brand-visibility tracking across ChatGPT, Claude, Perplexity, Gemini, and Grok. Monitor share-of-voice, run GEO audits, and surface optimization recommendations from a single dashboard.',
+  '> Google rank tracking and AI brand-visibility tracking across ChatGPT, Claude, Perplexity, Gemini, and Grok. Track city-level Google rankings, monitor AI share of voice, run GEO audits, and surface optimization recommendations from a single dashboard.',
   '',
-  '## What it is',
+  'Livesov is a SaaS platform that tracks how generative AI assistants reference brands. It runs scheduled prompts against five AI platforms, records mentions, computes share of voice against competitors, and produces GEO (generative engine optimization) audits with prioritized recommendations. It also tracks Google rankings per keyword from the client\'s own city, shown next to AI visibility for the same keyword. It is built first for SEO and marketing agencies (including local SEO agencies), plus in-house growth teams as buyer discovery shifts from traditional search to AI assistants.',
   '',
-  'Livesov is a SaaS platform that tracks how generative AI assistants reference brands. It runs scheduled prompts against five AI platforms, records mentions, computes share-of-voice against competitors, and produces GEO (generative engine optimization) audits with prioritized recommendations.',
+  `Supported AI platforms: ${PLATFORM_LIST}. Starter tracks ${PLATFORMS('starter')} of them, Pro ${PLATFORMS('pro')}, and Agency ${agencyPlatforms}.`,
   '',
-  "## Who it's for",
+  'Plans are Free, Starter, Pro, and Agency. Per-plan limits (credits, brands, audits) are deliberately not listed here, so this file can never drift from the live pricing page.',
   '',
-  'Marketing teams, agencies, and in-house growth teams that need to monitor and improve brand visibility in AI-generated answers as user discovery shifts from traditional search to AI assistants.',
+  '## Product',
   '',
-  '## AI platforms tracked',
+  `- [Homepage](${BASE_URL}/): What Livesov does and who it is for.`,
+  `- [Pricing](${BASE_URL}/pricing): Plans, credit maths, and twelve-month totals worked out per tier.`,
+  `- [How it works](${BASE_URL}/how-it-works): Setup, scheduling, and the measurement pipeline.`,
+  `- [LLM rank tracker](${BASE_URL}/llm-rank-tracker): Track brand rank across all five models at once.`,
+  `- [AI visibility tool for agencies](${BASE_URL}/solutions/agencies): Track every client from one account.`,
+  `- [AI visibility report for agencies](${BASE_URL}/uses/ai-visibility-report-for-agencies): What Livesov client reports include.`,
+  `- [AI visibility for local businesses](${BASE_URL}/uses/ai-visibility-for-local-businesses): Local and near-me prompts, NAP and citations.`,
   '',
-  'All five platforms are queried for every tracked prompt and every GEO audit, regardless of plan tier.',
+  '## Free tools',
   '',
-  ...DISPLAY_ORDER.map(name => `- ${name} (${VENDORS[name]})`),
+  `- [AI visibility checker](${BASE_URL}/geo-audit): Free check that scores any URL for AI citation-readiness in seconds.`,
+  `- [All free tools](${BASE_URL}/tools): The full tools hub; most need no signup.`,
+  `- [llms.txt generator and validator](${BASE_URL}/tools/llms-txt-generator): Build an llms.txt file, or check an existing one against this spec.`,
+  `- [ChatGPT mention checker](${BASE_URL}/tools/chatgpt-mention-checker): See whether ChatGPT names your brand for a prompt.`,
   '',
-  '## Pricing tiers',
+  '## Learn',
   '',
-  '- Free',
-  '- Starter',
-  '- Pro',
-  '- Agency',
-  '',
-  'Per-plan limits (credits, brands, audits) are not listed here to prevent drift between this document and the live pricing page. See /pricing for current details.',
-  '',
-  '## Key URLs',
-  '',
-  `- ${BASE_URL}/ - Homepage`,
-  `- ${BASE_URL}/pricing - Pricing`,
-  `- ${BASE_URL}/how-it-works - How it works`,
-  `- ${BASE_URL}/blog - Blog`,
-  `- ${BASE_URL}/tools - Free tools hub`,
-  `- ${BASE_URL}/geo-audit - Free GEO audit tool`,
+  `- [Blog](${BASE_URL}/blog): GEO tactics, AI-search research, and product updates.`,
+  `- [LLM SEO guide](${BASE_URL}/learn/llm-seo): How visibility works inside language models.`,
+  `- [Glossary](${BASE_URL}/glossary): Definitions for AI-search and GEO terminology.`,
+  `- [AI search statistics 2026](${BASE_URL}/ai-search-statistics-2026): Sourced data on AI-search adoption.`,
   '',
 ].join('\n');
 
-export const dynamic = 'force-static';
-export const revalidate = 86400;
+// Was `force-static` with a 24h revalidate. The offer section is read from
+// the database, so the body can no longer be baked at build time - a promo
+// that ends is a promo that has to stop being served without a redeploy.
+// 5 minutes is the compromise: still cheap for crawlers, still responsive
+// to switching the offer off in the admin panel.
+export const revalidate = 300;
 
 export async function GET() {
-  return new NextResponse(BODY, {
+  // The offer section is appended AFTER the static sections so that a
+  // crawler truncating the file still gets the product links. `offerSurfaces`
+  // returns an empty string when no offer is live, which keeps the manifest
+  // byte-identical to its pre-offer form - including for the dogfood test,
+  // which runs without a database.
+  const { llmsTxtSection } = offerSurfaces(await getActiveOffer());
+  const body = llmsTxtSection ? STATIC_BODY + llmsTxtSection : STATIC_BODY;
+
+  return new NextResponse(body, {
     status: 200,
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
-      'Cache-Control': 'public, max-age=86400, must-revalidate',
+      'Cache-Control': 'public, max-age=300, must-revalidate',
     },
   });
 }

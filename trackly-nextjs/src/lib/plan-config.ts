@@ -88,7 +88,8 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     trackedPromptsPerAccount: 5,
     maxPromptsPerBrand: 5,
     modelTier: 'economy',
-    scheduledRuns: true,
+    // Matches PLAN_LIMITS.free.scheduledRuns: the cron skips Free accounts.
+    scheduledRuns: false,
     autoRunFrequency: 'weekly',
     brandsCap: 1,
     label: 'Free',
@@ -128,7 +129,7 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     autoRunFrequency: 'every_2_days',
     brandsCap: 3,
     label: 'Starter',
-    price: '$9',
+    price: '$19',
   },
   pro: {
     monthlyCredits: 2500,
@@ -142,7 +143,7 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     autoRunFrequency: 'daily',
     brandsCap: 9999,
     label: 'Pro',
-    price: '$29',
+    price: '$49',
     featured: true,
   },
   agency: {
@@ -157,7 +158,7 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     autoRunFrequency: 'daily',
     brandsCap: 9999,
     label: 'Agency',
-    price: '$89',
+    price: '$129',
   },
   enterprise: {
     monthlyCredits: 50000,
@@ -205,56 +206,18 @@ export const PLAN_DISPLAY_ORDER = [
   'enterprise',
 ] as const;
 
-/**
- * Numeric rank used to decide whether a plan transition is an upgrade or
- * a downgrade (e.g. for the post-checkout confirmation email).
- *
- * `trial` sits ABOVE `free` and below every paid tier. The previous
- * model collapsed `trial` and `free` to the same rank so the first paid
- * checkout from either state would still classify as an upgrade - but
- * that also made the trial → free transition register as `'same'`,
- * which silently suppresses any downgrade email a future trial-expiry
- * code path would want to send. With `trial = 1`, `free = 0`, the
- * first paid checkout (`trial → starter` etc.) is still strictly an
- * upgrade (1 < 2/3/4/5) and `trial → free` is now correctly classified
- * as a downgrade (1 → 0).
- *
- * `owner` is internal and never user-facing, but we map it high so
- * admin/owner flips never get classified as a downgrade by accident.
- */
-const PLAN_RANK: Record<string, number> = {
-  free: 0,
-  trial: 1,
-  starter: 2,
-  pro: 3,
-  agency: 4,
-  enterprise: 5,
-  owner: 99,
-};
-
-export function getPlanRank(plan: string | null | undefined): number {
-  if (!plan) return 0;
-  return PLAN_RANK[plan] ?? 0;
-}
-
-export type PlanChangeKind = 'upgrade' | 'downgrade' | 'same';
-
-/**
- * Compare two plans by rank. Returns 'same' if the plans rank equally
- * (e.g. free ↔ trial), 'upgrade' if `to` is higher, 'downgrade' if
- * lower. Used to pick the correct confirmation-email template after a
- * webhook plan change.
- */
-export function comparePlans(
-  from: string | null | undefined,
-  to: string | null | undefined,
-): PlanChangeKind {
-  const a = getPlanRank(from);
-  const b = getPlanRank(to);
-  if (b > a) return 'upgrade';
-  if (b < a) return 'downgrade';
-  return 'same';
-}
+// Plan ranking (getPlanRank / comparePlans / getPlanSwitchDirection) lives
+// in plan-rank.ts so client components can import it without pulling in
+// this module's server-only deps. Re-exported here for existing callers.
+export {
+  getPlanRank,
+  comparePlans,
+  getPlanSwitchDirection,
+  isPaidPlan,
+  hasActivePaidSubscription,
+  PAID_PLANS,
+} from './plan-rank';
+export type { PlanChangeKind, PlanSwitchDirection } from './plan-rank';
 
 export function getPlanCredits(plan: string | undefined | null): PlanCreditConfig {
   if (!plan) return PLAN_CREDITS.free;
@@ -272,14 +235,17 @@ export function getPlanCredits(plan: string | undefined | null): PlanCreditConfi
  * between a $200/mo SaaS and a runaway provider bill.
  */
 export const ECONOMY_MODEL_BY_PLATFORM: Record<string, string> = {
-  ChatGPT: 'gpt-5.4-mini',
+  ChatGPT: 'gpt-5.4-nano',
   Claude: 'claude-haiku-4-5-20251001',
   Gemini: 'gemini-2.5-flash-lite',
   Grok: 'grok-3-mini',
   Perplexity: 'sonar',
+  'Google AI Overview': 'google-ai-overview',
+  'Google AI Mode': 'google-ai-mode',
 };
 
-// ChatGPT economy and premium both point at `gpt-5.4-mini`. The earlier
+// ChatGPT economy is `gpt-5.4-nano` (cheapest) and premium `gpt-5.4-mini`;
+// admins can raise premium tiers to `gpt-5.4` per platform. The earlier
 // `gpt-4o-mini-search-preview` was retired in favour of the gpt-5.4
 // family which removes the web_search surcharge dependency from the
 // default lineup. The premium A/B cohort below is a no-op as a result;
@@ -291,6 +257,8 @@ export const PREMIUM_MODEL_BY_PLATFORM: Record<string, string> = {
   Gemini: 'gemini-2.5-pro',
   Grok: 'grok-4',
   Perplexity: 'sonar-pro',
+  'Google AI Overview': 'google-ai-overview',
+  'Google AI Mode': 'google-ai-mode',
 };
 
 /**
@@ -409,4 +377,18 @@ export const LOW_BALANCE_THRESHOLD = 0.2;
 export function isLowBalance(remaining: number, monthlyCap: number): boolean {
   if (!Number.isFinite(monthlyCap) || monthlyCap <= 0) return false;
   return remaining > 0 && remaining / monthlyCap < LOW_BALANCE_THRESHOLD;
+}
+
+// ── Gemini grounding gate ────────────────────────────
+//
+// Grounded Gemini (the google_search tool) is billed per request on top of
+// tokens - about $0.035 a call, roughly 100x the token cost and the single
+// largest line in the cost model (docs/UNIT-ECONOMICS.md). It is reserved
+// for Pro and above; Free, Trial and Starter get Gemini's ungrounded answer.
+// The plan gate composes with GEMINI_GROUNDING_DISABLED (global kill switch)
+// and JSON mode (never grounded) in `geminiGroundingEnabled`.
+const GEMINI_GROUNDING_PLANS = new Set(['pro', 'agency', 'enterprise', 'owner']);
+
+export function geminiGroundingAllowedForPlan(plan: string | null | undefined): boolean {
+  return GEMINI_GROUNDING_PLANS.has((plan || 'free').toLowerCase());
 }

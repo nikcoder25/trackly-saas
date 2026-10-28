@@ -215,8 +215,21 @@ export async function getConnectorByToken(rawToken: string): Promise<ResolvedCon
 }
 
 /** Heartbeat: stamp the connector's last-poll time (best-effort). */
-export async function touchConnectorSeen(brandId: string): Promise<void> {
+export async function touchConnectorSeen(brandId: string, pluginVersion?: string | null): Promise<void> {
   try {
+    if (pluginVersion && /^\d+\.\d+\.\d+$/.test(pluginVersion)) {
+      // Record which plugin version is polling. The plugin is distributed as
+      // a zip (no wordpress.org update channel), so this is how the dashboard
+      // knows an install is behind and can say so.
+      await pool.query(
+        `UPDATE fix_connections
+            SET last_seen_at = NOW(),
+                meta = meta || jsonb_build_object('pluginVersion', $2::text)
+          WHERE brand_id = $1 AND provider = 'connector'`,
+        [brandId, pluginVersion],
+      );
+      return;
+    }
     await pool.query(
       `UPDATE fix_connections SET last_seen_at = NOW() WHERE brand_id = $1 AND provider = 'connector'`,
       [brandId],

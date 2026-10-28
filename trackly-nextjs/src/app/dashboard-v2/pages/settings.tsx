@@ -11,21 +11,21 @@ export function PageSetup() {
         actions={<><button className="btn-d">⇣ Export config</button><button className="btn-p">Save changes</button></>}/>
       <div className="page-body">
         <Seg value={tab} onChange={setTab} options={[
-          {value:'brand',label:'BRAND'},
-          {value:'comps',label:'COMPETITORS'},
-          {value:'aliases',label:'ALIASES'},
-          {value:'pages',label:'KEY PAGES'},
-          {value:'webhooks',label:'WEBHOOKS'},
+          {value:'brand',label:'Brand'},
+          {value:'comps',label:'Competitors'},
+          {value:'aliases',label:'Aliases'},
+          {value:'pages',label:'Key pages'},
+          {value:'webhooks',label:'Webhooks'},
         ]}/>
 
         {tab === 'brand' && (
           <div className="g2">
             <Card title="Identity">
-              <Field label="BRAND NAME" v="Acme PM" />
-              <Field label="DOMAIN" v="acme.com" mono/>
-              <Field label="CATEGORY" v="Project management software" />
+              <Field label="Brand name" v="Acme PM" />
+              <Field label="Domain" v="acme.com" mono/>
+              <Field label="Category" v="Project management software" />
               <Field label="ONE-LINER" v="Project management for engineering teams that doesn't suck." />
-              <Field label="FOUNDED" v="2019" mono/>
+              <Field label="Founded" v="2019" mono/>
               <Field label="HQ" v="San Francisco, CA" />
             </Card>
             <Card title="What buyers ask">
@@ -39,17 +39,17 @@ export function PageSetup() {
             </Card>
             <Card title="Brand voice" right={<Badge tone="info">AI-tuned</Badge>}>
               <div className="voice-grid">
-                <Voice k="TONE" v="direct, technical, dry-witty"/>
-                <Voice k="AVOID" v="hype, vague metaphors, 'revolutionize'"/>
-                <Voice k="POV"  v="we / your"/>
-                <Voice k="EMOJI" v="never"/>
+                <Voice k="Tone" v="direct, technical, dry-witty"/>
+                <Voice k="Avoid" v="hype, vague metaphors, 'revolutionize'"/>
+                <Voice k="Pov"  v="we / your"/>
+                <Voice k="Emoji" v="never"/>
               </div>
             </Card>
             <Card title="Auto-run">
-              <Field label="SCHEDULE" v="Hourly · 24×/day"/>
-              <Field label="REGION" v="Global (US EN)"/>
-              <Field label="ENGINES" v="5 / 5 enabled"/>
-              <Field label="LAST RUN" v="2 minutes ago" mono/>
+              <Field label="Schedule" v="Hourly · 24×/day"/>
+              <Field label="Region" v="Global (US EN)"/>
+              <Field label="Engines" v="5 / 5 enabled"/>
+              <Field label="Last run" v="2 minutes ago" mono/>
               <div style={{display:'flex',gap:8,marginTop:8}}>
                 <button className="btn-d">Pause auto-run</button>
                 <button className="btn-g">Change schedule</button>
@@ -62,10 +62,10 @@ export function PageSetup() {
           <Card title="Competitors" right={<button className="btn-d">+ Add</button>} padding={false}>
             <div className="tbl-wrap">
               <table className="tbl">
-                <thead><tr><th>BRAND</th><th>DOMAIN</th><th>CATEGORY</th><th>TRACKING</th><th>ALIASES</th><th></th></tr></thead>
+                <thead><tr><th>Brand</th><th>Domain</th><th>Category</th><th>Tracking</th><th>Aliases</th><th></th></tr></thead>
                 <tbody>
                   {['Linear','Asana','Monday.com','Notion','Jira','ClickUp','Trello'].map(n => (
-                    <tr key={n}><td><b>{n}</b></td><td className="mono dim">{n.toLowerCase().replace('.com','')}.com</td><td>PM software</td><td><Badge tone="pos">ACTIVE</Badge></td><td className="num dim">3</td><td className="right"><button className="btn-d" style={{padding:'4px 8px',fontSize:11}}>Edit</button></td></tr>
+                    <tr key={n}><td><b>{n}</b></td><td className="mono dim">{n.toLowerCase().replace('.com','')}.com</td><td>PM software</td><td><Badge tone="pos">Active</Badge></td><td className="num dim">3</td><td className="right"><button className="btn-d" style={{padding:'4px 8px',fontSize:11}}>Edit</button></td></tr>
                   ))}
                 </tbody>
               </table>
@@ -89,7 +89,7 @@ export function PageSetup() {
           <Card title="Key pages Livesov should reward when cited" padding={false}>
             <div className="tbl-wrap">
               <table className="tbl">
-                <thead><tr><th>URL</th><th>PURPOSE</th><th>CITED · 7D</th><th></th></tr></thead>
+                <thead><tr><th>URL</th><th>Purpose</th><th>Cited · 7d</th><th></th></tr></thead>
                 <tbody>
                   {[
                     ['acme.com/customers','Logos & case studies', 214],
@@ -110,9 +110,9 @@ export function PageSetup() {
           <Card title="Webhooks">
             <p className="quiet" style={{margin:'0 0 16px',fontSize:13}}>Forward every run, mention, and hallucination to your stack.</p>
             <Field label="URL" v="https://hooks.acme.dev/livesov" mono/>
-            <Field label="SECRET" v="lvs_••••••••••••" mono/>
-            <Field label="EVENTS" v="run.complete, mention.new, halluc.detected"/>
-            <Field label="LAST DELIVERY" v="200 OK · 12 min ago" mono/>
+            <Field label="Secret" v="lvs_••••••••••••" mono/>
+            <Field label="Events" v="run.complete, mention.new, halluc.detected"/>
+            <Field label="Last delivery" v="200 OK · 12 min ago" mono/>
             <div style={{display:'flex',gap:8}}>
               <button className="btn-d">Test delivery</button>
               <button className="btn-d btn-danger">Rotate secret</button>
@@ -144,16 +144,16 @@ export function PagePrompts() {
         actions={<><button className="btn-d">⇣ Import CSV</button><button className="btn-g">↻ Re-seed from category</button><button className="btn-p">+ Add prompt</button></>}/>
       <div className="page-body">
         <KPIRail items={[
-          { k: 'TRACKED', v: '142', info: 'of 250' },
-          { k: 'PRIORITY', v: '24', info: '★ pinned' },
-          { k: 'BY INTENT · COMPARE', v: '38', info: 'vs queries' },
-          { k: 'BY INTENT · PRICE', v: '21' },
-          { k: 'AVG SOV', v: '24.6', suffix: '%' },
+          { k: 'Tracked', v: '142', info: 'of 250' },
+          { k: 'Priority', v: '24', info: '★ pinned' },
+          { k: 'By intent · compare', v: '38', info: 'vs queries' },
+          { k: 'By intent · price', v: '21' },
+          { k: 'Avg SOV', v: '24.6', suffix: '%' },
         ]}/>
 
         <Filter>
           <div className="search-box"><span className="dim mono">⌕</span><input placeholder="Find a prompt…" defaultValue=""/></div>
-          <Seg value="all" onChange={()=>{}} options={[{value:'all',label:'ALL'},{value:'priority',label:'★ PRIORITY'},{value:'paused',label:'PAUSED'}]}/>
+          <Seg value="all" onChange={()=>{}} options={[{value:'all',label:'All'},{value:'priority',label:'★ Priority'},{value:'paused',label:'Paused'}]}/>
           <select className="sel"><option>All intents</option><option>Comparison</option><option>Pricing</option><option>Recommendation</option><option>Feature</option><option>Brand</option></select>
           <select className="sel"><option>All tags</option></select>
           <span style={{flex:1}}/>
@@ -165,12 +165,12 @@ export function PagePrompts() {
             <table className="tbl">
               <thead><tr>
                 <th><input type="checkbox"/></th>
-                <th>PROMPT</th>
-                <th>INTENT</th>
-                <th>TAGS</th>
-                <th>SCHEDULE</th>
+                <th>Prompt</th>
+                <th>Intent</th>
+                <th>Tags</th>
+                <th>Schedule</th>
                 <th>SOV</th>
-                <th>STATUS</th>
+                <th>Status</th>
                 <th className="right"></th>
               </tr></thead>
               <tbody>
@@ -214,7 +214,7 @@ export function PageAccount() {
         actions={<button className="btn-p">Manage plan</button>}/>
       <div className="page-body">
         <div className="g3">
-          <Card title="Current plan" right={<Badge tone="acc">TEAM</Badge>}>
+          <Card title="Current plan" right={<Badge tone="acc">Team</Badge>}>
             <div className="kpi-v mono" style={{fontSize:32}}>$29<i>/mo</i></div>
             <div className="quiet" style={{fontSize:13,margin:'6px 0 14px'}}>Renews May 19, 2026 · annual save 20%</div>
             <ul className="plan-feat">
@@ -231,7 +231,7 @@ export function PageAccount() {
             </div>
           </Card>
 
-          <Card title="Usage this period" right={<span className="mono dim" style={{fontSize:11}}>RESETS IN 13D</span>}>
+          <Card title="Usage this period" right={<span className="mono dim" style={{fontSize:11}}>Resets in 13d</span>}>
             <UseRow k="Queries / day" cur={1284} max={2000}/>
             <UseRow k="Brands tracked" cur={3} max={5}/>
             <UseRow k="Tracked prompts" cur={142} max={250}/>
@@ -241,7 +241,7 @@ export function PageAccount() {
 
           <Card title="Seats" right={<button className="btn-d">+ Invite</button>} padding={false}>
             <ul className="seat-list">
-              <li><span className="av">N</span><div><b>Nikhil S.</b><div className="mono dim" style={{fontSize:11}}>nikhil@acme.com</div></div><Badge tone="acc">OWNER</Badge></li>
+              <li><span className="av">N</span><div><b>Nikhil S.</b><div className="mono dim" style={{fontSize:11}}>nikhil@acme.com</div></div><Badge tone="acc">Owner</Badge></li>
               <li className="empty">+ Open seat</li>
               <li className="empty">+ Open seat</li>
             </ul>
@@ -251,10 +251,10 @@ export function PageAccount() {
         <Card title="API keys" right={<button className="btn-d">+ New key</button>} padding={false}>
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>NAME</th><th>KEY</th><th>CREATED</th><th>LAST USED</th><th>SCOPES</th><th></th></tr></thead>
+              <thead><tr><th>Name</th><th>Key</th><th>Created</th><th>Last used</th><th>Scopes</th><th></th></tr></thead>
               <tbody>
-                <tr><td><b>Production</b></td><td className="mono">lvs_prod_••••••••••••3F8a</td><td className="num">Mar 12, 2026</td><td className="num">12 min ago</td><td><Badge tone="acc">READ</Badge> <Badge tone="info">WRITE</Badge></td><td className="right"><button className="btn-d btn-danger" style={{padding:'4px 8px',fontSize:11}}>Revoke</button></td></tr>
-                <tr><td><b>Staging</b></td><td className="mono">lvs_stage_••••••••••••a01b</td><td className="num">Apr 02, 2026</td><td className="num">4h ago</td><td><Badge tone="acc">READ</Badge></td><td className="right"><button className="btn-d btn-danger" style={{padding:'4px 8px',fontSize:11}}>Revoke</button></td></tr>
+                <tr><td><b>Production</b></td><td className="mono">lvs_prod_••••••••••••3F8a</td><td className="num">Mar 12, 2026</td><td className="num">12 min ago</td><td><Badge tone="acc">Read</Badge> <Badge tone="info">Write</Badge></td><td className="right"><button className="btn-d btn-danger" style={{padding:'4px 8px',fontSize:11}}>Revoke</button></td></tr>
+                <tr><td><b>Staging</b></td><td className="mono">lvs_stage_••••••••••••a01b</td><td className="num">Apr 02, 2026</td><td className="num">4h ago</td><td><Badge tone="acc">Read</Badge></td><td className="right"><button className="btn-d btn-danger" style={{padding:'4px 8px',fontSize:11}}>Revoke</button></td></tr>
               </tbody>
             </table>
           </div>
@@ -280,15 +280,15 @@ export function PageAccount() {
           </Card>
 
           <Card title="Security">
-            <Field label="EMAIL" v="nikhil@acme.com"/>
-            <Field label="PASSWORD" v="••••••••••" mono/>
+            <Field label="Email" v="nikhil@acme.com"/>
+            <Field label="Password" v="••••••••••" mono/>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:12}}>
               <div>
                 <div className="eyebrow">2FA</div>
                 <div style={{fontSize:13,marginTop:4}}>Authenticator app · <span className="pos">enabled</span></div>
               </div>
               <div>
-                <div className="eyebrow">SSO</div>
+                <div className="eyebrow">Sso</div>
                 <div style={{fontSize:13,marginTop:4}}>Available on Scale plan</div>
               </div>
             </div>
@@ -351,8 +351,8 @@ export function PageBilling() {
         {/* Plan + spend header */}
         <section className="bill-head">
           <div className="bh-plan">
-            <div className="eyebrow">CURRENT PLAN</div>
-            <div className="bh-name">Team <Badge tone="pos">ACTIVE</Badge></div>
+            <div className="eyebrow">Current plan</div>
+            <div className="bh-name">Team <Badge tone="pos">Active</Badge></div>
             <div className="bh-price"><span className="mono">$29</span><i>/ month</i></div>
             <div className="bh-renew">Billed monthly · renews <b>Jun 19, 2026</b></div>
             <div className="bh-actions">
@@ -370,7 +370,7 @@ export function PageBilling() {
           </div>
 
           <div className="bh-spend">
-            <div className="eyebrow" style={{padding:'2px 0 2px'}}>SPEND</div>
+            <div className="eyebrow" style={{padding:'2px 0 2px'}}>Spend</div>
             <div className="bhs-row">
               <span className="bhs-label">This billing period</span>
               <span className="bhs-v mono">$29.00</span>
@@ -399,7 +399,7 @@ export function PageBilling() {
           right={<Pill tone="acc"><span className="pulse"/> resets in 21 days</Pill>}>
           <div className="bill-usage">
             <div className="bu-ring">
-              <Donut value={64} size={150} label="OF DAILY LIMIT" color="var(--accent)"/>
+              <Donut value={64} size={150} label="Of daily limit" color="var(--accent)"/>
               <div className="bu-ring-sub">
                 <div className="mono"><b>1,284</b> of 2,000 queries today</div>
                 <div className="dim mono" style={{fontSize:11,marginTop:3}}>≈ 1,310 / day projected · within plan</div>
@@ -437,7 +437,7 @@ export function PageBilling() {
           padding={false}>
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>INVOICE</th><th>DATE</th><th>PERIOD</th><th>PLAN</th><th className="right">AMOUNT</th><th>STATUS</th><th className="right"></th></tr></thead>
+              <thead><tr><th>Invoice</th><th>Date</th><th>Period</th><th>Plan</th><th className="right">Amount</th><th>Status</th><th className="right"></th></tr></thead>
               <tbody>
                 {invoices.map(([id,date,period,plan,amt],i) => (
                   <tr key={i}>
@@ -446,7 +446,7 @@ export function PageBilling() {
                     <td className="mono dim">{period}</td>
                     <td>{plan}</td>
                     <td className="right num"><b>{amt}</b></td>
-                    <td><Badge tone="pos">PAID</Badge></td>
+                    <td><Badge tone="pos">Paid</Badge></td>
                     <td className="right"><button className="btn-d" style={{padding:'4px 9px',fontSize:11}}>⇣ PDF</button></td>
                   </tr>
                 ))}
@@ -461,7 +461,7 @@ export function PageBilling() {
             <div className="card-chip">
               <div className="cc-band"/>
               <div className="mono cc-no">•••• •••• •••• 4242</div>
-              <div className="mono cc-meta"><span>VISA</span><span>11/29</span></div>
+              <div className="mono cc-meta"><span>Visa</span><span>11/29</span></div>
             </div>
             <div className="bill-pay-info">
               <div style={{fontSize:13,color:'var(--text)',fontWeight:500}}>Nikhil S.</div>
@@ -495,18 +495,18 @@ export function PageAlerts() {
         actions={<><button className="btn-d">Test alert</button><button className="btn-p">+ New rule</button></>}/>
       <div className="page-body">
         <KPIRail items={[
-          { k: 'RULES ACTIVE', v: '4', info: 'of 6' },
-          { k: 'FIRED · 7D', v: '13', d: +5 },
-          { k: 'AVG. TIME TO FIRE', v: '14m', d: -3 },
-          { k: 'CHANNELS', v: '3', info: 'Slack · Email · Webhook' },
-          { k: 'QUIET HOURS', v: '22 – 7', info: 'PT' },
+          { k: 'Rules active', v: '4', info: 'of 6' },
+          { k: 'Fired · 7d', v: '13', d: +5 },
+          { k: 'Avg. time to fire', v: '14m', d: -3 },
+          { k: 'Channels', v: '3', info: 'Slack · Email · Webhook' },
+          { k: 'Quiet hours', v: '22 – 7', info: 'PT' },
         ]}/>
 
         <div className="g2">
           <Card title="Alert rules" right={<button className="btn-d" style={{fontSize:11}}>+ Add</button>} padding={false} style={{ gridColumn: 'span 2' }}>
             <div className="tbl-wrap">
               <table className="tbl">
-                <thead><tr><th>WHEN</th><th>CHANNELS</th><th>FIRED · 7D</th><th>STATUS</th><th className="right"></th></tr></thead>
+                <thead><tr><th>When</th><th>Channels</th><th>Fired · 7d</th><th>Status</th><th className="right"></th></tr></thead>
                 <tbody>
                   {rules.map((r,i) => (
                     <tr key={i}>
@@ -546,14 +546,14 @@ export function PageAlerts() {
                   <span className="chan-i" style={{background:'#5865F2'}}>S</span>
                   <div><b>Slack</b><div className="quiet" style={{fontSize:11}}>#brand-livesov · acme.slack.com</div></div>
                 </div>
-                <Badge tone="pos">CONNECTED</Badge>
+                <Badge tone="pos">Connected</Badge>
               </div>
               <div className="chan-row">
                 <div className="chan-l">
                   <span className="chan-i" style={{background:'#1F8A5B'}}>L</span>
                   <div><b>Linear</b><div className="quiet" style={{fontSize:11}}>Project · GEO recommendations</div></div>
                 </div>
-                <Badge tone="pos">CONNECTED</Badge>
+                <Badge tone="pos">Connected</Badge>
               </div>
               <div className="chan-row">
                 <div className="chan-l">
@@ -567,7 +567,7 @@ export function PageAlerts() {
                   <span className="chan-i" style={{background:'var(--surface-3)'}}>↗</span>
                   <div><b>Webhook</b><div className="quiet mono" style={{fontSize:11}}>hooks.acme.dev/livesov</div></div>
                 </div>
-                <Badge tone="pos">CONNECTED</Badge>
+                <Badge tone="pos">Connected</Badge>
               </div>
               <button className="btn-d" style={{justifySelf:'flex-start',marginTop:4}}>+ Add channel</button>
             </div>

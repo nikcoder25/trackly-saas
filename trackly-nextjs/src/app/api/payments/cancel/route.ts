@@ -86,6 +86,14 @@ export async function POST(request: Request) {
     const subId = row.settings?.subscription_id;
     let dodoCancelledForAudit: string | null = null;
 
+    // Owner and trial accounts have no subscription behind them. Without
+    // this guard a stray "Cancel" click silently dropped an owner account
+    // (or an active trial) to 'free'.
+    if (!subId && (row.plan === 'owner' || row.plan === 'trial')) {
+      await client.query('ROLLBACK');
+      return Response.json({ error: 'There is no active subscription to cancel.' }, { status: 400 });
+    }
+
     if (subId) {
       const apiKey = process.env.DODO_PAYMENTS_API_KEY;
       if (!apiKey) {

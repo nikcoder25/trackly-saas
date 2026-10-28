@@ -1,13 +1,15 @@
 import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { usernameBase } from '@/lib/username';
 import { pool, auditLog, ensureColumns } from '@/lib/db';
 import { uid, safeUser, normaliseEmail } from '@/lib/helpers';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, validatePasswordComplexity, issueSession, sessionContextFromRequest } from '@/lib/auth';
 import { getPlanLimits, AUTH, TRIAL_INITIAL_UNVERIFIED_MS } from '@/lib/constants';
 import { sendVerificationEmail } from '@/lib/email';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { runSignupAbuseChecks, logSuspiciousSignupPattern } from '@/lib/anti-abuse';
+import { recordSignupAttribution } from '@/lib/attribution-server';
 import { logger } from '@/lib/logger';
 
 // ─── Anti-spam helpers ──────────────────────────────────────────
@@ -46,11 +48,8 @@ function isDotTrickedGmail(email: string): boolean {
 }
 
 async function generateUsername(nameOrEmail: string): Promise<string> {
-  let base = (nameOrEmail || '').trim().toLowerCase();
-  if (base.includes('@')) base = base.split('@')[0];
-  base = base.replace(/\s+/g, '.').replace(/[^a-z0-9_.-]/g, '').replace(/\.{2,}/g, '.').replace(/^[._-]+|[._-]+$/g, '');
-  if (base.length < 3) base = 'user' + base;
-  if (base.length > 25) base = base.substring(0, 25);
+  // Shared with the account page: email -> local part, accents transliterated.
+  const base = usernameBase(nameOrEmail);
 
   const exists = await pool.query('SELECT id FROM users WHERE LOWER(username) = $1', [base]);
   if (!exists.rows.length) return base;
@@ -65,7 +64,7 @@ async function generateUsername(nameOrEmail: string): Promise<string> {
 }
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const ip = getClientIp(request);
   // Trial-with-AI signups get a tight per-IP cap to limit drive-by abuse.
   const rl = await rateLimit('auth_register:' + ip, 60 * 60 * 1000, 5);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
@@ -149,6 +148,12 @@ export async function POST(request: NextRequest) {
 
     const accessToken = signAccessToken({ id, email: email.toLowerCase(), role: 'user', plan: 'trial' });
     const refreshToken = await issueSession(pool, id, sessionContextFromRequest(request));
+
+    // Awaited rather than fire-and-forget: the row is small, and losing the
+    // attribution for a signup that succeeded is the one outcome this feature
+    // exists to prevent. `recordSignupAttribution` swallows its own errors,
+    // so this cannot fail the registration.
+    await recordSignupAttribution(id, 'email', body.attribution);
 
     auditLog(id, 'register', 'user', id, { email: email.toLowerCase() }, ip);
     // Fire-and-forget alert for signup bursts from the same /24 block

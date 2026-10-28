@@ -501,7 +501,6 @@ export async function getCreditStatus(
   now: Date = new Date(),
 ): Promise<CreditStatus> {
   const cfg = getPlanCredits(plan);
-  const row = await readOrInitCounter(userId, now);
 
   // Ledger-backed "credits used this period". Counted from
   // `tenant_cost_events` (one row per dispatched LLM call) over the
@@ -509,18 +508,20 @@ export async function getCreditStatus(
   // against transient DB errors: if the count fails we fall back to
   // the counter so the tile still renders, just with the historical
   // (over-counting) shape - no worse than the pre-#453 behavior.
+  // The count and the counter read are independent, so run them together.
   const monthStart = currentMonthStart(now);
-  let ledgerUsed: number;
-  try {
-    const ledgerRes = await pool.query(
+  const [row, ledgerCount] = await Promise.all([
+    readOrInitCounter(userId, now),
+    pool.query(
       `SELECT COUNT(*)::int AS c FROM tenant_cost_events
         WHERE tenant_id = $1 AND created_at >= $2`,
       [userId, monthStart.toISOString()],
-    );
-    ledgerUsed = Number((ledgerRes.rows[0] as { c?: number } | undefined)?.c || 0);
-  } catch {
-    ledgerUsed = row.monthly_used;
-  }
+    ).then(
+      (ledgerRes) => Number((ledgerRes.rows[0] as { c?: number } | undefined)?.c || 0),
+      () => null,
+    ),
+  ]);
+  const ledgerUsed: number = ledgerCount ?? row.monthly_used;
 
   // Reservation ceiling drives `remaining` so the tile and the
   // reservation gate stay in lock-step on cap math.

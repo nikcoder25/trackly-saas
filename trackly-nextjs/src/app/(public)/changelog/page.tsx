@@ -3,12 +3,12 @@ import { Rocket, ShieldCheck, Cpu, BarChart3, Globe, Zap, FileText } from 'lucid
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
-  title: 'Livesov Changelog | Product Updates & Features',
-  description: 'Latest Livesov updates: new AI platforms, features, and improvements shipped to the AI visibility tracker.',
+  title: 'Changelog | Product Updates & New Features | Livesov',
+  description: 'See the latest Livesov changelog: new AI platforms, features and fixes shipped to our AI visibility tracker. Check back often to see what is new.',
   alternates: { canonical: '/changelog' },
   openGraph: {
-    title: 'Livesov Changelog | Product Updates & Features',
-    description: 'Latest Livesov updates: new AI platforms, features, and improvements shipped to the AI visibility tracker.',
+    title: 'Changelog | Product Updates & New Features | Livesov',
+    description: 'See the latest Livesov changelog: new AI platforms, features and fixes shipped to our AI visibility tracker. Check back often to see what is new.',
     url: 'https://livesov.com/changelog',
     siteName: 'Livesov',
     type: 'website',
@@ -16,8 +16,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Livesov Changelog | Product Updates & Features',
-    description: 'Latest Livesov updates: new AI platforms, features, and improvements shipped to the AI visibility tracker.',
+    title: 'Changelog | Product Updates & New Features | Livesov',
+    description: 'See the latest Livesov changelog: new AI platforms, features and fixes shipped to our AI visibility tracker. Check back often to see what is new.',
     images: ['https://livesov.com/og-image.png'],
   },
 };
@@ -33,11 +33,19 @@ export default function ChangelogPage() {
       <div className="max-w-3xl mx-auto px-6 pb-16 space-y-8">
         <div className="border-l-2 border-[var(--brand)] pl-6">
           <div className="flex items-center gap-2 mb-1">
-            <Rocket className="w-4 h-4 text-[var(--brand)]" />
+            <ShieldCheck className="w-4 h-4 text-[var(--brand)]" />
+            <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">October 2026</p>
+          </div>
+          <h3 className="text-lg font-bold text-gray-900 mt-1">More accurate scans and annual billing</h3>
+          <p className="text-gray-500 text-sm mt-1">Every scan now asks each engine for a fresh answer instead of reusing an earlier one. Answers where the engine says it has no information about your brand, or only repeats a brand name that was in the prompt, no longer count as mentions. Fix suggestions refresh after each scan, free trials end on time, and annual billing is available on every paid plan.</p>
+        </div>
+        <div className="border-l-2 border-gray-200 pl-6">
+          <div className="flex items-center gap-2 mb-1">
+            <Rocket className="w-4 h-4 text-gray-400" />
             <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">June 2026</p>
           </div>
           <h3 className="text-lg font-bold text-gray-900 mt-1">Updated AI model lineup</h3>
-          <p className="text-gray-500 text-sm mt-1">Refreshed tracking to the latest releases across every provider: GPT-5 (mini and Search), Claude Opus 4.5, Sonnet 4.5, and Haiku 4.5, Gemini 3 (Pro, Flash, Flash-Lite), and Grok 5 / Grok 4 Mini. Historical data preserved across model upgrades.</p>
+          <p className="text-gray-500 text-sm mt-1">Scans now run on a cost-efficient default model for each engine: GPT-5.4 Nano, Claude Haiku 4.5, Gemini 2.5 Flash Lite, Grok 3 Mini, and Perplexity Sonar. Agency plans can pick premium models instead. Historical data preserved across model upgrades.</p>
         </div>
         <div className="border-l-2 border-gray-200 pl-6">
           <div className="flex items-center gap-2 mb-1">

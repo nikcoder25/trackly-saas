@@ -129,22 +129,103 @@ export function getCacheTtl(searchEnabled: boolean): number {
 // Whether the (platform, model) combo hits the provider's web-search path.
 // Perplexity is search-native; ChatGPT's `*-search-preview` family does
 // retrieval. Other providers don't currently surface a search variant.
-export function isSearchEnabled(platform: string, model: string): boolean {
+export function isSearchEnabled(
+  platform: string,
+  model: string,
+  opts?: { geminiGrounding?: boolean },
+): boolean {
   if (platform === 'Perplexity') return true;
+  // Live Google results, read through Litescrape.
+  if (platform === 'Google AI Overview' || platform === 'Google AI Mode') return true;
   if (platform === 'ChatGPT' && model.includes('search')) return true;
+  // Grounded Gemini genuinely hits Google Search, so it must be keyed and
+  // expired like the other retrieval paths. Getting this wrong would let a
+  // grounded answer sit in cache for the long non-search TTL and be served
+  // as though it were today's answer. The plan gate matters here too: an
+  // ungrounded Starter answer and a grounded Pro answer must never share a
+  // cache entry, so the caller passes the same flag it hands to queryAI.
+  if (platform === 'Gemini' && geminiGroundingEnabled() && opts?.geminiGrounding !== false) return true;
   return false;
 }
 
-export async function getCached<T = unknown>(cacheKey: string): Promise<CachedEntry<T> | null> {
+/**
+ * Whether to ask Gemini to ground its answer in Google Search.
+ *
+ * This defaults ON because an ungrounded Gemini answer is not the thing
+ * this product claims to measure: it is the model's recollection of the
+ * world at training time, not what Gemini tells a user who asks today. A
+ * "mention" harvested from parametric memory is not comparable to one
+ * harvested from Perplexity or a ChatGPT search-preview model, and mixing
+ * the two silently made cross-engine share-of-voice misleading.
+ *
+ * Google bills grounding per request on top of tokens, so the escape hatch
+ * exists for anyone who needs to trade the accuracy back for cost.
+ *
+ * JSON mode forces it off regardless: the Gemini API rejects a request that
+ * asks for both a search tool and a response MIME type, and the callers
+ * that use JSON mode (topic classification, nearby areas) are generating
+ * text rather than measuring an engine, so they lose nothing.
+ *
+ * `isSearchEnabled` above calls this without the jsonMode argument because
+ * cache keys are built from (platform, model) before per-call options are
+ * known. The only consequence is that a JSON-mode Gemini call is cached
+ * under the shorter search TTL despite not having searched - it re-asks
+ * sooner than it strictly needs to, which costs a little and risks nothing.
+ */
+export function geminiGroundingEnabled(jsonMode?: boolean): boolean {
+  if (jsonMode) return false;
+  return process.env.GEMINI_GROUNDING_DISABLED !== 'true';
+}
+
+/**
+ * How long a brand tracking run (manual "Run now" or the scheduled daily
+ * run) may reuse an answer that is already in the cache. A run exists to
+ * measure what the engine says today, so it must never be served a prior
+ * run's answer: serving a 14-day-old row made every scan of a brand
+ * report the identical score and finish in a fraction of a second. The
+ * short window still dedupes identical calls inside one run (or one cron
+ * tick across brands) and absorbs an accidental double-click.
+ * Override via RESPONSE_CACHE_RUN_MAX_AGE_S.
+ */
+export function getRunCacheMaxAgeSeconds(): number {
+  const raw = Number(process.env.RESPONSE_CACHE_RUN_MAX_AGE_S);
+  if (Number.isFinite(raw) && raw >= 0) return Math.floor(raw);
+  return 5 * 60;
+}
+
+export interface GetCachedOptions {
+  /**
+   * Only accept a row written within the last N seconds, regardless of its
+   * TTL. Used by tracking runs so a long-lived row written for the cheap
+   * public tools can never stand in for a fresh measurement.
+   */
+  maxAgeSeconds?: number;
+}
+
+export async function getCached<T = unknown>(
+  cacheKey: string,
+  opts?: GetCachedOptions,
+): Promise<CachedEntry<T> | null> {
   if (disabled()) return null;
+  const maxAge = opts?.maxAgeSeconds;
+  if (maxAge !== undefined && maxAge <= 0) return null;
   try {
-    const res = await pool.query(
-      `SELECT response, model, created_at
-         FROM response_cache
-        WHERE cache_key = $1 AND expires_at > NOW()
-        LIMIT 1`,
-      [cacheKey],
-    );
+    const res = maxAge !== undefined
+      ? await pool.query(
+        `SELECT response, model, created_at
+           FROM response_cache
+          WHERE cache_key = $1 AND expires_at > NOW()
+            AND created_at > NOW() - ($2 || ' seconds')::interval
+          LIMIT 1`,
+        [cacheKey, String(maxAge)],
+      )
+      : await pool.query(
+        `SELECT response, model, created_at
+           FROM response_cache
+          WHERE cache_key = $1 AND expires_at > NOW()
+          LIMIT 1`,
+        [cacheKey],
+      );
     if (!res.rows.length) {
       __cacheStats.misses++;
       return null;
@@ -193,6 +274,7 @@ export async function setCached(
              brand_id = EXCLUDED.brand_id,
              city = EXCLUDED.city,
              is_search = EXCLUDED.is_search,
+             created_at = NOW(),
              expires_at = EXCLUDED.expires_at`,
       [
         cacheKey,

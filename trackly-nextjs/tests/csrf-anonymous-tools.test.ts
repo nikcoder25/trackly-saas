@@ -13,10 +13,12 @@ const ORIGIN = 'http://localhost:3000';
 const ANONYMOUS_TOOL_ENDPOINTS = [
   '/api/geo-audit',
   '/api/tools/llms-txt-generator',
+  '/api/tools/llms-txt-validator',
   '/api/tools/ai-crawler-checker',
   '/api/tools/chatgpt-mention-checker',
   '/api/tools/citation-finder',
   '/api/tools/competitor-finder',
+  '/api/tools/nap-checker',
   // Pre-existing anonymous endpoints, locked down to the same contract.
   '/api/contact',
   '/api/newsletter',

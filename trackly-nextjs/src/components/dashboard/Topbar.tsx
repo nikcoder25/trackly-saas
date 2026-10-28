@@ -134,7 +134,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
 
         {/* Notification bell with dropdown */}
         <div ref={notifRef} style={{ position: 'relative', zIndex: 200 }}>
-          <button className="notif-bell" aria-label="Notifications" onClick={(e) => { e.stopPropagation(); setShowNotifs(!showNotifs); }}
+          <button className="notif-bell" aria-label="Notifications" aria-haspopup="true" aria-expanded={showNotifs} onClick={(e) => { e.stopPropagation(); setShowNotifs(!showNotifs); }}
             style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', fontSize: 14, cursor: 'pointer', padding: '4px 8px', lineHeight: 1, borderRadius: 'var(--radius-xs)', position: 'relative' }}>
             🔔
             {unreadCount > 0 && (
@@ -157,7 +157,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Notifications</div>
-                <Link href="/dashboard/alerts" onClick={() => setShowNotifs(false)} style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--primary)', textDecoration: 'none' }}>VIEW ALL →</Link>
+                <Link href="/dashboard/alerts" onClick={() => setShowNotifs(false)} style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--primary)', textDecoration: 'none' }}>View all →</Link>
               </div>
               {notifications.length === 0 ? (
                 <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>No new notifications.</p>
@@ -194,7 +194,19 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
                       );
                     }
                     return (
-                      <div key={n.id} style={rowStyle} onClick={() => markRead(n.id)}>
+                      <div
+                        key={n.id}
+                        style={{ ...rowStyle, cursor: 'pointer' }}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => markRead(n.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            markRead(n.id);
+                          }
+                        }}
+                      >
                         {inner}
                       </div>
                     );

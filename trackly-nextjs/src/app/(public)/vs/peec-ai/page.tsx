@@ -15,9 +15,9 @@ import {
 export const metadata: Metadata = {
   title: 'Livesov vs Peec AI | AI Visibility Tools Compared (2026)',
   description:
-    'Compare Livesov and Peec AI: platform coverage, add-on pricing vs all-inclusive plans, methodology, and who each tool fits. An honest Peec AI alternative comparison.',
+    'Livesov vs Peec AI compared: AI platform coverage, add-on vs all-in pricing, method, and who each tool fits. Read the honest side-by-side before you buy.',
   keywords:
-    'livesov vs peec, peec ai alternative, peec ai review, peec ai pricing, ai visibility tool comparison, geo tool, llm seo tool',
+    'livesov vs peec ai, peec ai vs livesov, ai visibility tool comparison, geo tool, llm seo tool',
   alternates: { canonical: '/vs/peec-ai' },
   openGraph: {
     title: 'Livesov vs Peec AI | AI Visibility Tools Compared (2026)',
@@ -55,7 +55,7 @@ const livesovStrengths = [
     icon: '$',
     title: '10x lower entry price',
     description:
-      'Livesov starts at $9/mo with a 7-day no-card trial. Peec&rsquo;s starter plan lists around $100/mo before add-ons.',
+      'Livesov starts at $19/mo with a 7-day no-card trial. Peec&rsquo;s starter plan lists around $100/mo before add-ons.',
   },
   {
     icon: '◎',
@@ -77,7 +77,7 @@ const livesovStrengths = [
   },
   {
     icon: '🛠',
-    title: '11 free public tools',
+    title: '10 free public tools',
     description:
       'llms.txt generator, AI crawler checker, citation finder and more - useful before you ever sign up.',
   },
@@ -128,7 +128,7 @@ const comparisonRows = [
   ['Query method', 'Direct APIs', 'UI scraping (real sessions)'],
   ['Hallucination / fact-drift detection', '✓', '✗ Not advertised'],
   ['Free trial without a credit card', '✓ 7 days', '✗ Not advertised'],
-  ['Entry price', '$9/mo', '~$100/mo + add-ons'],
+  ['Entry price', '$19/mo', '~$100/mo + add-ons'],
   ['GEO audit included', '✓', '✗'],
 ];
 
@@ -136,12 +136,12 @@ const faqs = [
   {
     question: 'Is Livesov a good Peec AI alternative?',
     answer:
-      'If you want all five major LLMs included at every price point, hallucination detection, and a GEO audit in one product, yes. If Google AI Overviews coverage or UI-scraping methodology are hard requirements, Peec currently has those and Livesov does not.',
+      'If you want all five major LLMs available with no add-ons, hallucination detection, and a GEO audit in one product, yes. If Google AI Overviews coverage or UI-scraping methodology are hard requirements, Peec currently has those and Livesov does not.',
   },
   {
     question: 'How does pricing compare between Livesov and Peec AI?',
     answer:
-      'Livesov runs $0-$89/mo with everything included. Peec lists a starter around $100/mo with ChatGPT, Perplexity, and Google AI Overviews in the base, while Claude, Gemini, DeepSeek, and Grok are paid add-ons (roughly €20-30/mo each) as of June 2026. A five-platform Peec setup can cost 10x a five-platform Livesov setup. Verify current pricing at peec.ai.',
+      'Livesov runs $0-$129/mo with everything included. Peec lists a starter around $100/mo with ChatGPT, Perplexity, and Google AI Overviews in the base, while Claude, Gemini, DeepSeek, and Grok are paid add-ons (roughly €20-30/mo each) as of June 2026. A five-platform Peec setup can cost 10x a five-platform Livesov setup. Verify current pricing at peec.ai.',
   },
   {
     question: 'Does API-based querying vs UI scraping matter?',
@@ -151,7 +151,7 @@ const faqs = [
   {
     question: 'Which tool is better for agencies?',
     answer:
-      'Both target agencies. Livesov&rsquo;s Agency plan ($89/mo) covers multi-brand tracking with premium AI models and API access. Peec&rsquo;s team features are strong but the per-platform add-on pricing multiplies across client portfolios. Agencies managing many SMB clients tend to feel that multiplication quickly.',
+      'Both target agencies. Livesov&rsquo;s Agency plan ($129/mo) covers multi-brand tracking with premium AI models and API access. Peec&rsquo;s team features are strong but the per-platform add-on pricing multiplies across client portfolios. Agencies managing many SMB clients tend to feel that multiplication quickly.',
   },
   {
     question: 'Can I try both before deciding?',
@@ -171,16 +171,16 @@ export default function VsPeecAiPage() {
             Livesov vs <span className="text-[var(--brand)]">Peec AI</span>
           </>
         }
-        subtitle="Peec AI is the fastest-growing European player with UI-scraping methodology and add-on platform pricing. Livesov includes all five major LLMs on every plan - starting free - with evidence capture and hallucination detection built in."
+        subtitle="Peec AI is the fastest-growing European player with UI-scraping methodology and add-on platform pricing. Livesov supports all five major LLMs with no add-ons - starting free - with evidence capture and hallucination detection built in."
         ctaText="Try Livesov free - no card"
       />
 
       <Section pad="0 24px 56px" width={1000}>
         <StatsBar
           stats={[
-            { value: '5', label: 'LLMs included (Livesov, every plan)' },
+            { value: '5', label: 'LLMs supported (Livesov, no add-ons)' },
             { value: '2-3', label: 'LLMs in Peec base plan' },
-            { value: '$9', label: 'Livesov entry price /mo' },
+            { value: '$19', label: 'Livesov entry price /mo' },
             { value: '~$100', label: 'Peec entry price /mo' },
           ]}
         />
@@ -254,7 +254,7 @@ export default function VsPeecAiPage() {
           { href: '/pricing', label: 'Pricing & plans', description: 'Start free, scale to agency multi-brand.' },
           { href: '/how-it-works', label: 'How Livesov works', description: 'Methodology and data pipeline explained.' },
           { href: '/geo-audit', label: 'Free GEO audit', description: 'Score any URL for AI citation-readiness.' },
-          { href: '/tools', label: 'Free AI search tools', description: '11 free tools - no signup required.' },
+          { href: '/tools', label: 'Free AI search tools', description: '10 free tools - most need no signup.' },
         ]}
       />
     </SeoLayout>

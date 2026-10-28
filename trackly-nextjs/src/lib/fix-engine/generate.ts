@@ -74,6 +74,8 @@ export interface GenerateOutput {
   text: string;
   platform: string;
   model: string;
+  /** The provider stopped at the output budget - the reply may be cut off. */
+  truncated?: boolean;
 }
 
 /**
@@ -124,7 +126,7 @@ export async function generateContent(args: GenerateArgs): Promise<GenerateOutpu
         },
       );
       const text = stripLongDashes((result.text || '').trim());
-      if (text) return { text, platform, model };
+      if (text) return { text, platform, model, truncated: result.truncated };
       errors.push(`${platform}: empty response`);
     } catch (e) {
       errors.push(`${platform}: ${(e as Error).message}`);
@@ -140,24 +142,104 @@ export async function generateContent(args: GenerateArgs): Promise<GenerateOutpu
 }
 
 /**
- * Generation that expects a JSON object back. Strips ```json fences and
- * parses; throws a clear error if the model didn't return valid JSON.
+ * The first complete JSON object embedded in `text`, or null.
+ *
+ * A depth counter that understands strings: braces inside string values do
+ * not count, and escapes inside strings do not end them. This replaces the
+ * old first-`{`-to-last-`}` slice, which broke on the two realest shapes of
+ * model output: prose AFTER the JSON that happens to contain a `}` (the
+ * slice grabs too much) and a reply cut off by the output budget (the slice
+ * grabs an unclosed object and the parse error blames "formatting").
+ *
+ * Prose can also contain a stray `{` before the JSON - which can even
+ * balance against a later brace and swallow the real object - so each `{`
+ * is tried as a start, and a balanced slice only wins if it actually
+ * parses. Capped to keep the worst case cheap.
+ */
+export function extractJsonObject(text: string): string | null {
+  let from = 0;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const start = text.indexOf('{', from);
+    if (start < 0) return null;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === '\\') escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') inString = true;
+      else if (ch === '{') depth++;
+      else if (ch === '}' && --depth === 0) {
+        const slice = text.slice(start, i + 1);
+        try { JSON.parse(slice); return slice; } catch { break; /* not JSON - next start */ }
+      }
+    }
+    from = start + 1; // this start never produced valid JSON - try the next
+  }
+  return null;
+}
+
+/**
+ * Output-budget floor for JSON generations.
+ *
+ * max_tokens is a CEILING, not a spend: providers bill the tokens actually
+ * produced, so a small cap saves nothing - what it does is cut a reasoning
+ * model off mid-object once its thinking has eaten the budget, which turns
+ * 100% of the call's cost into garbage. The default Claude model is a
+ * reasoning model, and modules passing caps in the hundreds made every
+ * generation on such a deployment fail with "did not return valid JSON".
+ * Module maxTokens still expresses the expected CONTENT size; this floor
+ * adds the reasoning headroom on top.
+ */
+export const JSON_MIN_BUDGET = 3000;
+
+/**
+ * Generation that expects a JSON object back.
+ *
+ * Parsing is repair-first: fences stripped, then the first balanced object
+ * extracted (see extractJsonObject). When that still fails, ONE retry with
+ * an explicit only-JSON reminder and a doubled output budget - the doubling
+ * matters because a reasoning-heavy model can overrun even the floored
+ * budget, and no formatting reminder fixes a reply that was never allowed
+ * to finish. A parse failure used to fail the fix outright, burning the
+ * user's credit over one malformed reply.
  */
 export async function generateJson<T = Record<string, unknown>>(
   args: GenerateArgs,
 ): Promise<{ data: T; platform: string; model: string }> {
-  const out = await generateContent(args);
-  const cleaned = out.text
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```$/i, '')
-    .trim();
-  // Some models wrap prose around the JSON; grab the first balanced object.
-  const start = cleaned.indexOf('{');
-  const end = cleaned.lastIndexOf('}');
-  const slice = start >= 0 && end > start ? cleaned.slice(start, end + 1) : cleaned;
-  try {
-    return { data: JSON.parse(slice) as T, platform: out.platform, model: out.model };
-  } catch {
-    throw new Error(`Model did not return valid JSON (${out.platform}/${out.model})`);
+  const parse = (raw: string): T | null => {
+    const cleaned = raw
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim();
+    const candidate = extractJsonObject(cleaned) ?? cleaned;
+    try { return JSON.parse(candidate) as T; } catch { return null; }
+  };
+
+  const budget = Math.max(args.maxTokens ?? 1500, JSON_MIN_BUDGET);
+  let out = await generateContent({ ...args, maxTokens: budget });
+  let data = parse(out.text);
+  if (data === null) {
+    logger.warn('fix_engine.generate.bad_json_retry', {
+      platform: out.platform, model: out.model,
+      truncated: out.truncated ?? null,
+      brandId: args.ctx.brand.id,
+      head: out.text.slice(0, 300),
+    });
+    out = await generateContent({
+      ...args,
+      user: `${args.user}\n\nIMPORTANT: Reply with ONLY the JSON object. No prose before or after it, no code fences, and make sure the object is complete.`,
+      maxTokens: budget * 2,
+    });
+    data = parse(out.text);
   }
+  if (data === null) {
+    throw new Error(`Model did not return valid JSON (${out.platform}/${out.model})${out.truncated ? ' - the reply was cut off at the output limit' : ''}. Try Retry, or Regenerate with simpler guidance.`);
+  }
+  return { data, platform: out.platform, model: out.model };
 }

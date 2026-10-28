@@ -92,7 +92,7 @@ export const CASE_STUDIES: CaseStudy[] = [
       'Built a templated 90-day GEO program: audit, third-party placement push, on-page extractability, monthly client report',
       'Trained the team on the LLM SEO playbook over two weeks',
       'Repackaged retainers from SEO-only to SEO + GEO at a 32% price uplift, with measurable AI-mention KPIs',
-      'Used Livesov\'s white-label reports for monthly client deliverables',
+      'Used Livesov\'s PDF reports for monthly client deliverables',
     ],
     outcomes: [
       { value: '+41%', label: 'MRR in 6 months' },

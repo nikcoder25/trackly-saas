@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { reportConversion } from '@/lib/googleAds';
+import { SIGNUP_SOURCES } from '@/lib/attribution';
+import { readFirstTouch } from '@/lib/attribution-client';
+import { parsePlanIntent, savePlanIntent } from '@/lib/plan-intent';
 
 declare global {
   interface Window {
@@ -24,10 +27,19 @@ export default function SignupPage() {
   // Anti-spam: honeypot + timing
   const [honeypot, setHoneypot] = useState('');
   const [formLoadedAt] = useState(() => Date.now());
+  // "Where did you find us?" - the self-reported half of attribution.
+  const [source, setSource] = useState('');
+  const [sourceDetail, setSourceDetail] = useState('');
   const { register, loginWithGoogle } = useAuth();
   const router = useRouter();
   const googleClientIdRef = useRef<string | null>(null);
   const gsiLoadedRef = useRef(false);
+
+  // Remember the plan picked on /pricing so billing can preselect it.
+  useEffect(() => {
+    const intent = parsePlanIntent(window.location.search);
+    if (intent) savePlanIntent(intent);
+  }, []);
 
   // Load Google OAuth - prefer build-time env var, fallback to API
   useEffect(() => {
@@ -84,10 +96,31 @@ export default function SignupPage() {
     }
   }, []);
 
+  // Combines the dropdown answer with the referrer / UTM tags captured on the
+  // landing page. Both halves travel together so the server can store them
+  // side by side - see src/lib/attribution.ts for why the disagreement between
+  // them is the number worth having.
+  const buildAttribution = () => ({
+    source,
+    sourceDetail: sourceDetail.trim() || undefined,
+    ...readFirstTouch(),
+  });
+
+  // Only these two options open the free-text box. Everything else is a
+  // closed choice, which keeps the admin panel groupable.
+  const needsDetail = source === 'other' || source === 'other_ai';
+
   const handleGoogleSignIn = async () => {
     const clientId = googleClientIdRef.current;
     if (!clientId) {
       setError('Google Sign-In is not configured. Please use email and password.');
+      return;
+    }
+    // The Google button sits outside the <form>, so the select's `required`
+    // attribute does not gate it. Check explicitly, or every Google signup
+    // lands with source='unknown'.
+    if (!source) {
+      setError('Please tell us where you found us before continuing.');
       return;
     }
     if (!window.google?.accounts) {
@@ -116,7 +149,7 @@ export default function SignupPage() {
           return;
         }
         setLoading(true);
-        const result = await loginWithGoogle(tokenResponse.access_token);
+        const result = await loginWithGoogle(tokenResponse.access_token, buildAttribution());
         if (result.error) {
           setError(result.error);
           setLoading(false);
@@ -138,6 +171,7 @@ export default function SignupPage() {
     const result = await register(email, password, name || undefined, {
       website: honeypot, // honeypot - should be empty
       _formLoadedAt: formLoadedAt, // timing check
+      attribution: buildAttribution(),
     });
     if (result.error) {
       setError(result.error);
@@ -155,9 +189,12 @@ export default function SignupPage() {
 
       {/* Tabs */}
       <div className="auth-tabs">
-        <Link href="/login" className="auth-tab">Log In</Link>
-        <div className="auth-tab active">Sign Up</div>
+        <div className="auth-tab active">Start free trial</div>
+        <Link href="/login" className="auth-tab">Sign in</Link>
       </div>
+
+      <h1 className="auth-title">Start your free trial</h1>
+      <p style={{ margin: '0 0 22px', fontSize: 16 }}>7 days free. No credit card.</p>
 
       {error && (
         <div className="auth-err" style={{ display: 'block' }}>{error}</div>
@@ -182,14 +219,14 @@ export default function SignupPage() {
           autoComplete="name"
         />
 
-        <label htmlFor="email" className="flbl">Email</label>
+        <label htmlFor="email" className="flbl">Work email</label>
         <input
           id="email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="finp"
-          placeholder="you@example.com"
+          placeholder="you@agency.com"
           required
           autoComplete="email"
         />
@@ -215,6 +252,38 @@ export default function SignupPage() {
             )}
           </button>
         </div>
+
+        <label htmlFor="source" className="flbl">Where did you find us?</label>
+        <select
+          id="source"
+          value={source}
+          onChange={(e) => { setSource(e.target.value); setSourceDetail(''); }}
+          className="finp"
+          required
+        >
+          <option value="" disabled>Select one...</option>
+          {/* Grouped from the single source list so the dropdown and the
+              admin panel can never drift apart. */}
+          {[...new Set(SIGNUP_SOURCES.map(s => s.group))].map(group => (
+            <optgroup key={group} label={group}>
+              {SIGNUP_SOURCES.filter(s => s.group === group).map(s => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+
+        {needsDetail && (
+          <input
+            type="text"
+            value={sourceDetail}
+            onChange={(e) => setSourceDetail(e.target.value)}
+            className="finp"
+            placeholder={source === 'other_ai' ? 'Which assistant?' : 'Tell us more (optional)'}
+            maxLength={200}
+            aria-label={source === 'other_ai' ? 'Which AI assistant' : 'Where you found us'}
+          />
+        )}
 
         <button type="submit" disabled={loading} className="btn-primary" style={loading ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}>
           {loading ? 'Creating account...' : 'Create Account'}

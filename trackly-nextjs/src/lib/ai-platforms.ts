@@ -21,6 +21,8 @@ import {
 } from './redis-platform-state';
 import { PROVIDER_SPECS } from './provider-specs';
 import { logger } from './logger';
+import { geminiChat, googleAiMode, googleAiOverview, litescrapeConfigured, LITESCRAPE_CALL_USD } from './litescrape';
+import { isRedirectCitationHost, looksLikeDomain } from './citation-hosts';
 import { recordAiCall, classifyOutcome, type Outcome } from './metrics';
 import {
   acquirePlatformSlotFair,
@@ -28,22 +30,27 @@ import {
 } from './fairness-scheduler';
 import {
   enforceCostCap,
+  enforcePlatformDailyCap,
+  estimateAnthropicCostUsd,
   recordCostEvent,
   recordCall,
   CHATGPT_WEB_SEARCH_CALL_USD,
+  GEMINI_GROUNDING_CALL_USD,
+  perplexityRequestFeeUsd,
   estimateCostUsd,
-  CostCapExceededError,
 } from './cost-tracker';
 import {
   buildCacheKey,
   getCached,
   setCached,
   getCacheTtl,
+  geminiGroundingEnabled,
 } from './response-cache';
 import { decideRequiresFreshness } from './freshness-classifier';
 import {
   isChatGPTBatchEnabled,
   submitChatGPTBatch,
+  getChatGPTBatchMaxWaitMs,
   ChatGPTBatchError,
 } from './chatgpt-batch';
 
@@ -56,7 +63,12 @@ import {
 // OpenAI's automatic-cache threshold (~1024 tokens) - caching engages
 // only on requests where the combined system+user prefix crosses that
 // bar. This invariant is what keeps the door open.
-const SYSTEM_PROMPT = 'Recommendation assistant. List 3-6 specific businesses by name with one-line descriptions. Max 80 words. No intro, no caveats, no closing advice.';
+// It must answer the question actually asked. The previous wording
+// ("List 3-6 specific businesses by name") forced a list for every prompt,
+// so a brand-awareness prompt like "what is <brand>" came back as a list
+// of OTHER companies. Grok follows the system role most literally, which
+// is why its brand prompts scored 0%.
+const SYSTEM_PROMPT = 'Answer the question directly. If it asks for recommendations, name 3-6 specific businesses with one-line descriptions. If it asks about a specific business, describe that business. Max 80 words. No intro, no caveats, no closing advice.';
 // Output ceiling. Parsed responses (mentions, sentiment, position)
 // typically consume <100 tokens; 100 matches the tightened SYSTEM_PROMPT
 // budget (3-6 names, one line each, no preamble). Override via env for
@@ -259,6 +271,10 @@ export const PLATFORM_LIMITS: Record<string, PlatformLimit> = {
   Gemini:     { maxConcurrent: Number(process.env.AI_LIMITS_GEMINI_CONCURRENCY)     || 6, rpm: Number(process.env.AI_LIMITS_GEMINI_RPM)     || 400, windowMs: 60000 },
   Grok:       { maxConcurrent: Number(process.env.AI_LIMITS_GROK_CONCURRENCY)       || 3, rpm: Number(process.env.AI_LIMITS_GROK_RPM)       || 100, windowMs: 60000 },
   Perplexity: { maxConcurrent: Number(process.env.AI_LIMITS_PERPLEXITY_CONCURRENCY) || 3, rpm: Number(process.env.AI_LIMITS_PERPLEXITY_RPM) || 80,  windowMs: 60000 },
+  // Litescrape allows 5 concurrent calls per account, shared by both Google
+  // engines, consumer Gemini and the rank tracker.
+  'Google AI Overview': { maxConcurrent: Number(process.env.AI_LIMITS_GOOGLE_AIO_CONCURRENCY) || 2, rpm: 120, windowMs: 60000 },
+  'Google AI Mode':     { maxConcurrent: Number(process.env.AI_LIMITS_GOOGLE_AIMODE_CONCURRENCY) || 2, rpm: 60, windowMs: 60000 },
 };
 
 // RPM sliding window stays per-platform global (independent of which
@@ -539,6 +555,28 @@ export async function withDeepRetry<T>(
   }
 }
 
+// ── Perplexity source extraction ───────────────────────
+// Perplexity returns its sources as a top-level `citations` URL array and,
+// on the current API, as `search_results` ({ title, url, date }). Newer
+// responses can carry only `search_results`, which used to leave every
+// Perplexity row with zero sources. Read both, citations first (their
+// order matches the [n] markers in the text), deduped.
+export function extractPerplexityCitations(d: AiResponseData): string[] {
+  const urls: string[] = [];
+  if (Array.isArray(d?.citations)) {
+    for (const c of d.citations) {
+      const u = typeof c === 'string' ? c : (c && typeof c.url === 'string' ? c.url : '');
+      if (u) urls.push(u);
+    }
+  }
+  if (Array.isArray(d?.search_results)) {
+    for (const r of d.search_results) {
+      if (r && typeof r.url === 'string' && r.url) urls.push(r.url);
+    }
+  }
+  return [...new Set(urls)];
+}
+
 // ── Shared response cache wrapper ───────────────────────
 // Wraps any provider-call function (typically a withDeepRetry-wrapped
 // singleAttempt or a raw queryAI call) with a Postgres-backed read-through
@@ -556,6 +594,12 @@ export interface CacheAndRetryParams {
   searchEnabled: boolean;
   /** When true, skip the read but still write the resulting response. */
   fresh?: boolean;
+  /**
+   * Only reuse a cached row written within the last N seconds. Tracking
+   * runs pass getRunCacheMaxAgeSeconds() so they never replay a prior
+   * run's answer; the public tools omit it and keep the long TTL.
+   */
+  maxAgeSeconds?: number;
   /**
    * Brand context - recorded on the row for ops/debug only. Cross-tenant
    * dedup is keyed on the SHA-256 cache_key alone, so once a row exists
@@ -585,7 +629,9 @@ export async function withCacheAndRetry<T extends { model?: string }>(
     city: params.city ?? null,
   });
   if (!params.fresh) {
-    const hit = await getCached<T>(cacheKey);
+    const hit = params.maxAgeSeconds !== undefined
+      ? await getCached<T>(cacheKey, { maxAgeSeconds: params.maxAgeSeconds })
+      : await getCached<T>(cacheKey);
     if (hit) {
       return { data: hit.response, fromCache: true, model: hit.model };
     }
@@ -650,6 +696,8 @@ const PLATFORM_RATE_LIMITS: Record<string, RateLimit> = {
   Gemini:     { minDelayMs: 300 },
   Grok:       { minDelayMs: 250 },
   Perplexity: { minDelayMs: 300 },
+  'Google AI Overview': { minDelayMs: 300 },
+  'Google AI Mode': { minDelayMs: 300 },
 };
 const lastRequestTimePerKey = new Map<string, number>();
 const rateLimitQueues = new Map<string, Promise<void>>();
@@ -713,6 +761,25 @@ const API_ENDPOINTS = {
   grok: { chat: 'https://api.x.ai/v1/chat/completions' },
   claude: { messages: 'https://api.anthropic.com/v1/messages' },
 };
+
+// ── Anthropic prompt caching ─────────────────────────────
+// Long, repeated system prompts (the Fix Engine's SEO brain plus a module
+// prompt, Regional Audit instructions) are re-sent in full on every call.
+// Anthropic flagged this account's cache hit rate as low ("could save up
+// to 44%"). Marking the system block `ephemeral` makes Anthropic cache it
+// for 5 minutes: the first call pays 1.25x on the prefix, every call in
+// the window pays 0.1x. Below the model's minimum cacheable length the
+// marker is ignored server-side, so the threshold here only avoids
+// sending a pointless block on the 150-character tracking prompt.
+export const ANTHROPIC_CACHE_MIN_SYSTEM_CHARS = 4000;
+
+export function buildAnthropicSystem(
+  sysPrompt: string,
+): string | Array<{ type: 'text'; text: string; cache_control: { type: 'ephemeral' } }> {
+  if (process.env.ANTHROPIC_PROMPT_CACHE_DISABLED === 'true') return sysPrompt;
+  if (!sysPrompt || sysPrompt.length < ANTHROPIC_CACHE_MIN_SYSTEM_CHARS) return sysPrompt;
+  return [{ type: 'text', text: sysPrompt, cache_control: { type: 'ephemeral' } }];
+}
 
 // Boot-time TLS/DNS warm-up probe per provider. Fires once on module
 // load for each configured API key env var. Logs status + latency
@@ -794,20 +861,25 @@ function _runProviderBootProbes(): void {
 _runProviderBootProbes();
 
 export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; search?: boolean; default?: boolean }>> = {
+  // Defaults are the cheapest model on each platform. Visibility tracking
+  // only needs to know whether a brand is mentioned, where it ranks and what
+  // is cited; the economy models answer that as reliably as the premium ones
+  // at a fraction of the per-call cost. Admins can still pick a premium
+  // model per platform in /admin-backend/models (plan tier permitting).
   ChatGPT: [
-    { id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini', default: true },
+    { id: 'gpt-5.4-nano', label: 'GPT-5.4 Nano', default: true },
+    { id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini' },
     { id: 'gpt-5.4', label: 'GPT-5.4' },
-    { id: 'gpt-5.4-nano', label: 'GPT-5.4 Nano' },
   ],
   Claude: [
-    { id: 'claude-fable-5', label: 'Fable 5', default: true },
-    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
+    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', default: true },
     { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
+    { id: 'claude-fable-5', label: 'Fable 5 (premium)' },
   ],
   Gemini: [
-    { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', default: true },
+    { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite', default: true },
+    { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
     { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-    { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (Fallback)' },
   ],
   Grok: [
     { id: 'grok-3-mini', label: 'Grok 3 Mini', default: true },
@@ -817,6 +889,9 @@ export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; 
     { id: 'sonar', label: 'Sonar', default: true },
     { id: 'sonar-pro', label: 'Sonar Pro' },
   ],
+  // Read from Google itself via Litescrape: one "model", no tiers.
+  'Google AI Overview': [{ id: 'google-ai-overview', label: 'Google AI Overview', search: true, default: true }],
+  'Google AI Mode': [{ id: 'google-ai-mode', label: 'Google AI Mode', search: true, default: true }],
 };
 
 export const MODEL_PRICING: Record<string, { input: number; output: number }> = {
@@ -827,11 +902,11 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
   // historical record_call rows. The new lineup is gpt-5.4-{mini,,nano}.
   'gpt-4o-mini-search-preview': { input: 0.15, output: 0.60 },
   'gpt-4o': { input: 2.50, output: 10.00 },
-  // NOTE: Fable 5 per-token pricing is a placeholder — confirm against the
-  // current Anthropic price list and update before relying on cost tracking.
-  'claude-fable-5': { input: 3.00, output: 15.00 },
+  // Anthropic list prices ($/1M tokens). Fable 5 sits in the top tier at
+  // 10x Haiku 4.5 on input - which is why it is no longer the default.
+  'claude-fable-5': { input: 10.00, output: 50.00 },
   'claude-sonnet-4-20250514': { input: 3.00, output: 15.00 },
-  'claude-haiku-4-5-20251001': { input: 0.80, output: 4.00 },
+  'claude-haiku-4-5-20251001': { input: 1.00, output: 5.00 },
   'gemini-2.5-flash': { input: 0.10, output: 0.40 },
   'gemini-2.5-pro': { input: 1.25, output: 10.00 },
   'gemini-2.5-flash-lite': { input: 0.075, output: 0.30 },
@@ -1138,6 +1213,46 @@ function _abortReasonMessage(signal: AbortSignal | undefined, fallback: string):
   return fallback;
 }
 
+/**
+ * Read the assistant's text out of an Anthropic Messages response.
+ *
+ * `content` is an ARRAY OF BLOCKS, not a single value, and only blocks of
+ * type "text" carry prose. This used to be read as `content[0].text`,
+ * which silently produced "" for any response whose first block is
+ * something else - a `thinking` block from a reasoning model, or a
+ * `tool_use` block. The call had succeeded, tokens were spent and billed,
+ * and the caller was handed an empty string that surfaced to users as "AI
+ * returned empty response" with nothing to debug.
+ *
+ * That read was written when the default model returned exactly one text
+ * block. The default moved to a Claude 5 model in #719 without this being
+ * revisited, and index 0 stopped being a safe assumption.
+ *
+ * So: concatenate every text block and ignore the rest. Multiple text
+ * blocks are legal and their concatenation is the reply; non-text blocks
+ * are not the reply and must not be mistaken for its absence.
+ */
+export function extractAnthropicText(content: unknown): string {
+  if (typeof content === 'string') return content.trim();
+  if (!Array.isArray(content)) return '';
+  const parts: string[] = [];
+  for (const block of content) {
+    if (!block || typeof block !== 'object') continue;
+    const b = block as { type?: unknown; text?: unknown };
+    if (b.type === 'text' && typeof b.text === 'string') parts.push(b.text);
+  }
+  if (parts.length) return parts.join('').trim();
+  // Tolerate an untyped block that still carries text, rather than
+  // discarding a usable reply over a missing discriminator.
+  for (const block of content) {
+    const b = block as { type?: unknown; text?: unknown } | null;
+    if (b && typeof b === 'object' && b.type === undefined && typeof b.text === 'string') {
+      parts.push(b.text);
+    }
+  }
+  return parts.join('').trim();
+}
+
 async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST_TIMEOUT_MS, apiKey?: string, platform?: string, retryConfig?: FetchAiRetryConfig): Promise<AiResponseData> {
   const MAX_RETRIES = retryConfig?.maxRetries ?? (Number(process.env.AI_MAX_RETRIES) || 5);
   const CALL_MAX_RETRY_SLEEP_MS = retryConfig?.maxSleepMs ?? MAX_RETRY_SLEEP_MS;
@@ -1249,7 +1364,7 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
       if (resp.status === 401 || resp.status === 403) {
         if (apiKey) recordApiKeyFailure(apiKey);
         const data = await resp.json().catch(() => ({}));
-        throw new Error(data.error?.message || `Auth error ${resp.status}`);
+        throw new Error((typeof data.error === 'string' ? data.error : data.error?.message) || `Auth error ${resp.status}`);
       }
 
       if (resp.status === 429 || resp.status === 529) {
@@ -1370,7 +1485,7 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
       }
 
       const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error?.message || `API error ${resp.status}`);
+      if (!resp.ok) throw new Error((typeof data.error === 'string' ? data.error : data.error?.message) || `API error ${resp.status}`);
       return data;
     } catch (e) {
       // If the per-attempt timer fired while we were reading the body,
@@ -1389,72 +1504,14 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
   throw lastErr || new Error('fetchAI: retries exhausted');
 }
 
-// ── Deferred retry queue ────────────────────────────────
-// When a query exhausts its deep-retry budget, enqueue it for a later
-// background retry. On success, the response cache (DB layer) is warmed
-// so the next cron tick / manual re-run returns instantly.
-interface DeferredItem {
-  platform: string;
-  query: string;
-  apiKey: string;
-  model?: string;
-  brand?: BrandContext;
-  options?: QueryOptions;
-  attempts: number;
-  scheduledAt: number;
-}
-const _deferredQueue: DeferredItem[] = [];
-const DEFERRED_MAX_ATTEMPTS = 4;
-const DEFERRED_BASE_DELAY_MS = 5 * 60 * 1000;
-const DEFERRED_QUEUE_MAX = 500;
-
-export function enqueueDeferredRetry(item: Omit<DeferredItem, 'scheduledAt' | 'attempts'> & { attempts?: number; delayMs?: number }): boolean {
-  if (_deferredQueue.length >= DEFERRED_QUEUE_MAX) return false;
-  const attempts = (item.attempts || 0) + 1;
-  if (attempts > DEFERRED_MAX_ATTEMPTS) return false;
-  // Caller may supply delayMs (e.g. the Retry-After hint from a ChatGPT
-  // 429) to park the query just past the window reset. Clamp at 15min so
-  // a malicious/garbage header can't park a query for hours.
-  const delay = item.delayMs && item.delayMs > 0
-    ? Math.min(item.delayMs + 1000, 15 * 60 * 1000)
-    : DEFERRED_BASE_DELAY_MS * Math.pow(2, attempts - 1);
-  _deferredQueue.push({ ...item, attempts, scheduledAt: Date.now() + delay });
-  return true;
-}
-
-let _deferredDraining = false;
-async function _drainDeferredQueue(): Promise<void> {
-  if (_deferredDraining || _deferredQueue.length === 0) return;
-  _deferredDraining = true;
-  try {
-    const now = Date.now();
-    const ready: DeferredItem[] = [];
-    for (let i = _deferredQueue.length - 1; i >= 0; i--) {
-      if (_deferredQueue[i].scheduledAt <= now) ready.push(_deferredQueue.splice(i, 1)[0]);
-    }
-    for (const item of ready) {
-      try {
-        await queryAI(item.platform, item.query, item.apiKey, item.model, item.brand, { ...item.options, silent: true });
-      } catch (e) {
-        const ok = enqueueDeferredRetry(item);
-        if (!ok) {
-          logger.warn(`[deferred.gave_up] ${item.platform}`, {
-            platform: item.platform,
-            attempts: item.attempts,
-            errorClass: (e as Error).name || 'Error',
-            errorMessage: ((e as Error).message || '').slice(0, 240),
-          });
-        }
-      }
-    }
-  } finally {
-    _deferredDraining = false;
-  }
-}
-// Sweep every 60s; cheap no-op when empty.
-if (typeof setInterval !== 'undefined') {
-  setInterval(() => { _drainDeferredQueue().catch(() => {}); }, 60 * 1000);
-}
+// The in-memory "deferred retry queue" that used to live here was removed
+// in the September 2026 cost pass. It re-issued up to four billed provider
+// calls per transient failure from a background timer, bypassed the
+// response cache on both read and write, and discarded every result. Pure
+// spend with no product effect, amplified precisely during provider
+// incidents (a 429/529 storm enqueued four more attempts per failure).
+// withCacheAndRetry + withDeepRetry already cover the bounded, cached
+// retry a run actually needs.
 
 // ── queryAI ────────────────────────────────────────
 interface QueryResult {
@@ -1463,7 +1520,31 @@ interface QueryResult {
   tokensIn: number;
   tokensOut: number;
   citations: string[];
+  /**
+   * The sub-queries the engine issued to a search index while answering
+   * ("query fan-out"). Only populated by providers that report it -
+   * today that is grounded Gemini via `groundingMetadata.webSearchQueries`.
+   * Absent, rather than empty, when the provider does not expose it, so
+   * "this engine does not tell us" stays distinguishable from "this engine
+   * searched for nothing".
+   */
+  fanout?: string[];
+  /**
+   * True when the provider actually performed grounded retrieval for this
+   * answer. Drives the per-call grounding fee in the cost ledger, so it
+   * must reflect what happened rather than what was requested - a model
+   * offered a search tool may decline to use it, and billing that would
+   * over-report spend and trip cost caps early.
+   */
+  grounded?: boolean;
   cached?: boolean;
+  /**
+   * True when the provider stopped because the output budget ran out, not
+   * because the reply was finished. Callers that parse the reply (JSON
+   * modes) use this to retry with a larger budget instead of blaming the
+   * model's formatting. Absent when the provider didn't say.
+   */
+  truncated?: boolean;
 }
 export interface QueryOptions {
   systemPrompt?: string;
@@ -1503,6 +1584,12 @@ export interface QueryOptions {
   // suppresses the downgrade so an admin's selection (including the
   // default model picked deliberately) is preserved verbatim.
   adminSelectedModel?: boolean;
+  // Gemini only. `false` withholds the google_search grounding tool for
+  // this call regardless of the global default - the run paths pass
+  // `geminiGroundingAllowedForPlan(ownerPlan)` so Free/Trial/Starter
+  // brands never incur Google's per-request grounding fee. Undefined
+  // keeps the global behaviour (grounded unless GEMINI_GROUNDING_DISABLED).
+  geminiGrounding?: boolean;
   // ChatGPT only: caller asserts this call is background / scheduled
   // (daily-cron tracking tick) and can tolerate up to
   // CHATGPT_BATCH_MAX_WAIT_MS of asynchronous completion. When both
@@ -1527,6 +1614,79 @@ interface GeminiPayload {
   systemInstruction: { parts: Array<{ text: string }> };
   contents: Array<{ parts: Array<{ text: string }> }>;
   generationConfig: { maxOutputTokens: number; responseMimeType?: string };
+  tools?: Array<{ google_search: Record<string, never> }>;
+}
+
+/**
+ * Pull the queries Gemini actually issued to Google Search, plus the URLs
+ * it retrieved, out of a grounded response.
+ *
+ * `webSearchQueries` is the genuine article: not an inference about what a
+ * fan-out might look like, but the sub-queries Google's own model chose to
+ * expand the prompt into. That makes it the highest-quality fan-out signal
+ * available from any provider we call, and it costs nothing extra once
+ * grounding is on.
+ */
+export function extractGeminiGrounding(
+  cand: unknown,
+): { citations: string[]; fanout: string[]; grounded: boolean } {
+  const meta = (cand as { groundingMetadata?: {
+    webSearchQueries?: unknown;
+    groundingChunks?: Array<{ web?: { uri?: string; title?: string } }>;
+  } })?.groundingMetadata;
+  // No groundingMetadata at all means the model answered without
+  // searching, so Google has nothing to charge a grounding fee for.
+  if (!meta) return { citations: [], fanout: [], grounded: false };
+
+  const fanout = Array.isArray(meta.webSearchQueries)
+    ? [...new Set(
+        meta.webSearchQueries
+          .filter((q): q is string => typeof q === 'string' && q.trim().length > 0)
+          .map(q => q.trim()),
+      )].slice(0, 20)
+    : [];
+
+  // groundingChunks carry Google's redirect URLs (vertexaisearch...) rather
+  // than the publisher URL, but web.title holds the publisher domain. Unwrap
+  // to https://<title>/ when possible so the real site is what gets counted.
+  const citations = Array.isArray(meta.groundingChunks)
+    ? [...new Set(
+        meta.groundingChunks
+          .map(c => {
+            const uri = c?.web?.uri;
+            if (typeof uri !== 'string' || !uri) return undefined;
+            const title = typeof c?.web?.title === 'string' ? c.web.title.trim().toLowerCase() : '';
+            if (isRedirectCitationHost(uri) && looksLikeDomain(title)) return `https://${title}/`;
+            return uri;
+          })
+          .filter((u): u is string => typeof u === 'string' && !!u),
+      )].slice(0, 10)
+    : [];
+
+  return { citations, fanout, grounded: true };
+}
+
+/** Model label recorded for Gemini answers read from gemini.google.com via Litescrape. */
+export const GEMINI_LITESCRAPE_MODEL = 'gemini-web-litescrape';
+
+/**
+ * Gemini visibility answer from consumer Gemini via Litescrape, or null
+ * when the caller should use the Gemini API instead: Litescrape not
+ * configured, GEMINI_VIA_LITESCRAPE=false, a JSON-mode or custom-prompt
+ * caller, or any Litescrape error / timeout / empty reply.
+ */
+export async function geminiViaLitescrape(query: string, sysPrompt: string, options?: QueryOptions): Promise<QueryResult | null> {
+  if (process.env.GEMINI_VIA_LITESCRAPE === 'false' || !litescrapeConfigured()) return null;
+  if (options?.jsonMode || (options?.systemPrompt !== undefined && options.systemPrompt !== SYSTEM_PROMPT)) return null;
+  try {
+    const a = await geminiChat(`${sysPrompt}\n\n${query}`, options?.signal);
+    if (a.empty) return null;
+    return { text: a.text, model: GEMINI_LITESCRAPE_MODEL, tokensIn: 0, tokensOut: 0, citations: a.citations };
+  } catch (e) {
+    if (options?.signal?.aborted) throw e;
+    logger.warn('[gemini.litescrape_fallback]', { errorMessage: ((e as Error).message || '').slice(0, 240) });
+    return null;
+  }
 }
 
 async function callGemini(model: string, query: string, apiKey: string, sysPrompt: string, maxTok: number, options?: QueryOptions): Promise<QueryResult> {
@@ -1545,6 +1705,9 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
       generationConfig: { maxOutputTokens: maxTok },
     };
     if (options?.jsonMode) payload.generationConfig.responseMimeType = 'application/json';
+    if (geminiGroundingEnabled(options?.jsonMode) && options?.geminiGrounding !== false) {
+      payload.tools = [{ google_search: {} }];
+    }
     try {
       const d = await fetchAI(url, {
         method: 'POST',
@@ -1560,11 +1723,15 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
       const parts = cand.content?.parts || [];
       const text = parts.map((p: { text?: string }) => p.text || '').join('\n').trim();
       if (!text) throw tagError('Gemini empty response', { isTransient: true });
+      const grounding = extractGeminiGrounding(cand);
       return {
         text, model: geminiModel,
         tokensIn: d.usageMetadata?.promptTokenCount || 0,
         tokensOut: d.usageMetadata?.candidatesTokenCount || 0,
-        citations: [],
+        truncated: finish === 'MAX_TOKENS',
+        citations: grounding.citations,
+        fanout: grounding.fanout,
+        grounded: grounding.grounded,
       };
     } catch (e) {
       lastErr = e as AiError;
@@ -1714,6 +1881,10 @@ export async function queryAI(
   if (options?.tenantId) {
     await enforceCostCap(options.tenantId);
   }
+  // Global per-platform daily USD cap (see cost-tracker.ts). Runs for
+  // every caller, tenant-attributed or not, so public tools, the Fix
+  // Engine and prompt discovery cannot drain a provider account either.
+  await enforcePlatformDailyCap(platform);
   // Distributed breaker check: a sibling pod that absorbed the 8th 429
   // already opened the breaker in Redis. Honour it here so this pod
   // short-circuits the same way without first having to hit its own
@@ -1762,7 +1933,11 @@ export async function queryAI(
       // estimateCostUsd. Set here so the success-path `recordCall` below
       // can read them without a platform-specific branch.
       let webSearchCalls = 0;
-      let chatgptCostUsd: number | null = null;
+      // Explicit USD cost for providers that bill a per-call retrieval fee
+      // on top of tokens (ChatGPT web_search, Gemini grounding). Left null
+      // for the rest, where recordCall's estimateCostUsd fallback is
+      // accurate because tokens are the whole bill.
+      let retrievalCostUsd: number | null = null;
 
       if (platform === 'ChatGPT') {
         const isSearch = useModel.includes('search');
@@ -1788,8 +1963,8 @@ export async function queryAI(
         // Auto-downgrade for no-search default calls. Conditions:
         //   - Caller did not explicitly select a model
         //     (options.adminSelectedModel !== true).
-        //   - useModel is the platform default (gpt-5.4-mini today).
-        //     Any non-default selection (gpt-5.4 full, gpt-5.4-nano,
+        //   - useModel is the platform default (gpt-5.4-nano today).
+        //     Any non-default selection (gpt-5.4 full, gpt-5.4-mini,
         //     gpt-4o, *-search-preview, …) is honored verbatim.
         //   - web_search is NOT going to be attached. Search-preview
         //     model selection is owned by `resolveChatGPTModel` /
@@ -1798,17 +1973,18 @@ export async function queryAI(
         //   - CHATGPT_NONSEARCH_MODEL is enabled (default
         //     'gpt-5.4-nano'; unset/'off' disables).
         const nonSearchDowngrade = getChatGPTNonSearchModel();
-        const shouldDowngrade =
+        const isDefaultNonSearch =
           !isSearch
           && !options?.adminSelectedModel
           && useModel === getDefaultModel('ChatGPT')
-          && nonSearchDowngrade !== null
-          && nonSearchDowngrade !== useModel;
-        const modelChain = shouldDowngrade
-          ? [
-              nonSearchDowngrade!,
-              ...NONSEARCH_DOWNGRADE_FALLBACKS.filter(m => m !== nonSearchDowngrade),
-            ]
+          && nonSearchDowngrade !== null;
+        // The platform default is now the cheapest model, so the
+        // "downgrade" is usually a no-op - but the transient-error fallback
+        // chain (nano → mini → gpt-4o) must still apply to default calls,
+        // otherwise a nano-side 5xx fails the query outright.
+        const chainHead = isDefaultNonSearch ? nonSearchDowngrade! : useModel;
+        const modelChain = isDefaultNonSearch
+          ? [chainHead, ...NONSEARCH_DOWNGRADE_FALLBACKS.filter(m => m !== chainHead)]
           : [useModel];
         // OpenAI deprecated `max_tokens` in favour of `max_completion_tokens`
         // for the gpt-5 family (and o1/o3 reasoning models) - passing the old
@@ -1898,10 +2074,19 @@ export async function queryAI(
               const customId = options?.queryId
                 ? `q-${options.queryId}`
                 : `cgpt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+              // Bound the batch's own wall-clock wait to the synchronous
+              // timeout budget. The OpenAI Batch API realistically takes
+              // minutes-to-hours, but the task `signal` aborts at ~180s; if
+              // the batch polled until that abort it would consume the whole
+              // budget and then the sync fallback below would run with an
+              // already-aborted signal and fail instantly (guaranteed task
+              // failure + wasted spend). Capping the wait lets the batch fail
+              // FAST so the sync fallback still has budget to land the tick.
+              const batchMaxWaitMs = Math.min(getChatGPTBatchMaxWaitMs(), chatgptTimeoutMs);
               const results = await submitChatGPTBatch(
                 [{ customId, body: buildPayload(m) as unknown as Record<string, unknown> }],
                 apiKey,
-                { signal },
+                { signal, maxWaitMs: batchMaxWaitMs },
               );
               const r = results[0];
               if (!r) {
@@ -1923,7 +2108,14 @@ export async function queryAI(
                 errorClass: (e as Error).name || 'Error',
                 errorMessage: ((e as Error).message || '').slice(0, 240),
               });
-              // Fall through to sync below.
+              // Fall through to sync below - but only if the task signal is
+              // still usable. If the batch exhausted the budget and the
+              // signal already aborted, a sync fetch would throw instantly;
+              // surface the abort as a transient error instead of pretending
+              // to retry.
+              if (signal?.aborted) {
+                throw tagError('ChatGPT: batch path exhausted the request budget', { isTransient: true });
+              }
             }
           }
           return await fetchAI(API_ENDPOINTS.openai.chat, {
@@ -1949,7 +2141,7 @@ export async function queryAI(
             // actually applied (modelChain.length > 1) and (b) the
             // failure is transient. Auth / cost-cap / bad-request
             // errors should NOT trigger a quiet model swap.
-            if (shouldDowngrade && mi < modelChain.length - 1 && isTransientError(e)) {
+            if (isDefaultNonSearch && mi < modelChain.length - 1 && isTransientError(e)) {
               logger.warn('[chatgpt.nonsearch_fallback]', {
                 event: 'fallback',
                 platform: 'ChatGPT',
@@ -1972,6 +2164,7 @@ export async function queryAI(
           model: d.model || chosenModel,
           tokensIn: d.usage?.prompt_tokens || 0,
           tokensOut: d.usage?.completion_tokens || 0,
+          truncated: d.choices?.[0]?.finish_reason === 'length',
           citations: [...new Set(citations)].slice(0, 10) as string[],
         };
         // Count billable web_search tool invocations. OpenAI exposes them
@@ -1997,23 +2190,76 @@ export async function queryAI(
             : 0.030;
           searchSurcharge = webSearchCalls * perCallUsd;
         }
-        chatgptCostUsd = tokenCost + searchSurcharge;
+        retrievalCostUsd = tokenCost + searchSurcharge;
       } else if (platform === 'Claude') {
         const d = await fetchAI(API_ENDPOINTS.claude.messages, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-          body: JSON.stringify({ model: useModel, max_tokens: maxTok, system: sysPrompt, messages: [{ role: 'user', content: query }] }),
+          body: JSON.stringify({ model: useModel, max_tokens: maxTok, system: buildAnthropicSystem(sysPrompt), messages: [{ role: 'user', content: query }] }),
           signal,
         }, AI_CLAUDE_REQUEST_TIMEOUT_MS, apiKey, 'Claude');
+        const claudeText = extractAnthropicText(d.content);
+        const claudeUsage = (d.usage || {}) as {
+          input_tokens?: number; output_tokens?: number;
+          cache_creation_input_tokens?: number; cache_read_input_tokens?: number;
+        };
+        // Anthropic's input_tokens EXCLUDES the cached prefix; fold the
+        // cache write/read counts back in so the ledger's token totals
+        // reflect what was actually sent, and price the call with the
+        // cache multipliers so cost_usd_total matches the invoice.
+        const claudeTokensIn = (claudeUsage.input_tokens || 0)
+          + (claudeUsage.cache_creation_input_tokens || 0)
+          + (claudeUsage.cache_read_input_tokens || 0);
+        retrievalCostUsd = estimateAnthropicCostUsd(d.model || useModel, claudeUsage);
+        if (!claudeText) {
+          // A 200 with no readable text. fetchAI throws on every non-2xx,
+          // so reaching here means the call succeeded and we still have
+          // nothing - which used to surface to users as a bare "AI
+          // returned empty response" with no way to tell why. Record the
+          // shape so the next occurrence is diagnosable rather than a
+          // guess: stop_reason distinguishes "ran out of output budget"
+          // from "refused", and the block types say whether the text was
+          // there in a form we failed to read.
+          logger.warn('[claude] empty_text_response', {
+            model: d.model || useModel,
+            stopReason: (d as { stop_reason?: string }).stop_reason ?? null,
+            blockTypes: Array.isArray(d.content)
+              ? (d.content as Array<{ type?: string }>).map(b => b?.type ?? 'unknown')
+              : typeof d.content,
+            blockCount: Array.isArray(d.content) ? d.content.length : 0,
+            maxTokens: maxTok,
+            tokensOut: d.usage?.output_tokens ?? 0,
+          });
+        }
         result = {
-          text: d.content?.[0]?.text || '',
+          text: claudeText,
           model: d.model || useModel,
-          tokensIn: d.usage?.input_tokens || 0,
-          tokensOut: d.usage?.output_tokens || 0,
+          tokensIn: claudeTokensIn,
+          tokensOut: claudeUsage.output_tokens || 0,
+          truncated: (d as { stop_reason?: string }).stop_reason === 'max_tokens',
           citations: [],
         };
       } else if (platform === 'Gemini') {
+        // Visibility answers go to consumer Gemini through Litescrape first
+        // ($0.00015 a call vs ~$0.035 for a grounded API call). JSON-mode
+        // and custom-system-prompt callers (parsers, Fix Engine) keep the
+        // API, as does any Litescrape failure or timeout.
+        const viaLitescrape = await geminiViaLitescrape(query, sysPrompt, options);
+        if (viaLitescrape) {
+          result = viaLitescrape;
+          retrievalCostUsd = LITESCRAPE_CALL_USD;
+        } else {
         result = await callGemini(useModel, query, apiKey, sysPrompt, maxTok, options);
+        // Google charges per grounded prompt. Bill on evidence that
+        // grounding actually ran (the response carried groundingMetadata)
+        // rather than on merely having offered the tool - the model can
+        // decline to search, and charging for that would over-report.
+        if (result.grounded) {
+          retrievalCostUsd =
+            estimateCostUsd(result.model, result.tokensIn, result.tokensOut)
+            + GEMINI_GROUNDING_CALL_USD;
+        }
+        }
       } else if (platform === 'Perplexity') {
         const d = await fetchAI(API_ENDPOINTS.perplexity.chat, {
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
@@ -2025,12 +2271,23 @@ export async function queryAI(
           model: d.model || useModel,
           tokensIn: d.usage?.prompt_tokens || 0,
           tokensOut: d.usage?.completion_tokens || 0,
-          citations: d.citations || [],
+          citations: extractPerplexityCitations(d),
         };
+        // Tokens plus Perplexity's flat per-request fee (see cost-tracker).
+        retrievalCostUsd = estimateCostUsd(result.model, result.tokensIn, result.tokensOut)
+          + perplexityRequestFeeUsd(result.model);
       } else if (platform === 'Grok') {
         const d = await fetchAI(API_ENDPOINTS.grok.chat, {
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify({ model: useModel, max_tokens: maxTok, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }] }),
+          // grok-3-mini is a reasoning model and its thinking tokens count
+          // against max_tokens, so at the default effort the 100-token
+          // budget could be spent before any answer was written. 'low'
+          // keeps the budget for the visible reply.
+          body: JSON.stringify({
+            model: useModel, max_tokens: maxTok,
+            ...(useModel.startsWith('grok-3-mini') ? { reasoning_effort: 'low' } : {}),
+            messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }],
+          }),
           signal,
         }, AI_GROK_REQUEST_TIMEOUT_MS, apiKey, 'Grok');
         result = {
@@ -2040,6 +2297,22 @@ export async function queryAI(
           tokensOut: d.usage?.completion_tokens || 0,
           citations: [],
         };
+      } else if (platform === 'Google AI Overview' || platform === 'Google AI Mode') {
+        // Google's own AI answer for the tracked prompt, searched from the
+        // brand's city. A query Google shows no AI Overview for is a real
+        // result ("not shown"), not an error, and Litescrape doesn't bill it.
+        const isOverview = platform === 'Google AI Overview';
+        const a = isOverview
+          ? await googleAiOverview(query, brandCity || null, signal)
+          : await googleAiMode(query, brandCity || null, signal);
+        result = {
+          text: a.empty ? '' : a.text,
+          model: isOverview ? 'google-ai-overview' : 'google-ai-mode',
+          tokensIn: 0,
+          tokensOut: 0,
+          citations: a.citations,
+        };
+        retrievalCostUsd = isOverview && a.empty ? 0 : LITESCRAPE_CALL_USD;
       } else {
         throw new Error(`Unknown platform: ${platform}`);
       }
@@ -2081,7 +2354,7 @@ export async function queryAI(
           model: result.model,
           tokensIn: result.tokensIn,
           tokensOut: result.tokensOut,
-          usdCost: chatgptCostUsd ?? undefined,
+          usdCost: retrievalCostUsd ?? undefined,
         });
       }
 
@@ -2095,7 +2368,7 @@ export async function queryAI(
         tokensIn: result.tokensIn,
         tokensOut: result.tokensOut,
         webSearchCalls,
-        costUsd: chatgptCostUsd ?? undefined,
+        costUsd: retrievalCostUsd ?? undefined,
       });
 
       return result;
@@ -2123,18 +2396,6 @@ export async function queryAI(
         isRateLimit: !!err.isRateLimit,
         budgetExhausted: !!err.budgetExhausted,
       });
-      // Cost-cap rejections are user-actionable, not transient - never
-      // park them on the deferred retry queue. The tenant won't pay for
-      // the next minute either; replaying just adds noise.
-      if (e instanceof CostCapExceededError) throw e;
-      if (!options?.silent && (isTransientError(e) || (e as AiError).budgetExhausted)) {
-        // When fetchAI surfaces `needsDeferral: true` (ChatGPT only, when
-        // Retry-After > per-call sleep cap) we park the query just past
-        // the window reset instead of the generic 5-min backoff.
-        const aiErr = e as AiError;
-        const delayMs = aiErr.needsDeferral && aiErr.deferralMs ? aiErr.deferralMs : undefined;
-        enqueueDeferredRetry({ platform, query, apiKey, model: useModel, brand, options, delayMs });
-      }
       throw e;
     }
   }, platform, options?.signal);

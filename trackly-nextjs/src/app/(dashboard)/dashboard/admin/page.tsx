@@ -3,13 +3,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/dashboard/Toast';
+import { useUiFlag } from '@/contexts/UiFlagContext';
+import { PageHead } from '@/app/dashboard-v2/ui';
 
 interface AdminUser {
   id: string;
   email: string;
   username?: string;
   name?: string;
+  /** Effective plan (an expired trial already reads 'free'). */
   plan: string;
+  /** Plan as stored in the DB. */
+  raw_plan?: string;
+  trial_ends_at?: string | null;
   role?: string;
   email_verified?: boolean;
   created_at?: string;
@@ -45,6 +51,24 @@ function avatarGrad(str: string): string {
 }
 
 /* ─── Reusable badge components ────────────────────────────────── */
+
+function fmtShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+}
+
+/** Trial end date under the plan badge: "Ends Oct 30" or "Trial ended Apr 12". */
+function TrialNote({ user }: { user: AdminUser }) {
+  if (!user.trial_ends_at) return null;
+  const end = new Date(user.trial_ends_at);
+  if (isNaN(end.getTime())) return null;
+  let text: string | null = null;
+  if (user.plan === 'trial') text = `Ends ${fmtShortDate(user.trial_ends_at)}`;
+  else if (user.plan === 'free' && end.getTime() <= Date.now()) text = `Trial ended ${fmtShortDate(user.trial_ends_at)}`;
+  if (!text) return null;
+  return (
+    <span style={{ display: 'block', marginTop: 4, fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{text}</span>
+  );
+}
 
 function PlanBadge({ plan }: { plan: string }) {
   const cfg = PLAN_CFG[plan?.toLowerCase()] ?? DEFAULT_CFG;
@@ -104,6 +128,7 @@ function RoleBadge({ role }: { role?: string }) {
 const STAT_PLANS = ['free', 'trial', 'starter', 'pro', 'agency', 'owner'] as const;
 
 export default function AdminPage() {
+  const { isV3 } = useUiFlag();
   const { user, loading: authLoading } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
@@ -144,7 +169,7 @@ export default function AdminPage() {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: '48px 40px', textAlign: 'center', maxWidth: 400 }}>
-          <div style={{ fontSize: 40, marginBottom: 16 }}>🔒</div>
+          <div className="lvx-emoji" style={{ fontSize: 40, marginBottom: 16 }}>🔒</div>
           <p style={{ fontSize: 18, fontWeight: 700, color: '#e11d48', marginBottom: 8 }}>Access Denied</p>
           <p style={{ fontSize: 14, color: 'var(--muted)', margin: 0 }}>Admin panel is only accessible to administrators.</p>
         </div>
@@ -186,6 +211,11 @@ export default function AdminPage() {
   return (
     <div>
 
+      {isV3 ? (
+        // v3: standard page header; the gradient hero card is folded into it.
+        <PageHead title="Admin Panel" sub={<span className="v3-mono">{total} {total === 1 ? 'user' : 'users'} in total</span>}
+          actions={<a href="/dashboard/admin/rank-spend" style={{ fontSize: 14, fontWeight: 600, color: '#4338ca' }}>Rank tracking data spend</a>} />
+      ) : (<>
       {/* ── Header ── */}
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
@@ -232,6 +262,8 @@ export default function AdminPage() {
         </div>
       </div>
 
+      </>)}
+
       {/* ── Plan stat cards: 1-col → 2-col → 3-col → 6-col ── */}
       <div style={{ width: '100%', maxWidth: '100%', overflow: 'hidden', marginBottom: 28 }}>
         <div className="ap-plans-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
@@ -240,7 +272,7 @@ export default function AdminPage() {
             const count = planCounts[plan] ?? 0;
             const pct = total > 0 ? Math.round((count / total) * 100) : 0;
             return (
-              <div key={plan} style={{
+              <div key={plan} className="ap-plan-card" style={{
                 background: 'var(--bg2)',
                 border: '1px solid var(--border)',
                 borderLeft: `3px solid ${cfg.color}`,
@@ -251,9 +283,9 @@ export default function AdminPage() {
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.09)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
               >
-                <div style={{ position: 'absolute', top: -18, right: -18, width: 56, height: 56, borderRadius: '50%', background: cfg.bg, pointerEvents: 'none' }} />
+                <div className="ap-deco" style={{ position: 'absolute', top: -18, right: -18, width: 56, height: 56, borderRadius: '50%', background: cfg.bg, pointerEvents: 'none' }} />
                 <p style={{ fontSize: 10, fontWeight: 700, color: cfg.color, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 5, position: 'relative' }}>
-                  <span>{cfg.icon}</span>{cfg.label}
+                  <span className="lvx-banner-ico">{cfg.icon}</span>{cfg.label}
                 </p>
                 <p style={{ fontSize: 30, fontWeight: 900, color: cfg.color, fontFamily: 'var(--mono)', margin: 0, lineHeight: 1, position: 'relative' }}>
                   {count}
@@ -317,7 +349,7 @@ export default function AdminPage() {
         </div>
       ) : users.length === 0 ? (
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: '56px 24px', textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.45 }}>{search ? '🔍' : '👤'}</div>
+          <div className="lvx-emoji" style={{ fontSize: 40, marginBottom: 12, opacity: 0.45 }}>{search ? '🔍' : '👤'}</div>
           <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px' }}>{search ? 'No users found' : 'No users yet'}</p>
           <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>{search ? `No results match "${search}"` : 'Users will appear here once they sign up.'}</p>
         </div>
@@ -373,7 +405,7 @@ export default function AdminPage() {
                           {u.username ? `@${u.username}` : <span style={{ opacity: 0.3 }}>-</span>}
                         </span>
                       </td>
-                      <td style={{ padding: '13px 16px' }}><PlanBadge plan={u.plan} /></td>
+                      <td style={{ padding: '13px 16px' }}><PlanBadge plan={u.plan} /><TrialNote user={u} /></td>
                       <td style={{ padding: '13px 16px' }}><RoleBadge role={u.role} /></td>
                       <td style={{ padding: '13px 16px' }}><VerifiedBadge verified={u.email_verified} /></td>
                       <td style={{ padding: '13px 16px', fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
@@ -421,7 +453,7 @@ export default function AdminPage() {
                         {u.name && <p style={{ margin: '0 0 2px', fontSize: 14, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</p>}
                         <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</p>
                       </div>
-                      <PlanBadge plan={u.plan} />
+                      <div style={{ textAlign: 'right' }}><PlanBadge plan={u.plan} /><TrialNote user={u} /></div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
                       <RoleBadge role={u.role} />

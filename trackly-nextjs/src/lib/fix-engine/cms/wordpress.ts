@@ -229,14 +229,24 @@ export const wordpressAdapter: CmsAdapter = {
     const r = await resolveResource(base, creds, target.url);
     if (!r) return { ok: false, detail: { reason: 'page_not_found_in_wp' } };
     if (mode === 'append') {
-      // Fetch current content, append, write back.
+      // Fetch current content, append, write back. The read MUST succeed
+      // before anything is written: appending to a body we failed to fetch
+      // means writing `'' + block`, which replaces the page's entire content
+      // with just the appended block — a transient 429/500 on the read would
+      // destroy the page and report ok.
       const cur = await safeFetch(`${base}/${r.kind}/${r.id}?context=edit`, {
         headers: { Authorization: authHeader(creds) },
         timeoutMs: 10_000,
       });
-      const curJson = (await cur.json().catch(() => ({}))) as {
+      if (!cur.ok) {
+        return { ok: false, detail: { reason: 'body_read_failed', status: cur.status }, error: `Could not read the current page body (HTTP ${cur.status}) — nothing was written. Retry the ship.` };
+      }
+      const curJson = (await cur.json().catch(() => null)) as {
         content?: { raw?: string; rendered?: string };
-      };
+      } | null;
+      if (!curJson || typeof curJson.content !== 'object') {
+        return { ok: false, detail: { reason: 'body_read_unparseable' }, error: 'Could not parse the current page body — nothing was written. Retry the ship.' };
+      }
       const existing = curJson.content?.raw ?? curJson.content?.rendered ?? '';
       html = `${existing}\n\n${html}`;
     }
@@ -324,6 +334,11 @@ export const wordpressAdapter: CmsAdapter = {
       headers: { Authorization: authHeader(creds) },
       timeoutMs: 10_000,
     });
+    if (!cur.ok) {
+      // A failed read is not "passage not found" — that misdiagnosis tells
+      // the user their content is theme-rendered when WP just hiccuped.
+      return { ok: false, found: false, detail: { reason: 'body_read_failed', status: cur.status }, error: `Could not read the page body (HTTP ${cur.status}) — retry the ship.` };
+    }
     const curJson = (await cur.json().catch(() => ({}))) as { content?: { raw?: string; rendered?: string } };
     const body = curJson.content?.raw ?? curJson.content?.rendered ?? '';
     if (!body || !body.includes(find)) {

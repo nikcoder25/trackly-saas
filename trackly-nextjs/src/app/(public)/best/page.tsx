@@ -5,9 +5,9 @@ import { Section, SectionHeader, LongForm, PillarLinks } from '@/components/seo/
 import { BEST_CATEGORIES } from '@/data/best-categories';
 
 export const metadata: Metadata = {
-  title: 'What ChatGPT Recommends: AI-Generated Best-Of Lists by Category | Livesov',
+  title: 'What ChatGPT Recommends: Best-Of Lists by Category | Livesov',
   description:
-    'Ranked, continuously updated lists of the brands ChatGPT actually recommends across CRM, project management, SEO tools, analytics, help desk, website builders and more.',
+    'See which brands ChatGPT recommends for CRM, SEO tools, project management, analytics and more. Ranked lists, updated often. Find out where you stand.',
   keywords:
     'what chatgpt recommends, best products chatgpt, ai recommended brands, chatgpt best of, ai recommendation lists, chatgpt picks',
   alternates: { canonical: '/best' },

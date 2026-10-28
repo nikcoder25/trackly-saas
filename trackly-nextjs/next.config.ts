@@ -9,6 +9,13 @@ const nextConfig: NextConfig = {
     // throws ("Failed to generate PDF report"). Keeping it external makes Next
     // require it from node_modules so the font data loads correctly.
     serverExternalPackages: ['pdfkit'],
+    // Dashboard pages are client components behind a dynamic layout, so each
+    // click used to wait on a fresh server round trip. Reusing a visited
+    // page's payload for 30s makes going back and forth between pages
+    // instant; their data still comes from the client-side brand cache.
+    experimental: {
+          staleTimes: { dynamic: 30 },
+    },
     images: {
           remotePatterns: [
             { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
@@ -27,16 +34,21 @@ const nextConfig: NextConfig = {
         destination: '/tools',
         permanent: true,
       },
-      {
-        // Defense-in-depth for the legacy /features route, which never
-        // shipped as a page. The homepage `#features` section is the
-        // canonical destination. Catches any stray external backlink,
-        // cached crawler entry, or future internal link that points at
-        // the bare /features path.
-        source: '/features',
-        destination: '/#features',
+      // Cannibalization fix: each engine had a /x-brand-tracking and a
+      // /x-rank-tracker page chasing the same search. The rank-tracker page
+      // is the one money page per engine; the brand-tracking URLs 301 to it.
+      ...['chatgpt', 'perplexity', 'claude', 'gemini', 'grok'].map((engine) => ({
+        source: `/${engine}-brand-tracking`,
+        destination: `/${engine}-rank-tracker`,
         permanent: true,
-      },
+      })),
+      // Three near-duplicate "track mentions in Perplexity" posts merged
+      // into the strongest one.
+      ...['track-brand-mentions-citations-perplexity-ai', 'is-tracking-brand-mentions-in-perplexity-effective'].map((slug) => ({
+        source: `/blog/${slug}`,
+        destination: '/blog/how-to-track-brand-mentions-in-perplexity',
+        permanent: true,
+      })),
     ],
     headers: async () => [
       {

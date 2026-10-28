@@ -78,6 +78,6 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ ok: true, redirect: redirect.toString() }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) {
     logger.error('fix_engine.connector_approve_failed', { err: (e as Error).message });
-    return Response.json({ error: 'Failed to approve connection', message: (e as Error).message }, { status: 500 });
+    return Response.json({ error: 'Failed to approve connection' }, { status: 500 });
   }
 }

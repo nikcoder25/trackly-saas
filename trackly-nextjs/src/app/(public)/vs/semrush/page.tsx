@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   description:
     'Compare Livesov and the Semrush AI Toolkit. Side by side features, pricing, and AI coverage. A focused Semrush AI Toolkit alternative.',
   keywords:
-    'livesov vs semrush, ai seo tool, chatgpt tracking vs semrush, ai visibility tool comparison, semrush alternative for ai, ai search vs google seo, geo vs seo, semrush vs livesov',
+    'livesov vs semrush, semrush vs livesov, ai seo tool, chatgpt tracking vs semrush, ai visibility tool comparison, ai search vs google seo, geo vs seo',
   alternates: { canonical: '/vs/semrush' },
   openGraph: {
     title: 'Livesov vs Semrush AI Toolkit | Compare Features',
@@ -123,12 +123,12 @@ const semrushStrengths = [
 ];
 
 const comparisonRows = [
-  ['Tracks AI brand mentions (ChatGPT/Claude/Gemini/Perplexity/Grok)', '✓ All 5 platforms', '✗'],
-  ['AI recommendation rank in generated answers', '✓ Per-prompt, per-model', '✗'],
-  ['AI sentiment analysis tuned per platform', '✓', '✗'],
+  ['Tracks AI brand mentions (ChatGPT/Claude/Gemini/Perplexity/Grok)', '✓ Up to 5 platforms', 'Paid add-on (AI Toolkit; check their current engine list)'],
+  ['AI recommendation rank in generated answers', '✓ Per-prompt, per-model', 'With add-on'],
+  ['AI sentiment analysis tuned per platform', '✓', 'Partial'],
   ['AI hallucination / fact-drift detection', '✓ Canonical facts store', '✗'],
-  ['Perplexity / ChatGPT Search citation capture', '✓ Full ranked list', '✗'],
-  ['Competitor brand co-occurrence in AI answers', '✓ Up to 20 competitors', '✗'],
+  ['Perplexity / ChatGPT Search citation capture', '✓ Full ranked list', 'With add-on'],
+  ['Competitor brand co-occurrence in AI answers', '✓ Up to 20 competitors', 'With add-on'],
   ['Google SERP rank tracking', 'Limited', '✓ Industry-leading'],
   ['Keyword research database', '✗', '✓ Industry-leading'],
   ['Backlink database', '✗', '✓'],
@@ -146,12 +146,12 @@ const faqs = [
   {
     question: 'Is Livesov a cheaper alternative to Semrush?',
     answer:
-      'They&apos;re priced differently because they do different things. Livesov plans start free and scale by AI credits and tracked brands. Semrush prices by SEO seats and module breadth. Many teams find Livesov pays for itself by giving them a new measurable channel - AI visibility - that Semrush simply doesn&apos;t cover.',
+      'They&apos;re priced differently because they do different things. Livesov plans start free and scale by AI credits and tracked brands. Semrush prices by SEO seats and module breadth. Many teams find Livesov pays for itself by giving them a new measurable channel - AI visibility - that Semrush only covers through a paid add-on.',
   },
   {
     question: 'Does Semrush track AI mentions?',
     answer:
-      'Semrush has some surface visibility into Google AI Overviews via its SERP tracking, but it does not call the ChatGPT, Claude, Perplexity, or Grok APIs to monitor brand mentions in AI-generated answers. That gap is exactly what Livesov fills.',
+      'Yes, through the Semrush AI Toolkit, which is sold as a paid add-on on top of its SEO plans. It reports brand mentions and some sentiment across several AI assistants; check their current engine list, since it changes. Livesov is built only for AI visibility and starts at $19 a month with no SEO suite or add-on needed.',
   },
   {
     question: 'How do GEO and traditional SEO fit together?',
@@ -188,8 +188,8 @@ export default function VsSemrushPage() {
       <Section pad="0 24px 56px" width={1000}>
         <StatsBar
           stats={[
-            { value: '5', label: 'AI platforms (Livesov)' },
-            { value: '0', label: 'AI platforms (Semrush)' },
+            { value: 'Up to 5', label: 'AI platforms (Livesov)' },
+            { value: 'Add-on', label: 'AI tracking (Semrush AI Toolkit)' },
             { value: '50+', label: 'Tools / modules (Semrush)' },
             { value: '7-day', label: 'Free Livesov trial' },
           ]}
@@ -237,7 +237,7 @@ export default function VsSemrushPage() {
       <Section background="var(--bg-section, #f7f5f1)" pad="80px 24px">
         <SectionHeader
           label="Where Livesov leads"
-          title="The six things Livesov does that Semrush can&rsquo;t"
+          title="Where Livesov goes further than Semrush"
         />
         <FeatureGrid items={livesovStrengths} columns={3} />
       </Section>
@@ -283,11 +283,10 @@ export default function VsSemrushPage() {
           </ol>
 
           <Callout title="The single biggest blind spot" variant="note">
-            Assuming Semrush&apos;s AI Overviews coverage is enough. AI Overviews are one
-            surface - and Semrush treats them as a SERP feature, not as a generative answer.
-            ChatGPT, Claude, Perplexity, and Grok are completely off Semrush&apos;s map, and
-            they&apos;re where most B2B research and an increasing share of consumer discovery
-            now happens.
+            Assuming your Semrush plan already covers AI search. Semrush is built around
+            Google; its AI mention tracking (the AI Toolkit) is a paid add-on with its own
+            engine list. Check what it covers today before assuming ChatGPT, Claude,
+            Perplexity, and Grok are in your reports.
           </Callout>
 
           <h2>When to pick Livesov first (and Semrush later)</h2>
@@ -311,11 +310,11 @@ export default function VsSemrushPage() {
           <p>
             For the full GEO framework, read our{' '}
             <a href="/geo-optimization">Generative Engine Optimization guide</a>. For platform-
-            specific tactics, see <a href="/chatgpt-brand-tracking">ChatGPT</a>,{' '}
-            <a href="/perplexity-brand-tracking">Perplexity</a>,{' '}
-            <a href="/claude-brand-tracking">Claude</a>,{' '}
-            <a href="/gemini-brand-tracking">Gemini</a>, and{' '}
-            <a href="/grok-brand-tracking">Grok</a> brand tracking pages.
+            specific tactics, see <a href="/chatgpt-rank-tracker">ChatGPT</a>,{' '}
+            <a href="/perplexity-rank-tracker">Perplexity</a>,{' '}
+            <a href="/claude-rank-tracker">Claude</a>,{' '}
+            <a href="/gemini-rank-tracker">Gemini</a>, and{' '}
+            <a href="/grok-rank-tracker">Grok</a> brand tracking pages.
           </p>
         </LongForm>
       </Section>

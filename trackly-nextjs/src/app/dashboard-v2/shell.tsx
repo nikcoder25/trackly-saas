@@ -29,8 +29,10 @@ export const NAV = [
   { label: 'Tools', items: [
     { id: 'geo-audit',  label: 'GEO Audit',       icon: '◉' },
     { id: 'regional',   label: 'Regional Audits', icon: '◐' },
-    { id: 'connect',    label: 'Connect Site',    icon: '⚯', badge: 'NEW' },
-    { id: 'fixes',      label: 'Fix Engine',      icon: '✦', badge: 'NEW' },
+    // Parked: kept in NAV (so the hash routes still resolve) but not rendered
+    // in the sidebar. Drop `hidden` to put them back.
+    { id: 'connect',    label: 'Connect Site',    icon: '⚯', badge: 'NEW', hidden: true },
+    { id: 'fixes',      label: 'Fix Engine',      icon: '✦', badge: 'NEW', hidden: true },
     { id: 'onboarding', label: 'Onboarding',      icon: '◇' },
   ] },
   { label: 'Settings', items: [
@@ -216,7 +218,7 @@ export function Sidebar() {
             {group.label}
             {GROUP_HELP[group.label] && <Info term={null} size={11}>{GROUP_HELP[group.label]}</Info>}
           </div>
-          {group.items.map(it => (
+          {group.items.map(it => (it as any).hidden ? null : (
             <button key={it.id} className={'sb-item ' + (page === it.id ? 'on' : '')} onClick={() => go(it.id)}>
               <span className="sb-i"><NavIcon id={it.id} /></span>
               <span>{it.label}</span>
@@ -276,7 +278,7 @@ export function Topbar({ brandName = 'Acme PM', brandMeta = '3 / 5' }: { brandNa
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 6C3 3.8 4.8 2 7 2C9.2 2 11 3.8 11 6V8L12 10H2L3 8V6Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" fill="none" /><path d="M5.5 11.5C5.5 12.3 6.2 13 7 13C7.8 13 8.5 12.3 8.5 11.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none" /></svg>
           <span className="dot" />
         </button>
-        <span className="plan-badge">TEAM</span>
+        <span className="plan-badge">Team</span>
         <button className="avatar">N</button>
       </div>
     </header>
@@ -365,7 +367,7 @@ export function WhatChangedRecap() {
           <svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 2L12 12M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
         </button>
         <div className="recap-hd">
-          <div className="recap-eyebrow eyebrow">SINCE YOU WERE GONE</div>
+          <div className="recap-eyebrow eyebrow">Since you were gone</div>
           <h2 className="recap-title">Welcome back, Nikhil.</h2>
           <p className="recap-sub">Here&rsquo;s what moved while you were away - tap any item to jump straight to it.</p>
         </div>
@@ -398,35 +400,71 @@ export function WhatChangedRecap() {
   );
 }
 
-export function GoalCard({ current = 27.4 }: { current?: number }) {
+export function GoalCard({ current = 27.4, brandId, brandGoal, onSaved }: {
+  current?: number; brandId?: string; brandGoal?: number; onSaved?: () => void | Promise<void>;
+}) {
   const ex = useExtras();
-  const goal = ex?.goal || { target: 30, by: 'Jun 30' };
+  // When ExtrasProvider isn't mounted (e.g. production /dashboard), fall back to
+  // the same localStorage key it uses so Save actually persists and reads back
+  // instead of silently snapping to the hardcoded default on every render.
+  const [lsGoal, setLsGoal] = useLS('lvx_goal', { target: 30, by: 'Jun 30' });
+  const localGoal = ex?.goal || lsGoal;
+  const persistGoal = ex?.setGoal || setLsGoal;
+  // The brand's saved goal (Brand Setup) wins over the local fallback.
+  const target = brandGoal && brandGoal > 0 ? brandGoal : localGoal.target;
   const [editing, setEditing] = React.useState(false);
-  const [draft, setDraft] = React.useState<number | string>(goal.target);
-  const pct = Math.max(0, Math.min(100, Math.round((current / goal.target) * 100)));
-  const gap = (goal.target - current).toFixed(1);
-  const hit = current >= goal.target;
-  const save = () => {
-    const n = Math.max(1, Math.min(100, Number(draft) || goal.target));
-    ex?.setGoal({ ...goal, target: n });
+  const [saving, setSaving] = React.useState(false);
+  const [err, setErr] = React.useState<string | null>(null);
+  const [draft, setDraft] = React.useState<number | string>(target);
+  const pct = Math.max(0, Math.min(100, Math.round((current / target) * 100)));
+  const gap = Math.max(0, target - current).toFixed(1);
+  const hit = current >= target;
+  const cancel = () => { setEditing(false); setErr(null); };
+  const save = async () => {
+    const n = Math.max(1, Math.min(100, Number(draft) || target));
+    setErr(null);
+    if (brandId) {
+      setSaving(true);
+      try {
+        const res = await fetch(`/api/brands/${brandId}`, {
+          method: 'PUT', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ goal: n }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || `HTTP ${res.status}`);
+        }
+        await onSaved?.();
+      } catch (e: any) {
+        setErr(e?.message || 'Could not save goal');
+        setSaving(false);
+        return;
+      }
+      setSaving(false);
+    }
+    persistGoal({ ...localGoal, target: n });
     setEditing(false);
   };
   return (
     <section className="goal-card">
       <div className="goal-top">
         <div>
-          <div className="eyebrow" style={{ display: 'flex', alignItems: 'center' }}>YOUR GOAL <Info term="sov" /></div>
+          <div className="eyebrow" style={{ display: 'flex', alignItems: 'center' }}>Your goal <Info term="sov" /></div>
           {editing ? (
             <div className="goal-edit">
               <span>Reach</span>
-              <input className="aud-input goal-input" type="number" min={1} max={100} value={draft} onChange={e => setDraft(e.target.value)} autoFocus />
+              <input className="aud-input goal-input" type="number" min={1} max={100} value={draft} onChange={e => setDraft(e.target.value)} autoFocus
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); save(); } else if (e.key === 'Escape') { e.preventDefault(); cancel(); } }} />
               <span>% Share of Voice</span>
-              <button className="btn-p" style={{ padding: '5px 10px', fontSize: 11 }} onClick={save}>Save</button>
+              <button className="btn-p" style={{ padding: '5px 10px', fontSize: 11 }} onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+              <button className="btn-g" style={{ padding: '5px 10px', fontSize: 11 }} onClick={cancel} disabled={saving}>Cancel</button>
+              {err && <span className="neg" style={{ fontSize: 11 }}>{err}</span>}
             </div>
           ) : (
             <div className="goal-line">
-              Reach <b>{goal.target}% Share of Voice</b> by {goal.by}
-              <button className="goal-edit-btn" onClick={() => { setDraft(goal.target); setEditing(true); }}>Edit</button>
+              Reach <b>{target}% Share of Voice</b> across AI engines
+              <button className="goal-edit-btn" onClick={() => { setDraft(target); setErr(null); setEditing(true); }}>Edit</button>
             </div>
           )}
         </div>
@@ -437,12 +475,12 @@ export function GoalCard({ current = 27.4 }: { current?: number }) {
       </div>
       <div className="goal-track">
         <i style={{ width: pct + '%' }} />
-        <span className="goal-marker" style={{ left: '100%' }} title={`Target ${goal.target}%`} />
+        <span className="goal-marker" style={{ left: '100%' }} title={`Target ${target}%`} />
       </div>
       <div className="goal-foot">
         {hit
           ? <span className="pos" style={{ fontWeight: 600 }}>🎉 Goal reached - set a bolder target!</span>
-          : <span><b className="mono" style={{ color: 'var(--text)' }}>{gap} points</b> to go - about <b>{Math.max(1, Math.ceil(Number(gap) / 0.6))} weeks</b> at your current pace.</span>}
+          : <span><b className="mono" style={{ color: 'var(--text)' }}>{gap} points</b> to go ({pct}% of the way there).</span>}
         <span className="goal-pct mono">{pct}%</span>
       </div>
     </section>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, Badge, Bar, Pill, Donut, PageHead } from '@/app/dashboard-v2/ui';
+import { normalizeAuditUrl, pickCategoryFinding, scoreTone } from '@/lib/geo-audit-utils';
 
 interface CategoryResult {
   name: string;
@@ -84,6 +85,8 @@ export default function DashboardGeoAuditPage() {
     setResult(null);
     setLoading(true);
     setProgress(0);
+    // Accept bare domains ("livesov.com"): https:// is assumed.
+    const target = normalizeAuditUrl(url);
 
     const interval = setInterval(() => {
       setProgress((p) => (p >= 90 ? (clearInterval(interval), 90) : p + Math.random() * 15));
@@ -93,7 +96,7 @@ export default function DashboardGeoAuditPage() {
       const res = await fetch('/api/geo-audit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim() }),
+        body: JSON.stringify({ url: target }),
       });
       const data = await res.json();
 
@@ -110,7 +113,7 @@ export default function DashboardGeoAuditPage() {
       setResult({ ...data, categories: cats });
 
       const saved: SavedAudit = {
-        url: url.trim(),
+        url: target,
         score: data.overallScore,
         date: new Date().toISOString(),
         result: { ...data, categories: cats },
@@ -138,12 +141,15 @@ export default function DashboardGeoAuditPage() {
         <Card title="New audit">
           <form onSubmit={handleSubmit} className="audit-form">
             <div className="aud-field">
-              <label className="eyebrow">PAGE URL</label>
+              <label className="eyebrow">Page URL</label>
               <input
                 className="aud-input"
-                type="url"
+                type="text"
+                inputMode="url"
+                autoCapitalize="none"
+                spellCheck={false}
                 required
-                placeholder="https://yoursite.com/page"
+                placeholder="yoursite.com/page"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
               />
@@ -175,7 +181,7 @@ export default function DashboardGeoAuditPage() {
             )}
 
             <div className="aud-cta">
-              <span className="mono dim" style={{ fontSize: 11 }}>≈ FETCH + SCORE ACROSS GEO CATEGORIES</span>
+              <span className="mono dim" style={{ fontSize: 11 }}>≈ Fetch + score across GEO categories</span>
               <button type="submit" className="btn-p" disabled={loading} style={{ padding: '10px 18px' }}>
                 {loading ? 'Auditing…' : '▶ Audit this page'}
               </button>
@@ -196,7 +202,7 @@ export default function DashboardGeoAuditPage() {
           >
             <div className="aud-summary">
               <div className="aud-num">
-                <Donut value={result.overallScore} size={140} label="OVERALL SCORE" />
+                <Donut value={result.overallScore} size={140} label="Overall score" />
                 <div style={{ marginTop: 14, fontSize: 11, color: 'var(--mute)', textAlign: 'center', fontFamily: 'var(--mono)' }}>
                   {result.overallScore >= 70 ? 'Good' : result.overallScore >= 40 ? 'Needs work' : 'Poor'}
                 </div>
@@ -206,17 +212,24 @@ export default function DashboardGeoAuditPage() {
                   <Find ok>
                     Audited <b>{result.meta.title}</b>
                   </Find>
-                  {resultCats.map((cat) => (
-                    <Find
-                      key={cat.name || cat.label}
-                      ok={cat.score >= 70}
-                      warn={cat.score >= 40 && cat.score < 70}
-                      bad={cat.score < 40}
-                    >
-                      <b>{cat.name || cat.label}</b> scored <b>{cat.score}</b>
-                      {cat.findings && cat.findings[0] ? ` - ${cat.findings[0]}` : ''}
-                    </Find>
-                  ))}
+                  {resultCats.map((cat) => {
+                    // The icon follows the score, and the finding shown next
+                    // to it is picked to match: a strength for a good score,
+                    // the first thing to fix for a weak one.
+                    const tone = scoreTone(cat.score);
+                    const finding = pickCategoryFinding(cat.score, cat.findings);
+                    return (
+                      <Find
+                        key={cat.name || cat.label}
+                        ok={tone === 'pos'}
+                        warn={tone === 'warn'}
+                        bad={tone === 'neg'}
+                      >
+                        <b>{cat.name || cat.label}</b> scored <b>{cat.score}</b>
+                        {finding ? ` - ${finding}` : ''}
+                      </Find>
+                    );
+                  })}
                 </div>
                 <div className="audit-by-engine">
                   {resultCats.map((cat) => (

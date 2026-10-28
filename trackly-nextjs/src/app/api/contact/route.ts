@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { sendContactFormEmail } from '@/lib/email';
 import { checkForSpam } from '@/lib/spam-filter';
 import { logError, serverError } from '@/lib/api-error';
@@ -43,12 +43,19 @@ async function verifyTurnstileToken(token: string, ip: string): Promise<boolean>
 }
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const ip = getClientIp(request);
   const rl = await rateLimit('contact:' + ip, 300 * 1000, 3);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   try {
-    const { name, email, subject, inquiryType, message, turnstileToken, hp_field } = await request.json();
+    // A malformed body falls through to the field validation below (which
+    // returns 400) rather than throwing into the catch-all as a 500 - see
+    // geo-audit/route.ts for the rationale.
+    const body = (await request.json().catch(() => ({}))) as {
+      name?: unknown; email?: unknown; subject?: unknown; inquiryType?: unknown;
+      message?: unknown; turnstileToken?: unknown; hp_field?: unknown;
+    };
+    const { name, email, subject, inquiryType, message, turnstileToken, hp_field } = body;
 
     // --- Honeypot check ---
     // The "hp_field" field is hidden from real users; bots will fill it in
@@ -82,7 +89,10 @@ export async function POST(request: NextRequest) {
     if (!subject || typeof subject !== 'string' || !subject.trim()) {
       return Response.json({ error: 'Subject is required.' }, { status: 400 });
     }
-    if (!inquiryType || !INQUIRY_TYPES.includes(inquiryType)) {
+    // typeof guard as well as the allow-list: previously `inquiryType` was
+    // implicitly `any`, so a non-string value reached `INQUIRY_TYPES.includes`
+    // and was only rejected by luck of that comparison.
+    if (typeof inquiryType !== 'string' || !INQUIRY_TYPES.includes(inquiryType)) {
       return Response.json({ error: 'Please select a valid inquiry type.' }, { status: 400 });
     }
     if (!message || typeof message !== 'string' || message.trim().length < 20) {

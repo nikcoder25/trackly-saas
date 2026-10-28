@@ -441,3 +441,85 @@ describe('consistencyScore', () => {
     expect(consistencyScore([])).toBe(0);
   });
 });
+
+// ── Backlink verification ────────────────────────────────────────────────────
+// verifyBacklink + its verifyNap integration: the check that turns a citation
+// audit into a backlink audit (does the page actually link to the client?).
+import { verifyBacklink } from '../nap-verify';
+
+describe('verifyBacklink', () => {
+  const SITE = 'https://wolfsbanek9.com';
+
+  it('finds a dofollow link with its anchor text', () => {
+    const html = `<p>Visit <a href="https://www.wolfsbanek9.com/services">Wolfsbane K9 training</a> today.</p>`;
+    const b = verifyBacklink(html, SITE)!;
+    expect(b.found).toBe(true);
+    expect(b.nofollow).toBe(false);
+    expect(b.anchor).toBe('Wolfsbane K9 training');
+    expect(b.count).toBe(1);
+  });
+
+  it('reports nofollow when every matching link is nofollow/sponsored/ugc', () => {
+    const html = `<a rel="nofollow ugc" href="https://wolfsbanek9.com">site</a>`;
+    expect(verifyBacklink(html, SITE)!.nofollow).toBe(true);
+  });
+
+  it('reports dofollow when at least one matching link passes equity', () => {
+    const html = `
+      <a rel="nofollow" href="https://wolfsbanek9.com/a">one</a>
+      <a href="https://wolfsbanek9.com/b">two</a>`;
+    const b = verifyBacklink(html, SITE)!;
+    expect(b.nofollow).toBe(false);
+    expect(b.count).toBe(2);
+  });
+
+  it('matches protocol-relative hrefs and subdomains at the registrable level', () => {
+    const html = `<a href="//blog.wolfsbanek9.com/post">post</a>`;
+    expect(verifyBacklink(html, SITE)!.found).toBe(true);
+  });
+
+  it('accepts a scheme-less canonical website', () => {
+    const html = `<a href="https://wolfsbanek9.com">x</a>`;
+    expect(verifyBacklink(html, 'wolfsbanek9.com')!.found).toBe(true);
+  });
+
+  it('ignores relative, mailto and other-domain links', () => {
+    const html = `
+      <a href="/local/page">rel</a>
+      <a href="mailto:hi@wolfsbanek9.com">mail</a>
+      <a href="https://other-site.com">other</a>`;
+    expect(verifyBacklink(html, SITE)).toEqual({ found: false });
+  });
+
+  it('returns null for an unusable website value', () => {
+    expect(verifyBacklink('<a href="https://x.com">x</a>', 'not a url')).toBeNull();
+  });
+});
+
+describe('verifyNap backlink integration', () => {
+  const canonical = { name: 'Wolfsbane K9', website: 'https://wolfsbanek9.com' };
+
+  it('tags "no link to website" when the website is set but no link is on the page', () => {
+    const v = verifyNap(canonical, `<p>Wolfsbane K9 is great.</p>`);
+    expect(v.backlink).toEqual({ found: false });
+    expect(v.tags).toContain('no link to website');
+  });
+
+  it('attaches the backlink data without tagging when the link exists', () => {
+    const v = verifyNap(canonical, `<p>Wolfsbane K9 - <a href="https://wolfsbanek9.com">visit</a></p>`);
+    expect(v.backlink?.found).toBe(true);
+    expect(v.tags).not.toContain('no link to website');
+  });
+
+  it('leaves audits without a website completely untouched', () => {
+    const v = verifyNap({ name: 'Wolfsbane K9' }, `<p>Wolfsbane K9 is great.</p>`);
+    expect(v.backlink).toBeUndefined();
+    expect(v.tags).not.toContain('no link to website');
+  });
+
+  it('never changes the NAP matchScore', () => {
+    const withSite = verifyNap(canonical, `<p>Wolfsbane K9.</p>`);
+    const withoutSite = verifyNap({ name: 'Wolfsbane K9' }, `<p>Wolfsbane K9.</p>`);
+    expect(withSite.matchScore).toBe(withoutSite.matchScore);
+  });
+});

@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   description:
     'Compare Livesov and Otterly.ai side by side: AI platforms covered, prompt limits, pricing, citations, and sentiment. An honest Otterly alternative comparison.',
   keywords:
-    'livesov vs otterly, otterly alternative, otterly ai review, ai visibility tool comparison, ai search monitoring tools, otterly pricing, track brand chatgpt',
+    'livesov vs otterly, otterly vs livesov, ai visibility tool comparison, ai search monitoring tools, track brand chatgpt',
   alternates: { canonical: '/vs/otterly' },
   openGraph: {
     title: 'Livesov vs Otterly.ai | AI Visibility Tools Compared (2026)',
@@ -47,9 +47,9 @@ export const metadata: Metadata = {
 const livesovStrengths = [
   {
     icon: '⚙',
-    title: 'All 5 LLMs on every plan',
+    title: 'All 5 LLMs, no add-ons',
     description:
-      'ChatGPT, Claude, Gemini, Perplexity, and Grok are all available in Livesov - no per-platform add-on pricing, and the 7-day trial includes all five.',
+      'ChatGPT, Claude, Gemini, Perplexity, and Grok are all available in Livesov with no per-platform add-on pricing (2 engines on Starter, 3 on Pro, all five on Agency), and the 7-day trial includes all five.',
   },
   {
     icon: '⚠',
@@ -73,7 +73,7 @@ const livesovStrengths = [
     icon: '$',
     title: 'Lower entry price',
     description:
-      'Plans from $9/mo with a 7-day no-card trial. Strong fit for SMBs and early-stage teams priced out of enterprise tools.',
+      'Plans from $19/mo with a 7-day no-card trial. Strong fit for SMBs and early-stage teams priced out of enterprise tools.',
   },
   {
     icon: '⟁',
@@ -132,24 +132,24 @@ const comparisonRows = [
   ['Hallucination / fact-drift detection', '✓', '✗'],
   ['Full AI response stored as evidence', '✓', 'Partial'],
   ['Free trial without a credit card', '✓ 7 days', '14-day trial'],
-  ['Entry price', '$9/mo (Starter)', '$29/mo (Lite, ~10 prompts)'],
+  ['Entry price', '$19/mo (Starter)', '$29/mo (Lite, ~10 prompts)'],
 ];
 
 const faqs = [
   {
     question: 'Is Livesov a good Otterly.ai alternative?',
     answer:
-      'If your priority is covering all five major LLMs (including Claude and Grok) on every plan, storing full AI responses as evidence, and a lower entry price, yes. If your priority is Google AI Overviews, Google AI Mode, or Microsoft Copilot tracking, Otterly currently covers those surfaces and Livesov does not.',
+      'If your priority is covering all five major LLMs (including Claude and Grok) with no add-ons, storing full AI responses as evidence, and a lower entry price, yes. If your priority is Google AI Overviews, Google AI Mode, or Microsoft Copilot tracking, Otterly currently covers those surfaces and Livesov does not.',
   },
   {
     question: 'How do Livesov and Otterly pricing compare?',
     answer:
-      'Livesov plans run $9-$89/mo, each with a 7-day no-card trial. Otterly lists Lite at $29/mo (around 10 prompts), Standard at $189/mo, and Pro at $989/mo on its public pricing page as of June 2026. Pricing changes - always confirm on each vendor’s site.',
+      'Livesov plans run $19-$129/mo, each with a 7-day no-card trial. Otterly lists Lite at $29/mo (around 10 prompts), Standard at $189/mo, and Pro at $989/mo on its public pricing page as of June 2026. Pricing changes - always confirm on each vendor’s site.',
   },
   {
     question: 'Which AI platforms does each tool track?',
     answer:
-      'Livesov tracks ChatGPT, Claude, Gemini, Perplexity, and Grok on every plan. Otterly’s public materials list ChatGPT, Perplexity, Google AI Overviews, Google AI Mode, and Microsoft Copilot, with Gemini available as an add-on; Claude and Grok are not listed as of June 2026.',
+      'Livesov tracks ChatGPT, Claude, Gemini, Perplexity, and Grok with no add-ons (all five on Agency and the trial; Starter and Pro pick 2 or 3). Otterly’s public materials list ChatGPT, Perplexity, Google AI Overviews, Google AI Mode, and Microsoft Copilot, with Gemini available as an add-on; Claude and Grok are not listed as of June 2026.',
   },
   {
     question: 'Does either tool have a free option?',
@@ -174,7 +174,7 @@ export default function VsOtterlyPage() {
             Livesov vs <span className="text-[var(--brand)]">Otterly.ai</span>
           </>
         }
-        subtitle="Two dedicated AI search monitoring tools with different centers of gravity: Livesov covers all five major LLMs on every plan with evidence capture and fact-drift detection; Otterly leans into Google AI Overviews, AI Mode, and Copilot."
+        subtitle="Two dedicated AI search monitoring tools with different centers of gravity: Livesov covers all five major LLMs (no add-ons) with evidence capture and fact-drift detection; Otterly leans into Google AI Overviews, AI Mode, and Copilot."
         ctaText="Try Livesov free - no card"
       />
 
@@ -182,7 +182,7 @@ export default function VsOtterlyPage() {
         <StatsBar
           stats={[
             { value: '5', label: 'LLMs on every Livesov plan' },
-            { value: '$9', label: 'Livesov entry price /mo' },
+            { value: '$19', label: 'Livesov entry price /mo' },
             { value: '$29', label: 'Otterly entry price /mo' },
             { value: '7-day', label: 'Free Livesov trial' },
           ]}
@@ -226,7 +226,7 @@ export default function VsOtterlyPage() {
           <ul>
             <li>
               <strong>Your buyers research in ChatGPT, Claude, Perplexity, Gemini, or Grok:</strong>{' '}
-              Livesov tracks all five on every plan, stores the full responses as evidence, and
+              Livesov tracks all five with no add-ons, stores the full responses as evidence, and
               flags hallucinated facts. This is Livesov&rsquo;s home turf.
             </li>
             <li>
@@ -236,7 +236,7 @@ export default function VsOtterlyPage() {
             </li>
             <li>
               <strong>Budget-constrained or testing the category:</strong> Livesov&rsquo;s
-              free no-signup GEO audit and $9 entry plan are the lowest-friction way to start
+              free no-signup GEO audit and $19 entry plan are the lowest-friction way to start
               measuring AI visibility at all.
             </li>
           </ul>
@@ -256,11 +256,11 @@ export default function VsOtterlyPage() {
         links={[
           { href: '/otterly-ai-alternative', label: 'Otterly.ai alternative', description: 'Why teams switch from Otterly to Livesov.' },
           { href: '/vs/profound', label: 'Livesov vs Profound', description: 'How Livesov compares to the enterprise leader.' },
-          { href: '/vs/peec-ai', label: 'Livesov vs Peec AI', description: 'Add-on pricing vs all-platforms-included.' },
+          { href: '/vs/peec-ai', label: 'Livesov vs Peec AI', description: 'Add-on pricing vs no-add-ons.' },
           { href: '/pricing', label: 'Pricing & plans', description: 'Start free, scale to agency multi-brand.' },
           { href: '/how-it-works', label: 'How Livesov works', description: 'Methodology and data pipeline explained.' },
           { href: '/geo-audit', label: 'Free GEO audit', description: 'Score any URL for AI citation-readiness.' },
-          { href: '/tools', label: 'Free AI search tools', description: '11 free tools - no signup required.' },
+          { href: '/tools', label: 'Free AI search tools', description: '10 free tools - most need no signup.' },
         ]}
       />
     </SeoLayout>

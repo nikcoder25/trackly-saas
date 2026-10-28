@@ -65,6 +65,15 @@ cd trackly-nextjs && npm test
 
 The suite covers the token-hashing helper, the webhook HMAC verifier, and the SSRF guard used by brand webhooks. More coverage is incoming.
 
+## Cost and pricing
+
+[`docs/UNIT-ECONOMICS.md`](./docs/UNIT-ECONOMICS.md) is the reference for what a
+customer costs to serve and what each plan should be priced at: measured
+per-call cost by engine, per-plan cost at plan limits, and where each input
+lives in source so the numbers can be rebuilt rather than trusted. Read it
+before changing `PLAN_LIMITS`, plan prices, or which engines a tier can use -
+grounded Gemini alone costs 78x a Grok call and is what decides margin.
+
 ## Repository layout
 
 ```

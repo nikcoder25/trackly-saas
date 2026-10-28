@@ -2,6 +2,7 @@ import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { logError, serverError } from '@/lib/api-error';
+import { distinctMentionedRunsSql, distinctRunsSql } from '@/lib/prompt-run-counts';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const authResult = await requireVerifiedAuth(request, pool);
@@ -12,15 +13,30 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
 
+  // ?period=day|week|month scopes the aggregates. Anything else (or none) keeps the previous all-time view.
+  const period = new URL(request.url).searchParams.get('period');
+  const windowDays = period === 'day' ? 1 : period === 'week' ? 7 : period === 'month' ? 30 : null;
+
   try {
-    // Get per-prompt aggregated stats from prompt_run_stats
+    // Per-prompt, per-platform aggregates straight from prompt_runs. Runs are
+    // counted as distinct (scan, engine) pairs, the same definition search
+    // uses (src/lib/prompt-run-counts.ts). This used to read a
+    // `prompt_run_stats` rollup that nothing in this codebase creates (it
+    // belonged to the retired Express app), so the Query Tracker page 500'd
+    // on any database the old app never touched.
     const result = await pool.query(
-      `SELECT prompt, platform, total_runs, mention_count, mention_rate, avg_rank,
-              avg_sentiment_score, last_run_at
-       FROM prompt_run_stats
-       WHERE brand_id = $1
-       ORDER BY mention_rate DESC, total_runs DESC`,
-      [id]
+      `SELECT prompt, platform,
+              ${distinctRunsSql()} AS total_runs,
+              ${distinctMentionedRunsSql()} AS mention_count,
+              AVG(CASE WHEN mentioned AND list_position IS NOT NULL THEN list_position END) AS avg_rank,
+              MAX(created_at) AS last_run_at
+       FROM prompt_runs
+       WHERE brand_id = $1 AND success = true
+         AND ($2::int IS NULL OR created_at >= NOW() - make_interval(days => $2::int))
+       GROUP BY prompt, platform
+       ORDER BY (${distinctMentionedRunsSql()}::numeric / NULLIF(${distinctRunsSql()}, 0)) DESC NULLS LAST,
+                ${distinctRunsSql()} DESC`,
+      [id, windowDays]
     );
 
     // Get historical mention rates per prompt per batch (for sparkline/change)
@@ -30,10 +46,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
               SUM(CASE WHEN mentioned THEN 1 ELSE 0 END)::int AS mentions,
               MIN(created_at) AS run_date
        FROM prompt_runs
-       WHERE brand_id = $1 AND success = true AND created_at >= NOW() - INTERVAL '30 days'
+       WHERE brand_id = $1 AND success = true
+         AND created_at >= NOW() - make_interval(days => $2::int)
        GROUP BY prompt, batch_id
        ORDER BY prompt, MIN(created_at)`,
-      [id]
+      // Sparklines need several batches, so never narrower than 30 days.
+      [id, Math.max(windowDays ?? 30, 30)]
     );
 
     // Build sparkline data per keyword
@@ -99,6 +117,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         mentionRate: entry.totalRuns > 0 ? Math.round((entry.mentionCount / entry.totalRuns) * 100) : 0,
         change,
         totalRuns: entry.totalRuns,
+        mentionCount: entry.mentionCount,
         platformCount: entry.platformCount,
         avgPosition: entry.posCount > 0 ? Math.round(entry.posSum / entry.posCount) : null,
         lastUpdated: entry.lastUpdated,

@@ -13,7 +13,9 @@ import { useCredits } from '@/contexts/CreditsContext';
 export default function LowBalanceBanner() {
   const { status } = useCredits();
   if (!status) return null;
-  // Hide on plans that effectively have no cap (owner/enterprise).
+  // Hide only on effectively-uncapped accounts (owner, cap 99999). Enterprise
+  // has a real 50k cap, so a low-balance warning is legitimate there and the
+  // banner intentionally still shows.
   if (status.monthlyCap >= 99999) return null;
   if (!status.lowBalance && status.remaining > 0) return null;
 
@@ -35,7 +37,7 @@ export default function LowBalanceBanner() {
       marginBottom: 10, background: bg, border: `1px solid ${borderColor}`,
       borderRadius: 'var(--radius-xs)', fontSize: 12, color: 'var(--text)',
     }}>
-      <span style={{ fontSize: 14, color: accent }}>{empty ? '◯' : '⚠'}</span>
+      <span className="lvx-banner-ico" style={{ fontSize: 14, color: accent }}>{empty ? '◯' : '⚠'}</span>
       <div style={{ flex: 1 }}>
         <strong style={{ color: accent }}>
           {empty ? 'Out of AI credits' : 'AI credits running low'}

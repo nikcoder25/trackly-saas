@@ -7,8 +7,9 @@
 import { after } from 'next/server';
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
+import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
-import { extractUrlsFromText, type CanonicalNap } from '@/lib/nap-verify';
+import { extractUrlsFromText, parseCanonicalNap } from '@/lib/nap-verify';
 import { NAP_MAX_URLS } from '@/lib/nap-audit-run';
 import {
   insertNapAudit,
@@ -17,23 +18,6 @@ import {
   countNapAudits,
   NAP_MAX_SAVED_AUDITS,
 } from '@/lib/nap-audits';
-
-function parseCanonical(input: unknown): CanonicalNap | null {
-  if (!input || typeof input !== 'object') return null;
-  const o = input as Record<string, unknown>;
-  const name = typeof o.name === 'string' ? o.name.trim() : '';
-  if (!name || name.length > 200) return null;
-  const clamp = (v: unknown) =>
-    typeof v === 'string' && v.trim() ? v.trim().slice(0, 200) : undefined;
-  return {
-    name: name.slice(0, 200),
-    phone: clamp(o.phone),
-    street: clamp(o.street),
-    suite: clamp(o.suite),
-    city: clamp(o.city),
-    postcode: clamp(o.postcode),
-  };
-}
 
 export async function GET(request: Request): Promise<Response> {
   const auth = await requireVerifiedAuth(request, pool);
@@ -69,6 +53,16 @@ export async function POST(request: Request): Promise<Response> {
   const auth = await requireVerifiedAuth(request, pool);
   if (auth instanceof Response) return auth;
 
+  // Each audit fans out up to NAP_MAX_URLS outbound fetches (plus paid
+  // unblocker calls for blocked pages), so cap creation per user/IP. The
+  // limits comfortably cover the auto-split flow (a 5,000-URL paste is 10
+  // audits) while stopping a runaway client from queuing hundreds.
+  const rl = await checkUserIpRateLimit('nap_audit_create', auth.id, getClientIp(request), {
+    user: { max: 30, windowMs: 60 * 60 * 1000 },
+    ip: { max: 60, windowMs: 60 * 60 * 1000 },
+  });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
+
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;
@@ -82,7 +76,7 @@ export async function POST(request: Request): Promise<Response> {
   const label = typeof body.label === 'string' ? body.label.trim().slice(0, 120) : '';
   if (!label) return Response.json({ error: 'A client name / label is required' }, { status: 400 });
 
-  const canonical = parseCanonical(body.canonical);
+  const canonical = parseCanonicalNap(body.canonical);
   if (!canonical) {
     return Response.json({ error: 'A business name is required (max 200 chars)' }, { status: 400 });
   }

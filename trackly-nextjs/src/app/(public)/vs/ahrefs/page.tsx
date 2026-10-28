@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   description:
     'Compare Livesov and Ahrefs Brand Radar for AI visibility. Pricing, features, and AI platforms covered. A cheaper Ahrefs Brand Radar alternative.',
   keywords:
-    'livesov vs ahrefs, ai visibility vs seo, ai brand tracking tool, ahrefs alternative for ai, ahrefs vs livesov, ai search vs google seo, geo vs seo',
+    'livesov vs ahrefs, ahrefs vs livesov, ai visibility vs seo, ai brand tracking tool, ai search vs google seo, geo vs seo',
   alternates: { canonical: '/vs/ahrefs' },
   openGraph: {
     title: 'Livesov vs Ahrefs Brand Radar | AI Visibility',
@@ -123,12 +123,12 @@ const ahrefsStrengths = [
 ];
 
 const comparisonRows = [
-  ['Tracks AI brand mentions (ChatGPT/Claude/Gemini/Perplexity/Grok)', '✓ All 5 platforms', '✗'],
-  ['AI recommendation rank in generated answers', '✓ Per-prompt, per-model', '✗'],
+  ['Tracks AI brand mentions (ChatGPT/Claude/Gemini/Perplexity/Grok)', '✓ Up to 5 platforms', 'Paid add-on (Brand Radar; check their current engine list)'],
+  ['AI recommendation rank in generated answers', '✓ Per-prompt, per-model', 'With add-on'],
   ['AI sentiment analysis tuned per platform', '✓', '✗'],
   ['AI hallucination / fact-drift detection', '✓ Canonical facts store', '✗'],
-  ['Perplexity / ChatGPT Search citation capture', '✓ Full ranked list', '✗'],
-  ['Competitor brand co-occurrence in AI answers', '✓ Up to 20 competitors', '✗'],
+  ['Perplexity / ChatGPT Search citation capture', '✓ Full ranked list', 'With add-on'],
+  ['Competitor brand co-occurrence in AI answers', '✓ Up to 20 competitors', 'With add-on'],
   ['Google SERP rank tracking', 'Limited (via AI Overviews)', '✓ Industry-leading'],
   ['Backlink database', '✗', '✓ Industry-leading'],
   ['Keyword research database', '✗', '✓ Industry-leading'],
@@ -146,12 +146,12 @@ const faqs = [
   {
     question: 'Is Livesov a cheaper alternative to Ahrefs?',
     answer:
-      'Not really a fair comparison - they don&apos;t do the same things. Livesov plans start free and scale by AI credits and tracked brands. Ahrefs prices by SEO seats and backlink data depth. Many teams find Livesov pays for itself by giving them a new measurable channel (AI visibility) that Ahrefs simply cannot see.',
+      'Not really a fair comparison - they don&apos;t do the same things. Livesov plans start free and scale by AI credits and tracked brands. Ahrefs prices by SEO seats and backlink data depth. Many teams find Livesov pays for itself by giving them a new measurable channel (AI visibility) that Ahrefs only covers through a paid add-on.',
   },
   {
     question: 'Does Ahrefs track AI mentions at all?',
     answer:
-      'Ahrefs offers some visibility into Google AI Overviews via its standard SERP tracking, but it does not call the ChatGPT, Claude, Perplexity, or Grok APIs to monitor brand mentions in AI-generated answers. That gap is exactly what Livesov fills.',
+      'Yes, through Brand Radar, which Ahrefs sells as a paid add-on on top of its SEO plans. It reports brand mentions across several AI assistants; check their current engine list, since it changes. Livesov is built only for AI visibility and starts at $19 a month with no SEO suite or add-on needed.',
   },
   {
     question: 'How do GEO and SEO fit together?',
@@ -188,8 +188,8 @@ export default function VsAhrefsPage() {
       <Section pad="0 24px 56px" width={1000}>
         <StatsBar
           stats={[
-            { value: '5', label: 'AI platforms (Livesov)' },
-            { value: '0', label: 'AI platforms (Ahrefs)' },
+            { value: 'Up to 5', label: 'AI platforms (Livesov)' },
+            { value: 'Add-on', label: 'AI tracking (Ahrefs Brand Radar)' },
             { value: '40T+', label: 'Backlinks indexed (Ahrefs)' },
             { value: '7-day', label: 'Free Livesov trial' },
           ]}
@@ -237,7 +237,7 @@ export default function VsAhrefsPage() {
       <Section background="var(--bg-section, #f7f5f1)" pad="80px 24px">
         <SectionHeader
           label="Where Livesov leads"
-          title="The six things Livesov does that Ahrefs can&rsquo;t"
+          title="Where Livesov goes further than Ahrefs"
         />
         <FeatureGrid items={livesovStrengths} columns={3} />
       </Section>
@@ -285,11 +285,10 @@ export default function VsAhrefsPage() {
           </ol>
 
           <Callout title="The single biggest mistake" variant="note">
-            Assuming Ahrefs&apos; existing AI Overviews coverage is enough. AI Overviews are
-            one surface (Gemini-grounded), and Ahrefs sees them as a SERP feature, not as
-            generative answers. ChatGPT, Claude, Perplexity, and Grok are completely off
-            Ahrefs&apos; map - and they&apos;re where most B2B research and consumer discovery
-            now happens.
+            Assuming your Ahrefs seat already covers AI search. Ahrefs is built around
+            Google; its AI mention tracking (Brand Radar) is a paid add-on with its own
+            engine list. Check what it covers today before assuming ChatGPT, Claude,
+            Perplexity, and Grok are in your reports.
           </Callout>
 
           <h2>When to pick Livesov first (and Ahrefs later)</h2>
@@ -314,11 +313,11 @@ export default function VsAhrefsPage() {
           <p>
             For the full GEO framework, read our{' '}
             <a href="/geo-optimization">Generative Engine Optimization guide</a>. For platform-
-            specific tactics, see <a href="/chatgpt-brand-tracking">ChatGPT</a>,{' '}
-            <a href="/perplexity-brand-tracking">Perplexity</a>,{' '}
-            <a href="/claude-brand-tracking">Claude</a>,{' '}
-            <a href="/gemini-brand-tracking">Gemini</a>, and{' '}
-            <a href="/grok-brand-tracking">Grok</a> brand tracking pages.
+            specific tactics, see <a href="/chatgpt-rank-tracker">ChatGPT</a>,{' '}
+            <a href="/perplexity-rank-tracker">Perplexity</a>,{' '}
+            <a href="/claude-rank-tracker">Claude</a>,{' '}
+            <a href="/gemini-rank-tracker">Gemini</a>, and{' '}
+            <a href="/grok-rank-tracker">Grok</a> brand tracking pages.
           </p>
         </LongForm>
       </Section>

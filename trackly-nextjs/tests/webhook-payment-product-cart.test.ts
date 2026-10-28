@@ -43,6 +43,9 @@ vi.hoisted(() => {
   process.env.DODO_PRO_PRODUCT_ID = 'prod_pro';
   process.env.DODO_STARTER_PRODUCT_ID = 'prod_starter';
   process.env.DODO_ENTERPRISE_PRODUCT_ID = 'prod_enterprise';
+  process.env.DODO_STARTER_ANNUAL_PRODUCT_ID = 'prod_starter_year';
+  process.env.DODO_PRO_ANNUAL_PRODUCT_ID = 'prod_pro_year';
+  process.env.DODO_AGENCY_ANNUAL_PRODUCT_ID = 'prod_agency_year';
 });
 
 const { safeConnectFn, poolQuery } = vi.hoisted(() => ({
@@ -200,6 +203,37 @@ describe('dodopayments webhook - payment.succeeded product_cart resolver', () =>
         && r.params[0].includes('"dodo_product_id":"prod_agency"'),
     );
     expect(productBound, 'expected dodo_product_id bound from cart resolution').toBeTruthy();
+  });
+
+  it('T1b: annual product id resolves to the same plan as its monthly twin', async () => {
+    const fake = makeFakeClient(FREE_USER);
+    safeConnectFn.mockResolvedValue(fake);
+
+    const req = buildSignedRequest({
+      type: 'payment.succeeded',
+      data: {
+        subscription_id: 'sub_NEW',
+        customer_id: 'cus_NEW',
+        product_cart: [{ product_id: 'prod_pro_year', quantity: 1 }],
+        status: 'active',
+      },
+      metadata: { userId: 'user_A', plan: 'pro', billing: 'annual' },
+    });
+
+    const res = await webhookPost(req);
+    expect(res.status).toBe(200);
+
+    const proUpdate = fake.recorded.find(
+      r => /UPDATE users SET plan = \$1/.test(r.sql) && r.params[0] === 'pro',
+    );
+    expect(proUpdate, 'expected annual pro product to resolve to pro').toBeTruthy();
+
+    const productBound = fake.recorded.find(
+      r => /UPDATE users SET settings = settings \|\| \$1::jsonb/.test(r.sql)
+        && typeof r.params[0] === 'string'
+        && r.params[0].includes('"dodo_product_id":"prod_pro_year"'),
+    );
+    expect(productBound, 'expected annual dodo_product_id bound').toBeTruthy();
   });
 
   it('T2: payment.succeeded with only top-level data.product_id still resolves (legacy path)', async () => {

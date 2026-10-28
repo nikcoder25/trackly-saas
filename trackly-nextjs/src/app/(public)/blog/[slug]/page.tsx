@@ -4,7 +4,8 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import SeoLayout from '@/components/seo/SeoLayout';
 import { escapeHtml } from '@/lib/sanitize';
-import { blogPosts, getPostBySlug, formatDate } from '@/data/blog-posts';
+import { blogPosts, getPostBySlug, formatDate, ogImageFor } from '@/data/blog-posts';
+import { authorPersonSchema } from '@/data/authors';
 
 export async function generateStaticParams() {
   return blogPosts.map(post => ({ slug: post.slug }));
@@ -24,25 +25,57 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   // this page, a body-only notFound() would stream a 200 shell (soft-404).
   if (!post) notFound();
 
+  // Link previews get the rasterised PNG, not the on-page SVG: no major social
+  // platform renders SVG in a card, so an SVG here ships every share as plain
+  // text. See ogImageFor() in the data module.
+  const ogImage = ogImageFor(post);
+
+  // SERP title/description: a dedicated SEO field when the on-page title or
+  // dek is too long for search results, otherwise derived from the post.
+  const seoTitle = post.seoTitle ?? `${post.title} | Livesov`;
+  const socialTitle = post.seoTitle ?? post.title;
+  const metaDescription = post.metaDescription ?? post.description;
+
   return {
-    title: `${post.title} | Livesov Blog`,
-    description: post.description,
+    title: seoTitle,
+    description: metaDescription,
     keywords: [post.tag, 'AI visibility', 'brand tracking', 'GEO', 'AI SEO', 'Livesov'],
     openGraph: {
-      title: post.title,
-      description: post.description,
+      title: socialTitle,
+      description: metaDescription,
       type: 'article',
       publishedTime: post.date,
       authors: [post.author.name],
-      images: [{ url: post.image, alt: post.imageAlt }],
+      images: [{ url: ogImage, width: 1200, height: 630, alt: post.imageAlt }],
     },
     twitter: {
       card: 'summary_large_image',
-      title: post.title,
-      description: post.description,
+      title: socialTitle,
+      description: metaDescription,
+      images: [ogImage],
     },
     alternates: { canonical: `/blog/${post.slug}` },
   };
+}
+
+/* Heading slug used both by renderContent and the table of contents, so a
+   TOC link can never point at an id the body did not emit. */
+const headingId = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+/* Pull the H2s out of the article body for the on-page table of contents.
+   Code fences are skipped so a "## " inside a snippet never becomes a link. */
+function extractHeadings(content: string): { id: string; text: string }[] {
+  const out: { id: string; text: string }[] = [];
+  let inCode = false;
+  for (const line of content.trim().split('\n')) {
+    if (line.trim().startsWith('```')) { inCode = !inCode; continue; }
+    if (inCode) continue;
+    if (line.startsWith('## ')) {
+      const text = line.slice(3).trim();
+      out.push({ id: headingId(text), text });
+    }
+  }
+  return out;
 }
 
 /* Simple markdown-ish renderer */
@@ -125,13 +158,31 @@ function renderContent(content: string) {
     // Empty line
     if (!line.trim()) { i++; continue; }
 
+    // Standalone figure: ![alt text](/blog/diagram.svg)
+    // Only a line that is ENTIRELY an image becomes a figure; an inline image
+    // inside a sentence falls through to the paragraph branch untouched.
+    const figure = line.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    if (figure) {
+      const [, alt, src] = figure;
+      const safeSrc = sanitizeUrl(src);
+      if (safeSrc !== '#') {
+        elements.push(
+          <figure key={i} className="blog-figure">
+            <img src={safeSrc} alt={alt} className="blog-figure-img" loading="lazy" decoding="async" />
+            {alt ? <figcaption className="blog-figure-cap">{alt}</figcaption> : null}
+          </figure>
+        );
+        i++; continue;
+      }
+    }
+
     // Headings
     if (line.startsWith('### ')) {
       elements.push(<h3 key={i} className="blog-h3">{line.slice(4)}</h3>);
       i++; continue;
     }
     if (line.startsWith('## ')) {
-      elements.push(<h2 key={i} className="blog-h2" id={line.slice(3).toLowerCase().replace(/[^a-z0-9]+/g, '-')}>{line.slice(3)}</h2>);
+      elements.push(<h2 key={i} className="blog-h2" id={headingId(line.slice(3).trim())}>{line.slice(3)}</h2>);
       i++; continue;
     }
 
@@ -190,16 +241,26 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   if (!post) notFound();
 
   const nonce = (await headers()).get('x-nonce') ?? undefined;
+  const headings = extractHeadings(post.content);
 
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
     headline: post.title,
     description: post.description,
-    image: post.image,
+    image: ogImageFor(post),
     datePublished: post.date,
-    author: { '@type': 'Person', name: post.author.name },
-    publisher: { '@type': 'Organization', name: 'Livesov', url: 'https://livesov.com' },
+    dateModified: post.updated ?? post.date,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': `https://livesov.com/blog/${post.slug}` },
+    // A full Person node (not just a name string) so the byline resolves to a
+    // real, linkable identity with its own bio page and sameAs profiles.
+    author: authorPersonSchema(post.author),
+    publisher: {
+      '@type': 'Organization',
+      name: 'Livesov',
+      url: 'https://livesov.com',
+      logo: { '@type': 'ImageObject', url: 'https://livesov.com/android-chrome-512x512.png', width: 512, height: 512 },
+    },
   };
 
   return (
@@ -219,9 +280,18 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             <h1 className="blog-post-title">{post.title}</h1>
             <p className="blog-post-desc">{post.description}</p>
             <div className="blog-post-author">
-              <div className="blog-post-avatar">{post.author.initials}</div>
+              <img
+                src={post.author.avatar}
+                alt={post.author.avatarAlt}
+                className="blog-post-avatar blog-post-avatar-img"
+                width={44}
+                height={44}
+                loading="lazy"
+              />
               <div>
-                <div className="blog-post-author-name">{post.author.name}</div>
+                <div className="blog-post-author-name">
+                  <Link href={`/author/${post.author.slug}`}>{post.author.name}</Link>
+                </div>
                 <div className="blog-post-author-role">{post.author.role}</div>
               </div>
             </div>
@@ -230,13 +300,52 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
         {/* Hero image */}
         <div className="blog-post-image-wrap">
-          <img src={post.image} alt={post.imageAlt} className="blog-post-image" />
+          {/* Intrinsic size reserves the box before the SVG arrives (no CLS);
+              this is the LCP element so it must not be lazy. */}
+          <img src={post.image} alt={post.imageAlt} className="blog-post-image" width={1200} height={630} fetchPriority="high" decoding="async" />
         </div>
 
         {/* Content */}
         <div className="blog-post-body">
+          {headings.length >= 4 && (
+            <nav className="blog-toc" aria-labelledby="toc-heading">
+              <p className="blog-toc-title" id="toc-heading">What&rsquo;s in this article</p>
+              <ol className="blog-toc-list">
+                {headings.map((h) => (
+                  <li key={h.id}><a href={`#${h.id}`}>{h.text}</a></li>
+                ))}
+              </ol>
+            </nav>
+          )}
           {renderContent(post.content)}
         </div>
+
+        {/* Author bio. A named byline is only worth as much as the reader's
+            ability to check who it belongs to - so the bio, the credentials,
+            and the link to the full author page all sit with the article. */}
+        <aside className="blog-author-box" aria-labelledby="about-the-author">
+          <img
+            src={post.author.avatar}
+            alt={post.author.avatarAlt}
+            className="blog-author-box-img"
+            width={72}
+            height={72}
+            loading="lazy"
+          />
+          <div>
+            <p className="blog-author-box-eyebrow" id="about-the-author">About the author</p>
+            <p className="blog-author-box-name">
+              <Link href={`/author/${post.author.slug}`}>{post.author.name}</Link>
+              <span className="blog-author-box-role"> &middot; {post.author.role}</span>
+            </p>
+            <p className="blog-author-box-bio">{post.author.bio[0]}</p>
+            <p className="blog-author-box-more">
+              <Link href={`/author/${post.author.slug}`}>
+                More articles by {post.author.name} &rarr;
+              </Link>
+            </p>
+          </div>
+        </aside>
 
       </article>
     </SeoLayout>

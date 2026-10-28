@@ -15,14 +15,14 @@ import {
 export const metadata: Metadata = {
   title: 'How AI Brand Monitoring Works | Livesov',
   description:
-    'See how Livesov\'s AI brand monitoring works: it queries ChatGPT, Perplexity, Claude, Gemini, and Grok daily, tracks every brand mention, and turns the results into AI search optimization you can act on.',
+    'See how AI brand monitoring works in Livesov. We ask ChatGPT, Perplexity, Claude, Gemini and Grok daily and track every mention. See the steps.',
   keywords:
     'ai brand monitoring, ai search optimization, ai mention tracking, ai brand visibility tool, ai brand tracking methodology, llm brand monitoring',
   alternates: { canonical: '/how-it-works' },
   openGraph: {
     title: 'How AI Brand Monitoring Works | Livesov',
     description:
-      'See how Livesov\'s AI brand monitoring works: it queries ChatGPT, Perplexity, Claude, Gemini, and Grok daily, tracks every brand mention, and turns the results into AI search optimization you can act on.',
+      'See how AI brand monitoring works in Livesov. We ask ChatGPT, Perplexity, Claude, Gemini and Grok daily and track every mention. See the steps.',
     url: 'https://livesov.com/how-it-works',
     siteName: 'Livesov',
     type: 'website',
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'How AI Brand Monitoring Works | Livesov',
     description:
-      'See how Livesov\'s AI brand monitoring works: it queries ChatGPT, Perplexity, Claude, Gemini, and Grok daily, tracks every brand mention, and turns the results into AI search optimization you can act on.',
+      'See how AI brand monitoring works in Livesov. We ask ChatGPT, Perplexity, Claude, Gemini and Grok daily and track every mention. See the steps.',
     images: ['https://livesov.com/og-image.png'],
   },
 };
@@ -81,27 +81,27 @@ const dataSources = [
   {
     icon: 'ChatGPT',
     title: 'OpenAI ChatGPT',
-    description: 'Direct API access to GPT-5, GPT-5 mini, and GPT-5 Search - including the o-series reasoning models.',
+    description: 'Direct OpenAI API access to GPT-5.4 Nano by default, with GPT-5.4 Mini and GPT-5.4 on Agency.',
   },
   {
     icon: 'Claude',
     title: 'Anthropic Claude',
-    description: 'Direct Anthropic API for Claude Opus 4.5, Sonnet 4.5, Haiku 4.5, and Sonnet 4 for legacy comparison.',
+    description: 'Direct Anthropic API for Claude Haiku 4.5 by default, with Claude Sonnet 4 and Fable 5 on Agency.',
   },
   {
     icon: 'Gemini',
     title: 'Google Gemini',
-    description: 'Direct Google AI / Vertex API for Gemini 3 Pro, 3 Flash, Flash-Lite, and grounded variants (AI Overviews simulation).',
+    description: 'Direct Google AI API for Gemini 2.5 Flash Lite by default, with Gemini 2.5 Flash and 2.5 Pro on Agency.',
   },
   {
     icon: 'Perplexity',
     title: 'Perplexity Sonar',
-    description: 'Direct Perplexity API for Sonar, Sonar Pro, Sonar Reasoning, and Deep Research - with full citation capture.',
+    description: 'Direct Perplexity API for Sonar by default and Sonar Pro on Agency, with citation capture.',
   },
   {
     icon: 'Grok',
     title: 'xAI Grok',
-    description: 'Direct xAI API for Grok 5, Grok 4, Grok 4 Mini, and the live-search variant grounded on real-time X data.',
+    description: 'Direct xAI API for Grok 3 Mini by default, with Grok 4 on Agency.',
   },
   {
     icon: 'Audit',
@@ -350,12 +350,12 @@ export default function HowItWorksPage() {
         title="Go deeper"
         links={[
           {
-            href: '/chatgpt-brand-tracking',
+            href: '/chatgpt-rank-tracker',
             label: 'ChatGPT tracking',
             description: 'Methodology applied to OpenAI&rsquo;s ChatGPT specifically.',
           },
           {
-            href: '/perplexity-brand-tracking',
+            href: '/perplexity-rank-tracker',
             label: 'Perplexity tracking',
             description: 'How citation capture works for AI search.',
           },

@@ -8,6 +8,9 @@ import { RunProvider, useRun, markPendingFirstRun, markBrandAutoRan, getAutoRanB
 import { CreditsProvider, useCredits } from '@/contexts/CreditsContext';
 import { PLAN_LIMITS } from '@/lib/constants';
 import LvxShell from '@/components/dashboard/LvxShell';
+import ShellV3 from '@/components/dashboard/v3/ShellV3';
+import { UiFlagProvider, useUiFlag } from '@/contexts/UiFlagContext';
+import { DEFAULT_UI, type UiVersion } from '@/lib/ui-flag';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import PaymentSuccessBanner from '@/components/dashboard/PaymentSuccessBanner';
 import GlobalRunProgress from '@/components/dashboard/GlobalRunProgress';
@@ -134,7 +137,7 @@ function TrialBanner() {
       background: 'rgba(16,185,129,.06)', border: '1px solid rgba(16,185,129,.25)',
       borderRadius: 'var(--radius-xs)', fontSize: 12, color: 'var(--text)',
     }}>
-      <span style={{ fontSize: 14, color: 'var(--green)' }}>★</span>
+      <span className="lvx-banner-ico" style={{ fontSize: 14, color: 'var(--green)' }}>★</span>
       <div style={{ flex: 1 }}>
         <strong>Trial</strong>
         <span style={{ margin: '0 6px', opacity: 0.5 }}>-</span>
@@ -166,8 +169,12 @@ function TrialEndedBanner() {
     }
   }, [storageKey]);
 
-  if (!user || user.rawPlan !== 'trial' || !trialEndsAtISO) return null;
-  // Use rawPlan (DB plan, exposed by safeUser) not plan (effective): once the trial expires, effective plan flips to 'free' while rawPlan stays 'trial' - that's exactly the post-trial state we want to detect.
+  // Post-trial state: either the DB row still says 'trial' (expired, but the
+  // hourly trial-expiry sweep hasn't run yet) or the sweep already moved it
+  // to 'free' and stamped settings.trialExpiredAt.
+  const expiredTrial = user?.rawPlan === 'trial'
+    || (user?.rawPlan === 'free' && !!user?.settings?.trialExpiredAt);
+  if (!user || !expiredTrial || user.plan !== 'free' || !trialEndsAtISO) return null;
   const endMs = new Date(trialEndsAtISO).getTime();
   if (isNaN(endMs) || endMs > Date.now()) return null;
   if (dismissed) return null;
@@ -185,7 +192,7 @@ function TrialEndedBanner() {
       background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.25)',
       borderRadius: 'var(--radius-xs)', fontSize: 12, color: 'var(--text)',
     }}>
-      <span style={{ fontSize: 14, color: '#f59e0b' }}>⏱</span>
+      <span className="lvx-banner-ico" style={{ fontSize: 14, color: '#f59e0b' }}>⏱</span>
       <div style={{ flex: 1 }}>
         <strong>Your free trial has ended.</strong>
         <span style={{ margin: '0 6px', opacity: 0.5 }}>-</span>
@@ -264,7 +271,7 @@ function EmailVerificationBanner() {
       background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.2)',
       borderRadius: 'var(--radius-xs)', fontSize: 12, color: '#ef4444',
     }}>
-      <span style={{ fontSize: 16 }}>&#9993;</span>
+      <span className="lvx-banner-ico" style={{ fontSize: 16 }}>&#9993;</span>
       <div style={{ flex: 1 }}>
         <strong>Email not verified.</strong> Please check your inbox for a verification link.
         {sent && !error
@@ -471,6 +478,10 @@ function BackgroundRunPoller() {
   const { brands, refreshBrands } = useBrands();
   const { live } = useRun();
   const lastRunCountRef = useRef<number | null>(null);
+  // Read brands through a ref so the 60s interval survives refreshBrands()
+  // (which replaces the array and used to reset the timer every tick).
+  const brandsRef = useRef(brands);
+  brandsRef.current = brands;
 
   useEffect(() => {
     // Don't poll while a user-triggered run is active (RunContext handles that)
@@ -479,7 +490,7 @@ function BackgroundRunPoller() {
     // Track current run count on mount
     if (lastRunCountRef.current === null) {
       let count = 0;
-      for (const brand of brands) {
+      for (const brand of brandsRef.current) {
         const b = brand as Record<string, unknown>;
         count += ((b.runs || []) as unknown[]).length;
       }
@@ -498,7 +509,7 @@ function BackgroundRunPoller() {
     }, 60000); // Poll every 60 seconds
 
     return () => clearInterval(interval);
-  }, [live.running, refreshBrands, brands]);
+  }, [live.running, refreshBrands]);
 
   // Detect new runs after refreshBrands updates brands
   useEffect(() => {
@@ -520,7 +531,13 @@ function BackgroundRunPoller() {
   return null;
 }
 
-export default function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
+export default function DashboardLayoutClient({ children, initialUi = DEFAULT_UI }: { children: React.ReactNode; initialUi?: UiVersion }) {
+  return <UiFlagProvider initial={initialUi}><DashboardLayoutInner>{children}</DashboardLayoutInner></UiFlagProvider>;
+}
+
+function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
+  const { isV3 } = useUiFlag();
+  const Shell = isV3 ? ShellV3 : LvxShell;
   const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -557,7 +574,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
     <BackgroundRunPoller />
     <SkeletonStyles />
     <>
-      <LvxShell
+      <Shell
         banners={<>
           <Suspense fallback={null}><PaymentSuccessBanner /></Suspense>
           <LockedBrandBanner />
@@ -572,7 +589,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
         </>}
       >
         {children}
-      </LvxShell>
+      </Shell>
       <GlobalLiveToasts />
     </>
     </ToastProvider>

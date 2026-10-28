@@ -28,7 +28,12 @@ export const TOTP_CONFIG = {
 //   brands                   ↔ PLAN_CREDITS[plan].brandsCap
 //   minScheduleHours         ↔ AUTO_RUN_HOURS[PLAN_CREDITS[plan].autoRunFrequency]
 export const PLAN_LIMITS: Record<string, PlanLimits> = {
-  free:       { brands: 1,    runsPerMonth: 4,   trackedPromptsPerAccount: 5,    queries: 5,    competitors: 0,   platforms: 2, prioritySupport: false, sentiment: false, scheduledRuns: true,  minScheduleHours: 168, geoAudits: 3 },
+  // Free plans do NOT auto-run: the cron scheduler's plan filter (see
+  // src/app/api/cron/route.ts - `u.plan IN ('starter','pro',...)`) excludes
+  // 'free', so scheduledRuns must be false here to match reality. It was
+  // `true` with minScheduleHours 168, which made the pricing/UsageSection UI
+  // advertise a weekly auto-run that never fired. Manual runs still work.
+  free:       { brands: 1,    runsPerMonth: 4,   trackedPromptsPerAccount: 5,    queries: 5,    competitors: 0,   platforms: 2, prioritySupport: false, sentiment: false, scheduledRuns: false, minScheduleHours: 168, geoAudits: 3 },
   trial:      { brands: 9999, runsPerMonth: 40,  trackedPromptsPerAccount: 30,   queries: 30,   competitors: 5,   platforms: 5, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 20 },
   starter:    { brands: 3,    runsPerMonth: 15,  trackedPromptsPerAccount: 15,   queries: 15,   competitors: 3,   platforms: 2, prioritySupport: false, sentiment: false, scheduledRuns: true,  minScheduleHours: 48,  geoAudits: 20 },
   pro:        { brands: 9999, runsPerMonth: 30,  trackedPromptsPerAccount: 25,   queries: 25,   competitors: 8,   platforms: 3, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 75 },
@@ -120,6 +125,12 @@ export interface PricingPlan {
    *  (the dashboard's Plan Comparison treats this as the primary quota). */
   headline: string;
   features: string[];
+  /** Google rank tracking credits a month (1 credit = 1 keyword check to the
+   *  top 30, top 100 = 2 credits). Mirrors RANK_CREDITS_BY_PLAN in
+   *  src/lib/rank-tracking/credits.ts. 0 = no rank tracking. */
+  rankCredits: number;
+  /** Google rank tracking bullets, shown above the AI visibility features. */
+  rankFeatures: string[];
   cta: string;
   featured?: boolean;
 }
@@ -129,40 +140,63 @@ export interface PricingPlan {
 // with that table - the billing UI is the source of truth for what users
 // actually get on each plan. v3 spec (2026-04-27). No Enterprise tier on
 // the public site.
+// Agency's 8,000 monthly credits (PLAN_CREDITS.agency.monthlyCredits in
+// plan-config.ts) cover a daily scan of only floor(8000 / 30 / 5) prompts on
+// all five engines, well under the 100-prompt cap. Same maths as the /pricing
+// credit table (dailyPromptCapacity); tests/marketing-claim-accuracy.test.ts
+// checks it against PLAN_CREDITS so the card cannot drift.
+const AGENCY_MONTHLY_CREDITS = 8000;
+export const AGENCY_DAILY_FULL_SCAN_PROMPTS = Math.floor(
+  AGENCY_MONTHLY_CREDITS / 30 / PLAN_LIMITS.agency.platforms,
+);
+
 export const PRICING_PLANS: PricingPlan[] = [
   {
     name: 'Free', price: '$0', annualPrice: '$0',
     sub: 'Try it out', cta: 'Start Free',
     headline: '150 AI credits/month',
+    rankCredits: 0,
+    rankFeatures: [],
     features: [
       '1 brand',
       '5 tracked prompts',
-      '2 AI platforms',
-      'Weekly auto-runs',
+      '2 AI platforms (you pick from 5)',
+      'Manual runs only',
       '3 GEO audits/month',
     ],
   },
   {
-    name: 'Starter', price: '$9', annualPrice: '$7',
+    name: 'Starter', price: '$19', annualPrice: '$15',
     sub: 'Perfect for getting started', cta: 'Get Started',
     headline: '750 AI credits/month',
+    rankCredits: 1000,
+    rankFeatures: [
+      '1,000 credits (250 keywords weekly)',
+      'City-level tracking',
+    ],
     features: [
       '3 brands',
-      '15 tracked prompts',
-      '2 AI platforms',
+      '15 tracked prompts (shared across all brands)',
+      '2 AI platforms (you pick from 5)',
       'Competitor tracking (3)',
       'Auto-runs every 2 days',
       '20 GEO audits/month',
     ],
   },
   {
-    name: 'Pro', price: '$29', annualPrice: '$23',
+    name: 'Pro', price: '$49', annualPrice: '$39',
     sub: 'For growing businesses', cta: 'Start Pro', featured: true,
     headline: '2,500 AI credits/month',
+    rankCredits: 4000,
+    rankFeatures: [
+      '4,000 credits (1,000 keywords weekly)',
+      'City-level tracking, top 100',
+      'Client share links',
+    ],
     features: [
       'Unlimited brands',
-      '25 tracked prompts',
-      '3 AI platforms',
+      '25 tracked prompts (shared across all brands)',
+      '3 AI platforms (you pick from 5)',
       'Competitor tracking (8)',
       'Daily auto-runs',
       'Sentiment analysis',
@@ -170,16 +204,23 @@ export const PRICING_PLANS: PricingPlan[] = [
     ],
   },
   {
-    name: 'Agency', price: '$89', annualPrice: '$71',
+    name: 'Agency', price: '$129', annualPrice: '$103',
     sub: 'For agencies & teams', cta: 'Start Agency',
     headline: '8,000 AI credits/month',
+    rankCredits: 20000,
+    rankFeatures: [
+      '20,000 credits (5,000 keywords weekly)',
+      'Daily checks available',
+      'White-label PDF reports',
+      'Rank drop alerts',
+    ],
     features: [
       'Unlimited brands',
-      '100 tracked prompts',
+      '100 tracked prompts (shared across all brands)',
       '5 AI platforms (all)',
       'Competitor tracking (20)',
       'Premium AI models',
-      'Daily auto-runs',
+      `Daily auto-runs (about ${AGENCY_DAILY_FULL_SCAN_PROMPTS} prompts on all 5 engines)`,
       'Sentiment analysis',
       'Priority support',
       'API access',
@@ -192,13 +233,15 @@ export const PRICING_PLANS: PricingPlan[] = [
 export const PRICING_COMPARISON = {
   headers: ['Feature', 'Livesov', 'Ahrefs', 'Semrush'],
   rows: [
-    ['AI Brand Tracking', '\u2713 (5 platforms)', '\u2717', '\u2717'],
-    ['Starting Price', '$9/mo', '$99/mo', '$129/mo'],
-    ['AI Response Proof', '\u2713', '\u2717', '\u2717'],
-    ['Share of Voice', '\u2713 Automatic', 'Limited', 'Limited'],
-    ['Sentiment Analysis', '\u2713 Built-in', '\u2717', '\u2717'],
-    ['Competitor Tracking', '\u2713 Up to 20+', '\u2717', '\u2717'],
-    ['AI Response Monitoring', '\u2713 Automatic', '\u2717', '\u2717'],
+    // Ahrefs (Brand Radar) and Semrush (AI Toolkit) do track AI answers, as
+    // paid add-ons. Keep this hedged: their engine lists change often.
+    ['AI Brand Tracking', '\u2713 (up to 5 platforms)', 'Paid add-on', 'Paid add-on'],
+    ['Starting Price', '$19/mo', '$99/mo', '$129/mo'],
+    ['AI Response Proof', '\u2713', 'With add-on', 'With add-on'],
+    ['Share of Voice', '\u2713 Automatic', 'With add-on', 'With add-on'],
+    ['Sentiment Analysis', '\u2713 Built-in', '\u2717', 'Partial'],
+    ['Competitor Tracking', '\u2713 Up to 20', 'With add-on', 'With add-on'],
+    ['AI Response Monitoring', '\u2713 Automatic', 'Paid add-on', 'Paid add-on'],
     ['GEO URL Audits', '\u2713 Up to 300/mo', '\u2717', '\u2717'],
   ],
 };
@@ -209,7 +252,26 @@ export const PLATFORM_COLORS: Record<string, string> = {
   Claude: '#d97706',
   Gemini: '#4285f4',
   Grok: '#1d9bf0',
+  'Google AI Overview': '#ea4335',
+  'Google AI Mode': '#34a853',
 };
+
+/**
+ * Google's own AI answers, read through Litescrape at $0.00015 a call.
+ * They don't count toward a plan's AI platform limit: the limit exists
+ * because LLM calls are expensive, and these cost almost nothing.
+ */
+export const GOOGLE_AI_ENGINES = ['Google AI Overview', 'Google AI Mode'] as const;
+
+export function isGoogleAiEngine(platform: string): boolean {
+  return (GOOGLE_AI_ENGINES as readonly string[]).includes(platform);
+}
+
+/** Keep the first `limit` LLM platforms in saved order, plus every Google AI engine. */
+export function capPlatformsForPlan(platforms: string[], limit: number): string[] {
+  let llm = 0;
+  return platforms.filter((p) => isGoogleAiEngine(p) || ++llm <= limit);
+}
 
 // Plan-specific default platforms - mirrors backend PLAN_DEFAULT_PLATFORMS
 export const PLAN_DEFAULT_PLATFORMS: Record<string, string[]> = {

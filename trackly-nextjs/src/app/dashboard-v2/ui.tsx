@@ -4,6 +4,10 @@
 // Ported from the Dashboard.html design bundle (dash-components / dash-charts / dash-learn).
 
 import * as React from 'react';
+import { usePathname } from 'next/navigation';
+import { useUiFlag } from '@/contexts/UiFlagContext';
+import { v3PageMeta } from '@/lib/dashboard-nav-v3';
+import { isRedirectCitationHost } from '@/lib/citation-hosts';
 
 /* ───────────────────────────── Platforms ───────────────────────────── */
 
@@ -65,7 +69,8 @@ export function Badge({ tone = 'neu', children, ...rest }: { tone?: string; chil
 
 export function Delta({ v, suffix = '' }: { v?: number | null; suffix?: string }) {
   if (v == null) return null;
-  const up = v >= 0;
+  if (Math.round(v) === 0) return <span className="delta mono flat" title="No change vs previous run">= 0{suffix}</span>;
+  const up = v > 0;
   return (
     <span className={'delta mono ' + (up ? 'up' : 'down')}>
       {up ? '▲' : '▼'} {Math.abs(v)}{suffix}
@@ -124,6 +129,27 @@ export function Card({ title, right, padding = true, children, foot, style, lede
 }
 
 export function PageHead({ title, sub, actions }: { title: React.ReactNode; sub?: React.ReactNode; actions?: React.ReactNode }) {
+  const { isV3 } = useUiFlag();
+  const pathname = usePathname();
+  if (isV3) {
+    // v3 header: mono eyebrow (where you are), title, and one plain-English
+    // sentence about the page. A page's own dynamic sub-line (not plain
+    // text) is kept underneath because it carries live data.
+    const meta = v3PageMeta(pathname);
+    const lead = meta.blurb ?? sub;
+    const extra = meta.blurb && sub && typeof sub !== 'string' ? sub : null;
+    return (
+      <div className="page-head v3-page-head">
+        <div style={{ minWidth: 0 }}>
+          <div className="v3-page-eyebrow">{meta.eyebrow}</div>
+          <h1 className="page-t">{title}</h1>
+          {lead && <p className="page-s">{lead}</p>}
+          {extra && <p className="page-s">{extra}</p>}
+        </div>
+        {actions && <div className="page-a">{actions}</div>}
+      </div>
+    );
+  }
   return (
     <div className="page-head">
       <div>
@@ -403,6 +429,11 @@ export function Heatmap({ rows, cols, data, label }: { rows: string[]; cols: str
 
 export function StackBar({ items, height = 14 }: { items: { label: string; value: number; color?: string }[]; height?: number }) {
   const total = items.reduce((a, b) => a + b.value, 0);
+  // All-zero (or empty) totals would make width `NaN%`; render a muted empty
+  // bar instead.
+  if (total <= 0) {
+    return <div className="stack" style={{ height, background: 'var(--line, #e5e7eb)', opacity: 0.4 }} />;
+  }
   return (
     <div className="stack" style={{ height }}>
       {items.map((it, i) => (
@@ -424,7 +455,10 @@ export function Cit({ url }: { url: string }) {
       return u.toString();
     } catch { return ''; }
   })();
-  if (!href) return <span className="cit mono">{url}</span>;
+  // Gemini grounding links (vertexaisearch.../grounding-api-redirect/...) are
+  // long opaque tokens. Show a short label and keep the full link in the title.
+  const label = isRedirectCitationHost(url) ? 'Google source' : url;
+  if (!href) return <span className="cit mono" title={url}>{label}</span>;
   return (
     <a
       className="cit mono"
@@ -433,7 +467,7 @@ export function Cit({ url }: { url: string }) {
       rel="noopener noreferrer"
       title={`Open ${href} in a new tab`}
     >
-      {url}
+      {label}
     </a>
   );
 }

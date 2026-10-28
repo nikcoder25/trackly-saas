@@ -1,9 +1,20 @@
 import { describe, it, expect } from 'vitest';
+import { readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import sitemap from '@/app/sitemap';
 import { blogPosts } from '@/data/blog-posts';
 import { getAllTermSlugs } from '@/data/glossary';
 import { getAllCategorySlugs } from '@/data/best-categories';
 import { getAllCaseStudySlugs } from '@/data/case-studies';
+
+// Every /tools/<slug> route directory that ships a page. Enumerated from the
+// filesystem so a newly-added tool (like nap-verification, which was missing
+// from the sitemap) can never silently drift out of coverage again.
+const TOOLS_DIR = join(process.cwd(), 'src/app/(public)/tools');
+const toolSlugs = readdirSync(TOOLS_DIR).filter((entry) => {
+  const full = join(TOOLS_DIR, entry);
+  return statSync(full).isDirectory();
+});
 
 // Regression test for sitemap coverage: the sitemap used to be a hardcoded
 // list that silently fell out of sync as sections shipped (~45 live pages
@@ -19,10 +30,10 @@ describe('sitemap.xml coverage', () => {
     }
   });
 
-  it('contains every glossary term plus the hub', () => {
+  it('lists the glossary hub but not the noindexed term pages', () => {
     expect(urls).toContain('/glossary');
     for (const term of getAllTermSlugs()) {
-      expect(urls, `/glossary/${term} missing from sitemap`).toContain(`/glossary/${term}`);
+      expect(urls, `/glossary/${term} is noindex and must stay out of the sitemap`).not.toContain(`/glossary/${term}`);
     }
   });
 
@@ -34,10 +45,28 @@ describe('sitemap.xml coverage', () => {
     }
   });
 
-  it('contains every case study plus the hub', () => {
-    expect(urls).toContain('/case-studies');
+  it('keeps the illustrative (noindex) case studies out', () => {
+    expect(urls).not.toContain('/case-studies');
     for (const brand of getAllCaseStudySlugs()) {
-      expect(urls, `/case-studies/${brand} missing from sitemap`).toContain(`/case-studies/${brand}`);
+      expect(urls, `/case-studies/${brand} is noindex and must stay out of the sitemap`).not.toContain(`/case-studies/${brand}`);
+    }
+  });
+
+  it('drops the 301ed brand-tracking pages and lists the new BOFU pages', () => {
+    for (const engine of ['chatgpt', 'perplexity', 'claude', 'gemini', 'grok']) {
+      expect(urls).not.toContain(`/${engine}-brand-tracking`);
+      expect(urls).toContain(`/${engine}-rank-tracker`);
+    }
+    for (const path of [
+      '/uses',
+      '/uses/ai-visibility-for-local-businesses',
+      '/uses/ai-visibility-report-for-agencies',
+      '/uses/ai-visibility-for-hvac-companies',
+      '/uses/ai-visibility-for-plumbers',
+      '/uses/ai-visibility-for-roofers',
+      '/uses/ai-visibility-for-dentists',
+    ]) {
+      expect(urls, `${path} missing from sitemap`).toContain(path);
     }
   });
 
@@ -52,6 +81,14 @@ describe('sitemap.xml coverage', () => {
       '/ai-search-statistics-2026',
     ]) {
       expect(urls, `${path} missing from sitemap`).toContain(path);
+    }
+  });
+
+  it('contains every free tool plus the hub', () => {
+    expect(urls).toContain('/tools');
+    expect(toolSlugs.length).toBeGreaterThan(0);
+    for (const slug of toolSlugs) {
+      expect(urls, `/tools/${slug} missing from sitemap`).toContain(`/tools/${slug}`);
     }
   });
 

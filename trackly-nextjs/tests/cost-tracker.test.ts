@@ -51,10 +51,10 @@ describe('estimateCostUsd', () => {
   });
 
   it('prices Claude Haiku at the documented rate', () => {
-    // claude-haiku-4-5-20251001: $0.80 / 1M input, $4.00 / 1M output
+    // claude-haiku-4-5-20251001: $1.00 / 1M input, $5.00 / 1M output
     const cost = estimateCostUsd('claude-haiku-4-5-20251001', 100_000, 50_000);
-    // 0.1M * 0.80 + 0.05M * 4.00 = 0.08 + 0.20 = 0.28
-    expect(cost).toBeCloseTo(0.28, 6);
+    // 0.1M * 1.00 + 0.05M * 5.00 = 0.10 + 0.25 = 0.35
+    expect(cost).toBeCloseTo(0.35, 6);
   });
 
   it('falls back to a startsWith match for versioned model ids', () => {

@@ -270,7 +270,7 @@ export default function GeoScoreCheckerPage() {
             },
             {
               q: 'What is the rate limit?',
-              a: '2 audits per hour for unauthenticated users. Signed-in users get 10 per hour and a monthly cap based on plan. Sign up free to lift the limits.',
+              a: 'Without an account: 2 audits per hour and 3 per month, shared across all GEO audit tools. Signed-in users get 10 per hour and a monthly cap based on plan (20 during the free trial). Start a free trial to lift the limits.',
             },
             {
               q: 'Does the score predict AI mentions?',

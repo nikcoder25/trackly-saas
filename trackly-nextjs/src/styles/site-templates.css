@@ -1,0 +1,56 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Shared styles for the data-driven SEO page templates (AlternativePage,
+   VsPage, RankTrackerPage) in the Livesov Website design system. Builds on
+   the `.ls-*` primitives in livesov-site.css; scoped under `.ls`.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Hero */
+.ls .ls-tpl-hero { padding-top: 88px; padding-bottom: 48px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 22px; }
+.ls .ls-tpl-hero .ls-h1 { max-width: 980px; }
+.ls .ls-tpl-hero .ls-lead { max-width: 680px; }
+
+/* Product screenshot framed like the home page preview */
+.ls .ls-tpl-shot { padding-bottom: 56px; }
+.ls .ls-tpl-shot figure { max-width: 1000px !important; padding: 0 !important; }
+.ls .ls-tpl-shot figure > img {
+  display: block; background: var(--ls-ink); padding: 12px; border-radius: 24px !important;
+  border: 0 !important; box-shadow: 0 40px 80px -40px rgba(11, 12, 20, 0.45) !important;
+}
+.ls .ls-tpl-shot figcaption { font-family: var(--ls-mono-f); font-size: 12px !important; color: var(--ls-subtle) !important; margin-top: 14px !important; }
+
+/* Ranked shortlist */
+.ls .ls-tpl-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 14px; }
+.ls .ls-tpl-item {
+  display: flex; gap: 18px; align-items: flex-start; background: #fff; border: 1px solid var(--ls-line);
+  border-radius: 20px; padding: 24px;
+}
+.ls .ls-tpl-item.us { background: var(--ls-ink); color: #fff; border-color: var(--ls-ink); }
+.ls .ls-tpl-n {
+  flex: none; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  font-family: var(--ls-mono-f); font-size: 14px; background: var(--ls-accent-tint); color: var(--ls-accent-ink);
+}
+.ls .ls-tpl-item.us .ls-tpl-n { background: var(--ls-lime); color: var(--ls-ink); }
+.ls .ls-tpl-item h3 { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ls .ls-tpl-item p { margin: 0 0 8px; font-size: 15px; line-height: 1.6; color: var(--ls-muted); }
+.ls .ls-tpl-item.us p { color: var(--ls-on-dark-2); }
+.ls .ls-tpl-item p strong { color: var(--ls-ink); font-weight: 600; }
+.ls .ls-tpl-item.us p strong { color: #fff; }
+.ls .ls-tpl-links { display: flex; flex-wrap: wrap; gap: 16px; font-size: 14px; font-weight: 600; margin-top: 10px; }
+.ls .ls-tpl-item.us .ls-tpl-links a { color: var(--ls-lime); }
+
+/* Methodology disclosure */
+.ls .ls-tpl-method { background: #fff; border: 1px solid var(--ls-line); border-radius: 20px; padding: 22px 26px; }
+.ls .ls-tpl-method summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 16px; font-weight: 600; font-size: 16px; }
+.ls .ls-tpl-method summary::-webkit-details-marker { display: none; }
+.ls .ls-tpl-method summary .pm { font-family: var(--ls-mono-f); color: var(--ls-accent); flex: none; transition: transform .15s ease; }
+.ls .ls-tpl-method[open] summary .pm { transform: rotate(45deg); }
+.ls .ls-tpl-method ul { margin: 14px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.ls .ls-tpl-method li { font-size: 14px; line-height: 1.7; color: var(--ls-muted); }
+
+.ls .ls-tpl-note { font-family: var(--ls-mono-f); font-size: 12px; color: var(--ls-faint); margin-top: 14px; line-height: 1.6; }
+
+@media (max-width: 640px) {
+  .ls .ls-tpl-hero { padding-top: 56px; }
+  .ls .ls-tpl-item { padding: 18px; gap: 14px; }
+  .ls .ls-tpl-shot figure > img { padding: 6px; border-radius: 16px !important; }
+}

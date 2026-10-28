@@ -17,9 +17,16 @@ import { useBrands } from '@/contexts/BrandContext';
 import { useRun, markPendingFirstRun } from '@/contexts/RunContext';
 import { Logo } from '@/app/dashboard-v2/ui';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
+import CommandPalette from '@/components/dashboard/CommandPalette';
+import AccountMenu from '@/components/dashboard/v3/AccountMenu';
 import '@/app/dashboard-v2/dashboard-v2.css';
 
-interface NavItem { id: string; href: string; label: string; badge?: string; adminOnly?: boolean }
+/**
+ * `hidden` parks an entry: it stays in this list (and in lib/dashboard-nav's
+ * `navGroups`, which the parity test compares against) but is not rendered in
+ * the sidebar. The page itself is untouched and still loads at its URL.
+ */
+interface NavItem { id: string; href: string; label: string; badge?: string; adminOnly?: boolean; hidden?: boolean }
 const NAV: { label: string; items: NavItem[] }[] = [
   { label: 'Dashboard', items: [
     { id: 'overview', href: '/dashboard', label: 'Overview' },
@@ -27,18 +34,27 @@ const NAV: { label: string; items: NavItem[] }[] = [
     { id: 'proof', href: '/dashboard/proof', label: 'Evidence & Proof' },
     { id: 'platforms', href: '/dashboard/platforms', label: 'Platform Status' },
   ] },
+  { label: 'Rank Tracking', items: [
+    { id: 'rank-tracking', href: '/dashboard/rank-tracking', label: 'Rank Tracking', badge: 'NEW' },
+    { id: 'rank-overview', href: '/dashboard/rank-tracking/overview', label: 'Rankings Overview' },
+    { id: 'rank-alerts', href: '/dashboard/rank-tracking/alerts', label: 'Rank Alerts' },
+    { id: 'rank-reports', href: '/dashboard/rank-tracking/reports', label: 'Rank Reports' },
+    { id: 'rank-clients', href: '/dashboard/rank-tracking/clients', label: 'Clients' },
+  ] },
   { label: 'Analysis', items: [
     { id: 'competitors', href: '/dashboard/competitors', label: 'Competitors' },
     { id: 'trends', href: '/dashboard/trends', label: 'SOV Trends' },
     { id: 'accuracy', href: '/dashboard/accuracy', label: 'Accuracy Monitor' },
     { id: 'citations', href: '/dashboard/citations', label: 'Citations' },
+    { id: 'fanout', href: '/dashboard/fanout', label: 'Fan-out Queries', badge: 'BETA' },
+    { id: 'volatility', href: '/dashboard/volatility', label: 'AI Volatility' },
     { id: 'results', href: '/dashboard/results', label: 'Results' },
     { id: 'query-tracker', href: '/dashboard/query-tracker', label: 'Query Tracker' },
     { id: 'recommendations', href: '/dashboard/recommendations', label: 'Recommendations' },
   ] },
   { label: 'Tools', items: [
-    { id: 'connect', href: '/dashboard/connect', label: 'Connect Site', badge: 'NEW' },
-    { id: 'fixes', href: '/dashboard/fixes', label: 'Fix Engine', badge: 'NEW' },
+    { id: 'connect', href: '/dashboard/connect', label: 'Connect Site', badge: 'NEW', hidden: true },
+    { id: 'fixes', href: '/dashboard/fixes', label: 'Fix Engine', badge: 'NEW', hidden: true },
     { id: 'reports', href: '/dashboard/reports', label: 'Reports' },
     { id: 'geo-audit', href: '/dashboard/geo-audit', label: 'GEO Audit' },
     { id: 'regional', href: '/dashboard/geo-audits', label: 'Regional Audits' },
@@ -65,6 +81,8 @@ const THEMED_ROUTES = new Set<string>([
   '/dashboard/mentions',
   '/dashboard/competitors',
   '/dashboard/citations',
+  '/dashboard/fanout',
+  '/dashboard/volatility',
   '/dashboard/platforms',
   '/dashboard/trends',
   '/dashboard/accuracy',
@@ -94,11 +112,20 @@ function NavIcon({ id }: { id: string }) {
     case 'trends': return <svg {...s}><path d="M2 11l3-3 2 2 5-5" /><path d="M12 5h-2V3" /></svg>;
     case 'accuracy': return <svg {...s}><circle cx="7" cy="7" r="5" /><path d="M5 7l2 2 3-3" /></svg>;
     case 'citations': return <svg {...s}><path d="M2 5c1-2 3-2 4-2v3c-1 0-2.5.5-2.5 2v2H2zM7.5 5c1-2 3-2 4-2v3c-1 0-2.5.5-2.5 2v2H7.5z" /></svg>;
+    // One prompt branching into the sub-queries an engine actually issued.
+    case 'fanout': return <svg {...s}><path d="M2 7h3" /><path d="M5 7l3-3.5h4M5 7h7M5 7l3 3.5h4" /></svg>;
+    // A jagged trace: answers moving day over day.
+    case 'volatility': return <svg {...s}><path d="M2 9l2.5-4L7 8l2-5 3 6" /></svg>;
     case 'results': return <svg {...s}><path d="M2 4h10M2 7h10M2 10h7" /></svg>;
     case 'query-tracker': return <svg {...s}><circle cx="6" cy="6" r="4" /><path d="M9 9l3 3" /></svg>;
     case 'recommendations': return <svg {...s}><path d="M7 2l1.8 3.6 4 .6-2.9 2.8.7 4-3.6-1.9-3.6 1.9.7-4-2.9-2.8 4-.6z" /></svg>;
     case 'geo-audit': return <svg {...s}><circle cx="7" cy="6" r="3" /><path d="M7 9v3M4 12h6" /></svg>;
     case 'regional': return <svg {...s}><circle cx="7" cy="7" r="5" /><path d="M2 7h10M7 2c2 2 2 8 0 10M7 2c-2 2-2 8 0 10" /></svg>;
+    case 'rank-tracking': return <svg {...s}><path d="M2 12h10" /><path d="M2.5 9.5l3-3 2.5 2 4-4.5" /></svg>;
+    case 'rank-overview': return <svg {...s}><path d="M2 12V7M5.5 12V4M9 12V8M12.5 12V2" /></svg>;
+    case 'rank-alerts': return <svg {...s}><path d="M4 6a3 3 0 016 0v2.5l1 1.5H3l1-1.5z" /><path d="M6 11.5a1 1 0 002 0" /></svg>;
+    case 'rank-reports': return <svg {...s}><path d="M3 2h6l2 2v8H3z" /><path d="M5 10V8M7 10V6M9 10V9" /></svg>;
+    case 'rank-clients': return <svg {...s}><circle cx="7" cy="5" r="2.2" /><path d="M2.5 12c0-2.3 2-3.6 4.5-3.6s4.5 1.3 4.5 3.6" /></svg>;
     case 'nap-audits': return <svg {...s}><path d="M7 1.5c-2.5 0-4.5 2-4.5 4.5 0 3 4.5 6.5 4.5 6.5s4.5-3.5 4.5-6.5c0-2.5-2-4.5-4.5-4.5z" /><circle cx="7" cy="6" r="1.6" /></svg>;
     case 'setup': return <svg {...s}><circle cx="7" cy="7" r="2" /><path d="M7 2v1.5M7 10.5V12M2 7h1.5M10.5 7H12M3.5 3.5l1 1M9.5 9.5l1 1M3.5 10.5l1-1M9.5 4.5l1-1" /></svg>;
     case 'prompts': return <svg {...s}><path d="M5 2L3 7l2 5M9 2l2 5-2 5" /></svg>;
@@ -116,14 +143,15 @@ function Lvx({ children }: { children: React.ReactNode }) {
   return <div className="lvx" style={{ display: 'contents' }}>{children}</div>;
 }
 
-function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
+function ProdTopbar({ onMenuToggle, menuOpen, onAddBrand }: { onMenuToggle: () => void; menuOpen: boolean; onAddBrand: () => void }) {
   const { user } = useAuth();
-  const { brands, selectedBrand, setSelectedBrand, selectBrandById, refreshBrands, plan, brandLimit, loading: brandsLoading } = useBrands();
+  const { brands, selectedBrand, selectBrandById, plan, brandLimit, loading: brandsLoading } = useBrands();
   const { live, pct } = useRun();
   // Per-brand run progress: show a thin bar under the brand selector when the
   // currently-selected brand is the one being scanned right now.
   const selectedBrandRunning = live.running && !!selectedBrand && live.brandId === selectedBrand.id;
-  const [showAddBrand, setShowAddBrand] = React.useState(false);
+  // Shared by the topbar search button and the ⌘K shortcut inside the palette.
+  const [searchOpen, setSearchOpen] = React.useState(false);
   const [showLimitPrompt, setShowLimitPrompt] = React.useState(false);
   const limitRef = React.useRef<HTMLDivElement>(null);
   const atBrandLimit = brands.length >= brandLimit;
@@ -141,18 +169,19 @@ function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
 
   const handleAddBrandClick = () => {
     if (atBrandLimit) setShowLimitPrompt(true);
-    else setShowAddBrand(true);
+    else onAddBrand();
   };
 
   return (
     <>
     <header className="topbar">
       <div className="topbar-left">
-        <button onClick={onMenuToggle} className="icon-btn lvx-hamburger" aria-label="Menu" style={{ display: 'none' }}>
+        <button onClick={onMenuToggle} className="icon-btn lvx-hamburger" aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={menuOpen} aria-controls="lvx-drawer" style={{ display: 'none' }}>
           <svg width="16" height="16" viewBox="0 0 16 16"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
         </button>
         <Logo size={14} />
-        <span className="div" />
+        <span className="div lvx-hide-sm" />
         <div className="brand-sel" style={{ position: 'relative' }}>
           <span className="ptile ptile-chatgpt mono" style={{ width: 22, height: 22, fontSize: 9, background: 'linear-gradient(135deg, #6366F1, #4F46E5)' }}>{initials}</span>
           <span className="bs-name">{selectedBrand?.name || 'Select brand'}</span>
@@ -174,7 +203,7 @@ function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
             </div>
           )}
         </div>
-        <div style={{ position: 'relative' }} ref={limitRef}>
+        <div className="lvx-hide-sm" style={{ position: 'relative' }} ref={limitRef}>
           <button
             type="button"
             onClick={handleAddBrandClick}
@@ -221,46 +250,60 @@ function ProdTopbar({ onMenuToggle }: { onMenuToggle: () => void }) {
             </div>
           )}
         </div>
-        <Link href="/dashboard/query-tracker" className="global-search lvx-search" style={{ display: 'none' }}>
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
+        {/*
+          Was a <Link> wrapping a <span> - it looked like a search field, could
+          not be typed into, navigated to Query Tracker on click, and showed a
+          ⌘K badge with no handler behind it. Now a real button that opens the
+          command palette, which is also what ⌘K binds to.
+        */}
+        <button
+          type="button"
+          onClick={() => setSearchOpen(true)}
+          className="global-search lvx-search"
+          // fontFamily (not the `font` shorthand) so the stylesheet's
+          // font-size: 13px still wins; `font: inherit` would reset it.
+          style={{ display: 'none', fontFamily: 'inherit', textAlign: 'left' }}
+          aria-label="Search prompts, mentions and sources"
+          aria-keyshortcuts="Meta+K Control+K"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }} aria-hidden="true">
             <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.5" />
             <path d="M9.5 9.5L12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
           <span>Search prompts, mentions, sources…</span>
           <kbd>⌘ K</kbd>
-        </Link>
-        <style>{`@media(min-width:1100px){.lvx-search{display:flex!important;}}@media(max-width:1023px){.lvx-hamburger{display:inline-flex!important;}}`}</style>
+        </button>
+        <style>{`@media(min-width:1100px){.lvx-search{display:flex!important;}.lvx-search-icon{display:none!important;}}@media(max-width:1023px){.lvx-hamburger{display:inline-flex!important;}}`}</style>
       </div>
       <div className="topbar-right">
-        <Link href="/dashboard/alerts" className="icon-btn" title="Alerts">
+        {/* Below 1100px the search field above is hidden; this opens the same palette. */}
+        <button type="button" onClick={() => setSearchOpen(true)} className="icon-btn lvx-search-icon"
+          aria-label="Search prompts, mentions and sources" title="Search">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M9.5 9.5L12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </button>
+        <Link href="/dashboard/alerts" className="icon-btn" title="Alerts" aria-label="Alerts">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 6C3 3.8 4.8 2 7 2C9.2 2 11 3.8 11 6V8L12 10H2L3 8V6Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" fill="none" /><path d="M5.5 11.5C5.5 12.3 6.2 13 7 13C7.8 13 8.5 12.3 8.5 11.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none" /></svg>
         </Link>
-        <Link href="/dashboard/billing" className="plan-badge" style={{ textDecoration: 'none' }}>{planLabel}</Link>
-        <button className="avatar" title={user?.email || ''}>{user?.name?.[0]?.toUpperCase() || 'U'}</button>
+        <Link href="/dashboard/billing" className="plan-badge lvx-hide-sm" style={{ textDecoration: 'none' }}>{planLabel}</Link>
+        {/* Avatar opens the account menu, which carries the v3 design switch. */}
+        <AccountMenu variant="classic" />
       </div>
     </header>
-    {showAddBrand && (
-      <AddBrandModal
-        onClose={() => setShowAddBrand(false)}
-        onCreated={(brand) => {
-          setShowAddBrand(false);
-          setSelectedBrand(brand);
-          // Flag for an automatic first scan; <AutoFirstRun> dispatches it once
-          // the new brand is in context (survives this modal unmounting).
-          markPendingFirstRun(brand.id);
-          refreshBrands();
-        }}
-      />
-    )}
+    {/* Always mounted: it owns the ⌘K listener and renders null while closed. */}
+    <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
     </>
   );
 }
 
-function ProdSidebar({ onNavigate }: { onNavigate?: () => void }) {
+function ProdSidebar({ onNavigate, onAddBrand }: { onNavigate?: () => void; onAddBrand?: () => void }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { live, startRun } = useRun();
-  const { selectedBrandLocked } = useBrands();
+  const { selectedBrandLocked, brands, brandLimit } = useBrands();
+  const atBrandLimit = brands.length >= brandLimit;
   const isAdmin = user?.role === 'admin' || user?.plan === 'owner';
   const disabled = live.running || selectedBrandLocked;
   return (
@@ -273,14 +316,25 @@ function ProdSidebar({ onNavigate }: { onNavigate?: () => void }) {
           Run all engines
         </>}
       </button>
-      {NAV.map(group => (
+      {/* The topbar drops "+ Add brand" below 640px; the drawer carries it instead. */}
+      {onAddBrand && (atBrandLimit ? (
+        <Link href="/dashboard/account" onClick={onNavigate} className="sb-item sb-add-brand">
+          <span className="sb-i">+</span><span>Upgrade to add brands</span>
+        </Link>
+      ) : (
+        <button type="button" onClick={onAddBrand} className="sb-item sb-add-brand">
+          <span className="sb-i">+</span><span>Add brand</span>
+        </button>
+      ))}
+      {NAV.map(group => group.items.some(it => !it.hidden) && (
         <div key={group.label} className="sb-group">
           <div className="sb-group-label">{group.label}</div>
           {group.items.map(it => {
+            if (it.hidden) return null;
             if (it.adminOnly && !isAdmin) return null;
             const active = pathname === it.href || (it.href !== '/dashboard' && pathname?.startsWith(it.href + '/'));
             return (
-              <Link key={it.id} href={it.href} prefetch={false} onClick={onNavigate} className={'sb-item ' + (active ? 'on' : '')}>
+              <Link key={it.id} href={it.href} onClick={onNavigate} className={'sb-item ' + (active ? 'on' : '')}>
                 <span className="sb-i"><NavIcon id={it.id} /></span>
                 <span>{it.label}</span>
                 {it.badge && <span className="sb-badge">{it.badge}</span>}
@@ -312,12 +366,12 @@ function ProdSubbar() {
       <div className="breadcrumbs">
         <span>Livesov</span>
         <span className="crumb-sep">/</span>
-        <span>{meta.group}</span>
-        <span className="crumb-sep">/</span>
+        <span className="crumb-mid">{meta.group}</span>
+        <span className="crumb-sep crumb-mid">/</span>
         <b>{meta.label}</b>
       </div>
       <div className="subbar-right">
-        <span className="subbar-run"><span className="pulse" /> Auto-runs</span>
+        <span className="subbar-run"><span className="pulse" /> <span className="subbar-run-full">Auto-runs</span><span className="subbar-run-short">Auto</span></span>
       </div>
     </div>
   );
@@ -325,26 +379,67 @@ function ProdSubbar() {
 
 export default function LvxShell({ banners, children }: { banners?: React.ReactNode; children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [showAddBrand, setShowAddBrand] = React.useState(false);
+  const { setSelectedBrand, refreshBrands } = useBrands();
   const pathname = usePathname();
   const themed = !!pathname && THEMED_ROUTES.has(pathname);
+  const close = React.useCallback(() => setMobileOpen(false), []);
+
+  // Close on navigation - covers links, back/forward and the command palette.
+  React.useEffect(() => { setMobileOpen(false); }, [pathname]);
+
+  React.useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileOpen(false); };
+    window.addEventListener('keydown', onKey);
+    // Lock the page behind the drawer. The dashboard scrolls inside
+    // .lvx-shell-main, so that is locked along with the document.
+    const main = document.querySelector<HTMLElement>('.lvx-shell-main');
+    const prev = [document.documentElement.style.overflow, document.body.style.overflow, main?.style.overflow ?? ''];
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    if (main) main.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.documentElement.style.overflow = prev[0];
+      document.body.style.overflow = prev[1];
+      if (main) main.style.overflow = prev[2];
+    };
+  }, [mobileOpen]);
+
+  const openAddBrand = React.useCallback(() => { setMobileOpen(false); setShowAddBrand(true); }, []);
+
   return (
     <>
       <div className="lvx-shell">
-        <Lvx><ProdTopbar onMenuToggle={() => setMobileOpen(o => !o)} /></Lvx>
-        <Lvx><ProdSidebar onNavigate={() => setMobileOpen(false)} /></Lvx>
+        <Lvx><ProdTopbar menuOpen={mobileOpen} onMenuToggle={() => setMobileOpen(o => !o)} onAddBrand={openAddBrand} /></Lvx>
+        <Lvx><ProdSidebar onNavigate={close} /></Lvx>
         <main className="lvx-shell-main">
           <Lvx><ProdSubbar /></Lvx>
           {banners && <div className="lvx-shell-banners">{banners}</div>}
           {themed ? children : <div className="lvx-shell-content">{children}</div>}
         </main>
       </div>
-      {mobileOpen && (
-        <>
-          <div onClick={() => setMobileOpen(false)} style={{ position: 'fixed', inset: '56px 0 0 0', background: 'rgba(0,0,0,.35)', zIndex: 40 }} />
-          <div className="lvx lvx-drawer">
-            <ProdSidebar onNavigate={() => setMobileOpen(false)} />
-          </div>
-        </>
+      {/* Mounted at every size but hidden from 1024px up by CSS; kept in the
+          DOM while closed so it can slide instead of popping in. */}
+      <div className={'lvx-drawer-backdrop' + (mobileOpen ? ' open' : '')} onClick={close} aria-hidden="true" />
+      <div id="lvx-drawer" className={'lvx lvx-drawer' + (mobileOpen ? ' open' : '')}
+        role="dialog" aria-modal={mobileOpen} aria-label="Navigation" aria-hidden={!mobileOpen}
+        inert={!mobileOpen}>
+        <ProdSidebar onNavigate={close} onAddBrand={openAddBrand} />
+      </div>
+      {showAddBrand && (
+        <AddBrandModal
+          onClose={() => setShowAddBrand(false)}
+          onCreated={(brand) => {
+            setShowAddBrand(false);
+            setSelectedBrand(brand);
+            // Flag for an automatic first scan; <AutoFirstRun> dispatches it once
+            // the new brand is in context (survives this modal unmounting).
+            markPendingFirstRun(brand.id);
+            refreshBrands();
+          }}
+        />
       )}
     </>
   );

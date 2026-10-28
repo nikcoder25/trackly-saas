@@ -1,15 +1,17 @@
 import type { Metadata } from 'next';
-import { Mail } from 'lucide-react';
-import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
+import { Breadcrumbs } from '@/components/seo/SeoLayout';
+import SiteShell from '@/components/site/SiteShell';
+import Link from 'next/link';
 import ContactForm from '@/components/ContactForm';
+import EmailOff from '@/components/EmailOff';
 
 export const metadata: Metadata = {
-  title: 'Contact Livesov | Support, Sales & Partnerships',
-  description: 'Reach the Livesov team for support, enterprise plans, or partnerships. We respond within 24 hours.',
+  title: 'Contact Us | Support, Sales & Partnerships | Livesov',
+  description: 'Contact the Livesov team for product support, enterprise plans or partnerships. Send us a message and a real person will reply within 24 hours.',
   alternates: { canonical: '/contact' },
   openGraph: {
-    title: 'Contact Livesov | Support, Sales & Partnerships',
-    description: 'Reach the Livesov team for support, enterprise plans, or partnerships. We respond within 24 hours.',
+    title: 'Contact Us | Support, Sales & Partnerships | Livesov',
+    description: 'Contact the Livesov team for product support, enterprise plans or partnerships. Send us a message and a real person will reply within 24 hours.',
     url: 'https://livesov.com/contact',
     siteName: 'Livesov',
     type: 'website',
@@ -17,46 +19,50 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Contact Livesov | Support, Sales & Partnerships',
-    description: 'Reach the Livesov team for support, enterprise plans, or partnerships. We respond within 24 hours.',
+    title: 'Contact Us | Support, Sales & Partnerships | Livesov',
+    description: 'Contact the Livesov team for product support, enterprise plans or partnerships. Send us a message and a real person will reply within 24 hours.',
     images: ['https://livesov.com/og-image.png'],
   },
 };
 
+function Arrow() {
+  return (
+    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17L17 7" /><path d="M8 7h9v9" /></svg>
+  );
+}
+
 export default function ContactPage() {
   return (
-    <SeoLayout>
+    <SiteShell>
       <Breadcrumbs items={[{ name: 'Contact', url: '/contact' }]} />
-      <SeoHero
-        title="Get in Touch"
-        subtitle="We'd love to hear from you. Reach out for support, enterprise plans, partnerships, or just to say hello."
-        ctaText="Send us a message"
-        ctaHref="#contact-form"
-      />
-
-      {/* Contact Form */}
-      <div id="contact-form" className="max-w-2xl mx-auto px-6 mt-6 pb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Send Us a Message</h2>
-        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 shadow-sm">
-          <ContactForm />
+      <section className="ls-wrap" style={{ paddingTop: 80, paddingBottom: 112, display: 'flex', flexWrap: 'wrap', gap: 64 }}>
+        <div className="ls-stack" style={{ flex: '1 1 400px', gap: 28, minWidth: 0 }}>
+          <span className="ls-eyebrow">Contact</span>
+          <h1 className="ls-h1">Let&apos;s talk <span className="ls-em">AI visibility.</span></h1>
+          <p className="ls-lead" style={{ maxWidth: 460 }}>
+            Questions about plans, agency setups or partnerships. A real person replies within one business day.
+          </p>
+          <div className="ls-stack ls-gap-12" style={{ marginTop: 8 }}>
+            <EmailOff>
+              <a href="mailto:hello@livesov.com" className="ls-linkcard">
+                <span><small>Email</small><strong>hello@livesov.com</strong></span><Arrow />
+              </a>
+            </EmailOff>
+            <Link href="/partners" className="ls-linkcard">
+              <span><small>Partners</small><strong>Agency partner program</strong></span><Arrow />
+            </Link>
+            <Link href="/docs" className="ls-linkcard">
+              <span><small>Help</small><strong>Docs and guides</strong></span><Arrow />
+            </Link>
+          </div>
         </div>
-      </div>
-
-      {/* Divider */}
-      <div className="max-w-2xl mx-auto px-6">
-        <div className="border-t border-gray-200" />
-      </div>
-
-      {/* Contact Info Card */}
-      <div className="max-w-2xl mx-auto px-6 mt-6 pb-10">
-        <h2 className="text-2xl font-bold text-gray-900 mb-3 text-center">Or Reach Out Directly</h2>
-        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center transition-shadow hover:shadow-md mt-8">
-          <Mail className="w-8 h-8 text-[var(--brand)] mx-auto mb-3" />
-          <h3 className="font-bold text-gray-900 mb-2">Email Us</h3>
-          <p className="text-gray-500 text-sm mb-3">For all inquiries including support, sales, and partnerships.</p>
-          <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">hello@livesov.com</a>
+        <div id="contact-form" className="ls-frame" style={{ flex: '1 1 480px', minWidth: 0 }}>
+          <div className="ls-frame-in">
+            <h2 className="ls-sr">Send us a message</h2>
+            <ContactForm />
+          </div>
         </div>
-      </div>
-    </SeoLayout>
+      </section>
+    </SiteShell>
   );
 }

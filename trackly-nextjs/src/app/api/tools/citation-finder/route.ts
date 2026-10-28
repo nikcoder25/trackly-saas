@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { queryAI, getDefaultModel, pickBestKey, withCacheAndRetry } from '@/lib/ai-platforms';
 import { isSearchEnabled } from '@/lib/response-cache';
 import { getServerKeys } from '@/lib/server-keys';
@@ -52,13 +52,17 @@ function buildPrompt(query: string, brand?: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const ip = getClientIp(req);
     // 2 queries per IP per day - this tool calls Perplexity/ChatGPT which
     // costs us per-query. Anything beyond a tasting menu should sign up.
     const { allowed, retryAfter } = await rateLimit(`citation-finder:${ip}`, 24 * 60 * 60 * 1000, 2);
     if (!allowed) return rateLimitResponse(retryAfter);
 
     const body = await req.json().catch(() => ({}));
+    // Honeypot: the page sends a hidden `website` field that humans leave empty.
+    if (typeof body?.website === 'string' && body.website) {
+      return Response.json({ error: 'Invalid request.' }, { status: 400 });
+    }
     const query: string = typeof body?.query === 'string' ? body.query.trim() : '';
     const brand: string = typeof body?.brand === 'string' ? body.brand.trim() : '';
     const platformChoice: string = typeof body?.platform === 'string' ? body.platform : 'Perplexity';
@@ -97,6 +101,13 @@ export async function POST(req: NextRequest) {
     const text = result.text || '';
 
     const citations = extractCitations(text);
+    // Perplexity answers use [1]-style markers; the real sources (and
+    // ChatGPT's link annotations) arrive on result.citations.
+    const structured = (result as { citations?: unknown }).citations;
+    for (const u of Array.isArray(structured) ? structured : []) {
+      if (typeof u !== 'string' || citations.length >= 25 || citations.some((c) => c.url === u)) continue;
+      try { citations.push({ url: u, domain: new URL(u).host }); } catch {}
+    }
 
     let brandCited = false;
     if (brand) {

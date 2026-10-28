@@ -7,10 +7,14 @@
 // dashboard shell (see DashboardLayoutClient), so this page stays presentational.
 
 import { PageOverview } from '@/app/dashboard-v2/pages/overview';
+import OverviewV3 from '@/components/dashboard/v3/OverviewV3';
+import { useUiFlag } from '@/contexts/UiFlagContext';
 
 export const dynamic = 'force-dynamic';
 
 export default function DashboardPage() {
+  const { isV3 } = useUiFlag();
+  if (isV3) return <OverviewV3 />;
   return (
     <div className="lvx">
       <PageOverview />

@@ -27,6 +27,7 @@
 
 import crypto from 'crypto';
 import { pool } from '@/lib/db';
+import { schemaOnce } from '@/lib/schema-once';
 import { reserveCredits, refundCredits } from '@/lib/credits';
 import { logger } from '@/lib/logger';
 import {
@@ -37,6 +38,10 @@ import {
 } from '@/lib/ai-platforms';
 import { resolveKeysForTenant } from '@/lib/tenant-keys';
 import { getServerKeys } from '@/lib/server-keys';
+import { getAdminModel } from '@/lib/site-config';
+import { resolveModelForPlan } from '@/lib/plan-config';
+import { geminiGroundingWithinBudget } from '@/lib/gemini-grounding-budget';
+import { getUserEffectivePlan } from '@/lib/helpers';
 import { buildBrandMatcher, parseResponse } from '@/lib/parser';
 import type { BrandInput } from '@/lib/parser';
 
@@ -92,15 +97,13 @@ export interface GeoAuditResultRow {
   createdAt: string;
 }
 
-let schemaEnsured = false;
-
 /**
  * Idempotent schema bootstrap. Called by every entry point that touches
  * the geo_audits tables. Mirrors the pattern used by ensureCreditsSchema,
- * ensureCronLockSchema, etc.
+ * ensureCronLockSchema, etc. Wrapped in schemaOnce so two concurrent first
+ * callers can't both issue the CREATE and have the loser 500.
  */
-export async function ensureGeoAuditsSchema(): Promise<void> {
-  if (schemaEnsured) return;
+export const ensureGeoAuditsSchema: () => Promise<void> = schemaOnce(async () => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS geo_audits (
       id              UUID PRIMARY KEY,
@@ -126,6 +129,18 @@ export async function ensureGeoAuditsSchema(): Promise<void> {
   // before they were added - idempotent ALTERs, no-op on fresh DBs.
   await pool.query(`ALTER TABLE geo_audits ADD COLUMN IF NOT EXISTS prompts TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]`);
   await pool.query(`ALTER TABLE geo_audits ADD COLUMN IF NOT EXISTS mention_rate NUMERIC`);
+  // Progress heartbeat: bumped on every result-row insert so the watchdog
+  // reaps on *stall* (no progress for N minutes) rather than on wall-clock
+  // age. A large audit (up to 5 regions x 100 prompts x 5 platforms = 2,500
+  // calls) legitimately runs for hours; keying the reaper off started_at
+  // reaped healthy audits at the 10-min mark and double-refunded them.
+  await pool.query(`ALTER TABLE geo_audits ADD COLUMN IF NOT EXISTS last_progress_at TIMESTAMPTZ`);
+  // Exactly-once refund guard. The live worker's terminal reconcile and the
+  // watchdog reaper can both refund the same audit under a stall; without a
+  // shared marker each refunds (reserved - received), double-crediting the
+  // monthly counter. Every refund path now flips this flag with an atomic
+  // compare-and-set and only the winner applies the refund.
+  await pool.query(`ALTER TABLE geo_audits ADD COLUMN IF NOT EXISTS credits_refunded BOOLEAN NOT NULL DEFAULT FALSE`);
   // Backfill mention_rate for terminal historical rows (done / failed /
   // cancelled). Idempotent: rows that already have a value are skipped
   // via the `IS NULL` predicate. Computed as mentions_count / NULLIF(received, 0)
@@ -166,8 +181,7 @@ export async function ensureGeoAuditsSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_geo_audit_results_audit
       ON geo_audit_results (audit_id, created_at)
   `);
-  schemaEnsured = true;
-}
+});
 
 // Build the system-prompt note that "places" the LLM in the given region.
 // Uses the existing queryAI options.systemPrompt slot - every provider
@@ -229,7 +243,7 @@ export async function claimAuditForRunning(auditId: string): Promise<boolean> {
   await ensureGeoAuditsSchema();
   const res = await pool.query(
     `UPDATE geo_audits
-        SET status = 'running', started_at = NOW()
+        SET status = 'running', started_at = NOW(), last_progress_at = NOW()
       WHERE id = $1 AND status = 'queued'
       RETURNING id`,
     [auditId],
@@ -263,6 +277,9 @@ async function finalizeAudit(
   // succeeded so the UI can render an empty-state instead of a
   // misleading 0.0%.
   const mentionRate = received > 0 ? mentions / received : null;
+  // Status guard: only finalize an audit that is still 'running'. If the
+  // watchdog reaper already flipped it to 'failed' during a stall, this
+  // no-ops instead of resurrecting it to 'done'.
   await pool.query(
     `UPDATE geo_audits
         SET status = $2,
@@ -271,7 +288,7 @@ async function finalizeAudit(
             mention_rate = $5,
             error = $6,
             completed_at = NOW()
-      WHERE id = $1`,
+      WHERE id = $1 AND status = 'running'`,
     [auditId, outcome, received, mentions, mentionRate, errorMsg],
   );
 }
@@ -337,6 +354,12 @@ async function insertResultRow(
       outcome.error,
     ],
   );
+  // Heartbeat: mark progress so the watchdog reaps on stall, not age. A
+  // failed provider call still counts as progress (the worker is alive).
+  await pool.query(
+    `UPDATE geo_audits SET last_progress_at = NOW() WHERE id = $1`,
+    [auditId],
+  );
 }
 
 /**
@@ -375,7 +398,13 @@ const defaultCallProvider: CallProvider = async ({
   if (!rawKey) {
     return { model: null, response: null, mentioned: false, error: `No usable API key for ${platform}` };
   }
-  const model = getDefaultModel(platform);
+  // Same model resolution as /api/brands/[id]/run: admin-selected model,
+  // then clamped to what the owner's plan tier permits. This path used the
+  // raw platform default with no clamp, so a Starter brand's regional audit
+  // could run on the premium model the plan is not priced for.
+  const adminBase = (await getAdminModel(platform)) || getDefaultModel(platform);
+  const ownerPlan = await getUserEffectivePlan(userId);
+  const model = resolveModelForPlan(platform, ownerPlan, adminBase);
   const matcher = buildBrandMatcher(brand);
   // Region context moved into the user message so the system prompt
   // stays byte-identical across regions (required for OpenAI automatic
@@ -394,6 +423,8 @@ const defaultCallProvider: CallProvider = async ({
     const result = await queryAI(platform, userPrompt, rawKey, model, brandCtx, {
       systemPrompt,
       tenantId: userId,
+      // Grounded Gemini is Pro-and-above (per-request fee).
+      geminiGrounding: platform === 'Gemini' && await geminiGroundingWithinBudget(userId, ownerPlan),
     });
     const parsed = parseResponse(result.text || '', brand, promptText, matcher);
     return {
@@ -527,15 +558,25 @@ export async function processGeoAudit(
   // Reconcile the credit reservation. queryAI auto-records 1 cost
   // event per successful call; the difference (reserved − received)
   // is refunded to the monthly counter so the user isn't billed for
-  // calls that never landed.
-  const finalTally = await pool.query(
-    `SELECT COUNT(*)::int AS received FROM geo_audit_results
-       WHERE audit_id = $1 AND error IS NULL`,
+  // calls that never landed. Exactly-once: claim credits_refunded with an
+  // atomic compare-and-set so that if the watchdog reaper already refunded
+  // this audit (stall race), we skip instead of refunding a second time.
+  const refundClaim = await pool.query(
+    `UPDATE geo_audits SET credits_refunded = TRUE
+      WHERE id = $1 AND credits_refunded = FALSE
+      RETURNING id`,
     [auditId],
   );
-  const received = Number((finalTally.rows[0] as { received?: number } | undefined)?.received) || 0;
-  const refundAmount = Math.max(0, auditRow.total_expected - received);
-  if (refundAmount > 0) await safeRefund(auditRow.user_id, refundAmount);
+  if (refundClaim.rowCount) {
+    const finalTally = await pool.query(
+      `SELECT COUNT(*)::int AS received FROM geo_audit_results
+         WHERE audit_id = $1 AND error IS NULL`,
+      [auditId],
+    );
+    const received = Number((finalTally.rows[0] as { received?: number } | undefined)?.received) || 0;
+    const refundAmount = Math.max(0, auditRow.total_expected - received);
+    if (refundAmount > 0) await safeRefund(auditRow.user_id, refundAmount);
+  }
 
   // Final outcome: 'done' if any tasks succeeded; 'failed' only if the
   // worker itself caught a non-recoverable exception or zero tasks
@@ -612,11 +653,15 @@ export async function reapStaleGeoAudits(staleMinutes: number): Promise<{
   reaped: string[];
 }> {
   await ensureGeoAuditsSchema();
+  // Reap on *stall*, not wall-clock age: compare against the progress
+  // heartbeat (last_progress_at), falling back to started_at for rows that
+  // predate the column. A healthy multi-hour audit keeps bumping the
+  // heartbeat on every result insert, so it's no longer reaped mid-flight.
   const res = await pool.query(
     `SELECT id, user_id, total_expected
        FROM geo_audits
       WHERE status = 'running'
-        AND started_at < NOW() - ($1::int || ' minutes')::interval
+        AND COALESCE(last_progress_at, started_at) < NOW() - ($1::int || ' minutes')::interval
         FOR UPDATE SKIP LOCKED
       LIMIT 50`,
     [staleMinutes],
@@ -624,6 +669,22 @@ export async function reapStaleGeoAudits(staleMinutes: number): Promise<{
   const rows = res.rows as Array<{ id: string; user_id: string; total_expected: number }>;
   const reaped: string[] = [];
   for (const row of rows) {
+    // Claim the audit atomically: flip status running→failed AND
+    // credits_refunded FALSE→TRUE in one statement. Winning this flip is the
+    // refund claim, so a still-alive worker that finishes later sees
+    // credits_refunded = TRUE and its own compare-and-set skips (no double
+    // refund, and finalizeAudit's status guard blocks the failed→done flip).
+    const claim = await pool.query(
+      `UPDATE geo_audits
+          SET status = 'failed',
+              credits_refunded = TRUE,
+              error = COALESCE(error, 'Watchdog reap: stuck in running'),
+              completed_at = NOW()
+        WHERE id = $1 AND status = 'running' AND credits_refunded = FALSE
+        RETURNING id`,
+      [row.id],
+    );
+    if (!claim.rowCount) continue;
     const tally = await pool.query(
       `SELECT COUNT(*)::int AS received FROM geo_audit_results
          WHERE audit_id = $1 AND error IS NULL`,
@@ -632,14 +693,6 @@ export async function reapStaleGeoAudits(staleMinutes: number): Promise<{
     const received = Number((tally.rows[0] as { received?: number } | undefined)?.received) || 0;
     const refund = Math.max(0, row.total_expected - received);
     if (refund > 0) await safeRefund(row.user_id, refund);
-    await pool.query(
-      `UPDATE geo_audits
-          SET status = 'failed',
-              error = COALESCE(error, 'Watchdog reap: stuck in running'),
-              completed_at = NOW()
-        WHERE id = $1`,
-      [row.id],
-    );
     reaped.push(row.id);
   }
   return { reaped };

@@ -11,9 +11,18 @@
  *   2. SerpApi (real Google results) — SERPAPI_KEY.
  *   3. A web-grounded model call (Perplexity, the same grounded engine the
  *      product's tracking uses) — a close approximation, no extra vendor.
+ * Every call is pinned to the brand's market (see marketFor) so the
+ * competitor set is the one the customer's own searchers see, not whatever
+ * the vendor's default egress resolves to.
+ *
  * Either way results are cached 7 days per (brand, query) to keep
- * generation fast and cheap. Everything here is best-effort: any failure
- * returns [] and generation proceeds without competitor context.
+ * generation fast and cheap. The market is derived from the brand, so the
+ * existing key already scopes it - two brands in different countries never
+ * share a cached SERP. A brand that edits its own country or city keeps the
+ * old market's results until the 7-day entry expires.
+ *
+ * Everything here is best-effort: any failure returns [] and generation
+ * proceeds without competitor context.
  */
 
 import { pool } from '@/lib/db';
@@ -26,6 +35,62 @@ import type { FixContext } from './types';
 
 export const SERP_CACHE_DAYS = 7;
 const MAX_RESULTS = 8;
+
+/**
+ * Google market for a brand's SERP lookups.
+ *
+ * An unpinned SERP call is not a neutral one - the provider resolves it
+ * from its own default egress, so the "top 3 competitors" a US plumber is
+ * measured against can quietly come back as the top 3 in whatever market
+ * the vendor happened to route through. For a local service business that
+ * is not a rounding error, it is the wrong competitor set entirely, and
+ * every downstream content brief inherits the mistake.
+ *
+ * So every call is pinned. `gl`/`hl` come from the brand's country (free
+ * text, so it is normalised), and the brand's city is passed as the
+ * provider's `location` when we have one, which is what actually makes a
+ * "near me" query resolve like the customer's own searchers see it.
+ */
+const COUNTRY_CODES: Record<string, string> = {
+  'united states': 'us', 'united states of america': 'us', usa: 'us', 'u.s.': 'us', 'u.s.a.': 'us', america: 'us',
+  'united kingdom': 'gb', uk: 'gb', 'great britain': 'gb', britain: 'gb', england: 'gb', scotland: 'gb', wales: 'gb',
+  canada: 'ca', australia: 'au', 'new zealand': 'nz', ireland: 'ie', india: 'in', 'south africa': 'za',
+  germany: 'de', deutschland: 'de', france: 'fr', spain: 'es', espana: 'es', italy: 'it', italia: 'it',
+  netherlands: 'nl', holland: 'nl', belgium: 'be', sweden: 'se', norway: 'no', denmark: 'dk', finland: 'fi',
+  poland: 'pl', portugal: 'pt', austria: 'at', switzerland: 'ch', mexico: 'mx', brazil: 'br', brasil: 'br',
+  argentina: 'ar', japan: 'jp', singapore: 'sg', 'united arab emirates': 'ae', uae: 'ae', philippines: 'ph',
+};
+
+/** Default market. The product's customer base is overwhelmingly US local. */
+export const DEFAULT_MARKET = { gl: 'us', hl: 'en' } as const;
+
+/**
+ * Normalise a brand's free-text country to a 2-letter Google `gl` code.
+ * Unrecognised input falls back to the default rather than guessing, so a
+ * typo degrades to "US results" instead of to "some other country's".
+ */
+export function countryCode(country: string | null | undefined): string {
+  const raw = (country ?? '').trim().toLowerCase();
+  if (!raw) return DEFAULT_MARKET.gl;
+  if (/^[a-z]{2}$/.test(raw)) return raw;
+  return COUNTRY_CODES[raw.replace(/\./g, '.')] ?? COUNTRY_CODES[raw] ?? DEFAULT_MARKET.gl;
+}
+
+export interface SerpMarket {
+  /** Google country code, e.g. "us". */
+  gl: string;
+  /** Interface language, e.g. "en". */
+  hl: string;
+  /** Free-text location for the provider ("Boise, Idaho"), when known. */
+  location: string | null;
+}
+
+/** The market to search in for one brand. */
+export function marketFor(brand: { country?: string | null; city?: string | null }): SerpMarket {
+  const gl = countryCode(brand.country);
+  const city = (brand.city ?? '').trim();
+  return { gl, hl: DEFAULT_MARKET.hl, location: city || null };
+}
 
 export interface SerpResult {
   title: string;
@@ -106,13 +171,19 @@ export function deriveQuery(title: string | null, h1: string | null, brandName?:
  * checked before SerpApi since operators who set it chose it on cost.
  * Returns null when the key is absent; throws on request failure.
  */
-async function fetchSerper(query: string): Promise<SerpResult[] | null> {
+async function fetchSerper(query: string, market: SerpMarket): Promise<SerpResult[] | null> {
   const key = process.env.SERPER_API_KEY;
   if (!key) return null;
   const res = await safeFetch('https://google.serper.dev/search', {
     method: 'POST',
     headers: { 'X-API-KEY': key, 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ q: query, num: MAX_RESULTS + 4 }), // headroom for own-domain filtering
+    body: JSON.stringify({
+      q: query,
+      num: MAX_RESULTS + 4, // headroom for own-domain filtering
+      gl: market.gl,
+      hl: market.hl,
+      ...(market.location ? { location: market.location } : {}),
+    }),
   });
   if (!res.ok) throw new Error(`serper ${res.status}`);
   const body = (await res.json()) as { organic?: { title?: string; snippet?: string; link?: string }[] };
@@ -127,13 +198,16 @@ async function fetchSerper(query: string): Promise<SerpResult[] | null> {
  * to the web-grounded model path; throws on request failure so the shared
  * catch treats it like any other fetch error.
  */
-async function fetchSerpApi(query: string): Promise<SerpResult[] | null> {
+async function fetchSerpApi(query: string, market: SerpMarket): Promise<SerpResult[] | null> {
   const key = process.env.SERPAPI_KEY;
   if (!key) return null;
   const u = new URL('https://serpapi.com/search.json');
   u.searchParams.set('engine', 'google');
   u.searchParams.set('q', query);
   u.searchParams.set('num', String(MAX_RESULTS + 4)); // headroom for own-domain filtering
+  u.searchParams.set('gl', market.gl);
+  u.searchParams.set('hl', market.hl);
+  if (market.location) u.searchParams.set('location', market.location);
   u.searchParams.set('api_key', key);
   const res = await safeFetch(u.toString(), { headers: { Accept: 'application/json' } });
   if (!res.ok) throw new Error(`serpapi ${res.status}`);
@@ -161,13 +235,19 @@ export async function getTopSerpResults(ctx: FixContext, query: string): Promise
     );
     if (cached.rows[0]) return (cached.rows[0].results as SerpResult[]) ?? [];
 
-    let fetched = (await fetchSerper(q)) ?? (await fetchSerpApi(q));
+    // Pin the market before any provider is asked. See marketFor().
+    const market = marketFor(ctx.brand);
+    let fetched = (await fetchSerper(q, market)) ?? (await fetchSerpApi(q, market));
     if (!fetched) {
+      const where = market.location
+        ? `${market.location} (${market.gl.toUpperCase()})`
+        : market.gl.toUpperCase();
       const { data } = await generateJson<{ results: SerpResult[] }>({
         ctx,
         platform: 'Perplexity',
         system: SERP_FETCH_SYSTEM,
-        user: `Search query: "${q}"\n\nReport the current top ${MAX_RESULTS} ranking pages.`,
+        user: `Search query: "${q}"\nSearcher's market: ${where}, interface language ${market.hl}.\n\n`
+          + `Report the current top ${MAX_RESULTS} ranking pages as a searcher in that market sees them.`,
         maxTokens: 1200,
       });
       fetched = data.results || [];

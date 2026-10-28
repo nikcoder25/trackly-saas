@@ -16,8 +16,11 @@ import { useBrandData } from '@/hooks/useBrandData';
 import { useRun } from '@/contexts/RunContext';
 import { useToast } from '@/components/dashboard/Toast';
 import { useBrands } from '@/contexts/BrandContext';
+import { cleanCitationCounts } from '@/lib/citation-hosts';
+import { buildRivalRows, cleanCompetitorList, leadsRivals } from '@/lib/rival-standing';
+import { friendlyCompetitorName } from '@/lib/parser';
 import { useAuth } from '@/contexts/AuthContext';
-import { KpiCardsSkeleton } from '@/components/dashboard/Skeleton';
+import { KpiCardsSkeleton, CardsSkeleton, ChartSkeleton } from '@/components/dashboard/Skeleton';
 import { highlightBrand as highlightBrandText, sanitizeHtml } from '@/lib/sanitize';
 
 /* ───────────────────────── real-data hook ───────────────────────── */
@@ -62,6 +65,10 @@ interface OverviewData {
   totalM: number;
   mentionsDelta: number;
   totalQ: number;
+  /** Distinct tracked prompts in the latest run (totalQ is prompts x engines). */
+  promptCount: number;
+  /** Distinct engines represented in the latest run. */
+  engineCount?: number;
   health: number;
   sentiment: number;
   platforms: Platform[];
@@ -83,6 +90,21 @@ interface OverviewData {
   /** Timestamp of the most recent completed run, for the "updated X ago"
    *  label on the engine grid. Null/absent when there is no real run. */
   lastRunAt?: string | null;
+  /* Extra figures read by the v3 Overview (components/dashboard/v3). Only
+     set for a real brand with at least one run. */
+  /** Every loaded run, oldest first, ignoring the range filter. */
+  history?: { t: number; sov: number }[];
+  /** Latest run: per tracked question, whether each engine named the brand
+   *  (null = that engine did not answer / errored). */
+  grid?: { q: string; engines: Record<string, boolean | null> }[];
+  /** Latest run: answers that came back without an error. */
+  answersOk?: number;
+  /** Non-error answers of the last scan that named the brand (same array as answersOk). */
+  mentionsOk?: number;
+  /** True when a previous scan exists inside the selected range to compare against. */
+  hasPrev?: boolean;
+  /** Latest run: share of sentiment-tagged mentions that were positive. */
+  positivePct?: number | null;
 }
 
 interface InsightItem { icon: string; tone: 'pos' | 'warn' | 'info'; t: string; d: string; cta: string; href: string }
@@ -151,9 +173,12 @@ function resultMatchesIntent(r: any, intent: OverviewIntent): boolean {
 }
 
 /** Map a run result's engine name (e.g. "ChatGPT", "gpt-4o-mini") to a design Platform tile. */
-function matchPlatform(name: string): Platform {
+function matchPlatformOrNull(name: string): Platform | null {
   const n = String(name || '').toLowerCase();
-  return PLATFORMS.find(p => n.includes(p.id) || n.includes(p.name.toLowerCase()) || p.short.toLowerCase() === n) || PLATFORMS[0];
+  return PLATFORMS.find(p => n.includes(p.id) || n.includes(p.name.toLowerCase()) || p.short.toLowerCase() === n) || null;
+}
+function matchPlatform(name: string): Platform {
+  return matchPlatformOrNull(name) || PLATFORMS[0];
 }
 function ordinal(n: number): string {
   const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
@@ -178,12 +203,25 @@ function normPlatform(pd: any): { sov: number; total: number; mentions: number; 
   return { sov: 0, total: 0, mentions: 0, errors: 0 };
 }
 
-export function useOverviewData(filters: OverviewFilters = DEFAULT_FILTERS): OverviewData | null {
+export interface OverviewState {
+  /** The figures to render. Null while loading, and null when the selected
+   *  brand's data could not be fetched - callers must branch on `loading` /
+   *  `error` rather than substituting sample data. */
+  data: OverviewData | null;
+  loading: boolean;
+  /** Set only when a brand *is* selected but its data could not be loaded.
+   *  This is deliberately distinct from "no brand connected": the latter is
+   *  the one state where the sample dashboard is the right answer. */
+  error: string | null;
+  retry: () => void | Promise<void>;
+}
+
+export function useOverviewData(filters: OverviewFilters = DEFAULT_FILTERS): OverviewState {
   // Consume the shared brand hook so the Overview reacts to the brand selected
   // in the topbar (BrandContext), auto-reloads on run completion, and reflects
   // live runs - exactly like every other dashboard page. Previously this made a
   // one-off /api/brands fetch on mount that never re-ran when the brand changed.
-  const { brand, loading } = useBrandData({ fullData: true });
+  const { brand, loading, error, reload } = useBrandData({ fullData: true });
   const brandId = (brand as any)?.id as string | undefined;
 
   // Accuracy data lives behind /api/brands/:id/accuracy - the same endpoint the
@@ -224,21 +262,28 @@ export function useOverviewData(filters: OverviewFilters = DEFAULT_FILTERS): Ove
     const onVisible = () => { if (document.visibilityState === 'visible') loadAccuracy(); };
     window.addEventListener('livesov:run-complete', handler);
     window.addEventListener('livesov:accuracy-updated', handler);
-    window.addEventListener('focus', handler);
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       window.removeEventListener('livesov:run-complete', handler);
       window.removeEventListener('livesov:accuracy-updated', handler);
-      window.removeEventListener('focus', handler);
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [brandId, loadAccuracy]);
 
-  return React.useMemo(() => {
-    if (loading) return null;
+  // `error` covers both the brand-list fetch (401 / network) and the selected
+  // brand's own fetch. Either way, error + no brand means we could not load
+  // this user's data - which is emphatically not the same as them having no
+  // brand. Falling through to buildFallback() there would show them another
+  // company's demo numbers, indefinitely, with no sign anything went wrong.
+  const loadFailed = !!error && !brand;
+
+  const data = React.useMemo(() => {
+    if (loading || loadFailed) return null;
     if (!brand) return buildFallback();
     return buildFromBrand(brand as any, accData, filters);
-  }, [brand, loading, accData, filters]);
+  }, [brand, loading, loadFailed, accData, filters]);
+
+  return { data, loading, error: loadFailed ? error : null, retry: reload };
 }
 
 function buildFallback(): OverviewData {
@@ -247,7 +292,7 @@ function buildFallback(): OverviewData {
     runCount: 0,
     brandName: 'Acme PM',
     industry: 'Project management software', city: 'San Francisco',
-    sov: 27.4, sovDelta: +4.2, totalM: 1284, mentionsDelta: +218, totalQ: 142, health: 78, sentiment: 74,
+    sov: 27.4, sovDelta: +4.2, totalM: 1284, mentionsDelta: +218, totalQ: 142, promptCount: 142, health: 78, sentiment: 74,
     platforms: PLATFORMS,
     competitors: [
       { name: 'Acme', sov: 27.4, d: +4.2, me: true, color: 'var(--accent)' },
@@ -323,7 +368,7 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
       brandName: brand.name || fb.brandName, industry: brand.industry, city: brand.city,
       website: brand.website,
       sov: 0, sovDelta: 0, totalM: 0, mentionsDelta: 0,
-      totalQ: brandQueries.length, health: 0, sentiment: 0,
+      totalQ: brandQueries.length, promptCount: brandQueries.length, health: 0, sentiment: 0,
       competitors: [], sources: [], trend: [],
       accuracyRate, openIssues, fixedIssues,
       healthDelta: null, sentimentDelta: null, coverageDelta: null,
@@ -352,6 +397,9 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   const totalQ = filtersActive
     ? distinctQ
     : (Number(lastRun.totalQ) || distinctQ || brandQueries.length);
+  // totalQ is prompts x engines; promptCount is what users mean by "prompts".
+  const promptCount = distinctQ || brandQueries.length;
+  const engineCount = new Set(results.map(r => r.platform).filter(Boolean)).size || PLATFORMS.length;
 
   // Share of Voice is mention-rate across the (filtered) result set. With no
   // filter, prefer the precomputed lastRun.sov for parity with other pages.
@@ -394,6 +442,7 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   let prevSentiment: number | null = null;
   let prevHealth: number | null = null;
   let prevTotalQ: number | null = null;
+  let prevPromptCount: number | null = null;
   if (prevRun) {
     const pTotalM = filtersActive
       ? prevFiltered.filter(r => r.mentioned).length
@@ -402,6 +451,7 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
     prevTotalQ = filtersActive
       ? pDistinctQ
       : (Number(prevRun.totalQ) || pDistinctQ || brandQueries.length);
+    prevPromptCount = pDistinctQ || brandQueries.length;
     const pPos = prevFiltered.filter(r => r.sentiment === 'positive').length;
     const pNeu = prevFiltered.filter(r => r.sentiment === 'neutral').length;
     const pNeg = prevFiltered.filter(r => r.sentiment === 'negative').length;
@@ -414,7 +464,7 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   }
   const healthDelta = prevHealth !== null ? health - prevHealth : null;
   const sentimentDelta = prevSentiment !== null ? sentiment - prevSentiment : null;
-  const coverageDelta = prevTotalQ !== null ? totalQ - prevTotalQ : null;
+  const coverageDelta = prevPromptCount !== null ? promptCount - prevPromptCount : null;
 
   // platforms: override design tiles with real SOV/mentions where present.
   // When an engine filter is active, narrow the grid to just that engine and
@@ -454,36 +504,34 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
     ? platformsAll.filter(p => p.name.toLowerCase() === filters.engine.toLowerCase()).map(p => ({ ...p, sov }))
     : platformsAll;
 
-  // competitors: when filters are active we can't trust lastRun.competitors
-  // (it aggregates across all engines/intents), so rebuild from filtered
-  // r.competitorMentions. Otherwise use the precomputed map for parity.
-  const compRaw: Record<string, number> = filtersActive
-    ? results.reduce<Record<string, number>>((acc, r) => {
-        const list: unknown = r?.competitorMentions;
-        if (Array.isArray(list)) {
-          for (const name of list) {
-            if (typeof name === 'string' && name.trim()) {
-              acc[name] = (acc[name] || 0) + 1;
-            }
-          }
-        }
-        return acc;
-      }, {})
-    : (lastRun.competitors || {});
-  let competitors: OverviewData['competitors'] = [];
-  const compEntries = Object.entries(compRaw).sort((a, b) => b[1] - a[1]).slice(0, 7);
-  if (compEntries.length > 0) {
-    const total = compEntries.reduce((s, [, c]) => s + c, 0) + Math.max(1, totalM);
-    competitors = [
-      { name: brand.name || 'You', sov, d: sov - prevSov, me: true, color: 'var(--accent)' },
-      ...compEntries.map(([name, c], i) => ({ name, sov: Math.round((c / total) * 100), d: 0, color: COMP_COLORS[(i + 1) % COMP_COLORS.length] })),
-    ].sort((a, b) => b.sov - a.sov);
-    // "vs Top 3 competitors" = me + the three highest-SOV non-me brands.
-    if (filters.competitorView === 'top3') {
-      const me = competitors.find(c => c.me);
-      const rest = competitors.filter(c => !c.me).slice(0, 3);
-      competitors = (me ? [me, ...rest] : rest).sort((a, b) => b.sov - a.sov);
-    }
+  // competitors: the brand's configured rival list (the same list the
+  // Competitors page shows), each measured as a mention rate over the same
+  // answered results as the headline visibility. The brand's own row is its
+  // visibility score, so the rank card can never say "91%" next to a 31%
+  // headline. Per-result competitorMentions are already engine/intent
+  // filtered; the aggregate lastRun.competitors map is only a fallback for
+  // older runs and is skipped when a filter is active.
+  const rivalRows = buildRivalRows({
+    brandName: brand.name || 'You',
+    brandSov: sov,
+    prevBrandSov: prevRun ? prevSov : null,
+    competitors: cleanCompetitorList(brand.competitors),
+    results,
+    prevResults: prevFiltered,
+    fallbackCounts: filtersActive ? null : lastRun.competitors,
+    prevFallbackCounts: filtersActive ? null : prevRun?.competitors,
+    displayName: friendlyCompetitorName,
+  });
+  let rivalIdx = 0;
+  let competitors: OverviewData['competitors'] = rivalRows.map(r => ({
+    ...r,
+    color: r.me ? 'var(--accent)' : COMP_COLORS[(++rivalIdx) % COMP_COLORS.length],
+  }));
+  // "vs Top 3 competitors" = me + the three highest-SOV non-me brands.
+  if (filters.competitorView === 'top3' && competitors.length > 0) {
+    const me = competitors.find(c => c.me);
+    const rest = competitors.filter(c => !c.me).slice(0, 3);
+    competitors = (me ? [me, ...rest] : rest).sort((a, b) => b.sov - a.sov || (a.me ? 1 : 0) - (b.me ? 1 : 0));
   }
 
   // Real "Competitive" standing derived from the competitor SOV table: how close
@@ -494,12 +542,13 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   if (competitors.length > 0) {
     const rank = competitors.findIndex(c => c.me) + 1;
     const leaderSov = competitors[0].sov || 0;
-    competitive = leaderSov > 0 ? Math.round(Math.min(100, (sov / leaderSov) * 100)) : 0;
+    const mySov = competitors.find(c => c.me)?.sov ?? 0;
+    competitive = leaderSov > 0 ? Math.round(Math.min(100, (mySov / leaderSov) * 100)) : 0;
     competitiveSub = `#${rank} of ${competitors.length} tracked`;
   }
 
   // sources / citations
-  const citeRaw: Record<string, number> = lastRun.citations || {};
+  const citeRaw: Record<string, number> = cleanCitationCounts(lastRun.citations);
   let sources: OverviewData['sources'] = [];
   const citeEntries = Object.entries(citeRaw).sort((a, b) => b[1] - a[1]).slice(0, 6);
   if (citeEntries.length > 0) {
@@ -513,10 +562,14 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   // recent mentions - newest results from the latest run (already engine/intent
   // filtered because `results` is the filtered set)
   const runDate = lastRun.date || lastRun.time || lastRun.created_at;
-  const recent: RecentItem[] = results
-    .filter(r => r.query && !r.error)
-    .slice(-8)
-    .reverse()
+  // Mentions first (newest first), backfilled with misses only when there
+  // are fewer than 8 mentions.
+  const recentPool = results.filter(r => r.query && !r.error).reverse();
+  const recentHits = recentPool.filter(r => r.mentioned);
+  const recentPicked = recentHits.length >= 8
+    ? recentHits.slice(0, 8)
+    : [...recentHits, ...recentPool.filter(r => !r.mentioned).slice(0, 8 - recentHits.length)];
+  const recent: RecentItem[] = recentPicked
     .map(r => {
       const mentioned = !!r.mentioned;
       const pos = r.position ?? r.listPosition;
@@ -599,23 +652,26 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   const prevTotalM = prevRun
     ? (filtersActive
         ? prevFiltered.filter(r => r.mentioned).length
-        : (Number(prevRun.totalM) || 0))
+        // Mirror the current run's fallback (line ~347): when the previous run
+        // has no precomputed totalM, count its mentioned results so the delta
+        // is a true like-for-like comparison instead of being inflated against 0.
+        : (Number(prevRun.totalM) || prevFiltered.filter(r => r.mentioned).length))
     : 0;
 
   // Real "needs you today" insights - derived only from data we actually have.
   // Cards with no real backing are simply not emitted (the strip hides itself
   // when there are none).
-  const realComp = compEntries.length > 0;
+  const realComp = competitors.length > 0;
   const insights: InsightItem[] = [];
   if (trend.length >= 2) {
     const momentum = Math.round((sov - prevSov) * 10) / 10;
-    if (momentum >= 1) insights.push({ icon: '▲', tone: 'pos', t: `Share of Voice up ${momentum} pts`, d: `now ${sov}% across the AI engines`, cta: 'See trends', href: '/dashboard/trends' });
-    else if (momentum <= -1) insights.push({ icon: '▼', tone: 'warn', t: `Share of Voice down ${Math.abs(momentum)} pts`, d: `now ${sov}% - see what changed`, cta: 'Investigate', href: '/dashboard/competitors' });
+    if (momentum >= 1) insights.push({ icon: '▲', tone: 'pos', t: `Share of Voice up ${momentum} ${momentum === 1 ? 'pt' : 'pts'}`, d: `now ${sov}% across the AI engines`, cta: 'See trends', href: '/dashboard/trends' });
+    else if (momentum <= -1) insights.push({ icon: '▼', tone: 'warn', t: `Share of Voice down ${Math.abs(momentum)} ${Math.abs(momentum) === 1 ? 'pt' : 'pts'}`, d: `now ${sov}% - see what changed`, cta: 'Investigate', href: '/dashboard/competitors' });
   }
   if (realComp) {
-    const top = competitors[0];
-    if (top?.me) insights.push({ icon: '★', tone: 'pos', t: 'You lead your category', d: `#1 of ${competitors.length} at ${sov}% Share of Voice`, cta: 'Compare', href: '/dashboard/competitors' });
-    else if (top) insights.push({ icon: '◆', tone: 'info', t: `${top.name} leads at ${top.sov}%`, d: `you're at ${sov}% - close the gap`, cta: 'Compare', href: '/dashboard/competitors' });
+    const top = competitors.find(c => !c.me);
+    if (leadsRivals(competitors)) insights.push({ icon: '★', tone: 'pos', t: 'You lead your tracked rivals', d: `#1 of ${competitors.length} at ${sov}% visibility`, cta: 'Compare', href: '/dashboard/competitors' });
+    else if (top && top.sov > 0) insights.push({ icon: '◆', tone: 'info', t: `${top.name} leads at ${top.sov}%`, d: `you're at ${sov}% - close the gap`, cta: 'Compare', href: '/dashboard/competitors' });
   }
   if (sentTotal > 0 && sentiment < 60) {
     insights.push({ icon: '⚠', tone: 'warn', t: `Sentiment is ${sentiment}%`, d: 'how the AI engines describe you needs attention', cta: 'Review mentions', href: '/dashboard/mentions' });
@@ -623,7 +679,31 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
   // Always-valid CTA (links to a real page; not fabricated copy).
   insights.push({ icon: '✦', tone: 'info', t: 'Ways to win more visibility', d: 'see your prioritized recommendations', cta: 'See plan', href: '/dashboard/recommendations' });
 
+  // Reaper / emergency stamps are partial runs; keep them out of the trend
+  // line unless they are all we have (matches lastRunMs in v3/hooks).
+  const realRuns = sortedAll.filter(r => !r?.watchdogReap && !r?.emergencySave);
+  const history = (realRuns.length > 0 ? realRuns : sortedAll)
+    .map(r => ({ t: new Date(r.time || r.date || r.created_at || 0).getTime(), sov: Math.round(Number(r.sov) || 0) }))
+    .filter(h => !isNaN(h.t) && h.t > 0);
+  const gridMap: Record<string, Record<string, boolean | null>> = {};
+  for (const r of allResults) {
+    if (!r?.query) continue;
+    const eng = matchPlatformOrNull(r.platform)?.name;
+    if (!eng) continue;
+    if (!gridMap[r.query]) gridMap[r.query] = {};
+    gridMap[r.query][eng] = r.error ? (gridMap[r.query][eng] ?? null) : (!!r.mentioned || !!gridMap[r.query][eng]);
+  }
+  const grid = Object.entries(gridMap).map(([q, engines]) => ({ q, engines }));
+  const allPos = allResults.filter(r => r.sentiment === 'positive').length;
+  const allSent = allResults.filter(r => r.sentiment === 'positive' || r.sentiment === 'neutral' || r.sentiment === 'negative').length;
+
   return {
+    history,
+    grid,
+    answersOk: allResults.filter(r => !r.error).length,
+    mentionsOk: allResults.filter(r => !r.error && r.mentioned).length,
+    hasPrev: !!prevRun,
+    positivePct: allSent > 0 ? Math.round((allPos / allSent) * 100) : null,
     hasReal: true,
     runCount: runs.length,
     brandName: brand.name || fb.brandName,
@@ -631,7 +711,7 @@ function buildFromBrand(brand: any, accData?: any, filters: OverviewFilters = DE
     industry: brand.industry, city: brand.city,
     sov, sovDelta: prevRun ? sov - prevSov : 0,
     totalM, mentionsDelta: prevRun ? totalM - prevTotalM : 0,
-    totalQ, health, sentiment,
+    totalQ, promptCount, engineCount, health, sentiment,
     platforms, competitors, sources,
     // Never substitute the demo trend for a real brand: with a single run,
     // draw a flat line at the real value instead of fabricated history.
@@ -742,7 +822,11 @@ export function PageOverview() {
     () => ({ range, engine, intent, competitorView }),
     [range, engine, intent, competitorView],
   );
-  const data = useOverviewData(filters);
+  // The hook reports loading and load-failure separately from the data itself.
+  // Both are states where we do *not* know the user's numbers, and neither may
+  // fall through to the sample dashboard - that is only correct for an account
+  // with no brand connected, which the hook signals with hasReal:false data.
+  const { data, loading, error: loadError, retry } = useOverviewData(filters);
   const d = data || buildFallback();
 
   // While a scan is in progress the brand's live/partial results can flow into
@@ -753,9 +837,14 @@ export function PageOverview() {
   const { live } = useRun();
   const scanning = live.running;
   const { user } = useAuth();
+  const { selectedBrand, refreshBrands } = useBrands();
   // First name only, and never an email fragment - fall back to a plain
   // greeting when the account has no display name.
   const firstName = (user?.name || '').trim().split(/\s+/)[0] || null;
+
+  // Every hook above runs unconditionally; the early returns below are safe.
+  if (loading) return <OverviewSkeleton firstName={firstName} />;
+  if (loadError) return <OverviewLoadError firstName={firstName} message={loadError} onRetry={retry} />;
 
   // With real data we only have the brand's own SOV history, so show just that
   // line rather than fabricated competitor trends. The demo overlay is kept for
@@ -803,7 +892,7 @@ export function PageOverview() {
                   title="Add a website to your brand to open it from here"
                   style={{ opacity: 0.55, cursor: 'not-allowed' }}
                 >
-                  ↗ View live
+                  ↗ Open website
                 </button>
               );
             }
@@ -816,7 +905,7 @@ export function PageOverview() {
                 title={`Open ${href} in a new tab`}
                 style={{ textDecoration: 'none' }}
               >
-                ↗ View live
+                ↗ Open website
               </a>
             );
           })()}
@@ -826,8 +915,8 @@ export function PageOverview() {
         {d.noData && !scanning && <OverviewEmptyState totalQ={d.totalQ} />}
         {scanning
           ? <HealthBannerSkeleton />
-          : <HealthBanner health={d.health} healthDelta={d.healthDelta} sentiment={d.sentiment} sentimentSub={d.sentimentSub} sov={d.sov} totalQ={d.totalQ} accuracyRate={d.accuracyRate} openIssues={d.openIssues} fixedIssues={d.fixedIssues} competitive={d.competitive} competitiveSub={d.competitiveSub} />}
-        {!scanning && <GoalCard current={d.sov} />}
+          : <HealthBanner health={d.health} healthDelta={d.healthDelta} sentiment={d.sentiment} sentimentSub={d.sentimentSub} sov={d.sov} totalQ={d.promptCount} accuracyRate={d.accuracyRate} openIssues={d.openIssues} fixedIssues={d.fixedIssues} competitive={d.competitive} competitiveSub={d.competitiveSub} />}
+        {!scanning && <GoalCard current={d.sov} brandId={selectedBrand?.id} brandGoal={Number(selectedBrand?.goal) || 0} onSaved={refreshBrands} />}
         {!scanning && <InsightsStrip items={d.insights} />}
 
         <Filter>
@@ -858,11 +947,11 @@ export function PageOverview() {
         {scanning
           ? <KpiCardsSkeleton count={5} />
           : <KPIRail items={[
-              { k: 'SHARE OF VOICE', term: 'sov', v: String(d.sov), suffix: '%', d: d.sovDelta, info: 'vs prev. run' },
-              { k: 'MENTIONS', term: 'mention', v: fmt(d.totalM), d: d.mentionsDelta, info: '5 engines' },
-              { k: 'SENTIMENT', term: 'sentiment', v: String(d.sentiment), suffix: '%', d: d.sentimentDelta ?? undefined, info: d.sentimentDelta != null ? 'vs prev. run' : undefined },
-              { k: 'FALSE CLAIMS', term: 'hallucination', v: d.accuracyRate !== null ? String(d.openIssues) : '-', danger: d.accuracyRate !== null && d.openIssues > 0, info: d.accuracyRate !== null ? (d.fixedIssues > 0 ? `${d.fixedIssues} fixed` : 'none fixed') : 'not set up' },
-              { k: 'COVERAGE', term: 'coverage', v: String(d.totalQ), d: d.coverageDelta ?? undefined, info: 'prompts' },
+              { k: 'Share of voice', term: 'sov', v: String(d.sov), suffix: '%', d: d.sovDelta, info: 'vs prev. run' },
+              { k: 'Mentions', term: 'mention', v: fmt(d.totalM), d: d.mentionsDelta, info: '5 engines' },
+              { k: 'Sentiment', term: 'sentiment', v: String(d.sentiment), suffix: '%', d: d.sentimentDelta ?? undefined, info: d.sentimentDelta != null ? 'vs prev. run' : undefined },
+              { k: 'False claims', term: 'hallucination', v: d.accuracyRate !== null ? String(d.openIssues) : '-', danger: d.accuracyRate !== null && d.openIssues > 0, info: d.accuracyRate !== null ? (d.fixedIssues > 0 ? `${d.fixedIssues} fixed` : 'none fixed') : 'not set up' },
+              { k: 'Coverage', term: 'coverage', v: String(d.promptCount), d: d.coverageDelta ?? undefined, info: `prompts × ${d.engineCount ?? 5} engines` },
             ]} />}
 
         <div className="g2">
@@ -877,12 +966,16 @@ export function PageOverview() {
 
         <div className="g2">
           <OverviewRecentMentions onOpen={setDrawer} total={d.totalM} items={d.recent} />
-          <OverviewQueriesTable rows={d.queries} totalQ={d.totalQ} />
+          <OverviewQueriesTable rows={d.queries} totalQ={d.promptCount} />
         </div>
 
         <div className="g2">
           <OverviewCompetitors rows={d.competitors} />
           <OverviewSources rows={d.sources} />
+        </div>
+
+        <div className="g2">
+          <OverviewNapCard />
         </div>
       </div>
 
@@ -922,19 +1015,21 @@ function HBar({ label, v, sub }: { label: string; v: number; sub: string }) {
   );
 }
 
-// Loading placeholder for the score banner, shown while a scan is running so
-// the gauge + bars never bind to partial live data (which used to flash an
-// inflated "100 Excellent" before settling on the real score).
-function HealthBannerSkeleton() {
+// Loading placeholder for the score banner. Used in two states:
+//  - a scan is running, so the gauge + bars must not bind to partial live data
+//    (which used to flash an inflated "100 Excellent" before the real score);
+//  - the brand data is still being fetched, so there is nothing real to show
+//    yet and we must not fall back to the demo figures.
+function HealthBannerSkeleton({ grade = 'Scanning…', note = 'Calculating once the run completes', barNote = 'Scanning…' }: { grade?: string; note?: string; barNote?: string } = {}) {
   const bars = ['Visibility', 'Sentiment', 'Accuracy', 'Competitive'];
   return (
     <section className="hb" aria-busy="true">
       <div className="hb-score">
         <div style={{ width: 96, height: 96, borderRadius: '50%', border: '6px solid rgba(255,255,255,.18)', boxSizing: 'border-box' }} />
         <div>
-          <div className="eyebrow" style={{ color: 'rgba(255,255,255,.7)' }}>BRAND HEALTH</div>
-          <div className="hb-grade" style={{ opacity: .8 }}>Scanning…</div>
-          <div className="hb-d"><span style={{ color: 'rgba(255,255,255,.7)' }}>Calculating once the run completes</span></div>
+          <div className="eyebrow" style={{ color: 'rgba(255,255,255,.7)' }}>Brand health</div>
+          <div className="hb-grade" style={{ opacity: .8 }}>{grade}</div>
+          <div className="hb-d"><span style={{ color: 'rgba(255,255,255,.7)' }}>{note}</span></div>
         </div>
       </div>
       <div className="hb-bars">
@@ -945,11 +1040,89 @@ function HealthBannerSkeleton() {
               <span className="hbar-v mono" style={{ opacity: .5 }}>-</span>
             </div>
             <div className="hbar-track"><i style={{ width: '0%' }} /></div>
-            <div className="hbar-sub">Scanning…</div>
+            <div className="hbar-sub">{barNote}</div>
           </div>
         ))}
       </div>
     </section>
+  );
+}
+
+/** Full-page loading state for the Overview.
+ *
+ *  This is the fix for the "sample data flashes on load" bug: `useOverviewData`
+ *  returns `null` while the brand fetch is in flight, and the page used to do
+ *  `data || buildFallback()`, which rendered the Acme PM demo numbers (27.4%
+ *  SOV, 1,284 mentions, Linear/Asana competitors) for the few hundred ms before
+ *  the real brand landed. We now render skeletons for that window instead, so
+ *  the sample figures are only ever shown in the state they're meant for - an
+ *  account with no brand connected at all. */
+function OverviewSkeleton({ firstName }: { firstName: string | null }) {
+  return (
+    <>
+      <PageHead
+        title={firstName ? <>Welcome back, <span style={{ color: 'var(--primary)' }}>{firstName}</span>.</> : <>Welcome back.</>}
+        sub={<>Loading your latest AI visibility data…</>}
+      />
+      <div className="page-body" aria-busy="true">
+        <HealthBannerSkeleton grade="Loading…" note="Fetching your latest scan" barNote="Loading…" />
+        <KpiCardsSkeleton count={5} />
+        <div className="g2">
+          <div style={{ gridColumn: 'span 2' }}><ChartSkeleton h={280} /></div>
+        </div>
+        <CardsSkeleton count={4} />
+      </div>
+    </>
+  );
+}
+
+/** Shown when the signed-in user has a brand selected but its data could not
+ *  be fetched. Without this the page fell through to `buildFallback()`, so a
+ *  network blip left the user staring at the Acme PM demo figures - not for a
+ *  flash, but until they reloaded - with nothing to indicate the numbers
+ *  weren't theirs. An explicit failure with a retry is the honest answer. */
+function OverviewLoadError({ firstName, message, onRetry }: { firstName: string | null; message: string; onRetry: () => void | Promise<void> }) {
+  const [busy, setBusy] = React.useState(false);
+  const retry = async () => {
+    setBusy(true);
+    try { await onRetry(); } finally { setBusy(false); }
+  };
+  // Upstream messages are inconsistently punctuated ("Failed to load brand
+  // data" vs "Your session expired. Please log in again."), and this one is
+  // followed by another sentence.
+  const trimmed = (message || '').trim();
+  const detail = !trimmed ? 'We couldn’t reach your data.' : /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+  return (
+    <>
+      <PageHead
+        title={firstName ? <>Welcome back, <span style={{ color: 'var(--primary)' }}>{firstName}</span>.</> : <>Welcome back.</>}
+        sub={<>We couldn&rsquo;t load your dashboard just now.</>}
+      />
+      <div className="page-body">
+        <div role="alert" style={{
+          border: '1px solid rgba(245,158,11,.35)', borderRadius: 14,
+          padding: '22px 24px',
+          background: 'rgba(245,158,11,.06)',
+          display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap',
+        }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(245,158,11,.12)', color: '#b45309', fontSize: 22,
+          }}>⚠</div>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Couldn&rsquo;t load your data</div>
+            <div style={{ fontSize: 13, color: 'var(--mute, var(--muted))', lineHeight: 1.55 }}>
+              {detail} Your data is safe - this is a problem reaching it, not a problem with your account.
+            </div>
+          </div>
+          <button className="btn-p" onClick={retry} disabled={busy}
+            style={busy ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}>
+            {busy ? 'Retrying…' : '↻ Retry'}
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -963,7 +1136,7 @@ function HealthBanner({ health, healthDelta, sentiment, sentimentSub, sov, total
       <div className="hb-score">
         <BrandHealthGauge value={health} />
         <div>
-          <div className="eyebrow" style={{ color: 'rgba(255,255,255,.7)', display: 'flex', alignItems: 'center' }}>BRAND HEALTH <Info term="health" /></div>
+          <div className="eyebrow" style={{ color: 'rgba(255,255,255,.7)', display: 'flex', alignItems: 'center' }}>Brand health <Info term="health" /></div>
           <div className="hb-grade">{grade}</div>
           <div className="hb-d">
             {healthDelta != null && <Delta v={healthDelta} />}
@@ -999,7 +1172,7 @@ function InsightsStrip({ items }: { items: InsightItem[] }) {
   return (
     <div>
       <div className="strip-head">
-        <span className="eyebrow">NEEDS YOU TODAY</span>
+        <span className="eyebrow">Needs you today</span>
         <span className="strip-sub">The few things worth acting on right now - tap to dive in.</span>
       </div>
       <div className="ins-strip">
@@ -1021,7 +1194,7 @@ function InsightsStrip({ items }: { items: InsightItem[] }) {
 // Fetch the brand's PDF report and trigger a download, handling the Pro+ plan
 // gate gracefully (a toast, not a raw JSON error tab). Shared by the Overview
 // header button and the mention drawer.
-async function downloadBrandReport(brandId: string | undefined, brandName: string | undefined, toast: any) {
+export async function downloadBrandReport(brandId: string | undefined, brandName: string | undefined, toast: any) {
   if (!brandId) { toast('Select a brand first to generate a report.', 'error'); return; }
   try {
     const res = await fetch(`/api/brands/${brandId}/report/pdf`, { credentials: 'include' });
@@ -1135,9 +1308,9 @@ function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => voi
           </button>
         </header>
         <div className="drawer-b">
-          <div className="eyebrow">QUERY</div>
+          <div className="eyebrow">Query</div>
           <div style={{ fontSize: 14.5, color: 'var(--text)', padding: '10px 12px', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 6, margin: '8px 0 18px', fontFamily: 'var(--mono)' }}>&ldquo;{item.q}&rdquo;</div>
-          <div className="eyebrow">VERDICT</div>
+          <div className="eyebrow">Verdict</div>
           <div style={{ display: 'flex', gap: 8, margin: '8px 0 18px', alignItems: 'center', flexWrap: 'wrap' }}>
             <Badge tone={verdictTone}>{verdictLabel}</Badge>
             <span className="quiet" style={{ fontSize: 13 }}>{item.meta}</span>
@@ -1145,7 +1318,7 @@ function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => voi
               <span className="mono dim" style={{ fontSize: 11 }}>· sentiment: {sentiment}</span>
             )}
           </div>
-          <div className="eyebrow">VERBATIM ANSWER</div>
+          <div className="eyebrow">Verbatim answer</div>
           {item.error ? (
             <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--warn)', margin: '8px 0 18px' }}>{item.error}</p>
           ) : highlighted ? (
@@ -1160,7 +1333,7 @@ function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => voi
           )}
           {item.competitorMentions && item.competitorMentions.length > 0 && (
             <>
-              <div className="eyebrow">ALSO MENTIONED</div>
+              <div className="eyebrow">Also mentioned</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '8px 0 18px' }}>
                 {item.competitorMentions.map((c, i) => (
                   <span key={i} className="badge badge-neu">{c}</span>
@@ -1170,13 +1343,13 @@ function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => voi
           )}
           {item.citations && item.citations.length > 0 && (
             <>
-              <div className="eyebrow">SOURCES CITED</div>
+              <div className="eyebrow">Sources cited</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '8px 0 18px' }}>
                 {item.citations.map((c, i) => <Cit key={i} url={c} />)}
               </div>
             </>
           )}
-          <div className="eyebrow">ACTIONS</div>
+          <div className="eyebrow">Actions</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
             <button className="btn-g" onClick={handleRerun}>↻ Re-run this query</button>
             <button className="btn-g" onClick={handleFlag}>⚐ Flag as hallucination</button>
@@ -1214,13 +1387,13 @@ function OverviewEngineGrid({ platforms, hasReal, lastRunAt }: { platforms: Plat
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</div>
                 <div className="mono" style={{ fontSize: 10, color: 'var(--mute)', letterSpacing: '0.08em' }}>
                   {p.noData
-                    ? <>NO DATA YET</>
+                    ? <>No data yet</>
                     : p.ok
                       ? <><span className="pulse" style={{ width: 5, height: 5 }} /> OK{p.ms > 0 ? <> · {p.ms}ms</> : null}</>
-                      : <span className="neg">⚠ ERRORS IN LAST RUN</span>}
+                      : <span className="neg">⚠ Errors in last run</span>}
                 </div>
               </div>
-              {!p.noData && <Badge tone={p.delta >= 0 ? 'pos' : 'neg'}>{p.delta >= 0 ? '▲' : '▼'} {Math.abs(p.delta)}</Badge>}
+              {!p.noData && <Delta v={p.delta} />}
             </div>
             <div className="eg-v mono">{p.noData ? <span className="dim">—</span> : <>{p.sov}<i>%</i></>}</div>
             <Bar value={p.noData ? 0 : p.sov} />
@@ -1240,7 +1413,7 @@ function OverviewEngineGrid({ platforms, hasReal, lastRunAt }: { platforms: Plat
 function OverviewRecentMentions({ onOpen, total, items }: { onOpen: (it: RecentItem) => void; total: number; items: RecentItem[] }) {
   return (
     <Card title="Recent mentions" info="mention"
-      lede="The newest AI answers that named you - click any row to read the exact wording."
+      lede="The newest AI answers for your prompts, mentions first. Click any row to read the exact wording."
       right={<Pill tone="acc"><span className="pulse" /> Live</Pill>} padding={false}
       foot={<><span>{total.toLocaleString()} total · 7 days</span><a className="dim" href="/dashboard/mentions">Open mentions →</a></>}>
       {items.length === 0 ? (
@@ -1302,14 +1475,17 @@ function OverviewQueriesTable({ rows, totalQ }: { rows: QueryRow[]; totalQ: numb
       ) : (
       <div className="tbl-wrap">
         <table className="tbl">
-          <thead><tr><th>QUERY</th><th className="right">SOV</th><th className="right">Δ</th><th className="right">MENTIONS</th><th className="right">ENGINES</th><th /></tr></thead>
+          <thead><tr><th>Query</th><th className="right">Visibility</th><th className="right">Engines</th><th /></tr></thead>
           <tbody>
             {rows.map((r, i) => (
               <tr key={i}>
-                <td><b>{r.q}</b></td>
-                <td className="right num">{r.sov}%</td>
-                <td className="right"><Delta v={r.d} suffix="%" /></td>
-                <td className="right num">{r.mentions}</td>
+                <td style={{ minWidth: 0, whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                  <b>{r.q}</b>
+                  <div className="mono dim" style={{ fontSize: 10.5, marginTop: 2 }}>{r.mentions} mention{r.mentions === 1 ? '' : 's'}</div>
+                </td>
+                <td className="right" style={{ whiteSpace: 'nowrap' }}>
+                  <span className="num">{r.sov}%</span>{' '}<Delta v={r.d} suffix="%" />
+                </td>
                 <td className="right num">{r.eng}/5</td>
                 <td className="right">
                   <button className="btn-d" style={{ padding: '3px 8px', fontSize: 10.5, whiteSpace: 'nowrap' }}
@@ -1330,9 +1506,9 @@ function OverviewQueriesTable({ rows, totalQ }: { rows: QueryRow[]; totalQ: numb
 function OverviewCompetitors({ rows }: { rows: OverviewData['competitors'] }) {
   const max = Math.max(30, ...rows.map(r => r.sov));
   return (
-    <Card title="Competitor SOV" info="sov"
-      lede="Who's winning the AI conversation in your category right now."
-      right={<a href="/dashboard/competitors" className="mono dim" style={{ fontSize: 11 }}>COMPETITORS →</a>}>
+    <Card title="You vs competitors" info="sov"
+      lede="Of all brand mentions in AI answers (you + tracked rivals), the share each one gets."
+      right={<a href="/dashboard/competitors" className="mono dim" style={{ fontSize: 11 }}>Competitors →</a>}>
       {rows.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--muted)', fontSize: 12.5 }}>
           No competitor data yet - run queries to see how you compare.
@@ -1344,7 +1520,7 @@ function OverviewCompetitors({ rows }: { rows: OverviewData['competitors'] }) {
               <span className="comp-name">
                 <span style={{ width: 8, height: 8, background: r.color, borderRadius: 2, display: 'inline-block', flexShrink: 0 }} />
                 <b title={r.name} style={{ color: r.me ? 'var(--accent)' : 'var(--text)', fontWeight: 500, fontSize: 13 }}>{r.name}</b>
-                {r.me && <Badge tone="acc">YOU</Badge>}
+                {r.me && <Badge tone="acc">You</Badge>}
               </span>
               <Bar value={r.sov} max={max} />
               <span className="mono" style={{ fontSize: 13, textAlign: 'right' }}>{r.sov}%</span>
@@ -1361,8 +1537,8 @@ function OverviewSources({ rows }: { rows: OverviewData['sources'] }) {
   const max = Math.max(20, ...rows.map(r => r.share));
   return (
     <Card title="Most cited sources" info="citation"
-      lede="The web pages AI leans on when it describes you. Strengthen the helpful ones."
-      right={<a href="/dashboard/citations" className="mono dim" style={{ fontSize: 11 }}>CITATIONS →</a>}>
+      lede="The websites AI engines use as sources for your prompts. Get listed or mentioned on the top ones."
+      right={<a href="/dashboard/citations" className="mono dim" style={{ fontSize: 11 }}>Citations →</a>}>
       {rows.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--muted)', fontSize: 12.5 }}>
           No citations tracked yet.
@@ -1376,6 +1552,81 @@ function OverviewSources({ rows }: { rows: OverviewData['sources'] }) {
               <span className="mono" style={{ fontSize: 12, color: 'var(--text)', minWidth: 46, textAlign: 'right' }}>{r.n}</span>
             </div>
           ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* ───────────────────────── NAP consistency tile ─────────────────────────
+   Surfaces the brand's saved NAP audits (local citation consistency) on the
+   Overview so the feature is discoverable without opening the NAP Audits tab.
+   Reads the same brand-scoped list endpoint the tab uses; hidden until a
+   brand is selected, and shows a create CTA when the brand has no audits. */
+
+interface NapTileAudit {
+  id: string;
+  label: string;
+  status: 'queued' | 'running' | 'done' | 'failed';
+  score: number | null;
+  lastRunAt: string | null;
+  urlCount: number;
+  summary: { deadLinks: number; withIssues: number; missingBacklink?: number } | null;
+}
+
+function OverviewNapCard() {
+  const { selectedBrand } = useBrands();
+  const brandId = (selectedBrand as any)?.id as string | undefined;
+  const [audits, setAudits] = React.useState<NapTileAudit[] | null>(null);
+
+  React.useEffect(() => {
+    if (!brandId) { setAudits([]); return; }
+    let cancelled = false;
+    setAudits(null);
+    fetch(`/api/nap-audits?brandId=${encodeURIComponent(brandId)}`, { credentials: 'include', cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : { audits: [] }))
+      .then((d) => { if (!cancelled) setAudits(Array.isArray(d?.audits) ? d.audits : []); })
+      .catch(() => { if (!cancelled) setAudits([]); });
+    return () => { cancelled = true; };
+  }, [brandId]);
+
+  if (!brandId || audits === null) return null;
+
+  const scored = audits.filter((a) => a.score != null);
+  const avg = scored.length ? Math.round(scored.reduce((s, a) => s + (a.score ?? 0), 0) / scored.length) : null;
+  const dead = audits.reduce((s, a) => s + (a.summary?.deadLinks ?? 0), 0);
+  const issues = audits.reduce((s, a) => s + (a.summary?.withIssues ?? 0), 0);
+  const noLink = audits.reduce((s, a) => s + (a.summary?.missingBacklink ?? 0), 0);
+  const urls = audits.reduce((s, a) => s + (a.urlCount || 0), 0);
+  const running = audits.some((a) => a.status === 'queued' || a.status === 'running');
+  const avgColor = avg == null ? 'var(--mute)' : avg >= 85 ? 'var(--success)' : avg >= 60 ? 'var(--warn)' : 'var(--danger)';
+
+  return (
+    <Card
+      title="NAP consistency"
+      lede="Local citation & backlink health for this brand - name, address, phone and link-backs verified across your listings."
+      right={<a className="btn-g" href="/dashboard/nap-audits" style={{ textDecoration: 'none' }}>{audits.length > 0 ? 'View audits →' : '+ New audit'}</a>}
+      style={{ gridColumn: 'span 2' }}
+    >
+      {audits.length === 0 ? (
+        <p className="quiet" style={{ fontSize: 13, margin: 0 }}>
+          No NAP audits yet. Add your canonical business details and citation/backlink URLs - we&apos;ll
+          fetch every page, flag mismatches and dead links, and track a consistency score over time.
+        </p>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 28, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+            <span className="mono" style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.02em', color: avgColor }}>{avg ?? '-'}</span>
+            <span className="mono" style={{ fontSize: 13, color: 'var(--mute)' }}>/100</span>
+          </div>
+          <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--text-2)' }}>
+            <span><b style={{ color: 'var(--text)' }}>{audits.length}</b> audit{audits.length === 1 ? '' : 's'}</span>
+            <span><b style={{ color: 'var(--text)' }}>{urls}</b> URLs checked</span>
+            <span><b style={{ color: issues > 0 ? 'var(--warn)' : 'var(--text)' }}>{issues}</b> with issues</span>
+            <span><b style={{ color: dead > 0 ? 'var(--danger)' : 'var(--text)' }}>{dead}</b> dead links</span>
+            {noLink > 0 && <span><b style={{ color: 'var(--danger)' }}>{noLink}</b> missing your link</span>}
+          </div>
+          {running && <Pill tone="acc"><span className="pulse" /> Audit running</Pill>}
         </div>
       )}
     </Card>

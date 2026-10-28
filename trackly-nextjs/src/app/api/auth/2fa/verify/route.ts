@@ -2,7 +2,7 @@ import { pool, auditLog } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
 import { verifyTOTP, generateBackupCodes, hashBackupCode } from '@/lib/totp';
 import { decryptValue } from '@/lib/helpers';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 
 export async function POST(request: Request) {
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       }), user.id]
     );
 
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+    const ip = getClientIp(request);
     auditLog(user.id, '2fa_enabled', 'user', user.id, {}, ip);
     // Return plaintext codes to user - this is the only time they see them
     return Response.json({ enabled: true, backupCodes, message: 'Two-factor authentication enabled. Save your backup codes!' });

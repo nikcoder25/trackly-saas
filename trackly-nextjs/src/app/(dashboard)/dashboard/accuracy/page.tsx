@@ -39,7 +39,7 @@ function TrendChart({ data }: { data: TrendPoint[] }) {
   if (data.length < 2) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 6, padding: 16 }}>
-        <div style={{ fontSize: 28, opacity: 0.4 }}>📉</div>
+        <div className="lvx-emoji" style={{ fontSize: 28, opacity: 0.4 }}>📉</div>
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Not Enough Data</div>
         <div style={{ color: 'var(--muted)', fontSize: 12, textAlign: 'center' }}>Run more checks to see accuracy trends over time.</div>
       </div>
@@ -98,7 +98,7 @@ function TrendChart({ data }: { data: TrendPoint[] }) {
 }
 
 // ── Donut Chart (CSS) ───────────────────────────────────────────
-function SeverityDonut({ issues }: { issues: Issue[] }) {
+function SeverityDonut({ issues, factCount, checked }: { issues: Issue[]; factCount: number; checked: boolean }) {
   const counts = useMemo(() => {
     const acc = { critical: 0, high: 0, medium: 0, low: 0 };
     for (const issue of issues) {
@@ -109,6 +109,21 @@ function SeverityDonut({ issues }: { issues: Issue[] }) {
   }, [issues]);
 
   const total = Object.values(counts).reduce((a: number, b: number) => a + b, 0);
+  // With no facts there is nothing to check against, so "passed" would be a
+  // false claim. Prompt for facts first, then for a first check.
+  if (total === 0 && (factCount === 0 || !checked)) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 6, padding: 16 }}>
+        <div style={{ fontSize: 28, opacity: 0.4 }}>{factCount === 0 ? '＋' : '◇'}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{factCount === 0 ? 'No facts set up yet' : 'Not checked yet'}</div>
+        <div style={{ color: 'var(--muted)', fontSize: 12, textAlign: 'center' }}>
+          {factCount === 0
+            ? 'Add your brand facts above so AI answers can be checked against them.'
+            : 'Click "Check Now" to check AI answers against your facts.'}
+        </div>
+      </div>
+    );
+  }
   if (total === 0) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 6, padding: 16 }}>
@@ -306,18 +321,31 @@ export default function AccuracyPage() {
     return () => window.removeEventListener('livesov:run-complete', handler);
   }, [brand?.id, loadAccuracy]);
 
+  // Resolves only when the facts save succeeded; surfaces the server's reason otherwise.
+  function saveFacts(brandId: string, updated: Fact[]) {
+    return brandApi(brandId, '', 'POST', { facts: updated }).then(async r => {
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d.error || 'Failed to save facts');
+      }
+    });
+  }
+  const onFactsError = (e: unknown) => toast((e as Error).message || 'Failed to save facts', 'error');
+
   function addFact() {
     if (!factKey.trim() || !factValue.trim() || !brand) return;
     const updated = [...facts, { key: factKey.trim(), value: factValue.trim(), category: factCategory }];
-    brandApi(brand.id, '', 'POST', { facts: updated })
-      .then(() => { setFacts(updated); setFactKey(''); setFactValue(''); });
+    saveFacts(brand.id, updated)
+      .then(() => { setFacts(updated); setFactKey(''); setFactValue(''); })
+      .catch(onFactsError);
   }
 
   function removeFact(idx: number) {
     if (!brand) return;
     const updated = facts.filter((_, i) => i !== idx);
-    brandApi(brand.id, '', 'POST', { facts: updated })
-      .then(() => setFacts(updated));
+    saveFacts(brand.id, updated)
+      .then(() => setFacts(updated))
+      .catch(onFactsError);
   }
 
   function checkNow() {
@@ -395,21 +423,23 @@ export default function AccuracyPage() {
   function acceptFact(sf: SuggestedFact) {
     if (!brand) return;
     const updated = [...facts, { key: sf.key, value: sf.value, category: sf.category }];
-    brandApi(brand.id, '', 'POST', { facts: updated })
+    saveFacts(brand.id, updated)
       .then(() => {
         setFacts(updated);
         setSuggestedFacts(prev => prev.filter(f => f.key !== sf.key));
-      });
+      })
+      .catch(onFactsError);
   }
 
   function acceptAllFacts() {
     if (!brand || suggestedFacts.length === 0) return;
     const updated = [...facts, ...suggestedFacts.map(sf => ({ key: sf.key, value: sf.value, category: sf.category }))];
-    brandApi(brand.id, '', 'POST', { facts: updated })
+    saveFacts(brand.id, updated)
       .then(() => {
         setFacts(updated);
         setSuggestedFacts([]);
-      });
+      })
+      .catch(onFactsError);
   }
 
   function dismissFact(key: string) {
@@ -472,7 +502,7 @@ export default function AccuracyPage() {
 
   function getExpected(issue: Issue): string {
     if (issue.expected) return issue.expected;
-    const baseKey = stripCategorySuffix(issue.fact_key);
+    const baseKey = stripCategorySuffix(issue.fact_key ?? '');
     return expectedLookup.get(baseKey) || expectedLookup.get(normalizeKey(baseKey)) || '';
   }
 
@@ -567,11 +597,11 @@ export default function AccuracyPage() {
       <div className="page-body">
         {/* KPI rail - real metrics */}
         <KPIRail items={[
-          { k: 'OPEN', v: issues.length - issueSummary.fixed, danger: (issues.length - issueSummary.fixed) > 0 },
-          { k: 'FIXED', v: issueSummary.fixed },
-          { k: 'ACCURACY RATE', v: accuracyRate != null ? accuracyRate : '-', suffix: accuracyRate != null ? '%' : '' },
-          { k: 'CLAIMS VERIFIED', v: facts.length },
-          { k: 'LAST CHECKED', v: lastChecked ? new Date(lastChecked).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Never', info: lastChecked ? new Date(lastChecked).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : undefined },
+          { k: 'Wrong claims open', v: issues.length - issueSummary.fixed, danger: (issues.length - issueSummary.fixed) > 0 },
+          { k: 'Fixed', v: issueSummary.fixed },
+          { k: 'Accuracy rate', v: accuracyRate != null ? accuracyRate : '-', suffix: accuracyRate != null ? '%' : '', info: 'of claims AI made about you' },
+          { k: 'Brand facts', v: facts.length, info: 'the truth AI is checked against' },
+          { k: 'Last checked', v: lastChecked ? new Date(lastChecked).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Never', info: lastChecked ? new Date(lastChecked).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : undefined },
         ]} />
 
         {/* Status message */}
@@ -682,7 +712,7 @@ export default function AccuracyPage() {
             <TrendChart data={facts.length === 0 ? [] : trend} />
           </Card>
           <Card title="Severity distribution">
-            <SeverityDonut issues={issues} />
+            <SeverityDonut issues={issues} factCount={facts.length} checked={!!lastChecked} />
           </Card>
         </div>
 
@@ -754,12 +784,12 @@ export default function AccuracyPage() {
                     <PlatformTile p={platformFor(issue.platform)} size={26} />
                     <div style={{ minWidth: 0 }}>
                       <div className="hal-q mono">
-                        <span className="dim">FACT ›</span> {issue.fact_key}
+                        <span className="dim">Fact ›</span> {issue.fact_key}
                         {(issue.count ?? 1) > 1 && <span className="dim"> · ×{issue.count}</span>}
-                        {issue.query && <> &nbsp;<span className="dim">QUERY ›</span> &ldquo;{issue.query}&rdquo;</>}
+                        {issue.query && <> &nbsp;<span className="dim">Query ›</span> &ldquo;{issue.query}&rdquo;</>}
                       </div>
-                      <div className="hal-claim"><span className="hal-tag mono">CLAIMED ✗</span> {issue.found}</div>
-                      <div className="hal-truth"><span className="hal-tag mono ok">TRUTH ✓</span> {getExpected(issue) || '(not set)'}</div>
+                      <div className="hal-claim"><span className="hal-tag mono">Claimed ✗</span> {issue.found}</div>
+                      <div className="hal-truth"><span className="hal-tag mono ok">Truth ✓</span> {getExpected(issue) || '(not set)'}</div>
                       <div style={{ marginTop: 6, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <span>{issue.platform}</span>
                         {issue.date && <span>{new Date(issue.date).toLocaleDateString()}</span>}

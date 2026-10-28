@@ -16,11 +16,14 @@ import { useAuth } from '@/contexts/AuthContext';
  * brand run consumes queries × platforms credits). Banner is purely
  * informational - there's no choice to make.
  */
-const STORAGE_KEY = 'livesov_credits_v2_seen';
+// Per-user so the dismissal doesn't bleed between accounts on a shared browser.
+const STORAGE_PREFIX = 'livesov_credits_v2_seen';
 
 export default function CreditMigrationBanner() {
   const { user } = useAuth();
   const [dismissed, setDismissed] = useState(true); // start hidden until we know
+
+  const STORAGE_KEY = `${STORAGE_PREFIX}:${user?.id || 'anon'}`;
 
   useEffect(() => {
     try {
@@ -29,7 +32,7 @@ export default function CreditMigrationBanner() {
     } catch {
       setDismissed(true);
     }
-  }, []);
+  }, [STORAGE_KEY]);
 
   if (dismissed) return null;
   if (!user) return null;
@@ -48,7 +51,7 @@ export default function CreditMigrationBanner() {
       background: 'rgba(99,102,241,.06)', border: '1px solid rgba(99,102,241,.25)',
       borderRadius: 'var(--radius-xs)', fontSize: 12, color: 'var(--text)',
     }}>
-      <span style={{ fontSize: 14, color: 'var(--primary)' }}>★</span>
+      <span className="lvx-banner-ico" style={{ fontSize: 14, color: 'var(--primary)' }}>★</span>
       <div style={{ flex: 1, lineHeight: 1.5 }}>
         <strong>We&apos;ve upgraded your plan to a credit-based system.</strong>{' '}
         You now get monthly AI checks with daily auto-tracking - your

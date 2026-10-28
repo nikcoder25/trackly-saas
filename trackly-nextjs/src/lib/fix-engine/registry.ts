@@ -29,6 +29,9 @@ import { externalCitationsModule } from './modules/external-citations';
 import { contentFreshnessModule } from './modules/content-freshness';
 import { imageAltModule } from './modules/image-alt';
 import { keywordOpportunitiesModule } from './modules/keyword-opportunities';
+import { searchDecayModule } from './modules/search-decay';
+import { cannibalizationModule } from './modules/cannibalization';
+import { contentGapModule } from './modules/content-gap';
 
 const MODULES: FixModule[] = [
   // Phase 1 (crawl-triggered wedge)
@@ -47,6 +50,10 @@ const MODULES: FixModule[] = [
   contentFreshnessModule,
   imageAltModule,
   keywordOpportunitiesModule,
+  // Diagnostic modules: they report, they don't edit. See FixModule.diagnostic.
+  searchDecayModule,
+  cannibalizationModule,
+  contentGapModule,
   // Phase 3 (GSC indexing/canonical + Channel B technical)
   indexingRepairModule,
   canonicalFixModule,
@@ -72,6 +79,10 @@ const MODULE_COST: Record<string, number> = {
   'noindex-removal': 0, 'og-cards': 1, 'comparison-pages': 3,
   'citable-passages': 1, 'hallucination-correction': 1, 'content-freshness': 1,
   'image-alt': 1, 'keyword-opportunities': 2,
+  // Diagnostics. search-decay and content-gap each hand the model a large
+  // evidence file (two GSC windows, or four full page bodies), so they cost
+  // more than a title rewrite despite writing nothing.
+  'search-decay': 2, 'cannibalization': 1, 'content-gap': 3,
 };
 export function generateCost(moduleKey: string): number {
   return MODULE_COST[moduleKey] ?? 1;
@@ -87,6 +98,9 @@ const MODULE_IMPACT: Record<string, 1 | 2 | 3> = {
   'noindex-removal': 3, 'og-cards': 1, 'comparison-pages': 3,
   'citable-passages': 3, 'hallucination-correction': 3, 'content-freshness': 3,
   'image-alt': 1, 'keyword-opportunities': 3,
+  // A correct diagnosis is what makes the other modules land on the right
+  // page, so these rank high even though they ship nothing themselves.
+  'search-decay': 3, 'cannibalization': 2, 'content-gap': 3,
 };
 export function moduleImpact(moduleKey: string): 1 | 2 | 3 {
   return MODULE_IMPACT[moduleKey] ?? 2;
@@ -115,6 +129,8 @@ export interface ModuleCatalogItem {
   revertable: boolean;
   /** Relative impact for ranking: 3 = high, 2 = medium, 1 = low. */
   impact: 1 | 2 | 3;
+  /** True when the module reports findings instead of editing the site. */
+  diagnostic: boolean;
 }
 
 // Plan ranking for gating: a module with minPlan 'pro' requires an
@@ -152,5 +168,6 @@ export function moduleCatalog(): ModuleCatalogItem[] {
     cost: generateCost(m.key),
     revertable: typeof m.revert === 'function',
     impact: moduleImpact(m.key),
+    diagnostic: !!m.diagnostic,
   }));
 }

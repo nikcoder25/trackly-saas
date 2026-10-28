@@ -32,7 +32,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 interface Body {
   scanEnabled?: unknown; scanFrequency?: unknown; scanModules?: unknown;
-  autopilotGenerate?: unknown; autopilotShipDeterministic?: unknown; notifyOnScan?: unknown;
+  autopilotGenerate?: unknown; autopilotStage?: unknown; autopilotShipDeterministic?: unknown; notifyOnScan?: unknown;
   measuredRevert?: unknown;
   rules?: unknown;
 }
@@ -79,7 +79,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (body.scanFrequency === 'daily' || body.scanFrequency === 'weekly') patch.scanFrequency = body.scanFrequency as ScanFrequency;
     if (Array.isArray(body.scanModules)) patch.scanModules = body.scanModules.filter((m): m is string => typeof m === 'string');
     if (typeof body.autopilotGenerate === 'boolean') patch.autopilotGenerate = body.autopilotGenerate;
-    if (typeof body.autopilotShipDeterministic === 'boolean') patch.autopilotShipDeterministic = body.autopilotShipDeterministic;
+    // autopilotShipDeterministic is the old name for what is now stage-only.
+    // Accept it so existing clients keep working; it can no longer publish.
+    if (typeof body.autopilotStage === 'boolean') patch.autopilotStage = body.autopilotStage;
+    else if (typeof body.autopilotShipDeterministic === 'boolean') patch.autopilotStage = body.autopilotShipDeterministic;
     if (typeof body.notifyOnScan === 'boolean') patch.notifyOnScan = body.notifyOnScan;
     if (typeof body.measuredRevert === 'boolean') patch.measuredRevert = body.measuredRevert;
     const rules = cleanRules(body.rules);

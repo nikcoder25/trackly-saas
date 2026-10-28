@@ -1,6 +1,6 @@
 import { pool } from '@/lib/db';
 import { NextRequest } from 'next/server';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { addContactToAudience, sendWelcomeEmail } from '@/lib/email';
 import { logError, serverError } from '@/lib/api-error';
 
@@ -20,13 +20,15 @@ async function ensureTable() {
 let tableReady = false;
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const ip = getClientIp(request);
   const rl = await rateLimit('newsletter:' + ip, 60 * 60 * 1000, 5);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   try {
-    const body = await request.json();
-    const { email, website, source } = body;
+    // A malformed body falls through to the 400 below rather than throwing
+    // into the catch-all as a 500 (see geo-audit/route.ts for the rationale).
+    const body = await request.json().catch(() => ({}));
+    const { email, website, source } = body as { email?: unknown; website?: unknown; source?: unknown };
 
     // Honeypot: silently reject if filled
     if (website) return Response.json({ success: true });

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 import { Section, SectionHeader, LongForm, PillarLinks } from '@/components/seo/SeoSections';
+import EmailOff from '@/components/EmailOff';
 
 export const metadata: Metadata = {
   title: 'Livesov Docs: Help Center, Getting Started & API Reference',
@@ -37,7 +38,7 @@ const DOC_SECTIONS: DocSection[] = [
     title: 'Getting started',
     items: [
       { title: 'Quickstart in 5 minutes', description: 'Create your account, add your first brand, run your first measurement.', href: '/docs#quickstart' },
-      { title: 'Add a brand', description: 'Brand setup, competitors, category, and tracked URLs.', href: '/docs#add-brand' },
+      { title: 'Add a brand', description: 'Brand setup, competitors, category, and tracked URLs.', href: '/docs#quickstart' },
       { title: 'Build your prompt panel', description: 'Generate, import, or write the prompts that define your measurement scope.', href: '/docs#prompts' },
       { title: 'Pick which LLMs to track', description: 'ChatGPT, Claude, Gemini, Perplexity, and Grok - model tiers and grounding options.', href: '/docs#llms' },
     ],
@@ -45,28 +46,28 @@ const DOC_SECTIONS: DocSection[] = [
   {
     title: 'Measurement & metrics',
     items: [
-      { title: 'Mention rate', description: 'How we calculate per-platform and per-prompt mention rate.', href: '/docs#mention-rate' },
-      { title: 'Citation share', description: 'How citations are detected and attributed on grounded surfaces.', href: '/docs#citation-share' },
-      { title: 'Sentiment', description: 'Our 5-point sentiment scale and how it is scored.', href: '/docs#sentiment' },
-      { title: 'Rank in answer', description: 'First-paragraph, mid-answer, last-mention - the three rank tiers.', href: '/docs#rank' },
+      { title: 'Mention rate', description: 'How we calculate per-platform and per-prompt mention rate.', href: '/docs#quickstart' },
+      { title: 'Citation share', description: 'How citations are detected and attributed on grounded surfaces.', href: '/docs#quickstart' },
+      { title: 'Sentiment', description: 'Our 5-point sentiment scale and how it is scored.', href: '/docs#quickstart' },
+      { title: 'Rank in answer', description: 'First-paragraph, mid-answer, last-mention - the three rank tiers.', href: '/docs#quickstart' },
     ],
   },
   {
     title: 'Workflows',
     items: [
-      { title: 'Alerts & notifications', description: 'Slack, email, and webhook alerts on mention-rate drops and competitor moves.', href: '/docs#alerts' },
-      { title: 'Reports & exports', description: 'Scheduled PDF reports, CSV exports, and the Livesov Reports Library.', href: '/docs#reports' },
-      { title: 'Team & collaboration', description: 'Roles, permissions, multi-brand workspaces, and seat management.', href: '/docs#team' },
-      { title: 'Multi-brand & agencies', description: 'Manage 5–500 brands in one Livesov account with white-label reports.', href: '/docs#agency' },
+      { title: 'Alerts & notifications', description: 'Email alerts on mention-rate drops and competitor moves, plus the outbound webhook.', href: '/docs#alerts' },
+      { title: 'Reports & exports', description: 'Scheduled PDF reports, CSV exports, and the Livesov Reports Library.', href: '/integrations' },
+      { title: 'Team & collaboration', description: 'Roles, permissions, multi-brand workspaces, and seat management.', href: '/solutions/agencies' },
+      { title: 'Multi-brand & agencies', description: 'Manage 5–500 brands in one Livesov account with client-ready reports.', href: '/solutions/agencies' },
     ],
   },
   {
     title: 'Integrations',
     items: [
-      { title: 'Slack integration', description: 'Real-time alerts and weekly digests in any Slack channel.', href: '/integrations/slack' },
-      { title: 'Zapier integration', description: '5,000+ apps via Zapier triggers and actions.', href: '/integrations/zapier' },
-      { title: 'REST API', description: 'Pull metrics, write prompts, and stream events programmatically.', href: '/integrations/api' },
-      { title: 'Webhooks', description: 'Push events into your stack the moment they happen.', href: '/docs#webhooks' },
+      { title: 'WordPress plugin', description: 'Install the Connector and apply approved fixes to your site automatically.', href: '/integrations/wordpress' },
+      { title: 'Slack', description: 'Send Fix Engine updates to a channel with an incoming webhook.', href: '/integrations/slack' },
+      { title: 'Zapier', description: 'Route the same webhook into a Catch Hook and on to 5,000+ apps.', href: '/integrations/zapier' },
+      { title: 'API & data access', description: 'Webhooks, JSON and CSV exports, Sheets - and where the REST API stands.', href: '/integrations/api' },
     ],
   },
   {
@@ -82,8 +83,8 @@ const DOC_SECTIONS: DocSection[] = [
     title: 'Account & billing',
     items: [
       { title: 'Plans & pricing', description: 'All tiers, what is included, and how to upgrade or downgrade.', href: '/pricing' },
-      { title: 'Billing & invoices', description: 'Cards, invoices, VAT, and changing your billing email.', href: '/docs#billing' },
-      { title: 'Security & privacy', description: 'How we handle your data, our security posture, and SOC 2 status.', href: '/docs#security' },
+      { title: 'Billing & invoices', description: 'Cards, invoices, VAT, and changing your billing email.', href: '/pricing' },
+      { title: 'Security & privacy', description: 'How we handle your data, our security posture, and SOC 2 status.', href: '/privacy' },
       { title: 'Support', description: 'Live chat, email, and your account manager (Pro and above).', href: '/contact' },
     ],
   },
@@ -208,13 +209,16 @@ export default function DocsHubPage() {
           <h2 id="alerts">Alerts</h2>
           <p>
             Alerts fire on three signals: mention-rate drop above a threshold, sentiment shift,
-            and competitor pass-through. Routes: email, Slack, generic webhook. See the{' '}
-            <a href="/integrations/slack">Slack integration</a> for the most common setup.
+            and competitor pass-through. These are delivered by email today. Separately, each
+            brand can set one outbound webhook (Dashboard → Alerts) that carries Fix Engine
+            notifications - point it at{' '}
+            <a href="/integrations/slack">Slack</a> or{' '}
+            <a href="/integrations/zapier">Zapier</a> to get those into a channel.
           </p>
 
           <p>
             Looking for something not covered here? Email{' '}
-            <a href="mailto:hello@livesov.com">hello@livesov.com</a> - we read everything.
+            <EmailOff><a href="mailto:hello@livesov.com">hello@livesov.com</a></EmailOff> - we read everything.
           </p>
         </LongForm>
       </Section>
@@ -223,7 +227,7 @@ export default function DocsHubPage() {
         title="Adjacent"
         links={[
           { href: '/learn/llm-seo', label: 'LLM SEO: the 2026 guide', description: 'The conceptual playbook the product is built on.' },
-          { href: '/case-studies', label: 'Case studies', description: 'Real teams running the workflows in this doc.' },
+          { href: '/solutions/agencies', label: 'AI visibility for agencies', description: 'Run these workflows across every client from one account.' },
           { href: '/integrations', label: 'All integrations', description: 'Slack, Zapier, API, webhooks, and exports.' },
           { href: '/pricing', label: 'Pricing', description: 'Plan that fits - from solo to multi-brand agency.' },
         ]}

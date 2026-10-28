@@ -1,7 +1,8 @@
 import { pool, safeConnect } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, decryptApiKeys } from '@/lib/helpers';
-import { runFactCheck, autoDiscoverFacts } from '@/lib/fact-checker';
+import { runFactCheck, autoDiscoverFacts, NO_BRAND_MENTIONS_MESSAGE } from '@/lib/fact-checker';
+import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 interface FactRow {
   id: string;
@@ -101,6 +102,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       // fine
     }
 
+    // No facts means nothing is checked: a rate saved by an earlier check
+    // (before the facts were removed) must not read as "facts right".
+    if (facts.length === 0) accuracyRate = null;
+
     // If no accuracy check has been run yet, compute a basic rate from issues
     if (accuracyRate === null && facts.length > 0) {
       if (issues.length === 0) {
@@ -180,11 +185,25 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const authResult = await requireVerifiedAuth(request, pool);
   if (authResult instanceof Response) return authResult;
   const user = authResult;
+
+  // Both PUT actions re-prompt AI providers: 'check' is up to 15 calls
+  // (3 runs x 5 platforms) and 'auto-discover' sends ~8k characters of
+  // site content. The sibling reverify route was already limited; this
+  // one was not, so one user clicking "Check Accuracy" repeatedly was an
+  // unbounded, unattributed spend loop.
+  const rl = await checkUserIpRateLimit('accuracy_check', user.id, getClientIp(request), {
+    user: { max: 10, windowMs: 60 * 60 * 1000 },
+    ip: { max: 30, windowMs: 60 * 60 * 1000 },
+  });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
+
   const { id } = await params;
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
+  if (access.role === 'viewer') return Response.json({ error: 'Viewers cannot run accuracy checks' }, { status: 403 });
 
-  const body = await request.json();
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== 'object') return Response.json({ error: 'Invalid body' }, { status: 400 });
 
   // ── Auto-Discover Facts ──────────────────────────────────────
   if (body.action === 'auto-discover') {
@@ -258,7 +277,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       const runsResult = await pool.query(
         `SELECT id, platform, model, response_raw, created_at, prompt, citations
          FROM prompt_runs
-         WHERE brand_id = $1 AND success = TRUE AND response_raw IS NOT NULL AND response_raw != ''
+         WHERE brand_id = $1 AND success = TRUE AND mentioned = TRUE AND response_raw IS NOT NULL AND response_raw != ''
          ORDER BY created_at DESC LIMIT 30`,
         [id]
       );
@@ -271,18 +290,26 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 
     if (runs.length === 0) {
+      // Clear stale unfixed issues from checks that judged answers about
+      // other companies; there are no claims about this brand to keep.
+      await pool.query('DELETE FROM accuracy_issues WHERE brand_id = $1 AND fixed = FALSE', [id]).catch(() => {});
+      await pool.query(
+        `UPDATE brands SET data = jsonb_set(COALESCE(data, '{}'::jsonb), '{accuracy_last_check}', $2::jsonb), updated_at = NOW() WHERE id = $1`,
+        [id, JSON.stringify({ accuracyRate: null, platformStats: {}, categoryStats: {}, checkedRuns: 0, checkedAt: new Date().toISOString() })],
+      ).catch(() => {});
       return Response.json({
         issues: [],
         accuracyRate: null,
         platformStats: {},
         categoryStats: {},
         checkedRuns: 0,
-        message: 'No AI responses found. Run some queries first from the Dashboard, then check accuracy.',
+        message: NO_BRAND_MENTIONS_MESSAGE,
       });
     }
 
     // Run AI-powered fact-checking
-    const result = await runFactCheck(facts, runs);
+    const brandName = String((access.brand as { name?: string })?.name || '');
+    const result = await runFactCheck(facts, runs, brandName);
 
     // Persist accuracy rate and stats into brand data for GET to read
     try {
@@ -293,7 +320,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
            $2::jsonb
          ), updated_at = NOW() WHERE id = $1`,
         [id, JSON.stringify({
-          accuracyRate: result.accuracyRate,
+          accuracyRate: result.message ? null : result.accuracyRate,
           platformStats: result.platformStats,
           categoryStats: result.categoryStats,
           checkedRuns: result.checkedRuns,
@@ -360,12 +387,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     return Response.json({
       issues: allIssues,
-      accuracyRate: result.accuracyRate,
+      accuracyRate: result.message ? null : result.accuracyRate,
       platformStats: result.platformStats,
       categoryStats: result.categoryStats,
       checkedRuns: result.checkedRuns,
       aiPowered: true,
-      ...(result.error ? { message: result.error } : {}),
+      ...(result.error ? { message: result.error } : result.message ? { message: result.message } : {}),
     });
   } catch (e) {
     console.error('[Accuracy PUT]', (e as Error).message);

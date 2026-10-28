@@ -123,6 +123,30 @@ export async function register() {
       );
     }
 
+    // Annual products are optional, but partial config means the annual
+    // toggle shows for some plans only, and an annual id that equals a
+    // monthly id would make a monthly checkout look like an annual one.
+    const dodoAnnualEnvs = {
+      DODO_STARTER_ANNUAL_PRODUCT_ID: process.env.DODO_STARTER_ANNUAL_PRODUCT_ID,
+      DODO_PRO_ANNUAL_PRODUCT_ID: process.env.DODO_PRO_ANNUAL_PRODUCT_ID,
+      DODO_AGENCY_ANNUAL_PRODUCT_ID: process.env.DODO_AGENCY_ANNUAL_PRODUCT_ID,
+    };
+    const missingAnnual = Object.entries(dodoAnnualEnvs).filter(([, v]) => !v).map(([k]) => k);
+    if (missingAnnual.length && missingAnnual.length < Object.keys(dodoAnnualEnvs).length) {
+      console.warn(
+        `[WARN] DodoPayments annual billing is partially configured - missing: ${missingAnnual.join(', ')}. ` +
+        `Annual checkout will be unavailable for those plans.`
+      );
+    }
+    const monthlyIds = new Set(Object.values(dodoProductEnvs).filter(Boolean));
+    const clashingAnnual = Object.entries(dodoAnnualEnvs).filter(([, v]) => v && monthlyIds.has(v)).map(([k]) => k);
+    if (clashingAnnual.length) {
+      console.warn(
+        `[WARN] ${clashingAnnual.join(', ')} reuse a monthly DODO_*_PRODUCT_ID. ` +
+        `Annual product ids must be separate yearly products in DodoPayments.`
+      );
+    }
+
     // In-process self-triggering cron scheduler.
     //
     // Historically this ran whenever CRON_SECRET + APP_URL were set, which

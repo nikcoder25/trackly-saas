@@ -6,8 +6,11 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrands } from '@/contexts/BrandContext';
 import { PRICING_PLANS, BILLING_PORTAL_URL } from '@/lib/constants';
+import { getPlanSwitchDirection, hasActivePaidSubscription } from '@/lib/plan-rank';
 import { useToast } from '@/components/dashboard/Toast';
 import { Card, Badge, PageHead, Pill } from '@/app/dashboard-v2/ui';
+import AiAssistantsCard from '@/components/dashboard/AiAssistantsCard';
+import { sanitizeUsernameInput } from '@/lib/username';
 
 interface BillingEntry {
   date: string;
@@ -149,7 +152,9 @@ export default function AccountPage() {
 
   async function saveUsername() {
     try {
-      await fetch('/api/auth/username', { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: usernameVal }) });
+      const res = await fetch('/api/auth/username', { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: usernameVal }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { toast(d.error || 'Failed to update username', 'error'); return; }
       refreshUser();
       setUsernameEdit(false);
       toast('Username updated');
@@ -159,32 +164,46 @@ export default function AccountPage() {
   async function deleteAccount() {
     if (!confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
     if (!confirm('This will permanently delete ALL your data. Are you absolutely sure?')) return;
-    try { await fetch('/api/auth/account', { method: 'DELETE', credentials: 'include' }); toast('Account deleted'); router.push('/'); } catch { toast('Failed to delete account', 'error'); }
+    const password = prompt('Enter your password to confirm (Google sign-in accounts: enter your account email).');
+    if (!password) return;
+    try {
+      const res = await fetch('/api/auth/account', { method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { toast(d.error || 'Failed to delete account', 'error'); return; }
+      toast('Account deleted');
+      router.push('/');
+    } catch { toast('Failed to delete account', 'error'); }
   }
 
   async function cancelSubscription() {
     if (!confirm('Cancel your subscription? You will lose access to paid features at the end of your billing period.')) return;
-    try { await fetch('/api/payments/cancel', { method: 'POST', credentials: 'include' }); refreshUser(); toast('Subscription cancelled'); } catch { toast('Failed to cancel subscription', 'error'); }
+    try {
+      const res = await fetch('/api/payments/cancel', { method: 'POST', credentials: 'include' });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { toast(d.error || 'Failed to cancel subscription', 'error'); return; }
+      refreshUser();
+      toast('Subscription cancelled');
+    } catch { toast('Failed to cancel subscription', 'error'); }
   }
 
-  const rawPlan = user?.plan || 'free';
-  const plan = rawPlan;
+  const plan = user?.plan || 'free';
   const emailVerified = user?.emailVerified;
-
-  const PLAN_TIERS: Record<string, number> = { free: 0, starter: 1, pro: 2, agency: 3, enterprise: 4 };
+  // Only a paid plan backed by a provider subscription can be cancelled.
+  // Owner, trial and free accounts have nothing to cancel.
+  const canCancel = hasActivePaidSubscription(plan, user?.settings);
 
   async function switchPlan(targetPlan: string) {
     const target = targetPlan.toLowerCase();
 
     if (target === 'free') {
-      await cancelSubscription();
+      if (canCancel) await cancelSubscription();
+      else toast('There is no active subscription to cancel.', 'error');
       return;
     }
 
-    const currentTier = PLAN_TIERS[plan] ?? 0;
-    const targetTier = PLAN_TIERS[target] ?? 0;
-
-    if (targetTier <= currentTier) {
+    const direction = getPlanSwitchDirection(plan, target);
+    if (direction === 'current' || direction === 'unavailable') return;
+    if (direction === 'downgrade') {
       toast('To downgrade, please cancel your current subscription first or manage billing via the customer portal.', 'error');
       return;
     }
@@ -212,6 +231,23 @@ export default function AccountPage() {
   }
 
   const currentPlanDef = PLANS.find(p => p.name.toLowerCase() === plan);
+  // Plans that aren't on the public price list (owner, trial, enterprise)
+  // get their own summary instead of falling back to "$0 Free plan".
+  const trialEnds = plan === 'trial' && user?.trialEndsAt ? new Date(user.trialEndsAt) : null;
+  const planSummary = currentPlanDef
+    ? { price: currentPlanDef.price, perMonth: true, line: currentPlanDef.headline ?? currentPlanDef.sub }
+    : plan === 'owner'
+      ? { price: 'Owner', perMonth: false, line: 'Unlimited access. No subscription or billing.' }
+      : plan === 'trial'
+        ? {
+            price: '$0', perMonth: true,
+            line: trialEnds && !isNaN(trialEnds.getTime())
+              ? `Free trial, ends ${trialEnds.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+              : 'Free trial',
+          }
+        : plan === 'enterprise'
+          ? { price: 'Custom', perMonth: false, line: 'Enterprise plan, invoiced' }
+          : { price: '$0', perMonth: true, line: 'Free plan' };
 
   return (
     <div className="lvx">
@@ -224,14 +260,14 @@ export default function AccountPage() {
         <div className="g3">
           {/* Current plan */}
           <Card title="Current plan" right={<Badge tone="acc">{plan.toUpperCase()}</Badge>}>
-            <div className="kpi-v mono" style={{ fontSize: 32 }}>{currentPlanDef?.price ?? '$0'}<i>/mo</i></div>
-            <div className="quiet" style={{ fontSize: 13, margin: '6px 0 14px' }}>{currentPlanDef?.headline ?? currentPlanDef?.sub ?? 'Free plan'}</div>
+            <div className="kpi-v mono" style={{ fontSize: 32 }}>{planSummary.price}{planSummary.perMonth && <i>/mo</i>}</div>
+            <div className="quiet" style={{ fontSize: 13, margin: '6px 0 14px' }}>{planSummary.line}</div>
             {currentPlanDef && (
               <ul className="plan-feat">
                 {currentPlanDef.features.map(f => <li key={f}>{f}</li>)}
               </ul>
             )}
-            {plan !== 'free' && (
+            {canCancel && (
               <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
                 <button className="btn-d btn-danger" onClick={cancelSubscription}>Cancel subscription</button>
               </div>
@@ -241,17 +277,17 @@ export default function AccountPage() {
           {/* Account info */}
           <Card title="Account info" right={<Badge tone={emailVerified ? 'pos' : 'neg'}>{emailVerified ? 'VERIFIED' : 'UNVERIFIED'}</Badge>}>
             <div className="fld">
-              <div className="eyebrow">EMAIL</div>
+              <div className="eyebrow">Email</div>
               <div style={{ fontSize: 13, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ color: 'var(--text)' }}>{user?.email}</span>
                 {!emailVerified && <button className="btn-d" style={{ padding: '3px 8px', fontSize: 11 }} onClick={async () => { try { let res = await fetch('/api/auth/resend-verification', { method: 'POST', credentials: 'include' }); if (res.status === 401) { try { const r = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' }); if (r.ok) res = await fetch('/api/auth/resend-verification', { method: 'POST', credentials: 'include' }); } catch { /* refresh failed */ } } let d; try { d = await res.json(); } catch { alert('Server error - please try again later.'); return; } alert(res.ok ? 'Verification email sent!' : d.error || 'Failed to send verification email'); } catch { alert('Failed to send verification email. Please try again later.'); } }}>Resend verification</button>}
               </div>
             </div>
             <div className="fld">
-              <div className="eyebrow">USERNAME</div>
+              <div className="eyebrow">Username</div>
               <div style={{ fontSize: 13, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                 {usernameEdit ? (
-                  <><input className="fld-in mono" value={usernameVal} onChange={e => setUsernameVal(e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, ''))} style={{ width: 180 }} onKeyDown={e => e.key === 'Enter' && saveUsername()} /><button className="btn-d" style={{ padding: '3px 8px', fontSize: 11 }} onClick={saveUsername}>Save</button></>
+                  <><input className="fld-in mono" value={usernameVal} onChange={e => setUsernameVal(sanitizeUsernameInput(e.target.value))} style={{ width: 180 }} onKeyDown={e => e.key === 'Enter' && saveUsername()} /><button className="btn-d" style={{ padding: '3px 8px', fontSize: 11 }} onClick={saveUsername}>Save</button></>
                 ) : (
                   <><span className="mono" style={{ color: 'var(--text)' }}>@{user?.username || '-'}</span><button className="btn-d" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => setUsernameEdit(true)}>Edit</button></>
                 )}
@@ -259,11 +295,11 @@ export default function AccountPage() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 4 }}>
               <div>
-                <div className="eyebrow">PLAN</div>
+                <div className="eyebrow">Plan</div>
                 <div style={{ fontSize: 13, marginTop: 4 }}><span style={{ textTransform: 'uppercase' }}>{plan}</span> · <span className="pos">active</span></div>
               </div>
               <div>
-                <div className="eyebrow">MEMBER SINCE</div>
+                <div className="eyebrow">Member since</div>
                 <div style={{ fontSize: 13, marginTop: 4 }} className="mono">{user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '-'}</div>
               </div>
             </div>
@@ -284,10 +320,10 @@ export default function AccountPage() {
         {/* Billing history */}
         {billingHistory.length > 0 && (
           <Card title="Billing history" padding={false}
-            right={<a href={BILLING_PORTAL_URL} target="_blank" rel="noopener" className="mono dim" style={{ fontSize: 11, textDecoration: 'none' }}>MANAGE BILLING →</a>}>
+            right={<a href={BILLING_PORTAL_URL} target="_blank" rel="noopener" className="mono dim" style={{ fontSize: 11, textDecoration: 'none' }}>Manage billing →</a>}>
             <div className="tbl-wrap">
               <table className="tbl">
-                <thead><tr><th>DATE</th><th>EVENT</th><th className="right">AMOUNT</th><th>STATUS</th></tr></thead>
+                <thead><tr><th>Date</th><th>Event</th><th className="right">Amount</th><th>Status</th></tr></thead>
                 <tbody>
                   {billingHistory.map((b, i) => (
                     <tr key={i}>
@@ -330,7 +366,7 @@ export default function AccountPage() {
             {twoFASetup && (
               <div style={{ marginTop: 12 }}>
                 <div style={{ marginBottom: 16 }}>
-                  <div className="eyebrow" style={{ marginBottom: 8 }}>1 · SCAN THIS QR CODE WITH YOUR AUTHENTICATOR APP</div>
+                  <div className="eyebrow" style={{ marginBottom: 8 }}>1 · scan this qr code with your authenticator app</div>
                   <div style={{ display: 'flex', justifyContent: 'center', padding: 16, background: '#ffffff', borderRadius: 8, maxWidth: 240, marginTop: 8 }}>
                     <QRCodeSVG value={twoFASetup.otpauthUrl} size={180} level="M" bgColor="#ffffff" fgColor="#000000" includeMargin />
                   </div>
@@ -340,7 +376,7 @@ export default function AccountPage() {
                   </div>
                 </div>
 
-                <div className="eyebrow" style={{ marginBottom: 8 }}>2 · ENTER THE 6-DIGIT CODE FROM YOUR APP</div>
+                <div className="eyebrow" style={{ marginBottom: 8 }}>2 · enter the 6-digit code from your app</div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', maxWidth: 400 }}>
                   <input className="fld-in mono" value={twoFACode} onChange={e => setTwoFACode(e.target.value)} type="text" placeholder="Enter 6-digit code" maxLength={6} inputMode="numeric" style={{ flex: 1, textAlign: 'center', letterSpacing: 4, fontSize: 18 }} />
                   <button className="btn-p" onClick={async () => {
@@ -408,6 +444,9 @@ export default function AccountPage() {
           </Card>
         </div>
 
+        {/* API keys + MCP setup */}
+        <AiAssistantsCard />
+
         {/* Choose your plan */}
         <Card title="Choose your plan" right={<Pill tone="acc">Current · {plan.toUpperCase()}</Pill>}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
@@ -418,20 +457,23 @@ export default function AccountPage() {
                 current tier is still shown by the "Current plan" card and the
                 "Current · FREE" pill above. */}
             {PLANS.filter(p => p.name.toLowerCase() !== 'free').map(p => {
-              const isCurrent = plan === p.name.toLowerCase();
+              const direction = getPlanSwitchDirection(plan, p.name.toLowerCase());
+              const isCurrent = direction === 'current';
               return (
-                <Card key={p.name} title={p.name} right={p.featured ? <Badge tone="acc">POPULAR</Badge> : isCurrent ? <Badge tone="pos">CURRENT</Badge> : undefined}>
+                <Card key={p.name} title={p.name} right={p.featured ? <Badge tone="acc">Popular</Badge> : isCurrent ? <Badge tone="pos">Current</Badge> : undefined}>
                   <div className="kpi-v mono" style={{ fontSize: 28 }}>{p.price}<i>/mo</i></div>
                   <div className="quiet" style={{ fontSize: 13, margin: '6px 0 14px' }}>{p.sub}</div>
-                  <ul className="plan-feat">{p.features.map(f => <li key={f}>{f}</li>)}</ul>
+                  <ul className="plan-feat">{[...p.rankFeatures.map(f => `Rank tracking: ${f}`), ...p.features].map(f => <li key={f}>{f}</li>)}</ul>
                   <div style={{ marginTop: 14 }}>
                     {isCurrent ? (
                       <button className="btn-d" style={{ width: '100%', opacity: 0.7, cursor: 'default' }} disabled>Current plan</button>
+                    ) : direction === 'unavailable' ? (
+                      <button className="btn-d" style={{ width: '100%', opacity: 0.7, cursor: 'default' }} disabled>Included</button>
                     ) : p.name.toLowerCase() === 'enterprise' ? (
                       <a href="/contact" className="btn-p" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>Contact us</a>
                     ) : (
                       <button className="btn-p" style={{ width: '100%' }} onClick={() => switchPlan(p.name)}>
-                        {(PLAN_TIERS[p.name.toLowerCase()] ?? 0) < (PLAN_TIERS[plan] ?? 0) ? `Downgrade to ${p.name}` : `Upgrade to ${p.name}`}
+                        {direction === 'downgrade' ? `Downgrade to ${p.name}` : `Upgrade to ${p.name}`}
                       </button>
                     )}
                   </div>

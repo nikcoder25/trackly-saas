@@ -11,7 +11,7 @@ import {
   LongForm,
   PillarLinks,
 } from '@/components/seo/SeoSections';
-import { BEST_CATEGORIES, getCategory, getAllCategorySlugs } from '@/data/best-categories';
+import { BEST_CATEGORIES, getCategory, getAllCategorySlugs, bestCategoryMeta } from '@/data/best-categories';
 
 const SUFFIX = '-chatgpt-recommends';
 
@@ -43,8 +43,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // this page, a body-only notFound() would stream a 200 shell (soft-404).
   if (!category) notFound();
 
-  const title = `Best ${category.category} ChatGPT recommends in 2026 (Top ${category.brands.length}) | Livesov`;
-  const description = `What ChatGPT actually recommends when asked for the best ${category.category} ${category.audience}. Top ${category.brands.length} brands ranked by AI mention rate, with the reason ChatGPT cites each one.`;
+  const { title, description } = bestCategoryMeta(category);
 
   return {
     title,
@@ -116,7 +115,7 @@ export default async function BestCategoryPage({ params }: PageProps) {
             in 2026
           </>
         }
-        subtitle={`${category.intro} Updated continuously as ChatGPT's recommendation set evolves.`}
+        subtitle={`${category.intro} Re-checked as ChatGPT's recommendation set changes.`}
         ctaText="Track your own AI mention rate"
       />
 
@@ -126,7 +125,7 @@ export default async function BestCategoryPage({ params }: PageProps) {
             { value: `${category.brands.length}`, label: 'Brands in the recommendation set' },
             { value: top?.mentionRate ?? '-', label: `Mention rate for #1 (${top?.name})` },
             { value: '5', label: 'LLMs we measure against' },
-            { value: 'Live', label: 'Refreshed continuously' },
+            { value: `#${category.brands.length}`, label: `Lowest-ranked brand still recommended (${category.brands[category.brands.length - 1]?.name ?? '-'})` },
           ]}
         />
       </Section>

@@ -1,7 +1,8 @@
 import { pool, auditLog, safeConnect } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
+import { toAdminUserRow } from '@/lib/admin-user-row';
 
 async function requireAdmin(request: Request): Promise<{ id: string; email: string } | Response> {
   const authResult = await requireVerifiedAuth(request, pool);
@@ -15,7 +16,7 @@ async function requireAdmin(request: Request): Promise<{ id: string; email: stri
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const ip = getClientIp(request);
   const rl = await rateLimit('admin_edit:' + ip, 15 * 60 * 1000, 30);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
@@ -64,7 +65,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   try {
     values.push(id);
     await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${idx}`, values);
-    const result = await pool.query('SELECT id, email, username, name, plan, role, email_verified, created_at FROM users WHERE id = $1', [id]);
+    const result = await pool.query('SELECT id, email, username, name, plan, trial_ends_at, role, email_verified, created_at FROM users WHERE id = $1', [id]);
     if (!result.rows.length) return Response.json({ error: 'User not found' }, { status: 404 });
 
     // Audit log admin action
@@ -72,7 +73,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     for (const field of allowedFields) { if (body[field] !== undefined) changes[field] = body[field]; }
     auditLog(admin.id, 'admin_update_user', 'user', id, { changes, targetEmail: result.rows[0].email }, ip);
 
-    return Response.json({ user: result.rows[0] });
+    return Response.json({ user: toAdminUserRow(result.rows[0]) });
   } catch (e) {
     logError('admin.users.update_failed', e, { target_user_id: id });
     return serverError({ message: 'Failed to update user' });
@@ -80,7 +81,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const ip = getClientIp(request);
   const rl = await rateLimit('admin_delete:' + ip, 15 * 60 * 1000, 10);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 

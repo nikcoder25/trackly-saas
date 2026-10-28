@@ -40,7 +40,7 @@ export async function GET(request: Request) {
         SELECT
           COUNT(*) FILTER (WHERE plan NOT IN ('free', 'owner'))::int AS paid_users,
           COUNT(*) FILTER (WHERE plan = 'free')::int AS free_users,
-          COUNT(*) FILTER (WHERE settings->>'dodo_subscription_id' IS NOT NULL)::int AS active_subscriptions
+          COUNT(*) FILTER (WHERE settings->>'subscription_id' IS NOT NULL)::int AS active_subscriptions
         FROM users
       `),
       // Recent webhook events (table only has event_id, event_type, processed_at)

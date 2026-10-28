@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     // re-authenticate on every device.
     await revokeAllSessions(pool, user.id);
 
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+    const ip = getClientIp(request);
     auditLog(user.id, '2fa_disabled', 'user', user.id, {}, ip);
     return Response.json({ enabled: false, message: 'Two-factor authentication disabled.' });
   } catch (e) {

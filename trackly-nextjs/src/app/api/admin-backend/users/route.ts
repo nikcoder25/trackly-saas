@@ -2,6 +2,9 @@ import { pool, auditLog } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
 import bcrypt from 'bcryptjs';
 import { logError, serverError } from '@/lib/api-error';
+import { getClientIp } from '@/lib/rate-limit';
+import { uid } from '@/lib/helpers';
+import { toAdminUserRow } from '@/lib/admin-user-row';
 
 export async function GET(request: Request) {
   const admin = await requireAdmin(request);
@@ -39,8 +42,8 @@ export async function GET(request: Request) {
     const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
     const query = `
-      SELECT u.id, u.email, u.username, u.name, u.plan, u.role, u.email_verified, u.created_at,
-        u.settings->>'dodo_subscription_id' AS subscription_id,
+      SELECT u.id, u.email, u.username, u.name, u.plan, u.trial_ends_at, u.role, u.email_verified, u.created_at,
+        u.settings->>'subscription_id' AS subscription_id,
         (SELECT COUNT(*)::int FROM brands WHERE user_id = u.id) AS brand_count,
         (SELECT COUNT(*)::int FROM prompt_runs WHERE brand_id IN (SELECT id FROM brands WHERE user_id = u.id)) AS total_queries
       FROM users u
@@ -59,7 +62,7 @@ export async function GET(request: Request) {
     ]);
 
     return Response.json({
-      users: result.rows,
+      users: result.rows.map(toAdminUserRow),
       total: countResult.rows[0].total,
       limit,
       offset,
@@ -96,13 +99,13 @@ export async function POST(request: Request) {
 
     const hash = await bcrypt.hash(password, 12);
     const result = await pool.query(
-      `INSERT INTO users (email, password_hash, name, plan, email_verified, settings)
-       VALUES ($1, $2, $3, $4, true, '{}'::jsonb)
+      `INSERT INTO users (id, email, password_hash, name, plan, email_verified, settings)
+       VALUES ($1, $2, $3, $4, $5, true, '{}'::jsonb)
        RETURNING id, email, name, plan, role, email_verified, created_at`,
-      [email.toLowerCase().trim(), hash, name || null, resolvedPlan]
+      [uid(), email.toLowerCase().trim(), hash, name || null, resolvedPlan]
     );
 
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+    const ip = getClientIp(request);
     auditLog(admin.id, 'admin_create_user', 'user', result.rows[0].id, { email }, ip);
 
     return Response.json({ user: result.rows[0] }, { status: 201 });

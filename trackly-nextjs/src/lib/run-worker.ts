@@ -10,23 +10,29 @@ import IORedis from 'ioredis';
 import { pool } from './db';
 import { queryAI, getDefaultModel, estimateCost, resolveChatGPTModel, withCacheAndRetry, withDeepRetry, type AiError } from './ai-platforms';
 import { computeSovFromResults } from './run-sov';
-import { isSearchEnabled } from './response-cache';
+import { isSearchEnabled, getRunCacheMaxAgeSeconds } from './response-cache';
 import { resolveSearchModelWithBudget } from './search-budget';
 import { getAdminModel } from './site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from './parser';
 import { mergeCitations, persistCitations, type CitationBatchRow } from './citations';
+import { persistFanout, type FanoutBatchRow } from './fanout';
+import { refreshRecommendationsAfterRun } from './recommendations-engine';
 import { uid, decryptApiKeys, loadTenantFairnessSettings } from './helpers';
 import { circuitBreakerCheck, recordApiKeyFailure, resetApiKeyFailures, acquirePlatformSlot } from './ai-platforms';
 import { setTenantFairness } from './fairness-scheduler';
 import { logger } from './logger';
+import { isRedirectCitationHost } from './citation-hosts';
 import { getServerKeys } from './server-keys';
 import { resolveKeysForTenant, recordTenantKeyResult } from './tenant-keys';
 import type { BrandRunJobData } from './job-queue';
-import { applyChatGPTCohortOverride } from './plan-config';
+import { applyChatGPTCohortOverride, resolveModelForPlan } from './plan-config';
+import { geminiGroundingWithinBudget } from './gemini-grounding-budget';
+import { getEffectivePlan } from './constants';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
   ChatGPT: 'openai', Perplexity: 'perplexity', Claude: 'claude',
   Gemini: 'gemini', Grok: 'grok',
+  'Google AI Overview': 'litescrape', 'Google AI Mode': 'litescrape',
 };
 const FAIL_THRESHOLD = Number(process.env.RUN_PLATFORM_FAIL_THRESHOLD) || 5;
 const WORKER_TIMEOUT_MS = Number(process.env.RUN_PER_QUERY_TIMEOUT_MS) || 180000;
@@ -66,8 +72,10 @@ async function processRun(job: Job<BrandRunJobData>) {
   const serverKeys = getServerKeys();
 
   // Decrypt user keys from the brand owner's record.
-  const ownerRow = await pool.query('SELECT api_keys FROM users WHERE id = $1', [brand.userId]);
+  const ownerRow = await pool.query('SELECT api_keys, plan, trial_ends_at FROM users WHERE id = $1', [brand.userId]);
   const userKeys = decryptApiKeys(ownerRow.rows[0]?.api_keys || {});
+  // Plan tier drives the model clamp below, exactly as in the /run route.
+  const ownerPlan = getEffectivePlan(ownerRow.rows[0]?.plan, ownerRow.rows[0]?.trial_ends_at);
 
   const startTime = Date.now();
   const matcher = buildBrandMatcher(brand);
@@ -107,8 +115,11 @@ async function processRun(job: Job<BrandRunJobData>) {
     if (pendingResults.length === 0 && !force) return;
     try {
       await pool.query(
+        // Direct column append (not a self-subselect): the row lock serializes
+        // concurrent worker flushes and a direct reference re-reads the
+        // just-committed value, so no concurrent progress append is lost.
         `UPDATE active_runs SET received = $1, found_count = $2, error_count = $3,
-         results = (SELECT COALESCE(results, '[]'::jsonb) FROM active_runs WHERE id = $4) || $5::jsonb,
+         results = COALESCE(results, '[]'::jsonb) || $5::jsonb,
          updated_at = NOW() WHERE id = $4`,
         [received, foundCount, errorCount, runId, JSON.stringify(pendingResults)]
       );
@@ -121,7 +132,7 @@ async function processRun(job: Job<BrandRunJobData>) {
     }
   }
 
-  function processResult(plat: string, q: string, result: { text: string; model: string; tokensIn: number; tokensOut: number; citations?: string[] }, fromCache = false) {
+  function processResult(plat: string, q: string, result: { text: string; model: string; tokensIn: number; tokensOut: number; citations?: string[]; fanout?: string[] }, fromCache = false) {
     const parsed = parseResponse(result.text, brand, q, matcher);
     const competitors = detectCompetitors(result.text, matcher);
     const cost = fromCache ? 0 : estimateCost(result.model, result.tokensIn, result.tokensOut);
@@ -135,7 +146,14 @@ async function processRun(job: Job<BrandRunJobData>) {
       platform: plat, query: q, model: result.model,
       mentioned: parsed.mentioned, recommended: parsed.recommended,
       sentiment: parsed.sentiment, listPosition: parsed.listPosition,
+      // The prompt itself names the brand: a mention here is only counted
+      // when the answer describes the brand (see parser.isBrandedPrompt).
+      branded: parsed.branded || undefined,
       citations, competitorMentions: competitors,
+      // Reported by the engine, never inferred. Survives the response
+      // cache because it is part of the cached QueryResult, so a cache
+      // hit replays the same fan-out the live call saw.
+      fanout: Array.isArray(result.fanout) ? result.fanout : undefined,
       context: result.text.substring(0, ctxLen),
       snippet: result.text.substring(0, 200),
       raw: result.text,
@@ -224,7 +242,9 @@ async function processRun(job: Job<BrandRunJobData>) {
         // search-preview to gpt-4o when the query has clear non-search
         // intent. Smart routing is ON by default; set
         // CHATGPT_SMART_MODEL_ROUTING=false to disable.
-        const baseModel = adminModels[plat] || getDefaultModel(plat);
+        // Plan-clamp first (same order as the /run route) so a lower tier
+        // never runs the premium model the admin picked for Agency brands.
+        const baseModel = resolveModelForPlan(plat, ownerPlan, adminModels[plat] || getDefaultModel(plat));
         // Premium-tier ChatGPT A/B cohort (CHATGPT_COHORT_MINI_PERCENT).
         // Same plumbing as the /run route - passthrough unless the
         // env var is set and brand is premium ChatGPT.
@@ -251,10 +271,12 @@ async function processRun(job: Job<BrandRunJobData>) {
         // fallback exists (Perplexity is search-native), the helper logs
         // and returns the original model unchanged - fail-open, never
         // block traffic on a quota-saver.
+        // Grounded Gemini: plan-gated and capped per month (gemini-grounding-budget.ts).
+        const geminiGroundingOk = plat === 'Gemini' && await geminiGroundingWithinBudget(userId, ownerPlan);
         const budgetResolved = await resolveSearchModelWithBudget({
           platform: plat,
           model: smartRoutedModel,
-          isSearch: isSearchEnabled(plat, smartRoutedModel),
+          isSearch: isSearchEnabled(plat, smartRoutedModel, { geminiGrounding: geminiGroundingOk }),
         });
         const modelForTask = budgetResolved.model;
         const searchEnabledForTask = budgetResolved.searchEnabled;
@@ -292,6 +314,8 @@ async function processRun(job: Job<BrandRunJobData>) {
               platform: plat,
               model: modelForTask,
               searchEnabled: searchEnabledForTask,
+              // Never replay a prior run's answer; see getRunCacheMaxAgeSeconds.
+              maxAgeSeconds: getRunCacheMaxAgeSeconds(),
               brandId: brand?.id ?? null,
               city: brand?.city ?? null,
             },
@@ -303,6 +327,8 @@ async function processRun(job: Job<BrandRunJobData>) {
                   queryId,
                   signal: taskController.signal,
                   tenantId: userId,
+                  // Grounded Gemini is Pro-and-above (per-request fee).
+                  geminiGrounding: geminiGroundingOk && searchEnabledForTask,
                   runId,
                   // BullMQ worker processes background queued tasks
                   // only - never user-blocking - so no-search ChatGPT
@@ -381,6 +407,19 @@ async function processRun(job: Job<BrandRunJobData>) {
       return;
     }
 
+    // Zombie guard: if the watchdog reaper already finalized THIS run while
+    // the worker was still alive, don't resurrect it (append duplicate history
+    // + flip 'error'→'done'). The superseded check only catches a different
+    // running run; a reaped run leaves no running row and would fall through.
+    const selfStatus = await pool.query(
+      'SELECT status FROM active_runs WHERE id = $1',
+      [runId]
+    );
+    if (selfStatus.rows.length > 0 && selfStatus.rows[0].status !== 'running') {
+      logger.warn('worker.run_already_finalized', { run_id: runId, status: selfStatus.rows[0].status });
+      return;
+    }
+
     // Calculate SOV and save
     const platformStats: Record<string, { queries: number; mentions: number; sov: number; errors: number }> = {};
     for (const plat of activePlatforms) {
@@ -432,7 +471,11 @@ async function processRun(job: Job<BrandRunJobData>) {
       delete brandData.id; delete brandData.userId; delete brandData.createdAt; delete brandData.updatedAt;
     }
     if (!brandData.runs) brandData.runs = [];
-    const lightResults = allResults.map(({ tokensIn, tokensOut, cost, ...rest }: Record<string, unknown>) => rest);
+    // `fanout` is dropped here alongside the cost fields: it is already
+    // normalized into prompt_fanout, and the brand JSON blob is trimmed
+    // aggressively on every list read, so carrying a second copy of it
+    // would cost payload weight for nothing.
+    const lightResults = allResults.map(({ tokensIn, tokensOut, cost, fanout, ...rest }: Record<string, unknown>) => rest);
 
     const citationCounts: Record<string, number> = {};
     for (const r of allResults) {
@@ -440,6 +483,7 @@ async function processRun(job: Job<BrandRunJobData>) {
       for (const url of cites) {
         try {
           const domain = new URL(url).hostname.replace(/^www\./, '');
+          if (isRedirectCitationHost(domain)) continue;
           citationCounts[domain] = (citationCounts[domain] || 0) + 1;
         } catch { /* skip invalid URLs */ }
       }
@@ -447,14 +491,18 @@ async function processRun(job: Job<BrandRunJobData>) {
 
     const competitorCounts = aggregateCompetitorCounts(allResults);
 
-    brandData.runs.push({
-      id: runId, date: new Date().toISOString().split('T')[0],
-      time: new Date().toISOString(), durationMs,
-      sov: overallSov, totalQ, totalM,
-      platforms: platformStats, allResults: lightResults,
-      queries: [...queries], activePlatforms: [...activePlatforms],
-      citations: citationCounts, competitors: competitorCounts,
-    });
+    // Idempotent append: skip if the watchdog reaper already recorded this
+    // runId, so a watchdog-vs-worker race can't duplicate run history.
+    if (!brandData.runs.some((r: { id?: string }) => r && r.id === runId)) {
+      brandData.runs.push({
+        id: runId, date: new Date().toISOString().split('T')[0],
+        time: new Date().toISOString(), durationMs,
+        sov: overallSov, totalQ, totalM,
+        platforms: platformStats, allResults: lightResults,
+        queries: [...queries], activePlatforms: [...activePlatforms],
+        citations: citationCounts, competitors: competitorCounts,
+      });
+    }
     if (brandData.runs.length > 30) brandData.runs = brandData.runs.slice(-30);
 
     if (!brandData.sovHistory) brandData.sovHistory = [];
@@ -478,7 +526,7 @@ async function processRun(job: Job<BrandRunJobData>) {
     await pool.query(
       `UPDATE active_runs SET status = 'done', final_data = $1, received = $2,
        found_count = $3, error_count = $4, completed_at = NOW(), updated_at = NOW()
-       WHERE id = $5`,
+       WHERE id = $5 AND status = 'running'`,
       [JSON.stringify(finalResult), received, foundCount, errorCount, runId]
     );
 
@@ -489,6 +537,7 @@ async function processRun(job: Job<BrandRunJobData>) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const p: any[] = [];
       const citationRows: CitationBatchRow[] = [];
+      const fanoutRows: FanoutBatchRow[] = [];
       let pi = 1;
       for (const r of batch) {
         const prId = uid();
@@ -503,6 +552,9 @@ async function processRun(job: Job<BrandRunJobData>) {
         if (Array.isArray(r.citations) && r.citations.length > 0) {
           citationRows.push({ promptRunId: prId, brandId, prompt: r.query, platform: r.platform, urls: r.citations });
         }
+        if (Array.isArray(r.fanout) && r.fanout.length > 0) {
+          fanoutRows.push({ promptRunId: prId, brandId, prompt: r.query, platform: r.platform, queries: r.fanout });
+        }
       }
       try {
         await pool.query(
@@ -511,6 +563,7 @@ async function processRun(job: Job<BrandRunJobData>) {
         // Citation Decoder normalized rows. Only written when the parent
         // prompt_runs batch landed so prompt_run_id always resolves.
         await persistCitations(citationRows);
+        await persistFanout(fanoutRows);
       } catch (e) {
         logger.error('worker.prompt_runs_batch_failed', {
           run_id: runId,
@@ -519,6 +572,9 @@ async function processRun(job: Job<BrandRunJobData>) {
         });
       }
     }
+
+    // Refresh open recommendations against the scan that just landed.
+    await refreshRecommendationsAfterRun(brandId);
 
     console.log(`[Worker] Run ${runId} complete: ${totalQ} queries, ${totalM} mentions, ${totalErrors} errors, ${Math.round(durationMs/1000)}s`);
 

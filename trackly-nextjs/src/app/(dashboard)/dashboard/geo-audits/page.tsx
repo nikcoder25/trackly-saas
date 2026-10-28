@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { COUNTRIES } from '@/lib/constants';
+import { brandDefaultCountry } from '@/lib/brand-location';
 import { useBrands } from '@/contexts/BrandContext';
 import AuditCreditConfirmModal, {
   AUDIT_PER_UNIT_COST,
@@ -94,13 +95,15 @@ function formatDate(iso: string): string {
 interface NewAuditModalProps {
   brandId: string | null;
   brandName: string | null;
+  /** Pre-selected primary region, from the brand's country or location. */
+  defaultRegion: string;
   trackedPrompts: string[];
   onClose: () => void;
   onCreated: () => void;
 }
 
-function NewAuditModal({ brandId, brandName, trackedPrompts, onClose, onCreated }: NewAuditModalProps) {
-  const [region, setRegion] = useState<string>(COUNTRIES[0]);
+function NewAuditModal({ brandId, brandName, defaultRegion, trackedPrompts, onClose, onCreated }: NewAuditModalProps) {
+  const [region, setRegion] = useState<string>(defaultRegion);
   const [extraRegions, setExtraRegions] = useState<string[]>([]);
   const [allPrompts, setAllPrompts] = useState(true);
   const [promptCount, setPromptCount] = useState<number>(trackedPrompts.length);
@@ -519,10 +522,10 @@ export default function GeoAuditsPage() {
         {audits !== null && !error && allAudits.length > 0 && (
           <KPIRail
             items={[
-              { k: 'TOTAL AUDITS', v: String(allAudits.length) },
-              { k: 'COMPLETED', v: String(doneCount) },
-              { k: 'IN PROGRESS', v: String(activeCount) },
-              { k: 'TOTAL MENTIONS', v: String(totalMentions) },
+              { k: 'Total audits', v: String(allAudits.length) },
+              { k: 'Completed', v: String(doneCount) },
+              { k: 'In progress', v: String(activeCount) },
+              { k: 'Total mentions', v: String(totalMentions) },
             ]}
           />
         )}
@@ -548,7 +551,7 @@ export default function GeoAuditsPage() {
             </div>
           </Card>
         ) : error ? (
-          <Card title="Audits" right={<Badge tone="neg">ERROR</Badge>}>
+          <Card title="Audits" right={<Badge tone="neg">Error</Badge>}>
             <div style={{ textAlign: 'center', padding: 24 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--danger)', marginBottom: 4 }}>
                 Couldn&apos;t load audits
@@ -560,7 +563,7 @@ export default function GeoAuditsPage() {
         ) : allAudits.length === 0 ? (
           <Card title="Audits">
             <div style={{ textAlign: 'center', padding: 48 }}>
-              <div style={{ fontSize: 36, opacity: 0.4, marginBottom: 12 }}>🌍</div>
+              <div className="lvx-emoji" style={{ fontSize: 36, opacity: 0.4, marginBottom: 12 }}>🌍</div>
               <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
                 No regional audits yet
               </div>
@@ -579,7 +582,7 @@ export default function GeoAuditsPage() {
             </div>
           </Card>
         ) : tableRows.length === 0 ? (
-          <Card title="Audits" right={<Badge tone="neu">FILTERED</Badge>}>
+          <Card title="Audits" right={<Badge tone="neu">Filtered</Badge>}>
             <div style={{ textAlign: 'center', padding: 32 }}>
               <div className="quiet" style={{ marginBottom: 12, fontSize: 13 }}>
                 No audits match your current filters.
@@ -602,6 +605,7 @@ export default function GeoAuditsPage() {
         <NewAuditModal
           brandId={brandId}
           brandName={brandName}
+          defaultRegion={brandDefaultCountry(selectedBrand as { country?: unknown; city?: unknown } | null)}
           trackedPrompts={trackedPrompts}
           onClose={() => setModalOpen(false)}
           onCreated={fetchAudits}

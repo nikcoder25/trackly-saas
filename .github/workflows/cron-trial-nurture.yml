@@ -1,0 +1,32 @@
+# Hourly cron for /api/cron/trial-nurture (trial email sequence).
+#
+# Each tick enqueues the next due email for every trial user (welcome,
+# first results, competitors, trial ending, expired, winback). The email
+# outbox worker delivers them. Overlapping ticks are de-duped server-side
+# by the `trial-nurture` cron lock, and each step is sent at most once per
+# user (users.settings.trialNurture + outbox idempotency key).
+#
+# Required repository secrets: CRON_SECRET (matches the env var on
+# DigitalOcean).
+
+name: Trial nurture emails
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+jobs:
+  nurture:
+    name: Trial nurture emails
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call /api/cron/trial-nurture
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --max-time 240 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://livesov.com/api/cron/trial-nurture"

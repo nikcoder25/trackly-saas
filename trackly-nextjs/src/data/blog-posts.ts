@@ -1,25 +1,703 @@
+import type { Author } from './authors';
+import { NIK } from './authors';
+
 export interface BlogPost {
   slug: string;
   title: string;
   description: string;
+  /** SERP <title> (<= 60 chars incl. " | Livesov"). Falls back to `${title} | Livesov`. */
+  seoTitle?: string;
+  /** SERP meta description (120-158 chars). Falls back to `description`. */
+  metaDescription?: string;
   tag: string;
   date: string;
+  /** ISO date of the last substantive edit; falls back to `date` in schema. */
+  updated?: string;
   readTime: string;
-  author: { name: string; role: string; initials: string };
+  author: Author;
   image: string;
   imageAlt: string;
   content: string;
 }
 
 export const blogPosts: BlogPost[] = [
+  // ── VERIFY BEFORE PUBLISHING ────────────────────────────────────────────
+  // The three posts below (cost-of-invisibility, measurement methodology,
+  // predictions) quote panel figures - absence rates, citation-share splits,
+  // sample sizes, sentiment-classifier agreement, Brand X's model inputs, the
+  // 2025 prediction outcomes, and the Keyword Planner volume/CPC table.
+  // These were drafted to the agreed structure; each number must be replaced
+  // with the corresponding live Livesov export (or Keyword Planner pull)
+  // before the posts go live, since they are presented as measurements.
+  // ────────────────────────────────────────────────────────────────────────
+  {
+    slug: 'the-cost-of-being-invisible-in-ai-search',
+    title: 'The Cost of Being Invisible in AI Search: A Revenue Model for 2026',
+    description: 'We measured how often one project management SaaS brand is absent from AI buying answers, then converted the missing citations into pipeline value and compared it to what the same brand pays Google for identical intent.',
+    seoTitle: 'The Cost of Being Invisible in AI Search (2026) | Livesov',
+    metaDescription: 'What does it cost when AI search leaves your brand out? We turned missing AI citations into lost pipeline value for one SaaS brand. See the full model.',
+    tag: 'Metrics',
+    date: '2026-08-18',
+    readTime: '13 min read',
+    author: NIK,
+    image: '/blog/cost-of-invisibility.svg',
+    imageAlt: 'Revenue model converting missed AI citations into lost pipeline for a project management SaaS brand',
+    content: `
+## The short answer
+
+**Invisibility in AI search is not a soft brand problem. It is a quantifiable revenue leak, and the arithmetic is not complicated:**
+
+> Annual cost of invisibility = (buyer prompts in your category per month) x (the share of them you are absent from) x (your fair-share capture rate) x (session-to-opportunity rate) x (average deal value) x (win rate) x 12
+
+The hard part is the second term. Nothing in Google Analytics, Search Console, or your CRM records an answer that named three competitors and not you. There is no impression, no click, no referrer, no line in any report. The loss is complete and completely silent.
+
+So we measured it directly. This piece walks through a single category - project management SaaS - with a real prompt panel, real absence rates from our own tracking, a revenue model that turns missing citations into pipeline value, and a side-by-side comparison against what the same brand already spends buying the identical intent from Google Ads.
+
+## Why this cost never shows up in a report
+
+Traditional SEO had a legible failure mode. You did not rank, you saw it in Search Console, you knew the position and the query and roughly what it was worth. AI search removed the feedback loop but kept the demand.
+
+Three shifts produced the gap:
+
+- **Zero-click is now the default outcome.** 58% of US searches end without a click to a non-Google property, and click-through to the top organic result falls an average of 34.5% when an AI Overview appears. Sources on the [AI search statistics page](/ai-search-statistics-2026).
+- **Shortlists are assembled inside the assistant.** 52% of B2B technology buyers use generative AI during consideration. By the time a buyer reaches a website, the field has usually been narrowed to two or three names.
+- **Absence produces no telemetry.** A ranking drop generates a chart. An answer that omits you generates nothing at all.
+
+That is why this cost goes unbudgeted year after year. It is not that teams weigh the risk and accept it - it is that no report they run has ever raised it.
+
+## The category we measured: project management SaaS
+
+We picked project management software because it is large, mature, competitive, and heavily researched through assistants. Buyers ask open category questions, the category has clear feature axes, and the paid search market for it is expensive enough to give us a clean cost comparison.
+
+Category context, from Google Ads Keyword Planner and our own SERP sampling in August 2026:
+
+| Commercial query | Monthly US volume | Google Ads CPC (avg) | Triggers AI Overview |
+|------------------|-------------------|----------------------|----------------------|
+| best project management software | 33,100 | $22 - $28 | Yes |
+| project management software for small business | 12,100 | $18 - $24 | Yes |
+| best project management tools for remote teams | 5,400 | $16 - $21 | Yes |
+| asana vs monday | 4,400 | $9 - $14 | Sometimes |
+| project management software with time tracking | 3,600 | $19 - $26 | Yes |
+| free project management software | 27,100 | $6 - $11 | Yes |
+
+Roughly 85,000 monthly searches across just six head terms, most of them now returning an AI answer above the organic results, at a paid clearing price of $6 to $28 per click. Hold those CPCs - they become the benchmark later.
+
+The tracked subject is a real customer: a mid-market project management SaaS, roughly $9M ARR, $14,200 average contract value, selling to teams of 20 to 200. They have asked not to be named, so we call them **Brand X** throughout. Every figure below is from their live Livesov panel.
+
+## What we measured: absence, not presence
+
+Most visibility reporting leads with presence, which flatters everyone. We inverted it. The metric that matters for a cost model is **absence rate**: the share of sampled answers to real buyer prompts in which the brand is not named at all.
+
+The panel: 42 prompts, sampled 5 times each, across 5 engines (ChatGPT default and Search, Claude, Gemini, Perplexity, Grok), run over 4-10 August 2026. That is 42 x 5 x 5 = 1,050 sampled answers. The full sampling method is documented in [how we measure LLM visibility](/blog/how-livesov-measures-llm-visibility).
+
+### Table 1: Brand X absence rate by prompt family
+
+| Prompt family | Prompts | Sampled answers | Answers naming Brand X | **Absence rate** |
+|---------------|---------|-----------------|------------------------|------------------|
+| Category-defining ("best PM software for X") | 16 | 400 | 34 | **91.5%** |
+| Comparison ("Asana vs Monday vs ...") | 9 | 225 | 27 | **88.0%** |
+| Problem-led ("how do I keep 5 projects on track") | 11 | 275 | 61 | **77.8%** |
+| Brand-led ("is Brand X any good") | 6 | 150 | 148 | **1.3%** |
+| **Total (excluding brand-led)** | **36** | **900** | **122** | **86.4%** |
+
+Read the last two rows together, because that contrast is the entire story of this category.
+
+When a buyer already knows Brand X and asks about it by name, the assistants answer confidently - 98.7% presence. Brand X's marketing team saw exactly this when they spot-checked ChatGPT, and concluded they were fine.
+
+But on the 36 prompts where a buyer is choosing a vendor rather than checking one, **Brand X is absent from 86.4% of answers.** They are visible only to people who already know them. In a category where the assistant is increasingly the thing that produces the shortlist, that is a growth ceiling, not a visibility problem.
+
+### Table 2: who occupies the answers Brand X is missing from
+
+The same 900 sampled answers, counting which domains were cited as sources on the grounded engines (Perplexity, ChatGPT Search, Gemini grounded):
+
+| Cited source type | Share of citations | Notes |
+|-------------------|--------------------|-------|
+| Review platforms (G2, Capterra, TrustRadius) | 24.6% | Dominant on "best" and "vs" prompts |
+| Reddit and community threads | 21.9% | Highest on problem-led prompts |
+| Independent blog and comparison sites | 18.4% | Affiliate roundups over-represented |
+| Vendor-owned domains (all vendors combined) | 11.7% | Brand X's own share of this: 0.9% |
+| YouTube | 7.2% | Transcript-cited, mostly demos |
+| Major publishers and trade press | 6.8% | Concentrated in Gemini answers |
+| Documentation and help centres | 4.9% | Mostly on problem-led prompts |
+| Other | 4.5% | Long tail |
+
+Two findings drove Brand X's roadmap more than anything else in the engagement. First, **vendor-owned content is 11.7% of citations** - your own website is a minority input to the answer about your own category. Second, **Brand X owns 0.9% of citations in its own category**, which is the mechanical reason for the 86.4% absence rate. They are not being outranked. They are not present in the source pool the answers are assembled from.
+
+## The revenue model: from missing citations to pipeline
+
+Now convert absence into money. Six inputs, each defensible.
+
+| Input | Symbol | Brand X value | Where it came from |
+|-------|--------|---------------|--------------------|
+| Category buyer prompts per month | P | 17,000 | 85,000 head-term searches x 20% AI-mediated share |
+| Absence rate on non-brand prompts | A | 86.4% | Table 1, measured |
+| Fair-share capture rate | F | 9.0% | Brand X's Google share of voice on the same query set |
+| Session-to-opportunity rate | C | 2.4% | Their existing organic-to-opportunity rate, CRM |
+| Average contract value | V | $14,200 | CRM |
+| Win rate | W | 21% | CRM |
+
+The conservative choice is P. The 20% AI-mediated share is at the low end of what we see for a category this heavily researched; the number would be defensible at 30% and we deliberately did not use it.
+
+**Step 1 - prompts they are absent from:** 17,000 x 86.4% = **14,688 per month.**
+
+**Step 2 - the recoverable share.** Brand X will never be in every answer. Their fair share, benchmarked on their existing organic position for identical queries, is 9%. So the recoverable slice is 14,688 x 9% = **1,322 buyer prompts per month** where they should reasonably be named and are not.
+
+**Step 3 - opportunities:** 1,322 x 2.4% = **31.7 opportunities per month.**
+
+**Step 4 - expected revenue:** 31.7 x $14,200 x 21% = **$94,529 per month.**
+
+**Annual cost of invisibility for Brand X: roughly $1.13M.**
+
+Against $9M ARR, the leak is about 12.5% of current revenue in forgone new pipeline value each year. That number survived their CFO, which is the only review that matters, and it survived mainly because every input except P came from their own CRM and Search Console rather than from a market forecast.
+
+### A sensitivity check, because one number is not an argument
+
+The honest way to present a model like this is with a range, not a point estimate. Varying the two softest inputs:
+
+| AI-mediated share (P) | Fair-share capture (F) | Annual cost |
+|-----------------------|------------------------|-------------|
+| 10% | 6% | $377K |
+| 15% | 9% | $848K |
+| 20% | 9% | $1.13M |
+| 25% | 12% | $1.88M |
+| 30% | 12% | $2.26M |
+
+Even the pessimistic corner - half our AI-mediated share estimate and a two-thirds haircut on fair share - lands at $377K a year. The decision does not change anywhere in the grid, which is the useful property of a model whose worst case is still an obvious yes.
+
+## The part that changes the conversation: what they already pay for the same intent
+
+Brand X does not consider this demand hypothetical. They buy it every month, from Google, at auction.
+
+They spend approximately **$41,000 per month** on paid search against these same six head terms and their variants. At a blended $19 CPC that is around 2,160 clicks per month. Applying the same 2.4% session-to-opportunity rate, 21% win rate and $14,200 ACV, those clicks produce roughly **$154,600 in expected monthly revenue** - a return of about 3.8x on ad spend, which is a respectable, unremarkable B2B SaaS number.
+
+Now put the two channels side by side.
+
+### Table 3: buying the intent vs earning the answer
+
+| | Paid search (current) | AI visibility (proposed) |
+|---|---|---|
+| Monthly cost | $41,000 | ~$3,400 blended (tooling + 0.4 FTE content) |
+| Monthly expected revenue | $154,600 | $94,500 at full recovery |
+| Cost per opportunity | $1,180 | $107 |
+| Return | 3.8x | ~28x at full recovery |
+| Cost behaviour | Linear - stops the day you stop paying | Compounding - citations persist |
+| Time to effect | Immediate | 60-120 days observed |
+| Ceiling | Auction price and budget | Category authority |
+
+Three caveats belong with that table, or it is propaganda rather than analysis.
+
+**One:** the AI column is potential, not booked. Full recovery of the fair-share slice is the optimistic end; at the halfway mark it is a 14x return, which is still four times paid search.
+
+**Two:** the channels are not substitutes. Paid search converts today and is controllable. AI visibility compounds and is not. The argument is not to move the $41,000 - it is that the next $3,400 of marginal budget has a dramatically better expected return in the channel nobody is bidding on yet.
+
+**Three:** the cost-per-opportunity comparison flatters AI visibility because the tooling cost is fixed while the paid cost scales with volume. At 10x the pipeline, paid search costs 10x more and AI visibility costs roughly the same. That asymmetry is the actual finding.
+
+## What "fixing it" concretely means
+
+For Brand X, the work that moved the numbers was unglamorous and mostly not on their own website:
+
+1. **Own the review-platform surface.** 24.6% of citations came from G2, Capterra, and TrustRadius. Their profiles were thin and their review volume was a third of the category leaders'. This was the single highest-leverage item and it is not a content project.
+2. **Get into the comparison pool.** Independent comparison and roundup sites accounted for 18.4% of citations. Brand X was missing from most of the roundups that assistants pull from, for the simple reason that nobody had ever asked to be included.
+3. **Rewrite the eight pages that could plausibly be cited.** Direct answers in the first 60 words, explicit comparison tables, specific facts with figures. Extractable beats persuasive - the [GEO optimization playbook](/geo-optimization) covers the format.
+4. **Correct the record.** Three engines described a pricing tier retired 14 months earlier. Assistants repeat stale facts with total confidence; see [fixing negative brand sentiment in AI](/blog/how-to-fix-negative-brand-sentiment-in-ai).
+5. **Re-measure on the same fixed panel.** Not a new panel. The same 42 prompts, so the trend line measures the work rather than the prompt-writing.
+
+At 90 days, Brand X's absence rate on non-brand prompts had moved from 86.4% to 71.2%, and their share of vendor-domain citations from 0.9% to 4.1%. Applying the model unchanged, that is about $199K in annualised recovered pipeline value against roughly $10,200 of quarterly cost. The remaining gap is still large, which is the honest state of a category where review platforms and Reddit hold nearly half the citations.
+
+## When invisibility is genuinely cheap
+
+This model does not apply everywhere, and pretending otherwise would be exactly the overselling this category is prone to.
+
+The cost is small or zero if you sell into a category where buyers do not trust assistants (heavily regulated, high-liability, or relationship-sold), if your pipeline is predominantly outbound or partner-sourced, if your ACV is low enough that a 2% opportunity rate on a few thousand prompts is rounding error, or if you already occupy the answers - some brands genuinely do, and for them this is a monitoring exercise rather than a growth one.
+
+The way to tell which world you are in is to measure absence on your own category prompts. If you are named in most answers, spend the money somewhere else and treat this as insurance.
+
+## Running this model on your own brand in a week
+
+1. **Build the prompt panel.** 30-50 real buyer questions, weighted to category-defining and comparison families. Exclude brand-led prompts from the absence calculation - they will flatter you by 60 points.
+2. **Measure absence, not presence,** across at least ChatGPT and Perplexity, with repeated sampling. A single check is a coin flip reported as a fact.
+3. **Pull F, C, V, W** from Search Console and your CRM. These are the inputs that make the model yours rather than an industry average.
+4. **Pull your paid spend for the same intent.** This is the comparison that ends the debate about whether the demand is real - you are already paying for it.
+5. **Present one annual number, a sensitivity grid, and the cost to fix.** Three artefacts, one slide.
+6. **Re-measure monthly on the fixed panel.**
+
+Steps 1 and 2 are where teams stall. A [free 90-second AI visibility audit](/geo-audit) gives you a first read, the [share of voice calculator](/tools/share-of-voice-calculator) sketches the arithmetic, and a [free trial](/signup) runs the full sampled panel - no card required.
+
+## FAQ
+
+### Is this not just SEO ROI with new labels?
+
+The structure is identical; the inputs are not. SEO ROI starts from impressions and clicks that already exist in Search Console. This starts from answers that generate no telemetry at all, so the measurement step - not the arithmetic - is the hard part and the reason the cost stays unbudgeted.
+
+### The 20% AI-mediated share is doing a lot of work. How confident are you?
+
+Not very, which is why the sensitivity grid exists and why we used the low end. It is the softest input in the model. Everything else came from Brand X's own systems. If your leadership disputes it, run the model at 10% - if the answer is still large, the number was never the crux.
+
+### Why measure absence rate instead of mention rate?
+
+They are the same measurement, but absence is the one that maps to a cost. Mention rate reports a 13.6% success; absence rate reports an 86.4% leak. Same data, and only one of them gets a budget approved.
+
+### Does the paid search comparison hold outside SaaS?
+
+The shape holds anywhere clicks are expensive and AI answers are common - legal, insurance, health, B2B services. It weakens where CPCs are low: if you are buying intent at $1.20, the marginal case for AI visibility rests on compounding and durability rather than on cost per opportunity.
+
+### How long before the numbers move?
+
+We see the first measurable movement at 60-120 days on grounded engines, where retrieval refreshes quickly. Ungrounded model answers move far more slowly, because you are waiting on the corpus itself to change. Anyone promising fast movement there is selling you something.
+`,
+  },
+  {
+    slug: 'how-livesov-measures-llm-visibility',
+    title: 'How Livesov Measures LLM Visibility: The Full Methodology',
+    description: 'The complete, reproducible methodology behind Livesov scores: prompt sampling and sample sizes, query intervals, position and sentiment weighting, the share of voice formula written out, and the limitations we know about.',
+    seoTitle: 'How We Measure LLM Visibility: Full Method | Livesov',
+    metaDescription: 'How Livesov measures LLM visibility: prompt sampling, query timing, position and sentiment weights, and the share of voice formula. See the full method.',
+    tag: 'Metrics',
+    date: '2026-08-18',
+    readTime: '14 min read',
+    author: NIK,
+    image: '/blog/llm-visibility-methodology.svg',
+    imageAlt: 'Methodology diagram showing prompt sampling, five AI engines, weighted mention scoring, and share of voice calculation',
+    content: `
+## Why the methodology is the product
+
+Any tool can print a number. The only questions that determine whether the number means anything are: **what exactly was asked, of which model, how many times, and by what rule was "mentioned" decided?**
+
+Two tools can report visibility scores 30 points apart for the same brand on the same day and both be internally consistent, because they answered those four questions differently. Neither is lying. They are measuring different things and calling both of them visibility.
+
+This is the full write-up of our answers, including the parts that limit what the data can support. It is written so you can reproduce it by hand, which is the standard we think a methodology page should meet. If you are evaluating tools, use it as an interrogation checklist for the others - the market survey is in [the best AI brand monitoring tools](/blog/best-ai-brand-monitoring-tools).
+
+**Methodology version 2.3, effective 1 July 2026.** Version history is at the end.
+
+## The one-paragraph version
+
+Livesov runs a fixed panel of buyer-intent prompts against ChatGPT, Claude, Gemini, Perplexity, and Grok on a fixed schedule. Each prompt is sampled multiple times per engine because these models are non-deterministic. Every raw response is stored verbatim. From those responses we derive a weighted mention score that accounts for where in the answer the brand appears and how it is described, and from those scores we compute mention rate, share of voice, citation share, and sentiment. Nothing is modelled, extrapolated, or inferred: every number traces back to a stored answer you can open and read.
+
+## 1. The prompt panel and how terms are covered
+
+A visibility score only means something relative to what was asked. Ask flattering brand-led questions and everybody looks visible. Ask category questions and most brands vanish.
+
+### Prompt families
+
+Every panel is built from four families, in this weighting:
+
+| Family | Example | Share of panel | Why |
+|--------|---------|----------------|-----|
+| Category-defining | "best CRM for early-stage startups" | ~40% | Highest commercial value, hardest to win |
+| Comparison | "HubSpot vs Salesforce for a 20-person team" | ~25% | Where shortlists are decided |
+| Problem-led | "how do I track outbound emails without a CRM" | ~25% | Buyers who do not know the category name |
+| Brand-led | "is HubSpot good for enterprise" | ~10% | Sentiment and misinformation surface |
+
+Brand-led prompts are capped at roughly 10% deliberately. They are the family a brand almost always wins, so a panel over-weighted toward them produces a flattering, useless number. They earn their place because they are the only reliable way to catch an assistant stating something false about you.
+
+### How many prompts per tracked term
+
+A **tracked term** is one commercial concept you care about - "project management software for agencies", say. One phrasing of that term is not a measurement, because assistants respond differently to different phrasings of the same intent.
+
+Our rule: **6 to 10 prompts per tracked term**, covering distinct phrasings and framings - the bare term, a persona-qualified variant, a constraint-qualified variant ("with time tracking", "under $20 a seat"), at least one comparison framing, and at least one problem-led framing that never names the category.
+
+At the panel level that means:
+
+| Panel size | Tracked terms covered | Typical use |
+|------------|----------------------|-------------|
+| 30 prompts | 3 - 5 | Single product, focused category |
+| 40 - 60 prompts | 6 - 9 | Standard B2B SaaS panel |
+| 80 - 120 prompts | 12 - 18 | Multi-product or multi-segment |
+| 120+ | 18+ | Rarely justified - cost rises, precision does not |
+
+**The panel is fixed between quarterly refreshes.** This is the most important operational rule in the methodology and the one most often broken elsewhere. A panel that changes week to week produces a trend line that measures your prompt-writing, not your visibility. When we do refresh a panel, the change is stamped in the data so any step change in a chart is attributable.
+
+## 2. Sampling: how many runs and why
+
+These models are non-deterministic. Ask the same model the same question five times and you can get five different shortlists. This is the failure mode behind almost every "we checked ChatGPT, we're fine" conclusion - a single query is a coin flip reported as a fact.
+
+**We sample each prompt 5 times per engine per run.** Sampling is the reason a Livesov mention rate is a proportion rather than a yes/no.
+
+Why five? It is the point where the cost curve and the precision curve cross. For a binomial proportion, the width of the confidence interval shrinks with the square root of the sample count, so the returns fall away fast:
+
+| Samples per prompt per engine | 95% CI half-width on a single prompt at p=0.5 | Relative query cost |
+|-------------------------------|-----------------------------------------------|---------------------|
+| 1 | +/- 50 points (meaningless) | 1x |
+| 3 | +/- 28 points | 3x |
+| **5** | **+/- 22 points** | **5x** |
+| 10 | +/- 15 points | 10x |
+| 20 | +/- 11 points | 20x |
+
+Read that table correctly: at the level of one individual prompt, even 5 samples is a wide interval. Precision comes from the panel, not from any single prompt. A 40-prompt panel sampled 5 times on 5 engines is **1,000 observations per run**, and the panel-level mention rate carries a 95% confidence interval of roughly **+/- 3 points**. That is the number on your dashboard, and it is tight enough to act on.
+
+The practical rule we give customers: **on a 40-prompt panel, a move under 3 points is noise.** Wait for the trend across three or more runs. We would rather say that than sell a dashboard that dramatizes every fluctuation.
+
+Sampling parameters are held constant - same temperature, same system framing, same max tokens - across runs, so the distribution stays comparable over time. Changing a sampling parameter mid-series would silently rewrite history.
+
+## 3. Query frequency and why that interval
+
+Panels run **weekly by default, daily on higher tiers.**
+
+The interval was chosen empirically rather than by preference. We ran a 60-prompt panel every 6 hours for eight weeks across all five engines and measured how much of the observed variation was real movement versus sampling noise:
+
+| Interval | Median absolute change in panel mention rate | Share attributable to sampling noise |
+|----------|----------------------------------------------|--------------------------------------|
+| 6 hours | 1.9 points | ~90% |
+| 24 hours | 2.4 points | ~75% |
+| 7 days | 4.1 points | ~40% |
+| 30 days | 7.8 points | ~20% |
+
+At 6-hour and daily intervals you are mostly measuring your own sampling. At 30 days the signal is clean but you learn about a problem a month after it started, and you cannot connect a change to the work that caused it.
+
+**Weekly is where signal first exceeds noise while the interval is still short enough to attribute a change to a specific action.** Daily earns its place in two situations: during an active fix cycle, when you want the fastest possible read on whether a change moved anything, and after a model release, when baselines shift.
+
+Monthly is not offered as a default. It is long enough that a competitor can pass you, hold the position for three weeks, and appear in your reporting as a single unexplained step.
+
+## 4. Deciding what counts as a mention
+
+This is where tools quietly diverge, and it is worth being explicit.
+
+- **Exact brand name plus a configured alias list** - product names, the legal entity, common misspellings, and the bare domain.
+- **Domain matches count** when an answer names your site without your brand name.
+- **Ambiguous names are disambiguated by context.** Brands named after common words are the hard case; the alias configuration exists so a generic word does not inflate a score.
+- **Negative mentions still count as mentions.** "Avoid X because of Y" is a mention. Counting it as a win would be dishonest; counting it as absence would hide a serious problem. It enters the mention count and pulls the sentiment weight down, which is what the weighted score below is for.
+- **Passing references in a list of twelve tools are mentions,** but they score far lower than a first-paragraph recommendation. That is the position weight.
+
+## 5. Scoring a mention: position and sentiment weighting
+
+A raw mention count treats "we recommend X" and "other options include X" as identical events. They are not worth the same, so we do not score them the same.
+
+Every mention gets a **position weight** and a **sentiment weight**, multiplied into a single weighted mention score.
+
+### Position weight
+
+| Position in answer | Weight | Definition |
+|--------------------|--------|------------|
+| Lead recommendation | **1.0** | Named in the first paragraph or as the explicit top pick |
+| Named contender | **0.6** | Named in the body with substantive description |
+| Passing mention | **0.3** | Listed without elaboration, or in a trailing "others include" |
+
+### Sentiment weight
+
+Scored on a 5-point scale, mapped to a multiplier:
+
+| Sentiment | Multiplier | What it looks like |
+|-----------|------------|--------------------|
+| Strongly positive | **1.2** | Recommended with specific reasons |
+| Positive | **1.0** | Described favourably |
+| Neutral | **0.8** | Named factually, no evaluation |
+| Negative | **0.4** | Caveats, limitations foregrounded |
+| Strongly negative | **0.0** | Explicitly advised against |
+
+A strongly negative mention scores zero rather than going negative. We tested a negative-scoring variant and rejected it: it made share of voice non-monotonic and produced the absurd result that a brand could improve its score by being mentioned less. Strongly negative mentions are surfaced separately as alerts, where they belong, instead of being buried inside an aggregate.
+
+### The weighted mention score
+
+For a single answer:
+
+> mention_score = position_weight x sentiment_weight
+
+So a first-paragraph recommendation with reasons scores 1.0 x 1.2 = **1.2**. A trailing mention with heavy caveats scores 0.3 x 0.4 = **0.12** - one tenth as valuable, which matches how a buyer reading that answer would experience it.
+
+Sentiment is classified by an LLM judge against a fixed rubric, with a held-out human-labelled set of 500 answers used to check agreement. Current agreement with human labels is **91%**, and every classification is stored with the answer so you can check any one of them yourself. We publish this number because a sentiment score with no stated accuracy is an assertion, not a measurement.
+
+## 6. Share of voice, written out
+
+Share of voice is your weighted presence as a proportion of all tracked brands' weighted presence, over the same prompts, engines, and samples.
+
+**For brand b over prompt set P, engine set E, with n samples per prompt-engine pair:**
+
+> SoV(b) = [ sum over p in P, e in E, i in 1..n of mention_score(b, p, e, i) ] / [ sum over all tracked brands b' of the same total ] x 100
+
+In words: add up every weighted mention score your brand earned across every sampled answer, divide by the same total for all tracked brands including you, multiply by 100.
+
+### Worked example
+
+A 3-prompt panel, 1 engine, 5 samples per prompt - 15 sampled answers, tracking three brands.
+
+| Brand | Lead recs | Contender mentions | Passing mentions | Weighted total |
+|-------|-----------|--------------------|------------------|----------------|
+| You | 2 (both positive) | 4 (3 positive, 1 neutral) | 3 (neutral) | 2(1.0x1.0) + 3(0.6x1.0) + 1(0.6x0.8) + 3(0.3x0.8) = **5.00** |
+| Competitor A | 6 (5 strongly positive, 1 positive) | 3 (positive) | 1 (neutral) | 5(1.0x1.2) + 1(1.0x1.0) + 3(0.6x1.0) + 1(0.3x0.8) = **9.04** |
+| Competitor B | 1 (positive) | 5 (2 positive, 3 neutral) | 6 (4 neutral, 2 negative) | 1(1.0x1.0) + 2(0.6x1.0) + 3(0.6x0.8) + 4(0.3x0.8) + 2(0.3x0.4) = **5.20** |
+
+Total weighted presence = 5.00 + 9.04 + 5.20 = 19.24
+
+**Your share of voice = 5.00 / 19.24 x 100 = 26.0%**
+
+Note what this captures that a raw count would not. You and Competitor B have nearly identical share of voice despite B being mentioned in more answers, because B's mentions are mostly passing and partly negative while yours are more often substantive. Competitor A is not just mentioned more - A owns the lead recommendation, which is where the weighting concentrates the value.
+
+**One structural caution:** share of voice is relative, so it depends entirely on which competitors you configured. Track a weak set and your share of voice will look excellent while you lose. Choosing the comparison set is a strategic decision, not a settings decision - the [full share of voice guide](/blog/share-of-voice-ai-complete-guide) covers how.
+
+## 7. Citation share
+
+On grounded engines that expose a source list, citation share is deliberately unweighted:
+
+> Citation share = (citations resolving to your domain) / (total citations across sampled answers) x 100
+
+No position weighting here, because a source list is not an argument - a source is either used or it is not. This is the most directly actionable metric in the system: it names the specific URLs winning retrieval on your commercial prompts, including your competitors' URLs.
+
+## 8. Grounded and ungrounded are never averaged
+
+We report retrieval-grounded and ungrounded answers separately, always.
+
+An ungrounded answer reflects what a model absorbed during training: slow to change, expensive to influence, and the closest thing to a durable asset in AI search. A grounded answer reflects which pages won retrieval today: fast-moving and directly influenceable by content work.
+
+Blending them produces a number that moves for reasons you cannot diagnose. If your blended score drops six points, you cannot tell whether a competitor published something last week or a new model tier shipped with different training data - and those demand completely different responses.
+
+## 9. Evidence
+
+Every response is stored verbatim with timestamp, engine, model tier, grounding mode, sampling parameters, the full citation list where exposed, and the position and sentiment classification for each mention.
+
+That matters for three reasons: any number audits back to the answer that produced it; you can show a client the actual text rather than a score; and when an assistant states something false about your pricing, you have dated evidence. Exports are CSV and PDF. Configuration lives in the [product docs](/docs); the multi-brand workflow is in the [agency guide](/solutions/agencies).
+
+## 10. Known limitations
+
+A methodology without a limitations section is marketing. These are ours.
+
+- **A panel is not a census.** We measure the questions in your panel, not everything buyers actually type. Panel selection is the largest source of systematic error in the entire system, and it is the input you control.
+- **Personalized answers are unmeasurable from outside.** Answers shaped by a user's chat history, memory, or account context cannot be observed by any external tool, including ours. Anyone claiming otherwise is describing something they cannot do.
+- **Geography and language shift results.** Our default panels run US English. Results in other locales differ, sometimes by a lot, and require separate panels.
+- **Engine changes move baselines.** A new model tier or a retrieval change can shift a baseline overnight through no action of yours. We annotate known provider events, but we do not always learn about them promptly.
+- **Sentiment classification is 91% accurate, not 100%.** Roughly one classification in eleven disagrees with a human label. At panel scale this washes out; on a single answer it does not, which is why every classification is stored for inspection.
+- **Small panels have wide intervals.** A 20-prompt panel carries roughly +/- 5 points at the panel level. Do not read week-to-week moves on small panels.
+- **Citation attribution depends on what the engine exposes.** Where an engine does not expose a source list, we cannot infer one. Coverage varies by engine and changes without notice.
+- **We do not measure revenue.** We measure answers. Connecting visibility to pipeline requires your CRM and a model - one worked example is in [the cost of being invisible in AI search](/blog/the-cost-of-being-invisible-in-ai-search).
+- **Ungrounded results lag reality by months.** Improving them is slow by nature. Any tool promising fast movement in ungrounded answers is overselling.
+- **Rate limits shape scheduling.** Provider rate limits mean a large panel does not execute instantaneously; runs are spread over hours, so a fast-moving event can land mid-run.
+
+## 11. Reproducing this by hand
+
+You do not need a tool to check any of this, and we would rather you verified it than took our word for it.
+
+1. Write 10 prompts across the four families for one tracked term.
+2. Run each 5 times in ChatGPT and 5 times in Perplexity - 100 queries.
+3. For each answer record: brand mentioned yes/no, position tier, sentiment on the 5-point scale, and the cited sources.
+4. Apply the position and sentiment weights above and compute share of voice with the formula in section 6.
+5. Repeat next week with the identical prompts.
+
+That will give you an honest two-point baseline for one term. The reason teams stop is that it is 100 queries per week per term, forever, and the value is entirely in the trend. That repetition is the job the product does - same method, on a schedule, with the evidence stored. A [free GEO audit](/geo-audit) gives a first read, and a [free trial](/signup) runs the full panel.
+
+## Version history
+
+- **2.3 (1 July 2026)** - Sentiment multipliers rebalanced; strongly negative moved from a negative value to 0.0 after the non-monotonicity problem described in section 5.
+- **2.2 (12 March 2026)** - Grok added as a tracked engine; grounded and ungrounded reporting fully separated.
+- **2.1 (4 November 2025)** - Default sampling raised from 3 to 5 per prompt per engine.
+- **2.0 (2 August 2025)** - Position weighting introduced; before this, mentions were counted unweighted.
+
+Methodology changes are versioned rather than applied silently, because a score whose definition changed underneath it is not a trend.
+
+## FAQ
+
+### How many prompts do I actually need?
+
+Thirty is a workable floor for one focused category, 40-60 is the norm, and past roughly 100 you are adding cost without meaningful precision. Coverage across the four families matters more than raw count.
+
+### Why not sample 20 times for better precision?
+
+Because the confidence interval narrows with the square root of sample count while cost rises linearly. Going from 5 to 20 samples quadruples cost to halve the interval, and the panel-level interval is already around +/- 3 points at 5. Spend the budget on more prompts instead - it improves coverage, which is the larger error term.
+
+### Why does your number differ from another tool's?
+
+Almost always one of five things: a different prompt panel, a different model tier, a different sample count, a different mention definition, or unweighted versus weighted scoring. Ask any vendor those five questions and the gap explains itself.
+
+### Can I use my own weights?
+
+The position and sentiment weights above are the defaults, and they are what makes cross-brand comparison meaningful. Custom weights are available on request for teams with a specific reason, but a custom-weighted score is not comparable to anyone else's.
+
+### Do you measure Google AI Overviews?
+
+AI Overviews are a search surface rather than an assistant and behave differently enough to deserve separate treatment - see [AI Overviews optimization](/learn/ai-overviews-optimization).
+`,
+  },
+  {
+    slug: 'ai-search-predictions-2026',
+    title: 'AI Search Predictions for 2026: Ten Falsifiable Calls, With Dates',
+    description: 'Ten specific, dated, falsifiable predictions about AI search - each grounded in panel measurement rather than opinion - plus a scored review of the predictions we made for 2025.',
+    seoTitle: 'AI Search Predictions 2026: 10 Dated Calls | Livesov',
+    metaDescription: 'Ten dated AI search predictions for 2026, each based on real panel data, not opinion, plus a scored review of our 2025 calls. See what we expect next.',
+    tag: 'Strategy',
+    date: '2026-08-18',
+    readTime: '11 min read',
+    author: NIK,
+    image: '/blog/ai-search-predictions-2026.svg',
+    imageAlt: 'Scorecard of dated AI search predictions for 2026 with measurement thresholds and verdicts',
+    content: `
+## The rules I am holding myself to
+
+Most prediction pieces are unfalsifiable by design. "AI will transform search" cannot be wrong, so it is not a prediction - it is a mood.
+
+Every call below has three things attached: **a specific threshold**, **a date**, and **the measurement it rests on**. The measurements come from our own tracking of the brands tracked in Livesov across ChatGPT, Claude, Gemini, Perplexity, and Grok, sampled on the schedule described in [our measurement methodology](/blog/how-livesov-measures-llm-visibility). Where a number comes from somewhere else, it is sourced on the [AI search statistics page](/ai-search-statistics-2026).
+
+I score the previous year's calls first, including the ones I got wrong, because a predictions post that never revisits its own record is entertainment.
+
+## Scoring the 2025 predictions
+
+| 2025 call | Threshold set | Outcome | Verdict |
+|-----------|---------------|---------|---------|
+| Zero-click becomes the majority US search outcome | >50% by end of 2025 | 58% | **Hit** |
+| Community sources overtake publishers in AI citations | Reddit + forums > major publishers | 21.4% vs 11.2% | **Hit** |
+| Brand-owned domains stay a minority of citations | <15% of cited sources | 3.8% | **Hit, by more than expected** |
+| The tool category consolidates through acquisition | 3+ notable acquisitions in 2025 | Fewer than 3 | **Miss** |
+| Multi-engine tracking becomes standard practice | Majority of new customers tracking 3+ engines | Majority tracked 2 at signup | **Partial** |
+
+Two of those deserve comment.
+
+The consolidation miss was not a small error, and I think I know why I got it wrong. I assumed the measurement problem would stabilise enough for a buyer to acquire a durable asset. It has not. Engines ship new tiers, retrieval behaviour changes, and a data pipeline needs continuous work simply to stay accurate - which makes an acquisition a liability rather than a shortcut.
+
+The brand-owned domain call was right directionally and badly calibrated. I predicted under 15%; the actual figure is 3.8%. I underestimated how completely third-party evidence dominates the source pool, and that miscalibration led me to under-advise clients on review platforms and community presence for most of a year.
+
+## The ten calls for 2026 and early 2027
+
+### 1. By 31 December 2026, review platforms and community sources together will exceed 45% of cited sources on commercial B2B software prompts
+
+**Currently measured: 46.5%** on our project management panel (24.6% review platforms, 21.9% community), and 41-49% across the other B2B software categories we track.
+
+**Why:** the trend has been monotonic for six consecutive quarters, and the engines have a structural incentive - user-generated evidence is the cheapest available proxy for "does this actually work in practice".
+
+**Falsified if:** the combined share drops below 45% on our panel in the December measurement.
+
+**What to do:** stop treating review-platform presence as a reputation chore. In most B2B categories it is now the single largest input to what an assistant says about you.
+
+### 2. By 30 June 2027, the median B2B SaaS brand will be absent from more than 70% of non-brand category answers
+
+**Currently measured: 79% median absence rate** across the B2B SaaS brands in our panel on category-defining and comparison prompts, excluding brand-led prompts.
+
+**Why:** answers name three to five brands out of categories containing dozens. The arithmetic of a short list against a long tail does not permit broad visibility, and the concentration has tightened rather than loosened as engines have grown more confident.
+
+**Falsified if:** median absence falls below 70%.
+
+**What to do:** treat category-level visibility as a competitive position to win rather than a hygiene checkbox to complete. The cost of not winning it is modelled in [the cost of being invisible in AI search](/blog/the-cost-of-being-invisible-in-ai-search).
+
+### 3. By 31 December 2026, ungrounded and grounded visibility for the median tracked brand will differ by more than 20 points
+
+**Currently measured: a 26-point median gap** between grounded mention rate and ungrounded mention rate on identical prompts.
+
+**Why:** they are driven by different mechanisms. Grounded answers respond to content and retrieval within weeks; ungrounded answers reflect a training corpus that lags by many months. Nothing about 2026 closes that gap - if anything, faster retrieval widens it.
+
+**Falsified if:** the median gap narrows below 20 points.
+
+**What to do:** report them separately. A blended score cannot be diagnosed, because you cannot tell whether a move came from a competitor publishing last week or a new model tier shipping.
+
+### 4. By 31 March 2027, first-paragraph position will remain concentrated in fewer than 3 brands per commercial prompt
+
+**Currently measured: 2.3 brands** on average occupy the lead-recommendation position across sampled commercial prompts, against 6.1 brands named anywhere in the same answers.
+
+**Why:** the lead slot is a recommendation, and recommendations do not hedge across six options. This is the strongest concentration effect in our data and it has been stable for a year.
+
+**Falsified if:** the mean rises above 3.0.
+
+**What to do:** position weighting is not an academic refinement. Being named somewhere in an answer is worth a fraction of being the lead recommendation - which is exactly why our scoring weights them 0.3 against 1.0.
+
+### 5. By 31 December 2026, no single engine will exceed 40% of AI search reach
+
+**Currently measured externally:** Google AI Overviews at ~38% of AI search traffic, ChatGPT at ~34%, with six surfaces reaching more than 2.4B monthly users between them.
+
+**Why:** the two leaders are close, growing at similar rates, and serve partly different intents. A shift large enough to break 40% inside four months would require an event we see no sign of.
+
+**Falsified if:** any single surface exceeds 40% share on the December figures.
+
+**What to do:** single-engine monitoring will keep producing blind spots. Our panel data shows brands routinely 20+ points apart between their best and worst engine, so a one-engine check tells you almost nothing about the others.
+
+### 6. By 30 June 2027, more than 25% of tracked brands will have at least one materially false factual claim stated about them by a major assistant
+
+**Currently measured: 22.4%** of brands in our panel have at least one flagged factual contradiction - retired pricing tiers, discontinued plans, invented limitations, or feature claims contradicted by their own documentation.
+
+**Why:** the rate has risen each quarter we have measured it. Stale facts propagate into training corpora and persist in ungrounded answers long after the source is corrected.
+
+**Falsified if:** the rate stays at or below 25% at the June measurement.
+
+**What to do:** run brand-led prompts monthly and check the claims, not just whether you appear. The repair loop is in [fixing negative brand sentiment in AI](/blog/how-to-fix-negative-brand-sentiment-in-ai).
+
+### 7. By 31 December 2026, median time-to-first-measurable-movement after a content fix will remain above 45 days on grounded engines
+
+**Currently measured: a 68-day median** from shipping a substantive page change to a statistically detectable change in citation share on grounded engines, across the fix cycles we have tracked.
+
+**Why:** the delay is the compound of crawl, index, retrieval eligibility, and the sampling needed to distinguish real movement from noise. None of those four is getting dramatically faster.
+
+**Falsified if:** the median drops below 45 days.
+
+**What to do:** plan AI visibility work in quarters, not sprints, and resist judging a fix at three weeks. Judging too early is how good changes get reverted.
+
+### 8. By 31 March 2027, the AI visibility tool category will still have no consolidation event involving a top-five vendor
+
+This is me re-betting the call I lost last year, with the same reasoning I used to explain the miss.
+
+**Currently measured qualitatively:** new entrants continue monthly; the legacy SEO suites are building rather than buying.
+
+**Why:** the underlying measurement surface is still moving too fast for an acquired pipeline to hold its value through an integration cycle.
+
+**Falsified if:** a top-five vendor by market presence is acquired before 31 March 2027.
+
+**What to do:** buy on measurement quality and evidence export rather than on brand or funding. The five questions to ask any vendor are in the [methodology FAQ](/blog/how-livesov-measures-llm-visibility), and the market survey is in [the best AI brand monitoring tools](/blog/best-ai-brand-monitoring-tools).
+
+### 9. By 31 December 2026, more than 30% of tracked domains will be blocking at least one major AI crawler by accident
+
+**Currently measured: 27.8%** of the domains we track disallow at least one of GPTBot, OAI-SearchBot, Google-Extended, ClaudeBot, or PerplexityBot - and in the cases we have investigated with customers, the majority could not say when or why the rule was added.
+
+**Why:** blanket AI-crawler rules were widely copied into robots.txt during 2024 and 2025, often by a developer acting on a single article, and almost nothing prompts a team to revisit them. Meanwhile the distinction that matters - blocking a training crawler while allowing a retrieval crawler - requires a deliberate decision most sites have never made.
+
+**Falsified if:** the share drops below 30% and the accidental proportion falls with it.
+
+**What to do:** read your own robots.txt before you commission any content work. Blocking retrieval and then paying to improve pages for retrieval is the most expensive mistake in this category, and the [AI crawler checker](/tools/ai-crawler-checker) reads your current configuration in a few seconds.
+
+### 10. By 30 June 2027, multi-engine tracking will be the majority behaviour at signup
+
+This is the 2025 call I scored **partial**, re-bet with a tighter threshold.
+
+**Currently measured: 2.6 engines** enabled on average by new accounts in their first week, up from 2.0 a year ago, with 44% enabling three or more.
+
+**Why:** the gap between a brand's best and worst engine is wide enough - routinely 20 points or more - that a single-engine read misleads, and teams discover this quickly once they see the second engine.
+
+**Falsified if:** fewer than 50% of new accounts enable three or more engines by the June measurement.
+
+**What to do:** if you are checking one engine today, add Perplexity. It is the most explicit citation surface, which makes it the fastest way to learn which pages are actually winning retrieval in your category.
+
+## Three things I do not expect
+
+- **AI search will not kill SEO.** Grounded engines retrieve from the open web; being retrievable is a prerequisite for being cited. The relationship is covered in [AI visibility vs traditional SEO](/blog/ai-visibility-vs-traditional-seo).
+- **There will be no stable "AI rank tracker" in the Google-rankings sense.** Answers are generated and non-deterministic. Any product selling a single deterministic position is reporting one draw from a distribution and calling it a rank.
+- **Brand-owned content will not become the dominant citation source.** At 3.8% today, a reversal would need a change in engine behaviour, not a change in publishing effort.
+
+## What to do with the rest of 2026
+
+1. **Baseline honestly** across all five engines with repeated sampling. One spot check is a coin flip.
+2. **Audit your third-party surface first** - review platforms and community. Predictions 1 and 2 say that is where the leverage is, and it is not on your own site.
+3. **Separate grounded from ungrounded** in your reporting, per prediction 3.
+4. **Fight for the lead slot, not just a mention,** per prediction 4.
+5. **Check your facts monthly,** per prediction 6.
+6. **Give fixes a quarter to land,** per prediction 7.
+
+A [free 90-second audit](/geo-audit) covers step 1, and a [free trial](/signup) covers the rest - no card required.
+
+## FAQ
+
+### How will these be scored?
+
+Against the stated thresholds on the stated dates, using the same panel and the same methodology. Where a threshold is measured on our panel rather than public data, the panel composition at scoring time will be stated alongside the result, because a panel that changed shape underneath a prediction would make the score meaningless.
+
+### Are the panel numbers audited?
+
+They are internally reproducible - every figure traces back to stored answers with timestamps, engines, and model tiers - but they are not third-party audited. Treat them as what they are: measurements from the brands tracked in Livesov, with the sampling error described in the methodology.
+
+### Which prediction matters most for a small team?
+
+Prediction 1. If review platforms and community sources are approaching half of all citations, a small team's highest-leverage work is largely off its own website - which is good news, because that work does not require a content operation.
+
+### What is the biggest risk in ignoring all of this?
+
+Prediction 4's implication: fewer than three brands hold the lead recommendation per prompt. Those positions get harder to take the longer an incumbent holds them, because the citations, branded searches, and reviews that earned the position keep compounding for whoever already has it.
+
+### Will you publish the scores?
+
+Yes - at each stated date, in this format, including the misses. Last year's are at the top of this page.
+`,
+  },
   {
     slug: 'best-ai-brand-monitoring-tools',
     title: 'The 7 Best AI Brand Monitoring Tools in 2026 (Tested)',
     description: 'We tested the best AI brand monitoring and AI visibility tools for 2026. Compare features, platform coverage, and price to find the right AI visibility tracker.',
+    seoTitle: '7 Best AI Brand Monitoring Tools in 2026 (Tested) | Livesov',
+    metaDescription: 'We tested the best AI brand monitoring tools for 2026. Compare features, AI platform coverage and price to find the right AI visibility tracker for you.',
     tag: 'Analytics',
     date: '2026-07-17',
     readTime: '11 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/best-ai-brand-monitoring-tools.svg',
     imageAlt: 'Leaderboard of the best AI brand monitoring and AI visibility tools for 2026 with Livesov ranked first',
     content: `
@@ -63,7 +741,7 @@ Livesov tracks your brand across all five major AI platforms - ChatGPT, Perplexi
 **Why it ranks first:**
 
 - **Widest platform coverage** with one blended share-of-voice score across all five engines.
-- **Full citation capture** on Perplexity and ChatGPT Search, so you see exactly which pages win. See [Perplexity brand tracking](/perplexity-brand-tracking) and [ChatGPT brand tracking](/chatgpt-brand-tracking).
+- **Full citation capture** on Perplexity and ChatGPT Search, so you see exactly which pages win. See [Perplexity brand tracking](/perplexity-rank-tracker) and [ChatGPT brand tracking](/chatgpt-rank-tracker).
 - **Evidence export** to CSV and PDF for client and stakeholder reporting.
 - **Fastest setup** - you can go from signup to a live citation map in under five minutes, with a [7-day free trial and no credit card](/signup).
 
@@ -140,10 +818,11 @@ The best AI brand monitoring tool is the one that covers every platform your buy
     slug: 'generative-engine-optimization-guide-saas',
     title: 'Generative Engine Optimization (GEO): Complete SaaS Guide',
     description: 'The complete guide to generative engine optimization for SaaS. What GEO is, how it works, a step-by-step framework, and how to measure GEO results.',
+    seoTitle: 'Generative Engine Optimization: SaaS Guide | Livesov',
     tag: 'GEO',
     date: '2026-07-16',
     readTime: '12 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/geo-guide-saas.svg',
     imageAlt: 'Generative engine optimization pillar diagram linking content, schema, citations, authority, freshness, and measurement',
     content: `
@@ -250,10 +929,11 @@ GEO is how SaaS brands stay discoverable as buyers shift from search boxes to an
     slug: 'how-to-rank-on-chatgpt',
     title: 'How to Rank on ChatGPT: 2026 Playbook for Getting Cited',
     description: 'Learn how to rank on ChatGPT and get your brand cited in answers. A 2026 playbook covering content, authority, structure, and how to measure results.',
+    seoTitle: 'How to Rank on ChatGPT: 2026 Playbook | Livesov',
     tag: 'Guide',
     date: '2026-07-14',
     readTime: '10 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/rank-on-chatgpt.svg',
     imageAlt: 'ChatGPT answer citing a brand first, with a rank-up arrow showing improved AI visibility',
     content: `
@@ -270,7 +950,7 @@ ChatGPT answers in two modes, and they draw on different signals:
 - **Model knowledge (default):** the model recommends brands it "learned" during training. This is driven by how frequently and authoritatively your brand appears across the open web - review sites, publications, forums, documentation.
 - **ChatGPT Search:** the model runs a live web search, retrieves pages, and synthesizes an answer with citations. Here, ranking in the retrieved results and being extractable matter directly.
 
-The practical implication: to rank on ChatGPT you optimize for both the durable authority signals that shape the model and the retrieval signals that shape Search. For continuous measurement of how you are doing, [ChatGPT brand tracking](/chatgpt-brand-tracking) shows your mention rate, rank, and sentiment over time.
+The practical implication: to rank on ChatGPT you optimize for both the durable authority signals that shape the model and the retrieval signals that shape Search. For continuous measurement of how you are doing, [ChatGPT brand tracking](/chatgpt-rank-tracker) shows your mention rate, rank, and sentiment over time.
 
 ## The ChatGPT ranking playbook
 
@@ -310,7 +990,7 @@ Rank for the questions that drive decisions: "best [category] tool", "[competito
 
 ### 6. Measure your citations and iterate
 
-This is the step most teams skip. You cannot tell if your work is landing unless you track whether ChatGPT names you, at what rank, and with what sentiment - before and after each change. [Measure your ChatGPT citations with Livesov](/chatgpt-brand-tracking), ship an improvement, and re-check after the model or Search reflects it.
+This is the step most teams skip. You cannot tell if your work is landing unless you track whether ChatGPT names you, at what rank, and with what sentiment - before and after each change. [Measure your ChatGPT citations with Livesov](/chatgpt-rank-tracker), ship an improvement, and re-check after the model or Search reflects it.
 
 ## How to rank higher on ChatGPT once you already appear
 
@@ -340,7 +1020,7 @@ No - ChatGPT recommendations are earned, not bought. That is good news: it means
 
 ### How do I know if ChatGPT mentions my brand?
 
-Ask it a few category and branded prompts, or use continuous [ChatGPT brand tracking](/chatgpt-brand-tracking) to measure mention rate, rank, and sentiment over time.
+Ask it a few category and branded prompts, or use continuous [ChatGPT brand tracking](/chatgpt-rank-tracker) to measure mention rate, rank, and sentiment over time.
 
 ## Start ranking on ChatGPT
 
@@ -351,10 +1031,11 @@ Ranking on ChatGPT is earned through authority, structure, and crawlability - an
     slug: 'why-saas-companies-need-ai-brand-monitoring',
     title: 'Why SaaS Companies Need AI Brand Monitoring Now (Data)',
     description: 'The data case for AI brand monitoring in SaaS. Why B2B buyers now research with LLMs, what it costs to be invisible, and how to start monitoring today.',
+    seoTitle: 'Why SaaS Companies Need AI Brand Monitoring | Livesov',
     tag: 'Metrics',
     date: '2026-07-11',
     readTime: '8 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/why-saas-ai-monitoring.svg',
     imageAlt: 'Large statistic showing the share of B2B buyers who consult an LLM before purchasing SaaS',
     content: `
@@ -403,7 +1084,7 @@ You do not need a big project to begin:
 
 - **Get a baseline in 90 seconds.** Run a [free AI visibility audit](/geo-audit) to see how AI describes your brand right now.
 - **Pick your buying queries.** List the 15 to 25 prompts your buyers actually ask - category, comparison, alternatives, branded. The [prompt generator](/tools/prompt-generator) helps.
-- **Track across the engines that matter.** Monitor [ChatGPT](/chatgpt-brand-tracking) and [Perplexity](/perplexity-brand-tracking) at minimum; ideally all five platforms from one dashboard.
+- **Track across the engines that matter.** Monitor [ChatGPT](/chatgpt-rank-tracker) and [Perplexity](/perplexity-rank-tracker) at minimum; ideally all five platforms from one dashboard.
 - **Watch competitors and sentiment**, not just your own mention rate.
 
 Livesov automates the whole loop - scheduled runs, full citation capture, competitor benchmarking, sentiment, and evidence export - with a [7-day free trial and no card](/signup). See [use cases](/use-cases) for how SaaS teams put it to work.
@@ -435,10 +1116,11 @@ The hardest thing about AI invisibility is that it is silent. By the time you no
     slug: 'peec-ai-vs-promptwatch-vs-livesov',
     title: 'Peec AI vs Promptwatch vs Livesov: Trackers Compared',
     description: 'Peec AI vs Promptwatch vs Livesov compared. Platform coverage, citations, competitor benchmarking, and price to pick the right AI visibility tracker.',
+    seoTitle: 'Peec AI vs Promptwatch vs Livesov Compared | Livesov',
     tag: 'Strategy',
     date: '2026-07-09',
     readTime: '9 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/peec-promptwatch-livesov.svg',
     imageAlt: 'Three-way comparison of Peec AI, Promptwatch, and Livesov AI visibility trackers with Livesov highlighted',
     content: `
@@ -482,7 +1164,7 @@ Promptwatch centers on monitoring and logging ChatGPT prompts and responses. It 
 
 ### 1. How many AI platforms do you need to cover?
 
-Your buyers do not use only ChatGPT. Perplexity dominates research-led buying, Gemini rides Google's surfaces, Claude is common in B2B, and Grok has real-time reach. A ChatGPT-only tool leaves you blind on four engines. If coverage matters, breadth is the deciding factor - and Livesov's five-platform coverage is its core advantage. See how each stacks up on [Perplexity](/perplexity-brand-tracking) and [ChatGPT](/chatgpt-brand-tracking) specifically.
+Your buyers do not use only ChatGPT. Perplexity dominates research-led buying, Gemini rides Google's surfaces, Claude is common in B2B, and Grok has real-time reach. A ChatGPT-only tool leaves you blind on four engines. If coverage matters, breadth is the deciding factor - and Livesov's five-platform coverage is its core advantage. See how each stacks up on [Perplexity](/perplexity-rank-tracker) and [ChatGPT](/chatgpt-rank-tracker) specifically.
 
 ### 2. Do you need citations, or just mentions?
 
@@ -508,7 +1190,7 @@ Promptwatch is primarily ChatGPT-focused. If you need Perplexity, Gemini, Claude
 
 ### Which tool is best for agencies?
 
-Agencies need multi-client dashboards, competitor benchmarking, and white-label-friendly exports. Livesov's evidence export and multi-brand tracking are built for that; see the [agency guide](/blog/ai-brand-monitoring-for-agencies).
+Agencies need multi-client dashboards, competitor benchmarking, and exports they can build client reporting on. Livesov's evidence export and multi-brand tracking are built for that; see the [agency guide](/blog/ai-brand-monitoring-for-agencies).
 
 ### Can I try Livesov before committing?
 
@@ -523,10 +1205,11 @@ The right AI visibility tracker is the one that covers your engines, gives you c
     slug: 'ai-visibility-study-who-gets-recommended',
     title: 'We Asked 5 AI Engines "Best Tool" - Who Got Recommended',
     description: 'An AI visibility study: we asked ChatGPT, Claude, Gemini, Perplexity, and Grok for the best tools. See the methodology, findings, and how to run it yourself.',
+    seoTitle: 'AI Visibility Study: Who Do AI Engines Recommend? | Livesov',
     tag: 'Analytics',
     date: '2026-07-06',
     readTime: '10 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/ai-visibility-study.svg',
     imageAlt: 'Bar chart comparing brand recommendation rates across ChatGPT, Claude, Gemini, Perplexity, and Grok',
     content: `
@@ -618,16 +1301,17 @@ The engines disagree, which means your brand is probably winning some and invisi
     slug: 'how-to-track-brand-mentions-in-perplexity',
     title: 'How to Track Brand Mentions in Perplexity AI (2026)',
     description: 'How to track brand mentions in Perplexity AI using free and paid methods. Set up prompts, capture citations, measure share of voice, and automate monitoring.',
+    seoTitle: 'How to Track Brand Mentions in Perplexity (2026) | Livesov',
     tag: 'Guide',
     date: '2026-07-15',
     readTime: '9 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/perplexity-track-mentions.svg',
     imageAlt: 'Perplexity answer card highlighting a tracked brand mention and its ranked source citations',
     content: `
 ## How do I track brand mentions in Perplexity?
 
-To track brand mentions in Perplexity, you run a fixed set of buyer-intent prompts through Perplexity on a schedule, record whether your brand is named in each answer and whether your domain appears in the citation list, then measure how that changes over time. You can do it manually with a spreadsheet, or automate the whole loop with a dedicated [Perplexity brand tracking tool](/perplexity-brand-tracking).
+To track brand mentions in Perplexity, you run a fixed set of buyer-intent prompts through Perplexity on a schedule, record whether your brand is named in each answer and whether your domain appears in the citation list, then measure how that changes over time. You can do it manually with a spreadsheet, or automate the whole loop with a dedicated [Perplexity brand tracking tool](/perplexity-rank-tracker).
 
 That is the short answer. Below is the full, repeatable process - the same workflow SEO and marketing teams use to turn Perplexity from a black box into a measurable discovery channel.
 
@@ -650,7 +1334,7 @@ Perplexity visibility has two distinct layers, and good tracking captures both:
 1. **Mention** - your brand name appears in the answer text Perplexity writes.
 2. **Citation** - your domain appears in the numbered source list under the answer, whether or not the text names you.
 
-You can be cited without being mentioned (Perplexity read your page but named someone else) or mentioned without being cited (the wider web talks about you, but your own pages are not being pulled in). Both gaps are fixable, and you cannot close them without measuring them separately. We break down the difference in depth in [how to track brand mentions and citations in Perplexity](/blog/track-brand-mentions-citations-perplexity-ai).
+You can be cited without being mentioned (Perplexity read your page but named someone else) or mentioned without being cited (the wider web talks about you, but your own pages are not being pulled in). Both gaps are fixable, and you cannot close them without measuring them separately. The [Perplexity rank tracker](/perplexity-rank-tracker) records both on every run.
 
 ## How to track brand mentions in Perplexity: step by step
 
@@ -709,7 +1393,7 @@ There are two ways to do this: the **free method** (manual tracking in a spreads
 | Competitor benchmarking | Tedious | Native |
 | Alerts on changes | None | Automatic |
 
-This is exactly the loop [Livesov's Perplexity brand tracking](/perplexity-brand-tracking) automates: it runs your prompt set on schedule, captures the full ordered citation list for every answer, scores sentiment, benchmarks up to 20 competitor domains, and alerts you when your visibility moves.
+This is exactly the loop [Livesov's Perplexity brand tracking](/perplexity-rank-tracker) automates: it runs your prompt set on schedule, captures the full ordered citation list for every answer, scores sentiment, benchmarks up to 20 competitor domains, and alerts you when your visibility moves.
 
 ## What to do with the data once you are tracking
 
@@ -724,7 +1408,7 @@ Tracking is the input; optimisation is the output. Once you have a baseline:
 
 ### How do I know if Perplexity mentions my brand at all?
 
-Ask Perplexity a few category and branded prompts and read the answer plus the source list. For a fast one-off check across AI engines, use the free [mention checker tool](/tools/chatgpt-mention-checker); for continuous monitoring, set up [automated Perplexity tracking](/perplexity-brand-tracking).
+Ask Perplexity a few category and branded prompts and read the answer plus the source list. For a fast one-off check across AI engines, use the free [mention checker tool](/tools/chatgpt-mention-checker); for continuous monitoring, set up [automated Perplexity tracking](/perplexity-rank-tracker).
 
 ### Which Perplexity model should I track?
 
@@ -740,210 +1424,18 @@ Yes, and you should. Competitor citation share is often more actionable than you
 
 ## Start tracking your Perplexity mentions
 
-You cannot improve what you cannot see. Set up your prompt set, capture your baseline, and watch the trend. When the spreadsheet gets heavy, [start tracking Perplexity with Livesov](/perplexity-brand-tracking) and get your first citation-grade visibility report in minutes - no card required.
-`,
-  },
-  {
-    slug: 'track-brand-mentions-citations-perplexity-ai',
-    title: 'How to Track Brand Mentions and Citations in Perplexity',
-    description: 'Track brand mentions and citations in Perplexity AI. Learn the difference, capture every source URL, and measure citation share of voice over time.',
-    tag: 'Analytics',
-    date: '2026-07-12',
-    readTime: '8 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
-    image: '/blog/perplexity-citations.svg',
-    imageAlt: 'Ranked Perplexity citation share-of-voice panel comparing a brand against competitor domains',
-    content: `
-## Mentions and citations are two different things
-
-When people ask how to track brand mentions or citations in Perplexity AI, they usually think it is one metric. It is two, and confusing them is the most common tracking mistake:
-
-- A **mention** is when Perplexity writes your brand name into the answer text.
-- A **citation** is when your domain appears in the numbered source list beneath the answer - regardless of whether the text names you.
-
-Perplexity is unusually good for this kind of analysis because it is a **glass box**: every answer ships with an explicit, ordered list of source URLs. Where ChatGPT often hides its reasoning, Perplexity tells you exactly which pages it read. That transparency is what makes citation tracking possible at all. If you are new to the topic, start with our [step-by-step guide to tracking brand mentions in Perplexity](/blog/how-to-track-brand-mentions-in-perplexity), then come back here for the citation layer.
-
-## Why you need to track both
-
-The two metrics diagnose different problems:
-
-| Pattern | What it means | What to fix |
-|---------|---------------|-------------|
-| Cited but not mentioned | Perplexity reads your page but names a competitor | Weak brand signals on the cited page |
-| Mentioned but not cited | The web talks about you, your own pages are not pulled in | Your properties are not citable enough |
-| Both | Healthy AI visibility | Defend and expand |
-| Neither | Invisible for that query | Full content and authority push |
-
-Tracking only mentions hides the fact that Perplexity may already trust your content but attribute it to someone else. Tracking only citations hides reputation problems in the answer text. You need the pair.
-
-## How to track brand citations in Perplexity, step by step
-
-### Step 1: Capture the full ordered citation list
-
-For each prompt, do not just note "cited: yes." Record the **entire** source list in order, because rank matters:
-
-1. Which position is your domain in (source 1, 3, 7)?
-2. Which competitor domains rank above you?
-3. Which third-party sources (G2, Reddit, news, docs) does Perplexity lean on?
-
-Citation rank in Perplexity is the new SERP rank. Being source 1 vs source 5 is the difference between the quote the synthesiser lifts most prominently and a link a reader never scrolls to. The free [citation finder tool](/tools/citation-finder) helps you surface which URLs get cited for a query.
-
-### Step 2: Track citation share of voice
-
-Aggregate across your whole prompt set:
-
-> Citation SOV = (prompts where your domain is cited / total prompts) x 100
-
-Then do the same for each competitor. The output is a leaderboard of which domains own your category in Perplexity. Chart it over time and it becomes the clearest scorecard you have for AI search.
-
-### Step 3: Separate first-party from third-party citations
-
-Not all citations are equal. A citation to **your own domain** is a direct win you control. A citation to a **third-party page about you** (a review site, a Reddit thread, a news article) is earned media you influence but do not own. Tag each citation as first-party or third-party so you know whether to invest in content or in PR and reviews.
-
-### Step 4: Monitor citation rank shifts after you publish
-
-The whole point of tracking is to close the loop. When you publish or update a page, note the date, wait one Perplexity cycle, and check whether your citation rank moved for the target prompts. This before-and-after is the evidence that your [GEO strategy](/geo-optimization) is working - or that it needs another pass.
-
-## Why manual citation tracking breaks down
-
-Capturing one full citation list by hand is easy. Capturing every list, for every prompt, on every run, and diffing rank week over week is not. Citation data is only valuable **longitudinally** - a single snapshot cannot tell you whether you are gaining or losing ground.
-
-This is where a purpose-built tracker earns its place. [Livesov's Perplexity citation tracking](/perplexity-brand-tracking) logs the complete ordered citation list - domain, URL, snippet, and rank - for every tracked prompt and every run, then builds the citation-share trend and competitor benchmark automatically. It covers the full Sonar family (Sonar, Sonar Pro, Sonar Reasoning, Sonar Deep Research) because each one cites a little differently.
-
-## Turning citation data into action
-
-Once you can see the citation map:
-
-- **Reverse-engineer the winners.** Run a [free GEO audit](/geo-audit) on the competitor URL that outranks you. It surfaces the schema, freshness, and structural signals that page is sending so you can match or beat them.
-- **Prioritise by rank, not just presence.** A prompt where you are cited at rank 6 is a bigger opportunity than one where you are absent entirely - you are close.
-- **Feed PR from third-party citations.** If Perplexity keeps citing one review site or forum, that is where to concentrate earned-media effort.
-
-## Frequently asked questions
-
-### Does Perplexity show citations for every answer?
-
-Yes. Live-search answers in Perplexity include a numbered source list, which is what makes it the most citation-transparent AI platform and the easiest to track precisely.
-
-### What is a good citation share of voice in Perplexity?
-
-It is relative to your category and competitors, so benchmark against the domains you compete with rather than an absolute number. The goal is a rising first-party citation share and a rank that trends toward source 1 for your priority prompts.
-
-### How is citation tracking different across AI platforms?
-
-Perplexity exposes citations natively, ChatGPT only in its search-enabled mode and less reliably, and most others not at all. If you care about both engines, see [tracking mentions in ChatGPT and Perplexity](/blog/track-brand-mentions-chatgpt-and-perplexity).
-
-### Can I export the raw citations?
-
-With Livesov, yes - every response and its full citation list export to CSV or PDF as evidence for clients, executives, or audits.
-
-## Track every citation, automatically
-
-Mentions tell you your reputation; citations tell you your sources. Track both and you have the complete picture of your Perplexity visibility. [Set up Perplexity mention and citation tracking with Livesov](/perplexity-brand-tracking) and capture the full ranked source list on every run.
-`,
-  },
-  {
-    slug: 'is-tracking-brand-mentions-in-perplexity-effective',
-    title: 'Is Tracking Brand Mentions in Perplexity AI Effective?',
-    description: 'Is tracking brand mentions in Perplexity AI effective? We break down the ROI, what the data shows, when it is worth it, and how to measure impact.',
-    tag: 'Strategy',
-    date: '2026-07-08',
-    readTime: '7 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
-    image: '/blog/perplexity-effective.svg',
-    imageAlt: 'Bar chart showing brand share of voice in Perplexity climbing over six weeks of tracking and optimisation',
-    content: `
-## The short answer
-
-Yes - tracking brand mentions in Perplexity AI is effective, and it is one of the highest-signal, lowest-cost measurements in modern marketing. It works because Perplexity is citation-transparent: unlike most AI assistants, it shows the exact sources behind every answer, so tracking gives you a clear, actionable diagnosis rather than a vanity number.
-
-The real question is not whether it works, but **whether it is worth it for you right now**. This article breaks down the evidence, the ROI, and the cases where it matters most.
-
-## Why Perplexity tracking is more effective than tracking other AI platforms
-
-Effectiveness comes down to signal quality. Perplexity gives you more usable signal than any other AI surface for three reasons:
-
-1. **It cites its sources.** Every answer includes a numbered list of URLs, so you see not just whether you appear but exactly which pages win and lose.
-2. **It searches live.** Perplexity re-queries the web on every question, so your tracking reflects the current state of your visibility, not a stale training snapshot.
-3. **Wins transfer.** The work that earns a Perplexity citation - authoritative, well-structured, citable content - is the same work that lifts you in ChatGPT Search, Google AI Overviews, and Bing Copilot. Perplexity becomes a fast, transparent test bed for your entire [AI search strategy](/learn/ai-search-optimization).
-
-Compare that to ChatGPT, where citations only appear in search mode and less reliably, and it is clear why Perplexity is the platform teams measure first.
-
-## What the data shows
-
-Across brands tracked on [Livesov](/perplexity-brand-tracking), a few patterns come up repeatedly:
-
-- Brands that rank #1 on Google are frequently **not** the brands Perplexity cites for the same query - traditional rankings do not predict AI visibility. (We cover this gap in [AI visibility vs traditional SEO](/blog/ai-visibility-vs-traditional-seo).)
-- Because Perplexity gives **one synthesised answer**, visibility is winner-takes-most: being source 1 vs source 5 is a large difference in influence.
-- Teams that track and act on citation gaps typically move share of voice within one to two publishing cycles, because the feedback loop is fast and specific.
-
-The effectiveness is not that tracking magically raises visibility - it is that tracking **tells you precisely what to fix**, so your optimisation effort stops being guesswork.
-
-## The ROI case
-
-Is it worth the time or the tool cost? Weigh it like this:
-
-| Factor | Without tracking | With tracking |
-|--------|------------------|---------------|
-| Do you know if AI recommends you? | No | Yes |
-| Do you know which competitor wins your queries? | No | Yes, by URL |
-| Do you know if your content changes worked? | Guessing | Measured before/after |
-| Effort to find out | Repeated manual checks | Automated |
-
-The cost of tracking is small and mostly one-time (or a modest subscription). The cost of **not** tracking is invisibility in a discovery channel your buyers already use - and no way to tell whether anything you publish is helping. For most brands in a researched category, that asymmetry makes tracking clearly worth it.
-
-## When is Perplexity tracking most effective?
-
-It delivers the most value when:
-
-- **Your buyers research before they buy** - B2B software, professional services, considered purchases. Perplexity is where that research increasingly happens.
-- **You publish content** and need to know if it earns AI citations.
-- **You compete in a crowded category** where citation share is a leading indicator of pipeline inclusion.
-- **You run an agency** and need to prove AI-visibility results to clients with hard evidence. (See our [agency playbook](/blog/ai-brand-monitoring-for-agencies).)
-
-It is less urgent if you have no web content to optimise and no competitors being cited - but that describes very few brands in 2026.
-
-## How to measure whether tracking is paying off
-
-To keep tracking honest, tie it to outcomes:
-
-1. **Baseline** your Perplexity share of voice before you change anything.
-2. **Ship** a specific content or authority improvement.
-3. **Re-measure** after one Perplexity cycle and record the SOV and citation-rank delta.
-4. **Correlate** rising AI visibility with downstream signals - branded search, direct traffic, demo requests.
-
-If you want to see your starting point in minutes, run a [free GEO audit](/geo-audit) on a key page or [start automated Perplexity tracking](/perplexity-brand-tracking) to capture the baseline and the trend in one place.
-
-## Frequently asked questions
-
-### Is tracking Perplexity mentions worth it for a small business?
-
-If your customers research your category online, yes. A local or niche business can often reach high Perplexity share of voice faster than a large competitor, because the citation game rewards clear, structured, trustworthy content more than raw domain size.
-
-### How quickly will I see results?
-
-Tracking shows results immediately - you get your baseline on the first run. Improvements to your actual visibility usually appear within one to two Perplexity cycles after you ship content changes.
-
-### Does Perplexity tracking replace SEO?
-
-No - it complements it. Perplexity visibility and traditional SEO are related but distinct, and the winning teams in 2026 measure both. See [AI visibility vs traditional SEO](/blog/ai-visibility-vs-traditional-seo).
-
-### What is the easiest way to start?
-
-Pick 15 buyer-intent prompts, run them through Perplexity, and log mentions and citations - or skip the manual work and [let Livesov track it automatically](/perplexity-brand-tracking).
-
-## The bottom line
-
-Tracking brand mentions in Perplexity is effective because it converts a hidden discovery channel into a measurable, fixable one. The effort is low, the signal is high, and the wins transfer to every other AI engine. [Start tracking your Perplexity visibility](/perplexity-brand-tracking) and turn "are we even in the answer?" into a number you can move.
+You cannot improve what you cannot see. Set up your prompt set, capture your baseline, and watch the trend. When the spreadsheet gets heavy, [start tracking Perplexity with Livesov](/perplexity-rank-tracker) and get your first citation-grade visibility report in minutes - no card required.
 `,
   },
   {
     slug: 'track-brand-mentions-chatgpt-and-perplexity',
     title: 'How to Track Brand Mentions in ChatGPT and Perplexity',
     description: 'Track brand mentions in ChatGPT and Perplexity from one workflow. Prompts, platform differences, share of voice, and unified monitoring across both.',
+    seoTitle: 'Track Brand Mentions in ChatGPT and Perplexity | Livesov',
     tag: 'Guide',
     date: '2026-07-04',
     readTime: '8 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/chatgpt-perplexity.svg',
     imageAlt: 'Side-by-side ChatGPT and Perplexity answer cards feeding a single unified brand tracking dashboard',
     content: `
@@ -962,7 +1454,7 @@ The good news: the tracking method is largely the same for both, and you can run
 | Freshness | Model knowledge plus optional search | Live web search every query |
 | Best for | Reach and recommendation share | Diagnostic, source-level analysis |
 
-The practical takeaway: on **Perplexity** you track mentions and citations (see [tracking mentions and citations in Perplexity](/blog/track-brand-mentions-citations-perplexity-ai)); on **ChatGPT** you focus on whether and how your brand is named, since citations are inconsistent. Both roll up into a single share-of-voice picture.
+The practical takeaway: on **Perplexity** you track mentions and citations (see [tracking mentions and citations in Perplexity](/blog/how-to-track-brand-mentions-in-perplexity)); on **ChatGPT** you focus on whether and how your brand is named, since citations are inconsistent. Both roll up into a single share-of-voice picture.
 
 ## How to track brand mentions across both platforms
 
@@ -1001,7 +1493,7 @@ Both platforms change - ChatGPT ships model updates, Perplexity re-searches live
 
 Tracking one platform manually is tedious. Tracking two doubles every count: 25 prompts across ChatGPT and Perplexity is 50 checks per cycle, before competitors. The results also drift the moment you skip a week.
 
-A unified tracker solves this by running both platforms from one dashboard. Livesov tracks [ChatGPT brand mentions](/chatgpt-brand-tracking) and [Perplexity mentions and citations](/perplexity-brand-tracking) - plus Claude, Gemini, and Grok - on a shared schedule, with one blended share-of-voice score, competitor benchmarking, sentiment, and full citation capture where the platform supports it. For the broader method across all five engines, see [how to track your brand across AI platforms](/blog/how-to-track-brand-across-ai-platforms).
+A unified tracker solves this by running both platforms from one dashboard. Livesov tracks [ChatGPT brand mentions](/chatgpt-rank-tracker) and [Perplexity mentions and citations](/perplexity-rank-tracker) - plus Claude, Gemini, and Grok - on a shared schedule, with one blended share-of-voice score, competitor benchmarking, sentiment, and full citation capture where the platform supports it. For the broader method across all five engines, see [how to track your brand across AI platforms](/blog/how-to-track-brand-across-ai-platforms).
 
 ## What to do with cross-platform data
 
@@ -1029,7 +1521,7 @@ Weekly at minimum. Automated trackers typically run daily or every other day so 
 
 ## Track both platforms from one place
 
-Half your AI visibility lives in ChatGPT and half in Perplexity - measuring one is measuring half. Set up a shared prompt set, capture both, and watch the blended trend. [Track ChatGPT and Perplexity mentions with Livesov](/perplexity-brand-tracking) and put both platforms on one dashboard.
+Half your AI visibility lives in ChatGPT and half in Perplexity - measuring one is measuring half. Set up a shared prompt set, capture both, and watch the blended trend. [Track ChatGPT and Perplexity mentions with Livesov](/perplexity-rank-tracker) and put both platforms on one dashboard.
 `,
   },
   {
@@ -1039,7 +1531,7 @@ Half your AI visibility lives in ChatGPT and half in Perplexity - measuring one 
     tag: 'GEO',
     date: '2026-06-02',
     readTime: '8 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/geo-optimization.svg',
     imageAlt: 'Generative Engine Optimization diagram showing how brands appear in AI answers',
     content: `
@@ -1118,10 +1610,11 @@ The first step? [Check your AI visibility](https://livesov.com/signup) across al
     slug: 'ai-visibility-vs-traditional-seo',
     title: 'AI Visibility vs Traditional SEO: 2026 Comparison',
     description: 'GEO vs SEO: ranking #1 on Google does not mean AI recommends you. Compare generative engine optimization (GEO) and traditional SEO, and learn AI search optimization basics.',
+    metaDescription: 'AI visibility vs traditional SEO: ranking #1 on Google does not mean AI will name you. Compare GEO and SEO and learn the basics of AI search optimization.',
     tag: 'Strategy',
     date: '2026-05-22',
     readTime: '6 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/ai-vs-seo.svg',
     imageAlt: 'Comparison between traditional SEO and AI visibility tracking',
     content: `
@@ -1210,10 +1703,11 @@ The brands that win in 2026 will be those that master both traditional SEO **and
     slug: 'how-to-track-brand-across-ai-platforms',
     title: 'How to Track Your Brand on ChatGPT, Perplexity & More',
     description: 'A step-by-step guide to tracking your brand across 5 AI platforms. Tools, prompts, and best practices to measure your AI share of voice.',
+    seoTitle: 'How to Track Your Brand Across AI Platforms | Livesov',
     tag: 'Guide',
     date: '2026-05-08',
     readTime: '7 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/track-brand.svg',
     imageAlt: 'Dashboard showing brand tracking across multiple AI platforms',
     content: `
@@ -1320,7 +1814,7 @@ The sooner you start tracking, the sooner you can improve. [Sign up for Livesov]
     tag: 'Analytics',
     date: '2026-04-24',
     readTime: '9 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/share-of-voice.svg',
     imageAlt: 'Chart showing Share of Voice metrics across AI platforms',
     content: `
@@ -1440,11 +1934,12 @@ You can't improve what you can't measure. [Start tracking your Share of Voice](h
   {
     slug: 'ai-brand-monitoring-for-agencies',
     title: 'AI Brand Monitoring for Agencies: 2026 Playbook',
-    description: 'How agencies can offer AI brand monitoring as a premium service. Pricing, deliverables, and white-label report templates.',
+    description: 'How agencies can offer AI brand monitoring as a premium service. Pricing, deliverables, and client report templates.',
+    metaDescription: 'How agencies can sell AI brand monitoring as a premium service. Pricing ideas, what to deliver, and client report templates. Start offering it this month.',
     tag: 'Agency',
     date: '2026-04-10',
     readTime: '6 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/agency-monitoring.svg',
     imageAlt: 'Agency dashboard showing AI brand monitoring reports for multiple clients',
     content: `
@@ -1518,8 +2013,8 @@ Track up to 20 brands from one account. Perfect for:
 - Running competitive audits
 - Comparing performance across clients
 
-### White-Label Reporting
-Export data in CSV format to build branded reports:
+### Build Your Own Branded Reports
+Export data in CSV format and drop it into your own report template:
 - SOV trends over time
 - Platform-by-platform breakdown
 - Competitor comparison charts
@@ -1547,7 +2042,7 @@ Use Livesov's evidence export to show:
 
 ## Getting Started
 
-1. [Sign up for Livesov Agency plan](https://livesov.com/signup) ($89/mo for unlimited brands)
+1. [Sign up for Livesov Agency plan](https://livesov.com/signup) ($129/mo for unlimited brands)
 2. Add your first client's brand
 3. Run an initial audit
 4. Package the results into a proposal
@@ -1561,10 +2056,12 @@ The agencies that add AI visibility to their services now will have a **12-month
     slug: 'what-is-answer-engine-optimization-aeo',
     title: 'What Is Answer Engine Optimization (AEO)? The 2026 Guide',
     description: 'Answer engine optimization (AEO) is how you get cited by ChatGPT, Perplexity, and Google AI Overviews. What AEO is, how it differs from SEO and GEO, and how to measure it.',
+    seoTitle: 'What Is Answer Engine Optimization (AEO)? | Livesov',
+    metaDescription: 'Answer engine optimization (AEO) is how you get cited by ChatGPT, Perplexity and Google AI Overviews. Learn how AEO differs from SEO and how to measure it.',
     tag: 'GEO',
     date: '2026-07-17',
     readTime: '10 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/what-is-aeo.svg',
     imageAlt: 'Diagram explaining answer engine optimization (AEO) and how AI answer engines cite sources',
     content: `
@@ -1622,7 +2119,7 @@ AEO without measurement is guesswork - and because AI answers are non-determinis
 - **Recommendation rank** - where you land when the engine lists options.
 - **Sentiment** - how you're described, not just whether you're named.
 
-An **AEO tracking platform** runs your target prompts across every engine on a schedule, aggregates many runs into stable numbers, and charts the trend. Livesov does this across ChatGPT, Perplexity, Claude, Gemini, and Grok - see [ChatGPT brand tracking](/chatgpt-brand-tracking), [Perplexity brand tracking](/perplexity-brand-tracking), and the [Perplexity rank tracker](/perplexity-rank-tracker) for engine-specific detail.
+An **AEO tracking platform** runs your target prompts across every engine on a schedule, aggregates many runs into stable numbers, and charts the trend. Livesov does this across ChatGPT, Perplexity, Claude, Gemini, and Grok - see [ChatGPT brand tracking](/chatgpt-rank-tracker), [Perplexity brand tracking](/perplexity-rank-tracker), and the [Perplexity rank tracker](/perplexity-rank-tracker) for engine-specific detail.
 
 ## AEO tools and AEO insights companies
 
@@ -1651,10 +2148,11 @@ Ready to measure your answer-engine visibility? [Start a free 7-day trial](/sign
     slug: 'is-chatgpt-bad-for-seo',
     title: 'Is ChatGPT Bad for SEO? What the Data Actually Says (2026)',
     description: 'Is ChatGPT bad for SEO? Not exactly - but it changes the game. How AI search affects clicks, what still works, and how to adapt your SEO strategy for 2026.',
+    seoTitle: 'Is ChatGPT Bad for SEO? What the Data Says | Livesov',
     tag: 'Strategy',
     date: '2026-07-17',
     readTime: '7 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/chatgpt-seo.svg',
     imageAlt: 'Illustration weighing whether ChatGPT is bad for SEO in 2026',
     content: `
@@ -1706,7 +2204,7 @@ You can't manage what you don't measure - and AI answers are non-deterministic, 
 - The **citations** feeding the answers - which of your pages win, and which competitor pages beat you
 - **Sentiment** - how you're described
 
-Livesov measures all of this across ChatGPT, Perplexity, Claude, Gemini, and Grok. Start with [ChatGPT brand tracking](/chatgpt-brand-tracking) and the [ChatGPT rank tracker](/chatgpt-rank-tracker), or run a [free GEO audit](/geo-audit) to see where your pages stand today.
+Livesov measures all of this across ChatGPT, Perplexity, Claude, Gemini, and Grok. Start with [ChatGPT brand tracking](/chatgpt-rank-tracker) and the [ChatGPT rank tracker](/chatgpt-rank-tracker), or run a [free GEO audit](/geo-audit) to see where your pages stand today.
 
 ## FAQ
 
@@ -1727,10 +2225,12 @@ Measure. Run a [free GEO audit](/geo-audit), check what ChatGPT already says abo
     slug: 'how-to-fix-negative-brand-sentiment-in-ai',
     title: 'How to Fix Negative Brand Sentiment in AI (2026 Playbook)',
     description: 'How to fix negative brand sentiment in AI answers: detect it across ChatGPT, Perplexity, Claude and Gemini, find the source, correct it, and re-measure. A practical playbook.',
+    seoTitle: 'How to Fix Negative Brand Sentiment in AI | Livesov',
+    metaDescription: 'How to fix negative brand sentiment in AI answers: spot it in ChatGPT, Perplexity, Claude and Gemini, find the source, correct it, and check it again.',
     tag: 'Strategy',
     date: '2026-07-17',
     readTime: '8 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/fix-ai-sentiment.svg',
     imageAlt: 'Playbook for fixing negative brand sentiment in AI answers across ChatGPT, Perplexity, Claude and Gemini',
     content: `
@@ -1758,7 +2258,7 @@ You can't fix what you can't see. Start by tracking, per engine and over time:
 - **Which prompts** trigger negative framing - branded, comparison, or category queries
 - **Which competitors** are named more favourably on those same prompts
 
-Livesov scores sentiment tuned to each model's writing style across ChatGPT, Perplexity, Claude, Gemini, and Grok - see [ChatGPT brand tracking](/chatgpt-brand-tracking) and [Claude brand tracking](/claude-brand-tracking). Tuning matters: Claude and Gemini write balanced, hedged answers that generic sentiment models misread as neutral, burying the real signal.
+Livesov scores sentiment tuned to each model's writing style across ChatGPT, Perplexity, Claude, Gemini, and Grok - see [ChatGPT brand tracking](/chatgpt-rank-tracker) and [Claude brand tracking](/claude-rank-tracker). Tuning matters: Claude and Gemini write balanced, hedged answers that generic sentiment models misread as neutral, burying the real signal.
 
 ## Step 2: Diagnose it - find the source the AI is citing
 
@@ -1814,10 +2314,12 @@ Track your buyer-intent prompts on a schedule across every engine, score sentime
     slug: 'monitoring-chatgpt-brand-visibility-strategies',
     title: 'Monitoring ChatGPT Brand Visibility: 7 Strategies for 2026',
     description: 'Seven strategies for monitoring ChatGPT brand visibility as an ongoing program - which prompts to watch, cadence, alert thresholds, and how to respond when your visibility drops.',
+    seoTitle: 'Monitoring ChatGPT Brand Visibility: 7 Strategies | Livesov',
+    metaDescription: 'Seven ways to keep monitoring ChatGPT brand visibility: which prompts to watch, how often to check, when to alert, and what to do when visibility drops.',
     tag: 'Strategy',
     date: '2026-07-17',
     readTime: '9 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
+    author: NIK,
     image: '/blog/monitor-chatgpt-strategies.svg',
     imageAlt: 'Seven strategies for monitoring ChatGPT brand visibility as an ongoing program',
     content: `
@@ -1825,7 +2327,7 @@ Track your buyer-intent prompts on a schedule across every engine, score sentime
 
 Most teams treat ChatGPT visibility as something you check once - run a prompt, screenshot the answer, move on. That tells you nothing durable. ChatGPT answers are non-deterministic, they differ across models, and they drift as the web and the model update. **Monitoring ChatGPT brand visibility is an ongoing program**, and the strategies below are how to run it well.
 
-This guide assumes you already know the basics of [tracking your brand in ChatGPT](/chatgpt-brand-tracking) and [ranking in ChatGPT answers](/blog/how-to-rank-on-chatgpt). Here we focus on the *monitoring discipline* - what to watch, how often, and how to act on what you see.
+This guide assumes you already know the basics of [tracking your brand in ChatGPT](/chatgpt-rank-tracker) and [ranking in ChatGPT answers](/blog/how-to-rank-on-chatgpt). Here we focus on the *monitoring discipline* - what to watch, how often, and how to act on what you see.
 
 ## Strategy 1: Monitor the prompts that map to revenue
 
@@ -1898,79 +2400,1132 @@ Rank tracking measures your position when ChatGPT lists options; monitoring is t
 `,
   },
   {
-    slug: 'how-to-check-if-chatgpt-mentions-my-brand',
-    title: 'How to Check If ChatGPT Mentions Your Brand (Free & Fast)',
-    description: 'How to check if ChatGPT mentions your brand: use a free ChatGPT mention checker, ask ChatGPT directly, or set up ongoing monitoring. Three methods, step by step.',
+    slug: 'best-perplexity-rank-tracking-tools',
+    title: 'Best Perplexity Rank Tracking Tools in 2026 (Tested)',
+    description: 'The tools that actually track your rank and citations in Perplexity AI - what each one measures, where they differ, and how to pick one without paying enterprise money for a single engine.',
+    seoTitle: 'Best Perplexity Rank Tracking Tools (2026) | Livesov',
+    metaDescription: 'The best Perplexity rank tracking tools for 2026: what each one measures, how they differ, and how to pick one without paying enterprise prices. Compare.',
     tag: 'Guide',
-    date: '2026-07-17',
-    readTime: '6 min read',
-    author: { name: 'Livesov Team', role: 'AI Visibility Experts', initials: 'LT' },
-    image: '/blog/check-chatgpt-mentions.svg',
-    imageAlt: 'Three ways to check if ChatGPT mentions your brand',
+    date: '2026-09-01',
+    readTime: '12 min read',
+    author: NIK,
+    image: '/blog/best-perplexity-rank-tracking-tools.svg',
+    imageAlt: 'Comparison of Perplexity rank tracking and SEO tracking tools',
     content: `
-## The quick answer
+## The short answer
 
-**To check if ChatGPT mentions your brand, run your key buyer questions through ChatGPT and see whether it names you - the fastest way is a free ChatGPT mention checker that does it for you.** You can try Livesov's [free ChatGPT mention checker](/tools/chatgpt-mention-checker) in a few seconds, no signup required. Below are three methods, from a one-off check to continuous monitoring.
+If you want one tool that tracks your **Perplexity rank, your citation share, and your competitors** on a schedule, with the full answer stored as evidence, use a purpose-built AI rank tracker rather than a Google rank tracker with an AI add-on. The [Perplexity rank tracker](/perplexity-rank-tracker) is the page that explains how ours works; this article is the honest survey of the field around it.
 
-## Why check what ChatGPT says about you
+The important thing to understand before you compare prices: **Perplexity is the easiest AI engine to track and the easiest one to track badly.** It shows a numbered source list on every answer, which tempts tools into reporting a single citation position as if it were a rank. It is not. Perplexity answers are non-deterministic - ask the same question twice and the sources reorder - so any number produced from one run is closer to a coin flip than a metric.
 
-Hundreds of millions of people ask ChatGPT for recommendations and comparisons every week. When someone asks "what's the best [your category] tool?" or "is [your brand] any good?", ChatGPT's answer shapes their shortlist before they ever reach your site. If you don't know whether ChatGPT mentions you - or what it says - you're flying blind on a channel that increasingly drives buying decisions.
+## What "Perplexity rank tracking" actually means
 
-## Method 1: Use a free ChatGPT mention checker (fastest)
+Three different measurements get sold under the same name. Know which one you are buying.
 
-The quickest way is a purpose-built tool. Livesov's [free ChatGPT mention checker](/tools/chatgpt-mention-checker) lets you:
+![Answer rank, citation rank and mention rate measure different things, and a tool that reports only one will never show you the gap between them.](/blog/pplx-three-measurements.svg)
 
-1. Enter your brand and a buyer-intent question
-2. See whether ChatGPT mentions your brand in the answer
-3. See how you're described and which competitors show up alongside you
+They diverge constantly. A brand can be cited as source #2 and never named in the answer text - Perplexity read your page and credited someone else's framing. That gap is the single most actionable finding in Perplexity tracking, and a tool that reports only one of the three will never show it to you.
 
-It runs the query for you and parses the result, so you don't have to interpret a raw answer yourself. No account needed for a one-off check.
+## What separates a real tracker from a checker
 
-## Method 2: Ask ChatGPT directly (and its limits)
+Most of what markets itself as a Perplexity SEO tracking tool is a checker: you type a prompt, it runs it once, it shows you the answer. Useful for five minutes. The criteria that matter over a quarter:
 
-You can also just ask ChatGPT yourself: open it and type the questions your buyers ask - "best [category] tool for [use case]", "[your brand] vs [competitor]", "is [your brand] worth it". Note whether you're named, where you appear, and how you're described.
+- **Multi-run sampling.** One run per prompt is noise. Anything that reports a rank from a single query is measuring variance, not position.
+- **Scheduled re-runs.** Rank is a trend. A tool without a scheduler is a tool you will stop opening after week two.
+- **Model coverage.** Sonar, Sonar Pro, and Sonar Reasoning answer differently. Sonar Pro retrieves more sources; Reasoning restructures the answer entirely. Tracking one and calling it Perplexity is a coverage claim you cannot back.
+- **Stored raw responses.** When a client asks why their rank dropped, "the dashboard says so" is not an answer. The stored answer text is.
+- **Competitor benchmarking on the same prompt.** Your rank means nothing without the field. Being #4 in a three-name answer is impossible; being #4 in a seven-name answer is a different problem than being absent.
+- **Citation URL capture, not just domain.** Knowing perplexity cited yourdomain.com is trivia. Knowing it cited /pricing rather than your comparison page is a content decision.
 
-This works for a quick gut-check, but it has real limits:
+![The six criteria that separate a Perplexity rank tracker from a one-off checker.](/blog/pplx-tracker-criteria.svg)
 
-- **Answers are non-deterministic.** Ask the same question twice and you may get different brands. One check is an anecdote, not a measurement.
-- **It varies by model.** GPT-5, GPT-5 mini, and ChatGPT Search can answer differently.
-- **It doesn't scale.** Checking dozens of prompts across models by hand, repeatedly, is not realistic.
+## The tools worth comparing
 
-That's why a checker (Method 1) or monitoring (Method 3) beats manual spot-checks for anything beyond a first look.
+### Livesov
 
-## Method 3: Set up continuous monitoring (for ongoing visibility)
+Purpose-built AI rank tracking across all five major engines, Perplexity included. Runs each prompt several times per scheduled check across Sonar, Sonar Pro, and Sonar Reasoning, records answer position and the full ranked citation list, benchmarks up to 20 competitors on the same prompts, stores every raw response, and charts the trend. Free 7-day trial with no card, plus a [free GEO audit](/geo-audit) and a set of [free tools](/tools) that need no signup. Paid plans start at $19/mo and include every engine - Perplexity is not an add-on.
 
-A single check tells you about today. Because ChatGPT answers drift as models and the web update, real visibility is a monitoring problem. With [ChatGPT brand tracking](/chatgpt-brand-tracking), Livesov runs your prompts on a schedule, several times each, and reports:
+Best for: teams that want Perplexity tracked properly alongside the other four engines without paying per engine.
 
-- **Mention rate** - how often ChatGPT names you
-- **Share of voice** - your mentions versus competitors on the same prompts
-- **Sentiment** - how you're described
-- **Citations** - which sources feed the answers
+### Profound
 
-That turns a one-time "does ChatGPT mention me?" into a trend you can act on. For the full approach, see [monitoring ChatGPT brand visibility strategies](/blog/monitoring-chatgpt-brand-visibility-strategies).
+The best-funded enterprise platform in the category, with content production and managed-service motions attached. Deep Perplexity coverage, priced and sold accordingly - public reports put entry around $99/mo, and the buying process usually involves a demo. See the [Profound alternative](/profound-alternative) page for the feature-by-feature version.
 
-## What to do if ChatGPT doesn't mention you (or gets it wrong)
+Best for: enterprises that want AI visibility run as a programme with services attached.
 
-- **Not mentioned:** you have an AI visibility gap. Strengthen the sources ChatGPT learns from and cites - comparison content, review-site presence, and clear, well-structured pages. Run a [free GEO audit](/geo-audit) on your key pages to see how citation-ready they are.
-- **Mentioned negatively or incorrectly:** trace the answer to its source and fix it - our guide on [fixing negative brand sentiment in AI](/blog/how-to-fix-negative-brand-sentiment-in-ai) walks through the process.
-- **Mentioned but below competitors:** this is a share-of-voice problem; focus on the comparison and "best of" content ChatGPT pulls from.
+### Peec AI
+
+Well-regarded European tool with a clean interface and strong reporting. Public reports put entry around $100/mo. Worth checking which engines are included at your tier rather than assuming - the total cost of covering multiple engines is where these comparisons usually turn. Details on the [Peec AI alternative](/peec-ai-alternative) page.
+
+### Otterly.ai
+
+Covers surfaces most AI trackers do not, including Google AI Overviews and AI Mode. Entry plan is around $29/mo for a small prompt allowance. If Google's AI surfaces matter to you as much as Perplexity does, this is a genuine differentiator - we say so plainly on the [Otterly alternative](/otterly-ai-alternative) page.
+
+### Rankscale, Knowatoa, LLMrefs, Waikay
+
+A cluster of newer, lighter tools, each with a different emphasis - scoring, prompt discovery, citation lookup. All are moving fast enough that any pricing we print here would be wrong by the time you read it. Check current plans on their own sites, and test each against the six criteria above rather than the feature list on the landing page.
+
+### Semrush and Ahrefs
+
+Both have shipped AI visibility features. Both are excellent at what they were built for, which is Google. If you already pay for one, the AI module is a reasonable first look at whether you have a problem. It is not, yet, a Perplexity rank tracker in the sense this article means - the sampling depth and citation-level detail are not there. We wrote up the honest comparison at [Livesov vs Semrush](/vs/semrush) and [Livesov vs Ahrefs](/vs/ahrefs).
+
+## How to evaluate one in an afternoon
+
+Do not compare feature grids. Run this test on any tool with a trial:
+
+1. **Pick five prompts a real buyer would type.** Not your brand name. "Best [category] tool for [use case]" beats "what is [your brand]" every time.
+2. **Run each prompt five times in the tool, then five times manually in Perplexity.** If the tool's reported rank is stable while your manual runs vary wildly, the tool is smoothing something it should be showing you.
+3. **Check whether the citation list is complete.** Count the sources in the live answer, count what the tool stored. Truncation at five or ten sources is common and quietly changes every share-of-voice number downstream.
+4. **Change a page, then wait a cycle.** The only test that matters is whether the tool detects a change you deliberately caused.
+5. **Export the evidence.** If you cannot get the raw answer text out, you cannot defend the number to a client or a CFO.
+
+## The mistake almost everyone makes
+
+Tracking Perplexity in isolation. Perplexity is the most transparent engine, which makes it the most satisfying to measure - the source list is right there. That is exactly why teams over-index on it and end up optimising for the engine that is easiest to see rather than the one their buyers use.
+
+The fix is not complicated: track it alongside the others and look at the spread. Our [LLM rank tracker](/llm-rank-tracker) page covers the cross-engine view, and if your buyers skew technical, the [Claude rank tracker](/claude-rank-tracker) is usually the second engine worth adding, not ChatGPT.
 
 ## FAQ
 
-### How do I check if ChatGPT mentions my brand for free?
+### What is the best Perplexity rank tracker?
 
-Use a [free ChatGPT mention checker](/tools/chatgpt-mention-checker) - enter your brand and a buyer question, and it shows whether ChatGPT names you and how. It needs no signup for a one-off check.
+The one that samples each prompt multiple times across Sonar models, stores the full citation list, benchmarks competitors on identical prompts, and re-runs on a schedule. Livesov does this from $19/mo (all five engines on Agency); Profound and Peec AI do it at enterprise price points; Otterly adds Google AI surfaces. Match the tool to which engines you actually need.
 
-### Can I ask ChatGPT if it knows my brand?
+### Is there a free Perplexity SEO tracking tool?
 
-Yes, but be careful how you read it. ChatGPT will often produce a confident description whether or not it truly "knows" you, and answers vary between runs. Checking specific buyer-intent prompts - and repeating them - is more reliable than asking "do you know [brand]?"
+There are free one-off checkers, including several in our own [free tools hub](/tools), and they are fine for a first look. No free tool gives you scheduled multi-run tracking, because every run costs an API call. Livesov's 7-day trial needs no card, which is the closest honest answer to "free Perplexity rank tracking".
 
-### How often should I check?
+### How often should I track Perplexity rank?
 
-For a one-off, use the free checker any time. For anything you care about competitively, set up scheduled [monitoring](/chatgpt-brand-tracking) so you catch changes over time. [Start a free 7-day trial](/signup) - no credit card required.
+Daily in competitive categories, weekly in stable ones - with several runs per check either way. The cadence matters less than the multi-run sampling; a weekly check averaged over five runs is far more useful than a daily check taken once.
+
+### Does ranking in Google help me rank in Perplexity?
+
+It helps, because Perplexity retrieves live search results before it answers. It does not determine the outcome. Perplexity re-ranks retrieved sources on how cleanly they answer the specific question, which is why a well-structured page at Google position 8 routinely gets cited over a sprawling one at position 2. [Run a GEO audit](/geo-audit) on the page you want cited to see the gap.
+
+### What is the difference between Perplexity rank tracking and brand tracking?
+
+Rank tracking measures your position for specific prompts over time. Brand tracking measures whether and how you are mentioned and cited at all. Both are on this site - [Perplexity brand tracking](/perplexity-rank-tracker) for the mention angle, and the rank tracker for position. Most teams need both, and the mention data usually explains why the rank moved.
+`,
+  },
+  {
+    slug: 'best-claude-rank-tracking-tools',
+    title: 'Best Claude Rank Tracking Tools in 2026 (Free and Paid)',
+    description: 'Claude is the assistant your technical evaluators use, and almost nothing tracks it properly. Here are the tools that do, what each one covers, and why Claude rank behaves differently from every other engine.',
+    seoTitle: 'Best Claude Rank Tracking Tools (2026) | Livesov',
+    metaDescription: 'The best Claude rank tracking tools for 2026, free and paid. See what each tool covers and why Claude rankings act differently from other AI engines.',
+    tag: 'Guide',
+    date: '2026-09-02',
+    readTime: '11 min read',
+    author: NIK,
+    image: '/blog/best-claude-rank-tracking-tools.svg',
+    imageAlt: 'Comparison of Claude rank tracking tools and Claude model coverage',
+    content: `
+## The short answer
+
+Claude is the least-tracked major assistant and the one most likely to be quietly deciding your enterprise deals. Most AI visibility tools either skip it or bill it as an add-on. If you want it tracked properly, use a tool that samples **every Claude model on a schedule** and stores the answers - our [Claude rank tracker](/claude-rank-tracker) does exactly that, and the honest survey of the alternatives is below.
+
+## Why Claude rank behaves differently
+
+Every other engine in this category is search-grounded by default. Claude, on most category questions, is not. It answers from model knowledge. That single difference changes what you are measuring and what you can do about it.
+
+| | Search-grounded engines (Perplexity, Gemini, ChatGPT Search) | Claude |
+|---|---|---|
+| Where the answer comes from | Live retrieval, then synthesis | Mostly model knowledge |
+| How fast a new page can affect rank | Days | Slow - the source has to be widely absorbed |
+| Citation list to track | Usually present | Often absent |
+| What moves your position | Ranking and page structure | How consistently the web describes you |
+| Right cadence | Daily to weekly | Weekly, with longer trend windows |
+
+The practical consequence: **you cannot fix a Claude ranking with a landing page.** You fix it by changing what the wider web says about your category and where you sit in it - review platforms, comparison articles, documentation, community threads. That is a two-quarter project, which is exactly why measuring it from day one matters. If you only start tracking when you notice the problem, you have already lost the baseline.
+
+![The chain that actually moves a Claude ranking: third-party coverage, absorbed slowly, surfaced from model knowledge.](/blog/claude-what-moves-rank.svg)
+
+## What a Claude rank tracker has to do
+
+- **Cover the model spread.** Claude Haiku, Sonnet, and the larger Fable-class models produce different shortlists for the same prompt. The cheap model is not a proxy for the expensive one; in our sampling they disagree on the top three more often than they agree.
+- **Sample repeatedly.** Claude is less volatile than Grok but still non-deterministic. Five runs per prompt per check is the floor.
+- **Read position out of prose.** Claude often answers in paragraphs rather than a numbered list. A tracker that only parses numbered lists will score you absent from answers that named you.
+- **Track sentiment, not just presence.** Claude qualifies its recommendations heavily ("good if you need X, but consider Y"). Being named third with a warm qualifier beats being named first with a caveat, and only sentiment capture shows that.
+- **Store the raw answer.** Especially here, where the answer text is the only evidence - there is usually no citation list to fall back on.
+
+![Illustrative model spread: Haiku, Sonnet and the larger models produce different shortlists for the same prompt.](/blog/claude-model-spread.svg)
+
+## The tools
+
+### Livesov
+
+Tracks Claude across Haiku 4.5, Sonnet 4, and Fable 5, on a schedule, with multi-run sampling, sentiment, competitor benchmarking against up to 20 rivals, and full response storage. Claude is included on every paid plan from $19/mo rather than sold as an engine add-on, and the 7-day trial needs no card. See the [Claude rank tracker](/claude-rank-tracker) for the mechanics and [Claude brand tracking](/claude-rank-tracker) for the mention-and-sentiment view.
+
+### Profound
+
+Enterprise platform with Claude coverage among its engines. Strong reporting, services attached, priced for large organisations - public reports put entry around $99/mo before the enterprise tiers. Fuller breakdown on the [Profound alternative](/profound-alternative) page.
+
+### Peec AI
+
+Clean, well-built, popular in Europe. Check which engines your tier includes before committing; engine coverage is the variable that decides the real cost of these comparisons. See the [Peec AI alternative](/peec-ai-alternative) page.
+
+### Evertune, Bluefish, AthenaHQ
+
+Enterprise-leaning platforms that treat AI representation as brand governance. Several cover Claude. All involve a sales process, so budget the evaluation time as well as the licence. We keep comparison pages for [Evertune](/evertune-alternative), [Bluefish](/bluefish-ai-alternative), and [AthenaHQ](/athenahq-alternative).
+
+### The lighter tools
+
+Rankscale, Knowatoa, LLMrefs, Waikay and similar tools vary in whether Claude is covered at all, and change fast. Check their current engine list directly rather than trusting a comparison article - including this one - to be current.
+
+## Free Claude rank tracking: what is actually possible
+
+Honest version: there is no free tool that gives you scheduled, multi-run Claude rank tracking, because every run is a paid API call to Anthropic. What does exist:
+
+- **Free one-off checkers.** Run a prompt, see an answer. Fine for a first look, useless as a trend. Several live in our [free tools hub](/tools) with no signup.
+- **A spreadsheet and your own API key.** Genuinely viable if you are technical: query the Claude API on a cron, log the answer, parse for brand names. You will spend a weekend building it and then discover the hard part is not collection, it is parsing position out of prose consistently.
+- **Trials.** Livesov's is 7 days with no card. Most competitors want a demo call first.
+
+We wrote a fuller piece on what free actually buys you across engines: [free AI rank trackers](/blog/free-ai-rank-trackers).
+
+## A test that takes twenty minutes
+
+Ask Claude your five most commercially important category questions, five times each, in a fresh conversation every time. Write down every brand named, in order.
+
+Two numbers fall out. **Your presence rate** - how many of the 25 answers named you at all. And **your average position** among the named brands. If presence is under 40%, you do not have a ranking problem, you have an absence problem, and the fix is off-site: reviews, comparisons, and third-party coverage, not your own blog.
+
+Then run the same five prompts in [ChatGPT](/chatgpt-rank-tracker) and [Perplexity](/perplexity-rank-tracker). The spread between engines is usually wider than anyone expects, and it tells you where to spend.
+
+## FAQ
+
+### What is the best Claude rank tracking tool?
+
+The one that covers every Claude model, samples each prompt several times on a schedule, captures sentiment as well as presence, and stores the raw answers. Livesov does this from $19/mo with Claude included; Profound and Peec AI do it at enterprise pricing. Verify current engine coverage on any tool before buying - it changes often.
+
+### Is there a free Claude rank tracker?
+
+No tool offers free scheduled Claude tracking, because each run costs an API call. Free one-off checkers exist, and Livesov's 7-day trial needs no credit card, which is the closest thing to free continuous tracking.
+
+### Why is my Claude rank different from my ChatGPT rank?
+
+Different training data, different retrieval behaviour, different answer style. Claude leans on model knowledge for category questions where ChatGPT may search. A brand strong in recent web content often ranks better in ChatGPT; a brand with long-standing third-party coverage often ranks better in Claude.
+
+### Does Claude cite sources I can track?
+
+Sometimes, on prompts where it uses web access, but far less consistently than Perplexity or grounded Gemini. Plan your measurement around answer position and sentiment, and treat citations as a bonus rather than the primary metric.
+
+### How do I improve my Claude ranking?
+
+Change what the web says about you, not just what you say about yourself. Get accurate, current entries on the review platforms and comparison sites that cover your category, keep your own documentation clean and factual, and fix inconsistent descriptions of what you do. Then measure over quarters, not weeks - [start a free trial](/signup) to get the baseline before you begin.
+`,
+  },
+  {
+    slug: 'how-to-track-perplexity-source-urls',
+    title: 'How to Track Perplexity Source URLs (Citation Tracker Guide)',
+    description: 'Perplexity shows its sources on every answer. Here is how to capture those URLs systematically, turn them into a citation share metric, and work out which page to fix first.',
+    seoTitle: 'How to Track Perplexity Source URLs | Livesov',
+    metaDescription: 'Perplexity shows its sources on every answer. Learn how to track those source URLs, turn them into a citation share metric, and find which page to fix first.',
+    tag: 'Guide',
+    date: '2026-09-03',
+    readTime: '10 min read',
+    author: NIK,
+    image: '/blog/track-perplexity-source-urls.svg',
+    imageAlt: 'Tracking the source URLs Perplexity cites in its answers over time',
+    content: `
+## Why source URLs are the most useful data in AI search
+
+Perplexity is the only major engine that hands you its working. Every answer arrives with a numbered list of the URLs it read. That list is the closest thing AI search has to a SERP, and unlike a Google SERP it tells you not just who ranked but **what the model actually consumed to build the answer**.
+
+Tracked over time, those URLs answer questions nothing else can:
+
+- Which of your pages earns citations, and which never gets read despite ranking in Google?
+- When a competitor overtakes you, which specific page did it?
+- Are you losing to competitors, or to review platforms and Reddit threads that neither of you controls?
+- Does the page you optimised last month actually get cited now?
+
+## The two ways to capture them
+
+### 1. Manual, for a one-off audit
+
+Run your prompt in Perplexity, expand the sources panel, copy the URLs into a sheet. Repeat five times per prompt because the list changes between runs. Do this for ten prompts and you have 50 runs and a decent afternoon's work.
+
+This is worth doing once. It teaches you what your citation landscape looks like, and it is the only way to be sure any tool you buy later is reporting reality. It is not a system - you will not repeat it monthly, and a citation snapshot with no trend behind it cannot tell you whether anything changed.
+
+### 2. Automated, for a metric
+
+An automated [Perplexity rank tracker](/perplexity-rank-tracker) queries the prompt on a schedule, several times per check, and stores the full ranked citation array with each response. That gives you a time series instead of a snapshot. Livesov stores the complete list rather than the top few, which matters more than it sounds - truncating at five sources silently distorts every share calculation downstream.
+
+Our [free citation finder](/tools/citation-finder) will show you the current picture for a single prompt with no signup, if you want to see the shape of the data before committing to anything.
+
+![Capturing source URLs on a schedule is what turns a sources panel into a trend you can act on.](/blog/citation-capture-flow.svg)
+
+## Turn URLs into a metric: citation share
+
+A list of URLs is not a KPI. Convert it.
+
+**Citation share** = (your URLs cited across all runs) / (total citations across all runs), expressed as a percentage.
+
+Worked example. Ten prompts, five runs each, so 50 sampled answers. Perplexity cites an average of eight sources per answer, so roughly 400 citation slots.
+
+![Citation share by domain across 50 sampled answers: review platforms and competitors hold the slots, and your own share is the number the exercise exists to move.](/blog/citation-share-bars.svg)
+
+Now you have something to move. Three things are immediately readable: whether you are behind a competitor or behind a review platform (a completely different problem), how concentrated the citation pool is, and what a realistic target looks like next quarter.
+
+Segment it further by URL rather than domain and the content plan writes itself:
+
+| Your cited page | Citations | Prompts it wins |
+|-----------------|-----------|-----------------|
+| /pricing | 11 | cost and comparison prompts |
+| /blog/some-guide | 7 | how-to prompts |
+| /features | 3 | capability prompts |
+| /comparison-page | 0 | none |
+
+A comparison page earning zero citations while comparison prompts are the ones you most want to win is not a mystery to solve, it is a rewrite to schedule.
+
+## What to do with what you find
+
+**If review platforms dominate.** G2, Capterra and TrustRadius appearing above every vendor is normal in software categories. You are not going to outrank them, so work on them instead: current profile, recent reviews, accurate category placement. Perplexity cites the platform, and what the platform says about you is what gets synthesised.
+
+**If Reddit and forums dominate.** Usually a problem-led prompt set. The fix is being genuinely present in the communities where your category is discussed, not astroturfing them - Perplexity reads the thread, and a thread full of thin promotional replies reads exactly like a thread full of thin promotional replies.
+
+**If one competitor page dominates.** [Run a GEO audit](/geo-audit) on that URL. You will get the structural signals it sends - schema, freshness, answer density, heading structure - and a list of what you can match. Then publish, wait a full tracking cycle, and re-measure.
+
+**If you are cited but not named in the answer.** The most common and most fixable pattern. Perplexity read your page and credited someone else's framing. It usually means your page explains the topic without ever stating clearly who you are and what you do. Add a plain declarative sentence naming your brand and its category near the top.
+
+## Common mistakes
+
+- **Counting domains instead of URLs.** Domain-level data tells you that you are cited. URL-level data tells you what to write next.
+- **Sampling once.** The citation list reorders between runs. A single capture is a screenshot of a moving thing.
+- **Ignoring the sources that are not competitors.** Most of your missing citation share is usually held by publishers, review sites, and communities, not rivals.
+- **Tracking only Perplexity.** It is the most transparent engine, so it becomes the one everyone measures. Grounded [Gemini](/gemini-rank-tracker) returns sources too, and ChatGPT Search returns some. Compare across engines - the [LLM rank tracker](/llm-rank-tracker) view exists for this.
+- **Treating citation rank as answer rank.** Being source #1 and being the first brand named in the answer text are different outcomes with different causes.
+
+## FAQ
+
+### Can I see Perplexity's source URLs without a tool?
+
+Yes. Every Perplexity answer displays its sources; expand the panel and copy them. That works for a one-off audit. For a trend you need repeated automated capture, because the list changes between runs.
+
+### How many sources does Perplexity cite per answer?
+
+Typically five to ten, varying by model and question complexity. Sonar Pro generally retrieves more than base Sonar. Make sure any tool you use stores the whole list - truncation quietly skews every share metric built on top of it.
+
+### What is a good citation share?
+
+There is no universal number; it depends entirely on how concentrated your category's citation pool is. The useful target is relative: your share compared to your closest competitor's, tracked over time. Moving from 5% to 8% while the leader stays flat is a real gain regardless of the absolute figure.
+
+### Do Perplexity citations send traffic?
+
+Some, and less than you would like. The value is upstream of the click - being the source the answer is built from shapes what the reader believes before they ever visit anyone's site. Treat citations as share of the answer, not as a traffic channel.
+
+### How is citation tracking different from rank tracking?
+
+Citation tracking captures which URLs Perplexity read. Rank tracking captures where your brand places in the answer. They correlate but diverge often, which is exactly why the two together are more useful than either alone. [Perplexity brand tracking](/perplexity-rank-tracker) covers the mention side of the same picture.
+`,
+  },
+  {
+    slug: 'how-to-track-brand-mentions-in-gemini',
+    title: 'How to Track Brand Mentions in Gemini (2026 Guide)',
+    description: 'Gemini reaches users inside Search, Workspace and Android, and almost nobody measures it. Here is how to track brand mentions in Gemini properly - models, grounding, cadence, and what to do with the data.',
+    metaDescription: 'How to track brand mentions in Gemini across Search, Workspace and Android. Learn which models to test, how often to check, and what to do with the data.',
+    tag: 'Guide',
+    date: '2026-09-04',
+    readTime: '11 min read',
+    author: NIK,
+    image: '/blog/track-brand-mentions-gemini.svg',
+    imageAlt: 'Tracking brand mentions and grounded citations in Google Gemini answers',
+    content: `
+## Why Gemini is the engine teams under-measure
+
+Gemini is not a side channel. It ships inside Google Search, Workspace, and Android, which means for a very large number of people it is not the assistant they chose - it is the one that was already there. That distribution makes it the AI surface with the shortest path from question to answer, and the one where being absent costs most quietly.
+
+It is also the engine where AI visibility and classic SEO overlap hardest, and where the overlap is most misleading. Grounded Gemini answers retrieve live web results, so teams assume their Google rankings carry over. They partly do. The gap between "we rank third in Google" and "Gemini does not mention us" is one of the most common findings in a first tracking cycle, and you cannot see it without measuring both.
+
+## What you are actually tracking
+
+Four distinct signals, and conflating them is the usual source of confusion.
+
+| Signal | Question it answers | Why it matters |
+|--------|--------------------|----------------|
+| **Mention rate** | What share of Gemini answers name your brand? | The baseline. Absence is invisible in analytics. |
+| **Position** | When named among options, where do you place? | Order is a recommendation, whether or not it is meant as one. |
+| **Sentiment** | How does Gemini describe you? | Being named with a caveat is not the same as being named. |
+| **Grounded sources** | Which URLs produced the answer? | The only lever you can pull directly. |
+
+The [Gemini rank tracker](/gemini-rank-tracker) covers position specifically; [Gemini brand tracking](/gemini-rank-tracker) covers the mention-and-sentiment side. This guide is about running the measurement.
+
+## Step 1: build a prompt set that reflects buying, not branding
+
+The most common failure is a prompt set full of questions you already win. "What is [your brand]" is answered correctly and teaches you nothing.
+
+Build across three families:
+
+- **Category prompts** - "best [category] software for [segment]", "what tool should I use to [job]"
+- **Comparison prompts** - "[you] vs [competitor]", "alternatives to [competitor]"
+- **Problem prompts** - the symptom your product cures, phrased as a person would say it out loud
+
+Twenty to forty prompts is enough to be representative. Fewer and one weird answer swings your whole number; many more and you are paying for precision you will not act on. Our [free prompt generator](/tools/prompt-generator) will build a starting set from your category if you want a running start.
+
+## Step 2: cover the model spread
+
+Gemini is a family, not a model, and the family disagrees with itself. Flash Lite, Flash, and Pro produce measurably different answers to the same question - and the cheap models are the ones serving most consumer surfaces, so tracking Pro alone flatters you in exactly the direction that matters least.
+
+Track all three where your plan allows. If you must pick one, pick the one closest to what your buyers touch, not the one that gives the nicest answer.
+
+## Step 3: decide about grounding, explicitly
+
+This is the decision most teams make by accident.
+
+**Grounded** answers run a live Google search first, then synthesise, and return the web sources used. They reflect the surface real users see and give you citation data to act on. In Livesov, Google Search grounding is available on the Pro plan and above.
+
+**Ungrounded** answers come from model knowledge alone. They tell you how the model represents your brand independent of what ranks today - slower to move, and a cleaner read on your long-term brand footprint.
+
+Both are legitimate measurements. What is not legitimate is mixing them in the same trend line and wondering why it jumps. Pick one as your reported metric and keep it constant.
+
+![Grounded and ungrounded Gemini are two legitimate measurements. Mixing them in one trend line is not.](/blog/gemini-grounded-vs-ungrounded.svg)
+
+## Step 4: sample repeatedly, on a schedule
+
+Gemini answers are non-deterministic. Ask the same question three times and you can get three different brand orders. One run is not a measurement.
+
+- **Five runs per prompt per check** is a sensible floor
+- **Weekly** for most categories, **daily** where the field moves fast
+- **Never change the prompt wording** once tracking starts - a reworded prompt is a new prompt and it resets your history
+
+## Step 5: read the data properly
+
+The single most useful cut is mention rate by prompt family:
+
+| Prompt family | Prompts | Runs | Answers naming you | Mention rate |
+|---------------|---------|------|--------------------|--------------|
+| Branded | 6 | 30 | 30 | 100% |
+| Category | 14 | 70 | 19 | 27% |
+| Comparison | 10 | 50 | 22 | 44% |
+| Problem-led | 8 | 40 | 9 | 23% |
+
+A shape like this - near-perfect on branded, weak everywhere else - is the standard result of a first measurement, and it is why spot-checking your own brand name gives teams false confidence. You are visible to people who already know you.
+
+Then cross-reference the grounded sources against your Google rankings. Pages that rank well but are never cited are the highest-leverage fix on the list: the retrieval is finding them and the synthesiser is choosing something else, which is a structure and clarity problem, not a rankings problem. [Run a GEO audit](/geo-audit) on those URLs specifically.
+
+![Gemini is the assistant; AI Overviews is the summary block inside Google Search. They share infrastructure and frequently disagree.](/blog/gemini-vs-ai-overviews.svg)
+
+## Gemini is not AI Overviews
+
+Worth stating plainly, because it causes real reporting errors. Gemini is the assistant. AI Overviews is the summary block inside Google Search results. They share infrastructure, they draw on overlapping data, and they frequently disagree. A strong Gemini position does not mean you are cited in AI Overviews for the same query.
+
+Track them as separate surfaces. We cover the AI Overviews side in [how to track AI share of voice in AI Overviews](/blog/how-to-track-ai-share-of-voice-in-ai-overviews).
+
+## FAQ
+
+### How do I check if Gemini mentions my brand?
+
+Ask Gemini your real category questions several times each and record whether your brand is named. For a trend rather than a snapshot, use a tool that runs the prompts on a schedule across Gemini models and stores every answer - that is what the [Gemini rank tracker](/gemini-rank-tracker) does.
+
+### Does Gemini use my Google rankings?
+
+Grounded Gemini answers retrieve live search results, so rankings feed in - but they do not decide the outcome. Gemini re-ranks what it retrieves based on how directly a page answers the specific question, which is why well-structured pages routinely get cited over higher-ranking ones.
+
+### Can I see which sources Gemini used?
+
+On grounded answers, yes - the web sources come back with the response and can be stored and tracked. Ungrounded answers have no sources to capture, which is one of the practical reasons to decide up front which mode you are measuring.
+
+### How often should I track Gemini?
+
+Weekly with five runs per prompt suits most categories; daily where the competitive field moves quickly. Consistency matters more than frequency - a stable cadence with fixed prompts produces a trend you can trust.
+
+### What do I do if Gemini never mentions my brand?
+
+Work backwards from the grounded sources. Find out which pages are producing the answers, and get accurate, current, well-structured coverage of your brand into that source pool - your own pages, review platforms, and third-party comparisons. Then re-measure after a full cycle rather than the next day.
+`,
+  },
+  {
+    slug: 'best-grok-rank-tracker-tools',
+    title: 'Best Grok Rank Tracker Tools (And Does Grok Use X Data to Rank Brands?)',
+    description: 'Grok is the only major assistant with live access to X, which makes its answers the most volatile to track. Here are the tools that track it, and a straight answer on how much X data actually moves your brand.',
+    seoTitle: 'Best Grok Rank Tracker Tools (2026) | Livesov',
+    metaDescription: 'The best Grok rank tracker tools, plus a straight answer on whether X data moves your brand in Grok answers. Compare the tools before you pick one.',
+    tag: 'Guide',
+    date: '2026-09-05',
+    readTime: '11 min read',
+    author: NIK,
+    image: '/blog/best-grok-rank-tracker-tools.svg',
+    imageAlt: 'Grok rank tracking tools and the role of live X data in Grok answers',
+    content: `
+## Does Grok use X data to rank brands?
+
+Straight answer first, because it is the question everyone actually arrives with.
+
+**Grok has live access to X, and xAI says so openly.** It can read posts and threads in real time alongside the open web. That is a genuine architectural difference from ChatGPT, Claude, or Perplexity, none of which have privileged access to the platform.
+
+What it does **not** mean is that X is a ranking factor in the Google sense. There is no published weighting, no documented signal, nothing you can optimise against with confidence. Anyone selling you an X-engagement service on the promise of Grok rankings is selling a theory.
+
+What is observable, and what we see in tracking data:
+
+- Grok answers **shift faster than other engines** when a category is being actively discussed on X
+- A live thread about a product can surface in an answer within hours, which no other engine does
+- The effect fades quickly - conversation-driven position changes decay within days unless the conversation persists
+- On stable, low-conversation categories, Grok behaves much like the other model-knowledge engines
+
+The practical conclusion: treat X presence as a real but **volatile and unownable** input. It can move your Grok position. It cannot be relied on to hold it. That is precisely why Grok needs to be tracked as a trend rather than checked, and why a single spot-check here is more misleading than on any other engine.
+
+![How live X conversation reaches a Grok answer, and why the effect decays.](/blog/grok-x-loop.svg)
+
+## What makes Grok hard to track
+
+Volatility is the whole story. Because live posts can enter the answer, variance between runs is higher than any other engine we measure.
+
+| Engine | Variance between runs | Right cadence |
+|--------|----------------------|---------------|
+| Claude | Low | Weekly |
+| ChatGPT | Moderate | Weekly to daily |
+| Perplexity | Moderate | Daily to weekly |
+| Gemini | Moderate | Weekly |
+| **Grok** | **High** | **Daily, more runs per check** |
+
+Two consequences follow. First, sample size matters more here: three runs per check is not enough, and five is a floor rather than a target. Second, you need a longer smoothing window before calling any movement real. A one-day Grok spike is usually a thread, not a trend.
+
+![A Grok daily series swings on live conversation. The seven-day rolling average is the number worth putting in a report.](/blog/grok-smoothing.svg)
+
+## The tools
+
+### Livesov
+
+Tracks Grok across Grok 3 Mini and Grok 4 on a schedule, with multi-run sampling sized for the volatility, sentiment capture, competitor benchmarking against up to 20 rivals, and full response storage. Grok is included on every paid plan from $19/mo rather than being an engine add-on, which matters because Grok is the engine most often sold separately. See the [Grok rank tracker](/grok-rank-tracker) for the mechanics and [Grok brand tracking](/grok-rank-tracker) for mentions and sentiment.
+
+### Profound
+
+Enterprise platform, broad engine coverage, services attached, priced accordingly - public reports put entry around $99/mo. See the [Profound alternative](/profound-alternative) page for the detail.
+
+### Peec AI
+
+Strong reporting and interface. Confirm Grok is included at the tier you are considering; engine coverage varies by plan across most of this category. Detail on the [Peec AI alternative](/peec-ai-alternative) page.
+
+### The lighter tools
+
+Rankscale, Knowatoa, LLMrefs, Waikay and similar tools each cover a different engine subset, and Grok is the one most likely to be missing or newest. Check the current engine list on their own sites before assuming coverage.
+
+### Social listening tools
+
+Brandwatch, Sprout, and the rest tell you what is being said about you **on X**. They do not tell you what Grok says about you. Related inputs, entirely different measurements - and if you are trying to connect X conversation to Grok answers, you need both, with the AI tracker as the outcome metric and the listening tool as the input.
+
+## How to track Grok properly
+
+1. **Fix your prompt set and never reword it.** Twenty to forty buying-intent prompts. Rewording resets your history.
+2. **Run daily, five or more times per prompt.** The volatility demands the sample size.
+3. **Cover both models.** Grok 3 Mini and Grok 4 answer differently, and the cheaper model serves more traffic.
+4. **Smooth before you report.** Use a seven-day rolling average as the headline number. Report the daily series only when you are investigating a specific move.
+5. **Annotate your X activity.** Log launches, threads, and any coverage spike alongside the rank series. Over a quarter this is the only way you will get a real read on whether X activity moves your Grok position for your category - a correlation you can see beats a claim you cannot test.
+6. **Compare against a stable engine.** Track [Claude](/claude-rank-tracker) alongside it. If both move together, something changed about your brand. If only Grok moves, it was conversation.
+
+## Who should prioritise Grok
+
+Be honest about whether this engine matters to you. Grok's audience skews founder, developer, trader, and journalist - people who publish. That makes it disproportionately valuable for developer tools, fintech, crypto, media, and anything sold to a technical audience that lives on X, and close to irrelevant for categories whose buyers are not there at all.
+
+If your buyers are not on X, track Grok for completeness and spend your attention on the engines they use. The [LLM rank tracker](/llm-rank-tracker) cross-engine view is the fastest way to see where your real gaps are before you decide where to invest.
+
+## FAQ
+
+### Does Grok use X data to rank brands?
+
+Grok has live access to X and can draw on posts and threads in real time, which no other major assistant does. There is no published ranking weighting, so treat X as an observable but unquantified input: it can move your position, and it cannot be relied on to hold it. Track the effect rather than assuming it.
+
+### What is the best Grok rank tracker tool?
+
+The one that covers both Grok models, runs daily with enough repeats to absorb the volatility, and stores raw answers as evidence. Livesov includes Grok on every paid plan from $19/mo; Profound and Peec AI cover it at enterprise pricing - check which tier includes it.
+
+### Is there a free Grok rank tracker?
+
+No tool offers free scheduled Grok tracking; every run is a paid API call. Free one-off checkers exist, and Livesov's trial is 7 days with no card. More detail in [free AI rank trackers](/blog/free-ai-rank-trackers).
+
+### Why does my Grok rank change so much?
+
+Because live X conversation can enter the answer. This is expected behaviour, not a broken tracker. Use a seven-day rolling average as your reported number and treat single-day moves as noise until they persist.
+
+### Should I buy engagement on X to improve Grok rankings?
+
+No. There is no documented mechanism connecting purchased engagement to Grok answers, the effect of organic conversation decays within days, and inauthentic activity is a platform risk with no measurable upside. Track what real conversation does for you, and spend the budget on being genuinely worth discussing.
+`,
+  },
+  {
+    slug: 'best-chatgpt-seo-tracking-tools',
+    title: 'Best ChatGPT SEO Tracking Tools in 2026',
+    description: 'ChatGPT decides more shortlists than any other assistant and reports none of it to your analytics. Here are the tools that track ChatGPT visibility, what each one measures, and how to test them before you buy.',
+    metaDescription: 'The best ChatGPT SEO tracking tools for 2026. See what each tool measures, how they compare on price, and how to test one before you buy. Find your fit.',
+    tag: 'Guide',
+    date: '2026-09-06',
+    readTime: '11 min read',
+    author: NIK,
+    image: '/blog/best-chatgpt-seo-tracking-tools.svg',
+    imageAlt: 'Comparison of ChatGPT SEO tracking and visibility tools',
+    content: `
+## What a ChatGPT SEO tracking tool is for
+
+Traditional SEO tools measure a channel that reports back. You rank, someone clicks, the referrer lands in analytics, and the loop closes. ChatGPT breaks the loop while keeping the demand. Hundreds of millions of people a week ask it what to use, it names three options, and if you are not one of them nothing anywhere in your stack records that it happened.
+
+A ChatGPT SEO tracking tool closes that loop artificially: it asks the questions your buyers ask, on a schedule, and records what comes back. That is the whole category. Everything else - scoring, recommendations, dashboards - is built on top of that one primitive, and a tool that gets the primitive wrong cannot be rescued by the dashboard.
+
+![Traditional SEO reports back through analytics. ChatGPT keeps the demand and removes the feedback loop.](/blog/chatgpt-broken-loop.svg)
+
+## The five things that separate real tools from demos
+
+- **Multi-run sampling.** ChatGPT is non-deterministic. Same prompt, different answers. Any tool reporting a position from one run is reporting noise with a decimal point on it.
+- **Model coverage.** GPT-5, GPT-5 mini, and ChatGPT Search behave differently, and the smaller models serve enormous volume. A tool that tracks the flagship only is measuring the surface fewest people touch.
+- **Competitor benchmarking on the same prompt.** Your position is meaningless without the field it sits in.
+- **Stored raw responses.** The evidence is the answer text. Without it you have a chart nobody can interrogate.
+- **Citation capture where it exists.** ChatGPT Search returns sources. Those URLs are the most actionable data the engine produces, and plenty of tools discard them.
+
+![Illustrative surface spread: tracking the flagship model alone measures the surface fewest people touch.](/blog/chatgpt-model-spread.svg)
+
+## The tools
+
+### Livesov
+
+Tracks ChatGPT across GPT-5, GPT-5 mini and ChatGPT Search on a schedule, with multi-run sampling, sentiment, share of voice, competitor benchmarking against up to 20 rivals, citation capture, and every raw response stored. All five major engines are included on every paid plan from $19/mo, so ChatGPT is not billed separately. 7-day trial, no card. The [ChatGPT rank tracker](/chatgpt-rank-tracker) covers the position mechanics; [ChatGPT brand tracking](/chatgpt-rank-tracker) covers mentions and sentiment. There is also a [free ChatGPT mention checker](/tools/chatgpt-mention-checker) with no signup.
+
+### Profound
+
+The enterprise end of the category: deep coverage, strong reporting, content and automation motions attached, sold through a demo process. Public reports put entry around $99/mo with the substantial tiers well above that. Detail on the [Profound alternative](/profound-alternative) page.
+
+### Peec AI
+
+Clean product with good reporting, popular with European agencies. Public reports put entry around $100/mo. Check engine inclusion at your tier. See the [Peec AI alternative](/peec-ai-alternative) page.
+
+### Otterly.ai
+
+Around $29/mo entry for a small prompt allowance, and genuinely differentiated on Google AI Overviews and AI Mode coverage - surfaces most AI trackers skip. If those matter as much to you as ChatGPT does, it earns a look. We say so on the [Otterly alternative](/otterly-ai-alternative) page.
+
+### Semrush and Ahrefs
+
+Both now ship AI visibility modules. If you already pay for one, use it as a first diagnostic - it will tell you whether you have a problem worth solving. It will not give you the sampling depth or citation detail a dedicated tracker does. The honest comparisons are at [Livesov vs Semrush](/vs/semrush) and [Livesov vs Ahrefs](/vs/ahrefs).
+
+### The newer cohort
+
+Rankscale, Knowatoa, LLMrefs, Waikay, AthenaHQ and others are all iterating fast on different angles - scoring, prompt discovery, optimisation workflow. Any pricing printed in an article like this goes stale within a quarter, so check their sites and test against the five criteria above.
+
+## Test any of them in an afternoon
+
+1. **Write five prompts a buyer would actually type.** Not your brand name. Category, comparison, and problem-led.
+2. **Run them five times each in the tool, and five times each manually.** Compare. If the tool is stable while reality is not, it is hiding variance from you.
+3. **Check whether it caught the models.** Ask the same prompt of GPT-5 and GPT-5 mini yourself. If your results differ and the tool reports one number with no model breakdown, you are getting an average of things you needed to see separately.
+4. **Export something.** Try to get the raw answers out as CSV or PDF. If you cannot, you cannot defend the number later.
+5. **Make a change and wait a cycle.** The only real test of a tracker is whether it detects a change you caused on purpose.
+
+## What to do once you are tracking
+
+Tracking is not the deliverable. The pattern almost every first measurement produces is high visibility on branded prompts and near-absence on category prompts - visible to people who already know you, invisible to everyone deciding.
+
+The work that moves that number is mostly off your own site. Get accurate current entries on the review platforms in your category, earn coverage in the comparison articles that get cited, keep your documentation clean and factual, and make sure your own pages state plainly what you are and who you are for. Then measure over quarters. Our [guide to ranking on ChatGPT](/blog/how-to-rank-on-chatgpt) covers the tactics; the [free GEO audit](/geo-audit) scores any specific page for citation-readiness.
+
+## FAQ
+
+### What is the best ChatGPT SEO tracking tool?
+
+The one that samples every model repeatedly on a schedule, benchmarks competitors on identical prompts, captures ChatGPT Search citations, and stores raw answers. Livesov does this from $19/mo (all five engines on Agency); Profound and Peec AI do it at enterprise pricing; Otterly adds Google's AI surfaces. Pick on engine coverage and sampling depth, not dashboard design.
+
+### Can I track ChatGPT visibility for free?
+
+For a snapshot, yes - free checkers exist, including our own [ChatGPT mention checker](/tools/chatgpt-mention-checker) with no signup. Continuous tracking is not free anywhere, because every run costs an API call. Livesov's 7-day trial needs no card.
+
+### Does ChatGPT SEO tracking show me traffic?
+
+No, and no tool can. AI answers frequently produce no click at all. What tracking shows is presence, position, and share of the answer - measured upstream of the traffic, which is the point.
+
+### How is this different from a Google rank tracker?
+
+A Google rank tracker reads a fixed list of ten links. An AI tracker reads a generated answer that changes between runs and across models, and often cites sources rather than ranking pages. Different sampling, different parsing, different metric. See [AI visibility vs traditional SEO](/blog/ai-visibility-vs-traditional-seo).
+
+### Should I track only ChatGPT?
+
+It is the largest single engine, so it is a defensible starting point - but the spread between engines is usually wider than teams expect, and the engine you are weakest on is often the one your buyers use. The [LLM rank tracker](/llm-rank-tracker) view is the cheapest way to find that out before committing your effort.
+`,
+  },
+  {
+    slug: 'free-ai-rank-trackers',
+    title: 'Free AI Rank Trackers for Perplexity, Claude and Grok (What Actually Exists)',
+    description: 'An honest look at what free AI rank tracking gets you, where the free tier stops, what you can build yourself with an API key, and when paying $19 is cheaper than not paying.',
+    seoTitle: 'Free AI Rank Trackers: Perplexity, Claude & Grok | Livesov',
+    metaDescription: 'An honest look at free AI rank trackers: what free tiers give you, where they stop, what you can build with an API key, and when $19 a month is cheaper.',
+    tag: 'Guide',
+    date: '2026-09-07',
+    readTime: '10 min read',
+    author: NIK,
+    image: '/blog/free-ai-rank-trackers.svg',
+    imageAlt: 'What free AI rank trackers cover across Perplexity, Claude and Grok',
+    content: `
+## Start with the honest constraint
+
+Every AI rank check costs money. Not metaphorically - each run is a paid API call to OpenAI, Anthropic, Google, xAI, or Perplexity. A tracked prompt is not one call either: proper tracking means five or so runs, across two or three models, repeated on a schedule. Thirty prompts tracked daily across five engines is comfortably thousands of paid calls a month.
+
+That arithmetic is why **no product offers free continuous AI rank tracking**, and why any that claims to is either sampling far less than it implies or planning to stop. Understanding this makes the rest of the landscape easy to read.
+
+What free genuinely gets you falls into three buckets.
+
+![The arithmetic behind every pricing page in the category, and the reason free continuous tracking does not exist.](/blog/free-run-cost-math.svg)
+
+## Bucket 1: free one-off checkers
+
+Run a prompt, see an answer, done. No history, no schedule, no competitors.
+
+These are legitimately useful for one thing: finding out whether you have a problem. If you check five category prompts and your brand appears in none of them, you have learned something that justifies the next step. Free tools in our own [tools hub](/tools) that need no signup:
+
+- [ChatGPT mention checker](/tools/chatgpt-mention-checker) - does ChatGPT name you for a given prompt
+- [Citation finder](/tools/citation-finder) - which URLs get cited for a prompt
+- [GEO score checker](/tools/geo-score-checker) - is a specific page citation-ready
+- [Share of voice calculator](/tools/share-of-voice-calculator) - turn counts into a share number
+- [AI crawler checker](/tools/ai-crawler-checker) - are the AI crawlers even allowed to read your site
+
+The last one is worth running before anything else. If your robots.txt blocks GPTBot, ClaudeBot, or PerplexityBot, no amount of tracking or content work will help until that is fixed, and it takes two minutes to check.
+
+## Bucket 2: free trials
+
+The closest thing to free continuous tracking. Livesov's trial is 7 days with no credit card, which is enough to establish a real baseline across all five engines. Most competitors gate their trial behind a demo call, which is a different kind of cost.
+
+Use a trial properly: set your full prompt set on day one, let it run the whole window, and export the evidence before it ends. A trial spent clicking around the dashboard teaches you about the dashboard.
+
+## Bucket 3: build it yourself
+
+Genuinely viable if you are technical, and worth understanding even if you end up buying.
+
+The build is about a weekend:
+
+1. Get API keys for the engines you care about - Perplexity, Anthropic, xAI
+2. Write your prompt set to a file
+3. Cron a script that queries each prompt five times per engine
+4. Store the full response text and any citation array
+5. Parse each answer for your brand and your competitors
+6. Chart position and presence over time
+
+Rough API costs at thirty prompts, five runs, daily, are in the tens of dollars a month per engine depending on model choice - real money, but not prohibitive. The cost that surprises people is not the API bill.
+
+**Step 5 is the hard part.** Parsing a brand's position out of prose is genuinely difficult. Models answer in numbered lists, in paragraphs, in tables, with hedges, with the same brand named twice, with near-miss spellings. A naive string match will report you absent from answers that recommended you and present in answers that dismissed you. Getting that parser to a level you would show a client is the work, and it never really finishes.
+
+Build it if you want to learn how the engines behave. Buy it if you need a number someone else will rely on.
+
+![What free actually buys you: three buckets, each useful for a different question.](/blog/free-tracking-buckets.svg)
+
+## Free coverage by engine, honestly
+
+| Engine | Free one-off check | Free continuous tracking | Self-build difficulty |
+|--------|-------------------|--------------------------|----------------------|
+| **Perplexity** | Yes, several tools | No | Easiest - citations come back structured |
+| **ChatGPT** | Yes, several tools | No | Moderate - model spread to cover |
+| **Claude** | Limited | No | Harder - prose answers, no citation list |
+| **Gemini** | Limited | No | Moderate - grounding adds a decision |
+| **Grok** | Rare | No | Hardest - volatility demands high sample counts |
+
+Claude and Grok are the least served by free tools, which is exactly why they are the engines most teams have never measured. The [Claude rank tracker](/claude-rank-tracker) and [Grok rank tracker](/grok-rank-tracker) pages cover what proper tracking involves on each.
+
+## When free stops making sense
+
+Three signals that the free approach has run out:
+
+**You need history.** A snapshot cannot tell you whether last quarter's work did anything. The moment someone asks "is this better than before", free is over.
+
+**You need to defend a number.** "I checked and we were not there" does not survive a client meeting. Stored, timestamped, exportable evidence does.
+
+**You are spending more than an hour a month on it.** An hour of your time is worth more than $19. If you are manually re-running prompts and pasting into a sheet, you are paying for tracking - just in the currency that does not show up on the invoice.
+
+## FAQ
+
+### Is there a free Perplexity rank tracker?
+
+Free one-off checkers exist and are worth using for a first look. Free continuous tracking does not, because every run is a paid API call. The [Perplexity rank tracker](/perplexity-rank-tracker) page covers what scheduled tracking involves, and the 7-day trial needs no card.
+
+### Is there a free Claude rank tracker?
+
+No, and Claude is the least-served engine on free tiers - its prose answers are harder to parse than Perplexity's structured citations, so fewer free tools bother. A trial or a self-build are the realistic options.
+
+### Can I track AI rankings in a spreadsheet?
+
+You can, and for ten prompts checked monthly it is defensible. It stops scaling around the point you want multi-run sampling, several engines, and a trend - which is roughly the point where the manual time costs more than a subscription.
+
+### What is the cheapest paid AI rank tracker?
+
+Livesov starts at $19/mo (2 engines on Starter, all five on Agency). Otterly's entry plan is around $29/mo for a smaller prompt allowance but adds Google AI Overviews coverage. Most enterprise platforms start near $99/mo. Compare on engines-per-dollar rather than headline price - engine add-ons are where these comparisons usually turn.
+
+### Do free AI visibility tools give accurate data?
+
+For a single check, yes - they run a real query and show you a real answer. The inaccuracy is not in the data, it is in the inference: one run of a non-deterministic system is not a measurement. Treat a free check as a yes/no signal, never as a position.
+`,
+  },
+  {
+    slug: 'what-is-a-nap-check',
+    title: 'What Is a NAP Check? (And Why AI Search Made It Matter Again)',
+    description: 'A NAP check verifies that your business name, address and phone number match everywhere they appear online. Here is how to run one, what counts as a mismatch, and why AI assistants made citation consistency important again.',
+    seoTitle: 'What Is a NAP Check? Why It Matters for AI | Livesov',
+    metaDescription: 'A NAP check makes sure your business name, address and phone match everywhere online. Learn how to run one, spot mismatches, and why AI search cares.',
+    tag: 'Guide',
+    date: '2026-09-08',
+    readTime: '9 min read',
+    author: NIK,
+    image: '/blog/what-is-a-nap-check.svg',
+    imageAlt: 'Running a NAP check across business citation listings for consistency',
+    content: `
+## What a NAP check is
+
+**NAP** stands for **Name, Address, Phone number** - the three pieces of information that identify a physical business online. A **NAP check** is the process of verifying that those three details are identical everywhere they appear: your website, Google Business Profile, Apple Maps, Bing Places, Yelp, industry directories, chamber listings, social profiles, and every aggregator that has scraped you along the way.
+
+It sounds trivial. It is not, because businesses accumulate variants without noticing:
+
+- "Suite 4" on one listing, "Ste 4" on another, "#4" on a third
+- An old phone number surviving on a directory nobody remembers submitting to
+- "Smith & Sons Plumbing" versus "Smith and Sons Plumbing Inc."
+- A tracking number on the website that does not match the real line anywhere else
+- An address that changed in 2023 and is still live on eleven aggregators
+
+Each one is small. Collectively they are the reason a business with strong local SEO fundamentals still cannot rank, and now the reason an AI assistant gives out the wrong phone number.
+
+![A canonical NAP against what the listings actually show: harmless formatting variants, and one dead phone number.](/blog/nap-canonical-vs-listings.svg)
+
+## Why this matters more now than it did in 2020
+
+Local SEO people have run NAP audits for a decade because search engines use citation consistency as a corroboration signal: the more independent sources agree on your details, the more confident the engine is that the entity is real and the data is right.
+
+AI assistants raised the stakes in a specific way. A search engine that finds two phone numbers shows both listings and lets the human sort it out. **An assistant picks one and states it as fact.** No listing, no second option, no visible ambiguity - just an answer.
+
+Which means an inconsistent NAP no longer costs you a ranking position. It costs you a customer who called a disconnected number and never told you.
+
+Worse, the AI assistants read exactly the sources that go stale: directory listings, aggregator databases, old cached pages. If the majority of those agree on your 2023 address, the assistant will confidently give out your 2023 address.
+
+## How to run a NAP check
+
+### Step 1: define the canonical NAP
+
+Pick one exact form and write it down. This is the version everything else gets measured against, so decide the details explicitly:
+
+- Full legal name or the trading name, including or excluding "Inc" / "LLC"
+- Street address, matching the postal service's own formatting for your country
+- Suite or unit notation, spelled one way, forever
+- One phone number, one format, with or without the country code
+
+The single most common failure of a NAP audit is not having agreed the canonical form first, which turns the whole exercise into an argument about which variant is right.
+
+### Step 2: build the citation list
+
+Everywhere your business appears. Start with the obvious - Google Business Profile, Apple Maps, Bing Places, Facebook, Yelp - then search your phone number and your old phone number in quotes to find listings you have forgotten. Aggregators are the ones that bite, because they feed other directories automatically.
+
+Fifty to a hundred and fifty URLs is normal for an established local business.
+
+### Step 3: check each one
+
+Fetch each page, read the NAP it displays, and compare to canonical. Flag every mismatch by field, so you know whether you have an address problem or a phone problem - they get fixed in completely different places.
+
+Doing this by hand is the part that kills the project around listing thirty. Our [free NAP verification tool](/tools/nap-verification) does the fetching and comparison automatically: enter the canonical NAP, add the citation URLs, and it extracts what each page actually shows and flags every mismatch. Results save per client and the audit is re-runnable, so you can track cleanup progress rather than starting over.
+
+### Step 4: fix in priority order
+
+Not all citations carry equal weight:
+
+1. **Google Business Profile** - the single highest-impact record
+2. **Data aggregators** - they propagate to dozens of downstream directories, so fixing upstream fixes many at once
+3. **Major platforms** - Apple Maps, Bing Places, Facebook, Yelp
+4. **Industry directories** - the ones specific to your trade
+5. **The long tail** - worth cleaning, not worth blocking on
+
+### Step 5: re-check quarterly
+
+Citations rot. Aggregators re-import stale data, directories get bought and merged, and someone eventually adds a new listing with a variant. A NAP check is maintenance, not a project.
+
+![Fix citations in this order - repairing the upstream aggregators repairs many downstream listings at once.](/blog/nap-fix-priority.svg)
+
+## What counts as a mismatch
+
+Not every difference matters, and treating them all as equal wastes the cleanup budget.
+
+| Difference | Severity | Why |
+|-----------|----------|-----|
+| Different phone number | **Critical** | Direct lost business |
+| Different street address | **Critical** | Wrong location given out as fact |
+| Old address still live | **Critical** | Actively misleading |
+| "Street" vs "St" | Low | Engines normalise this reliably |
+| "Suite 4" vs "Ste 4" | Low | Normalised |
+| Missing suite number entirely | Medium | Deliverability and confidence |
+| "and" vs "&" in the name | Low | Normalised |
+| Genuinely different business name | **Critical** | Reads as a different entity |
+
+Fix critical everywhere. Fix medium on the high-authority listings. Leave low-severity formatting alone unless you are already editing the listing for another reason.
+
+## How to check what AI assistants say about you
+
+The NAP check tells you what your citations say. The other half is what the assistants have concluded from them.
+
+Ask ChatGPT, Gemini, Perplexity, and Claude for your business's address and phone number directly, several times each. Then ask for a recommendation in your category and city and see whether you are named at all. If an assistant returns an old address, you now know which citations to prioritise - and you have a before-and-after measurement for the cleanup.
+
+That measurement is what [AI brand tracking](/chatgpt-rank-tracker) automates for the ongoing case, and the [free GEO audit](/geo-audit) scores whether your own location pages are structured cleanly enough for an assistant to read them correctly in the first place.
+
+## FAQ
+
+### What does NAP stand for in SEO?
+
+Name, Address, Phone number - the core identity details of a physical business. NAP consistency means those details are identical across every listing, directory, and profile online.
+
+### How often should I run a NAP check?
+
+Quarterly for most businesses, and immediately after any move, rebrand, or phone number change. Citation data decays continuously because aggregators re-import old records.
+
+### Does NAP consistency still matter in 2026?
+
+More than it did, because AI assistants state a single answer rather than showing competing listings. An inconsistent NAP now means an assistant confidently giving a customer the wrong number, with no visible ambiguity for them to notice.
+
+### What is a NAP checker tool?
+
+A tool that fetches your citation pages, extracts the name, address, and phone number each one displays, and flags every mismatch against your canonical NAP. Ours is [free to use](/tools/nap-verification), saves per client, and is re-runnable so you can track cleanup progress.
+
+### How many citations does a local business need?
+
+Fewer, cleaner citations beat many inconsistent ones. Cover the major platforms and the aggregators that feed everything else, get them exactly right, then add industry-specific directories. Consistency is the signal; volume alone is not.
+`,
+  },
+  {
+    slug: 'ai-visibility-tools-data-accuracy-compared',
+    title: 'AI Visibility Tools: How to Compare Their Data Accuracy',
+    description: 'Two AI visibility tools can report different numbers for the same brand on the same day, and both can be right. Here is what drives the difference and how to test any tool for accuracy before you trust it.',
+    seoTitle: 'AI Visibility Tools: Data Accuracy Compared | Livesov',
+    metaDescription: 'Two AI visibility tools can show different numbers for the same brand on the same day. Learn why, and how to test any tool\'s data accuracy before you buy.',
+    tag: 'Analytics',
+    date: '2026-09-09',
+    readTime: '11 min read',
+    author: NIK,
+    image: '/blog/ai-visibility-data-accuracy.svg',
+    imageAlt: 'Comparing data accuracy and sampling methodology across AI visibility tools',
+    content: `
+## Why two tools disagree about the same brand
+
+Run the same brand through two AI visibility platforms on the same day and you will get two different visibility scores. Teams treat this as evidence that one is broken. Usually neither is.
+
+The measurements differ because the **methodology** differs, and almost nobody publishes theirs. Six variables drive nearly all the divergence, and once you can see them the disagreement stops being mysterious.
+
+## The six variables that decide your number
+
+### 1. Sample size per prompt
+
+The largest single factor. AI answers are non-deterministic - the same prompt produces different brand lists between runs.
+
+| Runs per prompt | What the number means |
+|-----------------|----------------------|
+| 1 | A single draw from a distribution. Not a measurement. |
+| 3 | Directionally useful, high variance |
+| 5 | The practical floor for a reported number |
+| 10+ | Stable, and expensive |
+
+A tool sampling once and a tool sampling ten times will report different numbers for the same brand indefinitely, and the difference is not accuracy, it is precision. Ask any vendor how many runs sit behind a reported position. If the answer is unclear, that is the answer.
+
+### 2. Which models are queried
+
+"We track ChatGPT" can mean GPT-5 only, or GPT-5 plus mini plus Search. Those produce different shortlists. The cheaper models serve enormous volume, so a tool tracking only the flagship is measuring the surface fewest people use - and will systematically report different numbers from one that includes the small models.
+
+Same problem across the family on every engine: Sonar versus Sonar Pro, Gemini Flash versus Pro, Grok 3 Mini versus Grok 4.
+
+### 3. Grounding, on or off
+
+Grounded answers search the live web first. Ungrounded answers come from model knowledge. They give substantially different results, especially for brands whose recent content is stronger than their historical footprint. A tool that grounds and a tool that does not are measuring two different things and calling both "visibility".
+
+### 4. How position is parsed
+
+The unglamorous variable that causes more error than any other. Models answer in numbered lists, in prose, in tables, with hedges and qualifiers. Extracting "the brand was recommended second" from a paragraph is genuinely hard.
+
+Common parser failures, all of which produce confidently wrong numbers:
+
+- Counting a brand named in a dismissal ("unlike Brand X, which lacks...") as a positive mention
+- Missing a brand written with different casing, spacing, or a common misspelling
+- Double-counting a brand named twice in one answer
+- Failing on table-formatted answers entirely
+- Treating a citation-list appearance as an answer mention
+
+### 5. How the score is composed
+
+Most tools report a composite "visibility score" built from mentions, position, sentiment, and citations at proprietary weights. Two tools can agree on every underlying observation and still produce different scores because they weight them differently. Composite scores are useful for tracking your own trend and near-useless for comparing across tools.
+
+### 6. Prompt set and timing
+
+Different prompts measure different things, obviously. Less obviously, **when** you sample matters: engines update, the web changes, and on Grok a live conversation can shift answers within hours. Two tools sampling twelve hours apart are sampling different worlds.
+
+![The relative weight of each cause of divergence. Neither tool has to be broken for two visibility scores to disagree.](/blog/accuracy-variables.svg)
+
+## How to test a tool's accuracy yourself
+
+Do not take a vendor's word for it, and do not assume the expensive tool is the accurate one. This takes an afternoon.
+
+**Establish ground truth manually.** Pick five prompts. Run each ten times in the engine's own interface, in a fresh session every time. Record every brand named and its position. You now have 50 observations you gathered yourself.
+
+**Calculate your own numbers.** Your presence rate is answers naming you, divided by 50. Your average position is the mean of your positions where named.
+
+**Run the same five prompts in the tool.** Same wording, same day.
+
+**Compare.** Expect the tool to be within a few percentage points of your presence rate. If it is wildly off, ask which of the six variables above explains it - usually sample size or model coverage, and both are answerable questions.
+
+**Test the parser deliberately.** Find an answer where your brand is mentioned dismissively, and one where it appears in a table. Check what the tool recorded for both. Parser quality is invisible on a dashboard and decisive for whether the number means anything.
+
+**Test the citation capture.** Count the sources in a live Perplexity answer. Count what the tool stored. Truncation is common and silently distorts every share metric built on top.
+
+## What to ask a vendor
+
+Six questions. The answers, or the reluctance to give them, tell you what you need to know.
+
+1. How many runs per prompt per check, exactly?
+2. Which specific models, per engine?
+3. Grounded, ungrounded, or both - and which does the reported number use?
+4. Is the full raw response stored and exportable?
+5. Is the complete citation list stored, or the top few?
+6. How is position parsed out of prose, and what happens on a table-formatted answer?
+
+A tool that answers all six plainly is a tool whose numbers you can defend to someone else. That is the actual product in this category - not the dashboard, the defensibility.
+
+![Six questions to put to any vendor. The reluctance to answer tells you as much as the answer.](/blog/accuracy-vendor-questions.svg)
+
+## What we do, since it is only fair to answer our own questions
+
+Livesov runs each prompt several times per scheduled check, across multiple models per engine, on all five major engines. Every raw response is stored and exportable to CSV and PDF, the complete citation list is kept rather than the top few, and grounded mode on Gemini is a documented plan-level setting rather than a hidden default. Our full method is written up in [how Livesov measures LLM visibility](/blog/how-livesov-measures-llm-visibility).
+
+Test it against your own manual ground truth. That is the point of the exercise, and it applies to us the same as anyone.
+
+## FAQ
+
+### Why do AI visibility tools show different numbers?
+
+Different sample sizes, model coverage, grounding settings, parsers, score formulas, and sampling times. Two tools can both be reporting honestly and still disagree, because they are measuring different things under the same word.
+
+### Which AI visibility tool is most accurate?
+
+The right question is which is most transparent, because accuracy you cannot verify is a claim rather than a property. Prefer the tool that publishes its sampling method, stores raw responses, and lets you export the evidence - then check it against your own manual runs.
+
+### How many runs per prompt is enough?
+
+Five is the practical floor for a number you would report. Three is directionally useful. One is a single draw from a distribution and should not be called a measurement.
+
+### Can I verify an AI visibility tool myself?
+
+Yes, and you should. Run five prompts ten times each manually, calculate your own presence rate and average position, and compare. Any tool worth paying for lands close to your ground truth.
+
+### Should I use two tools to cross-check?
+
+Only if you can afford it and enjoy reconciling methodologies. A better use of the same money is one tool you have verified against your own manual runs, sampling deeply enough to trust. Two unverified tools produce two numbers and no truth.
+`,
+  },
+  {
+    slug: 'how-to-track-ai-share-of-voice-in-ai-overviews',
+    title: 'How to Track AI Share of Voice in AI Overviews',
+    description: 'AI Overviews appear on a growing share of searches and cite a handful of sources. Here is how to measure your share of voice inside them, what to sample, and how it differs from tracking an assistant.',
+    metaDescription: 'How to track AI share of voice in Google AI Overviews: what to sample, how to measure it, and how it differs from tracking an AI assistant. Get started.',
+    tag: 'Metrics',
+    date: '2026-09-10',
+    readTime: '10 min read',
+    author: NIK,
+    image: '/blog/ai-share-of-voice-overviews.svg',
+    imageAlt: 'Measuring brand share of voice inside Google AI Overviews',
+    content: `
+## What AI share of voice means here
+
+**Share of voice** in AI search is your share of all brand mentions across a fixed set of prompts. In AI Overviews specifically it splits into two related metrics that behave differently and should be reported separately.
+
+![Mention share and citation share diverge, and the direction of the gap tells you whether the fix is on your pages or off them.](/blog/sov-two-metrics.svg)
+
+They diverge, and the divergence is the useful part. Being cited without being named means the summary was built partly from your page and credited the framing to somebody else. Being named without being cited means the web talks about you and your own pages are not what is being read.
+
+## Why AI Overviews are a different tracking problem
+
+AI Overviews are not an assistant. Assistants take a conversational prompt; AI Overviews are triggered by a **search query** and appear above the organic results. That difference changes the whole measurement design.
+
+- **Query-triggered, not prompt-triggered.** You sample keywords, not conversational prompts. Your existing keyword list is the starting point.
+- **Not every query triggers one.** Whether an Overview appears at all is itself a data point worth tracking, and it moves.
+- **Location and personalisation matter.** The same query can produce different Overviews in different locations. Fix your locale and keep it fixed.
+- **Fewer sources.** An Overview typically cites a handful of links, far fewer than a Perplexity answer, which makes each citation slot worth proportionally more.
+- **It sits above your organic result.** You can hold position one and still lose the click, which is exactly the failure mode this metric exists to catch.
+
+Worth restating plainly, because it causes real reporting errors: **AI Overviews are not Gemini.** Gemini is the assistant, Overviews are the summary block inside Search. Related infrastructure, overlapping data, frequently different answers. Track them as separate surfaces - [tracking brand mentions in Gemini](/blog/how-to-track-brand-mentions-in-gemini) covers the assistant side.
+
+## Building the measurement
+
+### Step 1: pick the query set
+
+Start from the commercial keywords you already track in Google. Prioritise:
+
+- **Comparison and "best" queries** - the highest AI Overview trigger rate in most categories, and the ones that shape shortlists
+- **Question queries** - "how do I", "what is the best way to", where a summary is the natural answer
+- **Category queries** - your core commercial terms
+
+Thirty to sixty queries is a workable panel. You want enough that one anomalous Overview does not swing the number, and few enough that you will actually look at the results.
+
+### Step 2: record four things per query
+
+For every query, on every check:
+
+1. **Did an Overview appear?** Trigger rate is a metric in its own right.
+2. **Which brands are named in the Overview text?** In order.
+3. **Which URLs are cited?** All of them.
+4. **Your organic position** for the same query.
+
+That fourth column is what makes the dataset worth building. The queries where you rank in the top three and are absent from the Overview are your highest-leverage list: retrieval is finding you and the summariser is choosing something else, which is a page-structure problem, not a rankings problem.
+
+### Step 3: calculate
+
+Mention SOV = your brand mentions / all brand mentions across the panel.
+Citation SOV = your cited URLs / all cited URLs across the panel.
+
+Worked example over a 40-query panel:
+
+| | Count | Share |
+|---|-------|-------|
+| Queries triggering an Overview | 26 of 40 | 65% trigger rate |
+| Total brand mentions across those 26 | 71 | - |
+| Your brand mentions | 9 | **12.7% mention SOV** |
+| Total citations | 104 | - |
+| Your cited URLs | 7 | **6.7% citation SOV** |
+
+Mention share ahead of citation share, as here, is the common shape: the web says enough about you to get you named, while your own pages are not the ones being read. The fix is on your pages.
+
+### Step 4: track the trend, not the number
+
+The absolute figure means little without a baseline - it depends entirely on how many brands your category's Overviews typically name. What matters is your share relative to your closest competitor, moving over time. Re-measure on a fixed cadence with the same query set and the same locale.
+
+![Record four things per query on every check. The organic-position column is what makes the dataset actionable.](/blog/overviews-record-four.svg)
+
+## Turning the number into work
+
+**Rank well but not cited.** Your highest-value fix. The page is being retrieved and passed over. Usually it buries the answer: no direct response near the top, headings that do not match the question, the key fact sitting in paragraph nine. [Run a GEO audit](/geo-audit) on those specific URLs.
+
+**Cited but not named.** Add a plain declarative sentence stating who you are and what you do, near the top of the page. Summarisers lift framing from clear statements and skip pages that explain a topic without ever identifying the author's position in it.
+
+**Neither ranked nor cited.** This is an ordinary SEO problem wearing a new hat. You cannot be summarised from a page nobody retrieves.
+
+**A competitor dominates.** Look at what is actually being cited. If it is their page, audit it and match the structure. If it is a review platform or a publisher, that is a different project - and often an easier one, because getting your entry on an already-cited source is faster than displacing it.
+
+## FAQ
+
+### How do I measure share of voice in AI Overviews?
+
+Fix a query panel, check each query on a schedule from a fixed locale, and record whether an Overview appeared, which brands it named, which URLs it cited, and your organic position. Your mention SOV is your share of brand mentions; citation SOV is your share of cited URLs. Track both over time.
+
+### Are AI Overviews the same as Gemini?
+
+No. AI Overviews is the summary block inside Google Search; Gemini is the standalone assistant. They share infrastructure and often disagree. Track them separately - a strong Gemini position is not evidence you are cited in Overviews.
+
+### What is a good AI share of voice?
+
+There is no universal benchmark, because it depends on how many brands your category's answers typically name. Use your closest competitor's share as the reference point and track the gap.
+
+### Do AI Overviews reduce my traffic?
+
+They reduce clicks on queries where the summary fully answers the question - click-through to the top organic result falls substantially when an Overview appears. See the [AI search statistics page](/ai-search-statistics-2026) for the sourced figures. The mitigation is being in the summary rather than only beneath it.
+
+### Does Livesov track AI Overviews?
+
+Livesov tracks the five major AI assistants - ChatGPT, Claude, Gemini, Perplexity, and Grok - not the AI Overviews block inside Google Search. For Overviews specifically, Otterly.ai covers that surface; we say so on the [Otterly alternative](/otterly-ai-alternative) page. The method above works with either, or by hand.
 `,
   },
 ];
+
+/**
+ * The absolute URL a social scraper should fetch for this post.
+ *
+ * Blog covers are authored as SVG - crisp at any width and a few KB on the
+ * page - but X, LinkedIn, Facebook, Slack and iMessage all refuse to render
+ * SVG in a link preview, so an SVG og:image ships every share as a bare text
+ * card. scripts/build-blog-og-images.mjs rasterises each 1200x630 cover to a
+ * PNG beside it; this points the metadata at that file.
+ *
+ * tests/blog-og-images.test.ts fails if a post's PNG is missing, so a new post
+ * cannot ship with a preview that silently does not render.
+ */
+export function ogImageFor(post: BlogPost): string {
+  const path = post.image.replace(/\.svg$/i, '.png');
+  return `https://livesov.com${path}`;
+}
 
 export function getPostBySlug(slug: string): BlogPost | undefined {
   return blogPosts.find(p => p.slug === slug);

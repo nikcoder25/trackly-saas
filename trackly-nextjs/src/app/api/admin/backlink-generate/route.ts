@@ -14,6 +14,7 @@
  */
 import { requireAdmin } from '@/lib/admin-auth';
 import { logError, serverError } from '@/lib/api-error';
+import { estimateAnthropicCostUsd, recordCall } from '@/lib/cost-tracker';
 import { getServerKeys } from '@/lib/server-keys';
 
 export const maxDuration = 60;
@@ -24,6 +25,36 @@ type GenerateBody = {
   model?: string;
   prompt?: string;
   maxTokens?: number;
+};
+
+// Server-side allowlist. The model id used to be taken verbatim from the
+// browser, so a stale saved preference (earlier builds defaulted to
+// Sonnet) or a hand-edited request could point bulk article generation
+// at a $10/$50-per-million model. Anything not listed here is refused;
+// extend via BACKLINK_GENERATE_EXTRA_MODELS (comma-separated) rather than
+// by editing the request.
+const ALLOWED_MODELS: Record<'claude' | 'openai', Set<string>> = {
+  claude: new Set(['claude-haiku-4-5', 'claude-haiku-4-5-20251001', 'claude-sonnet-4-6', 'claude-opus-4-7']),
+  openai: new Set(['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-5.4-nano', 'gpt-5.4-mini']),
+};
+
+function modelAllowed(provider: 'claude' | 'openai', model: string): boolean {
+  if (ALLOWED_MODELS[provider].has(model)) return true;
+  const extra = (process.env.BACKLINK_GENERATE_EXTRA_MODELS || '')
+    .split(',').map(m => m.trim()).filter(Boolean);
+  return extra.includes(model);
+}
+
+// Spend from this tool is ledgered under its own platform label so it
+// shows separately on the admin cost widget and does NOT count toward
+// the per-platform daily cap that guards the app's automatic paths
+// (tracking runs, Fix Engine, discovery, public tools). Writing a lot of
+// content here is a deliberate, attended decision; the cap exists for
+// spend nobody is watching. This route is therefore intentionally not
+// subject to enforcePlatformDailyCap.
+const LEDGER_PLATFORM: Record<'claude' | 'openai', string> = {
+  claude: 'Claude (backlink tool)',
+  openai: 'ChatGPT (backlink tool)',
 };
 
 export async function POST(request: Request) {
@@ -45,14 +76,22 @@ export async function POST(request: Request) {
   if (!provider || !model || !prompt) {
     return Response.json({ error: 'Missing required fields: provider, model, prompt' }, { status: 400 });
   }
+  if (provider !== 'claude' && provider !== 'openai') {
+    return Response.json({ error: 'Invalid provider' }, { status: 400 });
+  }
+  if (!modelAllowed(provider, model)) {
+    return Response.json(
+      { error: `Model "${model}" is not enabled for article generation. Pick Haiku 4.5 (recommended) or another listed model.` },
+      { status: 400 },
+    );
+  }
   if (prompt.length > 20000) {
     return Response.json({ error: 'Prompt too long (max 20000 chars)' }, { status: 400 });
   }
 
   try {
     if (provider === 'claude') return await callClaude(model, prompt, maxTokens);
-    if (provider === 'openai') return await callOpenAI(model, prompt, maxTokens);
-    return Response.json({ error: 'Invalid provider' }, { status: 400 });
+    return await callOpenAI(model, prompt, maxTokens);
   } catch (e) {
     logError('admin.backlink_generate.failed', e);
     return serverError({ message: 'Generation failed' });
@@ -100,6 +139,15 @@ async function callClaude(model: string, prompt: string, maxTokens: number) {
         ? ((data as { content: Array<{ type: string; text?: string }> }).content)
         : [];
       const content = blocks.filter((b) => b.type === 'text').map((b) => b.text || '').join('\n');
+      const usage = (data as { usage?: { input_tokens?: number; output_tokens?: number } }).usage;
+      const served = (data as { model?: string }).model || model;
+      await recordCall({
+        platform: LEDGER_PLATFORM.claude,
+        model: served,
+        tokensIn: usage?.input_tokens || 0,
+        tokensOut: usage?.output_tokens || 0,
+        costUsd: estimateAnthropicCostUsd(served, usage) ?? undefined,
+      });
       return Response.json({ content });
     }
 
@@ -142,6 +190,13 @@ async function callOpenAI(model: string, prompt: string, maxTokens: number) {
     if (res.ok) {
       const content =
         (data as { choices?: Array<{ message?: { content?: string } }> })?.choices?.[0]?.message?.content || '';
+      const usage = (data as { usage?: { prompt_tokens?: number; completion_tokens?: number } }).usage;
+      await recordCall({
+        platform: LEDGER_PLATFORM.openai,
+        model: (data as { model?: string }).model || model,
+        tokensIn: usage?.prompt_tokens || 0,
+        tokensOut: usage?.completion_tokens || 0,
+      });
       return Response.json({ content });
     }
 

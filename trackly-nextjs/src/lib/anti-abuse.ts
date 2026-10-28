@@ -236,3 +236,35 @@ export async function reserveTrialPromptBudget(
     return { allowed: true };
   }
 }
+
+/**
+ * Release a previously reserved trial prompt budget. Called when a run is
+ * rejected AFTER the budget was reserved (e.g. the per-brand lock 409s), so
+ * the reservation doesn't leak and permanently shrink the trial's daily
+ * allowance until midnight. Decrements both the per-user and global daily
+ * counters, clamped at zero. Trial-only and best-effort: a failed release is
+ * logged and swallowed (the counters self-heal at the daily rollover).
+ */
+export async function releaseTrialPromptBudget(
+  userId: string,
+  effectivePlan: string,
+  promptsToRelease: number
+): Promise<void> {
+  if (effectivePlan !== 'trial' || promptsToRelease <= 0) return;
+  try {
+    await pool.query(
+      `UPDATE trial_usage
+          SET prompts_used = GREATEST(0, prompts_used - $1)
+        WHERE user_id = $2 AND usage_date = CURRENT_DATE`,
+      [promptsToRelease, userId]
+    );
+    await pool.query(
+      `UPDATE trial_global_usage
+          SET prompts_used = GREATEST(0, prompts_used - $1)
+        WHERE usage_date = CURRENT_DATE`,
+      [promptsToRelease]
+    );
+  } catch (e) {
+    console.error('[AntiAbuse] releaseTrialPromptBudget failed:', (e as Error).message);
+  }
+}

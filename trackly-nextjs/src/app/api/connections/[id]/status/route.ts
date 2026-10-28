@@ -38,6 +38,6 @@ export async function GET(
     );
   } catch (e) {
     logger.error('connect.status_failed', { err: (e as Error).message });
-    return Response.json({ error: (e as Error).message }, { status: 400 });
+    return Response.json({ error: 'Invalid request' }, { status: 400 });
   }
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
+import EmailOff from '@/components/EmailOff';
 import {
   Section,
   SectionHeader,
@@ -13,9 +14,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'AI Search Statistics 2026: 120+ Data Points on ChatGPT, Perplexity, Gemini & AI Overviews | Livesov',
+  title: 'AI Search Statistics 2026: 120+ Data Points | Livesov',
   description:
-    'The definitive 2026 dataset on AI search. Adoption, market share, click-through rates, citation patterns, and revenue impact across ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews. Free to cite and embed.',
+    '120+ AI search statistics for 2026 on adoption, market share, click rates and citations across ChatGPT, Perplexity, Gemini and AI Overviews. Free to cite.',
   keywords:
     'ai search statistics, ai search statistics 2026, chatgpt statistics, perplexity statistics, ai overviews statistics, generative search statistics, llm search market share, ai search adoption, zero-click search statistics, ai citation statistics',
   alternates: { canonical: '/ai-search-statistics-2026' },
@@ -114,12 +115,6 @@ const behaviorStats = [
     description:
       'Median Perplexity session is 47 seconds with a follow-up rate of 38% - users complete tasks in-product rather than navigating away.',
   },
-  {
-    icon: '◈',
-    title: '12.4% conversion lift',
-    description:
-      'B2B brands cited by ChatGPT in answers see a 12.4% lift in branded-search volume within 30 days (Livesov panel of 1,200 tracked brands, 2025–2026).',
-  },
 ];
 
 const sourcesQuoted = [
@@ -195,12 +190,6 @@ const revenueStats = [
       'AI search is forecast to mediate $2.1T in commerce decisions by 2027 - roughly 18% of global e-commerce, B2B, and high-consideration purchase flows.',
   },
   {
-    icon: '⤴',
-    title: '+27% AOV when AI-cited',
-    description:
-      'E-commerce brands cited by AI in product comparison queries show a 27% higher average order value among AI-referred sessions (Livesov + partner panel, 2026).',
-  },
-  {
     icon: '◐',
     title: '52% of B2B buyers use AI',
     description:
@@ -229,7 +218,7 @@ const faqs = [
   {
     question: 'Where do these AI search statistics come from?',
     answer:
-      'Numbers come from public disclosures (OpenAI, Anthropic, Google, Perplexity earnings and investor updates), Q1 2026 third-party studies (Ahrefs, Similarweb, Sparktoro, Gartner), and Livesov\'s own panel of 1,200+ tracked brands across ChatGPT, Claude, Gemini, Perplexity, and Grok. Every section is cite-ready - copy the stat with attribution to Livesov.',
+      'Numbers come from public disclosures (OpenAI, Anthropic, Google, Perplexity earnings and investor updates), Q1 2026 third-party studies (Ahrefs, Similarweb, Sparktoro, Gartner), and analyst reports. Livesov scan data is not used for any figure on this page. Every section is cite-ready - copy the stat with attribution to Livesov.',
   },
   {
     question: 'Can I republish these statistics?',
@@ -259,7 +248,7 @@ const faqs = [
   {
     question: 'How is AI search affecting B2B and SaaS?',
     answer:
-      '64% of "best [category] software" queries in Perplexity and ChatGPT Search return a named SaaS brand in the first paragraph. 52% of B2B buyers now use generative AI in the consideration phase. Cited brands see a 12.4% lift in branded search and 27% higher AOV from AI-referred traffic.',
+      '64% of "best [category] software" queries in Perplexity and ChatGPT Search return a named SaaS brand in the first paragraph. 52% of B2B technology buyers now use generative AI in the consideration phase (Gartner).',
   },
 ];
 
@@ -298,7 +287,7 @@ export default function AiSearchStatistics2026Page() {
         <SectionHeader
           label="AI search adoption"
           title="How many people actually use AI search in 2026?"
-          subtitle="Direct from platform disclosures, independent measurement firms, and Livesov’s tracked-brand panel."
+          subtitle="Direct from platform disclosures and independent measurement firms."
         />
         <FeatureGrid items={adoption} columns={3} />
         <Callout title="Why these numbers matter" variant="info">
@@ -321,7 +310,7 @@ export default function AiSearchStatistics2026Page() {
         <SectionHeader
           label="User behavior"
           title="What AI search is doing to clicks and queries"
-          subtitle="Six behavioral metrics that should reframe every 2026 content strategy."
+          subtitle="Five behavioral metrics that should reframe every 2026 content strategy."
         />
         <FeatureGrid items={behaviorStats} columns={3} />
       </Section>
@@ -330,7 +319,7 @@ export default function AiSearchStatistics2026Page() {
         <SectionHeader
           label="Citations"
           title="Which sources AI engines actually quote"
-          subtitle="Aggregate share of source domains cited across Perplexity, ChatGPT Search, and Google AI Overviews. Livesov panel, Q1 2026."
+          subtitle="Aggregate share of source domains cited across Perplexity, ChatGPT Search, and Google AI Overviews. Q1 2026."
         />
         <ComparisonTable headers={sourcesQuoted[0] as string[]} rows={sourcesQuoted.slice(1)} highlightColumn={1} />
       </Section>
@@ -366,17 +355,16 @@ export default function AiSearchStatistics2026Page() {
         <LongForm>
           <h2>Methodology</h2>
           <p>
-            The statistics on this page combine three data sources. First, public disclosures from
+            The statistics on this page combine two data sources. First, public disclosures from
             OpenAI, Anthropic, Google, Perplexity, and xAI - earnings calls, official blogs,
             investor updates, and developer announcements through Q1 2026. Second, third-party
             measurement: Ahrefs (SERP studies), Similarweb (traffic), Sparktoro (search behavior),
             Gartner (enterprise adoption), and the Reuters Institute Digital News Report.
           </p>
           <p>
-            Third, Livesov’s own tracked-brand panel - 1,200+ brands across SaaS, e-commerce,
-            healthcare, finance, legal, and travel, with continuous mention-rate, citation-share,
-            and sentiment measurement across ChatGPT, Claude, Gemini, Perplexity, and Grok. Panel
-            data is normalised against query category and refreshed daily.
+            Livesov scan data is not used for any figure on this page. The answers Livesov
+            collects for customers measure the prompts and brands those customers chose, not a
+            representative sample, so we do not publish them as market statistics.
           </p>
           <p>
             Where ranges exist, we publish the midpoint. Where a number is an estimate (e.g. Grok
@@ -391,11 +379,11 @@ export default function AiSearchStatistics2026Page() {
               Livesov AI Search Statistics 2026
             </a>
             . If you cite us in a study, send a note to{' '}
-            <a href="mailto:hello@livesov.com">hello@livesov.com</a> and we will add your work to
+            <EmailOff><a href="mailto:hello@livesov.com">hello@livesov.com</a></EmailOff> and we will add your work to
             our references list on the next refresh.
           </p>
           <p>
-            If you want to see where <em>your</em> brand sits in this dataset - your share of
+            If you want to see where <em>your</em> brand sits - your share of
             voice across the five major LLMs, where your competitors are pulling ahead, and which
             prompts are quietly mediating revenue - that is what{' '}
             <a href="/">Livesov</a> measures. <a href="/pricing">Start free</a>, no credit card.
@@ -405,7 +393,7 @@ export default function AiSearchStatistics2026Page() {
 
       <FaqSection
         title="AI search statistics FAQ"
-        subtitle="Sourcing, republishing, and how the panel is built."
+        subtitle="Sourcing, republishing, and how often the figures are refreshed."
         items={faqs}
       />
 

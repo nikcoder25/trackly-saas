@@ -5,7 +5,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ memb
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
   const { memberId } = await params;
-  const { role } = await request.json();
+  if (!/^\d+$/.test(memberId)) return Response.json({ error: 'Member not found' }, { status: 404 });
+  const { role } = (await request.json().catch(() => null)) || {};
   const validRoles = ['viewer', 'editor'];
   if (!validRoles.includes(role)) return Response.json({ error: 'Invalid role' }, { status: 400 });
 
@@ -18,6 +19,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ m
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
   const { memberId } = await params;
+  if (!/^\d+$/.test(memberId)) return Response.json({ error: 'Member not found' }, { status: 404 });
 
   const result = await pool.query('DELETE FROM team_members WHERE id = $1 AND owner_id = $2 RETURNING id', [memberId, user.id]);
   if (!result.rows.length) return Response.json({ error: 'Member not found' }, { status: 404 });

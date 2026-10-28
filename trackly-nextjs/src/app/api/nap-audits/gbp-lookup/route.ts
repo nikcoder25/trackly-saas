@@ -18,6 +18,7 @@
  */
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
+import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 import type { CanonicalNap } from '@/lib/nap-verify';
 
@@ -267,6 +268,13 @@ async function callPlaces(query: string, apiKey: string): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   const auth = await requireVerifiedAuth(request, pool);
   if (auth instanceof Response) return auth;
+
+  // Each lookup spends a paid Google Places call, so cap per-user/IP.
+  const rl = await checkUserIpRateLimit('nap_audit_gbp_lookup', auth.id, getClientIp(request), {
+    user: { max: 30, windowMs: 60 * 60 * 1000 },
+    ip: { max: 60, windowMs: 60 * 60 * 1000 },
+  });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const apiKey = process.env.GOOGLE_PLACES_API_KEY?.trim();
   if (!apiKey) {

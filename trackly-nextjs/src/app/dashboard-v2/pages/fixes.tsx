@@ -9,12 +9,13 @@
 import * as React from 'react';
 import { useBrandData } from '@/hooks/useBrandData';
 import { buildEdgeWorkerScript } from '@/lib/fix-engine/edge-worker';
+import { CONNECTOR_PLUGIN_VERSION, isConnectorOutdated } from '@/lib/connector-version';
 
 // ── types mirrored from the API ──
 interface CatalogItem {
   key: string; title: string; description: string;
   channel: 'A' | 'B'; trigger: string; minPlan: string; phase: number; available: boolean;
-  cost: number; revertable: boolean; impact?: 1 | 2 | 3;
+  cost: number; revertable: boolean; impact?: 1 | 2 | 3; diagnostic?: boolean;
 }
 interface FixEvent { id: string; event: string; detail: any; userId: string | null; createdAt: string }
 interface FixRow {
@@ -27,8 +28,32 @@ interface FixRow {
   shipMode?: 'live' | 'draft'; previewUrl?: string | null;
   shipResult?: { op?: string } | null;
   pageImpressions?: number;
+  /** Learned ranking multiplier from measured outcomes (1 = neutral). */
+  learnedWeight?: number;
+  /** Evidence pool behind learnedWeight: brand | industry | global | none. */
+  learnedBasis?: string;
+  learnedSamples?: number;
   gscBefore?: { ctr?: number; impressions?: number } | null;
   gscAfter?: { ctr?: number; impressions?: number; unavailable?: boolean } | null;
+  /** Set when the user explicitly moved this live fix to the Archive tab. */
+  archivedAt?: string | null;
+  /** Last live-page verification. See LiveCheck / live-check.ts. */
+  liveCheck?: LiveCheck | null;
+  /** When your site's Connector actually applied a Channel-B fix. Null = queued. */
+  connectorDeliveredAt?: string | null;
+}
+
+/** One thing we looked for on the live page, and whether it was there. */
+interface LiveCheckItem { label: string; kind: string; expected: string; found: boolean; actual: string | null; url?: string }
+interface LiveCheck {
+  state: 'confirmed' | 'partial' | 'missing' | 'unreachable' | 'not_applicable' | 'unsupported';
+  checkedAt: string;
+  url: string | null;
+  source: 'html' | 'rendered' | null;
+  status: number | null;
+  cache?: { age: string | null; cacheControl: string | null; cacheStatus: string | null } | null;
+  checks: LiveCheckItem[];
+  note: string;
 }
 interface PreviewBlock { kind: string; label: string; before?: string; after?: string; addNote?: string; language?: string }
 // Result of creating a targeted passage rewrite, returned to the
@@ -184,33 +209,49 @@ const MX_CSS = `
    edge — including action buttons. Elements that intentionally scroll (the
    worker script block) opt out with an inline white-space + overflow. */
 .mx pre { min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }
-.mx .nb, .mx .nb-sm { max-width: 100%; }
+.mx .nb, .mx .nb-sm { max-width: 100%; min-width: 0; }
+/* Responsive safety net: the page must never scroll horizontally. Chips keep
+   their one-line look but clip instead of inflating their row; the page
+   clips any residual overflow (cards already keep their own shadows inside
+   the 1080px column). */
+.mx { min-width: 0; overflow-x: clip; }
+.mx .chip { max-width: 100%; overflow: hidden; }
 `;
 
 // ── status / severity / grouping helpers ──
-function statusMeta(s: string): { label: string; color: string; bg: string } {
+/**
+ * `diagnostic` relabels the shipped state. A diagnostic module writes
+ * nothing to the site by design, so "SHIPPED" tells the user their page
+ * changed when it did not - and they then go looking for a change that was
+ * never made. Same colour, honest word.
+ */
+function statusMeta(s: string, diagnostic = false, queuedOnConnector = false): { label: string; color: string; bg: string } {
   const m: Record<string, { label: string; color: string; bg: string }> = {
-    detected: { label: 'DETECTED', color: 'var(--text-3)', bg: 'var(--surface-2)' },
-    generating: { label: 'GENERATING', color: 'var(--primary)', bg: 'var(--primary-50)' },
-    generated: { label: 'IN REVIEW', color: 'var(--primary)', bg: 'var(--primary-50)' },
-    preview_ready: { label: 'IN REVIEW', color: 'var(--primary)', bg: 'var(--primary-50)' },
-    approved: { label: 'APPROVED', color: 'var(--info)', bg: 'var(--info-50)' },
-    shipping: { label: 'SHIPPING', color: 'var(--info)', bg: 'var(--info-50)' },
-    staged: { label: 'STAGED DRAFT', color: 'var(--info)', bg: 'var(--info-50)' },
-    shipped: { label: 'SHIPPED', color: 'var(--success)', bg: 'var(--success-50)' },
-    verified: { label: 'VERIFIED', color: 'var(--success)', bg: 'var(--success-50)' },
-    failed: { label: 'ATTENTION', color: 'var(--danger)', bg: 'var(--danger-50)' },
-    reverted: { label: 'REVERTED', color: 'var(--warn)', bg: 'var(--warn-50)' },
-    dismissed: { label: 'IGNORED', color: 'var(--text-3)', bg: 'var(--surface-2)' },
+    detected: { label: 'Detected', color: 'var(--text-3)', bg: 'var(--surface-2)' },
+    generating: { label: 'Generating', color: 'var(--primary)', bg: 'var(--primary-50)' },
+    generated: { label: 'In review', color: 'var(--primary)', bg: 'var(--primary-50)' },
+    preview_ready: { label: 'In review', color: 'var(--primary)', bg: 'var(--primary-50)' },
+    approved: { label: 'Approved', color: 'var(--info)', bg: 'var(--info-50)' },
+    shipping: { label: 'Shipping', color: 'var(--info)', bg: 'var(--info-50)' },
+    staged: { label: 'Staged draft', color: 'var(--info)', bg: 'var(--info-50)' },
+    shipped: queuedOnConnector
+      ? { label: 'Queued', color: 'var(--info)', bg: 'var(--info-50)' }
+      : { label: diagnostic ? 'DIAGNOSED' : 'SHIPPED', color: 'var(--success)', bg: 'var(--success-50)' },
+    verified: queuedOnConnector
+      ? { label: 'Queued', color: 'var(--info)', bg: 'var(--info-50)' }
+      : { label: diagnostic ? 'DIAGNOSED' : 'VERIFIED', color: 'var(--success)', bg: 'var(--success-50)' },
+    failed: { label: 'Attention', color: 'var(--danger)', bg: 'var(--danger-50)' },
+    reverted: { label: 'Reverted', color: 'var(--warn)', bg: 'var(--warn-50)' },
+    dismissed: { label: 'Ignored', color: 'var(--text-3)', bg: 'var(--surface-2)' },
   };
   return m[s] || m.detected;
 }
 function sevMeta(s: string): { label: string; glyph: string; color: string; bg: string } {
   const m: Record<string, { label: string; glyph: string; color: string; bg: string }> = {
-    critical: { label: 'CRITICAL', glyph: '✕', color: 'var(--danger)', bg: 'var(--danger-50)' },
-    high: { label: 'HIGH', glyph: '▲', color: 'var(--warn)', bg: 'var(--warn-50)' },
-    medium: { label: 'MEDIUM', glyph: '●', color: 'var(--info)', bg: 'var(--info-50)' },
-    low: { label: 'LOW', glyph: '▽', color: 'var(--text-3)', bg: 'var(--surface-2)' },
+    critical: { label: 'Critical', glyph: '✕', color: 'var(--danger)', bg: 'var(--danger-50)' },
+    high: { label: 'High', glyph: '▲', color: 'var(--warn)', bg: 'var(--warn-50)' },
+    medium: { label: 'Medium', glyph: '●', color: 'var(--info)', bg: 'var(--info-50)' },
+    low: { label: 'Low', glyph: '▽', color: 'var(--text-3)', bg: 'var(--surface-2)' },
   };
   return m[s] || m.medium;
 }
@@ -242,8 +283,23 @@ const MODULE_GROUP: Record<string, string> = {
   'striking-distance': 'Technical & rankings', 'ctr-rescue': 'Technical & rankings',
   'indexing-repair': 'Technical & rankings', 'canonical-fix': 'Technical & rankings',
   'noindex-removal': 'Technical & rankings', 'og-cards': 'Technical & rankings',
+  // Diagnostics report findings rather than editing, so they get their own
+  // group instead of sitting among modules that write to the site.
+  'search-decay': 'Diagnose & investigate', 'cannibalization': 'Diagnose & investigate',
+  'content-gap': 'Diagnose & investigate',
 };
-const GROUP_ORDER = ['Structured data & schema', 'AI crawler access', 'Content optimization', 'Authority & citations', 'Accuracy & corrections', 'Technical & rankings', 'Other'];
+const GROUP_ORDER = ['Diagnose & investigate', 'Structured data & schema', 'AI crawler access', 'Content optimization', 'Authority & citations', 'Accuracy & corrections', 'Technical & rankings', 'Other'];
+/**
+ * What /connections/cms/detect returns. `needsConnector` is the one that
+ * changes the advice: it marks a WordPress site whose front end is rendered
+ * by a builder that ignores post_content, so the Application Password route
+ * would write edits nowhere visible.
+ */
+type CmsDetected = {
+  cms: string; confidence: string; hasAdapter: boolean;
+  builder?: string; builderLabel?: string; needsConnector?: boolean;
+};
+
 // Modules whose change can be staged as a Connector draft revision
 // (mirrors the modules that implement contentPatch() server-side).
 const STAGEABLE_MODULES = new Set(['title-rewrite', 'meta-rewrite', 'geo-page-rewrite', 'faq-schema', 'canonical-fix', 'passage-rewrite', 'citable-passages', 'content-freshness', 'keyword-opportunities']);
@@ -298,7 +354,7 @@ function SectionHeader({ title, open, onToggle, right, dark, bg }: {
 }) {
   const fg = dark ? 'var(--bg)' : '#fff';
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: bg || 'var(--text)', color: fg, flexWrap: 'wrap', gap: 10 }}>
+    <div className="mx-sec-h" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: bg || 'var(--text)', color: fg, flexWrap: 'wrap', gap: 10 }}>
       <button
         onClick={onToggle}
         aria-expanded={open}
@@ -327,7 +383,7 @@ export function PageFixes() {
   const [health, setHealth] = React.useState<{ score: number; openIssues: number } | null>(null);
   const [activity, setActivity] = React.useState<{ id: string; event: string; detail: any; createdAt: string }[]>([]);
   const [wizSite, setWizSite] = React.useState('');
-  const [wizDetected, setWizDetected] = React.useState<{ cms: string; confidence: string; hasAdapter: boolean } | null>(null);
+  const [wizDetected, setWizDetected] = React.useState<CmsDetected | null>(null);
   const [wizBusy, setWizBusy] = React.useState(false);
   const [wizDismissed, setWizDismissed] = React.useState(false);
   // Lets the wizard (or the "connect this way" hints) open the Connections
@@ -345,6 +401,9 @@ export function PageFixes() {
   // collapsed. Jumping to a filter (e.g. the banner's "View") has to expand
   // the section AND scroll it into view, or nothing appears to happen.
   const fixesRef = React.useRef<HTMLDivElement | null>(null);
+  // Guards the long-running poll loop from calling setState after unmount.
+  const mountedRef = React.useRef(true);
+  React.useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
   const jumpToFilter = React.useCallback((key: string) => {
     setFilter(key);
     setFixesOpen(true);
@@ -464,6 +523,17 @@ export function PageFixes() {
   const jiraConn = connections.find((c) => c.provider === 'jira' && c.status === 'active');
   const kweConn = connections.find((c) => c.provider === 'kwe' && c.status === 'active');
   const canShip = !!cmsConn || !!connectorConn;
+  // Diagnostic modules (search-decay, cannibalization, content-gap) report
+  // findings and write nothing to the site, so the CMS/Connector gate does
+  // not apply to them and "ship" means "accept this finding".
+  const isDiagnosticModule = React.useCallback(
+    (moduleKey: string) => !!catalog.find((c) => c.key === moduleKey)?.diagnostic,
+    [catalog],
+  );
+  const canShipFix = React.useCallback(
+    (f: FixRow) => canShip || isDiagnosticModule(f.moduleKey),
+    [canShip, isDiagnosticModule],
+  );
   const hasConnector = !!connectorConn;
   const hasTracker = !!linearConn || !!jiraConn || !!sheetConn;
 
@@ -471,8 +541,10 @@ export function PageFixes() {
   const pollBatch = React.useCallback(async (id: string, batchId: string) => {
     for (let i = 0; i < 60; i++) {
       await new Promise((r) => setTimeout(r, 2000));
+      if (!mountedRef.current) return; // component unmounted — stop polling
       try {
         const d = await api(`/api/brands/${id}/fixes/batches/${batchId}`);
+        if (!mountedRef.current) return;
         const b = d.batch;
         setScanProgress({ received: b.received ?? 0, status: b.status });
         setToast(`Scanning… ${b.received} found (${b.status})`);
@@ -517,7 +589,24 @@ export function PageFixes() {
       if (d.fix) setFixes((rows) => rows.map((r) => (r.id === fixId ? { ...r, ...d.fix } : r)));
       if (action === 'generate') { await loadPreview(fixId); flash('Fix ready to review'); }
       if (action === 'approve') flash('Approved — ready to ship');
-      if (action === 'ship') { if (d.ok === false) setError(d.error || 'Ship failed'); else flash('Shipped to live site'); }
+      if (action === 'ship') {
+        // Report what the row actually says, not what was hoped for. The
+        // ship route returns 200 with the fix even when the write failed,
+        // so the old `d.ok === false` check never fired and a failed ship
+        // still flashed "Shipped to live site" while the card went red.
+        const shipped = d.fix as FixRow | undefined;
+        if (!shipped || shipped.status === 'failed') {
+          setError(shipped?.error || d.error || 'The change could not be written to your site.');
+        } else if (shipped.status === 'approved') {
+          setError('Nothing was shipped — the fix is still waiting. Reload and try again.');
+        } else if (isDiagnosticModule(shipped.moduleKey)) {
+          flash('Finding accepted — nothing was written to your site');
+        } else if (shipped.channel === 'B' && !shipped.connectorDeliveredAt) {
+          flash('Queued — your site’s Connector applies it within a few minutes');
+        } else {
+          flash('Shipped to live site — it stays in this list until you archive it');
+        }
+      }
       if (action === 'stage') { if (d.ok === false) setError(d.error || 'Staging failed'); else flash('Staged as a draft — the Connector will create a preview shortly'); }
       if (action === 'publish') flash('Publishing the staged draft…');
       if (action === 'recheck') flash('Re-check complete');
@@ -527,7 +616,10 @@ export function PageFixes() {
     } catch (e) { setError((e as Error).message); } finally { setBusy((b) => ({ ...b, [fixId]: false })); }
   };
   const shipConfirm = async (fixId: string) => {
-    if (!canShip) { flash('Connect a CMS or the Connector first'); return; }
+    const target = fixes.find((f) => f.id === fixId);
+    if (!canShip && !(target && isDiagnosticModule(target.moduleKey))) {
+      flash('Connect a CMS or the Connector first'); return;
+    }
     setArmed((a) => ({ ...a, [fixId]: false }));
     await act(fixId, 'ship');
   };
@@ -642,9 +734,9 @@ export function PageFixes() {
     await load(brandId);
     flash(`Applied ${ok} fix${ok === 1 ? '' : 'es'}${fail ? ` · ${fail} need attention` : ''}`);
   };
-  const toggleAutofix = async () => {
-    const next = !automation?.autopilotShipDeterministic;
-    await saveAutomation({ autopilotShipDeterministic: next, ...(next && !automation?.scanEnabled ? { scanEnabled: true } : {}) });
+  const toggleAutoStage = async () => {
+    const next = !automation?.autopilotStage;
+    await saveAutomation({ autopilotStage: next, ...(next && !automation?.scanEnabled ? { scanEnabled: true } : {}) });
   };
 
   // ── Publish everything live in one click ─────────────────────────
@@ -717,16 +809,54 @@ export function PageFixes() {
     try { await api(`/api/brands/${brandId}/fixes/notify`, { method: 'POST' }); flash('Summary sent to webhook'); }
     catch (e) { setError((e as Error).message); }
   };
-  // Inline draft editing: merge an edited text field into the draft, then
-  // refresh the card + preview (server re-applies brand rules).
-  const editDraft = async (fixId: string, field: string, value: string) => {
+  // Inline draft editing: merge edited text fields into the draft, then
+  // refresh the card + preview (server re-applies brand rules). Takes a
+  // patch rather than one field because picking a CTR option swaps the
+  // title and the meta description together, and two PATCHes would leave
+  // the draft briefly holding one option's title with another's meta.
+  const editDraft = async (fixId: string, patch: Record<string, string>) => {
     if (!brandId) return;
     setBusy((b) => ({ ...b, [fixId]: true }));
     try {
-      const d = await api(`/api/brands/${brandId}/fixes/${fixId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ generated: { [field]: value } }) });
+      const d = await api(`/api/brands/${brandId}/fixes/${fixId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ generated: patch }) });
       if (d.fix) setFixes((rows) => rows.map((r) => (r.id === fixId ? { ...r, ...d.fix } : r)));
       await loadPreview(fixId);
       flash('Draft updated');
+    } catch (e) { setError((e as Error).message); } finally { setBusy((b) => ({ ...b, [fixId]: false })); }
+  };
+
+  // Run the module a diagnosis recommends, on the page it diagnosed. This is
+  // what turns "your page decayed because of X" into an actual change - the
+  // recommendation used to be text with nowhere to go.
+  const runRecommended = async (moduleKey: string, url: string | null) => {
+    if (!brandId) return;
+    setFixesOpen(true);
+    setToast(`Creating the ${moduleKey.replace(/-/g, ' ')} fix…`);
+    try {
+      const d = await api(`/api/brands/${brandId}/fixes/targeted`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ moduleKey, url: url ?? '' }),
+      });
+      await load(brandId);
+      flash('Created — generate the draft to see the change before it ships');
+      requestAnimationFrame(() => fixesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    } catch (e) { setError((e as Error).message); }
+  };
+
+  // Fetch the live page and confirm the shipped value is really on it.
+  // Separate from recheck: recheck runs the module's own success measure
+  // (for the GSC modules, a metric that takes weeks), this answers "did the
+  // publish land" right now.
+  const verifyLive = async (fixId: string) => {
+    if (!brandId) return;
+    setBusy((b) => ({ ...b, [fixId]: true }));
+    try {
+      const d = await api(`/api/brands/${brandId}/fixes/${fixId}/verify`, { method: 'POST' });
+      if (d.fix) setFixes((rows) => rows.map((r) => (r.id === fixId ? { ...r, ...d.fix } : r)));
+      const st = d.fix?.liveCheck?.state;
+      flash(st === 'confirmed' ? 'Confirmed on your live page'
+        : st === 'missing' ? 'Not found on your live page — see the details on the card'
+        : 'Checked your live page');
     } catch (e) { setError((e as Error).message); } finally { setBusy((b) => ({ ...b, [fixId]: false })); }
   };
 
@@ -754,6 +884,18 @@ export function PageFixes() {
       if (d.fix) setFixes((rows) => rows.map((r) => (r.id === fixId ? { ...r, ...d.fix } : r)));
       flash('Saved');
     } catch (e) { setError((e as Error).message); }
+  };
+
+  // Explicit archive/unarchive: shipping keeps a fix in the main list; only
+  // this action moves it to (or back out of) the Archive tab.
+  const archiveFix = async (fixId: string, archived: boolean) => {
+    if (!brandId) return;
+    setBusy((b) => ({ ...b, [fixId]: true }));
+    try {
+      const d = await api(`/api/brands/${brandId}/fixes/${fixId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archived }) });
+      if (d.fix) setFixes((rows) => rows.map((r) => (r.id === fixId ? { ...r, ...d.fix } : r)));
+      flash(archived ? 'Moved to Archive' : 'Restored from Archive — back in the main list');
+    } catch (e) { setError((e as Error).message); } finally { setBusy((b) => ({ ...b, [fixId]: false })); }
   };
 
   const toggleModule = (k: string) => setSelected((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
@@ -793,7 +935,7 @@ export function PageFixes() {
     try { await api(`/api/brands/${brandId}/connections`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'cms', cmsType, siteUrl, creds }) }); flash(`${cmsType} connected`); await load(brandId); }
     catch (e) { setError((e as Error).message); }
   };
-  const detectCms = async (site: string): Promise<{ cms: string; confidence: string; hasAdapter: boolean } | null> => {
+  const detectCms = async (site: string): Promise<CmsDetected | null> => {
     if (!brandId || !site) return null;
     try { const d = await api(`/api/brands/${brandId}/connections/cms/detect?site=${encodeURIComponent(site)}`); return d.detection; }
     catch { return null; }
@@ -861,6 +1003,8 @@ export function PageFixes() {
 
   // ── derived ──
   const counts = React.useMemo(() => { const c: Record<string, number> = {}; for (const f of fixes) c[bucketOf(f.status)] = (c[bucketOf(f.status)] || 0) + 1; return c; }, [fixes]);
+  // A live fix only leaves the main list when the user explicitly archives it.
+  const archivedCount = React.useMemo(() => fixes.filter((f) => bucketOf(f.status) === 'shipped' && f.archivedAt).length, [fixes]);
   const sevCount = React.useMemo(() => { const c: Record<string, number> = {}; for (const f of fixes) c[f.severity] = (c[f.severity] || 0) + 1; return c; }, [fixes]);
   const statusCount = React.useMemo(() => { const c: Record<string, number> = {}; for (const f of fixes) c[f.status] = (c[f.status] || 0) + 1; return c; }, [fixes]);
   const moduleMeta = React.useCallback((k: string) => catalog.find((c) => c.key === k), [catalog]);
@@ -868,17 +1012,25 @@ export function PageFixes() {
   const scanCost = React.useMemo(() => catalog.filter((c) => selected.has(c.key)).reduce((s, c) => s + (c.cost || 0), 0), [catalog, selected]);
 
   const shown = React.useMemo(() => {
-    // 'all' is the to-do view: it hides ignored fixes (Ignored tab) AND already
-    // published ones (shipped/verified → the Archive tab), so the main list
-    // shows only what still needs you — detect, review, approve, attention.
+    // 'all' is the to-do view: it hides ignored fixes (Ignored tab) and
+    // explicitly ARCHIVED ones (Archive tab). A freshly shipped fix stays
+    // right here, marked live, until the user clicks Archive on it.
     let list = filter === 'all'
-      ? fixes.filter((f) => f.status !== 'dismissed' && bucketOf(f.status) !== 'shipped')
-      : fixes.filter((f) => bucketOf(f.status) === filter);
+      ? fixes.filter((f) => f.status !== 'dismissed' && !(bucketOf(f.status) === 'shipped' && f.archivedAt))
+      : filter === 'shipped'
+        ? fixes.filter((f) => bucketOf(f.status) === 'shipped' && !!f.archivedAt)
+        : fixes.filter((f) => bucketOf(f.status) === filter);
     if (quickWins) list = list.filter((f) => (moduleMeta(f.moduleKey)?.cost ?? 1) === 0 || f.severity === 'critical' || f.severity === 'high');
     // Rank by severity, then by estimated value: module impact weighted by
     // the target page's real 28-day GSC impressions (log-scaled so a huge
-    // page doesn't drown everything). Falls back to impact alone.
-    const value = (f: FixRow) => (moduleMeta(f.moduleKey)?.impact ?? 2) * Math.log10((f.pageImpressions ?? 0) + 10);
+    // page doesn't drown everything), then by what this module has actually
+    // achieved once shipped. The learned term is 1 until there is enough
+    // measured history to say anything, and is capped at ±50% — enough to
+    // reorder a list, never enough to bury something the customer asked for.
+    const value = (f: FixRow) =>
+      (moduleMeta(f.moduleKey)?.impact ?? 2)
+      * Math.log10((f.pageImpressions ?? 0) + 10)
+      * (f.learnedWeight ?? 1);
     return [...list].sort((a, b) => {
       const sev = (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9);
       if (sev !== 0) return sev;
@@ -902,14 +1054,14 @@ export function PageFixes() {
   const Style = <style>{MX_CSS}</style>;
   const wrap = (children: React.ReactNode) => (
     <div className="mx" style={{ fontFamily: "'Inter',sans-serif" }}>{Style}
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '6px 0 90px', display: 'flex', flexDirection: 'column', gap: 28 }}>{children}</div>
+      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '6px 0 90px', display: 'flex', flexDirection: 'column', gap: 28, minWidth: 0, width: '100%', boxSizing: 'border-box' }}>{children}</div>
     </div>
   );
 
-  if (brandLoading) return wrap(<div className="nb disp" style={{ padding: 48, textAlign: 'center', fontWeight: 700, color: 'var(--text-2)' }}>LOADING…</div>);
+  if (brandLoading) return wrap(<div className="nb disp" style={{ padding: 48, textAlign: 'center', fontWeight: 700, color: 'var(--text-2)' }}>Loading…</div>);
   if (!brandId) return wrap(
     <div className="nb" style={{ padding: 64, textAlign: 'center' }}>
-      <div className="disp" style={{ fontSize: 30, fontWeight: 700, color: 'var(--text)' }}>PICK A BRAND ☝</div>
+      <div className="disp" style={{ fontSize: 30, fontWeight: 700, color: 'var(--text)' }}>Pick a brand ☝</div>
       <p style={{ margin: '12px auto 0', fontSize: 14, color: 'var(--text-2)', maxWidth: '42ch', lineHeight: 1.6, fontWeight: 500 }}>Fixes are scoped to a brand&apos;s site, CMS &amp; tracked answers.</p>
     </div>,
   );
@@ -920,7 +1072,7 @@ export function PageFixes() {
     { value: String(counts.detected || 0), label: 'Detected', bg: 'var(--primary-50)', fg: 'var(--primary)' },
     { value: String(counts.review || 0), label: 'In review', bg: 'var(--primary-50)', fg: 'var(--primary)' },
     { value: String(counts.approved || 0), label: 'Approved', bg: 'var(--info-50)', fg: 'var(--info)' },
-    { value: String(counts.shipped || 0), label: 'Archived', bg: 'var(--success-50)', fg: 'var(--success)' },
+    { value: String(archivedCount), label: 'Archived', bg: 'var(--success-50)', fg: 'var(--success)' },
     { value: String(counts.attention || 0), label: 'Attention', bg: 'var(--danger-50)', fg: 'var(--danger)' },
   ];
   const pipeline = [
@@ -932,15 +1084,16 @@ export function PageFixes() {
     { n: '6', label: 're-check', color: 'var(--info)', bg: 'var(--info-50)' },
   ];
   const filterDefs = [
-    // ALL is the to-do count: total minus what's been archived (published) or ignored.
-    { key: 'all', label: 'ALL', count: fixes.length - (counts.dismissed || 0) - (counts.shipped || 0) },
-    { key: 'detected', label: 'DETECTED', count: counts.detected || 0 },
-    { key: 'review', label: 'REVIEW', count: counts.review || 0 },
-    { key: 'approved', label: 'APPROVED', count: counts.approved || 0 },
-    { key: 'attention', label: 'ATTENTION', count: counts.attention || 0 },
-    // Published fixes live here, out of the main to-do — still re-checkable/undoable.
-    { key: 'shipped', label: 'ARCHIVE', count: counts.shipped || 0 },
-    ...((counts.dismissed || 0) > 0 ? [{ key: 'dismissed', label: 'IGNORED', count: counts.dismissed || 0 }] : []),
+    // ALL is the to-do + live view: total minus what's been explicitly
+    // archived or ignored. Shipped fixes stay here until archived.
+    { key: 'all', label: 'All', count: fixes.length - (counts.dismissed || 0) - archivedCount },
+    { key: 'detected', label: 'Detected', count: counts.detected || 0 },
+    { key: 'review', label: 'Review', count: counts.review || 0 },
+    { key: 'approved', label: 'Approved', count: counts.approved || 0 },
+    { key: 'attention', label: 'Attention', count: counts.attention || 0 },
+    // Only fixes the user explicitly archived land here — still re-checkable/undoable.
+    { key: 'shipped', label: 'Archive', count: archivedCount },
+    ...((counts.dismissed || 0) > 0 ? [{ key: 'dismissed', label: 'Ignored', count: counts.dismissed || 0 }] : []),
   ];
 
   return wrap(<>
@@ -950,17 +1103,17 @@ export function PageFixes() {
       <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, flexWrap: 'wrap' }}>
         <div style={{ maxWidth: '32ch' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span className="chip" style={{ background: 'var(--primary)', color: '#fff' }}>⚡ FIX ENGINE</span>
+            <span className="chip" style={{ background: 'var(--primary)', color: '#fff' }}>⚡ Fix engine</span>
             <span className="chip">v2</span>
           </div>
-          <h1 className="disp" style={{ margin: '16px 0 0', fontSize: 42, lineHeight: 0.98, fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--text)' }}>FIND IT.<br />FIX IT.<br /><span style={{ color: 'var(--primary)', WebkitTextStroke: '1.5px var(--ink)' }}>SHIP IT.</span></h1>
+          <h1 className="disp" style={{ margin: '16px 0 0', fontSize: 42, lineHeight: 0.98, fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--text)' }}>Find it.<br />Fix it.<br /><span style={{ color: 'var(--primary)', WebkitTextStroke: '1.5px var(--ink)' }}>Ship it.</span></h1>
           <p style={{ margin: '16px 0 0', fontSize: 14, lineHeight: 1.6, color: 'var(--text-2)', fontWeight: 500 }}>What&apos;s hurting <b style={{ color: 'var(--text)' }}>{brandName}</b> in AI answers — detected, drafted and shipped on your say-so.</p>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-end' }}>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="gbtn" onClick={() => load(brandId)} disabled={loading}>↻ Refresh</button>
             <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0}>
-              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />SCANNING…</> : '▶ RUN SCAN'}
+              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />Scanning…</> : '▶ RUN SCAN'}
             </button>
           </div>
           {scanning && <div style={{ width: 320, maxWidth: '100%' }}><ScanBanner progress={scanProgress} /></div>}
@@ -979,7 +1132,7 @@ export function PageFixes() {
 
     {!enabled && (
       <div className="nb" style={{ padding: 24, background: 'var(--warn-50)', borderColor: 'var(--warn)', boxShadow: '5px 5px 0 var(--warn)' }}>
-        <div className="disp" style={{ fontSize: 18, fontWeight: 700, color: 'var(--warn)' }}>UPGRADE REQUIRED</div>
+        <div className="disp" style={{ fontSize: 18, fontWeight: 700, color: 'var(--warn)' }}>Upgrade required</div>
         <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>The Fix Engine is available on Starter plans and above{plan ? ` (your plan: ${plan})` : ''}.</p>
       </div>
     )}
@@ -1010,7 +1163,7 @@ export function PageFixes() {
     {enabled && !wizDismissed && !cmsConn && !gscConn && !connectorConn && (
       <section className="nb" style={{ padding: 0, overflow: 'hidden', boxShadow: '6px 6px 0 var(--primary)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 22px', background: 'var(--primary)', color: '#fff' }}>
-          <div className="disp" style={{ fontSize: 17, fontWeight: 700 }}>GET STARTED — 3 STEPS</div>
+          <div className="disp" style={{ fontSize: 17, fontWeight: 700 }}>Get started — 3 steps</div>
           <button className="tbtn" onClick={() => setWizDismissed(true)} style={{ color: '#fff', textDecorationColor: '#fff' }}>Dismiss</button>
         </div>
         <div style={{ padding: '18px 22px', display: 'grid', gap: 16 }}>
@@ -1021,33 +1174,47 @@ export function PageFixes() {
           </div>
           {(() => {
             // What did detection find, and where should we steer them?
-            //   wordpress          → one-click WP (no plugin)
+            //   wordpress + builder   → the Connector plugin (see below)
+            //   wordpress             → one-click WP (no plugin)
             //   shopify/ghost/webflow → open Connections with that platform
-            //   anything else / unknown → custom-coded endpoint path
+            //   anything else/unknown → custom-coded endpoint path
             const d = wizDetected;
             const isWp = d?.cms === 'wordpress';
+            // The one-click route authenticates with an Application Password
+            // and edits through the REST API — which means it edits
+            // post_content. Elementor, Beaver Builder, Bricks and Oxygen
+            // render from their own storage and never read that field, so
+            // sending those sites down this path produces fixes that report
+            // success and change nothing on the page. Steer them to the
+            // plugin, which writes to the builder's own data.
+            const needsPlugin = isWp && !!d?.needsConnector;
+            const builderName = d?.builderLabel || d?.builder || 'a page builder';
             const adapterPlatform = d && d.hasAdapter && d.cms !== 'wordpress' && d.cms !== 'unknown' ? d.cms : null;
             const isCustom = !!d && !isWp && !adapterPlatform;
             const site = wizSite || (brand as any)?.website || '';
             return (<>
               {d && (
-                <span className="nb-sm" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)', padding: '9px 13px', boxShadow: 'none', background: isWp ? 'var(--success-50)' : 'var(--warn-50)', borderColor: isWp ? 'var(--success)' : 'var(--warn)', marginLeft: 46, display: 'block' }}>
-                  {isWp ? '✓ Detected WordPress — use the one-click connect below.'
+                <span className="nb-sm" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)', padding: '9px 13px', boxShadow: 'none', background: needsPlugin ? 'var(--warn-50)' : isWp ? 'var(--success-50)' : 'var(--warn-50)', borderColor: needsPlugin ? 'var(--warn)' : isWp ? 'var(--success)' : 'var(--warn)', marginLeft: 46, display: 'block' }}>
+                  {needsPlugin ? `✓ Detected WordPress + ${builderName}. This site needs the Connector plugin — ${builderName} renders its own content, so the one-click route would save edits where the page never reads them.`
+                    : isWp ? `✓ Detected WordPress${d.builderLabel ? ` + ${d.builderLabel}` : ''} — use the one-click connect below.`
                     : adapterPlatform ? `✓ Detected ${adapterPlatform}. Click “Connect ${adapterPlatform}” below to enter your API token.`
                     : `This looks like a custom-coded site (no CMS we recognize). No problem — connect it with a small endpoint your developer drops in once. Click “Connect custom-coded site” below.`}
                 </span>
               )}
               <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                 <span className="disp nb-sm" style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, background: 'var(--surface-2)', flexShrink: 0 }}>2</span>
-                {isCustom ? (
-                  <button className="xbtn" onClick={() => { setWizSite(site); requestConnect('custom'); }} style={{ background: 'var(--warn)' }}>CONNECT CUSTOM-CODED SITE →</button>
+                {needsPlugin ? (
+                  <a className="xbtn" href="/integrations/wordpress" target="_blank" rel="noopener" style={{ background: 'var(--primary)', textDecoration: 'none', display: 'inline-block' }}>Get the connector plugin →</a>
+                ) : isCustom ? (
+                  <button className="xbtn" onClick={() => { setWizSite(site); requestConnect('custom'); }} style={{ background: 'var(--warn)' }}>Connect custom-coded site →</button>
                 ) : adapterPlatform ? (
                   <button className="xbtn" onClick={() => { setWizSite(site); requestConnect(adapterPlatform); }} style={{ background: 'var(--primary)' }}>CONNECT {adapterPlatform.toUpperCase()} →</button>
                 ) : (
-                  <button className="xbtn" onClick={() => connectWp(site)} disabled={!site} style={{ background: 'var(--primary)' }}>CONNECT WORDPRESS — ONE CLICK →</button>
+                  <button className="xbtn" onClick={() => connectWp(site)} disabled={!site} style={{ background: 'var(--primary)' }}>Connect wordpress — one click →</button>
                 )}
                 <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>
-                  {isCustom ? 'Any stack (React, Next.js, PHP, Django…). Ticket hand-off & scan work with zero setup too.'
+                  {needsPlugin ? 'Install it once, then Connect with Livesov from WordPress — it writes into your builder’s own content.'
+                    : isCustom ? 'Any stack (React, Next.js, PHP, Django…). Ticket hand-off & scan work with zero setup too.'
                     : 'No plugin. Not WordPress? Hit Detect platform, or use Connections below.'}
                 </span>
               </div>
@@ -1056,7 +1223,7 @@ export function PageFixes() {
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <span className="disp nb-sm" style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, background: 'var(--surface-2)', flexShrink: 0 }}>3</span>
             <button className="xbtn" onClick={runScan} disabled={scanning || selected.size === 0} style={{ background: 'var(--text)' }}>
-              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />SCANNING…</> : '▶ RUN YOUR FIRST SCAN'}
+              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />Scanning…</> : '▶ RUN YOUR FIRST SCAN'}
             </button>
             <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Scans {selected.size} checks against your site — you can do this before connecting.</span>
           </div>
@@ -1068,18 +1235,24 @@ export function PageFixes() {
     {/* KPI TILES */}
     <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 14 }}>
       {kpis.map((k) => (
-        <div key={k.label} className="nb-sm" style={{ padding: 16, background: k.bg }}>
+        <div key={k.label} className="nb-sm mx-kpi" style={{ padding: 16, background: k.bg }}>
           <div className="disp" style={{ fontSize: 32, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1, color: k.fg }}>{k.value}</div>
           <div className="xlbl" style={{ marginTop: 10, color: 'var(--text-2)' }}>{k.label}</div>
         </div>
       ))}
     </section>
 
+    {/* ASK FOR A FIX — the free-text agent, full-width and front-and-centre
+        so it's never buried in a side column. */}
+    <AssistantSection disabled={!enabled} onAsk={askAssistant} onWholeSite={runModuleScan} scanning={scanning} />
+
     {/* CONNECTIONS */}
     <ConnectionsSection
       cms={!!cmsConn} cmsMeta={cmsConn ? `${cmsConn.cmsType} · ${cmsConn.siteUrl}` : 'Required to ship on-site fixes'}
       gsc={!!gscConn} gscSite={gscConn?.siteUrl ?? null}
-      connector={!!connectorConn} connectorLastSeen={connectorConn?.lastSeenAt ?? null} pairing={pairing}
+      connector={!!connectorConn} connectorLastSeen={connectorConn?.lastSeenAt ?? null}
+      connectorVersion={typeof connectorConn?.meta?.pluginVersion === 'string' ? connectorConn.meta.pluginVersion : null}
+      pairing={pairing}
       supportedCms={supportedCms} defaultSite={(brand as any)?.website || ''} disabled={!enabled}
       linear={!!linearConn} jira={!!jiraConn} sheet={!!sheetConn} kwe={!!kweConn} onConnectTracker={connectTracker} onConnectKwe={connectKwe}
       sheetUrl={(sheetConn?.meta as { spreadsheetUrl?: string } | undefined)?.spreadsheetUrl ?? null}
@@ -1094,11 +1267,10 @@ export function PageFixes() {
     {/* AUTOMATION */}
     <AutomationSection automation={automation} activity={activity} canShip={canShip} disabled={!enabled} onSave={saveAutomation} />
 
-    {/* MODULES + PASSAGE */}
-    <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 18, alignItems: 'start' }}>
-      <section className="nb" style={{ padding: 0, overflow: 'hidden' }}>
+    {/* MODULES */}
+    <section className="nb" style={{ padding: 0, overflow: 'hidden' }}>
         <SectionHeader
-          title="SCAN MODULES" dark open={modulesOpen} onToggle={() => setModulesOpen((o) => !o)}
+          title="Scan modules" dark open={modulesOpen} onToggle={() => setModulesOpen((o) => !o)}
           right={<>
             <span className="chip" style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--bg)' }}>{selected.size} SELECTED</span>
             <button className="tbtn" onClick={toggleSelectAll} style={{ color: 'var(--bg)', textDecorationColor: 'var(--bg)' }}>{allSelected ? 'Clear all' : 'Select all'}</button>
@@ -1128,7 +1300,7 @@ export function PageFixes() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, flexWrap: 'wrap', gap: 10 }}>
             <span className="xlbl" style={{ color: 'var(--text-2)' }}>{selected.size}/{catalog.length || 19} selected · est {scanCost} credits</span>
             <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0}>
-              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />SCANNING…</> : '▶ RUN ON SELECTION'}
+              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />Scanning…</> : '▶ RUN ON SELECTION'}
             </button>
           </div>
           {scanning && <div style={{ marginTop: 12 }}><ScanBanner progress={scanProgress} /></div>}
@@ -1136,15 +1308,12 @@ export function PageFixes() {
         )}
       </section>
 
-      <AssistantSection disabled={!enabled} onAsk={askAssistant} onWholeSite={runModuleScan} scanning={scanning} />
-    </div>
-
     {/* FIXES */}
     <section ref={fixesRef} style={{ scrollMarginTop: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginBottom: 12 }}>
         <button onClick={() => setFixesOpen((o) => !o)} aria-expanded={fixesOpen} title={fixesOpen ? 'Hide the fixes' : 'Show the fixes'} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'none', border: 'none', cursor: 'pointer', padding: 0, margin: 0, color: 'var(--text)' }}>
           <span className="disp" aria-hidden style={{ fontSize: 22, fontWeight: 700, display: 'inline-block', transition: 'transform .15s', transform: fixesOpen ? 'none' : 'rotate(-90deg)' }}>▾</span>
-          <h2 className="disp" style={{ margin: 0, fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>THE FIXES</h2>
+          <h2 className="disp" style={{ margin: 0, fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>The fixes</h2>
         </button>
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', alignItems: 'center' }}>
           {filterDefs.map((d) => {
@@ -1155,17 +1324,17 @@ export function PageFixes() {
       </div>
       {fixesOpen && (<>
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 9, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
-        <button className="chip" onClick={() => { setOpenCards(new Set(shown.map((f) => f.id))); setExpandedGroups(new Set(shown.map((f) => f.moduleKey))); }} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>▾ EXPAND ALL</button>
-        <button className="chip" onClick={() => { setOpenCards(new Set()); setExpandedGroups(new Set()); }} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>▴ COLLAPSE ALL</button>
+        <button className="chip" onClick={() => { setOpenCards(new Set(shown.map((f) => f.id))); setExpandedGroups(new Set(shown.map((f) => f.moduleKey))); }} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>▾ Expand all</button>
+        <button className="chip" onClick={() => { setOpenCards(new Set()); setExpandedGroups(new Set()); }} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>▴ Collapse all</button>
         {shown.length > 0 && (() => {
           const allPicked = shown.every((f) => picked.has(f.id));
           return <button className="chip" onClick={() => setPicked(allPicked ? new Set() : new Set(shown.map((f) => f.id)))} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: allPicked ? 'var(--primary-50)' : 'var(--surface)', color: allPicked ? 'var(--primary)' : 'var(--text-2)', borderColor: allPicked ? 'var(--primary)' : 'var(--ink)' }}>{allPicked ? '☑ SELECT NONE' : `☐ SELECT ALL · ${shown.length}`}</button>;
         })()}
-        <button className="chip" onClick={() => setQuickWins((q) => !q)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: quickWins ? 'var(--success-50)' : 'var(--surface)', color: quickWins ? 'var(--success)' : 'var(--text-2)', borderColor: quickWins ? 'var(--success)' : 'var(--ink)' }}>⚡ QUICK WINS</button>
-        <button className="chip" onClick={() => setGroupByPage((g) => !g)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: groupByPage ? 'var(--text)' : 'var(--surface)', color: groupByPage ? 'var(--bg)' : 'var(--text-2)' }}>▦ BY PAGE</button>
-        <button className="chip" onClick={exportCsv} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>⤓ EXPORT CSV</button>
-        <button className="chip" onClick={pdfReport} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>📄 PDF REPORT</button>
-        <button className="chip" onClick={notify} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>🔔 NOTIFY</button>
+        <button className="chip" onClick={() => setQuickWins((q) => !q)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: quickWins ? 'var(--success-50)' : 'var(--surface)', color: quickWins ? 'var(--success)' : 'var(--text-2)', borderColor: quickWins ? 'var(--success)' : 'var(--ink)' }}>⚡ Quick wins</button>
+        <button className="chip" onClick={() => setGroupByPage((g) => !g)} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px', background: groupByPage ? 'var(--text)' : 'var(--surface)', color: groupByPage ? 'var(--bg)' : 'var(--text-2)' }}>▦ By page</button>
+        <button className="chip" onClick={exportCsv} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>⤓ Export CSV</button>
+        <button className="chip" onClick={pdfReport} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>📄 PDF report</button>
+        <button className="chip" onClick={notify} style={{ cursor: 'pointer', fontSize: 11, padding: '6px 12px' }}>🔔 Notify</button>
       </div>
 
       {/* Ignored tab — one-click "Restore all" (and "Restore selected" when a
@@ -1222,11 +1391,11 @@ export function PageFixes() {
           <span className="disp" style={{ fontSize: 20 }}>✨</span>
           <div style={{ flex: 1, minWidth: 180 }}>
             <div className="disp" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{safeFixes.length > 0 ? `${safeFixes.length} safe fix${safeFixes.length === 1 ? '' : 'es'} ready` : 'No safe fixes pending'}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Deterministic, no-AI technical fixes (canonical, AI-crawler access, accidental-noindex) — safe, standard SEO best practices, applied in one click.</div>
+            <div style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Deterministic, no-AI technical fixes (canonical, AI-crawler access, accidental-noindex) — safe, standard SEO best practices. Reviewed and applied by you, in one click.</div>
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: 'var(--text-2)', cursor: 'pointer' }}>
-            <input type="checkbox" checked={!!automation?.autopilotShipDeterministic} onChange={toggleAutofix} disabled={!canShip} style={{ accentColor: 'var(--success)', width: 15, height: 15 }} />
-            Autofix on
+            <input type="checkbox" checked={!!automation?.autopilotStage} onChange={toggleAutoStage} disabled={!canShip} style={{ accentColor: 'var(--success)', width: 15, height: 15 }} />
+            Auto-prepare
           </label>
           <button className="xbtn" onClick={applyAllSafe} disabled={bulkBusy || safeFixes.length === 0 || !canShip} style={{ background: 'var(--success)' }}>{bulkBusy ? 'APPLYING…' : `APPLY ${safeFixes.length} SAFE FIX${safeFixes.length === 1 ? '' : 'ES'}`}</button>
         </div>
@@ -1246,7 +1415,7 @@ export function PageFixes() {
       {enabled && !canShip && (
         <div className="nb-sm" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', marginBottom: 16, background: 'var(--warn-50)', borderColor: 'var(--warn)', boxShadow: '4px 4px 0 var(--warn)' }}>
           <span className="disp" style={{ fontSize: 22 }}>⚠</span>
-          <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Connect a CMS or the Connector to <b className="disp">SHIP</b> — detect, generate &amp; preview all work without it.</span>
+          <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Connect a CMS or the Connector to <b className="disp">Ship</b> — detect, generate &amp; preview all work without it.</span>
         </div>
       )}
 
@@ -1291,7 +1460,7 @@ export function PageFixes() {
           // To-do list is clear but published fixes are parked in the Archive —
           // celebrate the clean queue and point to where the done work lives.
           <div className="nb" style={{ padding: 56, textAlign: 'center', background: 'var(--success-50)' }}>
-            <div className="disp" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>ALL CAUGHT UP ✓</div>
+            <div className="disp" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>All caught up ✓</div>
             <p style={{ margin: '12px auto 22px', fontSize: 14, color: 'var(--text-2)', maxWidth: '46ch', lineHeight: 1.6, fontWeight: 500 }}>
               Nothing needs you right now. {counts.shipped} published fix{counts.shipped === 1 ? '' : 'es'} {counts.shipped === 1 ? 'is' : 'are'} in the Archive — re-check or undo any of them there. Run a fresh scan to look for more.
             </p>
@@ -1303,10 +1472,10 @@ export function PageFixes() {
           </div>
         ) : (
           <div className="nb" style={{ padding: 56, textAlign: 'center', background: 'var(--primary-50)' }}>
-            <div className="disp" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>NOTHING TO FIX… YET</div>
+            <div className="disp" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>Nothing to fix… yet</div>
             <p style={{ margin: '12px auto 22px', fontSize: 14, color: 'var(--text-2)', maxWidth: '44ch', lineHeight: 1.6, fontWeight: 500 }}>Run a scan to check {brandName} against {selected.size} modules, ranked by severity.</p>
             <button className="xbtn" onClick={runScan} disabled={scanning || !enabled || selected.size === 0} style={{ margin: '0 auto' }}>
-              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />SCANNING…</> : '▶ RUN SCAN'}
+              {scanning ? <><span className="spin" style={{ marginRight: 7 }} />Scanning…</> : '▶ RUN SCAN'}
             </button>
             {scanning && <div style={{ maxWidth: 420, margin: '16px auto 0', textAlign: 'left' }}><ScanBanner progress={scanProgress} /></div>}
           </div>
@@ -1320,7 +1489,8 @@ export function PageFixes() {
             open={openCards.has(f.id)}
             onToggleOpen={() => setOpenCards((s) => { const n = new Set(s); if (n.has(f.id)) n.delete(f.id); else n.add(f.id); return n; })}
             cost={moduleMeta(f.moduleKey)?.cost ?? 1} revertable={!!moduleMeta(f.moduleKey)?.revertable} impact={moduleMeta(f.moduleKey)?.impact ?? 2}
-            events={events[f.id]} busy={!!busy[f.id]} armed={!!armed[f.id]} canShip={canShip}
+            events={events[f.id]} busy={!!busy[f.id]} armed={!!armed[f.id]} canShip={canShipFix(f)}
+            diagnostic={isDiagnosticModule(f.moduleKey)}
             picked={picked.has(f.id)} onTogglePick={() => togglePick(f.id)}
             onGenerate={() => act(f.id, 'generate')} onApprove={() => act(f.id, 'approve')}
             onArm={() => setArmed((a) => ({ ...a, [f.id]: true }))} onCancelArm={() => setArmed((a) => ({ ...a, [f.id]: false }))}
@@ -1332,8 +1502,12 @@ export function PageFixes() {
             onStage={() => act(f.id, 'stage')} onPublish={() => act(f.id, 'publish')} onTicket={() => act(f.id, 'ticket')}
             onRequestReview={() => act(f.id, 'request-review')}
             onDismiss={() => dismissFix(f.id)} onRestore={() => dismissFix(f.id, true)}
+            onArchive={(archived) => archiveFix(f.id, archived)}
             editableField={EDITABLE_FIELD[f.moduleKey]}
-            onEditDraft={(field, value) => editDraft(f.id, field, value)}
+            onEditDraft={(patch) => editDraft(f.id, patch)}
+            onVerifyLive={() => verifyLive(f.id)}
+            onRunRecommended={(moduleKey) => runRecommended(moduleKey, f.targetUrl)}
+            onRunScan={runModuleScan}
             downloadHref={f.channel === 'B' ? `/api/brands/${brandId}/fixes/${f.id}/file` : undefined}
           />
         );
@@ -1388,8 +1562,9 @@ export function PageFixes() {
 }
 
 // ── Connections ──
-function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, pairing, supportedCms, defaultSite, disabled, linear, jira, sheet, kwe, sheetUrl, onConnectTracker, onConnectKwe, onConnectCms, onConnectWp, onConnectCmsGeneric, onDetectCms, onDeployCloudflare, onConnectGsc, onCreateSheet, onPairConnector, onRevokeConnector, onCopy, openRequest }: {
+function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLastSeen, connectorVersion, pairing, supportedCms, defaultSite, disabled, linear, jira, sheet, kwe, sheetUrl, onConnectTracker, onConnectKwe, onConnectCms, onConnectWp, onConnectCmsGeneric, onDetectCms, onDeployCloudflare, onConnectGsc, onCreateSheet, onPairConnector, onRevokeConnector, onCopy, openRequest }: {
   cms: boolean; cmsMeta: string; gsc: boolean; gscSite: string | null; connector: boolean; connectorLastSeen: string | null;
+  connectorVersion: string | null;
   pairing: { token: string; hmacSecret: string; pullUrl: string } | null;
   supportedCms: string[]; defaultSite: string; disabled: boolean;
   linear: boolean; jira: boolean; sheet: boolean; kwe: boolean; sheetUrl: string | null;
@@ -1398,7 +1573,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
   onConnectCms: (f: { cmsType: string; siteUrl: string; username: string; appPassword: string }) => void;
   onConnectWp: (site: string) => void;
   onConnectCmsGeneric: (cmsType: string, siteUrl: string, creds: Record<string, string>) => void;
-  onDetectCms: (site: string) => Promise<{ cms: string; confidence: string; hasAdapter: boolean } | null>;
+  onDetectCms: (site: string) => Promise<CmsDetected | null>;
   onDeployCloudflare: (apiToken: string) => Promise<void> | void;
   onConnectGsc: () => void; onCreateSheet: () => void; onPairConnector: () => void; onRevokeConnector: () => void; onCopy: (label: string) => void;
   openRequest?: { platform: string; nonce: number } | null;
@@ -1415,7 +1590,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
   const [appPassword, setAppPassword] = React.useState('');
   const [cc, setCc] = React.useState<Record<string, string>>({}); // generic CMS creds
   const ccSet = (k: string, v: string) => setCc((p) => ({ ...p, [k]: v }));
-  const [detected, setDetected] = React.useState<{ cms: string; confidence: string; hasAdapter: boolean } | null>(null);
+  const [detected, setDetected] = React.useState<CmsDetected | null>(null);
   const [detecting, setDetecting] = React.useState(false);
   const runDetect = async () => { if (!siteUrl) return; setDetecting(true); const d = await onDetectCms(siteUrl); setDetected(d); if (d?.hasAdapter && d.cms !== 'unknown') setCmsType(d.cms); else if (d && (d.cms === 'unknown' || !d.hasAdapter)) setCmsType('custom'); setDetecting(false); };
   const [tracker, setTracker] = React.useState<'' | 'linear' | 'jira' | 'sheet'>('');
@@ -1448,7 +1623,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
     </div>
   );
   const okChip = (label: string) => <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)' }}>● {label}</span>;
-  const offChip = <span className="chip" style={{ color: 'var(--text-3)' }}>○ NOT CONNECTED</span>;
+  const offChip = <span className="chip" style={{ color: 'var(--text-3)' }}>○ Not connected</span>;
 
   return (
     <section id="fix-connections" className="nb" style={{ padding: 0, overflow: 'hidden' }}>
@@ -1456,11 +1631,12 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
         onClick={() => setCollapsed((c) => !c)}
         aria-expanded={!collapsed}
         title={collapsed ? 'Show connections' : 'Hide connections'}
+        className="mx-sec-h"
         style={{ width: '100%', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '16px 22px', background: 'var(--text)', color: 'var(--bg)', fontFamily: 'inherit' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span className="disp" aria-hidden style={{ fontSize: 15, fontWeight: 700, transition: 'transform .15s', transform: collapsed ? 'rotate(-90deg)' : 'none' }}>▾</span>
-          <span className="disp" style={{ fontSize: 18, fontWeight: 700 }}>CONNECTIONS</span>
+          <span className="disp" style={{ fontSize: 18, fontWeight: 700 }}>Connections</span>
         </div>
         <span className="chip" style={{ background: 'var(--bg)', color: 'var(--text)' }}>{connectedCount} OF 3{collapsed ? ' · SHOW' : ''}</span>
       </button>
@@ -1493,18 +1669,18 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
             {/* WordPress: one-click (no plugin) + manual app password */}
             {cmsType === 'wordpress' && (<>
               <div style={{ display: 'grid', gap: 8 }}>
-                <button className="xbtn" onClick={() => onConnectWp(siteUrl)} disabled={!siteUrl} style={{ background: 'var(--primary)', justifySelf: 'start' }}>CONNECT WORDPRESS — ONE CLICK →</button>
+                <button className="xbtn" onClick={() => onConnectWp(siteUrl)} disabled={!siteUrl} style={{ background: 'var(--primary)', justifySelf: 'start' }}>Connect wordpress — one click →</button>
                 <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Approve once in your WP admin (Application Passwords — built into WP, no plugin). You&apos;ll come straight back, connected.</span>
               </div>
               <div style={{ borderTop: '2px dashed var(--line-2)', paddingTop: 14, display: 'grid', gap: 12 }}>
                 <div className="disp" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)' }}>Or enter an Application Password manually</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
                   <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>WP username</div><input className="xin" value={username} onChange={(e) => setUsername(e.target.value)} /></div>
                   <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Application password</div><input className="xin" type="password" value={appPassword} onChange={(e) => setAppPassword(e.target.value)} placeholder="xxxx xxxx xxxx" /></div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
                   <button className="gbtn" onClick={() => setShowForm(false)}>Cancel</button>
-                  <button className="xbtn" onClick={() => onConnectCms({ cmsType, siteUrl, username, appPassword })} disabled={!siteUrl || !username || !appPassword}>CONNECT WP</button>
+                  <button className="xbtn" onClick={() => onConnectCms({ cmsType, siteUrl, username, appPassword })} disabled={!siteUrl || !username || !appPassword}>Connect WP</button>
                 </div>
               </div>
             </>)}
@@ -1526,13 +1702,13 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                   {cmsType === 'custom' && (<>
                     {/* Which path is fastest — two clear choices, ranked by effort. */}
                     <div className="nb-sm" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--success-50)', borderColor: 'var(--success)', display: 'grid', gap: 5 }}>
-                      <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--success)' }}>⚡ FASTEST — NO CODE, START NOW</div>
+                      <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--success)' }}>⚡ Fastest — no code, start now</div>
                       <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text)', fontWeight: 500 }}>
                         You can skip this form entirely. <b>Run a scan</b> to see every fix, then hand them to your team as a to-do list via <b>Spreadsheet</b>, <b>Linear</b> or <b>Jira</b> (rows below). Nothing to install.
                       </span>
                     </div>
                     <div className="nb-sm" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', display: 'grid', gap: 9 }}>
-                      <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--info)' }}>🔧 FULL AUTOPILOT — ONE-TIME ~10-MIN DEV SETUP</div>
+                      <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--info)' }}>🔧 Full autopilot — one-time ~10-min dev setup</div>
                       <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text)', fontWeight: 500 }}>Want fixes applied to your live site automatically? Your developer adds one small endpoint, <b>once</b> — then every approved fix ships itself. Three steps:</span>
                       <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.75, color: 'var(--text)', fontWeight: 500, display: 'grid', gap: 2 }}>
                         <li><b>Copy</b> a template below → send it to your developer to add to the site.</li>
@@ -1548,13 +1724,13 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                   </>)}
                   {cmsType === 'edge' && (<>
                     <div className="nb-sm" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--success-50)', borderColor: 'var(--success)', display: 'grid', gap: 9 }}>
-                      <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--success)' }}>⚡ ONE-CLICK DEPLOY — NOTHING INSTALLED ON YOUR SITE, ANY STACK</div>
+                      <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--success)' }}>⚡ One-click deploy — nothing installed on your site, any stack</div>
                       <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text)', fontWeight: 500 }}>
                         Paste a Cloudflare API token <b>once</b> and Livesov does everything itself: uploads the Worker, routes it to this domain, verifies it&apos;s live, and activates the connection. Every website you add after this connects <b>automatically within minutes</b> — no clicks, no setup, nothing to visit; the saved token is reused behind the scenes.
                       </span>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                         <input className="xin" style={{ flex: 1, minWidth: 220 }} type="password" placeholder="Cloudflare API token (blank = reuse saved token)" value={cc.cfToken || ''} onChange={(e) => ccSet('cfToken', e.target.value)} />
-                        <button className="xbtn" onClick={() => onDeployCloudflare(cc.cfToken || '')} disabled={disabled || !siteUrl.trim()} style={{ whiteSpace: 'nowrap' }}>DEPLOY AUTOMATICALLY</button>
+                        <button className="xbtn" onClick={() => onDeployCloudflare(cc.cfToken || '')} disabled={disabled || !siteUrl.trim()} style={{ whiteSpace: 'nowrap' }}>Deploy automatically</button>
                       </div>
                       <span style={{ fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>Token scopes: Account → Workers Scripts: Edit · Zone → Workers Routes: Edit · Zone → Zone: Read. Stored encrypted; create it at Cloudflare → My Profile → API Tokens.</span>
                     </div>
@@ -1580,7 +1756,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
                             <button className="gbtn" type="button" onClick={() => copy(cc[f.k] || '', 'Shared secret')} disabled={!(cc[f.k] || '').trim()} title="Copy secret to clipboard" aria-label="Copy secret to clipboard" style={{ padding: '9px 13px', whiteSpace: 'nowrap', flexShrink: 0 }}>⧉ Copy</button>
                             <button className="gbtn" type="button" onClick={genSecret} title="Generate a secure 48-character secret" style={{ padding: '9px 13px', whiteSpace: 'nowrap', flexShrink: 0 }}>⚄ Generate</button>
                           </div>
-                          <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 5, fontWeight: 500 }}>Paste the <b>same</b> secret into your endpoint&rsquo;s <code>LIVESOV_SECRET</code>. Reveal or Copy to grab the exact value.</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 5, fontWeight: 500 }}>Paste the <b>same</b> secret into your endpoint&rsquo;s <code>Livesov_secret</code>. Reveal or Copy to grab the exact value.</div>
                         </>
                       ) : (
                         <input className="xin" type={f.pw ? 'password' : 'text'} value={cc[f.k] || ''} placeholder={f.ph} onChange={(e) => ccSet(f.k, e.target.value)} />
@@ -1621,15 +1797,27 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               if (!connectorLastSeen) return 'Paired · waiting for the plugin’s first poll (within 5 min)…';
               const online = Date.now() - Date.parse(connectorLastSeen) <= 12 * 60_000;
               const mins = Math.max(0, Math.round((Date.now() - Date.parse(connectorLastSeen)) / 60_000));
-              return online ? `● Online · last polled ${mins}m ago` : `○ Offline · last seen ${mins}m ago (check the plugin)`;
+              const ver = connectorVersion ? ` · plugin v${connectorVersion}` : '';
+              return online ? `● Online · last polled ${mins}m ago${ver}` : `○ Offline · last seen ${mins}m ago (check the plugin)${ver}`;
             })()}
           </div>
+          {/* The plugin ships as a zip, so an old install never hears about a
+              new version on its own — this row is where the user finds out.
+              Only warn on a version the plugin actually reported; null just
+              means no poll has landed since version recording shipped. */}
+          {connector && connectorVersion && isConnectorOutdated(connectorVersion) && (
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--warn)', marginTop: 4 }}>
+              ⚠ Plugin v{connectorVersion} is outdated — current is v{CONNECTOR_PLUGIN_VERSION}. Update it from
+              wp-admin (Plugins → Update) or re-upload the{' '}
+              <a href="/integrations/wordpress" target="_blank" rel="noopener" style={{ color: 'var(--warn)' }}>latest zip</a>.
+            </div>
+          )}
           </div>
           {connector
             ? (connectorLastSeen && Date.now() - Date.parse(connectorLastSeen) <= 12 * 60_000
                 ? okChip('ONLINE')
                 : <span className="chip" style={{ background: 'var(--warn-50)', color: 'var(--warn)', borderColor: 'var(--warn)' }}>{connectorLastSeen ? '○ OFFLINE' : '● PAIRED'}</span>)
-            : <span className="chip" style={{ color: 'var(--text-3)' }}>○ NOT PAIRED</span>}
+            : <span className="chip" style={{ color: 'var(--text-3)' }}>○ Not paired</span>}
           <button className="gbtn" onClick={() => { onPairConnector(); setReveal(true); }} disabled={disabled} style={{ padding: '7px 13px', fontSize: 12 }}>{connector ? 'Re-pair' : 'Pair'}</button>
           {connector && <button className="tbtn" onClick={onRevokeConnector} disabled={disabled} style={{ color: 'var(--danger)', textDecorationColor: 'var(--danger)' }}>Revoke</button>}
         </div>
@@ -1677,7 +1865,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Personal API key from Linear → Settings → API. Verified, then encrypted.</span>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="gbtn" onClick={() => setTracker('')}>Cancel</button>
-                <button className="xbtn" onClick={() => onConnectTracker('linear', tk)} disabled={!tk.apiKey || !tk.teamId}>CONNECT LINEAR</button>
+                <button className="xbtn" onClick={() => onConnectTracker('linear', tk)} disabled={!tk.apiKey || !tk.teamId}>Connect linear</button>
               </div>
             </div>
           </div>
@@ -1688,12 +1876,12 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
         </Row>
         {tracker === 'jira' && (
           <div className="nb-sm" style={{ padding: 18, margin: '6px 0 14px', background: 'var(--surface-2)', display: 'grid', gap: 14 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
               <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Account email</div><input className="xin" placeholder="you@acme.com" onChange={(e) => tkSet('email', e.target.value)} /></div>
               <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Site domain</div><input className="xin" placeholder="acme (→ acme.atlassian.net)" onChange={(e) => tkSet('domain', e.target.value)} /></div>
             </div>
             <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>API token</div><input className="xin" type="password" placeholder="Atlassian API token" onChange={(e) => tkSet('apiToken', e.target.value)} /></div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
               <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Project key</div><input className="xin" placeholder="SEO" onChange={(e) => tkSet('projectKey', e.target.value)} /></div>
               <div><div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Issue type</div><input className="xin" placeholder="Task" onChange={(e) => tkSet('issueType', e.target.value)} /></div>
             </div>
@@ -1701,7 +1889,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>API token from id.atlassian.com → Security. Verified, then encrypted.</span>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="gbtn" onClick={() => setTracker('')}>Cancel</button>
-                <button className="xbtn" onClick={() => onConnectTracker('jira', tk)} disabled={!tk.email || !tk.apiToken || !tk.domain || !tk.projectKey}>CONNECT JIRA</button>
+                <button className="xbtn" onClick={() => onConnectTracker('jira', tk)} disabled={!tk.email || !tk.apiToken || !tk.domain || !tk.projectKey}>Connect jira</button>
               </div>
             </div>
           </div>
@@ -1716,7 +1904,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
           <div className="nb-sm" style={{ padding: 18, margin: '6px 0 14px', background: 'var(--surface-2)', display: 'grid', gap: 14 }}>
             {/* Fastest path: one click — we create the sheet on the user's Drive. */}
             <div className="nb-sm" style={{ padding: '12px 15px', boxShadow: 'none', background: 'var(--success-50)', borderColor: 'var(--success)', display: 'grid', gap: 8 }}>
-              <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--success)' }}>⚡ FASTEST — ONE CLICK, WE CREATE THE SHEET</div>
+              <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--success)' }}>⚡ Fastest — one click, we create the sheet</div>
               <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text)', fontWeight: 500 }}>Connect your Google account and Livesov creates a new spreadsheet for you automatically — handed-off fixes append as rows, no script to paste. We only get access to the one sheet we create.</span>
               <div>
                 <button className="xbtn" onClick={onCreateSheet} disabled={disabled} style={{ background: 'var(--success)' }}>⚡ Create &amp; connect Google Sheet →</button>
@@ -1725,7 +1913,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
             </div>
             <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-2)', letterSpacing: '0.04em', textAlign: 'center' }}>— OR SET UP MANUALLY (NO GOOGLE LOGIN) —</div>
             <div className="nb-sm" style={{ padding: '11px 14px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', display: 'grid', gap: 7 }}>
-              <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--info)' }}>2-MINUTE SETUP, NO API KEY NEEDED</div>
+              <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--info)' }}>2-minute setup, no API key needed</div>
               <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.6, color: 'var(--text)', fontWeight: 500, display: 'grid', gap: 3 }}>
                 <li>Open (or create) your Google Sheet → Extensions → <b>Apps Script</b>.</li>
                 <li>Paste the script (copy below), set the secret inside it, then <b>Deploy → New deployment → Web app</b> — Execute as <b>Me</b>, access <b>Anyone</b>.</li>
@@ -1742,7 +1930,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Verified with a test ping, then encrypted. Each handed-off fix appends one row: date · fix · details · link. Zapier/Make webhooks work too.</span>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="gbtn" onClick={() => setTracker('')}>Cancel</button>
-                <button className="xbtn" onClick={() => onConnectTracker('sheet', tk)} disabled={!(tk.url || '').startsWith('https://') || (tk.secret || '').length < 8}>CONNECT SHEET</button>
+                <button className="xbtn" onClick={() => onConnectTracker('sheet', tk)} disabled={!(tk.url || '').startsWith('https://') || (tk.secret || '').length < 8}>Connect sheet</button>
               </div>
             </div>
           </div>
@@ -1760,7 +1948,7 @@ function ConnectionsSection({ cms, cmsMeta, gsc, gscSite, connector, connectorLa
               <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>From keywordseverywhere.com → API. Verified (uses 1 credit), then encrypted. Volume lookups are cached 7 days to save credits.</span>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="gbtn" onClick={() => setKweOpen(false)}>Cancel</button>
-                <button className="xbtn" onClick={() => { onConnectKwe(kweKey.trim()); setKweOpen(false); }} disabled={!kweKey.trim()}>CONNECT</button>
+                <button className="xbtn" onClick={() => { onConnectKwe(kweKey.trim()); setKweOpen(false); }} disabled={!kweKey.trim()}>Connect</button>
               </div>
             </div>
           </div>
@@ -1785,7 +1973,7 @@ function SeoBrainSection({ brain, disabled, onSave, onReset }: {
   return (
     <section className="nb" style={{ padding: 0, overflow: 'hidden' }}>
       <SectionHeader
-        title="SEO BRAIN" dark open={expanded} onToggle={() => setExpanded((e) => !e)}
+        title="SEO brain" dark open={expanded} onToggle={() => setExpanded((e) => !e)}
         right={<>
           <span className="chip" style={{ background: brain?.isCustom ? 'var(--success-50)' : 'var(--bg)', color: brain?.isCustom ? 'var(--success)' : 'var(--text)', borderColor: brain?.isCustom ? 'var(--success)' : 'var(--bg)' }}>{brain?.isCustom ? 'CUSTOM' : 'DEFAULT'}</span>
           {expanded && <button className="tbtn" onClick={() => setOpen((o) => !o)} disabled={disabled} style={{ color: 'var(--bg)', textDecorationColor: 'var(--bg)' }}>{open ? 'Close' : 'Edit'}</button>}
@@ -1809,7 +1997,7 @@ function SeoBrainSection({ brain, disabled, onSave, onReset }: {
             </div>
             <textarea className="xin" rows={12} value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste your SEO/GEO playbook (Growth Atlas brain, agency methodology, brand voice, linking & citation rules…)" />
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button className="xbtn" onClick={() => onSave(text)} disabled={!text.trim()}>✓ SAVE BRAIN</button>
+              <button className="xbtn" onClick={() => onSave(text)} disabled={!text.trim()}>✓ Save brain</button>
               {brain?.isCustom && <button className="gbtn" onClick={onReset}>Reset to default</button>}
               <span className="xlbl" style={{ color: 'var(--text-2)', marginLeft: 'auto' }}>{text.length}{brain?.maxChars ? ` / ${brain.maxChars}` : ''}</span>
             </div>
@@ -1849,6 +2037,7 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
     rechecked: 'Re-checked', 'rules.applied': 'Guardrails applied', 'regression.detected': 'Regression detected',
     'outcome.measured': 'Outcome measured', 'trigger.new_pages': 'New pages detected', 'approval.requested': 'Review requested',
     'connector.applied': 'Applied by your site', 'connector.stuck': 'Delivery stuck', 'ticket.created': 'Ticket created',
+    live_checked: 'Checked on your live page',
   };
   const a = automation || {};
   const Toggle = ({ on, onClick, children, dim }: { on: boolean; onClick: () => void; children: React.ReactNode; dim?: boolean }) => (
@@ -1858,8 +2047,8 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
   return (
     <section className="nb" style={{ padding: 0, overflow: 'hidden' }}>
       <SectionHeader
-        title="AUTOMATION" dark open={expanded} onToggle={() => setExpanded((e) => !e)}
-        right={a.scanEnabled ? <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)' }}>SCHEDULED</span> : undefined}
+        title="Automation" dark open={expanded} onToggle={() => setExpanded((e) => !e)}
+        right={a.scanEnabled ? <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)' }}>Scheduled</span> : undefined}
       />
       {expanded && (
       <div style={{ padding: '16px 20px', display: 'grid', gap: 14 }}>
@@ -1877,14 +2066,14 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingTop: 12, borderTop: '2px dashed var(--line)' }}>
           <strong className="disp" style={{ fontSize: 14, minWidth: 150 }}>Auto-pilot</strong>
           <Toggle on={!!a.autopilotGenerate} onClick={() => onSave({ autopilotGenerate: !a.autopilotGenerate })} dim={!a.scanEnabled}>Auto-generate</Toggle>
-          <Toggle on={!!a.autopilotShipDeterministic} onClick={() => onSave({ autopilotShipDeterministic: !a.autopilotShipDeterministic })} dim={!a.scanEnabled || !canShip}>Auto-ship safe fixes</Toggle>
+          <Toggle on={!!a.autopilotStage} onClick={() => onSave({ autopilotStage: !a.autopilotStage })} dim={!a.scanEnabled || !canShip}>Auto-prepare previews</Toggle>
           <Toggle on={!!a.measuredRevert} onClick={() => onSave({ measuredRevert: !a.measuredRevert })}>Measured mode</Toggle>
           <span className="quiet" style={{ fontSize: 12, color: 'var(--text-2)', marginLeft: 'auto' }}>
-            After each scheduled scan, draft fixes{a.autopilotShipDeterministic ? ' and auto-ship the deterministic (FREE) ones' : ''}. LLM-written content always waits for your approval.
-            {a.measuredRevert ? ' Measured mode: a title/meta fix whose CTR drops ≥20% over 28 days (300+ impressions both windows) is auto-undone.' : ''}
+            After each scheduled scan, draft fixes{a.autopilotStage ? ' and stage them as previews you can open' : ''}. Nothing is ever published automatically — every live change needs your approval.
+            {a.measuredRevert ? ' Measured mode is the one exception, and it only ever restores: a title/meta fix whose CTR drops ≥20% over 28 days (300+ impressions both windows, adjusted for the site-wide trend) is put back to the previous version.' : ''}
           </span>
         </div>
-        {!canShip && a.autopilotShipDeterministic && <p className="quiet" style={{ margin: 0, fontSize: 11, color: 'var(--warn)' }}>Connect a CMS or the Connector to enable auto-ship.</p>}
+        {!canShip && a.autopilotStage && <p className="quiet" style={{ margin: 0, fontSize: 11, color: 'var(--warn)' }}>Connect the Connector plugin to enable previews.</p>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingTop: 12, borderTop: '2px dashed var(--line)' }}>
           <strong className="disp" style={{ fontSize: 14, minWidth: 150 }}>Digest</strong>
           <Toggle on={!!a.notifyOnScan} onClick={() => onSave({ notifyOnScan: !a.notifyOnScan })} dim={!a.scanEnabled}>Notify me after each scan</Toggle>
@@ -1904,13 +2093,13 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
           </div>
           {showRules && (
             <div className="nb-sm" style={{ padding: 14, background: 'var(--surface-2)', display: 'grid', gap: 12 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 12 }}>
                 <div><div className="xlbl" style={{ marginBottom: 6, color: 'var(--text-2)' }}>Title suffix</div><input className="xin" value={rules.titleSuffix} placeholder="| Acme" onChange={(e) => setRules((r) => ({ ...r, titleSuffix: e.target.value }))} /></div>
                 <div><div className="xlbl" style={{ marginBottom: 6, color: 'var(--text-2)' }}>Title max</div><input className="xin" value={rules.titleMaxLen} placeholder="60" onChange={(e) => setRules((r) => ({ ...r, titleMaxLen: e.target.value.replace(/\D/g, '') }))} /></div>
                 <div><div className="xlbl" style={{ marginBottom: 6, color: 'var(--text-2)' }}>Meta max</div><input className="xin" value={rules.metaMaxLen} placeholder="155" onChange={(e) => setRules((r) => ({ ...r, metaMaxLen: e.target.value.replace(/\D/g, '') }))} /></div>
               </div>
               <div><div className="xlbl" style={{ marginBottom: 6, color: 'var(--text-2)' }}>Banned phrases (comma-separated)</div><input className="xin" value={rules.bannedPhrases} placeholder="world-class, game-changing, revolutionary" onChange={(e) => setRules((r) => ({ ...r, bannedPhrases: e.target.value }))} /></div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}><button className="xbtn" onClick={saveRules} disabled={disabled} style={{ padding: '8px 14px' }}>SAVE RULES</button></div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}><button className="xbtn" onClick={saveRules} disabled={disabled} style={{ padding: '8px 14px' }}>Save rules</button></div>
             </div>
           )}
         </div>
@@ -1938,17 +2127,29 @@ function AutomationSection({ automation, activity, canShip, disabled, onSave }: 
 }
 
 // ── Ask for a fix (free-text agent) ──
-// One box: the user describes anything they want to improve on their site in
-// plain language; the server classifies it into a fix capability, extracts the
-// inputs, and creates + drafts the task — or asks one clarifying question.
+// One box: the user describes anything they want to improve — on one page or
+// the whole site — in plain language; the server classifies it into one of the
+// fix capabilities (every module that can run on demand), extracts the inputs,
+// and creates + drafts the task — or asks one clarifying question.
 // Modules that also run in a scan can then be swept across the whole site.
+// Examples are seeds for the user's own words, so they must stay generic:
+// a product-specific keyword here reads as the app recommending it, and one
+// click + submit would create that exact (irrelevant) fix on their brand.
+// The two open-ended ones deliberately name no keyword/anchor - the
+// assistant asks for it, which is the right outcome for an unedited click.
 const ASSISTANT_EXAMPLES = [
   'Rewrite the title on /pricing to be punchier',
-  'Add internal links from my blog posts to /pricing with the anchor “AI visibility”',
-  'Make /features rank for “ai visibility tracking for agencies”',
+  'Add internal links from my blog posts to my most important page',
+  'Help one of my pages rank higher for a keyword I care about',
   'Write a meta description for my homepage',
   'Add an FAQ section to /pricing',
   'Optimise /product for AI answers',
+  'Add alt text to the images on my homepage',
+  'Add Product schema to /product',
+  'Create a comparison page against my top competitor',
+  'Let AI crawlers like GPTBot access my site',
+  'Create an llms.txt for my site',
+  'ChatGPT says we have no free plan — we do. Fix that.',
 ];
 
 function AssistantSection({ disabled, onAsk, onWholeSite, scanning }: {
@@ -1957,8 +2158,8 @@ function AssistantSection({ disabled, onAsk, onWholeSite, scanning }: {
   onWholeSite: (moduleKey: string) => void;
   scanning: boolean;
 }) {
-  // Collapsed by default so the page opens clean (matches the other sections).
-  const [open, setOpen] = React.useState(false);
+  // Open by default — this is the page's front door, not a settings drawer.
+  const [open, setOpen] = React.useState(true);
   const [request, setRequest] = React.useState('');
   const [url, setUrl] = React.useState('');
   const [phase, setPhase] = React.useState<'idle' | 'working' | 'done' | 'clarify' | 'error'>('idle');
@@ -1987,22 +2188,26 @@ function AssistantSection({ disabled, onAsk, onWholeSite, scanning }: {
   const startAnother = () => { setPhase('idle'); setResult(null); setClarify(null); setErrMsg(null); setRequest(''); };
 
   const spinner = <span aria-hidden style={{ display: 'inline-block', width: 14, height: 14, border: '2.5px solid rgba(255,255,255,.5)', borderTopColor: '#fff', borderRadius: '50%', animation: 'xspin .7s linear infinite' }} />;
-  // Every module except passage-rewrite also runs in a scan → can go site-wide.
-  const canSweep = !!result?.moduleKey && result.moduleKey !== 'passage-rewrite';
+  // Most modules also run in a scan → can go site-wide. Not the ones that are
+  // inherently one-off (a pasted passage) or site-level already (llms.txt,
+  // robots.txt, the site-wide OG head block).
+  const NO_SWEEP = ['passage-rewrite', 'llms-txt', 'robots-ai-access', 'og-cards'];
+  const canSweep = !!result?.moduleKey && !NO_SWEEP.includes(result.moduleKey);
 
   return (
     <section className="nb" style={{ padding: 0, overflow: 'hidden', background: 'var(--info-50)' }}>
-      <SectionHeader title="ASK FOR A FIX — DESCRIBE IT, WE BUILD IT" open={open} onToggle={() => setOpen((o) => !o)} bg="var(--info)" />
+      <SectionHeader title="Ask for a fix — describe it, we build it" open={open} onToggle={() => setOpen((o) => !o)} bg="var(--info)" />
       {open && (
       <div style={{ padding: '18px 20px', display: 'grid', gap: 14 }}>
         <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.55 }}>
-          Tell us what you want to fix or improve — in your own words. We figure out what needs to change, create the task, draft it, and add it to <strong>The Fixes</strong> ready to ship to your site. Titles, meta descriptions, paragraphs, internal links &amp; anchors, keyword targeting, FAQ schema, or optimising a whole page for AI answers.
+          Tell us what you want to fix or improve — in your own words, on one page or across the whole site. We figure out what needs to change, create the task, draft it, and add it to <strong>The Fixes</strong>{' '}ready to ship to your site. Titles, meta descriptions, page content &amp; passages, internal links &amp; anchors, keyword targeting, FAQ &amp; structured-data schema, image alt text, citations, content refreshes, social share cards, comparison pages, llms.txt, robots.txt AI access, noindex removal, or correcting false AI claims about you.
         </p>
 
         <div>
           <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>What do you want to do?</div>
           <textarea className="xin" rows={3} value={request} onChange={(e) => setRequest(e.target.value)}
             onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') run(); }}
+            style={{ width: '100%', boxSizing: 'border-box' }}
             placeholder="e.g. My pricing page title is too long and boring — make it punchy and mention AI visibility." disabled={working} />
         </div>
 
@@ -2011,19 +2216,21 @@ function AssistantSection({ disabled, onAsk, onWholeSite, scanning }: {
           <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
             {ASSISTANT_EXAMPLES.map((ex) => (
               <button key={ex} className="chip" onClick={() => setRequest(ex)} disabled={working}
-                style={{ cursor: 'pointer', fontSize: 11, padding: '5px 10px', color: 'var(--text-2)' }}>{ex}</button>
+                style={{ cursor: 'pointer', fontSize: 11, padding: '5px 10px', color: 'var(--text-2)', maxWidth: '100%', whiteSpace: 'normal', textAlign: 'left' }}>{ex}</button>
             ))}
           </div>
         )}
 
-        <div>
-          <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Which page? <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600, color: 'var(--text-3)' }}>(optional — or just include it above)</span></div>
-          <input className="xin" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://yoursite.com/pricing" disabled={working} />
+        {/* Page URL + go button share a row on wide screens, wrap on narrow. */}
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div style={{ flex: '1 1 280px', minWidth: 0 }}>
+            <div className="xlbl" style={{ marginBottom: 7, color: 'var(--text-2)' }}>Which page? <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600, color: 'var(--text-3)' }}>(optional — or just include it above)</span></div>
+            <input className="xin" value={url} onChange={(e) => setUrl(e.target.value)} style={{ width: '100%', boxSizing: 'border-box' }} placeholder="https://yoursite.com/pricing" disabled={working} />
+          </div>
+          <button className="xbtn" onClick={run} disabled={!!missing || working} style={{ background: 'var(--info)', justifyContent: 'center', flex: '1 1 220px' }}>
+            {working ? <>{spinner} Understanding your request…</> : phase === 'done' ? '✦ Ask for another' : '✦ Do it'}
+          </button>
         </div>
-
-        <button className="xbtn" onClick={run} disabled={!!missing || working} style={{ background: 'var(--info)', justifyContent: 'center' }}>
-          {working ? <>{spinner} Understanding your request…</> : phase === 'done' ? '✦ Ask for another' : '✦ Do it'}
-        </button>
         {!working && missing && <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-2)', textAlign: 'center' }}>{missing}</span>}
         {!working && !missing && phase === 'idle' && <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--text-3)', textAlign: 'center' }}>You’ll see the result here before anything ships — ask for as many as you like.</span>}
 
@@ -2055,11 +2262,11 @@ function AssistantSection({ disabled, onAsk, onWholeSite, scanning }: {
             </div>
             {result.before ? (<>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}>
-                <span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− NOW</span>
+                <span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− Now</span>
                 <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: 'var(--text-2)', textDecoration: 'line-through', textDecorationColor: 'var(--danger-200)', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{result.before}</span>
               </div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--success-50)' }}>
-                <span className="disp" style={{ color: 'var(--success)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ NEW</span>
+                <span className="disp" style={{ color: 'var(--success)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ New</span>
                 <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: 'var(--text)', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{result.after}</span>
               </div>
             </>) : (
@@ -2074,7 +2281,7 @@ function AssistantSection({ disabled, onAsk, onWholeSite, scanning }: {
               </div>
             )}
             <div style={{ padding: '11px 14px', borderTop: '2px solid var(--ink)', background: 'var(--surface)', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 150 }}>Saved to <strong>The Fixes</strong> below — review, then approve &amp; ship.</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 150 }}>Saved to <strong>The Fixes</strong>{' '}below — review, then approve &amp; ship.</span>
               {canSweep && (
                 <button className="gbtn" onClick={() => onWholeSite(result.moduleKey!)} disabled={scanning} style={{ padding: '7px 12px', fontSize: 12 }}>
                   {scanning ? 'Scanning…' : '↻ Do this on every page'}
@@ -2111,7 +2318,7 @@ function GroupCard({ moduleKey, title, fixes, expanded, busy, canShip, onToggle,
           <div className="disp" style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{title} — {fixes.length} pages</div>
           <div style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>{hosts.join(' · ')}{fixes.length > hosts.length ? ' · …' : ''}</div>
         </div>
-        <span className="chip" style={{ fontSize: 10.5 }}>{detected} to draft · {review} in review · {approved} ready · {live} live</span>
+        <span className="chip" style={{ fontSize: 10.5, whiteSpace: 'normal' }}>{detected} to draft · {review} in review · {approved} ready · {live} live</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', flexWrap: 'wrap' }}>
         {detected > 0 && <button className="gbtn" disabled={busy} onClick={() => onBulk('generate')} style={{ padding: '7px 13px', fontSize: 12 }}>✦ Generate all ({detected})</button>}
@@ -2152,13 +2359,13 @@ function BeforeAfter({ before, after, label, addNote }: { before?: string; after
     <div className="nb-sm" style={{ overflow: 'hidden', boxShadow: 'none' }}>
       {label && <div className="xlbl" style={{ color: 'var(--primary)', padding: '10px 14px 4px' }}>{label}</div>}
       <div style={{ ...cell('var(--danger-50)'), borderBottom: '2px solid var(--ink)' }}>
-        <span className="disp" style={tag('var(--danger)')}>− NOW</span>
+        <span className="disp" style={tag('var(--danger)')}>− Now</span>
         {now
           ? <pre className="mono" style={{ ...pre, color: 'var(--text-2)' }}>{now}</pre>
           : <span style={{ ...pre, fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic', fontFamily: "'Space Grotesk'" }}>{addNote || 'Nothing on the page today — this fix adds it.'}</span>}
       </div>
       <div style={cell('var(--success-50)')}>
-        <span className="disp" style={tag('var(--success)')}>+ FIX</span>
+        <span className="disp" style={tag('var(--success)')}>+ Fix</span>
         <pre className="mono" style={{ ...pre, color: 'var(--text)' }}>{after}</pre>
       </div>
     </div>
@@ -2166,16 +2373,310 @@ function BeforeAfter({ before, after, label, addNote }: { before?: string; after
 }
 
 // ── Fix card ──
-function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRegenerate, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, onDismiss, onRestore, editableField, onEditDraft, downloadHref, open, onToggleOpen }: {
+/**
+ * Option picker for the CTR rescue module.
+ *
+ * Renders nothing for every other module, and nothing for an older draft
+ * generated before options existed — a fix already in review must keep
+ * working rather than break on a missing field.
+ */
+/**
+ * The next step after a diagnosis, as a button.
+ *
+ * A diagnostic module ends by naming what should happen next - "this page
+ * decayed because of cannibalisation, run Cannibalisation" - and until now
+ * that was where the product stopped. The recommendation was stored, shown
+ * in the preview note, and the user was left to find the module themselves.
+ * Accepting a finding therefore looked like shipping a fix while changing
+ * nothing, which reads as the tool being broken.
+ *
+ * The wording follows `kind`, and it matters that it is honest:
+ *   fix      - one click and the page changes.
+ *   analysis - the next pass is another diagnostic. It narrows the problem
+ *              down and still publishes nothing, so promising a fix here
+ *              would just move the same disappointment one step along.
+ *   manual   - no module ships it; say so and stop.
+ */
+function NextStepPanel({ fix, diagnostic, busy, onRunTargeted, onRunScan }: {
+  fix: FixRow;
+  diagnostic: boolean;
+  busy: boolean;
+  onRunTargeted: (moduleKey: string) => void;
+  onRunScan: (moduleKey: string) => void;
+}) {
+  const g = (fix.generated ?? null) as {
+    routeTo?: { module?: string | null; label?: string; kind?: string; outcome?: string };
+  } | null;
+  const route = g?.routeTo;
+  if (!diagnostic || !route?.label) return null;
+
+  const kind = route.kind ?? (route.module ? 'fix' : 'manual');
+  const moduleKey = route.module ?? null;
+  // Modules that can be pointed at a single page vs ones that only run as a
+  // site-wide pass. Cannibalisation and Content gap are the latter: deciding
+  // which URL should own a query needs every URL, not just this one.
+  const PAGE_LEVEL = new Set([
+    'content-freshness', 'geo-page-rewrite', 'citable-passages', 'title-rewrite',
+    'meta-rewrite', 'faq-schema', 'schema-markup', 'internal-linking',
+    'external-citations', 'image-alt', 'keyword-opportunities',
+  ]);
+  const canTarget = !!moduleKey && PAGE_LEVEL.has(moduleKey);
+
+  return (
+    <div className="nb-sm" style={{ padding: '12px 14px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', display: 'grid', gap: 9 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span className="xlbl" style={{ color: 'var(--info)' }}>Next step</span>
+        <span className="disp" style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{route.label}</span>
+        {kind === 'analysis' && (
+          <span className="chip" style={{ fontSize: 10.5, padding: '3px 8px', color: 'var(--text-2)' }}>another analysis</span>
+        )}
+      </div>
+
+      {route.outcome && (
+        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-2)', fontWeight: 500 }}>{route.outcome}</div>
+      )}
+
+      {kind === 'manual' ? (
+        <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--text-2)', fontWeight: 500 }}>
+          Nothing to run — this one needs a change to your site’s templates or hosting, which no fix module can make for you.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', alignItems: 'center' }}>
+          {canTarget ? (
+            <button className="xbtn" disabled={busy || !fix.targetUrl} onClick={() => onRunTargeted(moduleKey!)}
+              style={{ background: 'var(--info)', padding: '8px 14px' }}
+              title={fix.targetUrl ? `Create the ${route.label} fix for this page` : 'This finding has no page URL to act on'}>
+              → RUN {route.label.toUpperCase()} ON THIS PAGE
+            </button>
+          ) : (
+            <button className="xbtn" disabled={busy} onClick={() => onRunScan(moduleKey!)}
+              style={{ background: 'var(--info)', padding: '8px 14px' }}
+              title={`${route.label} compares pages across your whole site, so it runs as a scan`}>
+              → RUN {route.label.toUpperCase()}
+            </button>
+          )}
+          <span className="xlbl" style={{ color: 'var(--text-2)' }}>
+            {canTarget ? 'creates a draft you review before it ships'
+              : 'runs across your site — it needs every URL to compare'}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * "Is it actually on my page?" panel for a shipped fix.
+ *
+ * The card's SHIPPED chip only means the write was attempted and the CMS
+ * did not report an error - it is not evidence the value reached the live
+ * page. This panel is that evidence, and it is deliberately reproducible:
+ * it names the URL fetched, the exact strings looked for, and what is on
+ * the page instead, so the user can confirm the same thing by hand in
+ * view-source rather than taking the app's word for it.
+ */
+function LiveCheckPanel({ fix, busy, onVerify }: {
+  fix: FixRow;
+  busy: boolean;
+  onVerify: () => void;
+}) {
+  const lc = fix.liveCheck ?? null;
+  const [showHow, setShowHow] = React.useState(false);
+
+  const TONE: Record<string, { color: string; bg: string; icon: string; title: string }> = {
+    confirmed: { color: 'var(--success)', bg: 'var(--success-50)', icon: '✓', title: 'On your live page' },
+    partial: { color: 'var(--warn)', bg: 'var(--warn-50)', icon: '◐', title: 'Partly live' },
+    missing: { color: 'var(--danger)', bg: 'var(--danger-50)', icon: '✕', title: 'Not found on the page' },
+    unreachable: { color: 'var(--warn)', bg: 'var(--warn-50)', icon: '?', title: 'Could not check' },
+    not_applicable: { color: 'var(--text-2)', bg: 'var(--surface-2)', icon: 'ⓘ', title: 'Nothing was written' },
+    unsupported: { color: 'var(--text-2)', bg: 'var(--surface-2)', icon: 'ⓘ', title: 'Check by hand' },
+  };
+  const tone = lc ? (TONE[lc.state] ?? TONE.unsupported) : null;
+  // A diagnosis has nothing on the page to look for, so offering a re-check
+  // would only invite the user to keep pressing a button that can't change.
+  const canRecheckLive = !lc || (lc.state !== 'not_applicable' && lc.state !== 'unsupported');
+
+  return (
+    <div className="nb-sm" style={{ padding: 0, overflow: 'hidden', boxShadow: 'none', background: tone?.bg ?? 'var(--surface-2)', borderColor: tone?.color ?? 'var(--ink)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', padding: '10px 13px', borderBottom: `2px solid ${tone?.color ?? 'var(--ink)'}` }}>
+        <span className="disp" style={{ fontSize: 14, fontWeight: 700, color: tone?.color ?? 'var(--text-2)' }}>{tone?.icon ?? '⌕'}</span>
+        <span className="xlbl" style={{ color: tone?.color ?? 'var(--text-2)' }}>
+          {tone?.title ?? 'VERIFY ON YOUR PAGE'}
+        </span>
+        {lc && <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500 }}>checked {new Date(lc.checkedAt).toLocaleString()}</span>}
+        <span style={{ flex: 1 }} />
+        {canRecheckLive && (
+          <button className="gbtn" onClick={onVerify} disabled={busy} style={{ padding: '5px 11px', fontSize: 11 }}
+            title="Fetch your live page right now and look for the exact text we shipped">
+            {busy ? 'Checking…' : lc ? '↻ Check again' : '⌕ Check my page'}
+          </button>
+        )}
+      </div>
+
+      <div style={{ padding: '11px 13px', display: 'grid', gap: 10 }}>
+        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--text)', fontWeight: 500 }}>
+          {lc ? lc.note : 'We haven’t checked your live page for this change yet. Check my page fetches it now and looks for the exact text that was shipped.'}
+        </div>
+
+        {/* Found only after JS ran: real, but not the same as being in the
+            HTML, and the difference decides which crawlers ever see it. */}
+        {lc?.source === 'rendered' && (
+          <div style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--text-2)', fontWeight: 500 }}>
+            ⚠ Found only in the rendered page, not the HTML your server sends. Crawlers that don’t run JavaScript (most AI crawlers) will not see it.
+          </div>
+        )}
+
+        {/* The evidence: exactly what we looked for, and what's there now. */}
+        {!!lc?.checks?.length && (
+          <div style={{ display: 'grid', gap: 7 }}>
+            {lc.checks.map((c, i) => (
+              <div key={`${c.label}-${i}`} className="nb-sm" style={{ padding: '8px 10px', boxShadow: 'none', background: 'var(--surface)', display: 'grid', gap: 3 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <span style={{ color: c.found ? 'var(--success)' : 'var(--danger)', fontWeight: 700, fontSize: 12 }}>{c.found ? '✓' : '✕'}</span>
+                  <span className="xlbl" style={{ color: 'var(--text-2)' }}>{c.label}</span>
+                </div>
+                <div className="mono" style={{ fontSize: 11.5, lineHeight: 1.45, color: 'var(--text)', wordBreak: 'break-word' }}>
+                  {c.expected}
+                </div>
+                {!c.found && c.actual && (
+                  <div className="mono" style={{ fontSize: 11, lineHeight: 1.45, color: 'var(--text-3)', wordBreak: 'break-word' }}>
+                    on the page now: {c.actual}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Cache evidence only earns space when it might be the explanation. */}
+        {lc && lc.state === 'missing' && lc.cache && (lc.cache.cacheStatus || lc.cache.age) && (
+          <div style={{ fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>
+            Response came from a cache — {lc.cache.cacheStatus ? `x-cache: ${lc.cache.cacheStatus}` : `age: ${lc.cache.age}s`}. Purge your CDN and check again before assuming the write failed.
+          </div>
+        )}
+
+        {/* Manual verification: the whole point is that they don't have to
+            trust us. Only offered when there is something to go look for. */}
+        {!!lc?.checks?.length && lc.url && (
+          <div>
+            <button className="tbtn" onClick={() => setShowHow((v) => !v)} style={{ fontSize: 11.5, color: 'var(--primary)' }}>
+              {showHow ? 'Hide' : 'How do I check this myself?'}
+            </button>
+            {showHow && (
+              <ol style={{ margin: '8px 0 0', paddingLeft: 20, fontSize: 11.5, lineHeight: 1.7, color: 'var(--text-2)', fontWeight: 500 }}>
+                <li>Open <a href={`view-source:${lc.url}`} onClick={(e) => { e.preventDefault(); navigator.clipboard?.writeText(`view-source:${lc.url}`); }} style={{ color: 'var(--primary)' }}>view-source:{lc.url}</a> in your browser (click to copy — browsers block opening it from a link).</li>
+                <li>Press <strong>Ctrl+F</strong> (⌘F on Mac) and paste the text shown above.</li>
+                <li>Found it? The change is live for every crawler. Not there? It’s in your CMS but not on the served page — check your cache/CDN, or whether the page builder overrides that field.</li>
+                <li>For the title and meta description specifically, Google’s <a href="https://search.google.com/test/rich-results" target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>Rich Results Test</a> shows you the same HTML Google fetches.</li>
+              </ol>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Does the shipping text still correspond to this option?
+ *
+ * Mirrors isSameOption() in the ctr-rescue module, reimplemented here
+ * rather than imported: that module pulls in the crawler, GSC client and
+ * generator, none of which belong in a client bundle. Brand rules rewrite
+ * the shipped title after generation (a suffix, a length cap), so exact
+ * equality would show the picked option as unpicked on any brand that
+ * configures one.
+ */
+function isSameOption(current: string | null | undefined, optionText: string): boolean {
+  const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const a = norm(current ?? '');
+  const b = norm(optionText);
+  if (!a || !b) return false;
+  return a === b || a.startsWith(b) || b.startsWith(a);
+}
+
+function CtrOptionPicker({ fix, busy, onEditDraft }: {
+  fix: FixRow;
+  busy: boolean;
+  onEditDraft: (patch: Record<string, string>) => void;
+}) {
+  const g = (fix.generated ?? null) as {
+    title?: string; description?: string;
+    titleOptions?: { text: string; lever: string; strategy: string }[];
+    descriptionOptions?: { text: string; lever: string; strategy: string }[];
+  } | null;
+  if (fix.moduleKey !== 'ctr-rescue' || !g) return null;
+  const titles = g.titleOptions ?? [];
+  const descriptions = g.descriptionOptions ?? [];
+  if (titles.length < 2 && descriptions.length < 2) return null;
+
+  const row = (
+    label: string,
+    field: 'title' | 'description',
+    options: { text: string; lever: string; strategy: string }[],
+    current?: string,
+  ) => {
+    if (options.length < 2) return null;
+    return (
+      <div style={{ display: 'grid', gap: 7 }}>
+        <div className="xlbl" style={{ color: 'var(--text-2)' }}>{label}</div>
+        {options.map((o) => {
+          const selected = isSameOption(current, o.text);
+          return (
+            <button
+              key={o.text}
+              className="nb-sm"
+              disabled={busy || selected}
+              onClick={() => onEditDraft({ [field]: o.text })}
+              title={selected ? 'This is the version that ships' : `Use this ${field}`}
+              style={{
+                textAlign: 'left', padding: '10px 12px', boxShadow: 'none', cursor: selected ? 'default' : 'pointer',
+                background: selected ? 'var(--success-50)' : 'var(--surface)',
+                borderColor: selected ? 'var(--success)' : 'var(--ink)',
+                display: 'grid', gap: 4,
+              }}
+            >
+              <span style={{ fontSize: 13, lineHeight: 1.45, fontWeight: 600, color: 'var(--text)' }}>
+                {selected ? '✓ ' : ''}{o.text}
+              </span>
+              <span style={{ fontSize: 11.5, lineHeight: 1.45, color: 'var(--text-2)', fontWeight: 500 }}>
+                <b>{o.lever}</b>{o.strategy ? ` — ${o.strategy}` : ''}
+                {' · '}{o.text.length} chars
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <div className="nb-sm" style={{ padding: 14, background: 'var(--surface-2)', display: 'grid', gap: 13 }}>
+      <div className="xlbl" style={{ color: 'var(--primary)' }}>
+        Pick the angle — each option pulls a different lever. Switching is free.
+      </div>
+      {row('TITLE OPTIONS', 'title', titles, g.title)}
+      {row('META DESCRIPTION OPTIONS', 'description', descriptions, g.description)}
+    </div>
+  );
+}
+
+function FixCard({ fix, title, preview, cost, revertable, impact, diagnostic, events, busy, armed, canShip, picked, onTogglePick, onGenerate, onApprove, onArm, onCancelArm, onShipConfirm, onRecheck, onRetry, onRegenerate, onRevert, onLoadHistory, onSaveMeta, hasConnector, hasTracker, onStage, onPublish, onTicket, onRequestReview, onDismiss, onRestore, onArchive, editableField, onEditDraft, onVerifyLive, onRunRecommended, onRunScan, downloadHref, open, onToggleOpen }: {
   fix: FixRow; title: string; preview: PreviewBlock | null | undefined; cost: number; revertable: boolean; impact?: 1 | 2 | 3;
+  /** Module reports findings instead of editing the site — relabels the ship step. */
+  diagnostic?: boolean;
   events: FixEvent[] | undefined; busy: boolean; armed: boolean; canShip: boolean; picked: boolean;
   onTogglePick: () => void; onGenerate: () => void; onApprove: () => void; onArm: () => void; onCancelArm: () => void;
   onShipConfirm: () => void; onRecheck: () => void; onRetry: () => void; onRegenerate: (instruction?: string) => void; onRevert: () => void; onLoadHistory: () => void;
   onSaveMeta: (patch: { note?: string; assignee?: string }) => void;
   hasConnector: boolean; hasTracker: boolean; onStage: () => void; onPublish: () => void; onTicket: () => void;
   onRequestReview: () => void; onDismiss: () => void; onRestore: () => void;
+  onArchive: (archived: boolean) => void;
   editableField?: string;
-  onEditDraft: (field: string, value: string) => void;
+  onEditDraft: (patch: Record<string, string>) => void;
+  onVerifyLive: () => void;
+  onRunRecommended: (moduleKey: string) => void;
+  onRunScan: (moduleKey: string) => void;
   downloadHref?: string;
   open: boolean;
   onToggleOpen: () => void;
@@ -2189,7 +2690,12 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
   const [assignee, setAssignee] = React.useState(fix.assignee || '');
   React.useEffect(() => { setNote(fix.note || ''); setAssignee(fix.assignee || ''); }, [fix.note, fix.assignee]);
   const s = fix.status;
-  const sm = statusMeta(s); const sev = sevMeta(fix.severity); const cf = chanFill(fix.channel);
+  // Channel B is applied by the Connector plugin on YOUR site, not by us.
+  // Until it acks (connectorDeliveredAt), the change is queued - saying
+  // SHIPPED there tells the user their site changed when it has not.
+  const queuedOnConnector = fix.channel === 'B' && !fix.connectorDeliveredAt
+    && (s === 'shipped' || s === 'verified');
+  const sm = statusMeta(s, diagnostic, queuedOnConnector); const sev = sevMeta(fix.severity); const cf = chanFill(fix.channel);
   const isDetected = s === 'detected';
   const isReview = s === 'generated' || s === 'preview_ready';
   const isApproved = s === 'approved';
@@ -2208,6 +2714,11 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
   const stageable = STAGEABLE_MODULES.has(fix.moduleKey);
   const url = fix.targetUrl || '';
   const host = url.replace(/^https?:\/\//, '');
+  // Link the target only when it's an absolute URL. A relative path (stored
+  // by an older targeted fix before paths were resolved server-side) would
+  // resolve against THIS dashboard's origin - sending the user to our
+  // domain's /whatever instead of their own site.
+  const absoluteUrl = /^https?:\/\//i.test(url) ? url : null;
 
   // Collapsed: one scannable line — severity, what & where, status — that
   // opens the full card on click. Keeps a 50-fix queue navigable.
@@ -2219,12 +2730,12 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
         role="button"
         aria-expanded={false}
         title="Open this fix"
-        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', cursor: 'pointer', boxShadow: `3px 3px 0 ${sev.color}`, background: 'var(--surface)' }}
+        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', cursor: 'pointer', boxShadow: `3px 3px 0 ${sev.color}`, background: 'var(--surface)', flexWrap: 'wrap' }}
       >
         <input type="checkbox" checked={picked} onClick={(e) => e.stopPropagation()} onChange={onTogglePick} aria-label="Select fix for bulk action" style={{ accentColor: 'var(--primary)', width: 15, height: 15, flexShrink: 0 }} />
         <span title={`${sev.label} severity`} style={{ width: 10, height: 10, borderRadius: '50%', background: sev.color, flexShrink: 0 }} />
-        <span className="disp" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap' }}>{title}</span>
-        <span style={{ flex: 1, fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 60 }}>
+        <span className="disp" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+        <span style={{ flex: '1 1 160px', fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
           {fix.summary}{host ? ` · ${host}` : ''}
         </span>
         {busy && <span style={{ width: 13, height: 13, border: '2.5px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', flexShrink: 0, animation: 'xspin .7s linear infinite' }} />}
@@ -2233,6 +2744,16 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
           <button className="tbtn" title="Ignore — hide this suggestion (the AI may be wrong). Restore it later from the Ignored tab."
             onClick={(e) => { e.stopPropagation(); onDismiss(); }} disabled={busy}
             style={{ flexShrink: 0, fontSize: 11, color: 'var(--text-3)' }}>✕ Ignore</button>
+        )}
+        {isLive && !fix.archivedAt && (
+          <button className="tbtn" title="Done with this one? Move it to the Archive tab. The shipped change stays live on your site."
+            onClick={(e) => { e.stopPropagation(); onArchive(true); }} disabled={busy}
+            style={{ flexShrink: 0, fontSize: 11, color: 'var(--text-3)' }}>⇣ Archive</button>
+        )}
+        {isLive && fix.archivedAt && (
+          <button className="tbtn" title="Bring this fix back into the main list"
+            onClick={(e) => { e.stopPropagation(); onArchive(false); }} disabled={busy}
+            style={{ flexShrink: 0, fontSize: 11 }}>↩ Unarchive</button>
         )}
         {isDismissed && (
           <button className="tbtn" title="Restore this fix" onClick={(e) => { e.stopPropagation(); onRestore(); }} disabled={busy}
@@ -2245,7 +2766,7 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
 
   return (
     <article className="nb" style={{ padding: 0, overflow: 'hidden', boxShadow: `5px 5px 0 ${sev.color}` }}>
-      <div onClick={onToggleOpen} role="button" aria-expanded title="Collapse this fix" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: sev.bg, borderBottom: '2.5px solid var(--ink)', cursor: 'pointer' }}>
+      <div onClick={onToggleOpen} role="button" aria-expanded title="Collapse this fix" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: sev.bg, borderBottom: '2.5px solid var(--ink)', cursor: 'pointer', flexWrap: 'wrap' }}>
         <input type="checkbox" checked={picked} onClick={(e) => e.stopPropagation()} onChange={onTogglePick} aria-label="Select fix for bulk action" style={{ accentColor: 'var(--primary)', width: 15, height: 15, flexShrink: 0 }} />
         <span className="disp" style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.04em', color: sev.color, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{sev.glyph} {sev.label} SEVERITY</span>
         <span style={{ flex: 1 }} />
@@ -2278,13 +2799,33 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
 
         {(url || fix.aiBefore) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            {url && <a href={url} target="_blank" rel="noreferrer" className="chip" style={{ cursor: 'pointer', fontSize: 11 }}>🌐 {host} ↗</a>}
+            {absoluteUrl && <a href={absoluteUrl} target="_blank" rel="noreferrer" className="chip" style={{ cursor: 'pointer', fontSize: 11 }}>🌐 {host} ↗</a>}
+            {url && !absoluteUrl && <span className="chip" title="Stored as a path, not a full URL - regenerate this fix to re-target it" style={{ fontSize: 11 }}>🌐 {host}</span>}
             {(() => {
               const g = fix.generated as { serpQuery?: unknown; serpCompared?: unknown } | null;
               if (!g || typeof g.serpQuery !== 'string' || !g.serpQuery || !Number(g.serpCompared)) return null;
               return (
                 <span className="chip" title={`Draft was written against the ${Number(g.serpCompared)} pages currently ranking for "${g.serpQuery}" — to win the click on the live SERP`} style={{ color: 'var(--warning, #b45309)', borderColor: 'var(--warning, #b45309)' }}>
                   ⚔ VS {Number(g.serpCompared)} RANKING RESULTS · “{g.serpQuery.length > 32 ? `${g.serpQuery.slice(0, 32)}…` : g.serpQuery}”
+                </span>
+              );
+            })()}
+            {/* Why this fix is ranked where it is. Silent reordering is
+                indistinguishable from a bug, so if measured history moved a
+                fix up or down the list, say so and show the sample size. */}
+            {!!fix.learnedWeight && fix.learnedWeight !== 1 && (fix.learnedSamples ?? 0) > 0 && (() => {
+              const up = fix.learnedWeight! > 1;
+              const pct = Math.round(Math.abs(fix.learnedWeight! - 1) * 100);
+              const basis = fix.learnedBasis === 'brand' ? 'on this site'
+                : fix.learnedBasis === 'industry' ? 'in this industry'
+                : 'across Livesov';
+              return (
+                <span
+                  className="chip"
+                  title={`Ranked ${up ? 'higher' : 'lower'} because ${fix.learnedSamples} measured outcome(s) ${basis} show this fix type ${up ? 'tends to help' : 'has underperformed'} 28 days after publishing, adjusted for the site-wide trend. Ranking only — the fix is still available.`}
+                  style={{ color: up ? 'var(--success, #15803d)' : 'var(--text-2)', borderColor: up ? 'var(--success, #15803d)' : undefined }}
+                >
+                  {up ? '📈' : '📉'} {up ? '+' : '−'}{pct}% RANK · {fix.learnedSamples} MEASURED {basis.toUpperCase()}
                 </span>
               );
             })()}
@@ -2352,23 +2893,23 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
           return (
             <div className="nb-sm" style={{ overflow: 'hidden', boxShadow: 'none' }}>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}>
-                <span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− NOW</span>
+                <span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− Now</span>
                 <span className="mono" style={{ fontSize: 12, color: 'var(--text-2)', fontStyle: now.missing ? 'italic' : 'normal', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{now.value}</span>
               </div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '11px 14px', background: 'var(--surface-2)' }}>
-                <span className="disp" style={{ color: 'var(--text-3)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ FIX</span>
+                <span className="disp" style={{ color: 'var(--text-3)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ Fix</span>
                 <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, fontFamily: "'Space Grotesk'" }}>Generate the fix to see the proposed rewrite →</span>
               </div>
             </div>
           );
         })()}
         {busy && (
-          <div className="nb-sm" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 11, fontFamily: "'Space Grotesk'", fontWeight: 600, fontSize: 13, color: 'var(--text)', boxShadow: 'none', background: 'var(--primary-50)' }}><span style={{ width: 15, height: 15, border: '2.5px solid var(--primary-200)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'xspin .7s linear infinite', display: 'inline-block' }} />WORKING…</div>
+          <div className="nb-sm" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 11, fontFamily: "'Space Grotesk'", fontWeight: 600, fontSize: 13, color: 'var(--text)', boxShadow: 'none', background: 'var(--primary-50)' }}><span style={{ width: 15, height: 15, border: '2.5px solid var(--primary-200)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'xspin .7s linear infinite', display: 'inline-block' }} />Working…</div>
         )}
         {!busy && preview && preview.kind === 'text-diff' && (
           <div className="nb-sm" style={{ overflow: 'hidden', boxShadow: 'none' }}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}><span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− NOW</span><span className="mono" style={{ fontSize: 12, color: 'var(--text-2)', textDecoration: 'line-through', textDecorationColor: 'var(--danger-200)', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{preview.before || '(empty)'}</span></div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--success-50)' }}><span className="disp" style={{ color: 'var(--success)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ FIX</span><span className="mono" style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{preview.after}</span></div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--danger-50)', borderBottom: '2px solid var(--ink)' }}><span className="disp" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>− Now</span><span className="mono" style={{ fontSize: 12, color: 'var(--text-2)', textDecoration: 'line-through', textDecorationColor: 'var(--danger-200)', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{preview.before || '(empty)'}</span></div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px', background: 'var(--success-50)' }}><span className="disp" style={{ color: 'var(--success)', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>+ Fix</span><span className="mono" style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{preview.after}</span></div>
           </div>
         )}
         {!busy && preview && preview.kind === 'text-diff' && (fix.moduleKey === 'title-rewrite' || fix.moduleKey === 'meta-rewrite') && (() => {
@@ -2381,9 +2922,9 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
           return (
             <div style={{ display: 'grid', gap: 8 }}>
               <div className="xlbl" style={{ color: 'var(--primary)' }}>How it looks in search &amp; AI answers</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <SerpCard label="NOW" host={host || 'your-site.com'} title={nowT} desc={nowD} color="var(--danger)" />
-                <SerpCard label="AFTER" host={host || 'your-site.com'} title={fixT} desc={fixD} color="var(--success)" />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 10 }}>
+                <SerpCard label="Now" host={host || 'your-site.com'} title={nowT} desc={nowD} color="var(--danger)" />
+                <SerpCard label="After" host={host || 'your-site.com'} title={fixT} desc={fixD} color="var(--success)" />
               </div>
             </div>
           );
@@ -2395,50 +2936,79 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
           <div className="nb-sm" style={{ padding: '14px 16px', background: 'var(--danger-50)', borderColor: 'var(--danger)', boxShadow: 'none', display: 'flex', gap: 11, alignItems: 'flex-start' }}><span className="disp" style={{ color: 'var(--danger)', fontSize: 16, fontWeight: 700 }}>✕</span><span style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--text)', fontWeight: 500 }}><b className="disp" style={{ color: 'var(--danger)' }}>FAILED.</b> {fix.error}</span></div>
         )}
 
+        {/* A Channel-B fix is applied by the plugin on the user's own site.
+            Between shipping and that ack there is a real window where the
+            card used to say SHIPPED and the site was unchanged. */}
+        {queuedOnConnector && (
+          <div className="nb-sm" style={{ padding: '11px 13px', boxShadow: 'none', background: 'var(--info-50)', borderColor: 'var(--info)', fontSize: 12.5, lineHeight: 1.5, color: 'var(--text)', fontWeight: 500 }}>
+            <strong>Queued, not live yet.</strong> This one is written by the Connector plugin on your own site, which picks up changes every few minutes. It isn’t on your site until your site applies it — use <em>Check my page</em> below to see the moment it lands{downloadHref ? ', or Download file and upload it yourself' : ''}.
+          </div>
+        )}
+
+        {/* Where an accepted diagnosis actually leads. Shown once the
+            finding is accepted, which is the moment the user asks "so what
+            changed?" and, for a diagnostic, the honest answer is "nothing
+            yet - here is the thing that does". */}
+        {isLive && (
+          <NextStepPanel
+            fix={fix} diagnostic={!!diagnostic} busy={busy}
+            onRunTargeted={onRunRecommended} onRunScan={onRunScan}
+          />
+        )}
+
+        {/* "Is it actually on my page?" - only once the fix has reached the
+            site (or tried to). A draft has nothing live to check yet. */}
+        {(isLive || isAttention) && (
+          <LiveCheckPanel fix={fix} busy={busy} onVerify={onVerifyLive} />
+        )}
+
         {/* actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingTop: 13, borderTop: '2.5px solid var(--ink)' }}>
-          {isDetected && (<><button className="xbtn" onClick={onGenerate} disabled={busy}>✦ GENERATE FIX</button><span className="xlbl" style={{ color: cost === 0 ? 'var(--success)' : 'var(--text-2)' }}>{cost === 0 ? 'free · no LLM' : `${cost} credit${cost === 1 ? '' : 's'}`}</span></>)}
+          {isDetected && (<><button className="xbtn" onClick={onGenerate} disabled={busy}>✦ Generate fix</button><span className="xlbl" style={{ color: cost === 0 ? 'var(--success)' : 'var(--text-2)' }}>{cost === 0 ? 'free · no LLM' : `${cost} credit${cost === 1 ? '' : 's'}`}</span></>)}
           {isReview && (<>
-            <button className="xbtn" onClick={onApprove} disabled={busy} style={{ background: 'var(--success)' }}>✓ APPROVE</button>
+            <button className="xbtn" onClick={onApprove} disabled={busy} style={{ background: 'var(--success)' }}>✓ Approve</button>
             {editableField && typeof (fix.generated as Record<string, unknown> | null)?.[editableField] === 'string' && (
               <button className="gbtn" disabled={busy} title="Edit the AI's draft yourself before approving" onClick={() => { setEditText(String((fix.generated as Record<string, unknown>)[editableField])); setRegenning(false); setEditing((e) => !e); }}>✎ Edit</button>
             )}
             <button className="gbtn" disabled={busy} title="Not quite right? Have the AI try again — with your guidance, or a fresh take" onClick={() => { setRegenText(String((fix.detected as Record<string, unknown> | null)?.instruction ?? '')); setEditing(false); setRegenning((r) => !r); }}>↻ Regenerate</button>
             <button className="gbtn" onClick={onRequestReview} disabled={busy} title="Ping a teammate (assignee) to review this draft via Linear/Jira/Slack">✋ Request approval</button>
-            {url && <a className="tbtn" href={url} target="_blank" rel="noreferrer">View source</a>}
+            {absoluteUrl && <a className="tbtn" href={absoluteUrl} target="_blank" rel="noreferrer">View source</a>}
             {fix.shipResult && <span className="xlbl" style={{ width: '100%', color: 'var(--text-2)' }}>↩ Revising a live fix — your page keeps the shipped version until you approve &amp; re-ship.</span>}
           </>)}
           {isApproved && !armed && (<>
-            <button className="xbtn" onClick={onArm} disabled={busy} style={{ background: 'var(--success)' }}>⬢ SHIP TO SITE</button>
-            {stageable && (
+            <button className="xbtn" onClick={diagnostic ? onShipConfirm : onArm} disabled={busy} style={{ background: 'var(--success)' }}>{diagnostic ? '✓ ACCEPT FINDING' : '⬢ SHIP TO SITE'}</button>
+            {!diagnostic && stageable && (
               hasConnector
                 ? <button className="gbtn" onClick={onStage} disabled={busy} style={{ padding: '7px 13px' }} title="Stage as a draft revision on your site and preview it before going live">⎘ Ship as draft</button>
                 : <span className="xlbl" style={{ color: 'var(--text-3)' }}>pair the Connector to preview as a draft</span>
             )}
-            <span className="xlbl" style={{ color: 'var(--text-2)' }}>approved · writes live</span>
+            <span className="xlbl" style={{ color: 'var(--text-2)' }}>{diagnostic ? 'approved · nothing is written to your site' : 'approved · writes live'}</span>
           </>)}
           {isStaged && (() => {
             const publishing = fix.shipResult?.op === 'publish_content';
             return (<>
-              <span className="chip" style={{ background: 'var(--info-50)', color: 'var(--info)', borderColor: 'var(--info)', fontSize: 11, padding: '6px 12px' }}>⎘ STAGED DRAFT</span>
+              <span className="chip" style={{ background: 'var(--info-50)', color: 'var(--info)', borderColor: 'var(--info)', fontSize: 11, padding: '6px 12px' }}>⎘ Staged draft</span>
               {fix.previewUrl
-                ? <a className="xbtn" href={fix.previewUrl} target="_blank" rel="noreferrer" style={{ background: 'var(--info)' }}>↗ PREVIEW</a>
+                ? <a className="xbtn" href={fix.previewUrl} target="_blank" rel="noreferrer" style={{ background: 'var(--info)' }}>↗ Preview</a>
                 : <span className="xlbl" style={{ color: 'var(--text-2)' }}>waiting for the Connector to build the preview…</span>}
               {publishing
                 ? <span className="xlbl" style={{ color: 'var(--success)' }}>publishing… (your site applies it within ~5 min)</span>
-                : <button className="xbtn" onClick={onPublish} disabled={busy} style={{ background: 'var(--success)' }}>⬢ PUBLISH LIVE</button>}
+                : <button className="xbtn" onClick={onPublish} disabled={busy} style={{ background: 'var(--success)' }}>⬢ Publish live</button>}
             </>);
           })()}
           {isApproved && armed && (
             <div className="nb-sm" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', width: '100%', padding: '13px 15px', background: 'var(--warn-50)', borderColor: 'var(--warn)', boxShadow: 'none' }}>
               <span className="disp" style={{ fontSize: 20 }}>⚠</span>
-              <span style={{ flex: 1, minWidth: 170, fontSize: 12.5, lineHeight: 1.4, fontWeight: 500, color: 'var(--text)' }}>This publishes to your <b className="disp">LIVE</b> site and can&apos;t be auto-undone.</span>
+              <span style={{ flex: 1, minWidth: 170, fontSize: 12.5, lineHeight: 1.4, fontWeight: 500, color: 'var(--text)' }}>This publishes to your <b className="disp">Live</b> site and can&apos;t be auto-undone.</span>
               <button className="gbtn" onClick={onCancelArm} style={{ padding: '7px 13px' }}>Cancel</button>
               <button className="xbtn" onClick={onShipConfirm} disabled={busy || !canShip} style={{ background: 'var(--success)' }}>{canShip ? 'CONFIRM SHIP' : 'CONNECT CMS FIRST'}</button>
             </div>
           )}
           {isLive && (<>
-            <span className="chip" style={{ background: 'var(--success-50)', color: 'var(--success)', borderColor: 'var(--success)', fontSize: 11, padding: '6px 12px' }}>✓ {s === 'verified' ? 'VERIFIED' : 'SHIPPED'}</span>
+            {/* A diagnosis publishes nothing, so calling it SHIPPED reads as
+                "this is on my site now" - which is exactly the misreading
+                that sends people looking for a change that was never made. */}
+            <span className="chip" style={{ background: sm.bg, color: sm.color, borderColor: sm.color, fontSize: 11, padding: '6px 12px' }}>{queuedOnConnector ? '⏳' : '✓'} {sm.label}</span>
             <button className="gbtn" onClick={onRecheck} disabled={busy} style={{ padding: '7px 13px' }}>↻ Re-check</button>
             {/* Revise a live title/meta fix: re-opens it for review; the page
                 keeps its shipped copy until the new draft is re-shipped. */}
@@ -2449,20 +3019,30 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
               <button className="gbtn" disabled={busy} title="Not right? Have the AI rewrite it — with your guidance, or a fresh take. Re-ships on approve." onClick={() => { setRegenText(String((fix.detected as Record<string, unknown> | null)?.instruction ?? '')); setEditing(false); setRegenning((r) => !r); }} style={{ padding: '7px 13px' }}>↻ Regenerate</button>
             )}
             {revertable && <button className="gbtn" onClick={onRevert} disabled={busy} style={{ padding: '7px 13px' }}>⤺ Undo</button>}
-            {url && <a className="tbtn" href={url} target="_blank" rel="noreferrer">View on site</a>}
+            {absoluteUrl && <a className="tbtn" href={absoluteUrl} target="_blank" rel="noreferrer">View on site</a>}
           </>)}
-          {s === 'reverted' && <span className="chip" style={{ background: 'var(--warn-50)', color: 'var(--warn)', borderColor: 'var(--warn)', fontSize: 11, padding: '6px 12px' }}>⤺ REVERTED</span>}
-          {isAttention && (<button className="xbtn" onClick={onRetry} disabled={busy} style={{ background: 'var(--danger)' }}>↻ RETRY</button>)}
+          {s === 'reverted' && <span className="chip" style={{ background: 'var(--warn-50)', color: 'var(--warn)', borderColor: 'var(--warn)', fontSize: 11, padding: '6px 12px' }}>⤺ Reverted</span>}
+          {isAttention && (<button className="xbtn" onClick={onRetry} disabled={busy} style={{ background: 'var(--danger)' }}>↻ Retry</button>)}
           {/* No-plugin fallback for site-root files (llms.txt / robots.txt). */}
           {downloadHref && !isDetected && !isReview && (
             <a className="gbtn" href={downloadHref} style={{ padding: '7px 13px' }} title="Download this file and drop it at your site root — no plugin needed">⬇ Download file</a>
           )}
           <span style={{ flex: 1 }} />
+          {/* A live fix stays in the main list until explicitly archived —
+              the shipped change stays on the site either way. */}
+          {isLive && !fix.archivedAt && <button className="tbtn" onClick={() => onArchive(true)} disabled={busy} title="Done with this one? Move it to the Archive tab. The shipped change stays live on your site." style={{ color: 'var(--text-3)' }}>⇣ Archive</button>}
+          {isLive && fix.archivedAt && <button className="tbtn" onClick={() => onArchive(false)} disabled={busy} title="Bring this fix back into the main list">↩ Unarchive</button>}
           {canIgnore && <button className="tbtn" onClick={onDismiss} disabled={busy} title="Ignore — hide this suggestion (the AI may be wrong). Restore it later from the Ignored tab." style={{ color: 'var(--text-3)' }}>✕ Ignore</button>}
-          {isDismissed && <button className="xbtn" onClick={onRestore} disabled={busy} style={{ background: 'var(--primary)' }}>↩ RESTORE</button>}
+          {isDismissed && <button className="xbtn" onClick={onRestore} disabled={busy} style={{ background: 'var(--primary)' }}>↩ Restore</button>}
           <button className="tbtn" onClick={onTicket} disabled={busy} title={hasTracker ? 'Create a Linear/Jira issue for this fix' : 'Connect Linear or Jira (or a webhook) to hand this off'}>⊕ {hasTracker ? 'Ticket' : 'Hand off'}</button>
           <button className="tbtn" onClick={() => { if (!showHistory && !events) onLoadHistory(); setShowHistory((h) => !h); }}>{showHistory ? 'Hide history' : 'History'}</button>
         </div>
+
+        {/* CTR rescue returns three title and three meta options, each on a
+            different persuasion lever. They come out of one model call, so
+            switching between them is free — a PATCH of the two fields, not a
+            regenerate. Only shown while the draft can still be revised. */}
+        {canRevise && <CtrOptionPicker fix={fix} busy={busy} onEditDraft={onEditDraft} />}
 
         {editing && canRevise && editableField && (
           <div className="nb-sm" style={{ padding: 14, background: 'var(--surface-2)', display: 'grid', gap: 10 }}>
@@ -2470,7 +3050,7 @@ function FixCard({ fix, title, preview, cost, revertable, impact, events, busy, 
             <textarea className="xin" rows={editText.length > 160 ? 5 : 2} value={editText} onChange={(e) => setEditText(e.target.value)} style={{ boxShadow: 'none', fontSize: 13, lineHeight: 1.5 }} />
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 10 }}>
               <button className="gbtn" onClick={() => setEditing(false)} style={{ padding: '7px 13px' }}>Cancel</button>
-              <button className="xbtn" disabled={busy || !editText.trim()} onClick={() => { onEditDraft(editableField, editText.trim()); setEditing(false); }} style={{ padding: '7px 13px' }}>SAVE DRAFT</button>
+              <button className="xbtn" disabled={busy || !editText.trim()} onClick={() => { onEditDraft({ [editableField]: editText.trim() }); setEditing(false); }} style={{ padding: '7px 13px' }}>Save draft</button>
             </div>
           </div>
         )}

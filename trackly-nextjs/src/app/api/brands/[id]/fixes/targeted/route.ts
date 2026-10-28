@@ -1,12 +1,26 @@
 /**
  * POST /api/brands/[id]/fixes/targeted
  *
- * Create a user-initiated, on-demand fix for a specific page. Three request
- * types, each mapped to a module (see lib/fix-engine/targeted.ts):
+ * Create a user-initiated, on-demand fix for a specific page.
+ *
+ * Either name the module outright:
+ *
+ *   { moduleKey: 'content-freshness', url, instruction? }
+ *
+ * or use one of the three legacy shorthands kept for the existing cards:
  *
  *   type: 'passage'  (default) — rewrite an exact paragraph. Body: { url, passage, instruction? }
  *   type: 'links'    — add contextual internal links / anchor text. Body: { url, instruction? }
  *   type: 'keyword'  — target a specific keyword on a page. Body: { url, keyword, instruction? }
+ *
+ * `moduleKey` exists so a diagnosis can hand the user the fix it recommends
+ * as one button. Before it, search-decay could name the module that resolves
+ * a decayed page and the dashboard had no way to run it - the user read
+ * "next: Content freshness" and was left to find it themselves.
+ *
+ * Any TargetedModuleKey is accepted; the plan gate and the module's own
+ * required-input validation still apply, so this widens which fix can be
+ * asked for, never who may ask for it.
  *
  * Free-text requests go through the sibling /assistant route instead.
  */
@@ -17,9 +31,9 @@ import { getBrandWithAccess, getUserEffectivePlan } from '@/lib/helpers';
 import { logger } from '@/lib/logger';
 import { getFix } from '@/lib/fix-engine/schema';
 import { getModule, meetsPlan } from '@/lib/fix-engine/registry';
-import { createTargetedFix, type TargetedModuleKey } from '@/lib/fix-engine/targeted';
+import { createTargetedFix, isTargetedModule, type TargetedModuleKey } from '@/lib/fix-engine/targeted';
 
-interface Body { type?: unknown; url?: unknown; passage?: unknown; keyword?: unknown; instruction?: unknown }
+interface Body { type?: unknown; moduleKey?: unknown; url?: unknown; passage?: unknown; keyword?: unknown; instruction?: unknown }
 
 const TYPE_TO_MODULE: Record<string, TargetedModuleKey> = {
   passage: 'passage-rewrite',
@@ -43,8 +57,19 @@ export async function POST(
     let body: Body;
     try { body = (await request.json()) as Body; } catch { return Response.json({ error: 'Invalid JSON body' }, { status: 400 }); }
 
-    const type = typeof body.type === 'string' ? body.type : 'passage';
-    const moduleKey = TYPE_TO_MODULE[type] ?? 'passage-rewrite';
+    // An explicit moduleKey wins; otherwise fall back to the legacy `type`.
+    // Validated against the targeted allow-list rather than the whole
+    // registry, so a scan-only module can't be created as a one-off here.
+    let moduleKey: TargetedModuleKey;
+    if (typeof body.moduleKey === 'string' && body.moduleKey) {
+      if (!isTargetedModule(body.moduleKey)) {
+        return Response.json({ error: `“${body.moduleKey}” can’t be run on a single page.` }, { status: 400 });
+      }
+      moduleKey = body.moduleKey;
+    } else {
+      const type = typeof body.type === 'string' ? body.type : 'passage';
+      moduleKey = TYPE_TO_MODULE[type] ?? 'passage-rewrite';
+    }
     const mod = getModule(moduleKey);
     if (!mod) return Response.json({ error: 'Unknown fix type' }, { status: 400 });
 

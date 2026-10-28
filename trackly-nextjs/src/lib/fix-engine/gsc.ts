@@ -229,6 +229,22 @@ export function parseInspection(raw: Record<string, unknown>): IndexStatus {
 }
 
 /** Helper: dates for the trailing N days (GSC data lags ~2 days). */
+/**
+ * Standard single-window lookback for the GSC-triggered modules that ask
+ * "how is this page performing right now" - CTR rescue, striking distance
+ * and content gap.
+ *
+ * 30 days matches the window these reports are conventionally run over and
+ * the one customers see in Search Console's own default view, so a finding
+ * here reconciles against what they can check themselves. The tradeoff is
+ * that 30 is not a whole number of weeks, so the window over-weights
+ * whichever two weekdays fall in it five times. That skew is real but small
+ * for the aggregate CTR and position averages these modules compute, and it
+ * does not apply to the period-over-period comparison in search-decay,
+ * which uses whole weeks on both sides - see comparisonWindows().
+ */
+export const LOOKBACK_DAYS = 30;
+
 export function trailingDateRange(days: number): { startDate: string; endDate: string } {
   const end = new Date();
   end.setUTCDate(end.getUTCDate() - 2);
@@ -236,4 +252,38 @@ export function trailingDateRange(days: number): { startDate: string; endDate: s
   start.setUTCDate(start.getUTCDate() - days);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
   return { startDate: fmt(start), endDate: fmt(end) };
+}
+
+export interface DateRange { startDate: string; endDate: string }
+
+/**
+ * Two adjacent, equal-length windows for period-over-period comparison:
+ * the trailing `days` (recent) and the `days` immediately before it
+ * (previous). Both honour the same ~2-day reporting lag as
+ * trailingDateRange, so neither window contains partial data.
+ *
+ * Window length is a real tradeoff. Short windows react fast but carry
+ * smaller samples, so ordinary seasonal swings weigh more heavily; long
+ * ones are stable but only notice a decline once it has already cost a
+ * month of traffic. What is NOT a tradeoff is the day-of-week cycle: pass a
+ * whole number of weeks (14, 28) and it cancels on both sides. Passing 30
+ * here would not, which is why the single-window modules' LOOKBACK_DAYS is
+ * deliberately a separate constant.
+ */
+export function comparisonWindows(days: number): { recent: DateRange; previous: DateRange } {
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const recentEnd = new Date();
+  recentEnd.setUTCDate(recentEnd.getUTCDate() - 2);
+  const recentStart = new Date(recentEnd);
+  recentStart.setUTCDate(recentStart.getUTCDate() - days);
+  // The previous window ends the day before the recent one starts, so the
+  // two never share a day and double-count it.
+  const prevEnd = new Date(recentStart);
+  prevEnd.setUTCDate(prevEnd.getUTCDate() - 1);
+  const prevStart = new Date(prevEnd);
+  prevStart.setUTCDate(prevStart.getUTCDate() - days);
+  return {
+    recent: { startDate: fmt(recentStart), endDate: fmt(recentEnd) },
+    previous: { startDate: fmt(prevStart), endDate: fmt(prevEnd) },
+  };
 }

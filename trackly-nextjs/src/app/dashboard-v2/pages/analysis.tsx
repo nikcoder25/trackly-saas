@@ -15,21 +15,21 @@ export function PageMentions() {
         actions={<><button className="btn-d">⇣ Export CSV</button><button className="btn-g">⚙ Columns</button></>}/>
       <div className="page-body">
         <KPIRail items={[
-          { k: 'TOTAL · 7D', term: 'mention', v: '1,284', d: +218 },
-          { k: 'POSITIVE',   term: 'sentiment', v: '952',   d: +180 },
-          { k: 'NEGATIVE',   term: 'sentiment', v: '64',    d: -12 },
-          { k: 'FALSE CLAIMS', term: 'hallucination', v: '6', d: -2 },
-          { k: 'NOT MENTIONED', term: 'coverage', v: '262', d: -34, info: 'queries where we lost' },
+          { k: 'Total · 7d', term: 'mention', v: '1,284', d: +218 },
+          { k: 'Positive',   term: 'sentiment', v: '952',   d: +180 },
+          { k: 'Negative',   term: 'sentiment', v: '64',    d: -12 },
+          { k: 'False claims', term: 'hallucination', v: '6', d: -2 },
+          { k: 'Not mentioned', term: 'coverage', v: '262', d: -34, info: 'queries where we lost' },
         ]} />
 
         <Filter>
           <div className="search-box"><span className="dim mono">⌕</span><input placeholder="Filter mentions, queries, sources…"/></div>
           <Seg value={tag} onChange={setTag} options={[
-            { value: 'all', label: 'ALL' },
-            { value: 'pos', label: 'POSITIVE' },
-            { value: 'neg', label: 'NEGATIVE' },
-            { value: 'warn', label: 'FALSE CLAIM' },
-            { value: 'miss', label: 'NOT MENTIONED' },
+            { value: 'all', label: 'All' },
+            { value: 'pos', label: 'Positive' },
+            { value: 'neg', label: 'Negative' },
+            { value: 'warn', label: 'False claim' },
+            { value: 'miss', label: 'Not mentioned' },
           ]}/>
           <select className="sel"><option>All engines</option>{PLATFORMS.map(p=><option key={p.id}>{p.name}</option>)}</select>
           <select className="sel"><option>All time</option><option>Last 24h</option><option>Last 7 days</option></select>
@@ -44,7 +44,7 @@ export function PageMentions() {
           <div className="tbl-wrap">
             <table className="tbl">
               <thead><tr>
-                <th>ENGINE</th><th>QUERY</th><th>VERDICT <Info>How you showed up in this answer - named first, mentioned, missed, or a false claim.</Info></th><th>POSITION <Info term="position"/></th><th>SOURCES <Info term="citation"/></th><th>SENTIMENT <Info term="sentiment"/></th><th className="right">TIME</th>
+                <th>Engine</th><th>Query</th><th>Verdict <Info>How you showed up in this answer - named first, mentioned, missed, or a false claim.</Info></th><th>Position <Info term="position"/></th><th>Sources <Info term="citation"/></th><th>Sentiment <Info term="sentiment"/></th><th className="right">Time</th>
               </tr></thead>
               <tbody>
                 {filtered.slice(0, 18).map((m,i) => (
@@ -75,12 +75,12 @@ function generateMentions(n: any) {
     'best agile pm tool','acme feature comparison','pm for remote teams',
   ];
   const tags = [
-    { tag: 'pos', label: 'POSITIVE · 2ND', pos: '2/5', sent: 0.71 },
-    { tag: 'pos', label: 'POSITIVE · 1ST', pos: '1/4', sent: 0.84 },
-    { tag: 'neu', label: 'MENTIONED', pos: '3/6', sent: 0.12 },
-    { tag: 'warn', label: 'FALSE CLAIM', pos: '-', sent: -0.10 },
-    { tag: 'neg', label: 'NEGATIVE', pos: '4/4', sent: -0.42 },
-    { tag: 'miss', label: 'NOT MENTIONED', pos: '-', sent: 0 },
+    { tag: 'pos', label: 'Positive · 2nd', pos: '2/5', sent: 0.71 },
+    { tag: 'pos', label: 'Positive · 1st', pos: '1/4', sent: 0.84 },
+    { tag: 'neu', label: 'Mentioned', pos: '3/6', sent: 0.12 },
+    { tag: 'warn', label: 'False claim', pos: '-', sent: -0.10 },
+    { tag: 'neg', label: 'Negative', pos: '4/4', sent: -0.42 },
+    { tag: 'miss', label: 'Not mentioned', pos: '-', sent: 0 },
   ];
   return Array.from({length: n}).map((_, i) => {
     const t = tags[i % tags.length];
@@ -103,7 +103,7 @@ export function PageProof() {
       <div className="page-body">
         <Filter>
           <Seg value="claude" onChange={()=>{}} options={[
-            { value: 'all', label: 'ALL ENGINES' },
+            { value: 'all', label: 'All engines' },
             ...PLATFORMS.map(p => ({ value: p.id, label: p.short })),
           ]}/>
           <select className="sel"><option>"best pm tool for engineering"</option><option>"acme vs linear"</option><option>+ all 142 queries</option></select>
@@ -113,18 +113,18 @@ export function PageProof() {
         </Filter>
 
         <div className="g2">
-          <Card title="Verbatim model output" right={<><PlatformTile p={PLATFORMS[1]} size={22}/><Pill tone="pos">POSITIVE · 2/5</Pill></>} style={{ gridColumn: 'span 2' }}>
+          <Card title="Verbatim model output" right={<><PlatformTile p={PLATFORMS[1]} size={22}/><Pill tone="pos">Positive · 2/5</Pill></>} style={{ gridColumn: 'span 2' }}>
             <div className="proof-body">
-              <div className="proof-q mono"><span className="dim">QUERY ›</span> &ldquo;best project management tool for engineering teams&rdquo;</div>
+              <div className="proof-q mono"><span className="dim">Query ›</span> &ldquo;best project management tool for engineering teams&rdquo;</div>
               <div className="proof-answer">
                 For engineering teams in 2026 that prioritize speed and developer ergonomics, the most-recommended options are typically <span className="hl">Linear</span> for its keyboard-driven UI, <span className="hl me">Acme</span> for its GitHub-native workflow and AI summaries, and <span className="hl">Asana</span> for cross-functional projects. Smaller teams often start with Linear; larger orgs that need roadmapping and resource planning lean toward Acme or Jira.
               </div>
               <div className="proof-meta mono">
-                <span><span className="dim">CITED:</span> linear.app/why · <span className="me">acme.com/customers</span> · asana.com/engineering · g2.com/category/pm</span>
+                <span><span className="dim">Cited:</span> linear.app/why · <span className="me">acme.com/customers</span> · asana.com/engineering · g2.com/category/pm</span>
                 <span className="dim">·</span>
-                <span><span className="dim">TOKENS:</span> 184 in · 312 out</span>
+                <span><span className="dim">Tokens:</span> 184 in · 312 out</span>
                 <span className="dim">·</span>
-                <span><span className="dim">RAN:</span> 2 min ago</span>
+                <span><span className="dim">Ran:</span> 2 min ago</span>
               </div>
             </div>
           </Card>
@@ -132,10 +132,10 @@ export function PageProof() {
           <Card title="Mentions in this answer" padding={false}>
             <div className="tbl-wrap">
               <table className="tbl">
-                <thead><tr><th>BRAND</th><th>POS.</th><th>SENTIMENT</th><th>LINKED</th></tr></thead>
+                <thead><tr><th>Brand</th><th>POS.</th><th>Sentiment</th><th>Linked</th></tr></thead>
                 <tbody>
                   <tr><td><b>Linear</b></td><td className="num">1</td><td className="pos num">+0.78</td><td className="mono dim">linear.app/why</td></tr>
-                  <tr><td><b style={{color:'var(--accent)'}}>Acme</b> <Badge tone="acc">YOU</Badge></td><td className="num">2</td><td className="pos num">+0.71</td><td className="mono dim">acme.com/customers</td></tr>
+                  <tr><td><b style={{color:'var(--accent)'}}>Acme</b> <Badge tone="acc">You</Badge></td><td className="num">2</td><td className="pos num">+0.71</td><td className="mono dim">acme.com/customers</td></tr>
                   <tr><td><b>Asana</b></td><td className="num">3</td><td className="pos num">+0.62</td><td className="mono dim">asana.com/eng</td></tr>
                   <tr><td><b>Jira</b></td><td className="num">4</td><td className="neu num">+0.05</td><td className="mono dim">-</td></tr>
                 </tbody>
@@ -156,7 +156,7 @@ export function PageProof() {
             </ul>
           </Card>
 
-          <Card title="Prompt history" right={<a className="mono dim" style={{fontSize:11}}>FULL TIMELINE →</a>} style={{ gridColumn: 'span 2' }}>
+          <Card title="Prompt history" right={<a className="mono dim" style={{fontSize:11}}>Full timeline →</a>} style={{ gridColumn: 'span 2' }}>
             <div style={{display:'grid',gap:10}}>
               {[
                 { t: '14:02', q: 'best project management tool for engineering teams', verdict: 'POS · 2nd', tone: 'pos' },
@@ -187,35 +187,35 @@ export function PagePlatforms() {
         actions={<><button className="btn-d">Subscribe to status</button><button className="btn-p">Run all engines now</button></>}/>
       <div className="page-body">
         <KPIRail items={[
-          { k: 'ENGINES UP',     v: '4/5', d: 0, info: 'Grok degraded' },
-          { k: 'AVG. LATENCY',   v: '2.1', suffix: 's', d: -0.3 },
-          { k: 'RUNS / DAY',     v: '24',  d: 0, info: 'every hour' },
-          { k: 'SUCCESS · 7D',   v: '99.2', suffix: '%', d: -0.4 },
-          { k: 'QUEUE',          v: '0',   d: 0, info: 'idle' },
+          { k: 'Engines up',     v: '4/5', d: 0, info: 'Grok degraded' },
+          { k: 'Avg. latency',   v: '2.1', suffix: 's', d: -0.3 },
+          { k: 'Runs / day',     v: '24',  d: 0, info: 'every hour' },
+          { k: 'Success · 7d',   v: '99.2', suffix: '%', d: -0.4 },
+          { k: 'Queue',          v: '0',   d: 0, info: 'idle' },
         ]}/>
 
         <div className="g2">
           {PLATFORMS.map(p => (
             <Card key={p.id} title={<span style={{display:'inline-flex',alignItems:'center',gap:10}}><PlatformTile p={p} size={26}/> {p.name}</span>}
-              right={p.ok ? <Pill tone="acc"><span className="pulse" style={{width:5,height:5}}/> OPERATIONAL</Pill> : <Pill tone="neg">⚠ DEGRADED</Pill>}>
+              right={p.ok ? <Pill tone="acc"><span className="pulse" style={{width:5,height:5}}/> Operational</Pill> : <Pill tone="neg">⚠ Degraded</Pill>}>
               <div className="plat-grid">
                 <div>
-                  <div className="eyebrow">LATENCY · 7D</div>
+                  <div className="eyebrow">Latency · 7d</div>
                   <div className="kpi-v mono" style={{fontSize:22}}>{p.ms || '-'}<i>ms</i></div>
                   <Spark data={[1800,2100,1700,1950,2200,1820,p.ms || 4000]} width={140} height={28} color={p.ok ? 'var(--accent)' : 'var(--mute)'} fill/>
                 </div>
                 <div>
-                  <div className="eyebrow">SUCCESS RATE</div>
+                  <div className="eyebrow">Success rate</div>
                   <div className="kpi-v mono" style={{fontSize:22}}>{p.ok ? '99.4' : '78.1'}<i>%</i></div>
                   <div className="mono" style={{fontSize:11,color:'var(--mute)'}}>last 1,024 runs</div>
                 </div>
                 <div>
-                  <div className="eyebrow">MODEL</div>
+                  <div className="eyebrow">Model</div>
                   <div className="mono" style={{fontSize:13}}>{['gpt-4o-mini','claude-3-7-sonnet','gemini-2.5-flash','sonar-pro','grok-2'][PLATFORMS.indexOf(p)]}</div>
                   <div className="mono" style={{fontSize:11,color:'var(--mute)'}}>auto · search-on</div>
                 </div>
                 <div>
-                  <div className="eyebrow">LAST RUN</div>
+                  <div className="eyebrow">Last run</div>
                   <div className="mono" style={{fontSize:13}}>{p.ok ? '2 min ago' : '54 min ago'}</div>
                   <div className="mono" style={{fontSize:11,color: p.ok ? 'var(--success)' : 'var(--danger)'}}>{p.ok ? '✓ success' : '✗ 429 rate limit'}</div>
                 </div>
@@ -227,7 +227,7 @@ export function PagePlatforms() {
         <Card title="Recent run timeline" padding={false}>
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>RUN</th><th>STARTED</th><th>ENGINES</th><th>QUERIES</th><th>DURATION</th><th>RESULT</th></tr></thead>
+              <thead><tr><th>Run</th><th>Started</th><th>Engines</th><th>Queries</th><th>Duration</th><th>Result</th></tr></thead>
               <tbody>
                 {Array.from({length: 8}).map((_,i) => (
                   <tr key={i}>
@@ -236,7 +236,7 @@ export function PagePlatforms() {
                     <td><div style={{display:'inline-flex',gap:4}}>{PLATFORMS.map(p => <PlatformTile key={p.id} p={p} size={18}/>)}</div></td>
                     <td className="num">142</td>
                     <td className="num">{(38 + i*2)}s</td>
-                    <td>{i === 3 ? <Badge tone="warn">PARTIAL · grok 429</Badge> : <Badge tone="pos">SUCCESS</Badge>}</td>
+                    <td>{i === 3 ? <Badge tone="warn">PARTIAL · grok 429</Badge> : <Badge tone="pos">Success</Badge>}</td>
                   </tr>
                 ))}
               </tbody>
@@ -304,7 +304,7 @@ export function PageCompetitors() {
 
         <Card title="Share of Voice" info="sov"
           lede="Everyone's slice of the AI conversation, added up across all engines. Your bar is highlighted."
-          right={<span className="mono dim" style={{fontSize:11}}>STACKED · ALL ENGINES</span>}>
+          right={<span className="mono dim" style={{fontSize:11}}>Stacked · all engines</span>}>
           <StackBar items={comps.map(c => ({ label: c.name, value: c.sov, color: c.color }))} height={32}/>
           <div style={{display:'flex',gap:18,marginTop:14,flexWrap:'wrap',fontSize:11,fontFamily:'var(--mono)',color:'var(--mute)'}}>
             {comps.map(c => (
@@ -316,7 +316,7 @@ export function PageCompetitors() {
           </div>
         </Card>
 
-        <Card title="Head-to-head matrix" right={<span className="mono dim" style={{fontSize:11}}>WIN RATE · QUERIES WHERE BOTH APPEAR</span>} padding={false}
+        <Card title="Head-to-head matrix" right={<span className="mono dim" style={{fontSize:11}}>Win rate · queries where both appear</span>} padding={false}
           lede="For questions where two brands both show up, how often the row brand beats the column brand.">
           <div className="h2h" style={{ gridTemplateColumns: `120px repeat(${comps.length}, 1fr)` }}>
             <div></div>
@@ -341,7 +341,7 @@ export function PageCompetitors() {
           <div className="tbl-wrap">
             <table className="tbl">
               <thead><tr>
-                <th>RANK</th><th>BRAND</th><th>SOV</th><th>Δ 7D</th><th>MENTIONS</th><th>SOV TREND</th><th>WHEN MENTIONED</th>
+                <th>Rank</th><th>Brand</th><th>SOV</th><th>Δ 7D</th><th>Mentions</th><th>SOV trend</th><th>When mentioned</th>
               </tr></thead>
               <tbody>
                 {comps.map((c,i) => (
@@ -350,7 +350,7 @@ export function PageCompetitors() {
                     <td><span style={{display:'inline-flex',alignItems:'center',gap:8}}>
                       <span style={{width:10,height:10,background:c.color,borderRadius:2,display:'inline-block'}}/>
                       <b style={{color: c.me ? 'var(--accent)':'var(--text)'}}>{c.name}</b>
-                      {c.me && <Badge tone="acc">YOU</Badge>}
+                      {c.me && <Badge tone="acc">You</Badge>}
                     </span></td>
                     <td className="num"><b>{c.sov}%</b></td>
                     <td><Delta v={c.d} suffix="%"/></td>
@@ -384,13 +384,13 @@ export function PageTrends() {
       <div className="page-body">
         <Filter>
           <Seg value="90d" onChange={()=>{}} options={['30d','90d','6m','1y']}/>
-          <Seg value="line" onChange={()=>{}} options={[{value:'line',label:'LINE'},{value:'area',label:'STACKED'},{value:'pct',label:'% OF VOICE'}]}/>
+          <Seg value="line" onChange={()=>{}} options={[{value:'line',label:'Line'},{value:'area',label:'Stacked'},{value:'pct',label:'% Of voice'}]}/>
           <select className="sel"><option>Daily</option><option>Weekly</option><option>Monthly</option></select>
           <span style={{flex:1}}/>
           <Pill tone="acc">+15.4 pp SOV gain · 90d</Pill>
         </Filter>
 
-        <Card title="Share of Voice · 90 days" right={<span className="mono dim" style={{fontSize:11}}>WEEKLY · ALL ENGINES</span>}>
+        <Card title="Share of Voice · 90 days" right={<span className="mono dim" style={{fontSize:11}}>Weekly · all engines</span>}>
           <LineChart series={main} xLabels={months} height={340}/>
         </Card>
 
@@ -409,7 +409,7 @@ export function PageTrends() {
             </div>
           </Card>
 
-          <Card title="Volatility heatmap" right={<span className="mono dim" style={{fontSize:11}}>ENGINE × DAY</span>}>
+          <Card title="Volatility heatmap" right={<span className="mono dim" style={{fontSize:11}}>Engine × day</span>}>
             <Heatmap
               rows={PLATFORMS.map(p => p.short)}
               cols={['M','T','W','T','F','S','S']}
@@ -449,11 +449,11 @@ export function PageAccuracy() {
         actions={<><button className="btn-d">⇣ Audit log</button><button className="btn-p">Send corrections</button></>}/>
       <div className="page-body">
         <KPIRail items={[
-          { k: 'OPEN', v: '6', d: -2, danger: true },
-          { k: 'FIXED · 30D', v: '23', d: +9 },
-          { k: 'AVG. TIME TO DETECT', v: '8', suffix: 'm', d: -3 },
-          { k: 'ENGINE WORST OFFENDER', v: 'GEM', info: '11 of 29' },
-          { k: 'TOPIC WORST', v: 'pricing', info: '9 of 29' },
+          { k: 'Open', v: '6', d: -2, danger: true },
+          { k: 'Fixed · 30d', v: '23', d: +9 },
+          { k: 'Avg. time to detect', v: '8', suffix: 'm', d: -3 },
+          { k: 'Engine worst offender', v: 'GEM', info: '11 of 29' },
+          { k: 'Topic worst', v: 'pricing', info: '9 of 29' },
         ]}/>
 
         <div className="g2">
@@ -463,9 +463,9 @@ export function PageAccuracy() {
                 <li key={i} className="hal-row">
                   <PlatformTile p={h.p} size={26}/>
                   <div>
-                    <div className="hal-q mono"><span className="dim">QUERY ›</span> &ldquo;{h.q}&rdquo;</div>
-                    <div className="hal-claim"><span className="hal-tag mono">CLAIMED ✗</span> {h.claim}</div>
-                    <div className="hal-truth"><span className="hal-tag mono ok">TRUTH ✓</span> {h.truth}</div>
+                    <div className="hal-q mono"><span className="dim">Query ›</span> &ldquo;{h.q}&rdquo;</div>
+                    <div className="hal-claim"><span className="hal-tag mono">Claimed ✗</span> {h.claim}</div>
+                    <div className="hal-truth"><span className="hal-tag mono ok">Truth ✓</span> {h.truth}</div>
                   </div>
                   <div className="hal-actions">
                     <Badge tone={h.severity === 'high' ? 'neg' : h.severity === 'med' ? 'warn' : 'info'}>{h.severity.toUpperCase()}</Badge>
@@ -535,17 +535,17 @@ export function PageCitations() {
         actions={<><button className="btn-d">Add domain</button><button className="btn-g">⇣ Export</button></>}/>
       <div className="page-body">
         <KPIRail items={[
-          { k: 'UNIQUE SOURCES', v: '184', d: +12 },
-          { k: 'OWN DOMAIN %', v: '46', suffix: '%', d: +6 },
-          { k: 'REVIEW SITES', v: '28', d: +3 },
-          { k: 'SOCIAL/UGC', v: '54', d: +9 },
-          { k: 'AVG. AGE',  v: '38d', d: -4, info: 'lower = fresher' },
+          { k: 'Unique sources', v: '184', d: +12 },
+          { k: 'Own domain %', v: '46', suffix: '%', d: +6 },
+          { k: 'Review sites', v: '28', d: +3 },
+          { k: 'Social/ugc', v: '54', d: +9 },
+          { k: 'Avg. age',  v: '38d', d: -4, info: 'lower = fresher' },
         ]}/>
 
         <div className="g3">
           <Card title="By source type">
             <div style={{display:'flex',alignItems:'center',gap:18,padding:'6px 0'}}>
-              <Donut value={46} label="OWN" size={140}/>
+              <Donut value={46} label="Own" size={140}/>
               <div style={{display:'grid',gap:10,fontSize:12.5,flex:1}}>
                 <Row dot="var(--accent)" label="Own domain" pct={46} n={86}/>
                 <Row dot="var(--info)" label="Review sites" pct={22} n={42}/>
@@ -572,7 +572,7 @@ export function PageCitations() {
           <div className="tbl-wrap">
             <table className="tbl">
               <thead><tr>
-                <th>DOMAIN</th><th>TYPE</th><th>CITES</th><th>SHARE</th><th>TREND</th><th>ENGINES</th><th>LAST SEEN</th>
+                <th>Domain</th><th>Type</th><th>Cites</th><th>Share</th><th>Trend</th><th>Engines</th><th>Last seen</th>
               </tr></thead>
               <tbody>
                 {sources.map((s,i) => (
@@ -653,9 +653,9 @@ export function PageResults() {
             )}
             {p.ok && (
               <div className="proof-meta" style={{marginTop: 12}}>
-                <span><span className="dim">CITED:</span> linear.app/why · <span className="me">acme.com/customers</span> · asana.com/eng</span>
+                <span><span className="dim">Cited:</span> linear.app/why · <span className="me">acme.com/customers</span> · asana.com/eng</span>
                 <span className="dim">·</span>
-                <span><span className="dim">TOKENS:</span> {120 + PLATFORMS.indexOf(p)*30} in · {280 + PLATFORMS.indexOf(p)*40} out</span>
+                <span><span className="dim">Tokens:</span> {120 + PLATFORMS.indexOf(p)*30} in · {280 + PLATFORMS.indexOf(p)*40} out</span>
               </div>
             )}
           </Card>
@@ -683,16 +683,16 @@ export function PageQueryTracker() {
         actions={<><button className="btn-d">⇣ Export</button><button className="btn-p">+ Add prompt</button></>}/>
       <div className="page-body">
         <KPIRail items={[
-          { k: 'TRACKED', v: '142', d: +14 },
-          { k: 'WINNING (SOV ≥ 30%)', v: '38', d: +6 },
-          { k: 'AT RISK (SOV < 15%)', v: '24', d: -3 },
-          { k: 'MISS RATE',           v: '11', suffix: '%', d: -2 },
-          { k: 'RUNS · 24H',          v: '3,408', d: 0 },
+          { k: 'Tracked', v: '142', d: +14 },
+          { k: 'Winning (SOV ≥ 30%)', v: '38', d: +6 },
+          { k: 'At risk (SOV < 15%)', v: '24', d: -3 },
+          { k: 'Miss rate',           v: '11', suffix: '%', d: -2 },
+          { k: 'Runs · 24h',          v: '3,408', d: 0 },
         ]}/>
 
         <Filter>
           <div className="search-box"><span className="dim mono">⌕</span><input placeholder="Search prompts…"/></div>
-          <Seg value="all" onChange={()=>{}} options={[{value:'all',label:'ALL'},{value:'priority',label:'PRIORITY'},{value:'tracking',label:'TRACKING'},{value:'losing',label:'LOSING'}]}/>
+          <Seg value="all" onChange={()=>{}} options={[{value:'all',label:'All'},{value:'priority',label:'Priority'},{value:'tracking',label:'Tracking'},{value:'losing',label:'Losing'}]}/>
           <select className="sel"><option>All engines</option></select>
           <select className="sel"><option>All tags</option><option>Pricing</option><option>Comparison</option></select>
           <span style={{flex:1}}/>
@@ -704,14 +704,14 @@ export function PageQueryTracker() {
             <table className="tbl">
               <thead><tr>
                 <th><input type="checkbox" /></th>
-                <th>QUERY</th>
-                <th>STATUS</th>
+                <th>Query</th>
+                <th>Status</th>
                 <th>SOV</th>
                 <th>Δ 7D</th>
-                <th>MENTIONS</th>
-                <th>ENGINES</th>
-                <th>SOV TREND</th>
-                <th className="right">RUNS</th>
+                <th>Mentions</th>
+                <th>Engines</th>
+                <th>SOV trend</th>
+                <th className="right">Runs</th>
               </tr></thead>
               <tbody>
                 {queries.map((r,i) => (
@@ -759,11 +759,11 @@ export function PageRecommendations() {
         actions={<><button className="btn-d">⇣ Export to ticket</button><button className="btn-g">Refresh recs</button></>}/>
       <div className="page-body">
         <KPIRail items={[
-          { k: 'OPEN', v: '12', d: +2 },
+          { k: 'Open', v: '12', d: +2 },
           { k: 'HIGH-IMPACT',     v: '4', d: 0 },
-          { k: 'EST. SOV GAIN',   term: 'pp', v: '+8.4', suffix: 'pp', info: 'if all completed' },
-          { k: 'COMPLETED · 30D', v: '23', d: +9 },
-          { k: 'AVG. EFFORT',     v: '3.2', suffix: 'h' },
+          { k: 'Est. SOV gain',   term: 'pp', v: '+8.4', suffix: 'pp', info: 'if all completed' },
+          { k: 'Completed · 30d', v: '23', d: +9 },
+          { k: 'Avg. effort',     v: '3.2', suffix: 'h' },
         ]}/>
 
         <Filter>
@@ -797,7 +797,7 @@ export function PageRecommendations() {
                 </div>
                 <p className="rec-d">{r.d}</p>
                 <div className="rec-foot">
-                  <div className="mono dim" style={{fontSize:11,letterSpacing:'0.08em'}}>AFFECTS</div>
+                  <div className="mono dim" style={{fontSize:11,letterSpacing:'0.08em'}}>Affects</div>
                   <div style={{display:'inline-flex',gap:4}}>
                     {r.e.map(short => {
                       const p = PLATFORMS.find(x => x.short === short);

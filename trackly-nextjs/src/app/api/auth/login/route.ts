@@ -6,13 +6,13 @@ import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, issueSessio
 import { getEffectivePlan } from '@/lib/constants';
 import { verifyTOTP, findBackupCodeIndex } from '@/lib/totp';
 import { decryptValue } from '@/lib/helpers';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 
 const DUMMY_HASH = '$2a$12$000000000000000000000uGiltNn9J1kOXqSqMpNQHCbSZkHm5mZS';
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const ip = getClientIp(request);
   const body = await request.json();
   const { email, password, totpCode } = body;
 
@@ -76,7 +76,15 @@ export async function POST(request: NextRequest) {
         const updated = await pool.query(
           `UPDATE users
              SET settings = settings || jsonb_build_object(
-               'failed_login_attempts', COALESCE((settings->>'failed_login_attempts')::int, 0) + 1,
+               -- Restart the count once the last failure is older than the
+               -- 15-minute lockout window, so one typo after an expired
+               -- lockout doesn't immediately re-lock the account.
+               'failed_login_attempts', CASE
+                 WHEN (settings->>'last_failed_login') IS NULL
+                   OR (settings->>'last_failed_login')::timestamptz < NOW() - INTERVAL '15 minutes'
+                 THEN 1
+                 ELSE COALESCE((settings->>'failed_login_attempts')::int, 0) + 1
+               END,
                'last_failed_login', $2::text
              )
            WHERE id = $1

@@ -1,12 +1,16 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
+import { PRICING_PLANS } from '@/lib/constants';
 
 export const metadata: Metadata = {
-  title: 'Livesov - AI Visibility Tracker for ChatGPT, Perplexity, Claude & Gemini',
+  // Keyword first, brand last (absolute so no template can prepend the brand).
+  title: { absolute: 'AI Visibility Tracker for Agencies | ChatGPT & Gemini | Livesov' },
   description:
-    'Livesov is the AI visibility tracker that shows how ChatGPT, Perplexity, Claude, Gemini, and Grok talk about your brand. Track mentions, share of voice, and generative engine optimization in one platform. 7-day free trial, plans from $9/mo.',
+    'AI visibility tracker for agencies and local businesses. See how ChatGPT, Gemini, Perplexity, Claude and Grok mention each client. Free 7-day trial.',
   keywords: [
     'AI visibility tracker',
+    'AI visibility tracker for agencies',
+    'AI visibility tool for agencies',
     'AI visibility tool',
     'AI visibility platform',
     'generative engine optimization',
@@ -20,9 +24,9 @@ export const metadata: Metadata = {
     'AI SEO',
   ],
   openGraph: {
-    title: 'Livesov - AI Visibility Tracker for ChatGPT, Perplexity, Claude & Gemini',
+    title: 'AI Visibility Tracker for Agencies | Livesov',
     description:
-      'Livesov is the AI visibility tracker that shows how ChatGPT, Perplexity, Claude, Gemini, and Grok talk about your brand. Track mentions, share of voice, and generative engine optimization in one platform. 7-day free trial, plans from $9/mo.',
+      'Track how ChatGPT, Gemini, Perplexity, Claude and Grok mention every client. Client reports, daily tracking, plans from $19/mo.',
     type: 'website',
     url: 'https://livesov.com/',
     siteName: 'Livesov',
@@ -35,9 +39,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Livesov - AI Visibility Tracker for ChatGPT, Perplexity, Claude & Gemini',
+    title: 'AI Visibility Tracker for Agencies | Livesov',
     description:
-      'Livesov is the AI visibility tracker that shows how ChatGPT, Perplexity, Claude, Gemini, and Grok talk about your brand. Track mentions, share of voice, and generative engine optimization in one platform. 7-day free trial, plans from $9/mo.',
+      'Track how ChatGPT, Gemini, Perplexity, Claude and Grok mention every client. Client reports, daily tracking, plans from $19/mo.',
   },
   alternates: {
     canonical: '/',
@@ -50,9 +54,16 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'Organization',
+      '@id': 'https://livesov.com/#organization',
       name: 'Livesov',
       url: 'https://livesov.com',
-      description: 'AI visibility tracker - monitor your brand across ChatGPT, Perplexity, Claude, Gemini & Grok.',
+      logo: {
+        '@type': 'ImageObject',
+        url: 'https://livesov.com/android-chrome-512x512.png',
+        width: 512,
+        height: 512,
+      },
+      description: 'AI visibility tracker for agencies - monitor every client across ChatGPT, Perplexity, Claude, Gemini & Grok.',
       contactPoint: {
         '@type': 'ContactPoint',
         email: 'hello@livesov.com',
@@ -64,14 +75,31 @@ const jsonLd = {
       ],
     },
     {
+      '@type': 'WebSite',
+      '@id': 'https://livesov.com/#website',
+      name: 'Livesov',
+      url: 'https://livesov.com',
+      publisher: { '@id': 'https://livesov.com/#organization' },
+      inLanguage: 'en',
+    },
+    {
       '@type': 'SoftwareApplication',
       name: 'Livesov',
+      url: 'https://livesov.com',
+      description: 'AI visibility tracker for agencies. Tracks brand mentions, rank and citations in ChatGPT, Gemini, Perplexity, Claude and Grok.',
+      image: 'https://livesov.com/dashboard-shot.png',
+      publisher: { '@id': 'https://livesov.com/#organization' },
       applicationCategory: 'BusinessApplication',
       operatingSystem: 'Web',
       offers: [
-        { '@type': 'Offer', name: 'Starter', price: '9', priceCurrency: 'USD', url: 'https://livesov.com/signup' },
-        { '@type': 'Offer', name: 'Pro', price: '29', priceCurrency: 'USD', url: 'https://livesov.com/signup' },
-        { '@type': 'Offer', name: 'Agency', price: '89', priceCurrency: 'USD', url: 'https://livesov.com/signup' },
+        // Derived from PRICING_PLANS so the structured data cannot drift from the cards.
+        ...PRICING_PLANS.filter((p) => p.name !== 'Free').map((p) => ({
+          '@type': 'Offer',
+          name: p.name,
+          price: p.price.replace(/[^0-9.]/g, ''),
+          priceCurrency: 'USD',
+          url: 'https://livesov.com/signup',
+        })),
       ],
     },
     // NOTE: FAQPage schema intentionally omitted - the editorial homepage has

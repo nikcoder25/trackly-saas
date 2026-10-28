@@ -51,9 +51,12 @@ vi.mock('../metrics', () => ({
 
 vi.mock('../cost-tracker', () => ({
   enforceCostCap: vi.fn().mockResolvedValue(undefined),
+  enforcePlatformDailyCap: vi.fn().mockResolvedValue(undefined),
+  estimateAnthropicCostUsd: vi.fn().mockReturnValue(null),
   recordCostEvent: vi.fn().mockResolvedValue(undefined),
   recordCall: vi.fn().mockResolvedValue(undefined),
   CHATGPT_WEB_SEARCH_CALL_USD: 0.030,
+  perplexityRequestFeeUsd: vi.fn().mockReturnValue(0),
   estimateCostUsd: vi.fn().mockReturnValue(0),
   CostCapExceededError: class CostCapExceededError extends Error {},
 }));
@@ -67,6 +70,10 @@ vi.mock('../response-cache', () => ({
   getCached: vi.fn().mockResolvedValue(null),
   setCached: vi.fn().mockResolvedValue(undefined),
   getCacheTtl: vi.fn().mockReturnValue(60),
+  // callGemini consults this to decide whether to attach the
+  // google_search tool; omitting it from the mock makes the Gemini
+  // branch throw on an undefined call rather than testing anything.
+  geminiGroundingEnabled: vi.fn().mockReturnValue(false),
   __cacheStats: { hits: 0, misses: 0, writes: 0, errors: 0 },
 }));
 
@@ -351,7 +358,7 @@ describe('queryAI(ChatGPT, non-gpt-5.x) - neither field attached', () => {
 // write in a unit test.
 
 const SYSTEM_PROMPT =
-  'Recommendation assistant. List 3-6 specific businesses by name with one-line descriptions. Max 80 words. No intro, no caveats, no closing advice.';
+  'Answer the question directly. If it asks for recommendations, name 3-6 specific businesses with one-line descriptions. If it asks about a specific business, describe that business. Max 80 words. No intro, no caveats, no closing advice.';
 const MAX_TOK = Number(process.env.AI_MAX_OUTPUT_TOKENS) || 100;
 
 describe('non-ChatGPT request bodies are byte-unchanged', () => {
@@ -415,7 +422,7 @@ describe('non-ChatGPT request bodies are byte-unchanged', () => {
     });
   });
 
-  it('Grok body: { model, max_tokens, messages } - nothing else', async () => {
+  it('Grok body: { model, max_tokens, reasoning_effort, messages } - nothing else', async () => {
     fetchMock.mockResolvedValueOnce(okGrokResponse('grok-3-mini'));
     await queryAI(
       'Grok',
@@ -427,6 +434,7 @@ describe('non-ChatGPT request bodies are byte-unchanged', () => {
     expect(body).toEqual({
       model: 'grok-3-mini',
       max_tokens: MAX_TOK,
+      reasoning_effort: 'low',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: 'recommend bakeries in Austin' },

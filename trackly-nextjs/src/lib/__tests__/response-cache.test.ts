@@ -20,6 +20,7 @@ import {
   getCached,
   setCached,
   getCacheTtl,
+  getRunCacheMaxAgeSeconds,
   isSearchEnabled,
   __cacheStats,
 } from '../response-cache';
@@ -119,9 +120,21 @@ describe('isSearchEnabled', () => {
     expect(isSearchEnabled('ChatGPT', 'gpt-4o-search-preview')).toBe(true);
     expect(isSearchEnabled('ChatGPT', 'gpt-4o')).toBe(false);
   });
+  it('treats grounded Gemini as search so it gets the short, fresh TTL', () => {
+    // Gemini now attaches the google_search tool by default, so it really
+    // does hit a retrieval path. If this returned false, a grounded answer
+    // would be cached under the long non-search TTL and served days later
+    // as though it were current.
+    delete process.env.GEMINI_GROUNDING_DISABLED;
+    expect(isSearchEnabled('Gemini', 'gemini-2.5-pro')).toBe(true);
+  });
+  it('treats Gemini as non-search once grounding is switched off', () => {
+    process.env.GEMINI_GROUNDING_DISABLED = 'true';
+    expect(isSearchEnabled('Gemini', 'gemini-2.5-pro')).toBe(false);
+    delete process.env.GEMINI_GROUNDING_DISABLED;
+  });
   it('treats other platforms as non-search', () => {
     expect(isSearchEnabled('Claude', 'claude-3-5-sonnet')).toBe(false);
-    expect(isSearchEnabled('Gemini', 'gemini-2.5-pro')).toBe(false);
     expect(isSearchEnabled('Grok', 'grok-2')).toBe(false);
   });
 });
@@ -178,6 +191,57 @@ describe('getCached', () => {
     const result = await getCached('any');
     expect(result).toBeNull();
     expect(queryMock).not.toHaveBeenCalled();
+  });
+});
+
+// Tracking runs (manual "Run now" and the scheduled daily run) must
+// measure today's answer. Before this guard a run read the long-TTL row
+// (14 days non-search) and replayed a prior run's answer verbatim, so
+// every scan of a brand showed the same score and finished in ~0.1s.
+describe('run max-age guard', () => {
+  afterEach(() => { delete process.env.RESPONSE_CACHE_RUN_MAX_AGE_S; });
+
+  it('defaults to a few minutes, far below any run cadence', () => {
+    expect(getRunCacheMaxAgeSeconds()).toBe(300);
+    expect(getRunCacheMaxAgeSeconds()).toBeLessThan(getCacheTtl(true));
+    expect(getRunCacheMaxAgeSeconds()).toBeLessThan(24 * 60 * 60);
+  });
+
+  it('honours RESPONSE_CACHE_RUN_MAX_AGE_S, including 0', () => {
+    process.env.RESPONSE_CACHE_RUN_MAX_AGE_S = '60';
+    expect(getRunCacheMaxAgeSeconds()).toBe(60);
+    process.env.RESPONSE_CACHE_RUN_MAX_AGE_S = '0';
+    expect(getRunCacheMaxAgeSeconds()).toBe(0);
+  });
+
+  it('filters on created_at when maxAgeSeconds is set', async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] });
+    await getCached('k', { maxAgeSeconds: 300 });
+    const [sql, params] = queryMock.mock.calls[0];
+    expect(sql).toMatch(/expires_at\s*>\s*NOW\(\)/);
+    expect(sql).toMatch(/created_at\s*>\s*NOW\(\)\s*-/);
+    expect(params).toEqual(['k', '300']);
+  });
+
+  it('skips the read entirely when maxAgeSeconds is 0', async () => {
+    const result = await getCached('k', { maxAgeSeconds: 0 });
+    expect(result).toBeNull();
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps the TTL-only read for callers that pass no max age', async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] });
+    await getCached('k');
+    const [sql, params] = queryMock.mock.calls[0];
+    expect(sql).not.toMatch(/created_at\s*>/);
+    expect(params).toEqual(['k']);
+  });
+
+  it('an upsert refreshes created_at so the age window tracks the latest live call', async () => {
+    queryMock.mockResolvedValueOnce({ rowCount: 1 });
+    await setCached('k', { text: 'v' }, { query: 'q', platform: 'Grok', model: 'grok-3-mini', ttlSeconds: 60 });
+    const sql = queryMock.mock.calls[0][0] as string;
+    expect(sql).toMatch(/created_at = NOW\(\)/);
   });
 });
 

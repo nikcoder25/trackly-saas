@@ -26,12 +26,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // boundary (e.g. a route-group loading.tsx) is ever reintroduced above
   // this page, a body-only notFound() would stream a 200 shell (soft-404).
   if (!t) notFound();
-  const title = `${t.term}${t.acronym ? ` (${t.acronym})` : ''} - Definition | Livesov AI Search Glossary`;
+  const title = `${t.term}${t.acronym ? ` (${t.acronym})` : ''} - Definition | Livesov`;
   return {
     title,
     description: t.shortDef,
     keywords: `what is ${t.term.toLowerCase()}, ${t.term.toLowerCase()} definition, ${t.acronym?.toLowerCase() || ''}, ai search glossary, llm seo glossary`,
     alternates: { canonical: `/glossary/${t.slug}` },
+    // Thin templated definitions: kept for users and internal links, but
+    // out of the index so they stop diluting the money pages. /glossary
+    // (the hub) stays indexed.
+    robots: { index: false, follow: true },
     openGraph: {
       title,
       description: t.shortDef,
@@ -48,6 +52,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       ],
     },
   };
+}
+
+// "What is Training corpus?" reads wrong. Common nouns go lowercase in the
+// H1; names and acronyms (Gemini, GPTBot, AI Mode) keep their casing.
+const PROPER_TERMS = new Set(['Perplexity', 'Gemini', 'Claude', 'Grok', 'Google-Extended']);
+function headingTerm(term: string): string {
+  const firstWord = term.split(/[\s(]/)[0];
+  if (PROPER_TERMS.has(term) || !/^[A-Z][a-z-]*$/.test(firstWord)) return term;
+  return term.charAt(0).toLowerCase() + term.slice(1);
 }
 
 export default async function GlossaryTermPage({ params }: PageProps) {
@@ -86,7 +99,7 @@ export default async function GlossaryTermPage({ params }: PageProps) {
           <>
             What is{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand)] to-[#6366f1]">
-              {t.term}
+              {headingTerm(t.term)}
             </span>
             ?
           </>
@@ -115,9 +128,9 @@ export default async function GlossaryTermPage({ params }: PageProps) {
               <ul>
                 {related.map((r) => (
                   <li key={r.slug}>
-                    <a href={`/glossary/${r.slug}`}>
+                    <Link href={`/glossary/${r.slug}`}>
                       <strong>{r.term}</strong>
-                    </a>{' '}
+                    </Link>{' '}
                     - {r.shortDef}
                   </li>
                 ))}
@@ -127,11 +140,11 @@ export default async function GlossaryTermPage({ params }: PageProps) {
 
           <h2>Apply it</h2>
           <p>
-            The <a href="/learn/llm-seo">LLM SEO playbook</a> ties every concept in this glossary
+            The <Link href="/learn/llm-seo">LLM SEO playbook</Link> ties every concept in this glossary
             into a single operating model. If you want to see how your brand performs across all
             the LLMs at once - mention rate, citation share, sentiment, rank - start with the{' '}
-            <a href="/geo-audit">free GEO audit</a> or skip straight to a{' '}
-            <a href="/signup">free Livesov account</a>.
+            <Link href="/geo-audit">free GEO audit</Link> or skip straight to a{' '}
+            <Link href="/signup">free Livesov account</Link>.
           </p>
         </LongForm>
       </Section>

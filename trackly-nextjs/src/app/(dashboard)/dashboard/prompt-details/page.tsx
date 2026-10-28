@@ -39,7 +39,13 @@ function PromptDetailsInner() {
     }
   }, [qParam]);
 
-  useEffect(() => { if (queries.length && !selectedQuery) setSelectedQuery(queries[0]); }, [queries, selectedQuery]);
+  // Also reset when the selection isn't one of this brand's prompts (brand
+  // switched in the Topbar), except for a deep-linked ?q=.
+  useEffect(() => {
+    if (queries.length && (!selectedQuery || (!queries.includes(selectedQuery) && selectedQuery !== qParam))) {
+      setSelectedQuery(queries[0]);
+    }
+  }, [queries, selectedQuery, qParam]);
 
   // Live run state for the selected query, read from the shared RunContext.
   // useBrandData already merges these live results into brand.runs as a
@@ -257,7 +263,7 @@ function PromptDetailsInner() {
         <div className="card" style={{ padding: '14px 18px', marginBottom: 18, borderColor: 'var(--green)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', display: 'inline-block', animation: 'pdLiveBlink 1.2s infinite' }} />
-            <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--mono)', color: 'var(--green)' }}>LIVE</span>
+            <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--mono)', color: 'var(--green)' }}>Live</span>
             <span style={{ fontSize: 12, color: 'var(--muted)' }}>
               Scanning &ldquo;{selectedQuery}&rdquo; - {liveForQuery.length}/{expectedEngines.length || liveForQuery.length} engines
             </span>

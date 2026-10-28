@@ -86,7 +86,7 @@ export default function ChatgptMentionCheckerPage() {
               onChange={(e) => setQuery(e.target.value)}
               style={inputStyle}
             />
-            <div style={{ marginTop: 6, fontSize: 12, color: '#6b7280' }}>One free check per day. <Link href="/signup" style={{ color: 'var(--brand)' }}>Sign up</Link> to track unlimited prompts.</div>
+            <div style={{ marginTop: 6, fontSize: 12, color: '#6b7280' }}>One free check per day. <Link href="/signup" style={{ color: 'var(--brand)' }}>Sign up</Link> to track your prompts on a schedule.</div>
           </div>
           <PrimaryButton type="submit" loading={loading}>
             {loading ? 'Asking ChatGPT...' : 'Check Mention'}
@@ -151,7 +151,7 @@ export default function ChatgptMentionCheckerPage() {
         />
 
         <AnswerCapsule>
-          The <strong>ChatGPT Brand Mention Checker</strong> sends your question to ChatGPT (gpt-5), scans the response for your brand, and shows the surrounding context plus any competitor brands that were mentioned instead. Free with one check per IP per day. <a href="/signup">Sign up</a> for unlimited tracking across ChatGPT, Perplexity, Claude, Gemini and Grok.
+          The <strong>ChatGPT Brand Mention Checker</strong> sends your question to ChatGPT (gpt-5.4-nano), scans the response for your brand, and shows the surrounding context plus any competitor brands that were mentioned instead. Free with one check per IP per day. <a href="/signup">Sign up</a> to track your prompts on a schedule across ChatGPT, Perplexity, Claude, Gemini and Grok.
         </AnswerCapsule>
 
         <KeyTakeaways
@@ -166,7 +166,7 @@ export default function ChatgptMentionCheckerPage() {
 
         <h2>What this tool actually does</h2>
         <p>
-          You give us a brand name and a question a real customer might ask. We send that question to ChatGPT (gpt-5 by default), then scan the response for your brand and the brands it mentions instead. The result is a single, honest answer: <em>does ChatGPT recommend you for this query, and who beats you when it doesn&apos;t?</em>
+          You give us a brand name and a question a real customer might ask. We send that question to ChatGPT (gpt-5.4-nano by default), then scan the response for your brand and the brands it mentions instead. The result is a single, honest answer: <em>does ChatGPT recommend you for this query, and who beats you when it doesn&apos;t?</em>
         </p>
         <p>
           This is the most important data point in AI visibility. Search rankings tell you who appears in the top 10 results. AI mention rate tells you who appears in the <em>answer</em> - the only thing the user actually reads.
@@ -288,7 +288,7 @@ export default function ChatgptMentionCheckerPage() {
             },
             {
               q: 'Which model do you use?',
-              a: 'gpt-5 by default - the model behind the standard ChatGPT experience. The exact model is shown in the result. If you want to compare models, our paid tracker runs against gpt-5, gpt-5-mini and gpt-5-search.',
+              a: 'gpt-5.4-nano by default, the cost-efficient model our paid tracker also uses for ChatGPT. The exact model is shown in the result. Agency plans can run the tracker on premium models such as gpt-5.4-mini.',
             },
             {
               q: 'Are you using ChatGPT Search (the live-fetch mode)?',

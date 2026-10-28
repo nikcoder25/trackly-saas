@@ -17,6 +17,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { pool } from '@/lib/db';
+import { schemaOnce } from '@/lib/schema-once';
 import { effectiveScore, type CanonicalNap, type DuplicateGroup, type UrlResult } from '@/lib/nap-verify';
 import { runNapCheck, NAP_MAX_URLS, type NapRunSummary } from '@/lib/nap-audit-run';
 
@@ -70,10 +71,7 @@ export type NapAuditListItem = Omit<NapAuditRecord, 'results' | 'duplicates' | '
   urlCount: number;
 };
 
-let schemaEnsured = false;
-
-export async function ensureNapAuditsSchema(): Promise<void> {
-  if (schemaEnsured) return;
+export const ensureNapAuditsSchema: () => Promise<void> = schemaOnce(async () => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS nap_audits (
       id            UUID PRIMARY KEY,
@@ -155,8 +153,7 @@ export async function ensureNapAuditsSchema(): Promise<void> {
       ON nap_audits (status, created_at)
       WHERE status IN ('queued','running')
   `);
-  schemaEnsured = true;
-}
+});
 
 function toIso(v: Date | string | null): string | null {
   if (v == null) return null;
@@ -370,12 +367,45 @@ export async function requeueNapAudit(userId: string, id: string): Promise<NapAu
   await ensureNapAuditsSchema();
   const res = await pool.query(
     `UPDATE nap_audits SET status = 'queued', error = NULL, progress_done = 0
-      WHERE id = $1 AND user_id = $2 AND status IN ('done','failed','queued')
+      WHERE id = $1 AND user_id = $2
+        AND (status IN ('done','failed','queued')
+             OR (status = 'running'
+                 AND COALESCE(started_at, created_at) < NOW() - ($3::int || ' minutes')::interval))
       RETURNING ${FULL_COLS}`,
-    [id, userId],
+    [id, userId, NAP_AUDIT_STALE_RUNNING_MINUTES],
   );
   if (res.rows.length === 0) return null;
   return mapRow(res.rows[0] as NapAuditDbRow);
+}
+
+/**
+ * A 'running' audit older than this with no terminal write is considered
+ * orphaned: processNapAudit runs in-process, so a deploy, OOM or crash after
+ * claimNapAuditForRunning leaves the row 'running' forever - nothing else
+ * ever moves it. 30 minutes comfortably exceeds a 500-URL run at the
+ * fetch concurrency runNapCheck uses.
+ */
+export const NAP_AUDIT_STALE_RUNNING_MINUTES = 30;
+
+/**
+ * Watchdog for orphaned 'running' NAP audits (mirrors reapStaleGeoAudits).
+ * Flips them to 'failed' with an explanatory error so the UI stops polling
+ * a zombie and the user can re-run. Idempotent and safe to call every tick.
+ */
+export async function reapStaleNapAudits(
+  staleMinutes: number = NAP_AUDIT_STALE_RUNNING_MINUTES,
+): Promise<{ reaped: string[] }> {
+  await ensureNapAuditsSchema();
+  const res = await pool.query(
+    `UPDATE nap_audits
+        SET status = 'failed',
+            error = COALESCE(error, 'Watchdog reap: audit stalled while running. Re-run to try again.')
+      WHERE status = 'running'
+        AND COALESCE(started_at, created_at) < NOW() - ($1::int || ' minutes')::interval
+      RETURNING id`,
+    [staleMinutes],
+  );
+  return { reaped: (res.rows as Array<{ id: string }>).map((r) => r.id) };
 }
 
 export async function setNapAuditSchedule(

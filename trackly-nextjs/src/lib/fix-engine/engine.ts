@@ -218,6 +218,15 @@ export async function generateFix(fixId: string, brandId: string, instruction?: 
     throw new Error('Brand not found');
   }
 
+  // Seed the draft with this brand's own measured history for this module.
+  // Enrichment only: a brand with nothing shipped yet generates exactly as
+  // it did before, and a failed lookup must never block a generation.
+  try {
+    const { getModuleExamples } = await import('./learning');
+    const learned = await getModuleExamples(brandId, mod.key);
+    if (learned.winners.length || learned.losers.length) ctx.learned = learned;
+  } catch { /* enrichment only */ }
+
   const plan = await getUserEffectivePlan(ctx.brand.userId);
   const cost = generateCost(mod.key);
   const reservation = await reserveCredits(ctx.brand.userId, plan, cost, 'manual');
@@ -309,11 +318,28 @@ async function finalizeShippedFix(
 ): Promise<void> {
   const aiBefore = await getBrandAiVisibility(brandId);
   let gscBefore: Record<string, unknown> | null = null;
-  if (fix.targetUrl) {
+  // Diagnostic modules write nothing to the site, so the page's later CTR
+  // movement isn't theirs to claim. Skipping the baseline keeps them out
+  // of findFixesDueOutcome (which requires gsc_before) and therefore out
+  // of the learning priors and the measured auto-revert. See FixModule.
+  if (fix.targetUrl && !mod.diagnostic) {
     try {
-      const { getPageMetrics, normUrl } = await import('./page-metrics');
+      const { getPageMetrics, normUrl, fetchSiteMetricsLive } = await import('./page-metrics');
       const m = (await getPageMetrics(brandId, [fix.targetUrl])).get(normUrl(fix.targetUrl));
-      if (m) gscBefore = { clicks: m.clicks, impressions: m.impressions, ctr: m.ctr, position: m.position, at: new Date().toISOString() };
+      if (m) {
+        // The site-wide totals for the same window are the control group:
+        // without them a page that fell less than the site still measures as
+        // a loss. Captured here so the "after" pass 28 days later has
+        // something to difference against. Null when GSC isn't connected —
+        // measurement then falls back to the raw page delta.
+        const ownerId = await getOwnerId(brandId);
+        const site = ownerId ? await fetchSiteMetricsLive(brandId, ownerId).catch(() => null) : null;
+        gscBefore = {
+          clicks: m.clicks, impressions: m.impressions, ctr: m.ctr, position: m.position,
+          at: new Date().toISOString(),
+          site: site ? { clicks: site.clicks, impressions: site.impressions, ctr: site.ctr } : null,
+        };
+      }
     } catch { /* enrichment only */ }
   }
   await updateFix(fix.id, {
@@ -329,11 +355,45 @@ async function finalizeShippedFix(
     after(async () => {
       try { await recheckFix(fix.id, brandId, userId); }
       catch (e) { logger.warn('fix_engine.ship_autorecheck_failed', { fixId: fix.id, err: (e as Error).message }); }
+      // Independently of the module's own recheck, confirm the shipped
+      // value is in the page's HTML. This is what the user actually wants
+      // to know the moment they hit ship, and for the GSC-driven modules
+      // it is the only thing that can answer it this side of a month.
+      try { await verifyFixOnPage(fix.id, brandId, userId); }
+      catch (e) { logger.warn('fix_engine.ship_liveverify_failed', { fixId: fix.id, err: (e as Error).message }); }
     });
   }
 }
 
+/**
+ * Automation is never allowed to put new content on a live site.
+ *
+ * `userId` is the seam: every human-initiated path carries the id of the
+ * person who clicked, and every scheduled/cron path passes null. Enforcing
+ * it here rather than at each call site means a future caller cannot
+ * reintroduce silent publishing by forgetting a check — there is exactly
+ * one door, and it needs a name on it.
+ *
+ * The one deliberate exception is revertFix: restoring content the site
+ * already had is a rollback, not a publication, and it is the safety net
+ * that makes shipping tolerable. It stays opt-in per brand.
+ */
+export class LiveChangeNeedsApprovalError extends Error {
+  constructor(action: string) {
+    super(
+      `${action} publishes to the live site and needs a person to approve it. `
+      + 'Automation can detect, generate, and stage a preview, but only a human can publish.',
+    );
+    this.name = 'LiveChangeNeedsApprovalError';
+  }
+}
+
+function requireHumanApproval(userId: string | null, action: string): asserts userId is string {
+  if (!userId) throw new LiveChangeNeedsApprovalError(action);
+}
+
 export async function shipFix(fixId: string, brandId: string, userId: string | null): Promise<FixRow> {
+  requireHumanApproval(userId, 'Shipping a fix');
   const fix = await getFix(fixId, brandId);
   if (!fix) throw new Error('Fix not found');
   const mod = getModule(fix.moduleKey);
@@ -344,7 +404,18 @@ export async function shipFix(fixId: string, brandId: string, userId: string | n
     throw new Error(`Cannot ship a fix in status '${fix.status}'`);
   }
   if (!(await claimFixTransition(fix.id, fix.status, 'shipping'))) {
-    return (await getFix(fixId, brandId))!;
+    // Another request got there first. Normally that one is mid-flight or
+    // already done, and returning the current row is right. But if the row
+    // is STILL sitting at a shippable status, nothing shipped and nothing
+    // failed - the caller gets its fix back unchanged and the dashboard
+    // simply re-renders the Ship button, which reads as the click doing
+    // nothing at all. Say so instead of failing silently.
+    const current = (await getFix(fixId, brandId))!;
+    if (['approved', 'failed'].includes(current.status)) {
+      logger.warn('fix_engine.ship_claim_lost', { fixId: fix.id, status: current.status });
+      throw new Error('Could not start shipping this fix - it may have been changed in another tab. Reload and try again.');
+    }
+    return current;
   }
 
   const ctx = await buildContext(brandId);
@@ -490,6 +561,7 @@ export async function stageFix(fixId: string, brandId: string, userId: string | 
  * rechecks (handled in the ack route).
  */
 export async function publishStagedFix(fixId: string, brandId: string, userId: string | null): Promise<FixRow> {
+  requireHumanApproval(userId, 'Publishing a staged change');
   const fix = await getFix(fixId, brandId);
   if (!fix) throw new Error('Fix not found');
   if (fix.status !== 'staged') throw new Error(`Only a staged fix can be published (status: ${fix.status})`);
@@ -509,6 +581,53 @@ export async function publishStagedFix(fixId: string, brandId: string, userId: s
   });
   await resetConnectorDelivery(fix.id); // re-pull for the publish op
   await logFixEvent(fix.id, brandId, userId, 'publish.requested', { url });
+  return (await getFix(fixId, brandId))!;
+}
+
+// ── live verification ────────────────────────────────────────────
+
+/**
+ * Answer "is the change actually on my page right now?" for one fix, and
+ * remember the answer.
+ *
+ * Deliberately separate from recheckFix. Recheck asks each module its own
+ * success question - which for the GSC-driven modules means "did CTR
+ * improve?", a question that needs weeks of data and can never confirm a
+ * publish. This asks the immediate, checkable one, and it never changes the
+ * fix's status: a page that 404s during a deploy must not demote a fix that
+ * shipped correctly. It only records evidence.
+ */
+export async function verifyFixOnPage(
+  fixId: string,
+  brandId: string,
+  userId: string | null,
+): Promise<FixRow> {
+  const fix = await getFix(fixId, brandId);
+  if (!fix) throw new Error('Fix not found');
+  const mod = getModule(fix.moduleKey);
+  if (!mod) throw new Error(`Unknown module: ${fix.moduleKey}`);
+  if (!['shipped', 'verified', 'failed'].includes(fix.status)) {
+    throw new Error(`Only a shipped fix can be checked against the live page (status: ${fix.status})`);
+  }
+
+  const { verifyFixLive } = await import('./live-check');
+  const verdict = await verifyFixLive({
+    fix: {
+      moduleKey: fix.moduleKey,
+      targetUrl: fix.targetUrl,
+      generated: fix.generated,
+      afterSnapshot: fix.afterSnapshot,
+    },
+    module: mod,
+  });
+
+  await updateFix(fix.id, { liveCheck: verdict as unknown as Record<string, unknown> });
+  await logFixEvent(fix.id, brandId, userId, 'live_checked', {
+    state: verdict.state,
+    source: verdict.source,
+    checks: verdict.checks.length,
+    found: verdict.checks.filter((c) => c.found).length,
+  });
   return (await getFix(fixId, brandId))!;
 }
 

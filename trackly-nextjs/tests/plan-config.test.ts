@@ -22,7 +22,7 @@ describe('PLAN_CREDITS', () => {
       maxPlatforms: 2,
       trackedPromptsPerAccount: 5,
       modelTier: 'economy',
-      scheduledRuns: true,
+      scheduledRuns: false,
       autoRunFrequency: 'weekly',
       brandsCap: 1,
     });

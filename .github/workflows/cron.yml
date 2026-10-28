@@ -21,6 +21,7 @@ on:
   schedule:
     - cron: "*/15 * * * *"
     - cron: "30 2 * * *"
+    - cron: "30 3 * * *"
     - cron: "0 8 * * 1"
     - cron: "0 8 1 * *"
   workflow_dispatch:
@@ -33,6 +34,7 @@ on:
         options:
           - daily
           - reconcile
+          - volatility
           - weekly
           - monthly
 
@@ -120,6 +122,30 @@ jobs:
             --max-time 300 \
             -H "Authorization: Bearer $CRON_SECRET" \
             "https://livesov.com/api/cron/fix-engine-scheduler"
+
+  volatility:
+    # AI Volatility Index for the day that just closed. Reads the shared
+    # prompt_runs corpus rather than a panel of its own, so it costs a
+    # query rather than API calls.
+    #
+    # 03:30 UTC: after the 02:30 daily-floor tick has had an hour to finish
+    # writing, and far enough past midnight UTC that the day it scores is
+    # definitely complete. The route is idempotent (the upsert is keyed on
+    # day+platform), so a retry or an overlap re-scores rather than
+    # double-counting.
+    name: AI volatility index cron
+    if: github.event.schedule == '30 3 * * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'volatility')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call /api/cron/volatility
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --max-time 300 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://livesov.com/api/cron/volatility"
 
   weekly:
     name: Weekly reports cron

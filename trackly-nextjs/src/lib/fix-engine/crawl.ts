@@ -41,6 +41,34 @@ export interface CrawledPage {
   lastModified: string | null;
   /** Rendered <img> srcs that have no alt attribute at all (capped at 20). */
   imagesMissingAlt: string[];
+  /** Measurable page-experience friction. See pageFrictionSignals(). */
+  friction: FrictionSignals;
+}
+
+/**
+ * Page-experience friction, measured rather than guessed.
+ *
+ * These exist so the search-decay module can name on-page friction as a
+ * cause of click loss without inventing it. Every field is something we can
+ * literally count in the served HTML - no Core Web Vitals, no field data,
+ * no rendering. They are proxies and the prompt says so: heavy script and a
+ * stack of pop-up markers is evidence a page got harder to use, not proof.
+ */
+export interface FrictionSignals {
+  /** Total served HTML size, in KB. */
+  htmlKb: number;
+  /** Bytes inside <script> tags, in KB - the JS the browser must chew on. */
+  scriptKb: number;
+  /** <script> tag count, inline and external. */
+  scriptCount: number;
+  /** <iframe> count: embeds, video players, and most ad units. */
+  iframeCount: number;
+  /** Elements whose class/id names a pop-up, modal, overlay or cookie wall. */
+  popupMarkers: number;
+  /** Ad-network markers (AdSense, GPT, Taboola-style slots). */
+  adMarkers: number;
+  /** Words before the first H2 - a wall of text the reader must wade through. */
+  wordsBeforeFirstHeading: number;
 }
 
 // ── Scan-scoped crawl cache ──────────────────────────────────────
@@ -202,9 +230,51 @@ export async function crawlPage(url: string, _signal?: AbortSignal): Promise<Cra
     externalLinkCount,
     lastModified: extractLastModified(html, jsonLd, res.headers.get('last-modified')),
     imagesMissingAlt: extractImagesMissingAlt(html),
+    friction: pageFrictionSignals(html),
   };
   if (cacheDepth > 0 && pageCache.size < PAGE_CACHE_MAX) pageCache.set(url, page);
   return page;
+}
+
+/**
+ * Count the page-experience friction we can actually see in the HTML.
+ *
+ * Deliberately cheap and deliberately shallow. Everything here is derived
+ * from the same response crawlPage already has in hand, so it adds no
+ * fetches, and nothing here claims to be a performance measurement - it is
+ * the difference between "this page is 40KB of text" and "this page is
+ * 900KB of script behind three overlays", which is the distinction a decay
+ * diagnosis needs and could not previously make.
+ */
+export function pageFrictionSignals(html: string): FrictionSignals {
+  const scripts = html.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi) || [];
+  const scriptBytes = scripts.reduce((n, tag) => n + tag.length, 0);
+
+  // Class/id names, not arbitrary body text: "our cookie policy" in a
+  // paragraph is not a cookie wall, `class="cookie-banner"` is.
+  const attrs = html.match(/\b(?:class|id)=["'][^"']*["']/gi) || [];
+  const POPUP = /(?:pop-?up|modal|overlay|interstitial|lightbox|newsletter|subscribe|cookie|gdpr|consent|paywall|exit-intent)/i;
+  const popupMarkers = attrs.filter((a) => POPUP.test(a)).length;
+
+  const AD = /(?:adsbygoogle|googletag|doubleclick|data-ad-client|data-ad-slot|taboola|outbrain|\bad-slot\b|\bad-unit\b)/gi;
+  const adMarkers = (html.match(AD) || []).length;
+
+  // Text ahead of the first H2. A long run here is the classic "scroll past
+  // 600 words of preamble before the page answers you" pattern.
+  const firstH2 = html.search(/<h2\b/i);
+  const lead = firstH2 >= 0 ? html.slice(0, firstH2) : html;
+  const leadText = stripTags(lead);
+
+  const kb = (bytes: number) => Math.round(bytes / 1024);
+  return {
+    htmlKb: kb(html.length),
+    scriptKb: kb(scriptBytes),
+    scriptCount: scripts.length,
+    iframeCount: (html.match(/<iframe\b/gi) || []).length,
+    popupMarkers,
+    adMarkers,
+    wordsBeforeFirstHeading: leadText ? leadText.split(/\s+/).filter(Boolean).length : 0,
+  };
 }
 
 /** <img> tags with NO alt attribute at all (empty alt="" is intentional-

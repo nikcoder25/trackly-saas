@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" width="800" height="300" role="img">
+  <style>
+    .bg   { fill: #f8fafc; }
+    .card { fill: #ffffff; stroke: #e2e8f0; }
+    .ttl  { fill: #0f172a; font-weight: 700; }
+    .lbl  { fill: #334155; }
+    .mut  { fill: #64748b; }
+    .trk  { fill: #e2e8f0; }
+    .acc  { fill: #6366f1; }
+    .acc2 { fill: #94a3b8; }
+    .good { fill: #10b981; }
+    .warn { fill: #f59e0b; }
+    .line { stroke: #cbd5e1; }
+    .accline { stroke: #6366f1; }
+    text  { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    @media (prefers-color-scheme: dark) {
+      .bg   { fill: #0f172a; }
+      .card { fill: #1e293b; stroke: #334155; }
+      .ttl  { fill: #e2e8f0; }
+      .lbl  { fill: #cbd5e1; }
+      .mut  { fill: #94a3b8; }
+      .trk  { fill: #334155; }
+      .acc  { fill: #818cf8; }
+      .acc2 { fill: #64748b; }
+      .line { stroke: #334155; }
+      .accline { stroke: #818cf8; }
+    }
+  </style>
+  <rect width="800" height="300" rx="12" class="bg"/>
+  <text x="28" y="40" class="ttl" font-size="17">Why a Grok number needs smoothing before you report it</text>
+  <text x="28" y="62" class="mut" font-size="13">Illustrative: the daily series swings on live conversation, the average shows the actual trend</text>
+  <rect x="28" y="88" width="744" height="150" rx="10" class="card" stroke-width="1"/>
+  <line x1="29" y1="126" x2="771" y2="126" class="line" stroke-width="1" stroke-dasharray="3 4"/>
+  <line x1="29" y1="163" x2="771" y2="163" class="line" stroke-width="1" stroke-dasharray="3 4"/>
+  <line x1="29" y1="200" x2="771" y2="200" class="line" stroke-width="1" stroke-dasharray="3 4"/>
+  <polyline points="28.0,160.0 55.6,131.5 83.1,172.0 110.7,143.5 138.2,179.5 165.8,121.0 193.3,167.5 220.9,155.5 248.4,115.0 276.0,176.5 303.6,136.0 331.1,163.0 358.7,127.0 386.2,173.5 413.8,148.0 441.3,110.5 468.9,169.0 496.4,152.5 524.0,179.5 551.6,130.0 579.1,161.5 606.7,139.0 634.2,172.0 661.8,119.5 689.3,166.0 716.9,146.5 744.4,175.0 772.0,133.0" fill="none" stroke="#cbd5e1" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="28.0,154.0 55.6,151.0 83.1,152.5 110.7,151.0 138.2,154.0 165.8,151.0 193.3,152.5 220.9,149.5 248.4,148.0 276.0,149.5 303.6,149.5 331.1,151.0 358.7,148.0 386.2,151.0 413.8,151.0 441.3,148.0 468.9,149.5 496.4,151.0 524.0,152.5 551.6,149.5 579.1,151.0 606.7,149.5 634.2,152.5 661.8,148.0 689.3,151.0 716.9,149.5 744.4,152.5 772.0,149.5" fill="none" class="accline" stroke-width="2.8" stroke-linejoin="round"/>
+  <line x1="30" y1="260" x2="54" y2="260" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="62" y="264" class="mut" font-size="12">Daily rank score - what a single check reports</text>
+  <line x1="30" y1="282" x2="54" y2="282" class="accline" stroke-width="2.8"/>
+  <text x="62" y="286" class="lbl" font-size="12" font-weight="600">7-day rolling average - the number worth reporting</text>
+  <text x="772" y="286" text-anchor="end" class="mut" font-size="11">One prompt, 28 days</text>
+</svg>

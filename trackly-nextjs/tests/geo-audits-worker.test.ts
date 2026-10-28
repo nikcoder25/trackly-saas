@@ -62,6 +62,7 @@ interface AuditState {
   receivedFinal?: number;
   mentionsFinal?: number;
   errorFinal?: string | null;
+  creditsRefunded?: boolean;
 }
 
 function setupAuditQueries(state: AuditState) {
@@ -120,6 +121,14 @@ function setupAuditQueries(state: AuditState) {
     if (/SELECT COUNT\(\*\)::int AS received FROM geo_audit_results/i.test(sql)) {
       const received = resultsInserted.filter((r) => !r.error).length;
       return { rows: [{ received }] };
+    }
+    // exactly-once refund claim (compare-and-set on credits_refunded). The
+    // worker only refunds if it wins this flip; models the guard that stops
+    // the watchdog reaper and the live worker from double-refunding.
+    if (/UPDATE geo_audits[\s\S]*SET credits_refunded = TRUE/i.test(sql) && !/status = 'failed'/i.test(sql)) {
+      if (state.creditsRefunded) return { rows: [], rowCount: 0 };
+      state.creditsRefunded = true;
+      return { rows: [{ id: AUDIT_ID }], rowCount: 1 };
     }
     // finalize UPDATE
     if (/UPDATE geo_audits[\s\S]*SET status = \$2/i.test(sql)) {

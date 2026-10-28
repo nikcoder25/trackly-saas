@@ -8,7 +8,8 @@ import NapResults, { type NapResultsData, scoreColor } from '@/components/tools/
 import NapAuditForm, { type NapAuditFormValues } from '@/components/dashboard/NapAuditForm';
 
 interface CanonicalNap {
-  name: string; phone?: string; street?: string; suite?: string; city?: string; postcode?: string;
+  name: string; phone?: string; street?: string; suite?: string; city?: string;
+  region?: string; postcode?: string; country?: string; website?: string;
 }
 interface HistoryPoint { at: string; score: number }
 type NapAuditStatus = 'queued' | 'running' | 'done' | 'failed';
@@ -235,7 +236,7 @@ export default function NapAuditDetailPage() {
 
   useEffect(() => {
     if (id) load();
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } };
   }, [id, load]);
 
   // Poll while the run is in progress so the progress bar and results
@@ -285,7 +286,7 @@ export default function NapAuditDetailPage() {
 
   const c = audit?.canonical;
   const napLine = c
-    ? [c.name, c.street, c.suite, c.city, c.postcode, c.phone].filter(Boolean).join(' · ')
+    ? [c.name, c.street, c.suite, c.city, c.region, c.postcode, c.phone].filter(Boolean).join(' · ')
     : '';
 
   return (

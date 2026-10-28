@@ -1,3 +1,4 @@
+import { enforcePlatformDailyCap, PlatformDailyCapExceededError, recordCall } from './cost-tracker';
 /**
  * AI-powered fact-checking utility
  * Analyzes AI platform responses against canonical brand facts
@@ -55,6 +56,30 @@ export interface FactCheckResult {
   platformStats: Record<string, { total: number; accurate: number }>;
   categoryStats: Record<string, { total: number; accurate: number }>;
   error?: string;
+  message?: string;
+}
+
+export const NO_BRAND_MENTIONS_MESSAGE = 'No AI answers mention this brand yet, so there are no claims to check.';
+
+function normalizeForMatch(s: string): string {
+  return ` ${String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `;
+}
+
+/**
+ * True when the response names the brand: the full normalized name, or its
+ * first two words (so "Acme Paving LLC" matches "Acme Paving").
+ */
+export function responseMentionsBrand(text: string, brandName: string): boolean {
+  const name = normalizeForMatch(brandName).trim();
+  if (!name) return true;
+  const hay = normalizeForMatch(text);
+  if (hay.includes(` ${name} `)) return true;
+  const words = name.split(' ');
+  if (words.length >= 2) {
+    const firstTwo = words.slice(0, 2).join(' ');
+    if (hay.includes(` ${firstTwo} `)) return true;
+  }
+  return false;
 }
 
 interface PromptRun {
@@ -136,8 +161,16 @@ function isTransientError(e: Error): boolean {
     || msg.includes('api error 5') || msg.includes('max retries exhausted');
 }
 
-function buildFactCheckPrompt(facts: CanonicalFact[], responseText: string, platform: string): string {
+export function buildFactCheckPrompt(facts: CanonicalFact[], responseText: string, platform: string, brandName?: string): string {
   const factsList = facts.map(f => `- ${f.key} (${f.category}): "${f.value}"`).join('\n');
+  const brandRule = brandName
+    ? `
+BRAND SCOPE - read carefully:
+- These canonical facts describe "${brandName}". Only judge statements the response makes about "${brandName}".
+- Facts about other businesses (competitors, other companies in a list) are NEVER inaccuracies. For them mark the fact "not_mentioned".
+- If the response does not name "${brandName}" at all, mark every fact "not_mentioned".
+`
+    : '';
 
   return `You are a strict fact-checking assistant. Analyze the following AI-generated response and check it against the canonical facts provided.
 
@@ -153,7 +186,8 @@ For each canonical fact, determine if the AI response:
 1. Mentions the topic and gets it RIGHT → mark as "accurate"
 2. Mentions the topic but gets it WRONG → mark as "inaccurate" with what was found
 3. Does NOT mention the topic at all → mark as "not_mentioned"
-
+4. Says it LACKS or CANNOT FIND the fact ("I don't have", "not available", "couldn't find", "no current/public ...") → mark as "not_mentioned", NEVER "inaccurate". Admitting it does not know is not a wrong claim.
+${brandRule}
 IMPORTANT - Avoid false positives. These are NOT inaccuracies:
 - Minor punctuation differences (periods, commas, hyphens): "C Brooks" vs "C. Brooks" → accurate
 - Case differences: "c brooks paving" vs "C. Brooks Paving" → accurate
@@ -178,11 +212,52 @@ Example response:
 Return ONLY the JSON array, no markdown, no extra text.`;
 }
 
+// Ledger platform names for the three checker types, matching what the
+// rest of the app records in daily_cost_tracker.
+const CHECKER_PLATFORM: Record<'gemini' | 'openai' | 'claude', string> = {
+  gemini: 'Gemini',
+  openai: 'ChatGPT',
+  claude: 'Claude',
+};
+
+// The verdict is a JSON array with one ~60-token object per canonical
+// fact; 2048 covers 30 facts with room to spare. The old 4096 ceiling
+// was never reached by a well-formed reply and only made runaway output
+// (a model that ignored "JSON only") twice as expensive.
+const CHECKER_MAX_TOKENS = 2048;
+
+/**
+ * Record a checker call in the shared ledger. This path does not go
+ * through queryAI, so without this the accuracy feature was invisible
+ * to daily_cost_tracker, the $3 alarm and the per-platform daily cap.
+ * Best-effort: recordCall swallows DB errors.
+ */
+function ledgerChecker(
+  checker: { type: 'gemini' | 'openai' | 'claude'; model: string },
+  tokensIn: number,
+  tokensOut: number,
+): Promise<void> {
+  return recordCall({
+    platform: CHECKER_PLATFORM[checker.type],
+    model: checker.model,
+    tokensIn: Number(tokensIn) || 0,
+    tokensOut: Number(tokensOut) || 0,
+  });
+}
+
+/** A failure worth trying the next provider for. */
+function shouldTryNextChecker(e: Error): boolean {
+  return e instanceof PlatformDailyCapExceededError || isTransientError(e);
+}
+
 async function callChecker(
   checker: { type: 'gemini' | 'openai' | 'claude'; key: string; model: string },
   prompt: string
 ): Promise<string> {
   const MAX_RETRIES = 2;
+  // Same global brake every queryAI call gets. Thrown before any request
+  // so a capped provider costs nothing and the caller moves on.
+  await enforcePlatformDailyCap(CHECKER_PLATFORM[checker.type]);
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     const controller = new AbortController();
@@ -195,7 +270,7 @@ async function callChecker(
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${checker.key}` },
           body: JSON.stringify({
             model: checker.model,
-            max_tokens: 4096,
+            max_tokens: CHECKER_MAX_TOKENS,
             temperature: 0,
             messages: [{ role: 'user', content: prompt }],
           }),
@@ -211,6 +286,7 @@ async function callChecker(
           }
           throw new Error(msg);
         }
+        await ledgerChecker(checker, d.usage?.prompt_tokens, d.usage?.completion_tokens);
         return d.choices?.[0]?.message?.content || '';
       }
 
@@ -224,7 +300,7 @@ async function callChecker(
           },
           body: JSON.stringify({
             model: checker.model,
-            max_tokens: 4096,
+            max_tokens: CHECKER_MAX_TOKENS,
             temperature: 0,
             messages: [{ role: 'user', content: prompt }],
           }),
@@ -240,6 +316,7 @@ async function callChecker(
           }
           throw new Error(msg);
         }
+        await ledgerChecker(checker, d.usage?.input_tokens, d.usage?.output_tokens);
         return d.content?.[0]?.text || '';
       }
 
@@ -250,7 +327,7 @@ async function callChecker(
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': checker.key },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 4096, temperature: 0 },
+            generationConfig: { maxOutputTokens: CHECKER_MAX_TOKENS, temperature: 0 },
           }),
           signal: controller.signal,
         });
@@ -280,6 +357,7 @@ async function callChecker(
         if (d.promptFeedback?.blockReason) throw new Error(`Gemini blocked the request: ${d.promptFeedback.blockReason}`);
         const candidate = d.candidates?.[0];
         if (candidate && candidate.finishReason === 'SAFETY') throw new Error('Gemini blocked the response due to safety filters');
+        await ledgerChecker(checker, d.usageMetadata?.promptTokenCount, d.usageMetadata?.candidatesTokenCount);
         return candidate?.content?.parts?.[0]?.text || '';
       }
 
@@ -297,6 +375,27 @@ async function callChecker(
     }
   }
   throw new Error('Max retries exhausted for fact checker');
+}
+
+// An answer that admits it lacks a fact ("I don't have a current phone
+// number for X") makes no claim, so it can never be an inaccuracy.
+const NO_INFO_RE = /\b(don'?t have|do not have|not (?:available|sure|able)|couldn'?t find|no (?:current|public) )/i;
+
+type CheckerFinding = {
+  fact_key: string;
+  status: 'accurate' | 'inaccurate' | 'not_mentioned';
+  found: string;
+  severity: string;
+  explanation: string;
+};
+
+/** Downgrade "inaccurate" findings whose `found` text is a lack-of-info statement to "not_mentioned". */
+export function downgradeNoInfoFindings<T extends { status: string; found?: string }>(findings: T[]): T[] {
+  return findings.map(f =>
+    f.status === 'inaccurate' && NO_INFO_RE.test(f.found || '')
+      ? { ...f, status: 'not_mentioned' as const }
+      : f,
+  );
 }
 
 function parseCheckerResponse(raw: string): Array<{
@@ -356,7 +455,8 @@ function parseCheckerResponse(raw: string): Array<{
  */
 export async function runFactCheck(
   facts: CanonicalFact[],
-  runs: PromptRun[]
+  runs: PromptRun[],
+  brandName?: string,
 ): Promise<FactCheckResult> {
   const checkers = getAllAvailableCheckers();
 
@@ -381,8 +481,21 @@ export async function runFactCheck(
     };
   }
 
-  // Only check runs that have response text, limit to recent runs per platform
-  const runsWithResponse = runs.filter(r => r.response_raw && r.response_raw.length > 20);
+  // Only check runs that have response text, limit to recent runs per platform.
+  // With a brand name, only answers that actually name the brand carry
+  // claims about it; generic answers about other companies are skipped.
+  const runsWithResponse = runs.filter(r => r.response_raw && r.response_raw.length > 20
+    && (!brandName || responseMentionsBrand(r.response_raw, brandName)));
+  if (brandName && runsWithResponse.length === 0) {
+    return {
+      issues: [],
+      checkedRuns: 0,
+      accuracyRate: 100,
+      platformStats: {},
+      categoryStats: {},
+      message: NO_BRAND_MENTIONS_MESSAGE,
+    };
+  }
   const platformGroups: Record<string, PromptRun[]> = {};
   for (const run of runsWithResponse) {
     const p = run.platform || 'unknown';
@@ -406,7 +519,7 @@ export async function runFactCheck(
     const batch = runsToCheck.slice(i, i + batchSize);
     const results = await Promise.allSettled(
       batch.map(async (run) => {
-        const prompt = buildFactCheckPrompt(facts, run.response_raw, run.platform);
+        const prompt = buildFactCheckPrompt(facts, run.response_raw, run.platform, brandName);
         // Try each checker in order until one succeeds
         let responseText = '';
         for (let ci = 0; ci < checkers.length; ci++) {
@@ -414,14 +527,14 @@ export async function runFactCheck(
             responseText = await callChecker(checkers[ci], prompt);
             break;
           } catch (e) {
-            if (isTransientError(e as Error) && ci < checkers.length - 1) {
+            if (shouldTryNextChecker(e as Error) && ci < checkers.length - 1) {
               console.warn(`[FactCheck] ${checkers[ci].type} failed, trying next checker...`);
               continue;
             }
             throw e;
           }
         }
-        const findings = parseCheckerResponse(responseText);
+        const findings = downgradeNoInfoFindings(parseCheckerResponse(responseText) as CheckerFinding[]);
         return { run, findings };
       })
     );
@@ -702,7 +815,7 @@ export async function autoDiscoverFacts(
       const msg = (e as Error).message || '';
 
       // On transient errors, try next checker if available
-      if (isTransientError(e as Error) && ci < checkers.length - 1) {
+      if (shouldTryNextChecker(e as Error) && ci < checkers.length - 1) {
         console.warn(`[AutoDiscover] ${checker.type} failed (${msg.slice(0, 80)}), falling back to next checker...`);
         continue;
       }

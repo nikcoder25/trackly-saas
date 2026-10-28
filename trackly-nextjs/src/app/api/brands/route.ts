@@ -48,6 +48,22 @@ function trimBrandData(data: Record<string, unknown>) {
   return d;
 }
 
+// The list only needs the last 10 runs, and only the newest with its results
+// (see trimBrandData). Doing that cut in Postgres keeps up to 30 runs of raw
+// AI answers per brand off the wire and out of JSON.parse; this endpoint is
+// hit on every dashboard load and polled every minute. trimBrandData still
+// runs afterwards to strip the per-result raw text.
+const LIST_DATA_SQL = `(CASE WHEN jsonb_typeof(data->'runs') = 'array' THEN
+  jsonb_set(data, '{runs}', COALESCE((
+    SELECT jsonb_agg(CASE WHEN jsonb_typeof(r.run) <> 'object' THEN r.run
+      WHEN r.ord = n.len THEN r.run - 'mentions'
+      ELSE r.run - 'mentions' - 'allResults' END ORDER BY r.ord)
+    FROM jsonb_array_elements(data->'runs') WITH ORDINALITY AS r(run, ord),
+         (SELECT jsonb_array_length(data->'runs') AS len) n
+    WHERE r.ord > n.len - 10
+  ), '[]'::jsonb))
+ELSE data END)`;
+
 // GET /api/brands - List all brands
 export async function GET(request: Request) {
   const authResult = await requireVerifiedAuth(request, pool);
@@ -55,22 +71,32 @@ export async function GET(request: Request) {
   const user = authResult;
 
   try {
-    const result = await pool.query('SELECT * FROM brands WHERE user_id = $1 ORDER BY created_at, id', [user.id]);
+    // Own brands, team-shared brands and the plan are independent; fetching
+    // them in parallel instead of one after another cuts the wait every
+    // dashboard page has before it can render anything.
+    const [result, teamResult, planResult] = await Promise.all([
+      pool.query(`SELECT id, user_id, ${LIST_DATA_SQL} AS data, created_at, updated_at FROM brands WHERE user_id = $1 ORDER BY created_at, id`, [user.id]),
+      // Team-shared brands
+      pool.query(
+        `SELECT b.id, b.user_id, ${LIST_DATA_SQL.replace(/\bdata\b/g, 'b.data')} AS data, b.created_at, b.updated_at,
+                tm.role AS team_role, u.name AS owner_name, u.email AS owner_email
+         FROM brands b
+         JOIN team_members tm ON b.user_id = tm.owner_id
+         JOIN users u ON u.id = tm.owner_id
+         WHERE tm.member_id = $1
+         ORDER BY b.created_at`,
+        [user.id]
+      ),
+      // Query plan from database (not JWT) so upgrades are reflected immediately
+      ensureColumns().then(() => pool.query('SELECT plan, trial_ends_at FROM users WHERE id = $1', [user.id])),
+    ]);
     const brands = result.rows.map((row: Record<string, unknown>) => {
       const data = trimBrandData({ ...((row.data as Record<string, unknown>) || {}) });
+      // Older team-member saves persisted the viewer-only access flags.
+      delete data.shared; delete data.teamRole; delete data.ownerName;
       return { id: row.id, userId: row.user_id, ...data, createdAt: row.created_at, updatedAt: row.updated_at };
     });
 
-    // Team-shared brands
-    const teamResult = await pool.query(
-      `SELECT b.*, tm.role AS team_role, u.name AS owner_name, u.email AS owner_email
-       FROM brands b
-       JOIN team_members tm ON b.user_id = tm.owner_id
-       JOIN users u ON u.id = tm.owner_id
-       WHERE tm.member_id = $1
-       ORDER BY b.created_at`,
-      [user.id]
-    );
     const sharedBrands = teamResult.rows.map((row: Record<string, unknown>) => {
       const data = trimBrandData({ ...((row.data as Record<string, unknown>) || {}) });
       return {
@@ -81,9 +107,6 @@ export async function GET(request: Request) {
       };
     });
 
-    // Query plan from database (not JWT) so upgrades are reflected immediately
-    await ensureColumns();
-    const planResult = await pool.query('SELECT plan, trial_ends_at FROM users WHERE id = $1', [user.id]);
     const plan = getEffectivePlan(planResult.rows[0]?.plan, planResult.rows[0]?.trial_ends_at);
     const limits = getPlanLimits(plan);
     const brandLimit = limits.brands;

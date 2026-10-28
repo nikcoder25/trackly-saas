@@ -109,6 +109,21 @@ export async function ensureFixEngineSchema(): Promise<void> {
   // ship time, and again ~28 days later (set by the outcome cron pass).
   await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS gsc_before JSONB`);
   await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS gsc_after JSONB`);
+  // Explicit archiving: shipping no longer moves a fix out of the main list;
+  // the user clicks Archive when they're done with it. Backfill exactly once
+  // (when the column is first created) so fixes shipped before this feature
+  // stay in the Archive tab instead of flooding back into the to-do view.
+  const hadArchivedAt = await pool.query(
+    `SELECT 1 FROM information_schema.columns WHERE table_name = 'fixes' AND column_name = 'archived_at'`,
+  );
+  await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`);
+  // Last "is it actually on the page" verification (see live-check.ts): the
+  // whole LiveVerdict, so the card can show what was searched for and when
+  // without re-fetching the site on every page load.
+  await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS live_check JSONB`);
+  if ((hadArchivedAt.rowCount || 0) === 0) {
+    await pool.query(`UPDATE fixes SET archived_at = updated_at WHERE status IN ('shipped','verified')`);
+  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS fix_connections (
@@ -201,6 +216,9 @@ export function mapFixRow(r: DbRow): FixRow {
     generated: (r.generated as Record<string, unknown> | null) ?? null,
     beforeSnapshot: (r.before_snapshot as Record<string, unknown> | null) ?? null,
     afterSnapshot: (r.after_snapshot as Record<string, unknown> | null) ?? null,
+    liveCheck: (r.live_check as Record<string, unknown> | null) ?? null,
+    connectorDeliveredAt: (r.connector_delivered_at as Date | string | null)
+      ? new Date(r.connector_delivered_at as string).toISOString() : null,
     shipResult: (r.ship_result as Record<string, unknown> | null) ?? null,
     scoreBefore: r.score_before == null ? null : Number(r.score_before),
     scoreAfter: r.score_after == null ? null : Number(r.score_after),
@@ -212,6 +230,7 @@ export function mapFixRow(r: DbRow): FixRow {
     previewUrl: (r.preview_url as string | null) ?? null,
     gscBefore: (r.gsc_before as Record<string, unknown> | null) ?? null,
     gscAfter: (r.gsc_after as Record<string, unknown> | null) ?? null,
+    archivedAt: r.archived_at ? String(r.archived_at) : null,
     error: (r.error as string | null) ?? null,
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
@@ -383,6 +402,7 @@ export async function updateFix(
     detected?: Record<string, unknown>;
     generated?: Record<string, unknown> | null;
     afterSnapshot?: Record<string, unknown> | null;
+    liveCheck?: Record<string, unknown> | null;
     shipResult?: Record<string, unknown> | null;
     scoreBefore?: number | null;
     scoreAfter?: number | null;
@@ -394,6 +414,8 @@ export async function updateFix(
     previewUrl?: string | null;
     gscBefore?: Record<string, unknown> | null;
     gscAfter?: Record<string, unknown> | null;
+    /** true → stamp archived_at now; false → clear it (unarchive). */
+    archived?: boolean;
     error?: string | null;
   },
 ): Promise<void> {
@@ -404,6 +426,7 @@ export async function updateFix(
   if (patch.detected !== undefined) { sets.push(`detected = $${i++}`); values.push(JSON.stringify(patch.detected)); }
   if (patch.generated !== undefined) { sets.push(`generated = $${i++}`); values.push(patch.generated ? JSON.stringify(patch.generated) : null); }
   if (patch.afterSnapshot !== undefined) { sets.push(`after_snapshot = $${i++}`); values.push(patch.afterSnapshot ? JSON.stringify(patch.afterSnapshot) : null); }
+  if (patch.liveCheck !== undefined) { sets.push(`live_check = $${i++}`); values.push(patch.liveCheck ? JSON.stringify(patch.liveCheck) : null); }
   if (patch.shipResult !== undefined) { sets.push(`ship_result = $${i++}`); values.push(patch.shipResult ? JSON.stringify(patch.shipResult) : null); }
   if (patch.scoreBefore !== undefined) { sets.push(`score_before = $${i++}`); values.push(patch.scoreBefore); }
   if (patch.scoreAfter !== undefined) { sets.push(`score_after = $${i++}`); values.push(patch.scoreAfter); }
@@ -415,6 +438,16 @@ export async function updateFix(
   if (patch.previewUrl !== undefined) { sets.push(`preview_url = $${i++}`); values.push(patch.previewUrl); }
   if (patch.gscBefore !== undefined) { sets.push(`gsc_before = $${i++}`); values.push(patch.gscBefore ? JSON.stringify(patch.gscBefore) : null); }
   if (patch.gscAfter !== undefined) { sets.push(`gsc_after = $${i++}`); values.push(patch.gscAfter ? JSON.stringify(patch.gscAfter) : null); }
+  if (patch.archived !== undefined) {
+    sets.push(patch.archived ? 'archived_at = NOW()' : 'archived_at = NULL');
+  } else if (patch.status !== undefined && !['shipped', 'verified'].includes(patch.status)) {
+    // Archived is a property of a LIVE fix. Any transition away from the live
+    // states (revert, reopen-for-edit, regenerate, retry…) clears it, so a
+    // once-archived fix re-enters the normal workflow — and doesn't jump
+    // straight back into the Archive tab when it ships again. The
+    // shipped↔verified recheck transition keeps the flag.
+    sets.push('archived_at = NULL');
+  }
   if (patch.error !== undefined) { sets.push(`error = $${i++}`); values.push(patch.error); }
   await pool.query(`UPDATE fixes SET ${sets.join(', ')} WHERE id = $1`, values);
 }

@@ -17,16 +17,16 @@ export function PagePromptDiscovery() {
 
         <div className="pd-hero">
           <div className="pd-hero-l">
-            <div className="eyebrow" style={{color:'rgba(255,255,255,.78)'}}>PROMPT DEMAND INDEX</div>
+            <div className="eyebrow" style={{color:'rgba(255,255,255,.78)'}}>Prompt demand index</div>
             <div className="pd-hero-v"><span className="mono">8,420</span><i>queries / mo</i></div>
             <div className="pd-hero-d">your category · across 5 engines · <Delta v={+18} suffix="%"/> vs last month</div>
           </div>
           <div className="pd-hero-mini">
             {[
-              { k: 'NEW PROMPTS · 30D', v: '124', d: +18 },
-              { k: 'YOUR APPEARANCE',   v: '68%', d: +6 },
-              { k: 'UNCONTESTED WINS',  v: '14', d: +3 },
-              { k: 'LOSING PROMPTS',    v: '38', d: -4 },
+              { k: 'New prompts · 30d', v: '124', d: +18 },
+              { k: 'Your appearance',   v: '68%', d: +6 },
+              { k: 'Uncontested wins',  v: '14', d: +3 },
+              { k: 'Losing prompts',    v: '38', d: -4 },
             ].map((k,i)=>(
               <div key={i} className="pd-mini">
                 <div className="eyebrow" style={{color:'rgba(255,255,255,.72)'}}>{k.k}</div>
@@ -40,12 +40,12 @@ export function PagePromptDiscovery() {
         <Filter>
           <div className="search-box"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="var(--mute)" strokeWidth="1.5"/><path d="M9.5 9.5L12 12" stroke="var(--mute)" strokeWidth="1.5"/></svg><input placeholder="Discover prompts - try 'project management', 'AI features'…"/></div>
           <Seg value={intent} onChange={setIntent} options={[
-            { value: 'all', label: 'ALL' },
-            { value: 'compare', label: 'COMPARE' },
-            { value: 'price', label: 'PRICE' },
-            { value: 'recommend', label: 'RECOMMEND' },
-            { value: 'feature', label: 'FEATURE' },
-            { value: 'brand', label: 'BRAND' },
+            { value: 'all', label: 'All' },
+            { value: 'compare', label: 'Compare' },
+            { value: 'price', label: 'Price' },
+            { value: 'recommend', label: 'Recommend' },
+            { value: 'feature', label: 'Feature' },
+            { value: 'brand', label: 'Brand' },
           ]}/>
           <select className="sel"><option>Volume: any</option><option>1k+ / mo</option><option>500–1k</option><option>100–500</option></select>
           <select className="sel"><option>All engines</option></select>
@@ -54,7 +54,7 @@ export function PagePromptDiscovery() {
         </Filter>
 
         <div className="g3">
-          <Card title="Intent clusters" right={<span className="mono dim" style={{fontSize:11}}>30 DAYS</span>}>
+          <Card title="Intent clusters" right={<span className="mono dim" style={{fontSize:11}}>30 days</span>}>
             {[
               { label: 'Compare / vs',       v: 38, n: 2840, c: 'var(--primary)' },
               { label: 'Recommend / best',   v: 32, n: 2390, c: 'var(--info)' },
@@ -77,7 +77,7 @@ export function PagePromptDiscovery() {
           <Card title="Rising prompts · 7d" style={{ gridColumn: 'span 2' }} padding={false}>
             <div className="tbl-wrap">
               <table className="tbl">
-                <thead><tr><th>PROMPT</th><th>INTENT</th><th>VOL / MO</th><th>Δ 7D</th><th>YOU?</th></tr></thead>
+                <thead><tr><th>Prompt</th><th>Intent</th><th>Vol / mo</th><th>Δ 7D</th><th>You?</th></tr></thead>
                 <tbody>
                   {[
                     ['can acme replace jira',                   'compare', 840,   +124, 'pos'],
@@ -92,7 +92,7 @@ export function PagePromptDiscovery() {
                       <td><Badge tone={intent==='compare'?'info':intent==='price'?'warn':intent==='feature'?'acc':'neu'}>{(intent as string).toUpperCase()}</Badge></td>
                       <td className="num"><b>{(vol as number).toLocaleString()}</b></td>
                       <td><Delta v={d as number}/></td>
-                      <td>{you === 'pos' ? <Badge tone="pos">YES · 1st</Badge> : you === 'neg' ? <Badge tone="neg">MISSING</Badge> : <Badge tone="neu">MENTIONED</Badge>}</td>
+                      <td>{you === 'pos' ? <Badge tone="pos">YES · 1st</Badge> : you === 'neg' ? <Badge tone="neg">Missing</Badge> : <Badge tone="neu">Mentioned</Badge>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -107,13 +107,13 @@ export function PagePromptDiscovery() {
             <table className="tbl">
               <thead><tr>
                 <th><input type="checkbox"/></th>
-                <th>PROMPT</th>
-                <th>INTENT</th>
-                <th>VOL / MO</th>
-                <th>TREND</th>
-                <th>DIFFICULTY</th>
-                <th>YOU CURRENTLY</th>
-                <th>OPPORTUNITY</th>
+                <th>Prompt</th>
+                <th>Intent</th>
+                <th>Vol / mo</th>
+                <th>Trend</th>
+                <th>Difficulty</th>
+                <th>You currently</th>
+                <th>Opportunity</th>
                 <th className="right"></th>
               </tr></thead>
               <tbody>
@@ -185,16 +185,16 @@ function PromptBrief({ item, onClose }: any) {
           </button>
         </header>
         <div className="drawer-b">
-          <div className="eyebrow">PROMPT</div>
+          <div className="eyebrow">Prompt</div>
           <div style={{padding:'10px 12px',background:'var(--surface-2)',border:'1px solid var(--line)',borderRadius:6,margin:'8px 0 18px',fontFamily:'var(--mono)',fontSize:13.5,color:'var(--text)'}}>&ldquo;{item.q}&rdquo;</div>
 
           <div className="bg-stat-grid">
-            <div className="bg-stat"><div className="eyebrow">VOLUME · MO</div><div className="bg-stat-v mono">{item.v.toLocaleString()}</div></div>
-            <div className="bg-stat"><div className="eyebrow">DIFFICULTY</div><div className="bg-stat-v"><DiffDots level={item.diff}/></div></div>
-            <div className="bg-stat"><div className="eyebrow">OPPORTUNITY</div><div className="bg-stat-v"><OpScore level={item.op}/></div></div>
+            <div className="bg-stat"><div className="eyebrow">Volume · mo</div><div className="bg-stat-v mono">{item.v.toLocaleString()}</div></div>
+            <div className="bg-stat"><div className="eyebrow">Difficulty</div><div className="bg-stat-v"><DiffDots level={item.diff}/></div></div>
+            <div className="bg-stat"><div className="eyebrow">Opportunity</div><div className="bg-stat-v"><OpScore level={item.op}/></div></div>
           </div>
 
-          <div className="eyebrow" style={{marginTop:18}}>WHO'S WINNING THIS PROMPT</div>
+          <div className="eyebrow" style={{marginTop:18}}>Who's winning this prompt</div>
           <div style={{display:'grid',gap:8,margin:'10px 0 18px'}}>
             {[
               { b: 'Linear', sov: 42, eng: 5, c: 'var(--info)' },
@@ -211,7 +211,7 @@ function PromptBrief({ item, onClose }: any) {
             ))}
           </div>
 
-          <div className="eyebrow">RECOMMENDED CONTENT BRIEF</div>
+          <div className="eyebrow">Recommended content brief</div>
           <div className="brief">
             <div className="brief-item"><span className="brief-n mono">01</span><div><b>Create a comparison page:</b> "{item.q} - {item.intent === 'compare' ? 'honest review from a customer' : 'who actually wins'}"</div></div>
             <div className="brief-item"><span className="brief-n mono">02</span><div><b>Target word count:</b> 1,400–1,800 (median for cited PM-tool answers in this engine)</div></div>
@@ -251,14 +251,14 @@ export function PageAgentAnalytics() {
         actions={<><button className="btn-g">⇣ CSV</button><button className="btn-d">⚙ Crawler rules</button><button className="btn-p">Verify install</button></>}/>
       <div className="page-body">
         <KPIRail items={[
-          { k: 'AGENT HITS · 7D',    v: '15,640', d: +18, info: '8 distinct bots' },
-          { k: 'UNIQUE PAGES READ',  v: '486',    d: +42 },
-          { k: 'TOP CRAWLER',        v: 'GPTBot', info: '27% of hits' },
-          { k: 'ATTRIBUTED REFERRAL',v: '$12.4k', suffix: '', d: +24, info: 'est. AI-search revenue' },
-          { k: 'BLOCKED HITS',       v: '14',     d: -3,  info: 'robots.txt' },
+          { k: 'Agent hits · 7d',    v: '15,640', d: +18, info: '8 distinct bots' },
+          { k: 'Unique pages read',  v: '486',    d: +42 },
+          { k: 'Top crawler',        v: 'GPTBot', info: '27% of hits' },
+          { k: 'Attributed referral',v: '$12.4k', suffix: '', d: +24, info: 'est. AI-search revenue' },
+          { k: 'Blocked hits',       v: '14',     d: -3,  info: 'robots.txt' },
         ]}/>
 
-        <Card title="Crawl volume · last 30 days" right={<><Pill>Hourly granularity</Pill><Seg value="visits" onChange={()=>{}} options={[{value:'visits',label:'VISITS'},{value:'pages',label:'UNIQUE PAGES'}]}/></>}>
+        <Card title="Crawl volume · last 30 days" right={<><Pill>Hourly granularity</Pill><Seg value="visits" onChange={()=>{}} options={[{value:'visits',label:'Visits'},{value:'pages',label:'Unique pages'}]}/></>}>
           <LineChart height={240} xLabels={['','D-30','','D-23','','D-16','','D-9','','today']} valSuffix=""
             series={[
               { id: 'gptbot',    label: 'GPTBot',       color: 'var(--success)', cur: 4280, data: [180,210,280,260,310,340,380,420,460,500] },
@@ -274,7 +274,7 @@ export function PageAgentAnalytics() {
             foot={<><span>{AGENTS.length} unique bots · 7 days</span><span>WHOIS verified</span></>}>
             <div className="tbl-wrap">
               <table className="tbl">
-                <thead><tr><th>AGENT</th><th>OWNER</th><th>VISITS · 7D</th><th>PAGES</th><th className="right">TREND</th></tr></thead>
+                <thead><tr><th>Agent</th><th>Owner</th><th>Visits · 7d</th><th>Pages</th><th className="right">Trend</th></tr></thead>
                 <tbody>
                   {AGENTS.map(a => (
                     <tr key={a.id}>
@@ -297,7 +297,7 @@ export function PageAgentAnalytics() {
             right={<Pill tone="acc">+18% vs last week</Pill>}>
             <div className="tbl-wrap">
               <table className="tbl">
-                <thead><tr><th>URL</th><th>READS</th><th>TOP AGENTS</th><th>LAST</th></tr></thead>
+                <thead><tr><th>URL</th><th>Reads</th><th>Top agents</th><th>Last</th></tr></thead>
                 <tbody>
                   {[
                     ['/customers',           1240, ['GPTBot','ClaudeBot','PerplexityBot'], '2m'],
@@ -319,7 +319,7 @@ export function PageAgentAnalytics() {
             </div>
           </Card>
 
-          <Card title="Hour × Agent heatmap" right={<span className="mono dim" style={{fontSize:11}}>UTC · LAST 7 DAYS</span>}>
+          <Card title="Hour × Agent heatmap" right={<span className="mono dim" style={{fontSize:11}}>UTC · last 7 days</span>}>
             <Heatmap
               rows={AGENTS.slice(0,6).map(a => a.name)}
               cols={['0','3','6','9','12','15','18','21']}
@@ -331,10 +331,10 @@ export function PageAgentAnalytics() {
           <Card title="AI search attribution" right={<Pill tone="acc">Beta</Pill>}>
             <div className="quiet" style={{fontSize:13,margin:'0 0 14px',lineHeight:1.5}}>When a visitor lands on acme.com after an AI-search session - we attribute it back to the bot that read the page first.</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
-              <KPIInline k="ATTRIBUTED SESSIONS" v="2,840" d={+24}/>
-              <KPIInline k="ATTRIBUTED REVENUE" v="$12,420" d={+18}/>
-              <KPIInline k="CONV. RATE" v="4.2%" d={+0.4}/>
-              <KPIInline k="AVG. ORDER" v="$4.37" d={+0.12}/>
+              <KPIInline k="Attributed sessions" v="2,840" d={+24}/>
+              <KPIInline k="Attributed revenue" v="$12,420" d={+18}/>
+              <KPIInline k="Conv. rate" v="4.2%" d={+0.4}/>
+              <KPIInline k="Avg. order" v="$4.37" d={+0.12}/>
             </div>
             <button className="btn-g" style={{marginTop:14,width:'100%',justifyContent:'center'}}>Configure GA4 / Segment</button>
           </Card>
@@ -347,7 +347,7 @@ export function PageAgentAnalytics() {
                 <span style={{width:22,height:22,borderRadius:4,background:a.c,display:'inline-flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:9,fontFamily:'var(--mono)',fontWeight:700}}>{a.name.slice(0,3).toUpperCase()}</span>
                 <span style={{flex:1,fontSize:12.5,fontWeight:500}}>{a.name}</span>
                 <span className="mono dim" style={{fontSize:11}}>{a.owner}</span>
-                <Seg value={['gptbot','claudebot','gpt-user','gemini','perplexity'].includes(a.id) ? 'allow' : 'block'} onChange={()=>{}} options={[{value:'allow',label:'ALLOW'},{value:'block',label:'BLOCK'}]}/>
+                <Seg value={['gptbot','claudebot','gpt-user','gemini','perplexity'].includes(a.id) ? 'allow' : 'block'} onChange={()=>{}} options={[{value:'allow',label:'Allow'},{value:'block',label:'Block'}]}/>
               </div>
             ))}
           </div>

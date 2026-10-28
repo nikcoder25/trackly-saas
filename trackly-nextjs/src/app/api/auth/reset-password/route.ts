@@ -3,11 +3,11 @@ import bcrypt from 'bcryptjs';
 import { pool } from '@/lib/db';
 import { AUTH } from '@/lib/constants';
 import { validatePasswordComplexity, hashToken, revokeAllSessions } from '@/lib/auth';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const ip = getClientIp(request);
   const rl = await rateLimit('reset_password:' + ip, 60 * 60 * 1000, 10);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 

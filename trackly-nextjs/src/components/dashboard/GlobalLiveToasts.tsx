@@ -135,7 +135,7 @@ export default function GlobalLiveToasts() {
 
   return (
     <>
-      <div role="log" aria-live="polite" aria-label="Live query results" style={{
+      <div role="log" aria-live="polite" aria-label="Live query results" className="glt-stack" style={{
         position: 'fixed', bottom: 16, right: 16, zIndex: 9999,
         display: 'flex', flexDirection: 'column', gap: 8,
         maxHeight: '70vh', overflowY: 'auto', pointerEvents: 'none',

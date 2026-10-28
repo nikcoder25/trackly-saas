@@ -3,13 +3,18 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useBrandData } from '@/hooks/useBrandData';
 import { Card, KPIRail, Badge, Bar, Pill, Cit, PageHead } from '@/app/dashboard-v2/ui';
+import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import { isRedirectCitationHost } from '@/lib/citation-hosts';
+import { geminiGroundingAllowedForPlan } from '@/lib/plan-config';
 
-interface Brand { id: string; name: string; runs?: Array<{ allResults?: Array<{ citations?: string[] }> }>; }
+interface Brand { id: string; name: string; platforms?: string[]; runs?: Array<{ allResults?: Array<{ citations?: string[]; platform?: string; model?: string }> }>; }
 interface CitationData { domains: Record<string, number>; totalCitations: number; ownDomain?: number; ownDomainName?: string; }
 
 export default function CitationsPage() {
   const { brand: rawBrand, loading } = useBrandData();
   const brand = rawBrand as Brand | null;
+  const { user } = useAuth();
   const [citData, setCitData] = useState<CitationData | null>(null);
 
   const loadCitations = useCallback((b: Brand) => {
@@ -22,7 +27,7 @@ export default function CitationsPage() {
         (b.runs || []).forEach(run => {
           (run.allResults || []).forEach(r => {
             (r.citations || []).forEach(url => {
-              try { const dn = new URL(url).hostname.replace(/^www\./, ''); domains[dn] = (domains[dn] || 0) + 1; } catch {}
+              try { const dn = new URL(url).hostname.replace(/^www\./, ''); if (isRedirectCitationHost(dn)) return; domains[dn] = (domains[dn] || 0) + 1; } catch {}
             });
           });
         });
@@ -45,18 +50,46 @@ export default function CitationsPage() {
     return () => window.removeEventListener('livesov:run-complete', handler);
   }, [brand?.id, loadCitations]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const sortedDomains = useMemo(() => {
+  // ?domain=<d> (command palette) narrows the list to matching sources.
+  const [domainFilter, setDomainFilter] = useState('');
+  useEffect(() => {
+    const d = new URLSearchParams(window.location.search).get('domain');
+    if (d) setDomainFilter(d.toLowerCase());
+  }, []);
+
+  const allDomains = useMemo(() => {
     if (!citData?.domains) return [];
     return Object.entries(citData.domains ?? {}).sort((a, b) => b[1] - a[1]);
   }, [citData]);
+  const sortedDomains = useMemo(
+    () => (domainFilter ? allDomains.filter(([d]) => d.toLowerCase().includes(domainFilter)) : allDomains),
+    [allDomains, domainFilter],
+  );
 
-  const domainCount = sortedDomains.length;
-  const totalCitations = citData?.totalCitations || sortedDomains.reduce((s, [, n]) => s + n, 0);
+  const domainCount = allDomains.length;
+  const totalCitations = citData?.totalCitations || allDomains.reduce((s, [, n]) => s + n, 0);
   const ownDomainCount = citData?.ownDomain || 0;
-  const maxCount = sortedDomains.length > 0 ? sortedDomains[0][1] : 1;
+  const maxCount = allDomains.length > 0 ? allDomains[0][1] : 1;
 
   // Detect own domain (brand website)
   const ownDomainName = citData?.ownDomainName || '';
+
+  // Only engines that search the web return source URLs. Perplexity always
+  // does; Gemini does when Google Search grounding is on (Pro and above);
+  // ChatGPT only on a web search model. The cheaper training-data models
+  // (ChatGPT nano, Claude Haiku, Grok mini) never cite, so the empty state
+  // must not promise sources a brand's engines cannot produce.
+  const trackedPlatforms = useMemo(() => {
+    if (Array.isArray(brand?.platforms) && brand.platforms.length) return brand.platforms;
+    const seen = new Set<string>();
+    (brand?.runs || []).slice(-1).forEach(run => (run.allResults || []).forEach(r => { if (r.platform) seen.add(r.platform); }));
+    return [...seen];
+  }, [brand]);
+  const geminiCites = geminiGroundingAllowedForPlan(user?.plan);
+  const canCite = trackedPlatforms.length === 0
+    || trackedPlatforms.includes('Perplexity')
+    || (geminiCites && trackedPlatforms.includes('Gemini'))
+    || (brand?.runs || []).some(run => (run.allResults || []).some(r => r.platform === 'ChatGPT' && (r.model || '').includes('search')));
 
   if (loading) return (
     <div className="lvx">
@@ -68,24 +101,30 @@ export default function CitationsPage() {
 
   return (
     <div className="lvx">
-      <PageHead title="Citation Analysis" sub="Which domains AI platforms cite when answering queries about your industry." />
+      <PageHead title="Citation Analysis" sub="The websites AI engines use as sources when they answer your tracked prompts. Getting listed on the top ones is the fastest way to be recommended more." />
       <div className="page-body">
         <KPIRail items={[
-          { k: 'DOMAINS CITED', v: domainCount },
-          { k: 'TOTAL CITATIONS', v: totalCitations },
-          { k: 'YOUR DOMAIN CITED', v: ownDomainCount },
+          { k: 'Domains cited', v: domainCount.toLocaleString() },
+          { k: 'Total citations', v: totalCitations.toLocaleString() },
+          { k: 'Your site cited', v: ownDomainCount.toLocaleString(), info: `${totalCitations > 0 ? ((ownDomainCount / totalCitations) * 100).toFixed(1) : '0'}% of all citations` },
         ]} />
 
-        <Card title="All cited sources" right={<Pill>{domainCount} unique</Pill>} padding={false}>
+        <Card title="All cited sources" right={domainFilter
+          ? <button className="btn-g" onClick={() => setDomainFilter('')}>Filter: {domainFilter} ✕</button>
+          : <Pill>{domainCount.toLocaleString()} unique</Pill>} padding={false}>
           {sortedDomains.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 32, color: 'var(--mute)', fontSize: 12 }}>
-              No citations captured yet. Citations will appear after your next run.
+              {canCite ? (
+                <>No citations captured yet. Sources come from engines that search the web (Perplexity on every plan, Gemini with Google Search grounding on Pro plans and above), so they will appear once one of those engines cites a page for your prompts.</>
+              ) : (
+                <>No cited sources for this brand. It tracks {trackedPlatforms.join(', ')}, which answer from training data and do not return source URLs. Only engines that search the web cite sources: Perplexity on every plan, Gemini with Google Search grounding on Pro plans and above, and ChatGPT on a web search model. Add Perplexity in <Link href="/dashboard/setup" style={{ color: 'var(--primary)', fontWeight: 600 }}>Brand Setup</Link> to start collecting sources.</>
+              )}
             </div>
           ) : (
             <div className="tbl-wrap">
               <table className="tbl">
                 <thead><tr>
-                  <th>DOMAIN</th><th>CITES</th><th>SHARE</th><th>SHARE BAR</th>
+                  <th>Domain</th><th>Cites</th><th>Share</th><th>Share bar</th>
                 </tr></thead>
                 <tbody>
                   {sortedDomains.map(([domain, count]) => {
@@ -96,10 +135,10 @@ export default function CitationsPage() {
                         <td>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                             <Cit url={domain} />
-                            {isOwn && <Badge tone="acc">YOU</Badge>}
+                            {isOwn && <Badge tone="acc">You</Badge>}
                           </span>
                         </td>
-                        <td className="num"><b>{count}</b></td>
+                        <td className="num"><b>{count.toLocaleString()}</b></td>
                         <td className="num">{share.toFixed(1)}%</td>
                         <td><Bar value={count} max={maxCount} color={isOwn ? 'var(--success)' : undefined} /></td>
                       </tr>

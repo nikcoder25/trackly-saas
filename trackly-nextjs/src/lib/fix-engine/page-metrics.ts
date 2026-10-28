@@ -135,3 +135,37 @@ export async function fetchUrlMetricsLive(brandId: string, tenantId: string, url
     return null;
   }
 }
+
+/**
+ * Site-wide 28-day totals, straight from GSC.
+ *
+ * This is the control group for outcome measurement. A page's CTR falling
+ * 25% means nothing on its own — if the whole site fell 30% over the same
+ * window (a core update, a seasonal trough, a category cooling off), that
+ * page actually outperformed. Without this, every fix shipped before a bad
+ * month measures as a failure, the auto-revert undoes good work, and
+ * anything that learns from those numbers learns the weather.
+ */
+export async function fetchSiteMetricsLive(brandId: string, tenantId: string): Promise<PageMetrics | null> {
+  const token = await getValidAccessToken(brandId, tenantId);
+  if (!token || !token.siteUrl) return null;
+  try {
+    const { startDate, endDate } = trailingDateRange(PAGE_METRICS_WINDOW_DAYS);
+    // No dimensions => one row of site totals for the window.
+    const rows = await searchAnalytics({
+      accessToken: token.accessToken, siteUrl: token.siteUrl,
+      startDate, endDate, dimensions: [], rowLimit: 1,
+    });
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      url: token.siteUrl,
+      clicks: row.clicks, impressions: row.impressions,
+      ctr: row.ctr, position: row.position,
+      fetchedAt: new Date().toISOString(),
+    };
+  } catch (e) {
+    logger.warn('fix_engine.site_metrics_live_failed', { brandId, err: (e as Error).message });
+    return null;
+  }
+}

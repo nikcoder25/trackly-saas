@@ -13,14 +13,14 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Livesov vs Profound | Self-Serve AI Visibility vs Enterprise (2026)',
+  title: 'Livesov vs Profound: AI Visibility Tools Compared (2026)',
   description:
     'Compare Livesov and Profound: platforms covered, pricing, self-serve vs sales-led, and who each tool is really for. An honest Profound alternative comparison.',
   keywords:
-    'livesov vs profound, profound alternative, tryprofound review, profound pricing, ai visibility tool comparison, aeo tool, geo tool for smb',
+    'livesov vs profound, profound vs livesov, ai visibility tool comparison, aeo tool, geo tool for smb',
   alternates: { canonical: '/vs/profound' },
   openGraph: {
-    title: 'Livesov vs Profound | Self-Serve AI Visibility vs Enterprise (2026)',
+    title: 'Livesov vs Profound: AI Visibility Tools Compared (2026)',
     description:
       'Compare Livesov and Profound: platforms covered, pricing, self-serve vs sales-led, and who each tool is really for.',
     url: 'https://livesov.com/vs/profound',
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Livesov vs Profound | Self-Serve AI Visibility vs Enterprise (2026)',
+    title: 'Livesov vs Profound: AI Visibility Tools Compared (2026)',
     description:
       'Compare Livesov and Profound: platforms covered, pricing, self-serve vs sales-led, and who each tool is really for.',
     images: ['https://livesov.com/og-image.png'],
@@ -55,13 +55,13 @@ const livesovStrengths = [
     icon: '$',
     title: 'SMB-honest pricing',
     description:
-      'Plans from $9-$89/mo with a 7-day no-card trial. Profound&rsquo;s entry plan lists at $99/mo (ChatGPT-only) and its multi-engine plan at $399/mo as of June 2026.',
+      'Plans from $19-$129/mo with a 7-day no-card trial. Profound&rsquo;s entry plan lists at $99/mo (ChatGPT-only) and its multi-engine plan at $399/mo as of June 2026.',
   },
   {
     icon: '⚙',
-    title: 'All 5 LLMs at every price',
+    title: 'All 5 LLMs, no add-ons',
     description:
-      'ChatGPT, Claude, Gemini, Perplexity, and Grok included on every plan - the entry tier is not locked to a single engine.',
+      'ChatGPT, Claude, Gemini, Perplexity, and Grok with no per-platform add-ons - even the entry tier picks two engines, not one.',
   },
   {
     icon: '⚠',
@@ -79,7 +79,7 @@ const livesovStrengths = [
     icon: '⟁',
     title: 'Free GEO audit + free tools',
     description:
-      'Eleven free tools and a URL-level GEO audit let you act on findings without buying anything.',
+      'Ten free tools and a URL-level GEO audit let you act on findings without buying anything.',
   },
 ];
 
@@ -124,9 +124,9 @@ const profoundStrengths = [
 const comparisonRows = [
   ['Self-serve signup (no sales call)', '✓', '✗ Demo-led'],
   ['Free trial without a credit card', '✓ 7 days', '✗ No self-serve trial'],
-  ['Entry price', '$9/mo', '$99/mo (ChatGPT-only)'],
+  ['Entry price', '$19/mo', '$99/mo (ChatGPT-only)'],
   ['All major LLMs on entry plan', '✓ All 5', '✗ Single engine'],
-  ['Multi-engine plan price', '$29-$89/mo', '$399/mo (Growth)'],
+  ['Multi-engine plan price', '$49-$129/mo', '$399/mo (Growth)'],
   ['Hallucination / fact-drift detection', '✓', '✗ Not advertised'],
   ['Full AI response stored as evidence', '✓', 'Partial'],
   ['Content generation / CMS publishing', '✗', '✓ Growth plan'],
@@ -144,7 +144,7 @@ const faqs = [
   {
     question: 'How does pricing compare between Livesov and Profound?',
     answer:
-      'Livesov: $9 (Starter), $29 (Pro), $89 (Agency) per month, each with a 7-day free trial, no credit card. Profound: public reporting as of June 2026 lists Starter at $99/mo limited to ChatGPT, Growth at $399/mo for multi-engine coverage, and custom enterprise pricing, with no self-serve trial. Verify current pricing on tryprofound.com.',
+      'Livesov: $19 (Starter), $49 (Pro), $129 (Agency) per month, each with a 7-day free trial, no credit card. Profound: public reporting as of June 2026 lists Starter at $99/mo limited to ChatGPT, Growth at $399/mo for multi-engine coverage, and custom enterprise pricing, with no self-serve trial. Verify current pricing on tryprofound.com.',
   },
   {
     question: 'Why is Profound so much more expensive?',
@@ -181,7 +181,7 @@ export default function VsProfoundPage() {
       <Section pad="0 24px 56px" width={1000}>
         <StatsBar
           stats={[
-            { value: '$9', label: 'Livesov entry price /mo' },
+            { value: '$19', label: 'Livesov entry price /mo' },
             { value: '$99', label: 'Profound entry price /mo' },
             { value: '5', label: 'LLMs on every Livesov plan' },
             { value: '0', label: 'Sales calls needed to start' },
@@ -247,10 +247,10 @@ export default function VsProfoundPage() {
         links={[
           { href: '/profound-alternative', label: 'Profound alternative', description: 'Why self-serve teams switch from Profound to Livesov.' },
           { href: '/vs/otterly', label: 'Livesov vs Otterly', description: 'Two self-serve tools compared surface by surface.' },
-          { href: '/vs/peec-ai', label: 'Livesov vs Peec AI', description: 'Add-on pricing vs all-platforms-included.' },
+          { href: '/vs/peec-ai', label: 'Livesov vs Peec AI', description: 'Add-on pricing vs no-add-ons.' },
           { href: '/pricing', label: 'Pricing & plans', description: 'Start free, scale to agency multi-brand.' },
           { href: '/how-it-works', label: 'How Livesov works', description: 'Methodology and data pipeline explained.' },
-          { href: '/case-studies', label: 'Case studies', description: 'How teams move their share of AI answers.' },
+          { href: '/solutions/agencies', label: 'AI visibility for agencies', description: 'Track every client across five AI engines from one account.' },
           { href: '/geo-audit', label: 'Free GEO audit', description: 'Score any URL for AI citation-readiness.' },
         ]}
       />

@@ -30,6 +30,20 @@ const CSRF_EXEMPT_PREFIXES = [
   // single-use code server-to-server (no cookies, no Origin header), so the
   // same-origin check would 403 every legitimate exchange.
   '/api/connect/connector/exchange',
+  // MCP server: authenticates only with a personal API key in the
+  // Authorization header and never reads cookies, so there is no session
+  // for a cross-site request to ride. AI clients send no Origin header.
+  '/api/mcp',
+  // OAuth endpoints MCP clients call server-to-server (or from their own
+  // origin): registration, token exchange and revocation authenticate with
+  // codes/tokens in the body and never read cookies. /api/oauth/authorize
+  // (the consent POST) is cookie-authenticated and keeps CSRF enforcement.
+  '/api/oauth/register',
+  '/api/oauth/token',
+  '/api/oauth/revoke',
+  // Email unsubscribe: authenticated by an HMAC token in the link, never
+  // reads cookies, and is posted from a plain HTML form on the same route.
+  '/api/email/unsubscribe',
 ];
 
 // /api/connect/[key]/heartbeat — posted cross-origin from the customer's own
@@ -61,10 +75,12 @@ const CSRF_BOOTSTRAP_PATHS = new Set([
   // - same posture as /api/contact and /api/free-check above.
   '/api/geo-audit',
   '/api/tools/llms-txt-generator',
+  '/api/tools/llms-txt-validator',
   '/api/tools/ai-crawler-checker',
   '/api/tools/chatgpt-mention-checker',
   '/api/tools/citation-finder',
   '/api/tools/competitor-finder',
+  '/api/tools/nap-checker',
 ]);
 
 function getAllowedOrigins(request: NextRequest): Set<string> {
@@ -139,8 +155,35 @@ interface RateLimitEntry {
 const rateLimitMap = new Map<string, RateLimitEntry>();
 
 const WINDOW_MS = 60 * 1000; // 1 minute
-const GENERAL_LIMIT = 100;   // 100 req/min for general API routes
-const AUTH_LIMIT = 10;        // 10 req/min for auth routes
+const GENERAL_LIMIT = 100;   // 100 req/min for general API routes (anonymous)
+// Signed-in sessions: one dashboard page load is ~5 calls plus run-status
+// polling, so several open tabs during a run could brush against 100/min.
+const SESSION_LIMIT = 300;
+const AUTH_LIMIT = 10;        // 10 req/min for credential auth routes
+
+// Only the endpoints that accept or mint credentials get the tight AUTH_LIMIT.
+// The rest of /api/auth/* (me, refresh, sessions, 2fa/status, username,
+// logout) is read-mostly session plumbing that the dashboard shell calls on
+// every full page load and every tab focus - capping those at 10/min meant
+// a user who opened ten dashboard pages inside a minute got a 429 on
+// /api/auth/me, was treated as signed out, and was bounced to /login.
+const CREDENTIAL_AUTH_PATHS = new Set([
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/google',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+  '/api/auth/verify-email',
+  '/api/auth/resend-verification',
+  '/api/auth/change-password',
+  '/api/auth/2fa/verify',
+  '/api/auth/2fa/setup',
+  '/api/auth/2fa/disable',
+]);
+
+function isCredentialAuthPath(pathname: string): boolean {
+  return CREDENTIAL_AUTH_PATHS.has(pathname);
+}
 
 // Cleanup expired entries every 5 minutes
 let lastCleanup = Date.now();
@@ -154,10 +197,10 @@ function cleanupExpired() {
   }
 }
 
-function checkRateLimit(key: string, isAuth: boolean): { allowed: boolean; retryAfter: number } {
+function checkRateLimit(key: string, isAuth: boolean, hasSession = false): { allowed: boolean; retryAfter: number } {
   cleanupExpired();
 
-  const limit = isAuth ? AUTH_LIMIT : GENERAL_LIMIT;
+  const limit = isAuth ? AUTH_LIMIT : hasSession ? SESSION_LIMIT : GENERAL_LIMIT;
   const now = Date.now();
 
   const entry = rateLimitMap.get(key);
@@ -275,9 +318,14 @@ function generateNonce(): string {
 function buildCsp(nonce: string): string {
   return [
     "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
     `script-src 'self' 'nonce-${nonce}' https://accounts.google.com https://apis.google.com https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://browser.sentry-cdn.com https://challenges.cloudflare.com https://www.clarity.ms https://*.clarity.ms`,
-    "style-src 'self' 'unsafe-inline'",
-    "font-src 'self'",
+    // Two dashboard pages @import Google Fonts from a <style> block; the
+    // stylesheet and its font files were CSP-blocked, so those pages fell
+    // back to the system font and logged a violation on every load.
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https://lh3.googleusercontent.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://www.google.com",
     "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com https://*.sentry.io https://www.google-analytics.com https://analytics.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://www.google.com https://challenges.cloudflare.com https://*.clarity.ms https://c.bing.com",
     "worker-src 'self' blob:",
@@ -346,9 +394,9 @@ export async function middleware(request: NextRequest) {
       request.cookies.get(ACCESS_COOKIE)?.value ||
       request.cookies.get(LEGACY_ACCESS_COOKIE)?.value;
     const sessionTag = cookieToken ? cookieToken.slice(-16) : 'anon';
-    const isAuth = pathname.startsWith('/api/auth/');
+    const isAuth = isCredentialAuthPath(pathname);
     const key = `${isAuth ? 'auth' : 'api'}:${ip}:${sessionTag}`;
-    const { allowed, retryAfter } = checkRateLimit(key, isAuth);
+    const { allowed, retryAfter } = checkRateLimit(key, isAuth, !!cookieToken);
 
     if (!allowed) {
       const limited = NextResponse.json(
@@ -438,8 +486,29 @@ export async function middleware(request: NextRequest) {
   }
 
   // If user is on auth page but already logged in, redirect to dashboard
+  // An OAuth consent hand-off (/login?redirect=/oauth/authorize...) resumes
+  // there instead of dropping the user on the dashboard.
   if (authPaths.some((p) => pathname.startsWith(p)) && hasValidToken) {
-    const redirect = NextResponse.redirect(new URL('/dashboard', request.url));
+    const back = request.nextUrl.searchParams.get('redirect') || '';
+    let target = back.startsWith('/oauth/authorize?') ? back : '/dashboard';
+    // A /pricing CTA (/signup?plan=pro&billing=annual) from a signed-in user
+    // goes straight to billing with the choice preselected.
+    const planIntent = request.nextUrl.searchParams.get('plan') || '';
+    if (target === '/dashboard' && /^(starter|pro|agency)$/.test(planIntent)) {
+      const cycle = request.nextUrl.searchParams.get('billing') === 'annual' ? 'annual' : 'monthly';
+      target = `/dashboard/billing?plan=${planIntent}&billing=${cycle}`;
+    }
+    const redirect = NextResponse.redirect(new URL(target, request.url));
+    applyCspHeaders(redirect, nonce, csp, requestId);
+    return redirect;
+  }
+
+  // OAuth consent for MCP clients: sign in first, then come back to the
+  // same authorize URL (login honours ?redirect= for same-site paths).
+  if (pathname === '/oauth/authorize' && !hasValidToken) {
+    const login = new URL('/login', request.url);
+    login.searchParams.set('redirect', pathname + request.nextUrl.search);
+    const redirect = NextResponse.redirect(login);
     applyCspHeaders(redirect, nonce, csp, requestId);
     return redirect;
   }

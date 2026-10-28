@@ -1,19 +1,20 @@
 import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { usernameBase } from '@/lib/username';
 import { pool, auditLog, ensureColumns } from '@/lib/db';
 import { uid, safeUser, normaliseEmail } from '@/lib/helpers';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, issueSession, sessionContextFromRequest } from '@/lib/auth';
 import { API_ENDPOINTS, AUTH, TRIAL_DURATION_MS, getEffectivePlan } from '@/lib/constants';
 import { runSignupAbuseChecks, logSuspiciousSignupPattern } from '@/lib/anti-abuse';
+import { recordSignupAttribution } from '@/lib/attribution-server';
+import type { AttributionInput } from '@/lib/attribution';
 import { logger } from '@/lib/logger';
+import { getClientIp } from '@/lib/rate-limit';
 
 async function generateUsername(nameOrEmail: string): Promise<string> {
-  let base = (nameOrEmail || '').trim().toLowerCase();
-  if (base.includes('@')) base = base.split('@')[0];
-  base = base.replace(/\s+/g, '.').replace(/[^a-z0-9_.-]/g, '').replace(/\.{2,}/g, '.').replace(/^[._-]+|[._-]+$/g, '');
-  if (base.length < 3) base = 'user' + base;
-  if (base.length > 25) base = base.substring(0, 25);
+  // Shared with the account page: email -> local part, accents transliterated.
+  const base = usernameBase(nameOrEmail);
   const exists = await pool.query('SELECT id FROM users WHERE LOWER(username) = $1', [base]);
   if (!exists.rows.length) return base;
   for (let i = 0; i < 5; i++) {
@@ -26,13 +27,18 @@ async function generateUsername(nameOrEmail: string): Promise<string> {
 }
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const ip = getClientIp(request);
 
   let credential: string | undefined, access_token: string | undefined;
+  // Only present when the request came from the signup form; the login page
+  // sends none. Hoisted out of the parse block so the new-user branch below
+  // can reach it.
+  let attribution: AttributionInput | undefined;
   try {
     const body = await request.json();
     credential = body.credential;
     access_token = body.access_token;
+    attribution = body.attribution;
   } catch {
     return Response.json({ error: 'Invalid request body' }, { status: 400 });
   }
@@ -76,6 +82,11 @@ export async function POST(request: NextRequest) {
         return Response.json({ error: 'Token has expired' }, { status: 400 });
       }
       if (!payload.sub) return Response.json({ error: 'Invalid token: missing user ID' }, { status: 400 });
+      // tokeninfo returns email_verified as the string "true"/"false"; the
+      // access_token branch above rejects unverified emails too.
+      if (payload.email_verified !== true && payload.email_verified !== 'true') {
+        return Response.json({ error: 'Google email is not verified' }, { status: 400 });
+      }
       googleId = payload.sub;
       email = payload.email?.toLowerCase();
       name = payload.name || email?.split('@')[0];
@@ -121,6 +132,10 @@ export async function POST(request: NextRequest) {
           [id, email, autoUsername, name, dummyHash, trialEndsAt, googleId, avatarUrl, emailNorm, ip]
         );
         user = (await pool.query(`SELECT ${selectCols} FROM users WHERE id = $1`, [id])).rows[0];
+        // Only on the brand-new-user branch. A returning Google user hitting
+        // this endpoint is logging in, not signing up, and must not have their
+        // original attribution overwritten by a later session's referrer.
+        await recordSignupAttribution(id, 'google', attribution);
         auditLog(id, 'register', 'user', id, { email, method: 'google' }, ip);
         logSuspiciousSignupPattern(ip, email).catch(() => {});
       }

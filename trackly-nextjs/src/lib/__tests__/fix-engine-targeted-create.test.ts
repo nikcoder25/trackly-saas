@@ -2,13 +2,25 @@
  * Fix Engine - createTargetedFix (the shared builder behind the "Ask for a
  * fix" assistant and the targeted route). Verifies each supported module gets
  * the `detected` payload its generate() expects, that the free-text
- * instruction is threaded through, and that missing inputs are rejected with a
- * user-facing error the caller can turn into a clarifying question.
+ * instruction is threaded through, that site-level modules work without a
+ * page URL, and that missing inputs are rejected with a user-facing error the
+ * caller can turn into a clarifying question.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const store = vi.hoisted(() => ({ last: null as null | Record<string, unknown> }));
+const crawled = vi.hoisted(() => ({
+  page: {
+    url: 'u', status: 200, title: 'Current Title', metaDescription: 'old meta',
+    h1s: ['H1'], headings: [{ level: 2, text: 'Sec' }], text: 'page body text',
+    jsonLd: [], wordCount: 3, hasFaqSchema: false,
+    metaRobots: null as string | null, xRobotsTag: null as string | null,
+    hasOgTags: false, externalLinkCount: 0,
+    lastModified: null as string | null, imagesMissingAlt: [] as string[],
+  },
+}));
+const robots = vi.hoisted(() => ({ status: 200, text: 'User-agent: *\nAllow: /' }));
 
 vi.mock('@/lib/fix-engine/schema', () => ({
   upsertDetectedFix: vi.fn(async (args: Record<string, unknown>) => { store.last = args; return 'fix1'; }),
@@ -17,20 +29,28 @@ vi.mock('@/lib/fix-engine/registry', () => ({
   getModule: (k: string) => ({ key: k, channel: 'A', title: k, minPlan: 'starter' }),
 }));
 vi.mock('@/lib/fix-engine/crawl', () => ({
-  crawlPage: vi.fn(async () => ({
-    url: 'u', status: 200, title: 'Current Title', metaDescription: 'old meta',
-    h1s: ['H1'], headings: [{ level: 2, text: 'Sec' }], text: 'page body text',
-    jsonLd: [], wordCount: 3, hasFaqSchema: false, metaRobots: null, xRobotsTag: null, hasOgTags: false,
-  })),
+  crawlPage: vi.fn(async () => ({ ...crawled.page })),
   resolveCrawlTargets: vi.fn(async () => ['https://acme.test/a', 'https://acme.test/b', 'https://acme.test/p']),
 }));
+vi.mock('@/lib/safe-fetch', () => ({
+  safeFetch: vi.fn(async () => ({ ok: robots.status === 200, status: robots.status, text: async () => robots.text })),
+}));
 
-import { createTargetedFix } from '@/lib/fix-engine/targeted';
+import { createTargetedFix, resolveTargetUrl } from '@/lib/fix-engine/targeted';
 
 const base = { brandId: 'b1', ownerId: 'o1', website: 'https://acme.test' };
 const url = 'https://acme.test/p';
 
-beforeEach(() => { store.last = null; vi.clearAllMocks(); });
+beforeEach(() => {
+  store.last = null;
+  crawled.page.metaRobots = null;
+  crawled.page.xRobotsTag = null;
+  crawled.page.imagesMissingAlt = [];
+  crawled.page.lastModified = null;
+  crawled.page.hasOgTags = false;
+  robots.status = 200;
+  vi.clearAllMocks();
+});
 
 describe('createTargetedFix — payload shapes', () => {
   it('passage-rewrite carries the pasted passage + instruction', async () => {
@@ -69,10 +89,82 @@ describe('createTargetedFix — payload shapes', () => {
     await createTargetedFix({ ...base, moduleKey: 'faq-schema', url, brandQueries: ['is acme good?'] });
     expect((store.last!.detected as Record<string, unknown>).queries).toEqual(['is acme good?']);
   });
+
+  it('schema-markup honours a type named in the instruction', async () => {
+    await createTargetedFix({ ...base, moduleKey: 'schema-markup', url, instruction: 'add Product schema' });
+    expect(store.last!.detected).toMatchObject({ url, schemaType: 'Product', title: 'Current Title' });
+    expect(store.last!.dedupeKey).toBe(`${url}#Product`);
+  });
+
+  it('schema-markup falls back to the path heuristic (homepage → Organization)', async () => {
+    await createTargetedFix({ ...base, moduleKey: 'schema-markup', url: 'https://acme.test/', instruction: 'add structured data' });
+    expect((store.last!.detected as { schemaType: string }).schemaType).toBe('Organization');
+  });
+
+  it.each(['citable-passages', 'external-citations'] as const)('%s stores url/title/pageText', async (moduleKey) => {
+    await createTargetedFix({ ...base, moduleKey, url });
+    expect(store.last!.detected).toMatchObject({ url, title: 'Current Title', pageText: 'page body text' });
+  });
+
+  it('content-freshness records the page date when known', async () => {
+    crawled.page.lastModified = '2024-01-01T00:00:00.000Z';
+    await createTargetedFix({ ...base, moduleKey: 'content-freshness', url });
+    expect(store.last!.detected).toMatchObject({ lastModified: '2024-01-01T00:00:00.000Z' });
+    expect((store.last!.detected as { daysOld: number }).daysOld).toBeGreaterThan(0);
+  });
+
+  it('image-alt builds the missing-alt image list', async () => {
+    crawled.page.imagesMissingAlt = ['/a.jpg', '/b.jpg'];
+    await createTargetedFix({ ...base, moduleKey: 'image-alt', url });
+    expect(store.last!.detected).toMatchObject({ url, images: ['/a.jpg', '/b.jpg'] });
+  });
+
+  it('noindex-removal creates a critical fix when a noindex is present', async () => {
+    crawled.page.metaRobots = 'noindex,follow';
+    await createTargetedFix({ ...base, moduleKey: 'noindex-removal', url });
+    expect(store.last!.severity).toBe('critical');
+    expect(store.last!.detected).toMatchObject({ metaRobots: 'noindex,follow' });
+  });
+});
+
+describe('createTargetedFix — site-level modules need no page URL', () => {
+  it('llms-txt derives the origin from the brand website', async () => {
+    await createTargetedFix({ ...base, moduleKey: 'llms-txt', url: '' });
+    expect(store.last!.targetUrl).toBe('https://acme.test/llms.txt');
+    expect(store.last!.detected).toMatchObject({ origin: 'https://acme.test' });
+  });
+
+  it('robots-ai-access captures the current robots.txt state', async () => {
+    await createTargetedFix({ ...base, moduleKey: 'robots-ai-access', url: '' });
+    expect(store.last!.targetUrl).toBe('https://acme.test/robots.txt');
+    expect(store.last!.detected).toMatchObject({ origin: 'https://acme.test', currentStatus: 200 });
+    expect((store.last!.before as { robots: string }).robots).toContain('User-agent');
+  });
+
+  it('og-cards defaults to the homepage', async () => {
+    await createTargetedFix({ ...base, moduleKey: 'og-cards', url: '' });
+    expect((store.last!.detected as { url: string }).url).toBe('https://acme.test/');
+  });
+
+  it('comparison-pages is keyed to the competitor', async () => {
+    await createTargetedFix({ ...base, moduleKey: 'comparison-pages', url: '', competitor: 'Rival Inc' });
+    expect(store.last!.dedupeKey).toBe('vs:rival-inc');
+    expect(store.last!.targetUrl).toBeNull();
+    expect(store.last!.detected).toMatchObject({ competitor: 'Rival Inc' });
+  });
+
+  it('hallucination-correction builds the fact payload, targeting the homepage', async () => {
+    await createTargetedFix({
+      ...base, moduleKey: 'hallucination-correction', url: '',
+      falseClaim: 'Acme has no free plan', correctFact: 'Acme has a free plan', factTopic: 'pricing',
+    });
+    expect(store.last!.targetUrl).toBe('https://acme.test/');
+    expect(store.last!.detected).toMatchObject({ factKey: 'pricing', expected: 'Acme has a free plan', found: 'Acme has no free plan' });
+  });
 });
 
 describe('createTargetedFix — validation → clarifying errors', () => {
-  it('requires a URL', async () => {
+  it('requires a URL for page-level modules', async () => {
     await expect(createTargetedFix({ ...base, moduleKey: 'title-rewrite', url: '' })).rejects.toThrow(/page URL/i);
   });
   it('requires a real passage for passage-rewrite', async () => {
@@ -80,5 +172,69 @@ describe('createTargetedFix — validation → clarifying errors', () => {
   });
   it('requires a keyword for keyword-opportunities', async () => {
     await expect(createTargetedFix({ ...base, moduleKey: 'keyword-opportunities', url, keyword: '' })).rejects.toThrow(/keyword/i);
+  });
+  it('requires a competitor for comparison-pages', async () => {
+    await expect(createTargetedFix({ ...base, moduleKey: 'comparison-pages', url: '' })).rejects.toThrow(/competitor/i);
+  });
+  it('requires both claim and fact for hallucination-correction', async () => {
+    await expect(createTargetedFix({ ...base, moduleKey: 'hallucination-correction', url: '', falseClaim: 'no free plan' })).rejects.toThrow(/correct fact/i);
+  });
+  it('requires a site URL for site-level modules when the brand has no website', async () => {
+    await expect(createTargetedFix({ ...base, website: undefined, moduleKey: 'llms-txt', url: '' })).rejects.toThrow(/site URL/i);
+  });
+  it('rejects image-alt when every image already has alt text', async () => {
+    await expect(createTargetedFix({ ...base, moduleKey: 'image-alt', url })).rejects.toThrow(/already has alt text/i);
+  });
+  it('rejects noindex-removal when the page is not blocked', async () => {
+    await expect(createTargetedFix({ ...base, moduleKey: 'noindex-removal', url })).rejects.toThrow(/no noindex/i);
+  });
+});
+
+describe('resolveTargetUrl — anchoring paths to the brand site', () => {
+  it('keeps an absolute URL as-is', () => {
+    expect(resolveTargetUrl('https://acme.test/p', 'https://acme.test')).toBe('https://acme.test/p');
+    expect(resolveTargetUrl('http://other.example/x', 'https://acme.test')).toBe('http://other.example/x');
+  });
+
+  it('resolves a bare path against the brand website', () => {
+    // The exact bug: "/features" stored verbatim rendered as a link that
+    // resolved against the dashboard's own origin, not the customer's site.
+    expect(resolveTargetUrl('/features', 'https://acme.test')).toBe('https://acme.test/features');
+    expect(resolveTargetUrl('features', 'https://acme.test')).toBe('https://acme.test/features');
+  });
+
+  it('resolves against a schemeless brand website too', () => {
+    expect(resolveTargetUrl('/pricing', 'acme.test')).toBe('https://acme.test/pricing');
+  });
+
+  it('upgrades a schemeless host+path to https', () => {
+    expect(resolveTargetUrl('acme.test/pricing', undefined)).toBe('https://acme.test/pricing');
+    expect(resolveTargetUrl('//acme.test/pricing', undefined)).toBe('https://acme.test/pricing');
+  });
+
+  it('asks the user rather than guessing when a path has no site to anchor to', () => {
+    expect(() => resolveTargetUrl('/features', undefined)).toThrow(/which site|website/i);
+    expect(() => resolveTargetUrl('/features', '')).toThrow(/which site|website/i);
+  });
+
+  it('passes empty through for site-level modules', () => {
+    expect(resolveTargetUrl('', 'https://acme.test')).toBe('');
+    expect(resolveTargetUrl('   ', undefined)).toBe('');
+  });
+});
+
+describe('createTargetedFix — target URL resolution', () => {
+  it('stores an absolute targetUrl when the assistant hands over a bare path', async () => {
+    await createTargetedFix({ ...base, moduleKey: 'keyword-opportunities', url: '/features', keyword: 'garden calculator' });
+    expect(store.last!.targetUrl).toBe('https://acme.test/features');
+    expect(store.last!.summary).toContain('https://acme.test/features');
+    const d = store.last!.detected as Record<string, unknown>;
+    expect(d.page).toBe('https://acme.test/features');
+  });
+
+  it('turns an unanchorable path into a clarifying error, not a stored fix', async () => {
+    await expect(createTargetedFix({ brandId: 'b1', ownerId: 'o1', moduleKey: 'keyword-opportunities', url: '/features', keyword: 'kw' }))
+      .rejects.toThrow(/website|full URL/i);
+    expect(store.last).toBeNull();
   });
 });

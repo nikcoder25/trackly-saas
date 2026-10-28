@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/admin-auth';
 import { revokeAllSessions } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 import { logError, serverError } from '@/lib/api-error';
+import { getClientIp } from '@/lib/rate-limit';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin(request);
@@ -13,7 +14,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   try {
     const result = await pool.query(`
       SELECT u.id, u.email, u.username, u.name, u.plan, u.role, u.email_verified, u.created_at,
-        u.settings->>'dodo_subscription_id' AS subscription_id,
+        u.settings->>'subscription_id' AS subscription_id,
         u.settings->>'totp_secret' IS NOT NULL AS totp_enabled,
         u.google_id IS NOT NULL AS has_google,
         (SELECT COUNT(*)::int FROM brands WHERE user_id = u.id) AS brand_count,
@@ -50,7 +51,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (admin instanceof Response) return admin;
 
   const { id } = await params;
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const ip = getClientIp(request);
 
   try {
     const body = await request.json();
@@ -140,7 +141,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (admin instanceof Response) return admin;
 
   const { id } = await params;
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const ip = getClientIp(request);
 
   if (id === admin.id) {
     return Response.json({ error: 'Cannot delete your own account' }, { status: 400 });

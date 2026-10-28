@@ -1,4 +1,6 @@
-import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
+import Link from 'next/link';
+import SeoLayout, { Breadcrumbs } from '@/components/seo/SeoLayout';
+import ProductScreenshot from '@/components/seo/ProductScreenshot';
 import {
   Section,
   SectionHeader,
@@ -12,27 +14,24 @@ import {
   PillarLinks,
 } from '@/components/seo/SeoSections';
 import type { RankTracker } from '@/data/rank-trackers';
-
-// Hero accent gradients. These must be written as STATIC literal class strings
-// so Tailwind's content scanner generates the arbitrary-value utilities - a
-// runtime-interpolated `from-[${var}]` would never be emitted. Keyed by slug.
-const HERO_GRADIENTS: Record<string, string> = {
-  'perplexity-rank-tracker':
-    'text-transparent bg-clip-text bg-gradient-to-r from-[#20b8cd] to-[#1a94a5]',
-  'chatgpt-rank-tracker':
-    'text-transparent bg-clip-text bg-gradient-to-r from-[#19c37d] to-[#10a37f]',
-};
-const FALLBACK_GRADIENT = 'text-[var(--brand)]';
+import '@/styles/site-templates.css';
 
 // Rank-tracker scaffolding is the same for every engine, so the generic
 // features/steps/comparison live here and interpolate the engine name. Only
 // engine-specific nuance (subtitle, why-copy, faqs, models) lives in the data.
-function buildFeatures(engine: string) {
+//
+// Two forms of the engine name are threaded through:
+//   `engine`  - attributive, inside a noun phrase ("ChatGPT rank", "LLM rank")
+//   `subject` - standalone noun, as the subject/object of a verb, paired with
+//               `vs` (the third-person verb suffix) so both "ChatGPT cites" and
+//               "LLMs cite" come out grammatical. For a single named engine
+//               subject === engine and vs === 's', so this is a no-op.
+function buildFeatures(engine: string, subject: string, vs: string) {
   return [
     {
       icon: '◈',
       title: 'Prompt & keyword rank',
-      description: `Track your exact position each time ${engine} lists or recommends options for your target prompts and keywords.`,
+      description: `Track your exact position each time ${subject} list${vs} or recommend${vs} options for your target prompts and keywords.`,
     },
     {
       icon: '📈',
@@ -47,7 +46,7 @@ function buildFeatures(engine: string) {
     {
       icon: '⟁',
       title: 'Citation & source tracking',
-      description: `Capture the URLs ${engine} cites so you know which pages drive each ranking - yours and competitors'.`,
+      description: `Capture the URLs ${subject} cite${vs} so you know which pages drive each ranking - yours and competitors'.`,
     },
     {
       icon: '✺',
@@ -62,15 +61,15 @@ function buildFeatures(engine: string) {
   ];
 }
 
-function buildSteps(engine: string) {
+function buildSteps(engine: string, subject: string) {
   return [
     {
       title: 'Add brand, competitors & prompts',
-      description: `Add your brand, domain, competitor set, and the target prompts and keywords you want to rank for in ${engine}.`,
+      description: `Add your brand, domain, competitor set, and the target prompts and keywords you want to rank for in ${subject}.`,
     },
     {
       title: `Automated ${engine} runs`,
-      description: `Livesov queries ${engine} on your schedule and runs each prompt multiple times, because AI answers are non-deterministic.`,
+      description: `Livesov queries ${subject} on your schedule and stores the full answer every time, so you can see how a non-deterministic engine drifts run to run.`,
     },
     {
       title: 'Record rank, citations, competitors',
@@ -87,7 +86,7 @@ function buildComparisonRows(engine: string): [string, string, string][] {
   return [
     [`Automated ${engine} rank tracking`, '✓ Scheduled', '✗ Manual re-checks'],
     ['Rank trend history over time', '✓', '✗ Snapshot only'],
-    ['Multi-run aggregation (non-deterministic answers)', '✓ 3-10x per run', '✗ Single shot'],
+    ['Run-over-run history (non-deterministic answers)', '✓ Every scheduled run', '✗ Single shot'],
     ['Competitor rank benchmarking', '✓ Up to 20', 'Manual'],
     ['Citation / source capture', '✓ Full ranked list', 'Partial'],
     ['Rank-change alerts', '✓ Email', '✗'],
@@ -97,8 +96,12 @@ function buildComparisonRows(engine: string): [string, string, string][] {
 }
 
 export default function RankTrackerPage({ data }: { data: RankTracker }) {
-  const features = buildFeatures(data.engine);
-  const steps = buildSteps(data.engine);
+  // Single named engines leave both fields unset, so subject === engine and the
+  // verb suffix stays 's' - byte-identical output to before this was added.
+  const subject = data.engineSubject ?? data.engine;
+  const vs = data.enginePlural ? '' : 's';
+  const features = buildFeatures(data.engine, subject, vs);
+  const steps = buildSteps(data.engine, subject);
   const comparisonRows = buildComparisonRows(data.engine);
   const modelList = data.models.join(', ');
 
@@ -106,18 +109,26 @@ export default function RankTrackerPage({ data }: { data: RankTracker }) {
     <SeoLayout>
       <Breadcrumbs items={[{ name: `${data.engine} Rank Tracker`, url: `/${data.slug}` }]} />
 
-      <SeoHero
-        title={
-          <>
-            The {data.engine}{' '}
-            <span className={HERO_GRADIENTS[data.slug] || FALLBACK_GRADIENT}>
-              Rank Tracker
-            </span>
-          </>
-        }
-        subtitle={data.heroSubtitle}
-        ctaText={`Start tracking ${data.engine} rank - free`}
-      />
+      <section className="ls-wrap ls-tpl-hero">
+        <span className="ls-eyebrow">{data.engine} rank tracking</span>
+        <h1 className="ls-h1 xl">
+          The {data.engine} <span className="ls-em acc">Rank Tracker</span>
+        </h1>
+        <p className="ls-lead xl">{data.heroSubtitle}</p>
+        <div className="ls-cta-row">
+          <Link href="/signup" className="ls-btn ls-btn-pri ls-btn-lg">{`Start tracking ${data.engine} rank - free`}</Link>
+          <Link href="/geo-audit" className="ls-btn ls-btn-out ls-btn-lg">Run a free audit</Link>
+        </div>
+        <p className="ls-trust">7 day free trial · No credit card · Plans from $19/mo</p>
+      </section>
+
+      <div className="ls-wrap ls-tpl-shot">
+        <ProductScreenshot
+          alt={`${data.engine} rank tracker dashboard`}
+          caption={`Livesov dashboard: ${data.engine} mentions, rank and sources in one view.`}
+          priority
+        />
+      </div>
 
       <Section pad="0 24px 56px" width={1000}>
         <StatsBar stats={data.stats} />
@@ -128,7 +139,7 @@ export default function RankTrackerPage({ data }: { data: RankTracker }) {
           <p>
             <strong>Livesov</strong> is a {data.engineFull} rank tracker built for AI answers, not
             Google SERPs. It tracks where you rank across {modelList} for the prompts and keywords
-            that matter, records the sources {data.engine} cites, and charts how your position
+            that matter, records the sources {subject} cite{vs}, and charts how your position
             trends over time - so &quot;{data.engine} rank tracking&quot; becomes a measured number
             instead of a guess.
           </p>
@@ -144,7 +155,7 @@ export default function RankTrackerPage({ data }: { data: RankTracker }) {
         <FeatureGrid items={features} />
       </Section>
 
-      <Section background="var(--bg-section, #f7f5f1)" pad="80px 24px">
+      <Section background="#fff" pad="80px 24px">
         <SectionHeader label="How it works" title={`Live ${data.engine} rank tracking in under 5 minutes`} />
         <ProcessSteps steps={steps} />
       </Section>
@@ -158,12 +169,12 @@ export default function RankTrackerPage({ data }: { data: RankTracker }) {
           <Callout title="Rank is a trend, not a snapshot" variant="tip">
             Because AI answers change between runs and across models, one check tells you almost
             nothing. The reliable signal is a rank <em>trend</em> built from many runs over time -
-            which is exactly what Livesov automates on every plan.
+            which is exactly what Livesov automates on every paid plan.
           </Callout>
         </LongForm>
       </Section>
 
-      <Section background="var(--bg-section, #f7f5f1)" pad="80px 24px" width={1000}>
+      <Section background="#fff" pad="80px 24px" width={1000}>
         <SectionHeader
           label={`Why Livesov for ${data.engine} rank`}
           title={`Livesov vs. manual ${data.engine} rank checks`}
@@ -183,8 +194,13 @@ export default function RankTrackerPage({ data }: { data: RankTracker }) {
         links={[
           { href: data.brandTrackingHref, label: data.brandTrackingLabel, description: data.brandTrackingDescription },
           { href: data.otherHref, label: data.otherLabel, description: data.otherDescription },
+          // Every tracker page links the engine-agnostic hub so /llm-rank-tracker
+          // is never an orphan (it was in the sitemap with zero inbound links).
+          ...(data.slug !== 'llm-rank-tracker' && data.otherHref !== '/llm-rank-tracker'
+            ? [{ href: '/llm-rank-tracker', label: 'LLM rank tracker', description: 'One rank tracker for every AI engine - ChatGPT, Claude, Gemini, Perplexity, and Grok.' }]
+            : []),
           { href: '/geo-audit', label: 'Free GEO audit', description: 'Score any URL for AI citation-readiness in seconds.' },
-          { href: '/tools', label: 'Free AI search tools', description: '11 free tools - no signup required.' },
+          { href: '/tools', label: 'Free AI search tools', description: '10 free tools - most need no signup.' },
           { href: '/pricing', label: 'Pricing & plans', description: 'Start free, scale to agency multi-brand tracking.' },
           { href: '/how-it-works', label: 'How Livesov works', description: 'Methodology and data pipeline explained.' },
         ]}

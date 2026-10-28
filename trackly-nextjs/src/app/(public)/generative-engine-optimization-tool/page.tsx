@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import ProductScreenshot from '@/components/seo/ProductScreenshot';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 import {
   Section,
@@ -14,9 +15,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Generative Engine Optimization Tool - Livesov GEO Platform (2026)',
+  title: 'Generative Engine Optimization Tool | Livesov',
   description:
-    'Livesov is the generative engine optimization (GEO) tool teams use to track and improve brand mentions across ChatGPT, Claude, Gemini, Perplexity, and Grok. Free audit, daily monitoring, 7-day trial - no credit card.',
+    'Livesov is a generative engine optimization tool that tracks and grows your brand mentions in ChatGPT, Claude, Gemini and Perplexity. Try it free for 7 days.',
   keywords:
     'generative engine optimization tool, geo tool, geo platform, ai visibility tool, ai mention tracking tool, llm visibility tool, ai brand monitoring software, chatgpt brand tracking tool, perplexity tracking tool',
   alternates: { canonical: '/generative-engine-optimization-tool' },
@@ -62,7 +63,7 @@ const capabilities = [
     icon: '⇋',
     title: 'Competitor benchmarking',
     description:
-      'Track up to 10 competitors per brand. Share of voice, head-to-head matchups, gap analysis on the queries you both target.',
+      'Track up to 20 competitors per brand. Share of voice, head-to-head matchups, gap analysis on the queries you both target.',
   },
   {
     icon: '⌘',
@@ -91,7 +92,7 @@ const livesovVsManual = [
   ['Citation share', 'Per-URL extraction, per-platform', 'Hard to compute reliably'],
   ['Sentiment', 'Per-mention sentiment scoring', 'Subjective, ad-hoc'],
   ['Competitor tracking', 'Up to 10 per brand, automatic', 'Doubles the manual work per competitor'],
-  ['Cost', 'From free, then $39/mo', 'Engineer time × forever'],
+  ['Cost', 'From free, then $19/mo', 'Engineer time × forever'],
 ];
 
 const faqs = [
@@ -108,7 +109,7 @@ const faqs = [
   {
     question: 'Do I need technical skills to use Livesov?',
     answer:
-      'No. The setup flow is: add your brand, pick the prompts you want to track (we suggest starter sets per category), pick up to 10 competitors, and we start running. The dashboard surfaces the changes in plain language. Most customers go from signup to first insight in under 15 minutes.',
+      'No. The setup flow is: add your brand, pick the prompts you want to track (we suggest starter sets per category), pick up to 20 competitors, and we start running. The dashboard surfaces the changes in plain language. Most customers go from signup to first insight in under 15 minutes.',
   },
   {
     question: 'Can I try Livesov for free?',
@@ -128,7 +129,7 @@ const faqs = [
   {
     question: 'How is Livesov priced?',
     answer:
-      'Tiered by brands and prompts tracked. The starter plan begins at $39/month with everything you need to run a single-brand GEO program. Multi-brand and agency tiers scale up from there. Full pricing on /pricing, with a 7-day free trial on every plan.',
+      'Tiered by brands and prompts tracked. The Starter plan begins at $19/month with everything you need to run a single-brand GEO program. Multi-brand and agency tiers scale up from there. Full pricing on /pricing, with a 7-day free trial on every plan.',
   },
 ];
 
@@ -158,13 +159,20 @@ export default function GenerativeEngineOptimizationToolPage() {
         ctaText="Start free 7-day trial"
       />
 
+      <ProductScreenshot
+        alt="Generative engine optimization tool dashboard"
+        caption="The Livesov dashboard: brand health, visibility, sentiment and accuracy across five AI engines."
+        priority
+      />
+      <div style={{ height: 48 }} />
+
       <Section pad="0 24px 56px" width={1000}>
         <StatsBar
           stats={[
             { value: '5', label: 'LLMs tracked daily in one dashboard' },
             { value: '500+', label: 'Prompts trackable per brand' },
             { value: '10', label: 'Competitors per brand, automatic' },
-            { value: '$39/mo', label: 'Starting plan - 7-day free trial' },
+            { value: '$19/mo', label: 'Starting plan - 7-day free trial' },
           ]}
         />
       </Section>
@@ -220,7 +228,7 @@ export default function GenerativeEngineOptimizationToolPage() {
               (we provide them out of the box).
             </li>
             <li>
-              <strong>Add competitors</strong> - up to 10 per brand. They get tracked
+              <strong>Add competitors</strong> - up to 20 per brand. They get tracked
               automatically against the same prompt set.
             </li>
             <li>

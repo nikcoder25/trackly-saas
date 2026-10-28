@@ -10,14 +10,14 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'Brand Visibility in LLMs: How to Track & Improve It (2026) | Livesov',
+  title: 'Brand Visibility in LLMs: Track & Improve It | Livesov',
   description:
-    'What brand visibility in LLMs means, why brand mentions in LLMs matter, and how to track and improve how ChatGPT, Gemini, Claude, Perplexity and Grok talk about your brand.',
+    'Learn what brand visibility in LLMs means, why AI mentions matter, and how to track and improve how ChatGPT, Gemini and Claude talk about your brand.',
   keywords:
     'brand visibility in llms, brand mentions in llms, llm brand visibility, track brand mentions in ai, ai brand monitoring',
   alternates: { canonical: '/learn/brand-visibility-in-llms' },
   openGraph: {
-    title: 'Brand Visibility in LLMs: How to Track & Improve It (2026) | Livesov',
+    title: 'Brand Visibility in LLMs: Track & Improve It | Livesov',
     description:
       'What brand visibility in LLMs means, why brand mentions matter, and how to track and improve how AI models talk about your brand.',
     url: 'https://livesov.com/learn/brand-visibility-in-llms',
@@ -175,8 +175,8 @@ export default function BrandVisibilityInLlmsPage() {
         links={[
           { href: '/learn/ai-visibility-score', label: 'AI visibility score', description: 'What a good score looks like and how it’s built.' },
           { href: '/how-it-works', label: 'How AI brand monitoring works', description: 'The measurement methodology in detail.' },
-          { href: '/chatgpt-brand-tracking', label: 'ChatGPT brand tracking', description: 'Track mentions on ChatGPT specifically.' },
-          { href: '/perplexity-brand-tracking', label: 'Perplexity brand tracking', description: 'Citation tracking for AI search.' },
+          { href: '/chatgpt-rank-tracker', label: 'ChatGPT brand tracking', description: 'Track mentions on ChatGPT specifically.' },
+          { href: '/perplexity-rank-tracker', label: 'Perplexity brand tracking', description: 'Citation tracking for AI search.' },
           { href: '/learn/ai-search-optimization', label: 'AI search optimization', description: 'The framework for getting mentioned.' },
           { href: '/geo-audit', label: 'Free GEO audit', description: 'Score a page’s AI-citation readiness.' },
         ]}

@@ -48,7 +48,7 @@ change the engine makes is visible in the target CMS, so you can eyeball it.
 
 ## 3. Ship-as-draft (Connector plugin required)
 
-1. Install `connector-plugin/livesov-connector.php`; connect via **Connect with Livesov** (one-click) OR paste pull URL + token + secret.
+1. Install the Connector plugin (download the zip from `/integrations/wordpress`, or copy `connector-plugin/` into `wp-content/plugins/livesov-connector/`); connect via **Connect with Livesov** (one-click) OR paste pull URL + token + secret.
 2. WP → Settings → Livesov Connector → **Poll now** → status should read "connected".
 3. On an approved title/meta fix, click **Ship as draft**. Status → **STAGED DRAFT**.
 4. Within ~5 min (or Poll now), a **Preview** link appears. Open it (logged into WP) → the draft revision shows the new content; the live page is unchanged.

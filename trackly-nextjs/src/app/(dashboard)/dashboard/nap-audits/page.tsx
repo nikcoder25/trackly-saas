@@ -4,7 +4,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Card, Badge, PageHead, KPIRail } from '@/app/dashboard-v2/ui';
 import NapAuditForm, { type NapAuditFormValues } from '@/components/dashboard/NapAuditForm';
+import { extractUrlsFromText } from '@/lib/nap-verify';
 import { useBrands } from '@/contexts/BrandContext';
+import { splitCityRegion } from '@/lib/brand-location';
 
 type NapAuditStatus = 'queued' | 'running' | 'done' | 'failed';
 
@@ -23,6 +25,7 @@ interface NapAuditListItem {
     deadLinks: number;
     blocked?: number;
     duplicateListings: number;
+    missingBacklink?: number;
   } | null;
   /** URLs the worker has completed for the in-flight run. */
   progressDone: number;
@@ -57,7 +60,7 @@ function ProgressBadge({ done, total }: { done: number; total: number }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 120 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', letterSpacing: '.5px' }}>RUNNING</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', letterSpacing: '.5px' }}>Running</span>
         <span className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>
           {safeTotal > 0 ? `${safeDone}/${safeTotal}` : '…'}
         </span>
@@ -88,24 +91,8 @@ interface NewAuditModalProps {
 // chunker can run without importing the server-only fetcher into the
 // client bundle.
 const NEW_AUDIT_CHUNK_SIZE = 500;
-
-/** Tokenise the form's URL textarea into a clean, deduped, ordered list. */
-function parseUrlList(raw: string): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const line of raw.split(/[\s,;]+/)) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    // Defensive - `url:` schemes other than http(s) shouldn't reach the
-    // server, but the canonical extractUrlsFromText runs there too so
-    // anything malformed gets dropped by the time the audit is created.
-    if (!/^https?:\/\//i.test(trimmed)) continue;
-    if (seen.has(trimmed)) continue;
-    seen.add(trimmed);
-    out.push(trimmed);
-  }
-  return out;
-}
+// Mirrors NAP_PASTE_CAP in NapAuditForm - the ceiling the form itself allows.
+const NEW_AUDIT_PASTE_CAP = 5_000;
 
 function NewAuditModal({ brandId, brandName, brandCity, onClose, onCreated }: NewAuditModalProps) {
   const [submitProgress, setSubmitProgress] = useState<string | undefined>();
@@ -135,7 +122,10 @@ function NewAuditModal({ brandId, brandName, brandCity, onClose, onCreated }: Ne
    * audits that did succeed instead of losing the whole batch.
    */
   async function create(values: NapAuditFormValues) {
-    const urlList = parseUrlList(values.urls);
+    // Same tokenizer the form uses for its count/preview and the server uses
+    // on ingest, so "we'll create N audits" and what actually lands agree -
+    // scheme-less domains and comma-separated CSV cells included.
+    const urlList = extractUrlsFromText(values.urls, NEW_AUDIT_PASTE_CAP);
     if (urlList.length <= NEW_AUDIT_CHUNK_SIZE) {
       await postOne(values);
       onCreated();
@@ -181,10 +171,13 @@ function NewAuditModal({ brandId, brandName, brandCity, onClose, onCreated }: Ne
   // with the brand name saves the user from retyping context they
   // already chose in the top-bar dropdown.
   const gbpQuery = [brandName, brandCity].filter((s): s is string => !!s && s.trim().length > 0).join(' ');
+  // The brand location is free text like "Hatfield, England": only the
+  // first part is the city, the second is the state / region.
+  const loc = splitCityRegion(brandCity);
   const formInitial = brandName
     ? {
         label: `${brandName} - NAP audit`,
-        canonical: { name: brandName, city: brandCity ?? undefined },
+        canonical: { name: brandName, city: loc.city || undefined, region: loc.region || undefined },
       }
     : undefined;
 
@@ -298,6 +291,7 @@ export default function NapAuditsPage() {
   const blocked = sum((s) => s.blocked ?? 0);
   const deadOnly = Math.max(0, sum((s) => s.deadLinks) - blocked);
   const dupes = sum((s) => s.duplicateListings);
+  const noLink = sum((s) => s.missingBacklink ?? 0);
 
   return (
     <div className="lvx">
@@ -323,14 +317,15 @@ export default function NapAuditsPage() {
       <div className="page-body">
         {all.length > 0 && (
           <KPIRail items={[
-            { k: 'SAVED AUDITS', v: String(all.length) },
-            { k: 'CITATIONS CHECKED', v: String(citations) },
-            { k: 'AVG. CONSISTENCY', v: `${avg}/100` },
-            { k: 'CLEAN', v: String(clean) },
-            { k: 'WITH ISSUES', v: String(withIssues) },
-            { k: 'BLOCKED', v: String(blocked) },
-            { k: 'DEAD LINKS', v: String(deadOnly) },
-            { k: 'DUPLICATE LISTINGS', v: String(dupes) },
+            { k: 'Saved audits', v: String(all.length) },
+            { k: 'Citations checked', v: String(citations) },
+            { k: 'Avg. consistency', v: `${avg}/100` },
+            { k: 'Clean', v: String(clean) },
+            { k: 'With issues', v: String(withIssues) },
+            { k: 'Blocked', v: String(blocked) },
+            { k: 'Dead links', v: String(deadOnly) },
+            { k: 'Duplicate listings', v: String(dupes) },
+            { k: 'No site link', v: String(noLink) },
           ]} />
         )}
 
@@ -343,7 +338,7 @@ export default function NapAuditsPage() {
             </div>
           </Card>
         ) : error ? (
-          <Card title="Audits" right={<Badge tone="neg">ERROR</Badge>}>
+          <Card title="Audits" right={<Badge tone="neg">Error</Badge>}>
             <div style={{ textAlign: 'center', padding: 24 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--danger)', marginBottom: 4 }}>Couldn&apos;t load audits</div>
               <div className="quiet" style={{ fontSize: 12, marginBottom: 14 }}>{error}</div>
@@ -353,7 +348,7 @@ export default function NapAuditsPage() {
         ) : all.length === 0 ? (
           <Card title="Audits">
             <div style={{ textAlign: 'center', padding: 48 }}>
-              <div style={{ fontSize: 36, opacity: 0.4, marginBottom: 12 }}>📍</div>
+              <div className="lvx-emoji" style={{ fontSize: 36, opacity: 0.4, marginBottom: 12 }}>📍</div>
               <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
                 {brandId ? `No saved audits for ${brandName ?? 'this brand'} yet` : 'No saved audits yet'}
               </div>
@@ -387,11 +382,11 @@ export default function NapAuditsPage() {
                       </td>
                       <td style={{ padding: '12px 14px', minWidth: 140 }}>
                         {a.status === 'queued' ? (
-                          <Badge tone="neu">QUEUED</Badge>
+                          <Badge tone="neu">Queued</Badge>
                         ) : a.status === 'running' ? (
                           <ProgressBadge done={a.progressDone} total={a.urlCount} />
                         ) : a.status === 'failed' ? (
-                          <Badge tone="neg">FAILED</Badge>
+                          <Badge tone="neg">Failed</Badge>
                         ) : (
                           <Badge tone={scoreTone(a.score)}>{a.score == null ? '-' : `${a.score}/100`}</Badge>
                         )}

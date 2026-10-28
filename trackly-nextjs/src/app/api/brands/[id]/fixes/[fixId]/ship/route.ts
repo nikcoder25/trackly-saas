@@ -30,7 +30,9 @@ export async function POST(
       return Response.json({ error: 'Viewers cannot ship fixes.' }, { status: 403 });
     }
     const fix = await shipFix(fixId, id, user.id);
-    const ok = fix.status === 'shipped';
+    // 'verified' = resolved by live fetch (content already on the page);
+    // 'shipping' = a concurrent request already claimed it. Neither is a failure.
+    const ok = ['shipped', 'verified', 'shipping'].includes(fix.status);
     return Response.json(
       { fix, ok, error: ok ? undefined : fix.error },
       { status: ok ? 200 : 422, headers: { 'Cache-Control': 'no-store' } },

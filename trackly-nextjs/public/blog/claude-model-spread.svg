@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 284" width="800" height="284" role="img">
+  <style>
+    .bg   { fill: #f8fafc; }
+    .card { fill: #ffffff; stroke: #e2e8f0; }
+    .ttl  { fill: #0f172a; font-weight: 700; }
+    .lbl  { fill: #334155; }
+    .mut  { fill: #64748b; }
+    .trk  { fill: #e2e8f0; }
+    .acc  { fill: #6366f1; }
+    .acc2 { fill: #94a3b8; }
+    .good { fill: #10b981; }
+    .warn { fill: #f59e0b; }
+    .line { stroke: #cbd5e1; }
+    .accline { stroke: #6366f1; }
+    text  { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    @media (prefers-color-scheme: dark) {
+      .bg   { fill: #0f172a; }
+      .card { fill: #1e293b; stroke: #334155; }
+      .ttl  { fill: #e2e8f0; }
+      .lbl  { fill: #cbd5e1; }
+      .mut  { fill: #94a3b8; }
+      .trk  { fill: #334155; }
+      .acc  { fill: #818cf8; }
+      .acc2 { fill: #64748b; }
+      .line { stroke: #334155; }
+      .accline { stroke: #818cf8; }
+    }
+  </style>
+  <rect width="800" height="284" rx="12" class="bg"/>
+  <text x="28" y="40" class="ttl" font-size="17">One prompt, three Claude models, three answers</text>
+  <text x="28" y="62" class="mut" font-size="13">Illustrative shape: the cheap model is not a proxy for the expensive one</text>
+  <text x="28" y="104" class="lbl" font-size="14" font-weight="700">Claude Haiku 4.5</text>
+  <text x="28" y="120" class="mut" font-size="11">Serves the highest volume</text>
+  <rect x="258" y="91" width="458" height="16" rx="8" class="trk"/>
+  <rect x="258" y="91" width="458" height="16" rx="8" class="acc"/>
+  <text x="772" y="104" text-anchor="end" class="lbl" font-size="13" font-weight="600">44%</text>
+  <text x="28" y="148" class="lbl" font-size="14" font-weight="500">Claude Sonnet 4</text>
+  <text x="28" y="164" class="mut" font-size="11">Different shortlist for the same prompt</text>
+  <rect x="258" y="135" width="458" height="16" rx="8" class="trk"/>
+  <rect x="258" y="135" width="322" height="16" rx="8" class="acc2"/>
+  <text x="772" y="148" text-anchor="end" class="lbl" font-size="13" font-weight="600">31%</text>
+  <text x="28" y="192" class="lbl" font-size="14" font-weight="500">Fable 5</text>
+  <text x="28" y="208" class="mut" font-size="11">Flattering, least representative</text>
+  <rect x="258" y="179" width="458" height="16" rx="8" class="trk"/>
+  <rect x="258" y="179" width="197" height="16" rx="8" class="acc2"/>
+  <text x="772" y="192" text-anchor="end" class="lbl" font-size="13" font-weight="600">19%</text>
+  <text x="28" y="236" class="lbl" font-size="14" font-weight="500">Absent from the answer</text>
+  <text x="28" y="252" class="mut" font-size="11">The number that actually costs you</text>
+  <rect x="258" y="223" width="458" height="16" rx="8" class="trk"/>
+  <rect x="258" y="223" width="62" height="16" rx="8" class="acc2"/>
+  <text x="772" y="236" text-anchor="end" class="lbl" font-size="13" font-weight="600">6%</text>
+</svg>

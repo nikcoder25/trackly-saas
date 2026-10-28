@@ -16,7 +16,7 @@ import {
 export const metadata: Metadata = {
   title: 'AI Search Optimization: The Complete 2026 Guide | Livesov',
   description:
-    'AI search optimization is how you rank inside AI-powered search engines - ChatGPT Search, Perplexity, Google AI Overviews, Gemini, and Bing Copilot. The full strategy, signals, and measurement playbook.',
+    'AI search optimization helps your brand show up in ChatGPT, Perplexity, Gemini and Google AI Overviews. Get the full strategy and how to measure it.',
   keywords:
     'ai search optimization, ai search seo, ranking in ai search, chatgpt search optimization, perplexity optimization, google ai mode, ai overviews seo, bing copilot, ai search engine optimization',
   alternates: { canonical: '/learn/ai-search-optimization' },
@@ -278,7 +278,7 @@ export default function AiSearchOptimizationPage() {
             Allow OAI-SearchBot in robots.txt. Ship comparison pages on the highest-volume
             queries in your category. Earn placements on Reddit, G2, and category roundup
             articles - ChatGPT Search aggressively cites those. See{' '}
-            <a href="/chatgpt-brand-tracking">ChatGPT tracking</a>.
+            <a href="/chatgpt-rank-tracker">ChatGPT tracking</a>.
           </p>
 
           <h3>Perplexity</h3>
@@ -286,7 +286,7 @@ export default function AiSearchOptimizationPage() {
             Allow PerplexityBot. Ship structured, citation-friendly pages with clear
             last-updated dates. Use FAQ schema and Article schema. Because Perplexity cites 6–15
             sources per answer, fast cycles of write &rarr; ship &rarr; measure are unusually
-            productive here. See <a href="/perplexity-brand-tracking">Perplexity tracking</a>.
+            productive here. See <a href="/perplexity-rank-tracker">Perplexity tracking</a>.
           </p>
 
           <h3>Google AI Overviews & AI Mode</h3>
@@ -309,7 +309,7 @@ export default function AiSearchOptimizationPage() {
           <p>
             Treat X like an SEO surface. Ship from a credible category-leader account with a
             real posting cadence. Grok&apos;s live search will literally retrieve recent posts
-            and cite them. See <a href="/grok-brand-tracking">Grok tracking</a>.
+            and cite them. See <a href="/grok-rank-tracker">Grok tracking</a>.
           </p>
 
           <Callout title="Optimize the surfaces your buyers actually use" variant="tip">
@@ -378,12 +378,12 @@ export default function AiSearchOptimizationPage() {
             description: 'Livesov - purpose-built for AI search measurement.',
           },
           {
-            href: '/perplexity-brand-tracking',
+            href: '/perplexity-rank-tracker',
             label: 'Perplexity tracking',
             description: 'The cleanest AI search surface to test on.',
           },
           {
-            href: '/chatgpt-brand-tracking',
+            href: '/chatgpt-rank-tracker',
             label: 'ChatGPT tracking',
             description: 'Track ChatGPT Search mentions and citations.',
           },

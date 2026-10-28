@@ -1,7 +1,5 @@
 @import "tailwindcss";
 @import "./legacy.css";
-@import "./trackly-landing.css";
-@import "./blog.css";
 
 /* Tailwind v4 fix: default border color (v4 uses currentColor, v3 used gray-200) */
 @layer base {
@@ -123,9 +121,11 @@
   box-shadow: 0 3px 8px rgba(99,102,241,.3);
 }
 
-/* Responsive: dashboard sidebar collapses on mobile */
+/* Responsive: dashboard sidebar collapses on mobile. Not the v3 shell: its
+   drawer scroll lock leaves a style attribute on .v3-main, and this rule then
+   dropped its topbar offset so the page slid under the header. */
 @media (max-width: 1023px) {
-  main[style] {
+  main[style]:not(.v3-main) {
     margin-left: 0 !important;
     padding: 12px 16px 24px !important;
   }

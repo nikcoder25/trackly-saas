@@ -79,3 +79,54 @@ export function computeOverviewSov(run: RunSovCandidate | null | undefined): num
   if (!Array.isArray(all) || all.length === 0) return stored ?? 0;
   return computeSovFromResults(all);
 }
+
+/**
+ * Turn raw mention counts into shares of voice that sum to exactly 100.
+ *
+ * Share of voice is "of all the brand mentions AI answers made, how many
+ * were each brand's", so the denominator is the total mentions across every
+ * brand in the set (your brand plus the tracked competitors), not the number
+ * of queries. Dividing by queries gives a mention rate instead, and mention
+ * rates do not add up to anything: the Competitors page once showed "share"
+ * slices summing to 61%.
+ *
+ * Rounded with the largest-remainder method so the whole-number shares
+ * still total 100. When nobody was mentioned, every share is 0.
+ */
+export function computeShareOfVoice(mentions: Record<string, number>): Record<string, number> {
+  const keys = Object.keys(mentions);
+  const counts = keys.map(k => Math.max(0, Number(mentions[k]) || 0));
+  const total = counts.reduce((a, b) => a + b, 0);
+  const out: Record<string, number> = {};
+  if (total === 0) {
+    for (const k of keys) out[k] = 0;
+    return out;
+  }
+  const exact = counts.map(c => (c / total) * 100);
+  const floors = exact.map(Math.floor);
+  let remaining = 100 - floors.reduce((a, b) => a + b, 0);
+  // Hand the leftover points to the largest fractional parts; ties go to the
+  // larger count, then to input order, so the result is deterministic.
+  const order = keys
+    .map((_, i) => i)
+    .sort((a, b) => (exact[b] - floors[b]) - (exact[a] - floors[a]) || counts[b] - counts[a] || a - b);
+  for (const i of order) {
+    if (remaining <= 0) break;
+    floors[i]++;
+    remaining--;
+  }
+  keys.forEach((k, i) => { out[k] = floors[i]; });
+  return out;
+}
+
+/**
+ * "16 (5%)": a mention count and the rate it represents out of `total`
+ * answers. The count and percent used to be rendered side by side with no
+ * separator, which read as one number ("165%").
+ */
+export function formatCountWithRate(count: number, total: number): string {
+  const c = Math.max(0, Math.round(Number(count) || 0));
+  const t = Math.max(0, Number(total) || 0);
+  const pct = t > 0 ? Math.round((c / t) * 100) : 0;
+  return `${c.toLocaleString('en-US')} (${pct}%)`;
+}

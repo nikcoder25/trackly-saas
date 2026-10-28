@@ -76,7 +76,9 @@ export function useNotifications() {
     status?.plan,
   ]);
 
-  const markRead = useCallback((id: string) => {
+  const markRead = useCallback((rawId: string | number) => {
+    // Server rows carry a SERIAL (numeric) id; normalise before string ops.
+    const id = String(rawId);
     // Client-synthesized usage alert? Update localStorage and
     // re-evaluate so the optimistic UI flips to read immediately.
     if (id.startsWith('usage-alert-')) {
@@ -87,7 +89,7 @@ export function useNotifications() {
     // Server notification - call the existing read endpoint and
     // optimistically flip read state in local list.
     setServerNotifs((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+      prev.map((n) => (String(n.id) === id ? { ...n, read: true } : n)),
     );
     api('POST', '/api/notifications/read', { ids: [Number(id)] }).catch(() => {});
   }, [status]);

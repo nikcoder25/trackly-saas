@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { PLATFORM_COLORS, getPlanPlatforms } from '@/lib/constants';
+import { PLATFORM_COLORS, getPlanPlatforms, isGoogleAiEngine } from '@/lib/constants';
 import { getPlanCredits } from '@/lib/plan-config';
 import { useAuth } from '@/contexts/AuthContext';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
@@ -11,7 +11,9 @@ import { useBrands } from '@/contexts/BrandContext';
 import { useRun, markPendingFirstRun } from '@/contexts/RunContext';
 import { useToast } from '@/components/dashboard/Toast';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
+import { PromptDiscovery } from '@/components/dashboard/PromptDiscovery';
 import { Card, Badge, PageHead } from '@/app/dashboard-v2/ui';
+import { isBrandedPrompt } from '@/lib/parser';
 
 /* ── design-system field/tag helpers (presentation only) ───────────────── */
 function Fld({ label, value, onChange, placeholder, type = 'text', mono = false }: any) {
@@ -25,6 +27,27 @@ function Fld({ label, value, onChange, placeholder, type = 'text', mono = false 
         className={'fld-in' + (mono ? ' mono' : '')}
         placeholder={placeholder}
       />
+    </div>
+  );
+}
+
+/**
+ * Shown when tracked prompts contain the brand's own name. AI answers to
+ * "how much does <brand> charge" repeat the name even when the model knows
+ * nothing about the brand, so these prompts can't show whether buyers
+ * discover it.
+ */
+function BrandedPromptWarning({ queries, brandName, website, aliases, industry, city }: { queries: string[]; brandName: string; website?: string; aliases?: string[]; industry?: string; city?: string }) {
+  if (!brandName.trim()) return null;
+  const brandInput = { name: brandName, website, aliases };
+  const count = queries.filter(q => isBrandedPrompt(q, brandInput)).length;
+  if (!count) return null;
+  const service = (industry || 'your service').trim().toLowerCase();
+  const where = city ? ` in ${city}` : '';
+  return (
+    <div role="alert" style={{ fontSize: 13, lineHeight: 1.5, padding: '10px 12px', margin: '0 0 12px', borderRadius: 'var(--radius-xs)', border: '1px solid #d97706', background: 'rgba(217,119,6,0.08)', color: 'var(--text)' }}>
+      <strong>{count} of {queries.length} prompt{queries.length === 1 ? '' : 's'} contain{count === 1 ? 's' : ''} your brand name.</strong>{' '}
+      Branded prompts don&apos;t measure discovery: the AI repeats the name you asked about, even when it knows nothing about you. Try buyer questions like &ldquo;best {service} company{where}&rdquo; or &ldquo;who should I hire for {service}{where}?&rdquo;
     </div>
   );
 }
@@ -63,6 +86,8 @@ async function api(method: string, path: string, body?: unknown) {
 }
 
 const ALL_PLATFORMS = Object.keys(PLATFORM_COLORS);
+// Google AI Overview / AI Mode are free to add: they don't count toward the plan limit.
+const LLM_PLATFORMS = ALL_PLATFORMS.filter(p => !isGoogleAiEngine(p));
 
 export default function SetupPage() {
   const { user } = useAuth();
@@ -135,7 +160,7 @@ export default function SetupPage() {
 
       <div className="page-body">
         {selectedBrand ? (
-          <EditBrandForm brand={selectedBrand} accountPromptCap={accountPromptCap} allBrands={brands}
+          <EditBrandForm key={selectedBrand.id} brand={selectedBrand} accountPromptCap={accountPromptCap} allBrands={brands}
             onUpdated={updated => { setBrands(brands.map(b => b.id === updated.id ? updated : b)); setSelectedBrand(updated); setCtxSelectedBrand(updated); refreshBrands(); }}
             onDeleted={() => { const remaining = brands.filter(b => b.id !== selectedBrand.id); setBrands(remaining); setSelectedBrand(remaining[0] || null); refreshBrands(); }} />
         ) : null}
@@ -234,6 +259,7 @@ function CreateBrandWizard({ onCreated }: { onCreated: (brand: Brand) => void })
       {step === 3 && (
         <div>
           <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>These queries will be sent to AI platforms to check if your brand is mentioned.</p>
+          <BrandedPromptWarning queries={queries} brandName={name} website={website} industry={industry} city={city} />
           <div style={{ maxHeight: '40vh', overflowY: 'auto' }}>
             {queries.map((q, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', padding: '8px 12px', fontSize: 13, color: 'var(--text)', marginBottom: 4 }}>
@@ -289,12 +315,13 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
   const v2 = getPlanCredits(user?.plan || 'free');
   const platformLimit = v2.maxPlatforms
     || (user?.limits as Record<string, number>)?.platforms
-    || ALL_PLATFORMS.length;
+    || LLM_PLATFORMS.length;
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(
     Array.isArray(brand.platforms) && brand.platforms.length
       ? brand.platforms
       : planPlatforms
   );
+  const selectedLlmCount = selectedPlatforms.filter(p => !isGoogleAiEngine(p)).length;
   const [nearbyAreas, setNearbyAreas] = useState<string[]>(brand.nearbyAreas || []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -483,13 +510,15 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
         });
         const suggestions: string[] = data.queries || [];
         const existing = new Set(queries.map(q => q.toLowerCase()));
-        const needle = name.toLowerCase();
+        // Suggestions are buyer questions; never add one that names the
+        // brand, since it can't measure discovery.
+        const brandInput = { name, website, aliases };
         newQs = suggestions
-          .filter(q => q.toLowerCase().includes(needle))
+          .filter(q => !isBrandedPrompt(q, brandInput))
           .filter(q => !existing.has(q.toLowerCase()));
       }
       if (!newQs.length) {
-        setMessage('No new brand-focused queries this round - click Suggest again for more variety.');
+        setMessage('No new buyer questions this round - click Suggest again for more variety.');
         setSuggesting(false);
         return;
       }
@@ -502,7 +531,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
         newQs = newQs.slice(0, accountSlotsRemaining);
       }
       setQueries([...queries, ...newQs]);
-      setMessage(`+ ${newQs.length} brand-focused quer${newQs.length === 1 ? 'y' : 'ies'} added - click again for more.`);
+      setMessage(`+ ${newQs.length} buyer quer${newQs.length === 1 ? 'y' : 'ies'} added - click again for more.`);
     } catch (e) { setError((e as Error).message); }
     setSuggesting(false);
   };
@@ -590,12 +619,12 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
       {message && <Badge tone="pos" style={{ display: 'block', padding: '8px 12px', fontSize: 11 }}>{message}</Badge>}
 
       <Card title="Identity">
-        <Fld label="BRAND NAME" value={name} onChange={setName} placeholder="Your Brand Name" />
+        <Fld label="Brand name" value={name} onChange={setName} placeholder="Your Brand Name" />
 
-        <Fld label="INDUSTRY" value={industry} onChange={setIndustry} placeholder="e.g. HVAC, Plumbing, Landscaping" />
-        <Fld label="WEBSITE" value={website} onChange={setWebsite} placeholder="yourbrand.com" mono />
-        <Fld label="CITY / LOCATION" value={city} onChange={setCity} placeholder="e.g. Austin TX" />
-        <Fld label="SOV GOAL (%)" value={String(goal)} onChange={(v: string) => setGoal(Number(v))} placeholder="70" type="number" mono />
+        <Fld label="Industry" value={industry} onChange={setIndustry} placeholder="e.g. HVAC, Plumbing, Landscaping" />
+        <Fld label="Website" value={website} onChange={setWebsite} placeholder="yourbrand.com" mono />
+        <Fld label="City / location" value={city} onChange={setCity} placeholder="e.g. Austin TX" />
+        <Fld label="SOV goal (%)" value={String(goal)} onChange={(v: string) => setGoal(Number(v))} placeholder="70" type="number" mono />
       </Card>
 
       <Card title="Alternate names & aliases" right={<button type="button" onClick={autoGenerateAliases} className="btn-d">Auto-generate</button>}>
@@ -618,6 +647,29 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
         <NearbyAreasSection city={city} areas={nearbyAreas} onChange={setNearbyAreas} brandId={brand.id} />
       </Card>
 
+      <PromptDiscovery
+        brandId={brand.id}
+        disabled={!industry || (!isPromptCapUnlimited && accountSlotsRemaining <= 0)}
+        disabledReason={
+          !industry
+            ? 'Set this brand’s industry first.'
+            : 'Account-wide prompt limit reached.'
+        }
+        onAccept={async (found) => {
+          const existing = new Set(queries.map(q => q.toLowerCase()));
+          let fresh = found.filter(q => !existing.has(q.toLowerCase()));
+          if (!isPromptCapUnlimited && fresh.length > accountSlotsRemaining) {
+            fresh = fresh.slice(0, accountSlotsRemaining);
+          }
+          if (!fresh.length) {
+            setMessage('Those prompts are already tracked on this brand.');
+            return;
+          }
+          setQueries([...queries, ...fresh]);
+          setMessage(`+ ${fresh.length} prompt${fresh.length === 1 ? '' : 's'} added - save to start tracking them.`);
+        }}
+      />
+
       <Card title="Manage queries"
         lede={isPromptCapUnlimited
           ? `${queries.length} prompts on this brand · ∞ account-wide`
@@ -626,6 +678,8 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
         <p className="quiet" style={{ fontSize: 13, margin: '0 0 12px', lineHeight: 1.5 }}>
           Add, remove, or bulk-manage the queries tracked for this brand.
         </p>
+
+        <BrandedPromptWarning queries={queries} brandName={name} website={website} aliases={aliases} industry={industry} city={city} />
 
         {/* Query tags */}
         <div className="tag-grid" style={{ marginBottom: 12, minHeight: 28 }}>
@@ -709,7 +763,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
       </Card>
 
       <Card title="AI platforms to track"
-        right={<Badge tone={selectedPlatforms.length > platformLimit ? 'warn' : 'neu'}>{selectedPlatforms.length} / {ALL_PLATFORMS.length}</Badge>}>
+        right={<Badge tone={selectedLlmCount > platformLimit ? 'warn' : 'neu'}>{selectedPlatforms.length} / {ALL_PLATFORMS.length}</Badge>}>
         <p className="quiet" style={{ fontSize: 13, margin: '0 0 12px', lineHeight: 1.5 }}>
           Select which AI platforms to query when running keyword tracking. Only the platforms you pick will be scanned.
         </p>
@@ -732,10 +786,10 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
             );
           })}
         </div>
-        <div className="quiet mono" style={{ fontSize: 11, color: selectedPlatforms.length > platformLimit ? 'var(--warn)' : undefined, marginTop: 8 }}>
-          {selectedPlatforms.length > platformLimit
-            ? `Plan allows ${platformLimit} platforms - only the first ${platformLimit} you selected will be tracked.`
-            : `${selectedPlatforms.length} of ${ALL_PLATFORMS.length} selected (plan limit: ${platformLimit})`}
+        <div className="quiet mono" style={{ fontSize: 11, color: selectedLlmCount > platformLimit ? 'var(--warn)' : undefined, marginTop: 8 }}>
+          {selectedLlmCount > platformLimit
+            ? `Plan allows ${platformLimit} AI chat platforms - only the first ${platformLimit} you selected will be tracked. Google AI Overview and AI Mode are always included.`
+            : `${selectedLlmCount} of ${LLM_PLATFORMS.length} AI chat platforms selected (plan limit: ${platformLimit}). Google AI Overview and AI Mode don't count toward the limit.`}
         </div>
       </Card>
 

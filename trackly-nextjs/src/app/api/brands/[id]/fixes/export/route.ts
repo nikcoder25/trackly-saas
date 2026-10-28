@@ -12,10 +12,10 @@ import { getBrandWithAccess } from '@/lib/helpers';
 import { logger } from '@/lib/logger';
 import { listFixes } from '@/lib/fix-engine/schema';
 import { getModule } from '@/lib/fix-engine/registry';
+import { csvSafe } from '@/lib/csv';
 
 function csvCell(v: unknown): string {
-  const s = v == null ? '' : String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  return csvSafe(v == null ? '' : String(v));
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
@@ -53,6 +53,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     });
   } catch (e) {
     logger.error('fix_engine.export_failed', { err: (e as Error).message });
-    return Response.json({ error: 'Failed to export', message: (e as Error).message }, { status: 500 });
+    return Response.json({ error: 'Failed to export' }, { status: 500 });
   }
 }

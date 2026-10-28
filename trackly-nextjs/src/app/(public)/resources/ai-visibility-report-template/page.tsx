@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import TemplateSignupForm from '@/components/resources/TemplateSignupForm';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 import {
   Section,
@@ -13,9 +14,9 @@ import {
 } from '@/components/seo/SeoSections';
 
 export const metadata: Metadata = {
-  title: 'AI Visibility Report Template (Free Google Doc + Notion + PDF) | Livesov',
+  title: 'AI Visibility Report Template (Free Download) | Livesov',
   description:
-    'A board-ready monthly AI visibility report template - mention rate, citation share, sentiment, rank across ChatGPT, Claude, Gemini, Perplexity, and Grok. Free download.',
+    'Free AI visibility report template for monthly reviews. Covers mention rate, citation share, sentiment and rank across five AI engines. Get your copy.',
   keywords:
     'ai visibility report template, ai visibility template, geo report template, llm seo report template, chatgpt mention report, ai search report template',
   alternates: { canonical: '/resources/ai-visibility-report-template' },
@@ -147,41 +148,10 @@ export default function AiVisibilityReportTemplatePage() {
               We&apos;ll email all three formats (Google Doc, Notion, PDF) and notify you when the
               template is updated. Unsubscribe anytime.
             </p>
-            <form
-              action="/api/newsletter"
-              method="POST"
-              style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
-            >
-              <input
-                type="hidden"
-                name="source"
-                value="ai-visibility-report-template"
-              />
-              <input
-                type="email"
-                name="email"
-                required
-                placeholder="you@company.com"
-                style={{
-                  fontSize: 15,
-                  padding: '14px 16px',
-                  border: '1px solid var(--card-border, #e8e5e1)',
-                  borderRadius: 10,
-                  outline: 'none',
-                  width: '100%',
-                }}
-              />
-              <button
-                type="submit"
-                className="land-btn land-btn-primary"
-                style={{ padding: '14px 24px', fontSize: 15 }}
-              >
-                Send the template
-              </button>
-            </form>
+            <TemplateSignupForm source="ai-visibility-report-template" />
             <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '14px 0 0', textAlign: 'center' }}>
               Already a Livesov user? Sign in - the template is in your{' '}
-              <Link href="/dashboard/reports" style={{ color: 'var(--brand, #6366f1)' }}>
+              <Link href="/dashboard/reports" rel="nofollow" style={{ color: 'var(--brand, #6366f1)' }}>
                 Reports
               </Link>{' '}
               tab.
@@ -239,7 +209,7 @@ export default function AiVisibilityReportTemplatePage() {
         links={[
           { href: '/resources', label: 'All resources', description: 'Templates, calculators, and playbooks.' },
           { href: '/learn/llm-seo', label: 'LLM SEO playbook', description: 'The full operating model the report measures against.' },
-          { href: '/case-studies', label: 'Case studies', description: 'Real teams using these reports to drive programs.' },
+          { href: '/uses/ai-visibility-report-for-agencies', label: 'AI visibility reports for agencies', description: 'Automate this report for every client with scheduled PDFs.' },
           { href: '/ai-search-statistics-2026', label: 'AI search statistics 2026', description: 'Numbers to contextualise your own report.' },
         ]}
       />

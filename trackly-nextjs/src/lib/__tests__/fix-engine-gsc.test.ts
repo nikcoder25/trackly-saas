@@ -30,7 +30,13 @@ vi.mock('@/lib/fix-engine/crawl', () => ({
 import { signState, verifyState } from '@/lib/fix-engine/gsc-state';
 import { matchSite } from '@/lib/fix-engine/gsc';
 import { strikingDistanceModule } from '@/lib/fix-engine/modules/striking-distance';
-import { ctrRescueModule } from '@/lib/fix-engine/modules/ctr-rescue';
+import {
+  ctrRescueModule, projectedClickGain, expectedCtr,
+  POS_MIN as CTR_POS_MIN, POS_MAX as CTR_POS_MAX,
+} from '@/lib/fix-engine/modules/ctr-rescue';
+import {
+  POS_MIN as STRIKING_POS_MIN, POS_MAX as STRIKING_POS_MAX,
+} from '@/lib/fix-engine/modules/striking-distance';
 
 const ctx = {
   brand: { id: 'b1', userId: 'u1', name: 'Acme', website: 'https://acme.test' },
@@ -75,7 +81,7 @@ describe('matchSite', () => {
 });
 
 describe('striking-distance detect', () => {
-  it('flags pages with position 4-15 queries that have impressions', async () => {
+  it('flags pages with position 6-15 queries that have impressions', async () => {
     gscState.rows = [
       { keys: ['https://acme.test/a', 'q1'], clicks: 1, impressions: 300, ctr: 0.003, position: 7.2 },
       { keys: ['https://acme.test/a', 'q2'], clicks: 0, impressions: 50, ctr: 0, position: 11 },
@@ -103,5 +109,62 @@ describe('ctr-rescue detect', () => {
     ];
     const issues = await ctrRescueModule.detect(ctx);
     expect(issues.map((i) => i.targetUrl)).toEqual(['https://acme.test/p']);
+  });
+
+  it('ignores pages below the impressions floor', async () => {
+    gscState.rows = [
+      { keys: ['https://acme.test/thin', 'q1'], clicks: 0, impressions: 200, ctr: 0, position: 3 },
+    ];
+    expect(await ctrRescueModule.detect(ctx)).toEqual([]);
+  });
+
+  it('leaves positions 6+ to striking-distance', async () => {
+    // Both modules rewrite the page <title>, and the engine dedupes only
+    // within a module, so an overlapping band means two fixes racing to
+    // write the same field on the same URL.
+    gscState.rows = [
+      { keys: ['https://acme.test/deep', 'q1'], clicks: 2, impressions: 2000, ctr: 0.001, position: 8 },
+    ];
+    expect(await ctrRescueModule.detect(ctx)).toEqual([]);
+  });
+
+  it('partitions the SERP with striking-distance, leaving no gap or overlap', () => {
+    expect(CTR_POS_MIN).toBe(1);
+    expect(STRIKING_POS_MIN).toBe(CTR_POS_MAX + 1);
+    expect(STRIKING_POS_MAX).toBeGreaterThan(STRIKING_POS_MIN);
+  });
+
+  it('excludes a query Google answers without a click', async () => {
+    gscState.rows = [
+      { keys: ['https://acme.test/seer', 'what does seer mean'], clicks: 8, impressions: 4000, ctr: 0.002, position: 2 },
+      { keys: ['https://acme.test/repair', 'emergency ac repair'], clicks: 8, impressions: 4000, ctr: 0.002, position: 2 },
+    ];
+    const issues = await ctrRescueModule.detect(ctx);
+    expect(issues.map((i) => i.targetUrl)).toEqual(['https://acme.test/repair']);
+  });
+
+  it('reports the clicks a fix could recover', async () => {
+    gscState.rows = [
+      { keys: ['https://acme.test/p', 'q1'], clicks: 10, impressions: 1000, ctr: 0.01, position: 3 },
+    ];
+    const issues = await ctrRescueModule.detect(ctx);
+    // pos 3 expects 10%; actual 1% → ~90 clicks/month recoverable.
+    expect(issues[0].detected.projectedClickGain).toBe(90);
+    expect(issues[0].summary).toContain('90 clicks/month');
+  });
+});
+
+describe('projectedClickGain', () => {
+  it('is the shortfall against the position-expected rate', () => {
+    expect(projectedClickGain(1000, 0.01, 3)).toBe(90);
+  });
+
+  it('never goes negative for a page beating its position', () => {
+    expect(projectedClickGain(1000, 0.4, 3)).toBe(0);
+  });
+
+  it('follows the expected-CTR curve downward by position', () => {
+    expect(expectedCtr(1)).toBeGreaterThan(expectedCtr(3));
+    expect(expectedCtr(3)).toBeGreaterThan(expectedCtr(5));
   });
 });

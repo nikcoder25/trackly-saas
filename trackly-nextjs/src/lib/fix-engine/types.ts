@@ -178,6 +178,21 @@ export interface FixContext {
    * Connector as a previewable draft revision (see ContentPatch / stageFix).
    */
   shipMode?: 'live' | 'draft';
+  /**
+   * This brand's own past results for the module being generated — the
+   * drafts that measurably won and lost, from `outcome.measured` history.
+   *
+   * Showing a model what actually worked on this site beats any amount of
+   * abstract instruction about what "good" looks like, and the losers carry
+   * as much signal as the winners because the failure modes are specific: a
+   * title that got truncated in the SERP, a meta description that read as
+   * spam. Absent on a brand with no measured history yet, so modules must
+   * treat it as optional enrichment.
+   */
+  learned?: {
+    winners: Array<{ targetUrl: string | null; delta: number; generated: Record<string, unknown> | null }>;
+    losers: Array<{ targetUrl: string | null; delta: number; generated: Record<string, unknown> | null }>;
+  };
 }
 
 /** The contract every module implements. */
@@ -194,6 +209,23 @@ export interface FixModule {
   minPlan: string;
   /** Phase 1/2/3 - informational, used for grouping in the UI. */
   phase: 1 | 2 | 3;
+  /**
+   * True when this module diagnoses rather than edits: shipping it writes
+   * nothing to the customer's site, it hands over findings (a decay
+   * diagnosis, a cannibalisation verdict, a content brief) for a human or
+   * another module to act on.
+   *
+   * The engine treats these differently in one specific place. Outcome
+   * measurement (outcomes.ts) attributes the 28-day CTR change on a page
+   * to the fix that shipped against it, and feeds that delta into the
+   * per-module learning priors. A module that changed nothing has no
+   * claim on that delta, so recording one would teach the ranker from
+   * pure noise - and, on a page that happened to slide further, could
+   * trip the auto-revert machinery over a change that never existed.
+   * `finalizeShippedFix` therefore skips the GSC baseline capture for
+   * diagnostic modules, which keeps them out of the outcome pass entirely.
+   */
+  diagnostic?: boolean;
   /**
    * Find issues this module can fix. Pure read - may crawl the site or
    * read GSC, but must not write. Returns [] when nothing needs fixing.
@@ -257,6 +289,20 @@ export interface FixRow {
   generated: Record<string, unknown> | null;
   beforeSnapshot: Record<string, unknown> | null;
   afterSnapshot: Record<string, unknown> | null;
+  /**
+   * Last live-page verification (see live-check.ts): did the value we
+   * shipped actually turn up in the HTML the page serves? Null until the
+   * fix has been verified once.
+   */
+  liveCheck: Record<string, unknown> | null;
+  /**
+   * When the Connector plugin pulled and applied this Channel-B fix.
+   *
+   * Null means the instruction is still queued. Channel-B "shipped" only
+   * ever meant queued - the queue IS this row - so a card that reads
+   * SHIPPED while this is null is claiming something the site has not done.
+   */
+  connectorDeliveredAt: string | null;
   shipResult: Record<string, unknown> | null;
   scoreBefore: number | null;
   scoreAfter: number | null;
@@ -272,6 +318,12 @@ export interface FixRow {
   /** Target page's 28-day GSC metrics captured at ship / ~28 days later. */
   gscBefore: Record<string, unknown> | null;
   gscAfter: Record<string, unknown> | null;
+  /**
+   * When the user explicitly moved this live fix to the Archive tab.
+   * Shipping does NOT set this — a shipped fix stays in the main list
+   * until the user archives it.
+   */
+  archivedAt: string | null;
   error: string | null;
   createdAt: string;
   updatedAt: string;

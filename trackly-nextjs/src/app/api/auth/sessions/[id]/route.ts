@@ -30,7 +30,7 @@ export async function DELETE(
     return badRequest('Invalid session id');
   }
 
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const ip = getClientIp(request);
 
   try {
     const result = await pool.query(

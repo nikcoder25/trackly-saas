@@ -5,11 +5,11 @@ import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
   title: 'Livesov Partners | Agency & Affiliate Program',
-  description: 'Partner with Livesov. Offer AI visibility tracking to clients with white-label reports, plus affiliate and reseller options.',
+  description: 'Partner with Livesov. Offer AI visibility tracking to clients, earn recurring commission, plus affiliate and reseller options.',
   alternates: { canonical: '/partners' },
   openGraph: {
     title: 'Livesov Partners | Agency & Affiliate Program',
-    description: 'Partner with Livesov. Offer AI visibility tracking to clients with white-label reports, plus affiliate and reseller options.',
+    description: 'Partner with Livesov. Offer AI visibility tracking to clients, earn recurring commission, plus affiliate and reseller options.',
     url: 'https://livesov.com/partners',
     siteName: 'Livesov',
     type: 'website',
@@ -18,14 +18,14 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Livesov Partners | Agency & Affiliate Program',
-    description: 'Partner with Livesov. Offer AI visibility tracking to clients with white-label reports, plus affiliate and reseller options.',
+    description: 'Partner with Livesov. Offer AI visibility tracking to clients, earn recurring commission, plus affiliate and reseller options.',
     images: ['https://livesov.com/og-image.png'],
   },
 };
 
 const benefitIcons = {
   'Recurring Revenue': DollarSign,
-  'White-Label Reports': BarChart3,
+  'Client-Ready Reports': BarChart3,
   'Priority Support': HeadphonesIcon,
 };
 
@@ -35,8 +35,8 @@ const benefits = [
     description: 'Partners earn 20% recurring commission on every referral for the lifetime of the client.',
   },
   {
-    title: 'White-Label Reports',
-    description: 'Generate branded AI visibility reports for your clients. Your logo, your brand, your insights.',
+    title: 'Client-Ready Reports',
+    description: 'Generate polished AI visibility PDFs for every client - share of voice, sentiment and citations, ready to present without building a deck.',
   },
   {
     title: 'Priority Support',
@@ -59,7 +59,7 @@ const audiences = [
 
 const tiers = [
   { tier: 'Silver', referrals: '1-5 clients', commission: '20%', perks: 'Partner badge, priority support' },
-  { tier: 'Gold', referrals: '6-20 clients', commission: '25%', perks: '+ White-label reports, co-marketing' },
+  { tier: 'Gold', referrals: '6-20 clients', commission: '25%', perks: '+ Co-marketing, early access to new features' },
   { tier: 'Platinum', referrals: '21+ clients', commission: '30%', perks: '+ Custom integrations, dedicated manager' },
 ];
 
@@ -73,8 +73,8 @@ const faqs = [
     answer: 'No. Refer as many or as few clients as you\'d like.',
   },
   {
-    question: 'Can I white-label the reports?',
-    answer: 'Yes, Gold and Platinum partners get fully white-labeled reports.',
+    question: 'Can I put my own branding on the reports?',
+    answer: 'Not currently - exported PDFs carry Livesov branding. Agency-plan API access is the usual workaround: pull the data and render it inside your own template. Tell us on the Contact page if report rebranding matters to you.',
   },
   {
     question: 'How do I track my referrals?',

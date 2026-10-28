@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useBrandData } from '@/hooks/useBrandData';
 import { useToast } from '@/components/dashboard/Toast';
 import { Card, Badge, PageHead, KPIRail } from '@/app/dashboard-v2/ui';
+import { useUiFlag } from '@/contexts/UiFlagContext';
 
 interface AlertRule { id: string; name: string; condition: string; threshold: number; action: string; cooldown: number; enabled: boolean; }
 interface Notification { id: string; title: string; message: string; timestamp: string; read: boolean; }
@@ -11,6 +12,10 @@ interface Notification { id: string; title: string; message: string; timestamp: 
 export default function AlertsPage() {
   const { brand, loading } = useBrandData();
   const { toast } = useToast();
+  // The rules table gets a Delete action in the v3 design only; the classic
+  // UI is left exactly as it was until v3 is approved.
+  const { isV3 } = useUiFlag();
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -40,13 +45,37 @@ export default function AlertsPage() {
     if (!brand?.id) return;
     const load = () => fetch(`/api/brands/${brand.id}/alerts`, { credentials: 'include' })
       .then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); })
-      .then(d => { setRules(d.rules || []); setNotifications(d.notifications || []); setWebhookUrl(d.webhookUrl || ''); setReportFreq(d.reportFreq || 'off'); })
+      .then(d => { setRules(d.rules || []); setNotifications(d.notifications || []); })
       .catch(() => {});
     load();
+    // Webhook lives on the brand record; the report schedule has its own route.
+    fetch(`/api/brands/${brand.id}`, { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { const b = d?.brand ?? d; setWebhookUrl(typeof b?.webhookUrl === 'string' ? b.webhookUrl : ''); })
+      .catch(() => {});
+    fetch(`/api/brands/${brand.id}/report/schedule`, { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d?.frequency) setReportFreq(d.frequency); })
+      .catch(() => {});
     const handler = () => load();
     window.addEventListener('livesov:run-complete', handler);
     return () => window.removeEventListener('livesov:run-complete', handler);
   }, [brand?.id]);
+
+  async function deleteAlert(rule: AlertRule) {
+    if (!confirm(`Delete the alert "${rule.name}"?`)) return;
+    setDeleting(rule.id);
+    try {
+      const res = await fetch(`/api/alerts/${encodeURIComponent(rule.id)}`, { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || `HTTP ${res.status}`);
+      setRules(prev => prev.filter(r => r.id !== rule.id));
+      toast('Alert deleted');
+    } catch (e) {
+      toast((e as Error).message || 'Could not delete alert', 'error');
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   async function saveAlert() {
     if (!brand) { toast('Add or select a brand before creating an alert', 'error'); return; }
@@ -76,20 +105,33 @@ export default function AlertsPage() {
     }
   }
 
-  function saveWebhook() {
+  async function saveWebhook() {
     if (!brand) return;
-    fetch(`/api/brands/${brand.id}/alerts`, {
-      method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ webhookUrl }),
-    }).then(() => { setWebhookStatus('Saved!'); toast('Webhook saved successfully'); }).catch(() => { setWebhookStatus('Failed'); toast('Failed to save webhook', 'error'); });
+    try {
+      const res = await fetch(`/api/brands/${brand.id}`, {
+        method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ webhookUrl: webhookUrl.trim() }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { setWebhookStatus('Failed'); toast(d.error || 'Failed to save webhook', 'error'); return; }
+      setWebhookStatus('Saved!');
+      toast('Webhook saved successfully');
+    } catch { setWebhookStatus('Failed'); toast('Failed to save webhook', 'error'); }
   }
 
-  function saveReport() {
+  async function saveReport() {
     if (!brand) return;
-    fetch(`/api/brands/${brand.id}/alerts`, {
-      method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reportFreq }),
-    }).then(() => { setReportSaved(true); setTimeout(() => setReportSaved(false), 3000); toast('Report schedule saved'); }).catch(() => { toast('Failed to save report schedule', 'error'); });
+    try {
+      const res = await fetch(`/api/brands/${brand.id}/report/schedule`, {
+        method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frequency: reportFreq }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { toast(d.error || 'Failed to save report schedule', 'error'); return; }
+      setReportSaved(true);
+      setTimeout(() => setReportSaved(false), 3000);
+      toast('Report schedule saved');
+    } catch { toast('Failed to save report schedule', 'error'); }
   }
 
   const notifTypes = [
@@ -115,11 +157,11 @@ export default function AlertsPage() {
         actions={<button className="btn-p" onClick={() => setShowAddForm(!showAddForm)}>+ Add Alert</button>} />
       <div className="page-body">
         <KPIRail items={[
-          { k: 'RULES ACTIVE', v: String(activeCount), info: `of ${rules.length}` },
-          { k: 'TOTAL RULES', v: String(rules.length) },
-          { k: 'NOTIFICATIONS', v: String(notifications.length) },
-          { k: 'WEBHOOK', v: webhookUrl ? 'ON' : 'OFF' },
-          { k: 'EMAIL REPORT', v: reportFreq === 'off' ? 'OFF' : reportFreq.toUpperCase() },
+          { k: 'Rules active', v: String(activeCount), info: `of ${rules.length}` },
+          { k: 'Total rules', v: String(rules.length) },
+          { k: 'Notifications', v: String(notifications.length) },
+          { k: 'Webhook', v: webhookUrl ? 'ON' : 'OFF' },
+          { k: 'Email report', v: reportFreq === 'off' ? 'OFF' : reportFreq.toUpperCase() },
         ]} />
 
         <div className="g2">
@@ -131,7 +173,7 @@ export default function AlertsPage() {
             ) : (
               <div className="tbl-wrap">
                 <table className="tbl">
-                  <thead><tr><th>WHEN</th><th>CHANNELS</th><th>THRESHOLD · COOLDOWN</th><th>STATUS</th></tr></thead>
+                  <thead><tr><th>When</th><th>Channels</th><th>Threshold · cooldown</th><th>Status</th>{isV3 && <th aria-label="Actions" />}</tr></thead>
                   <tbody>
                     {rules.map(r => (
                       <tr key={r.id}>
@@ -139,6 +181,12 @@ export default function AlertsPage() {
                         <td className="mono dim">{r.action} · {r.condition}</td>
                         <td className="num mono"><b>{r.threshold}%</b> <span className="dim">· {r.cooldown}h</span></td>
                         <td><Badge tone={r.enabled ? 'pos' : 'neu'}>{r.enabled ? 'ACTIVE' : 'DISABLED'}</Badge></td>
+                        {isV3 && (
+                          <td style={{ textAlign: 'right' }}>
+                            <button type="button" className="btn-d" onClick={() => deleteAlert(r)} disabled={deleting === r.id}
+                              aria-label={`Delete alert ${r.name}`}>{deleting === r.id ? 'Deleting…' : 'Delete'}</button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -151,11 +199,11 @@ export default function AlertsPage() {
             <Card title="New alert rule" style={{ gridColumn: 'span 2' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                 <div>
-                  <div className="eyebrow" style={{ marginBottom: 6 }}>ALERT NAME</div>
+                  <div className="eyebrow" style={{ marginBottom: 6 }}>Alert name</div>
                   <input ref={nameInputRef} className="sel" value={alertName} onChange={e => setAlertName(e.target.value)} placeholder="e.g. SOV dropped below 20%" style={{ width: '100%' }} />
                 </div>
                 <div>
-                  <div className="eyebrow" style={{ marginBottom: 6 }}>CONDITION</div>
+                  <div className="eyebrow" style={{ marginBottom: 6 }}>Condition</div>
                   <select className="sel" value={alertCondition} onChange={e => setAlertCondition(e.target.value)} style={{ width: '100%' }}>
                     <option value="visibility_drop">Visibility Drop (%)</option>
                     <option value="sov_below">SOV Below Threshold</option>
@@ -171,7 +219,7 @@ export default function AlertsPage() {
                   <input className="sel" type="number" value={alertThreshold} onChange={e => setAlertThreshold(Number(e.target.value))} min={1} max={100} style={{ width: '100%' }} />
                 </div>
                 <div>
-                  <div className="eyebrow" style={{ marginBottom: 6 }}>ACTION</div>
+                  <div className="eyebrow" style={{ marginBottom: 6 }}>Action</div>
                   <select className="sel" value={alertAction} onChange={e => setAlertAction(e.target.value)} style={{ width: '100%' }}>
                     <option value="in_app">In-App Notification</option>
                     <option value="email">Email</option>
@@ -243,7 +291,7 @@ export default function AlertsPage() {
                   <option value="monthly">Monthly</option>
                 </select>
                 <button className="btn-p" onClick={saveReport}>Save</button>
-                {reportSaved && <Badge tone="pos">SAVED</Badge>}
+                {reportSaved && <Badge tone="pos">Saved</Badge>}
               </div>
             </div>
           </Card>

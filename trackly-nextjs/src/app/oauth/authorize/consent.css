@@ -1,0 +1,37 @@
+.oc {
+  min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center;
+  padding: 24px 16px; background: #F2F2F5; color: #1D1D1F;
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.oc-card {
+  width: 100%; max-width: 440px; background: #fff; border-radius: 22px; padding: 32px 28px 24px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 40px rgba(0,0,0,.08); display: flex; flex-direction: column; gap: 14px;
+}
+.oc-logos { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 6px; }
+.oc-app, .oc-lv { width: 52px; height: 52px; border-radius: 15px; display: inline-flex; align-items: center; justify-content: center; }
+.oc-app { background: #1D1D1F; color: #fff; font-weight: 700; font-size: 22px; }
+.oc-lv { background: linear-gradient(145deg, #7373E8, #5B5BD6 55%, #4646BE); }
+.oc-dots { display: inline-flex; gap: 4px; }
+.oc-dots i { width: 5px; height: 5px; border-radius: 50%; background: #C7C7CC; }
+.oc-t { margin: 0; text-align: center; font: 600 21px/1.3 -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif; letter-spacing: -0.02em; text-wrap: balance; }
+.oc-t b { font-weight: 700; }
+.oc-p { margin: 0; text-align: center; color: #55555C; font-size: 14px; overflow-wrap: anywhere; }
+.oc-p b { color: #1D1D1F; font-weight: 600; }
+.oc-list { background: #F7F7F9; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.oc-list-h { font-size: 12.5px; font-weight: 600; color: #6E6E76; }
+.oc-list ul { margin: 0 0 6px; padding-left: 20px; list-style: disc; display: grid; gap: 4px; font-size: 14px; }
+.oc-list ul.oc-no { margin-bottom: 0; color: #55555C; }
+.oc-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.oc-btn {
+  display: inline-flex; align-items: center; justify-content: center; height: 46px; border-radius: 999px; border: 0; cursor: pointer;
+  background: #5B5BD6; color: #fff; font: 600 15px/1 inherit; text-decoration: none; transition: background .15s, transform .1s;
+}
+.oc-btn:hover:not(:disabled) { background: #4949C4; }
+.oc-btn:active:not(:disabled) { transform: scale(.98); }
+.oc-btn:disabled { opacity: .6; cursor: default; }
+.oc-btn:focus-visible { outline: 3px solid #D7D7F6; outline-offset: 2px; }
+.oc-btn-2 { background: #EEEEF2; color: #1D1D1F; }
+.oc-btn-2:hover:not(:disabled) { background: #E4E4E9; }
+.oc-err { margin: 0; padding: 10px 12px; border-radius: 10px; background: #FDEDED; color: #B42318; font-size: 13.5px; }
+.oc-foot { margin: 4px 0 0; text-align: center; font-size: 12.5px; color: #6E6E76; overflow-wrap: anywhere; }

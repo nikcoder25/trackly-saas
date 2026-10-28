@@ -208,7 +208,8 @@ export async function getBrandWithAccess(brandId: string, userId: string) {
   const ownResult = await pool.query('SELECT * FROM brands WHERE id = $1 AND user_id = $2', [brandId, userId]);
   if (ownResult.rows.length) {
     const row = ownResult.rows[0];
-    return { brand: { id: row.id, userId: row.user_id, ...row.data, createdAt: row.created_at, updatedAt: row.updated_at }, role: 'owner' };
+    const { shared: _sh, teamRole: _tr, ...ownData } = (row.data || {}) as Record<string, unknown>;
+    return { brand: { id: row.id, userId: row.user_id, ...ownData, createdAt: row.created_at, updatedAt: row.updated_at }, role: 'owner' };
   }
   const teamResult = await pool.query(
     `SELECT b.*, tm.role AS team_role FROM brands b
@@ -221,4 +222,32 @@ export async function getBrandWithAccess(brandId: string, userId: string) {
     return { brand: { id: row.id, userId: row.user_id, ...row.data, createdAt: row.created_at, updatedAt: row.updated_at, shared: true, teamRole: row.team_role }, role: row.team_role };
   }
   return null;
+}
+
+/**
+ * Same access check as getBrandWithAccess, but in one round trip and without
+ * the heavy history keys (runs, mentions, sovHistory) of the data blob. Use
+ * it in routes that only need brand settings: the full blob can run to
+ * several MB and dominated the Competitors and Fan-out load times.
+ */
+export async function getBrandLiteWithAccess(brandId: string, userId: string) {
+  const result = await pool.query(
+    `SELECT b.id, b.user_id, b.created_at, b.updated_at,
+            (b.data - 'runs' - 'mentions' - 'sovHistory') AS data,
+            CASE WHEN b.user_id = $2 THEN NULL ELSE tm.role END AS team_role
+       FROM brands b
+       LEFT JOIN team_members tm ON tm.owner_id = b.user_id AND tm.member_id = $2
+      WHERE b.id = $1 AND (b.user_id = $2 OR tm.member_id IS NOT NULL)
+      LIMIT 1`,
+    [brandId, userId]
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  const { shared: _sh, teamRole: _tr, ...data } = (row.data || {}) as Record<string, unknown>;
+  const base: Record<string, unknown> & { id: string; userId: string } = {
+    id: row.id, userId: row.user_id, ...data, createdAt: row.created_at, updatedAt: row.updated_at,
+  };
+  if (row.user_id === userId) return { brand: base, role: 'owner' };
+  const shared: typeof base = { ...base, shared: true, teamRole: row.team_role };
+  return { brand: shared, role: row.team_role };
 }

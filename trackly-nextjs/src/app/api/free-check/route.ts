@@ -1,26 +1,31 @@
 import { NextRequest } from 'next/server';
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
-import { queryAI, getDefaultModel, withCacheAndRetry } from '@/lib/ai-platforms';
+import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
+import { queryAI, getDefaultModel, withCacheAndRetry, pickBestKey } from '@/lib/ai-platforms';
+import { getServerKeys } from '@/lib/server-keys';
 import { isSearchEnabled } from '@/lib/response-cache';
 import { logError, serverError } from '@/lib/api-error';
 
+// Keys come from getServerKeys() so comma lists and numbered _N vars work
+// here the same as everywhere else.
 const PLATFORMS_CONFIG = [
-  { name: 'ChatGPT', envKey: 'OPENAI_API_KEY' },
-  { name: 'Claude', envKey: 'CLAUDE_API_KEY' },
-  { name: 'Gemini', envKey: 'GEMINI_API_KEY' },
-  { name: 'Perplexity', envKey: 'PERPLEXITY_API_KEY' },
-  { name: 'Grok', envKey: 'GROK_API_KEY' },
+  { name: 'ChatGPT', keyGroup: 'openai' },
+  { name: 'Claude', keyGroup: 'claude' },
+  { name: 'Gemini', keyGroup: 'gemini' },
+  { name: 'Perplexity', keyGroup: 'perplexity' },
+  { name: 'Grok', keyGroup: 'grok' },
 ];
 
 export async function POST(req: NextRequest) {
   try {
     // Rate limit by IP: 3 checks per hour
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const ip = getClientIp(req);
     const { allowed, retryAfter } = await rateLimit(`free-check:${ip}`, 60 * 60 * 1000, 3);
     if (!allowed) return rateLimitResponse(retryAfter);
 
-    const body = await req.json();
-    const { brandName, industry } = body;
+    // A malformed body falls through to the 400 below rather than throwing
+    // into the catch-all as a 500 (see geo-audit/route.ts for the rationale).
+    const body = await req.json().catch(() => ({}));
+    const { brandName, industry } = body as { brandName?: unknown; industry?: unknown };
 
     if (!brandName || typeof brandName !== 'string' || !brandName.trim() || brandName.length > 200) {
       return Response.json({ error: 'Brand name is required (max 200 chars).' }, { status: 400 });
@@ -33,8 +38,9 @@ export async function POST(req: NextRequest) {
     let platform: string | null = null;
     let apiKey: string | null = null;
 
+    const serverKeys = getServerKeys();
     for (const p of PLATFORMS_CONFIG) {
-      const key = process.env[p.envKey];
+      const key = pickBestKey(serverKeys[p.keyGroup] || []);
       if (key) {
         platform = p.name;
         apiKey = key;
@@ -58,8 +64,9 @@ export async function POST(req: NextRequest) {
       () => queryAI(platform, query, apiKey, model),
     );
 
-    const mentioned = result.text.toLowerCase().includes(brandName.trim().toLowerCase());
-    const snippet = result.text.slice(0, 300);
+    const text = result.text || '';
+    const mentioned = text.toLowerCase().includes(brandName.trim().toLowerCase());
+    const snippet = text.slice(0, 300);
 
     return Response.json({
       mentioned,
