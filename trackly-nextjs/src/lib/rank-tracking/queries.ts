@@ -9,6 +9,7 @@ import { ensureRankSchema } from './schema';
 import { keywordAiStatus, shareOfVoice } from './ai';
 import { monthlyCommitment, rankCreditsForPlan, DAILY_PLANS, TOP100_PLANS, type Frequency } from './credits';
 import { providerChain } from './providers';
+import { matchesDomain } from './domain';
 import type { ComparePeriod, GroupSummary, KeywordDto, KeywordHistory, RankCreditStatus, RankOverview, RankSummary, WebsiteDetail, WebsiteSummary } from './types';
 
 export function parsePeriod(v: string | null | undefined): ComparePeriod {
@@ -136,15 +137,31 @@ function rollup(rows: RawKw[]) {
   };
 }
 
-export async function rankSummary(accountId: string, plan: string, period: ComparePeriod): Promise<RankSummary> {
+/**
+ * Limit websites (and their keyword rows) to one brand's domain. `undefined`
+ * means no brand scope (all websites); an empty string means the brand has no
+ * website yet, so nothing matches.
+ */
+function scopeToDomain<S extends { id: string; domain: string }, R extends { website_id: string }>(sites: S[], rows: R[], domain: string | undefined): { sites: S[]; rows: R[] } {
+  if (domain === undefined) return { sites, rows };
+  const kept = sites.filter((s) => !!domain && matchesDomain(s.domain, domain));
+  const ids = new Set(kept.map((s) => s.id));
+  return { sites: kept, rows: rows.filter((r) => ids.has(r.website_id)) };
+}
+
+export async function rankSummary(accountId: string, plan: string, period: ComparePeriod, domain?: string): Promise<RankSummary> {
   await ensureRankSchema();
-  const [rows, credits, sites, groups, trend] = await Promise.all([
+  const [allRows, credits, allSites, allGroups, trend] = await Promise.all([
     keywordRows('w.account_id = $1', [accountId], period, false),
     creditStatus(accountId, plan),
     pool.query(`SELECT id, domain FROM rt_websites WHERE account_id = $1 ORDER BY domain`, [accountId]),
     pool.query(`SELECT g.id, g.name, g.website_id, w.domain FROM rt_groups g JOIN rt_websites w ON w.id = g.website_id WHERE w.account_id = $1 ORDER BY w.domain, g.name`, [accountId]),
     weeklyTrend(accountId),
   ]);
+  const { sites: siteRows, rows } = scopeToDomain(allSites.rows, allRows, domain);
+  const sites = { rows: siteRows };
+  const siteIds = new Set(siteRows.map((x) => x.id));
+  const groups = { rows: allGroups.rows.filter((g) => siteIds.has(g.website_id)) };
   const sov = await shareOfVoice(accountId, sites.rows.map((s) => s.domain));
   const websites: WebsiteSummary[] = sites.rows.map((s) => {
     const list = rows.filter((r) => r.website_id === s.id);
@@ -232,17 +249,24 @@ export async function keywordHistory(accountId: string, keywordId: string, range
   };
 }
 
-export async function rankOverview(accountId: string, period: ComparePeriod): Promise<RankOverview> {
+export async function rankOverview(accountId: string, period: ComparePeriod, domain?: string): Promise<RankOverview> {
   await ensureRankSchema();
-  const rows = await keywordRows('w.account_id = $1', [accountId], period, false);
-  const sites = await pool.query(`SELECT id, domain FROM rt_websites WHERE account_id = $1 ORDER BY domain`, [accountId]);
+  const allRows = await keywordRows('w.account_id = $1', [accountId], period, false);
+  const allSites = await pool.query(`SELECT id, domain FROM rt_websites WHERE account_id = $1 ORDER BY domain`, [accountId]);
+  const { sites: siteRows, rows } = scopeToDomain(allSites.rows, allRows, domain);
+  const sites = { rows: siteRows };
   const sov = await shareOfVoice(accountId, sites.rows.map((s) => s.domain));
   const moves = rows.filter((r) => r.has_prev && r.checked_at).map((r) => ({
     keywordId: r.id, websiteId: r.website_id, keyword: r.keyword, domain: r.domain, rank: r.rank, change: pos(r.prev_rank, r.depth) - pos(r.rank, r.depth),
   }));
   const sovVals = [...sov.values()];
   const activity = await pool.query(
-    `SELECT message, kind, created_at FROM rt_alert_log WHERE account_id = $1 ORDER BY created_at DESC LIMIT 12`, [accountId]);
+    `SELECT message, kind, created_at FROM rt_alert_log WHERE account_id = $1 ORDER BY created_at DESC LIMIT ${domain === undefined ? 12 : 200}`, [accountId]);
+  // Brand scope: keep only activity that names one of the brand's websites.
+  if (domain !== undefined) {
+    const names = siteRows.map((x) => String(x.domain).toLowerCase());
+    activity.rows = activity.rows.filter((a) => names.some((n) => String(a.message || '').toLowerCase().includes(n))).slice(0, 12);
+  }
   return {
     stats: {
       up: moves.filter((m) => m.change > 0).length,
