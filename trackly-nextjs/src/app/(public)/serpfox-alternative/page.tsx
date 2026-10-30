@@ -97,7 +97,7 @@ export default function SerpfoxAlternativePage() {
 
       <Section pad="0 24px 56px" width={1000}>
         <Image
-          src="/dashboard-shot.png"
+          src="/rank-tracker-shot.webp"
           alt="serpfox alternative"
           width={924}
           height={540}

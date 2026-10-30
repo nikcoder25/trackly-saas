@@ -96,7 +96,7 @@ export default function SeRankingAlternativePage() {
 
       <Section pad="0 24px 56px" width={1000}>
         <Image
-          src="/dashboard-shot.png"
+          src="/rank-tracker-shot.webp"
           alt="se ranking alternative"
           width={924}
           height={540}
