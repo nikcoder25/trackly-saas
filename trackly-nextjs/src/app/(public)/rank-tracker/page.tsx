@@ -45,6 +45,34 @@ export const metadata: Metadata = {
   },
 };
 
+const FEATURE_PAGES = [
+  {
+    href: '/uses/city-level-rank-tracking',
+    label: 'City level rank tracking',
+    description: 'See your Google position in each city you serve.',
+  },
+  {
+    href: '/uses/mobile-rank-tracker',
+    label: 'Mobile rank tracker',
+    description: 'Track Google mobile rankings next to desktop.',
+  },
+  {
+    href: '/uses/daily-rank-tracker',
+    label: 'Daily rank tracker',
+    description: 'Fresh positions every day, with rank drop alerts.',
+  },
+  {
+    href: '/uses/rank-tracker-with-client-reports',
+    label: 'Rank tracker with client reports',
+    description: 'PDF, HTML and CSV reports, emailed weekly or monthly.',
+  },
+  {
+    href: '/uses/cheap-rank-tracker',
+    label: 'Cheap rank tracker',
+    description: '250 keywords checked weekly for $19 a month.',
+  },
+];
+
 const AI_PAGES = [
   {
     href: '/uses/ai-overview-tracker',
@@ -213,6 +241,7 @@ export default function RankTrackerHubPage() {
         </LongForm>
       </Section>
 
+      <PillarLinks title="Rank tracking features" links={FEATURE_PAGES} />
       <PillarLinks title="Track AI rankings by engine" links={AI_PAGES} />
       <PillarLinks title="For agencies" links={AGENCY_PAGES} />
       <PillarLinks title="Switching rank trackers" links={SWITCH_PAGES} />
