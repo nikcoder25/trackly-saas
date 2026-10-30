@@ -4,9 +4,9 @@ import { PRICING_PLANS } from '@/lib/constants';
 
 export const metadata: Metadata = {
   // Keyword first, brand last (absolute so no template can prepend the brand).
-  title: { absolute: 'AI Visibility Tracker for Agencies | ChatGPT & Gemini | Livesov' },
+  title: { absolute: 'AI Visibility Tracker for Agencies | Plus Google Rank Tracking | Livesov' },
   description:
-    'AI visibility tracker for agencies and local businesses. See how ChatGPT, Gemini, Perplexity, Claude and Grok mention each client. Free 7-day trial.',
+    'AI visibility tracker for agencies. See how ChatGPT, Gemini and Perplexity mention each client, and track Google rankings by city. Free 7-day trial.',
   keywords: [
     'AI visibility tracker',
     'AI visibility tracker for agencies',
@@ -22,11 +22,13 @@ export const metadata: Metadata = {
     'Grok tracking',
     'AI share of voice',
     'AI SEO',
+    'rank tracker',
+    'Google rank tracking',
   ],
   openGraph: {
     title: 'AI Visibility Tracker for Agencies | Livesov',
     description:
-      'Track how ChatGPT, Gemini, Perplexity, Claude and Grok mention every client. Client reports, daily tracking, plans from $19/mo.',
+      'Track how ChatGPT, Gemini, Perplexity, Claude and Grok mention every client, plus Google rankings by city. Plans from $19/mo.',
     type: 'website',
     url: 'https://livesov.com/',
     siteName: 'Livesov',
@@ -41,7 +43,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'AI Visibility Tracker for Agencies | Livesov',
     description:
-      'Track how ChatGPT, Gemini, Perplexity, Claude and Grok mention every client. Client reports, daily tracking, plans from $19/mo.',
+      'Track how ChatGPT, Gemini, Perplexity, Claude and Grok mention every client, plus Google rankings by city. Plans from $19/mo.',
   },
   alternates: {
     canonical: '/',
