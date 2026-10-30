@@ -45,6 +45,34 @@ export const metadata: Metadata = {
   },
 };
 
+const INDUSTRY_PAGES = [
+  {
+    href: '/uses/rank-tracker-for-local-businesses',
+    label: 'Rank tracker for local businesses',
+    description: 'Google rankings by service and city, simple to run yourself.',
+  },
+  {
+    href: '/uses/rank-tracker-for-hvac-companies',
+    label: 'Rank tracker for HVAC companies',
+    description: 'AC repair and furnace keywords, city by city.',
+  },
+  {
+    href: '/uses/rank-tracker-for-plumbers',
+    label: 'Rank tracker for plumbers',
+    description: 'Drain, water heater and emergency plumbing keywords.',
+  },
+  {
+    href: '/uses/rank-tracker-for-roofers',
+    label: 'Rank tracker for roofers',
+    description: 'Roof repair, replacement and storm damage keywords.',
+  },
+  {
+    href: '/uses/rank-tracker-for-dentists',
+    label: 'Rank tracker for dentists',
+    description: 'Implant, emergency and family dental keywords.',
+  },
+];
+
 const FEATURE_PAGES = [
   {
     href: '/uses/city-level-rank-tracking',
@@ -65,6 +93,11 @@ const FEATURE_PAGES = [
     href: '/uses/rank-tracker-with-client-reports',
     label: 'Rank tracker with client reports',
     description: 'PDF, HTML and CSV reports, emailed weekly or monthly.',
+  },
+  {
+    href: '/uses/rank-tracker-with-slack-alerts',
+    label: 'Rank tracker with Slack alerts',
+    description: 'A Slack message when a ranking drops or hits a new best.',
   },
   {
     href: '/uses/cheap-rank-tracker',
@@ -125,6 +158,16 @@ const AGENCY_PAGES = [
 ];
 
 const SWITCH_PAGES = [
+  {
+    href: '/accuranker-alternative',
+    label: 'AccuRanker alternative',
+    description: 'Google rank and AI visibility in one tool, with CSV import.',
+  },
+  {
+    href: '/se-ranking-alternative',
+    label: 'SE Ranking alternative',
+    description: 'Rank tracking and client reports, plus AI visibility, from $19.',
+  },
   {
     href: '/serpfox-alternative',
     label: 'Serpfox alternative',
@@ -242,6 +285,7 @@ export default function RankTrackerHubPage() {
       </Section>
 
       <PillarLinks title="Rank tracking features" links={FEATURE_PAGES} />
+      <PillarLinks title="By industry" links={INDUSTRY_PAGES} />
       <PillarLinks title="Track AI rankings by engine" links={AI_PAGES} />
       <PillarLinks title="For agencies" links={AGENCY_PAGES} />
       <PillarLinks title="Switching rank trackers" links={SWITCH_PAGES} />
