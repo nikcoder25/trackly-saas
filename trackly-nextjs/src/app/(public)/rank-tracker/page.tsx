@@ -47,6 +47,11 @@ export const metadata: Metadata = {
 
 const AI_PAGES = [
   {
+    href: '/uses/ai-overview-tracker',
+    label: 'AI Overview tracker',
+    description: 'See if Google\'s AI Overview and AI Mode name you, and which pages they cite.',
+  },
+  {
     href: '/chatgpt-rank-tracker',
     label: 'ChatGPT rank tracker',
     description: 'See where ChatGPT names your brand for the prompts your buyers ask.',
