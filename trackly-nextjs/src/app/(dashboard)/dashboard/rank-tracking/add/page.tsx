@@ -269,6 +269,78 @@ function DialogHead() {
   );
 }
 
+/* ─── Import a CSV ──────────────────────────────────────────────── */
+
+interface ImportResult { websites: number; keywords: number; checks: number; skippedLocations: string[] }
+
+/** Upload a Serpfox export (or any CSV shaped like one) through
+ *  /api/rank-tracking/import, keeping its ranking history. */
+function ImportPanel({ initialWebsite, websites }: { initialWebsite: string; websites: string[] }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [domain, setDomain] = useState(initialWebsite);
+  const [city, setCity] = useState<CityValue>({ code: null, name: '' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<{ msg: string; upgrade: boolean } | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!file || busy) return;
+    setBusy(true);
+    setError(null);
+    setResult(null);
+    try {
+      const csv = await file.text();
+      const r = await rtFetch<ImportResult>('/api/rank-tracking/import', 'POST', { csv, domain: domain.trim() || undefined, location: city.name || undefined });
+      setResult(r);
+    } catch (err) {
+      const status = err instanceof ApiError ? err.status : 0;
+      setError({ msg: (err as Error).message || 'Could not import the file.', upgrade: status === 402 });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '22px 26px' }}>
+      <div>
+        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Import from a CSV</h2>
+        <p style={{ margin: '4px 0 0', fontSize: 14, color: RT.muted }}>
+          Moving from Serpfox or another rank tracker? Upload its export. Keywords and their ranking history come with it, then they are checked weekly.
+        </p>
+      </div>
+      <label style={labelStyle}>
+        CSV file
+        <input type="file" accept=".csv,text/csv" onChange={(e) => { setFile(e.target.files?.[0] || null); setResult(null); }}
+          style={{ ...inputStyle, fontWeight: 400, fontSize: 14 }} />
+      </label>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+        <label style={labelStyle}>
+          <span>Site <span style={{ fontWeight: 400, color: RT.muted }}>(if the file has no URL column)</span></span>
+          <input type="text" list="rt-import-websites" value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="example.com"
+            autoComplete="off" style={{ ...inputStyle, fontWeight: 400, fontSize: 14 }} />
+          <datalist id="rt-import-websites">{websites.map((w) => <option key={w} value={w} />)}</datalist>
+        </label>
+        <AddCityInput label="Track from (if the file has no location)" value={city} onChange={setCity} placeholder="City, state or country" />
+      </div>
+      {error && <Notice tone="error">{error.msg}{error.upgrade && <> {upgradeLink}</>}</Notice>}
+      {result && (
+        <Notice tone="ok">
+          <strong>Imported {fmt(result.keywords)} {result.keywords === 1 ? 'keyword' : 'keywords'}</strong> on {fmt(result.websites)} {result.websites === 1 ? 'site' : 'sites'}, with {fmt(result.checks)} past {result.checks === 1 ? 'check' : 'checks'}.
+          {result.skippedLocations.length > 0 && <> Skipped rows from places we could not match: {result.skippedLocations.slice(0, 5).join(', ')}{result.skippedLocations.length > 5 ? ' and more' : ''}.</>}
+          {' '}<Link href="/dashboard/rank-tracking" style={{ color: '#166534', fontWeight: 600 }}>View rankings</Link>
+        </Notice>
+      )}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button type="submit" disabled={!file || busy} aria-disabled={!file || busy}
+          style={{ ...btnPrimary, opacity: file && !busy ? 1 : 0.55, cursor: file && !busy ? 'pointer' : 'not-allowed' }}>
+          {busy ? 'Importing…' : 'Import CSV'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 /* ─── Page ──────────────────────────────────────────────────────── */
 
 function AddKeywordsInner() {
@@ -292,9 +364,14 @@ function AddKeywordsInner() {
   return (
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif', color: RT.ink }}>
       <RankTabs />
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0 48px' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0 24px' }}>
         <div style={{ ...cardStyle, borderRadius: 18, width: '100%', maxWidth: 900, overflow: 'hidden', boxSizing: 'border-box' }}>
           <AddForm key={initialWebsite} initialWebsite={initialWebsite} websites={websites} credits={credits} creditsError={creditsError} />
+        </div>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: 48 }}>
+        <div id="import" style={{ ...cardStyle, borderRadius: 18, width: '100%', maxWidth: 900, overflow: 'hidden', boxSizing: 'border-box' }}>
+          <ImportPanel key={initialWebsite} initialWebsite={initialWebsite} websites={websites} />
         </div>
       </div>
     </div>

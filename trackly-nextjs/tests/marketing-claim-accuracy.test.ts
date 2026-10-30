@@ -26,9 +26,9 @@ import { PRICING_PLANS } from '@/lib/constants';
 
 /** Files that describe the rank tracking module, which ships branding, plus
  *  the Google rank tracker marketing pages (/rank-tracker hub and the
- *  /uses/*rank-track* pages). The AI engine pages (/chatgpt-rank-tracker etc.)
+ *  /uses/*rank-track* pages and /serpfox-alternative). The AI engine pages (/chatgpt-rank-tracker etc.)
  *  are AI visibility pages and stay covered. */
-const RANK_TRACKING_FILE = /(^|\/)(lib|components|app\/api)\/rank-tracking\/|dashboard\/rank-tracking\/|src\/app\/client\/|dashboard-nav(-v3)?\.ts$|\(public\)\/rank-tracker\/|\(public\)\/uses\/[^/]*rank-track[^/]*\//;
+const RANK_TRACKING_FILE = /(^|\/)(lib|components|app\/api)\/rank-tracking\/|dashboard\/rank-tracking\/|src\/app\/client\/|dashboard-nav(-v3)?\.ts$|\(public\)\/rank-tracker\/|\(public\)\/uses\/[^/]*rank-track[^/]*\/|\(public\)\/serpfox-alternative\//;
 
 /** Exact rank tracking pricing copy (PRICING_PLANS.rankFeatures + the /pricing strip),
  *  plus links to the white label rank tracker page (sitemap, footer, hubs). */

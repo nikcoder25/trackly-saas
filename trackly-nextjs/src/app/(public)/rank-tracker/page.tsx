@@ -91,6 +91,14 @@ const AGENCY_PAGES = [
   },
 ];
 
+const SWITCH_PAGES = [
+  {
+    href: '/serpfox-alternative',
+    label: 'Serpfox alternative',
+    description: 'Import your Serpfox CSV with its ranking history in one step.',
+  },
+];
+
 const faqs = [
   {
     question: 'What does the rank tracker check?',
@@ -202,6 +210,7 @@ export default function RankTrackerHubPage() {
 
       <PillarLinks title="Track AI rankings by engine" links={AI_PAGES} />
       <PillarLinks title="For agencies" links={AGENCY_PAGES} />
+      <PillarLinks title="Switching rank trackers" links={SWITCH_PAGES} />
 
       <FaqSection title="Rank tracker: FAQ" items={faqs} />
 
