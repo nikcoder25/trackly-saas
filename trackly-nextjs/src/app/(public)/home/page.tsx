@@ -218,7 +218,7 @@ function Features() {
 /* ─── Compare ─── */
 function Compare() {
   const rows = [
-    { k: 'Google rankings', a: 'No', b: 'Yes', c: 'Yes' },
+    { k: 'Google rankings', a: 'Yes, by city', b: 'Yes', c: 'Yes' },
     { k: 'AI answer tracking', a: 'Up to five engines', b: 'Paid add-on', c: 'Paid add-on' },
     { k: 'AI share of voice', a: 'Yes', b: 'With add-on', c: 'With add-on' },
     { k: 'Sentiment', a: 'Yes', b: 'No', c: 'Partial' },

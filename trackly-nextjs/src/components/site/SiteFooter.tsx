@@ -49,6 +49,7 @@ export default function SiteFooter() {
             <div className="ls-ft-col">
               <span className="ls-ft-col-t">Product</span>
               <Link href="/features">Features</Link>
+              <Link href="/rank-tracker">Rank tracker</Link>
               <Link href="/pricing">Pricing</Link>
               <Link href="/how-it-works">How it works</Link>
               <Link href="/use-cases">Use cases</Link>
