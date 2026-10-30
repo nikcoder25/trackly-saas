@@ -75,6 +75,11 @@ const AGENCY_PAGES = [
     description: 'Every client website, a read-only client login and branded reports.',
   },
   {
+    href: '/uses/white-label-rank-tracker',
+    label: 'White label rank tracker',
+    description: 'Rank reports and client logins with your logo, name and colors.',
+  },
+  {
     href: '/solutions/agencies',
     label: 'Livesov for agencies',
     description: 'Every client, their Google rankings and their AI visibility in one login.',

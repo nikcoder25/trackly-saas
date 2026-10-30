@@ -30,8 +30,9 @@ import { PRICING_PLANS } from '@/lib/constants';
  *  are AI visibility pages and stay covered. */
 const RANK_TRACKING_FILE = /(^|\/)(lib|components|app\/api)\/rank-tracking\/|dashboard\/rank-tracking\/|src\/app\/client\/|dashboard-nav(-v3)?\.ts$|\(public\)\/rank-tracker\/|\(public\)\/uses\/[^/]*rank-track[^/]*\//;
 
-/** Exact rank tracking pricing copy (PRICING_PLANS.rankFeatures + the /pricing strip). */
-const RANK_TRACKING_COPY = ["'White-label PDF reports'", "t: 'White-label reports'", "'Your logo, a share link for every client.'"];
+/** Exact rank tracking pricing copy (PRICING_PLANS.rankFeatures + the /pricing strip),
+ *  plus links to the white label rank tracker page (sitemap, footer, hubs). */
+const RANK_TRACKING_COPY = ["'White-label PDF reports'", "t: 'White-label reports'", "'Your logo, a share link for every client.'", '/uses/white-label-rank-tracker'];
 
 function isRankTrackingClaim(file: string, line: string): boolean {
   return RANK_TRACKING_FILE.test(file) || RANK_TRACKING_COPY.some((c) => line.includes(c));
