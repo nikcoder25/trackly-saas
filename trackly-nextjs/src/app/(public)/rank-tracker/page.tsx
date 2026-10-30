@@ -70,6 +70,11 @@ const AI_PAGES = [
 
 const AGENCY_PAGES = [
   {
+    href: '/uses/rank-tracker-for-agencies',
+    label: 'Rank tracker for agencies',
+    description: 'Every client website, a read-only client login and branded reports.',
+  },
+  {
     href: '/solutions/agencies',
     label: 'Livesov for agencies',
     description: 'Every client, their Google rankings and their AI visibility in one login.',
