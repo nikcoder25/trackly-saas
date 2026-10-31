@@ -159,6 +159,12 @@ export default function AiVisibilityForHvacCompaniesPage() {
             <Link href="/signup">Start free</Link> and see your first HVAC prompts checked in a few
             minutes.
           </p>
+          <h2>Track your Google rankings too</h2>
+          <p>
+            AI answers are half the picture. See where you rank on Google for the same searches,
+            city by city, with the{' '}
+            <Link href="/uses/rank-tracker-for-hvac-companies">rank tracker for HVAC companies</Link>.
+          </p>
         </LongForm>
       </Section>
 
