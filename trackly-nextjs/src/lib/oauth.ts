@@ -318,9 +318,29 @@ export async function disconnectApp(userId: string, clientId: string): Promise<b
   return (res.rowCount ?? 0) > 0;
 }
 
-/** Public base URL used in metadata documents (APP_URL when set, else the request origin). */
+/**
+ * Public issuer origin. RFC 8414 requires the issuer to equal the origin the
+ * metadata is served from, and RFC 9207 requires the same value as `iss` in the
+ * authorization response. Use the public host the client actually called
+ * (x-forwarded-host / host), so apex vs www or an internal proxy URL never
+ * produce a mismatch. Only hosts tied to APP_URL are trusted, else APP_URL wins.
+ */
 export function issuerFor(request: Request): string {
+  const reqUrl = new URL(request.url);
+  const fwdHost = request.headers.get('x-forwarded-host')?.split(',')[0].trim();
+  const host = (fwdHost || request.headers.get('host') || reqUrl.host).toLowerCase();
+  const fwdProto = request.headers.get('x-forwarded-proto')?.split(',')[0].trim();
+  const proto = fwdProto || reqUrl.protocol.replace(':', '');
+
+  let app: URL | null = null;
   const env = process.env.APP_URL;
-  if (env) { try { return new URL(env).origin; } catch { /* fall through */ } }
-  return new URL(request.url).origin;
+  if (env) { try { app = new URL(env); } catch { app = null; } }
+  if (!app) return `${proto}://${host}`;
+
+  const bare = (h: string) => h.replace(/^www\./, '');
+  if (bare(host) === bare(app.host.toLowerCase())) {
+    const scheme = app.protocol === 'https:' ? 'https' : proto;
+    return `${scheme}://${host}`;
+  }
+  return app.origin;
 }

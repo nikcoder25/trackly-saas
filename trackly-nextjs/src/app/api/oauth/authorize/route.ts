@@ -2,7 +2,7 @@
 // Cookie-authenticated, so it keeps the normal CSRF protection.
 import { pool, auditLog } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
-import { validateAuthorizeRequest, createAuthorizationCode, OAuthError } from '@/lib/oauth';
+import { validateAuthorizeRequest, createAuthorizationCode, OAuthError, issuerFor } from '@/lib/oauth';
 
 export async function POST(request: Request) {
   const auth = await requireVerifiedAuth(request, pool);
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       auditLog(auth.id, 'oauth.authorize', 'oauth_client', client.clientId, { name: client.clientName }).catch(() => {});
     }
     if (body.state) target.searchParams.set('state', body.state);
-    target.searchParams.set('iss', new URL(request.url).origin);
+    target.searchParams.set('iss', issuerFor(request));
     return Response.json({ redirect: target.toString() });
   } catch (e) {
     if (e instanceof OAuthError) return Response.json({ error: e.message }, { status: 400 });
