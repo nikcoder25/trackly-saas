@@ -83,6 +83,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/use-cases`, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${BASE_URL}/integrations`, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${BASE_URL}/integrations/api`, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/integrations/claude`, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${BASE_URL}/integrations/slack`, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/integrations/zapier`, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/integrations/wordpress`, changeFrequency: 'monthly', priority: 0.7 },

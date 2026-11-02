@@ -48,7 +48,7 @@ export function protectedResourceMetadata(request: Request) {
     scopes_supported: [OAUTH_SCOPE],
     bearer_methods_supported: ['header'],
     resource_name: 'Livesov',
-    resource_documentation: `${base}/dashboard/account`,
+    resource_documentation: `${base}/integrations/claude`,
   };
 }
 
@@ -66,6 +66,6 @@ export function authorizationServerMetadata(request: Request) {
     token_endpoint_auth_methods_supported: ['none'],
     revocation_endpoint_auth_methods_supported: ['none'],
     scopes_supported: [OAUTH_SCOPE],
-    service_documentation: `${base}/dashboard/account`,
+    service_documentation: `${base}/integrations/claude`,
   };
 }

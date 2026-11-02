@@ -64,6 +64,7 @@ const DOC_SECTIONS: DocSection[] = [
   {
     title: 'Integrations',
     items: [
+      { title: 'Claude connector (MCP)', description: 'Ask Claude about your AI visibility, competitors and fixes through the Livesov MCP server.', href: '/integrations/claude' },
       { title: 'WordPress plugin', description: 'Install the Connector and apply approved fixes to your site automatically.', href: '/integrations/wordpress' },
       { title: 'Slack', description: 'Send Fix Engine updates to a channel with an incoming webhook.', href: '/integrations/slack' },
       { title: 'Zapier', description: 'Route the same webhook into a Catch Hook and on to 5,000+ apps.', href: '/integrations/zapier' },
