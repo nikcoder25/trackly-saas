@@ -25,6 +25,11 @@ import * as accuracyRoute from '@/app/api/brands/[id]/accuracy/route';
 import * as runRoute from '@/app/api/brands/[id]/run/route';
 import * as runStatusRoute from '@/app/api/brands/[id]/run-status/[runId]/route';
 import * as creditsRoute from '@/app/api/credits/status/route';
+import * as rtSummaryRoute from '@/app/api/rank-tracking/summary/route';
+import * as rtWebsitesRoute from '@/app/api/rank-tracking/websites/route';
+import * as rtWebsiteRoute from '@/app/api/rank-tracking/websites/[id]/route';
+import * as rtKeywordsRoute from '@/app/api/rank-tracking/keywords/route';
+import * as rtCreditsRoute from '@/app/api/rank-tracking/credits/route';
 
 export const dynamic = 'force-dynamic';
 // Scans can take a while to dispatch; give tool calls the same room as the run route.
@@ -42,6 +47,11 @@ const ROUTES: { method: 'GET' | 'POST' | 'PUT'; pattern: RegExp; keys: string[];
   { method: 'POST', pattern: /^\/api\/brands\/([^/]+)\/run$/, keys: ['id'], handler: runRoute.POST as unknown as Handler },
   { method: 'GET', pattern: /^\/api\/brands\/([^/]+)\/run-status\/([^/]+)$/, keys: ['id', 'runId'], handler: runStatusRoute.GET as unknown as Handler },
   { method: 'GET', pattern: /^\/api\/credits\/status$/, keys: [], handler: creditsRoute.GET as unknown as Handler },
+  { method: 'GET', pattern: /^\/api\/rank-tracking\/summary$/, keys: [], handler: rtSummaryRoute.GET as unknown as Handler },
+  { method: 'GET', pattern: /^\/api\/rank-tracking\/websites$/, keys: [], handler: rtWebsitesRoute.GET as unknown as Handler },
+  { method: 'GET', pattern: /^\/api\/rank-tracking\/websites\/([^/]+)$/, keys: ['id'], handler: rtWebsiteRoute.GET as unknown as Handler },
+  { method: 'POST', pattern: /^\/api\/rank-tracking\/keywords$/, keys: [], handler: rtKeywordsRoute.POST as unknown as Handler },
+  { method: 'GET', pattern: /^\/api\/rank-tracking\/credits$/, keys: [], handler: rtCreditsRoute.GET as unknown as Handler },
 ];
 
 function json(body: unknown, status = 200, headers: Record<string, string> = {}) {
