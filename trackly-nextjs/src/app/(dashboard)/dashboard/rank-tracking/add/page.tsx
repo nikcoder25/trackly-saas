@@ -58,12 +58,33 @@ function aiNote(ai: AddResult['ai']): string | null {
   return ai.added ? `${fmt(ai.added)} keywords were added as AI prompts.` : 'These keywords are already tracked as AI prompts.';
 }
 
+/** Country to track from by default, guessed from the site's domain ending. */
+const TLD_COUNTRY: Record<string, CityValue> = {
+  de: { code: 2276, name: 'Germany' }, at: { code: 2040, name: 'Austria' }, ch: { code: 2756, name: 'Switzerland' },
+  uk: { code: 2826, name: 'United Kingdom' }, ie: { code: 2372, name: 'Ireland' }, fr: { code: 2250, name: 'France' },
+  es: { code: 2724, name: 'Spain' }, it: { code: 2380, name: 'Italy' }, nl: { code: 2528, name: 'Netherlands' },
+  be: { code: 2056, name: 'Belgium' }, pl: { code: 2616, name: 'Poland' }, se: { code: 2752, name: 'Sweden' },
+  dk: { code: 2208, name: 'Denmark' }, no: { code: 2578, name: 'Norway' }, fi: { code: 2246, name: 'Finland' },
+  pt: { code: 2620, name: 'Portugal' }, ca: { code: 2124, name: 'Canada' }, au: { code: 2036, name: 'Australia' },
+  nz: { code: 2554, name: 'New Zealand' }, in: { code: 2356, name: 'India' }, br: { code: 2076, name: 'Brazil' },
+  mx: { code: 2484, name: 'Mexico' },
+};
+const US: CityValue = { code: 2840, name: 'United States' };
+
+function defaultLocationFor(site: string): CityValue {
+  const host = site.trim().toLowerCase().replace(/^[a-z]+:\/\//, '').split(/[/?#:]/)[0] || '';
+  const tld = host.split('.').pop() || '';
+  return TLD_COUNTRY[tld] || US;
+}
+
 /* ─── Add keywords form ─────────────────────────────────────────── */
 
 function AddForm({ initialWebsite, websites, credits, creditsError }: { initialWebsite: string; websites: string[]; credits: Credits | null; creditsError: string }) {
   const router = useRouter();
   const [domain, setDomain] = useState(initialWebsite);
-  const [city, setCity] = useState<CityValue>({ code: null, name: '' });
+  // Prefilled so the form can be submitted right away; the user can change it.
+  const [city, setCity] = useState<CityValue>(() => defaultLocationFor(initialWebsite));
+  const [cityTouched, setCityTouched] = useState(false);
   const [text, setText] = useState('');
   const [frequency, setFrequency] = useState<Freq>('weekly');
   const [depth, setDepth] = useState<Depth>(30);
@@ -76,6 +97,8 @@ function AddForm({ initialWebsite, websites, credits, creditsError }: { initialW
   const [result, setResult] = useState<AddResult | null>(null);
 
   useEffect(() => { if (initialWebsite) setDomain(initialWebsite); }, [initialWebsite]);
+  // Follow the site's country until the user picks a place themselves.
+  useEffect(() => { if (!cityTouched && domain.trim()) setCity(defaultLocationFor(domain)); }, [domain, cityTouched]);
 
   const keywords = useMemo(() => parseKeywords(text), [text]);
   const n = keywords.length;
@@ -93,10 +116,17 @@ function AddForm({ initialWebsite, websites, credits, creditsError }: { initialW
   }
   const tooMany = n > MAX_PER_ADD;
   const canSubmit = !busy && n > 0 && !tooMany && !!domain.trim() && !!city.name && !block;
+  // Why the form can't be sent yet, shown when the button is clicked.
+  const whyNot = !domain.trim() ? 'Enter your site.'
+    : !city.name ? 'Pick where to track from (a city, state or country).'
+    : n === 0 ? 'Add at least one keyword.'
+    : tooMany ? `Add up to ${fmt(MAX_PER_ADD)} keywords at a time.`
+    : block;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!canSubmit) return;
+    if (busy) return;
+    if (!canSubmit) { setError({ msg: whyNot || 'Could not add the keywords.', upgrade: false }); return; }
     setBusy(true);
     setError(null);
     try {
@@ -165,7 +195,7 @@ function AddForm({ initialWebsite, websites, credits, creditsError }: { initialW
                 autoComplete="off" required style={{ ...inputStyle, fontWeight: 400, fontSize: 14 }} />
               <datalist id="rt-add-websites">{websites.map((w) => <option key={w} value={w} />)}</datalist>
             </label>
-            <AddCityInput label="Track from" value={city} onChange={setCity} required placeholder="City, state or country"
+            <AddCityInput label="Track from" value={city} onChange={(v) => { setCityTouched(true); setCity(v); setError(null); }} required placeholder="City, state or country"
               hint={city.name && !city.code ? 'Pick a place from the list.' : undefined} />
           </div>
 
@@ -245,8 +275,8 @@ function AddForm({ initialWebsite, websites, credits, creditsError }: { initialW
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap', padding: '16px 26px', borderTop: `1px solid ${RT.line}` }}>
         <Link href="/dashboard/rank-tracking" style={btnSecondary}>Cancel</Link>
-        <button type="submit" disabled={!canSubmit} aria-disabled={!canSubmit}
-          style={{ ...btnPrimary, opacity: canSubmit ? 1 : 0.55, cursor: canSubmit ? 'pointer' : 'not-allowed' }}>
+        <button type="submit" disabled={busy} aria-disabled={!canSubmit}
+          style={{ ...btnPrimary, opacity: canSubmit ? 1 : 0.7, cursor: busy ? 'wait' : 'pointer' }}>
           {busy ? 'Adding…' : `Add ${fmt(n)} ${n === 1 ? 'keyword' : 'keywords'}`}
         </button>
       </div>
@@ -278,7 +308,9 @@ interface ImportResult { websites: number; keywords: number; checks: number; ski
 function ImportPanel({ initialWebsite, websites }: { initialWebsite: string; websites: string[] }) {
   const [file, setFile] = useState<File | null>(null);
   const [domain, setDomain] = useState(initialWebsite);
-  const [city, setCity] = useState<CityValue>({ code: null, name: '' });
+  // Prefilled so the form can be submitted right away; the user can change it.
+  const [city, setCity] = useState<CityValue>(() => defaultLocationFor(initialWebsite));
+  const [cityTouched, setCityTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ msg: string; upgrade: boolean } | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
