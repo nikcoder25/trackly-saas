@@ -21,7 +21,8 @@ import {
 } from './redis-platform-state';
 import { PROVIDER_SPECS } from './provider-specs';
 import { logger } from './logger';
-import { geminiChat, googleAiMode, googleAiOverview, litescrapeConfigured, LITESCRAPE_CALL_USD } from './litescrape';
+import { geminiChat, googleAiMode, googleAiOverview, litescrapeConfigured, LITESCRAPE_CALL_USD, type LitescrapeAnswer } from './litescrape';
+import { dataForSeoAiConfigured, dfsGoogleAiMode, dfsGoogleAiOverview, DFS_AI_MODE_USD, DFS_AI_OVERVIEW_USD } from './google-ai-dataforseo';
 import { isRedirectCitationHost, looksLikeDomain } from './citation-hosts';
 import { recordAiCall, classifyOutcome, type Outcome } from './metrics';
 import {
@@ -1666,6 +1667,19 @@ export function extractGeminiGrounding(
   return { citations, fanout, grounded: true };
 }
 
+/**
+ * User-facing error for a Google AI engine whose provider failed. Keeps the
+ * original flags (budgetExhausted etc.) for routing but hides vendor
+ * names and raw HTTP codes like "Litescrape ai-overview: HTTP 402".
+ */
+function googleAiUnavailable(e: unknown): Error {
+  const src = (e || {}) as AiError;
+  const err = new Error('Google AI is temporarily unavailable for this question. It will be retried on the next scan.') as AiError;
+  err.budgetExhausted = !!src.budgetExhausted;
+  err.isRateLimit = !!src.isRateLimit;
+  return err;
+}
+
 /** Model label recorded for Gemini answers read from gemini.google.com via Litescrape. */
 export const GEMINI_LITESCRAPE_MODEL = 'gemini-web-litescrape';
 
@@ -2302,9 +2316,31 @@ export async function queryAI(
         // brand's city. A query Google shows no AI Overview for is a real
         // result ("not shown"), not an error, and Litescrape doesn't bill it.
         const isOverview = platform === 'Google AI Overview';
-        const a = isOverview
-          ? await googleAiOverview(query, brandCity || null, signal)
-          : await googleAiMode(query, brandCity || null, signal);
+        let a: LitescrapeAnswer;
+        let callUsd = LITESCRAPE_CALL_USD;
+        try {
+          a = isOverview
+            ? await googleAiOverview(query, brandCity || null, signal)
+            : await googleAiMode(query, brandCity || null, signal);
+        } catch (lsErr) {
+          // Litescrape down or out of balance (HTTP 402): read the same
+          // Google answer through DataForSEO so the scan still completes.
+          if (!dataForSeoAiConfigured() || signal?.aborted) {
+            throw googleAiUnavailable(lsErr);
+          }
+          logger.warn('[google_ai.dataforseo_fallback]', {
+            platform, errorMessage: ((lsErr as Error).message || '').slice(0, 240),
+          });
+          try {
+            a = isOverview ? await dfsGoogleAiOverview(query, signal) : await dfsGoogleAiMode(query, signal);
+          } catch (dfsErr) {
+            logger.warn('[google_ai.dataforseo_failed]', {
+              platform, errorMessage: ((dfsErr as Error).message || '').slice(0, 240),
+            });
+            throw googleAiUnavailable(lsErr);
+          }
+          callUsd = isOverview ? DFS_AI_OVERVIEW_USD : DFS_AI_MODE_USD;
+        }
         result = {
           text: a.empty ? '' : a.text,
           model: isOverview ? 'google-ai-overview' : 'google-ai-mode',
@@ -2312,7 +2348,7 @@ export async function queryAI(
           tokensOut: 0,
           citations: a.citations,
         };
-        retrievalCostUsd = isOverview && a.empty ? 0 : LITESCRAPE_CALL_USD;
+        retrievalCostUsd = isOverview && a.empty && callUsd === LITESCRAPE_CALL_USD ? 0 : callUsd;
       } else {
         throw new Error(`Unknown platform: ${platform}`);
       }

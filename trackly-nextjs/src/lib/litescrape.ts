@@ -24,7 +24,7 @@ const BASE = 'https://api.litescrape.com/api/google';
 export const LITESCRAPE_CALL_USD = Number(process.env.LITESCRAPE_COST_PER_PAGE) || 0.00015;
 
 export function litescrapeConfigured(): boolean {
-  return !!process.env.LITESCRAPE_API_KEY;
+  return !!process.env.LITESCRAPE_API_KEY && !litescrapeBlocked();
 }
 
 export interface LitescrapeAnswer {
@@ -71,15 +71,28 @@ function referenceLinks(refs: Reference[] | undefined, blocks: TextBlock[] | und
   return [...links];
 }
 
+// After an account-level failure (402 out of balance, 401/403 bad key),
+// skip Litescrape for a while instead of failing every call of the scan.
+const BLOCK_MS = Number(process.env.LITESCRAPE_BLOCK_MS) || 10 * 60 * 1000;
+let litescrapeBlockedUntil = 0;
+export function litescrapeBlocked(): boolean { return Date.now() < litescrapeBlockedUntil; }
+
 async function call(path: string, params: Record<string, string>, timeoutMs: number, signal?: AbortSignal): Promise<unknown> {
   const key = process.env.LITESCRAPE_API_KEY;
   if (!key) throw tagError('Litescrape: LITESCRAPE_API_KEY is not set', { budgetExhausted: true });
+  if (litescrapeBlocked()) throw tagError(`Litescrape ${path}: account unavailable (skipped)`, { budgetExhausted: true });
   const timeout = AbortSignal.timeout(timeoutMs);
   const res = await fetch(`${BASE}/${path}?${new URLSearchParams(params)}`, {
     headers: { Authorization: `Bearer ${key}` },
     signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
   });
   if (!res.ok) {
+    // 402 = the Litescrape account is out of paid balance. Retrying won't
+    // help, so mark it exhausted and let callers fall back.
+    if (res.status === 402 || res.status === 401 || res.status === 403) {
+      litescrapeBlockedUntil = Date.now() + BLOCK_MS;
+      throw tagError(`Litescrape ${path}: HTTP ${res.status}`, { budgetExhausted: true });
+    }
     throw tagError(`Litescrape ${path}: HTTP ${res.status}`, { isRateLimit: res.status === 429 });
   }
   const j = (await res.json()) as { error?: string };
