@@ -294,6 +294,24 @@ export interface ReserveFailure {
 export type ReserveResult = ReserveSuccess | ReserveFailure;
 
 /**
+ * Raise the manual daily cap so a user can always run at least
+ * `minFullRunsPerDay` scans of this size per day. Without this, a brand
+ * whose full scan costs more than the plan's daily cap (e.g. 10 prompts x
+ * 7 engines = 70 > 60 on Trial) can never run at all. Monthly credits still
+ * bound total spend.
+ */
+function withDailyFloor(
+  cfg: PlanCreditConfig,
+  kind: ReserveKind,
+  amount: number,
+  minFullRunsPerDay?: number,
+): PlanCreditConfig {
+  if (kind !== 'manual' || !minFullRunsPerDay || amount <= 0) return cfg;
+  const floor = amount * minFullRunsPerDay;
+  return floor > cfg.manualDailyCap ? { ...cfg, manualDailyCap: floor } : cfg;
+}
+
+/**
  * Atomically reserve `amount` credits for the given user. Returns
  * `{ok:false}` if monthly is exhausted, the manual daily cap is
  * reached (manual kind only), or the plan disallows auto runs.
@@ -308,9 +326,9 @@ export async function reserveCredits(
   amount: number,
   kind: ReserveKind,
   now: Date = new Date(),
-  opts: { bypassDailyCap?: boolean } = {},
+  opts: { bypassDailyCap?: boolean; minFullRunsPerDay?: number } = {},
 ): Promise<ReserveResult> {
-  const cfg = getPlanCredits(plan);
+  const cfg = withDailyFloor(getPlanCredits(plan), kind, amount, opts.minFullRunsPerDay);
 
   // A brand's *first* run after creation is guaranteed (the "Create Brand &
   // Run" flow auto-dispatches it). We exempt that one run from the per-day
@@ -412,9 +430,9 @@ export async function reserveManualWithCooldown(
   prompt: string,
   amount: number,
   now: Date = new Date(),
-  opts: { bypassDailyCap?: boolean } = {},
+  opts: { bypassDailyCap?: boolean; minFullRunsPerDay?: number } = {},
 ): Promise<ReserveResult> {
-  const cfg = getPlanCredits(plan);
+  const cfg = withDailyFloor(getPlanCredits(plan), 'manual', amount, opts.minFullRunsPerDay);
   const cd = await checkCooldown(userId, prompt, cfg.cooldownSeconds, now);
   if (cd.active) {
     const peek = await readOrInitCounter(userId, now);

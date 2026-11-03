@@ -156,9 +156,12 @@ export async function logSuspiciousSignupPattern(ip: string, email: string): Pro
 export async function reserveTrialPromptBudget(
   userId: string,
   effectivePlan: string,
-  promptsRequested: number
+  promptsRequested: number,
+  minFullRunsPerDay = 0
 ): Promise<AbuseCheckResult> {
   if (effectivePlan !== 'trial' || promptsRequested <= 0) return { allowed: true };
+  // Never let the per-user cap be smaller than N full scans of this size.
+  const userDailyCap = Math.max(TRIAL_DAILY_PROMPT_CAP_PER_USER, promptsRequested * minFullRunsPerDay);
   try {
     // Run as a single transaction with row locks to avoid race conditions
     const client = await pool.connect();
@@ -174,15 +177,15 @@ export async function reserveTrialPromptBudget(
         [userId]
       );
       const userUsed = userRes.rows[0]?.prompts_used || 0;
-      if (userUsed + promptsRequested > TRIAL_DAILY_PROMPT_CAP_PER_USER) {
+      if (userUsed + promptsRequested > userDailyCap) {
         await client.query('ROLLBACK');
         auditLog(userId, 'trial_user_cap_hit', 'user', userId, {
-          userUsed, promptsRequested, cap: TRIAL_DAILY_PROMPT_CAP_PER_USER,
+          userUsed, promptsRequested, cap: userDailyCap,
         });
         return {
           allowed: false,
           code: 'trial_user_daily_cap',
-          reason: `Trial accounts can run up to ${TRIAL_DAILY_PROMPT_CAP_PER_USER} prompts per day. Upgrade for higher limits.`,
+          reason: `Trial accounts can run up to ${userDailyCap} prompts per day. Upgrade for higher limits.`,
         };
       }
 

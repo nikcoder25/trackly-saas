@@ -84,6 +84,10 @@ export const TRIAL_INITIAL_UNVERIFIED_MS = 24 * 60 * 60 * 1000;
 // in step with PLAN_CREDITS.trial.manualDailyCap (also 60). Daily worst-case
 // provider spend at this cap is ~$0.03 on economy models; the monthly credit
 // cap (500), the 30-day run cap (40) and the global daily cap still bound it.
+// Every user can run at least this many full manual scans of a brand per day,
+// no matter how many prompts x engines the scan has.
+export const MIN_FULL_SCANS_PER_DAY = 5;
+
 export const TRIAL_DAILY_PROMPT_CAP_PER_USER = parseInt(
   process.env.TRIAL_DAILY_PROMPT_CAP_PER_USER || '60', 10
 );
