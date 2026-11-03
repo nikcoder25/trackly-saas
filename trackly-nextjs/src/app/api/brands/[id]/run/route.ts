@@ -4,7 +4,7 @@ import { isRedirectCitationHost } from '@/lib/citation-hosts';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid, decryptApiKeys, loadTenantFairnessSettings } from '@/lib/helpers';
 import { setTenantFairness } from '@/lib/fairness-scheduler';
-import { getPlanLimits, getEffectivePlan, capPlatformsForPlan, GOOGLE_AI_ENGINES } from '@/lib/constants';
+import { getPlanLimits, getEffectivePlan, capPlatformsForPlan, GOOGLE_AI_ENGINES, MIN_FULL_SCANS_PER_DAY } from '@/lib/constants';
 import { countTrackedPromptsForOwner } from '@/lib/prompt-quota';
 import { reserveTrialPromptBudget, releaseTrialPromptBudget } from '@/lib/anti-abuse';
 import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, pickBestKey, withDeepRetry, withCacheAndRetry, isTransientError, acquirePlatformSlot, resolveChatGPTModel } from '@/lib/ai-platforms';
@@ -432,8 +432,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // would block re-runs of common 25-prompt brands every time.
   const isSinglePromptManual = reserveKind === 'manual' && queries.length === 1;
   const reservation = isSinglePromptManual
-    ? await reserveManualWithCooldown(ownerId, ownerPlan, queries[0], totalCredits, undefined, { bypassDailyCap: firstRunExemptionClaimed })
-    : await reserveCredits(ownerId, ownerPlan, totalCredits, reserveKind, undefined, { bypassDailyCap: firstRunExemptionClaimed });
+    ? await reserveManualWithCooldown(ownerId, ownerPlan, queries[0], totalCredits, undefined, { bypassDailyCap: firstRunExemptionClaimed, minFullRunsPerDay: MIN_FULL_SCANS_PER_DAY })
+    : await reserveCredits(ownerId, ownerPlan, totalCredits, reserveKind, undefined, { bypassDailyCap: firstRunExemptionClaimed, minFullRunsPerDay: MIN_FULL_SCANS_PER_DAY });
   if (!reservation.ok) {
     // Release the first-run exemption we just claimed so the brand doesn't
     // burn its one free uncapped run on a reservation that never dispatched.
@@ -591,7 +591,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   // --- Trial prompt budgets (per-user daily + global daily) ---
   // Reserved against the brand owner so team runs still count against it.
-  const budgetCheck = await reserveTrialPromptBudget(ownerId, ownerPlan, totalExpected);
+  const budgetCheck = await reserveTrialPromptBudget(ownerId, ownerPlan, totalExpected, MIN_FULL_SCANS_PER_DAY);
   if (!budgetCheck.allowed) {
     // Trial budget rolled back its own tx on rejection, so only the credit
     // reservation (and first-run exemption) need unwinding here.
