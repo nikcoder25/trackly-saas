@@ -95,6 +95,8 @@ function AddForm({ initialWebsite, websites, credits, creditsError }: { initialW
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ msg: string; upgrade: boolean } | null>(null);
   const [result, setResult] = useState<AddResult | null>(null);
+  // Set after the first click on Add, so empty fields only turn red then.
+  const [tried, setTried] = useState(false);
 
   useEffect(() => { if (initialWebsite) setDomain(initialWebsite); }, [initialWebsite]);
   // Follow the site's country until the user picks a place themselves.
@@ -126,6 +128,7 @@ function AddForm({ initialWebsite, websites, credits, creditsError }: { initialW
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
+    setTried(true);
     if (!canSubmit) { setError({ msg: whyNot || 'Could not add the keywords.', upgrade: false }); return; }
     setBusy(true);
     setError(null);
@@ -140,7 +143,11 @@ function AddForm({ initialWebsite, websites, credits, creditsError }: { initialW
       setResult(r);
     } catch (err) {
       const status = err instanceof ApiError ? err.status : 0;
-      setError({ msg: (err as Error).message || 'Could not add the keywords.', upgrade: status === 402 });
+      const raw = (err as Error).message || '';
+      const msg = status === 0 || /failed to fetch|network/i.test(raw)
+        ? 'Could not reach the server. Check your connection and try again.'
+        : raw || `Could not add the keywords (error ${status}). Please try again.`;
+      setError({ msg, upgrade: status === 402 });
     } finally {
       setBusy(false);
     }
@@ -175,6 +182,11 @@ function AddForm({ initialWebsite, websites, credits, creditsError }: { initialW
     );
   }
 
+  const siteErr = tried && !domain.trim();
+  const cityErr = tried && !city.name;
+  const kwErr = tried && n === 0;
+  const errBorder: React.CSSProperties = { borderColor: RT.down, boxShadow: `0 0 0 1px ${RT.down}` };
+  const fieldErr: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: RT.down };
   const sectionLabel: React.CSSProperties = { fontSize: 13, fontWeight: 600, color: RT.text };
   const sumRow: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', gap: 12 };
   const after = credits ? credits.committed + needed : null;
@@ -192,19 +204,24 @@ function AddForm({ initialWebsite, websites, credits, creditsError }: { initialW
             <label style={labelStyle}>
               Site
               <input type="text" list="rt-add-websites" value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="example.com"
-                autoComplete="off" required style={{ ...inputStyle, fontWeight: 400, fontSize: 14 }} />
+                autoComplete="off" required aria-invalid={siteErr}
+                style={{ ...inputStyle, fontWeight: 400, fontSize: 14, ...(siteErr ? errBorder : {}) }} />
               <datalist id="rt-add-websites">{websites.map((w) => <option key={w} value={w} />)}</datalist>
+              {siteErr && <span role="alert" style={fieldErr}>Enter your site, like example.com.</span>}
             </label>
             <AddCityInput label="Track from" value={city} onChange={(v) => { setCityTouched(true); setCity(v); setError(null); }} required placeholder="City, state or country"
-              hint={city.name && !city.code ? 'Pick a place from the list.' : undefined} />
+              hint={cityErr
+                ? <span role="alert" style={fieldErr}>Pick where to track from, like Germany or Berlin.</span>
+                : city.name && !city.code ? 'Pick a place from the list.' : undefined} />
           </div>
 
           <label style={labelStyle}>
             Keywords
             <textarea rows={7} value={text} onChange={(e) => setText(e.target.value)} placeholder={'ac repair austin\nfurnace repair austin'}
-              style={{ ...inputStyle, fontWeight: 400, fontSize: 14, lineHeight: 1.6, resize: 'vertical' }} />
-            <span style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontWeight: 400, fontSize: 12, color: tooMany ? RT.down : RT.muted }} aria-live="polite">
-              <span>{tooMany ? `Add up to ${fmt(MAX_PER_ADD)} at a time.` : 'One per line. Duplicates are removed.'}</span>
+              aria-invalid={kwErr}
+              style={{ ...inputStyle, fontWeight: 400, fontSize: 14, lineHeight: 1.6, resize: 'vertical', ...(kwErr ? errBorder : {}) }} />
+            <span style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontWeight: 400, fontSize: 12, color: tooMany || kwErr ? RT.down : RT.muted }} aria-live="polite">
+              <span>{tooMany ? `Add up to ${fmt(MAX_PER_ADD)} at a time.` : kwErr ? 'Add at least one keyword, one per line.' : 'One per line. Duplicates are removed.'}</span>
               <span>{fmt(n)} {n === 1 ? 'keyword' : 'keywords'}</span>
             </span>
           </label>
