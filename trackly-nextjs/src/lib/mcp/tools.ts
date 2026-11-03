@@ -54,6 +54,38 @@ const pct = (n: number | null | undefined) => (n == null ? 'n/a' : `${n}%`);
 const pts = (n: number) => `${n} pt${Math.abs(n) === 1 ? '' : 's'}`;
 const signed = (n: number | null | undefined) => (n == null ? 'no earlier scan' : n === 0 ? 'no change' : `${n > 0 ? '+' : '-'}${pts(Math.abs(n))}`);
 
+/* ─── Rank tracking helpers ─── */
+
+const WEBSITE = {
+  type: 'string',
+  description: 'Website id or domain (like example.com) from list_rank_websites. Optional when only one website is tracked.',
+};
+
+const bareDomain = (s: string) => s.trim().toLowerCase().replace(/^[a-z]+:\/\//, '').replace(/^www\./, '').split(/[/?#]/)[0];
+
+async function rankWebsites(ctx: McpContext): Promise<{ id: string; domain: string }[]> {
+  const res = await ctx.api('GET', '/api/rank-tracking/websites');
+  if (res.status !== 200) apiError(res, 'Could not load your tracked websites.');
+  return res.data.websites || [];
+}
+
+/** Website id from an id, a domain or nothing (the only website). */
+async function resolveWebsiteId(ctx: McpContext, raw: unknown): Promise<string> {
+  const sites = await rankWebsites(ctx);
+  const v = typeof raw === 'string' ? raw.trim() : '';
+  if (v) {
+    const hit = sites.find(s => s.id === v) || sites.find(s => bareDomain(s.domain) === bareDomain(v));
+    if (hit) return hit.id;
+    throw new ToolError(`No tracked website matches "${v}". Tracked: ${sites.map(s => s.domain).join(', ') || 'none yet'}. Add keywords with add_rank_keywords to start tracking a site.`);
+  }
+  if (sites.length === 1) return sites[0].id;
+  if (!sites.length) throw new ToolError('No websites are tracked yet. Call add_rank_keywords with a domain and keywords to start.');
+  throw new ToolError(`This account tracks ${sites.length} websites. Pass website: ${sites.map(s => s.domain).join(', ')}`);
+}
+
+const rankText = (r: number | null | undefined) => (r == null ? 'not in results' : `#${r}`);
+const moveText = (c: number) => (c === 0 ? 'no change' : c > 0 ? `up ${c}` : `down ${-c}`);
+
 export const TOOLS: ToolDef<McpContext>[] = [
   {
     name: 'list_brands',
@@ -318,6 +350,122 @@ export const TOOLS: ToolDef<McpContext>[] = [
           : `Scan running: ${out.answersIn}${out.answersExpected ? ` of ${out.answersExpected}` : ''} answers in so far.`,
         out,
       );
+    },
+  },
+  {
+    name: 'list_rank_websites',
+    title: 'List rank-tracked websites',
+    description: 'Websites tracked in Google rank tracking with keyword count, average position, keywords in the top 3 and top 10, and average change. Use the domain as website in get_rank_positions.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    annotations: { readOnlyHint: true, openWorldHint: false },
+    async handler(_args, ctx) {
+      const res = await ctx.api('GET', '/api/rank-tracking/summary');
+      if (res.status !== 200) apiError(res, 'Could not load rank tracking.');
+      const d = res.data || {};
+      const sites = (d.websites || []).map((w: any) => ({
+        id: w.id, domain: w.domain, trackedFrom: w.city || null, keywords: w.keywords, averagePosition: w.avg,
+        top3: w.top3, top10: w.top10, averageChange: w.change, aiShareOfVoice: w.sov,
+      }));
+      const lines = sites.map((w: any) => `- ${w.domain} (id ${w.id}): ${w.keywords} keywords, avg position ${w.averagePosition ?? 'n/a'}, ${w.top3} in top 3, ${w.top10} in top 10, ${moveText(Math.round(w.averageChange || 0))}${w.trackedFrom ? `, from ${w.trackedFrom}` : ''}`);
+      return textResult(
+        sites.length ? `${sites.length} website(s). Last check ${d.lastCheck || 'not yet'}, next ${d.nextCheck || 'n/a'}.\n${lines.join('\n')}` : 'No websites are tracked yet. Call add_rank_keywords to start.',
+        { websites: sites, lastCheck: d.lastCheck || null, nextCheck: d.nextCheck || null },
+      );
+    },
+  },
+  {
+    name: 'get_rank_positions',
+    title: 'Get Google rank positions',
+    description: 'Google position of every tracked keyword for a website from the latest check: rank, change since the previous check, best rank, ranking URL, location and device. Keywords whose first check has not run yet show as pending.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        website: WEBSITE,
+        keyword: { type: 'string', description: 'Only keywords containing this text.' },
+        limit: { type: 'integer', minimum: 1, maximum: 500, description: 'Max keywords to return (default 100).' },
+      },
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true, openWorldHint: false },
+    async handler(args, ctx) {
+      const id = await resolveWebsiteId(ctx, args.website);
+      const res = await ctx.api('GET', `/api/rank-tracking/websites/${encodeURIComponent(id)}`);
+      if (res.status === 404) throw new ToolError('That website is not tracked on this account.');
+      if (res.status !== 200) apiError(res, 'Could not load rank positions.');
+      const d = res.data || {};
+      const filter = typeof args.keyword === 'string' ? args.keyword.trim().toLowerCase() : '';
+      const limit = Math.min(500, Math.max(1, Number(args.limit) || 100));
+      const all = (d.keywords || []).filter((k: any) => !filter || String(k.keyword).toLowerCase().includes(filter));
+      const rows = all.slice(0, limit).map((k: any) => ({
+        keyword: k.keyword, rank: k.rank, change: k.change, best: k.best, url: k.url, location: k.city || k.locationName,
+        device: k.device, depth: k.depth, checkedAt: k.checkedAt, nextCheckAt: k.nextCheckAt, pending: !!k.pending, error: k.error || null,
+      }));
+      const lines = rows.map((k: any) => `- ${k.keyword}: ${k.pending ? 'first check pending' : k.error ? `check failed (${k.error})` : `${rankText(k.rank)} (${moveText(k.change || 0)})`}${k.url ? ` ${k.url}` : ''}`);
+      const st = d.stats || {};
+      return textResult(
+        `${d.website?.domain}: ${st.ranking ?? 0} of ${st.total ?? 0} keywords ranking, ${st.top10 ?? 0} in top 10, ${st.up ?? 0} up, ${st.down ?? 0} down. Next check ${st.nextCheck || 'n/a'}.` +
+          (rows.length ? `\n${lines.join('\n')}` : '\nNo keywords match.') +
+          (all.length > rows.length ? `\n(${all.length - rows.length} more not shown; raise limit or filter by keyword.)` : ''),
+        { website: d.website, stats: st, keywords: rows, total: all.length },
+      );
+    },
+  },
+  {
+    name: 'add_rank_keywords',
+    title: 'Track keywords on Google',
+    description: 'Starts tracking Google positions for keywords on a website. The first check runs within about 10 minutes, then weekly or daily. Uses rank tracking credits (keywords x checks a month, x2 for top 100), so only call it when the user asks.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        domain: { type: 'string', description: 'Website to track, like example.com.' },
+        keywords: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 1000, description: 'Keywords to track.' },
+        location: { type: 'string', description: 'Where to search from: a city, state or country like "Berlin, Germany" or "United States". Default United States.' },
+        device: { type: 'string', enum: ['desktop', 'mobile'], description: 'Default desktop.' },
+        frequency: { type: 'string', enum: ['weekly', 'daily'], description: 'Default weekly.' },
+        depth: { type: 'integer', enum: [30, 100], description: 'How many results to check. Default 30.' },
+      },
+      required: ['domain', 'keywords'],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    async handler(args, ctx) {
+      const domain = typeof args.domain === 'string' ? args.domain.trim() : '';
+      if (!domain) throw new ToolError('domain is required, like example.com.');
+      const keywords = Array.isArray(args.keywords) ? args.keywords.filter((k: unknown) => typeof k === 'string' && k.trim()) : [];
+      if (!keywords.length) throw new ToolError('Pass at least one keyword.');
+      const res = await ctx.api('POST', '/api/rank-tracking/keywords', {
+        domain, keywords,
+        locationName: typeof args.location === 'string' && args.location.trim() ? args.location.trim() : 'United States',
+        device: args.device === 'mobile' ? 'mobile' : 'desktop',
+        frequency: args.frequency === 'daily' ? 'daily' : 'weekly',
+        depth: Number(args.depth) === 100 ? 100 : 30,
+        checkAi: false,
+      });
+      if (res.status !== 200 && res.status !== 201) apiError(res, 'Could not add the keywords.');
+      const d = res.data || {};
+      return textResult(
+        `Tracking ${d.added ?? 0} new keyword(s) on ${domain} from ${d.location || 'the chosen location'}.` +
+          (d.skipped ? ` ${d.skipped} were already tracked.` : '') +
+          ' The first check runs within about 10 minutes; then call get_rank_positions.',
+        { websiteId: d.websiteId, added: d.added ?? 0, skipped: d.skipped ?? 0, location: d.location || null },
+      );
+    },
+  },
+  {
+    name: 'get_rank_credits',
+    title: 'Get rank tracking credits',
+    description: 'Rank tracking credits: monthly allowance, credits the tracked keywords use each month, credits charged so far, and whether daily and top 100 checks are on the plan.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    annotations: { readOnlyHint: true, openWorldHint: false },
+    async handler(_args, ctx) {
+      const res = await ctx.api('GET', '/api/rank-tracking/credits');
+      if (res.status !== 200) apiError(res, 'Could not load rank tracking credits.');
+      const d = res.data || {};
+      const out = {
+        plan: d.plan, allowance: d.allowance, committedPerMonth: d.committed, usedThisMonth: d.usedThisMonth,
+        left: Math.max(0, (d.allowance || 0) - (d.committed || 0)), resetsAt: d.resetsAt, dailyChecks: !!d.allowsDaily, top100: !!d.allowsTop100,
+      };
+      return textResult(`Rank tracking: ${out.committedPerMonth} of ${out.allowance} credits a month in use (${out.left} free), ${out.usedThisMonth} charged this month. Daily checks ${out.dailyChecks ? 'on' : 'off'}, top 100 ${out.top100 ? 'on' : 'off'}. Resets ${out.resetsAt}.`, out);
     },
   },
 ];

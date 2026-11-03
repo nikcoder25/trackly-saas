@@ -14,7 +14,7 @@ import {
 export const metadata: Metadata = {
   title: 'Claude Connector: Livesov AI Visibility Data in Claude | Livesov',
   description:
-    'Connect Livesov to Claude with our MCP connector. Ask Claude about your AI visibility, competitors, buyer questions and fixes. OAuth sign-in, no API key needed.',
+    'Connect Livesov to Claude with our MCP connector. Ask Claude about your AI visibility, Google rankings, competitors, buyer questions and fixes. OAuth sign-in, no API key needed.',
   keywords:
     'livesov claude connector, livesov mcp, ai visibility mcp server, claude mcp connector, livesov claude',
   alternates: { canonical: '/integrations/claude' },
@@ -56,6 +56,10 @@ const tools = [
   ['get_credits', 'Plan, credits left and manual scans left today', 'Read'],
   ['start_scan', 'Starts a new scan (spends credits) and returns a run id', 'Write'],
   ['get_scan_status', 'Progress of a running scan', 'Read'],
+  ['list_rank_websites', 'Rank-tracked websites with average position and top 10 count', 'Read'],
+  ['get_rank_positions', 'Google position, change and ranking URL for each keyword', 'Read'],
+  ['add_rank_keywords', 'Start tracking keywords on Google (uses rank credits)', 'Write'],
+  ['get_rank_credits', 'Rank tracking credits used and left', 'Read'],
 ];
 
 const faqs = [
@@ -85,7 +89,7 @@ export default function ClaudeIntegrationPage() {
       />
 
       <Section background="var(--bg-section, #f7f5f1)" pad="72px 24px">
-        <SectionHeader label="What Claude can do" title="Your Livesov dashboard, inside the chat" subtitle="Twelve tools over a secure MCP connection." />
+        <SectionHeader label="What Claude can do" title="Your Livesov dashboard, inside the chat" subtitle="Sixteen tools over a secure MCP connection." />
         <FeatureGrid items={features} columns={3} />
       </Section>
 
