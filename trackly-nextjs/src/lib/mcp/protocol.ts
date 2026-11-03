@@ -41,7 +41,7 @@ export interface ToolDef<Ctx> {
   title: string;
   description: string;
   inputSchema: Record<string, unknown>;
-  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean; openWorldHint?: boolean };
+  annotations?: { title?: string; readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean; openWorldHint?: boolean };
   handler: (args: Record<string, unknown>, ctx: Ctx) => Promise<ToolResult>;
 }
 
@@ -109,7 +109,7 @@ export async function handleMessage<Ctx>(
       return rpcResult(m.id, {});
     case 'tools/list':
       return rpcResult(m.id, {
-        tools: tools.map(t => ({ name: t.name, title: t.title, description: t.description, inputSchema: t.inputSchema, ...(t.annotations ? { annotations: t.annotations } : {}) })),
+        tools: tools.map(t => ({ name: t.name, title: t.title, description: t.description, inputSchema: t.inputSchema, annotations: { title: t.title, ...(t.annotations || {}) } })),
       });
     case 'tools/call': {
       const name = params.name;
