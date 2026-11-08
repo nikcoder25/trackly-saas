@@ -11,7 +11,7 @@ import { usePathname } from 'next/navigation';
 import { api } from '@/lib/fetch-client';
 import { useUiFlag } from '@/contexts/UiFlagContext';
 import { useBrands } from '@/contexts/BrandContext';
-import type { RankCreditStatus } from '@/lib/rank-tracking/types';
+import type { RankComparison, RankCreditStatus } from '@/lib/rank-tracking/types';
 
 export const RT = {
   indigo: '#4f46e5', indigoLight: '#6366f1', indigoDark: '#312e81', indigoSoft: '#eef2ff', indigoMid: '#e0e7ff',
@@ -99,6 +99,25 @@ export function fmtDay(iso: string | null | undefined, withWeekday = false): str
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('en-US', withWeekday ? { weekday: 'short', month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric' });
+}
+
+/**
+ * Says what the change numbers compare against. When the keywords are
+ * younger than the period picked (Week / Month / 3 months), every period
+ * falls back to the oldest check, so the numbers do not move: say so, so
+ * the toggle never looks broken.
+ */
+export function CompareNote({ c }: { c: RankComparison | null | undefined }) {
+  if (!c || !c.comparedTo) return null;
+  const when = fmtDay(c.comparedTo, true);
+  if (c.limited) {
+    return (
+      <p role="status" style={{ margin: 0, fontSize: 13, color: '#78350f', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '8px 12px' }}>
+        Changes are compared with the oldest check ({when}). Only {c.historyDays} {c.historyDays === 1 ? 'day' : 'days'} of history so far, so Week, Month and 3 months show the same numbers until more checks run.
+      </p>
+    );
+  }
+  return <p style={{ margin: 0, fontSize: 13, color: RT.muted }}>Changes compared with the check on {when}.</p>;
 }
 
 const TABS = [

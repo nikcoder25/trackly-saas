@@ -12,7 +12,7 @@ import WebsiteKeywordPanel, { urlPath } from './WebsiteKeywordPanel';
 
 type Chip = 'all' | 'top3' | 'top10' | 'moved' | 'none';
 
-const COLS = 'minmax(200px, 2.2fr) 70px 80px 60px 120px 80px minmax(150px, 1.4fr) 120px 90px 44px';
+const COLS = 'minmax(190px, 2.2fr) 64px 76px 56px 108px 72px minmax(130px, 1.4fr) 110px 84px 40px';
 const chipStyle = (on: boolean): React.CSSProperties => ({
   font: 'inherit', fontSize: 13, fontWeight: on ? 600 : 500, padding: '6px 12px', minHeight: 36, borderRadius: 999, cursor: 'pointer',
   border: `1px solid ${on ? RT.indigo : RT.line}`, background: on ? RT.indigoSoft : '#fff', color: on ? RT.indigoDark : RT.text,
@@ -26,7 +26,7 @@ function PinIcon() {
   );
 }
 
-export default function SiteKeywords({ websiteId, groupId, period }: { websiteId: string; groupId?: string | null; period: ComparePeriod }) {
+export default function SiteKeywords({ websiteId, groupId, period, flat = false }: { websiteId: string; groupId?: string | null; period: ComparePeriod; flat?: boolean }) {
   const [data, setData] = useState<WebsiteDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [chip, setChip] = useState<Chip>('all');
@@ -69,7 +69,7 @@ export default function SiteKeywords({ websiteId, groupId, period }: { websiteId
   const editHref = `/dashboard/rank-tracking/${encodeURIComponent(websiteId)}${groupId ? `?group=${encodeURIComponent(groupId)}` : ''}`;
 
   return (
-    <div style={{ padding: '4px 24px 20px 64px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ padding: flat ? '4px 18px 20px' : '4px 24px 20px 64px', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
         <div role="group" aria-label="Show keywords" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {chips.map(([v, l]) => (
@@ -91,7 +91,8 @@ export default function SiteKeywords({ websiteId, groupId, period }: { websiteId
         </div>
       </div>
 
-      <div style={{ border: `1px solid ${RT.line}`, borderRadius: 12, overflow: 'hidden', background: '#fff' }}>
+      <div style={{ border: `1px solid ${RT.line}`, borderRadius: 12, overflowX: 'auto', background: '#fff' }}>
+       <div style={{ minWidth: 960 }}>
         <div style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', padding: '9px 14px', fontSize: 11, fontWeight: 600, color: RT.muted, textTransform: 'uppercase', letterSpacing: 0.4, background: RT.bg, borderBottom: `1px solid ${RT.line}` }}>
           <span>Keyword</span><span>Rank</span><span>Change</span><span>Best</span><span>Trend</span><span>Volume</span><span>Ranking URL</span><span>AI answers</span><span>Checked</span>
           <span><span style={srOnly}>History</span></span>
@@ -121,7 +122,7 @@ export default function SiteKeywords({ websiteId, groupId, period }: { websiteId
                 <span>{k.checkedAt ? <RankBadge rank={k.rank} depth={k.depth} /> : <span style={{ color: RT.muted }}>-</span>}</span>
                 <span>{k.hasPrev ? <Change v={k.change} /> : <span style={{ color: RT.muted }}>-</span>}</span>
                 <span style={{ color: RT.text }}>{k.best ?? '-'}</span>
-                <span><RankSpark ranks={k.spark} depth={k.depth} width={96} label={`8-check trend for ${k.keyword}`} /></span>
+                <span><RankSpark ranks={k.spark} depth={k.depth} width={88} label={`8-check trend for ${k.keyword}`} /></span>
                 <span style={{ color: RT.text }}>{k.volume == null ? '-' : k.volume.toLocaleString('en-US')}</span>
                 <span title={k.url ?? undefined} style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12, color: k.url ? '#4338ca' : RT.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>
                   {k.url ? urlPath(k.url) : k.checkedAt ? `Not in top ${k.depth}` : '-'}
@@ -141,6 +142,7 @@ export default function SiteKeywords({ websiteId, groupId, period }: { websiteId
             </div>
           );
         })}
+       </div>
       </div>
     </div>
   );

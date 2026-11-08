@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PageHead } from '@/app/dashboard-v2/ui';
 import type { MoverDto, RankOverview } from '@/lib/rank-tracking/types';
-import { RT, rtFetch, useBrandScope, RankTabs, RankBadge, Change, Toggle, SpreadLegend, SPREAD_BANDS, activityTag, fmtDay, btnPrimary, btnSecondary, cardStyle } from '@/components/rank-tracking/RankUi';
+import { RT, rtFetch, useBrandScope, RankTabs, RankBadge, Change, Toggle, SpreadLegend, SPREAD_BANDS, CompareNote, activityTag, fmtDay, btnPrimary, btnSecondary, cardStyle } from '@/components/rank-tracking/RankUi';
 
 type Period = 'last' | '30' | '90';
 
@@ -130,6 +130,7 @@ export default function RankOverviewPage() {
 
       {data && s && !noKeywords && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20, opacity: loading ? 0.6 : 1, transition: 'opacity .15s' }} aria-busy={loading}>
+          <CompareNote c={data.comparison} />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
             <Tile label="Moved up" color={RT.up} sub={s.up ? `Avg gain ${s.upAvg} positions` : 'Nothing moved up'}>▲ {s.up.toLocaleString('en-US')}</Tile>
             <Tile label="Moved down" color={RT.down} sub={s.down ? `Avg loss ${s.downAvg} positions` : 'Nothing moved down'}>▼ {s.down.toLocaleString('en-US')}</Tile>

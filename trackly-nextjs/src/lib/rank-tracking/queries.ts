@@ -69,7 +69,8 @@ interface RawKw {
   id: string; website_id: string; domain: string; keyword: string; group_id: string | null; group_name: string | null; starred: boolean;
   location_name: string; location_code: number | null; device: 'desktop' | 'mobile'; frequency: 'weekly' | 'daily'; depth: number;
   volume: number | null; next_check_at: Date; pending_task_id: string | null; pending_provider: string | null; last_error: string | null;
-  rank: number | null; url: string | null; checked_at: Date | null; prev_rank: number | null; has_prev: boolean; best: number | null; spark: (number | null)[] | null;
+  rank: number | null; url: string | null; checked_at: Date | null; prev_rank: number | null; prev_checked_at: Date | null; has_prev: boolean;
+  first_checked_at: Date | null; best: number | null; spark: (number | null)[] | null;
 }
 
 /** Keyword rows with latest rank, comparison rank, best and last 8 ranks. `where` filters alias k (and w). */
@@ -81,17 +82,19 @@ export async function keywordRows(where: string, params: unknown[], period: Comp
     `SELECT k.id, k.website_id, w.domain, k.keyword, k.group_id, g.name AS group_name, k.starred, k.location_name, k.location_code,
             k.device, k.frequency, k.depth, k.volume, k.next_check_at, k.pending_task_id, k.pending_provider, k.last_error,
             l.rank, l.url, l.checked_at,
-            COALESCE(p.rank, o.rank) AS prev_rank, (p.has OR o.has) IS TRUE AS has_prev,
+            COALESCE(p.rank, o.rank) AS prev_rank, COALESCE(p.checked_at, o.checked_at) AS prev_checked_at, (p.has OR o.has) IS TRUE AS has_prev,
+            f.first_checked_at,
             ${withBest ? 'b.best' : 'NULL::int AS best'}, s.spark
        FROM rt_keywords k
        JOIN rt_websites w ON w.id = k.website_id
        LEFT JOIN rt_groups g ON g.id = k.group_id
        LEFT JOIN LATERAL (SELECT rank, url, checked_at FROM rt_checks WHERE keyword_id = k.id ORDER BY checked_at DESC LIMIT 1) l ON TRUE
-       LEFT JOIN LATERAL (SELECT rank, TRUE AS has FROM rt_checks WHERE keyword_id = k.id AND checked_at < l.checked_at
+       LEFT JOIN LATERAL (SELECT rank, checked_at, TRUE AS has FROM rt_checks WHERE keyword_id = k.id AND checked_at < l.checked_at
                             AND ($${n + 1}::int IS NULL OR checked_at <= NOW() - make_interval(days => $${n + 1}::int))
                           ORDER BY checked_at DESC LIMIT 1) p ON TRUE
-       LEFT JOIN LATERAL (SELECT rank, TRUE AS has FROM rt_checks WHERE keyword_id = k.id AND checked_at < l.checked_at AND p.has IS NULL
+       LEFT JOIN LATERAL (SELECT rank, checked_at, TRUE AS has FROM rt_checks WHERE keyword_id = k.id AND checked_at < l.checked_at AND p.has IS NULL
                           ORDER BY checked_at ASC LIMIT 1) o ON TRUE
+       LEFT JOIN LATERAL (SELECT MIN(checked_at) AS first_checked_at FROM rt_checks WHERE keyword_id = k.id) f ON TRUE
        ${withBest ? 'LEFT JOIN LATERAL (SELECT MIN(rank) AS best FROM rt_checks WHERE keyword_id = k.id) b ON TRUE' : ''}
        LEFT JOIN LATERAL (SELECT array_agg(rank ORDER BY checked_at) AS spark FROM
                             (SELECT rank, checked_at FROM rt_checks WHERE keyword_id = k.id ORDER BY checked_at DESC LIMIT 8) x) s ON TRUE
@@ -133,6 +136,24 @@ async function weeklyTrend(accountId: string): Promise<{ site: Map<string, (numb
   }
   const fin = (m: Map<string, { s: number[]; n: number[] }>) => new Map([...m].map(([k, v]) => [k, v.s.map((s, i) => (v.n[i] ? round1(s / v.n[i]) : null))]));
   return { site: fin(site), group: fin(group) };
+}
+
+/**
+ * What the change columns actually compare against: the newest "previous"
+ * check across the rows, and how many days of history exist. When the
+ * requested period is longer than the history, every period falls back to
+ * the oldest check, so the UI can say so instead of silently showing the
+ * same numbers for Week, Month and 3 months.
+ */
+export function comparisonOf(rows: RawKw[], period: ComparePeriod): { comparedTo: string | null; historyDays: number; periodDays: number | null; limited: boolean } {
+  const toMs = (d: Date | null) => (d ? new Date(d).getTime() : NaN);
+  const prevs = rows.map((r) => toMs(r.prev_checked_at)).filter((x) => !isNaN(x));
+  const firsts = rows.map((r) => toMs(r.first_checked_at)).filter((x) => !isNaN(x));
+  const lasts = rows.map((r) => toMs(r.checked_at)).filter((x) => !isNaN(x));
+  const comparedTo = prevs.length ? new Date(Math.max(...prevs)).toISOString() : null;
+  const historyDays = firsts.length && lasts.length ? Math.max(0, Math.round((Math.max(...lasts) - Math.min(...firsts)) / 86400000)) : 0;
+  const days = periodDays(period);
+  return { comparedTo, historyDays, periodDays: days, limited: days != null && historyDays < days };
 }
 
 function rollup(rows: RawKw[]) {
@@ -209,6 +230,7 @@ export async function rankSummary(accountId: string, plan: string, period: Compa
       sov: sovVals.length ? Math.round(sovVals.reduce((a, x) => a + x, 0) / sovVals.length) : null,
     },
     spread: spreadOf(ranks),
+    comparison: comparisonOf(rows, period),
     lastCheck: last ? last.toISOString() : null,
     nextCheck: next ? new Date(next).toISOString() : null,
     websites,
@@ -241,6 +263,7 @@ export async function websiteDetail(accountId: string, websiteId: string, period
     },
     keywords,
     sov,
+    comparison: comparisonOf(rows, period),
   };
 }
 
@@ -302,6 +325,7 @@ export async function rankOverview(accountId: string, period: ComparePeriod, dom
     activity.rows = activity.rows.filter((a) => names.some((n) => String(a.message || '').toLowerCase().includes(n))).slice(0, 12);
   }
   return {
+    comparison: comparisonOf(rows, period),
     stats: {
       up: moves.filter((m) => m.change > 0).length,
       down: moves.filter((m) => m.change < 0).length,
