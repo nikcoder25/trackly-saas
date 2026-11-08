@@ -114,3 +114,57 @@ export interface RankOverview {
   /** Keywords per position band at the end of each of the last 12 weeks, oldest first: top 3, 4-10, 11-20, 21+. */
   weeks: { end: string; spread: [number, number, number, number] }[];
 }
+
+/** GET /api/rank/sites: one row of the sites table. */
+export interface RankSiteRow {
+  id: string;
+  domain: string;
+  /** Most common "City, ST" the site's keywords are checked from. */
+  location: string;
+  device: 'desktop' | 'mobile';
+  keywords: number;
+  /** Best and worst current rank among ranking keywords. */
+  high: number | null;
+  low: number | null;
+  /** Net positions gained (positive) or lost since each keyword's previous check. */
+  change: number;
+  improved: number;
+  dropped: number;
+  unchanged: number;
+  checkedAt: string | null;
+}
+
+/** GET /api/rank/sites/:id/keywords: one keyword row. */
+export interface RankSiteKeyword {
+  id: string;
+  keyword: string;
+  /** Short "City, ST". */
+  location: string;
+  locationName: string;
+  device: 'desktop' | 'mobile';
+  starred: boolean;
+  groupId: string | null;
+  groupName: string | null;
+  current: number | null;
+  previous: number | null;
+  hasPrevious: boolean;
+  change: number;
+  best: number | null;
+  /** Last 30 positions, oldest first (null = not ranking). */
+  history: (number | null)[];
+  volume: number | null;
+  rankingUrl: string | null;
+  ai: AiStatus;
+  /** null = no AI prompt covers the keyword. */
+  aiMentioned: boolean | null;
+  checkedAt: string | null;
+  depth: number;
+  pending: boolean;
+  error: string | null;
+}
+
+export interface RankSiteKeywords { site: RankSiteRow; groups: { id: string; name: string }[]; keywords: RankSiteKeyword[] }
+
+export type RankHistoryRange = '30d' | '90d' | '1y' | 'all';
+/** GET /api/rank/keywords/:id/history: one stored check. */
+export interface RankHistoryRow { date: string; position: number | null; url: string | null }
