@@ -4,9 +4,15 @@
  * read side returns every stored check.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { rankTicks } from '@/components/rank-tracking/classic/PositionChart';
-import { parseHistoryRange, siteRollup } from '@/lib/rank-tracking/sites';
-import { siteKeywordOrder } from '@/lib/rank-tracking/order';
+
+// CI's Postgres has no TLS: set sslmode before anything loads the db pool.
+{
+  const url = process.env.DATABASE_URL || '';
+  if (url && !/sslmode=/.test(url) && /@(localhost|127\.0\.0\.1)[:/]/.test(url)) process.env.DATABASE_URL = url + (url.includes('?') ? '&' : '?') + 'sslmode=disable';
+}
+const { rankTicks } = await import('@/components/rank-tracking/classic/PositionChart');
+const { parseHistoryRange, siteRollup } = await import('@/lib/rank-tracking/sites');
+const { siteKeywordOrder } = await import('@/lib/rank-tracking/order');
 import type { RawKw } from '@/lib/rank-tracking/queries';
 import type { RankSiteKeyword } from '@/lib/rank-tracking/types';
 
@@ -73,8 +79,6 @@ describe.skipIf(!DB)('rank history in the database', () => {
   const k1 = 'rtc_kw_' + Date.now();
 
   beforeAll(async () => {
-    const url = process.env.DATABASE_URL || '';
-    if (!/sslmode=/.test(url) && /@(localhost|127\.0\.0\.1)[:/]/.test(url)) process.env.DATABASE_URL = url + (url.includes('?') ? '&' : '?') + 'sslmode=disable';
     db = await import('@/lib/db');
     sites = await import('@/lib/rank-tracking/sites');
     await db.ensureColumns();
