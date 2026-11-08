@@ -24,6 +24,7 @@
 import { pool } from '@/lib/db';
 import { schemaOnce } from '@/lib/schema-once';
 import { logger } from '@/lib/logger';
+import { applyRankDataFixes } from './data-fixes';
 
 export const ensureRankSchema: () => Promise<void> = schemaOnce(async () => {
   await pool.query(`
@@ -81,6 +82,13 @@ export const ensureRankSchema: () => Promise<void> = schemaOnce(async () => {
       credits        INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS rt_checks_keyword_checked_idx ON rt_checks(keyword_id, checked_at);
+    -- Queue repost count for the check in flight, and the location-change marker:
+    -- set on the keyword when its location changes, copied onto its next check so
+    -- that check is not compared with ranks from the old location.
+    ALTER TABLE rt_keywords ADD COLUMN IF NOT EXISTS pending_attempts INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE rt_keywords ADD COLUMN IF NOT EXISTS pending_posted_at TIMESTAMPTZ;
+    ALTER TABLE rt_keywords ADD COLUMN IF NOT EXISTS location_changed BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE rt_checks ADD COLUMN IF NOT EXISTS location_change BOOLEAN NOT NULL DEFAULT FALSE;
     CREATE INDEX IF NOT EXISTS rt_checks_checked_idx ON rt_checks(checked_at);
     CREATE TABLE IF NOT EXISTS rt_spend (
       id         BIGSERIAL PRIMARY KEY,
@@ -191,5 +199,10 @@ export const ensureRankSchema: () => Promise<void> = schemaOnce(async () => {
   } catch (e) {
     // Another instance creating the same objects at the same moment: it wins, nothing is lost.
     logger.warn('rank.history_guard_skipped', { err: (e as Error).message });
+  }
+  try {
+    await applyRankDataFixes();
+  } catch (e) {
+    logger.error('rank.data_fix_failed', { err: (e as Error).message });
   }
 });

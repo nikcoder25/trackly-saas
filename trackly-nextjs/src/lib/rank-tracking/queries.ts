@@ -89,10 +89,14 @@ export async function keywordRows(where: string, params: unknown[], period: Comp
        JOIN rt_websites w ON w.id = k.website_id
        LEFT JOIN rt_groups g ON g.id = k.group_id
        LEFT JOIN LATERAL (SELECT rank, url, checked_at FROM rt_checks WHERE keyword_id = k.id ORDER BY checked_at DESC LIMIT 1) l ON TRUE
+       -- The last location change: checks before it were made somewhere else and are never compared with.
+       LEFT JOIN LATERAL (SELECT MAX(checked_at) AS at FROM rt_checks WHERE keyword_id = k.id AND location_change) lc ON TRUE
        LEFT JOIN LATERAL (SELECT rank, checked_at, TRUE AS has FROM rt_checks WHERE keyword_id = k.id AND checked_at < l.checked_at
+                            AND (lc.at IS NULL OR checked_at >= lc.at)
                             AND ($${n + 1}::int IS NULL OR checked_at <= NOW() - make_interval(days => $${n + 1}::int))
                           ORDER BY checked_at DESC LIMIT 1) p ON TRUE
        LEFT JOIN LATERAL (SELECT rank, checked_at, TRUE AS has FROM rt_checks WHERE keyword_id = k.id AND checked_at < l.checked_at AND p.has IS NULL
+                            AND (lc.at IS NULL OR checked_at >= lc.at)
                           ORDER BY checked_at ASC LIMIT 1) o ON TRUE
        LEFT JOIN LATERAL (SELECT MIN(checked_at) AS first_checked_at FROM rt_checks WHERE keyword_id = k.id) f ON TRUE
        ${withBest ? 'LEFT JOIN LATERAL (SELECT MIN(rank) AS best FROM rt_checks WHERE keyword_id = k.id) b ON TRUE' : ''}
