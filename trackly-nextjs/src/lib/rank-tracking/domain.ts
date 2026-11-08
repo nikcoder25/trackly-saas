@@ -27,10 +27,16 @@ export function matchesDomain(candidate: string | null | undefined, tracked: str
   return c === t || c.endsWith('.' + t);
 }
 
-/** The first organic result for the tracked domain, or null. */
-export function findRank(organic: OrganicResult[], tracked: string): OrganicResult | null {
+/**
+ * The first organic result for the tracked domain, or null. A result
+ * matches on its url OR its domain field (www / non-www, http / https, any
+ * subdomain, trailing slash or path all ignored), optionally only within
+ * the first `depth` positions.
+ */
+export function findRank(organic: OrganicResult[], tracked: string, depth?: number): OrganicResult | null {
   for (const r of organic) {
-    if (matchesDomain(r.domain || r.url, tracked)) return r;
+    if (depth && r.position > depth) continue;
+    if (matchesDomain(r.url, tracked) || matchesDomain(r.domain, tracked)) return r;
   }
   return null;
 }

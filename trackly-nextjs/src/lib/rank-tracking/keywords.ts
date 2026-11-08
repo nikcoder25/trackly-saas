@@ -192,7 +192,7 @@ export async function updateKeywords(accountId: string, plan: string, ids: strin
     if (!loc) return { ok: false, status: 400, error: 'Pick the city, state or country to check from in the list.' };
     // Moving a keyword to a city it is already tracked from on that site would collide: those are left as they are.
     await pool.query(
-      `UPDATE rt_keywords k SET location_code = $2, location_name = $3, next_check_at = NOW()
+      `UPDATE rt_keywords k SET location_code = $2, location_name = $3, next_check_at = NOW(), location_changed = TRUE
         WHERE k.id = ANY($1::text[]) AND NOT EXISTS (
           SELECT 1 FROM rt_keywords o WHERE o.website_id = k.website_id AND o.keyword = k.keyword AND o.device = k.device AND o.location_code = $2 AND o.id <> k.id)`,
       [own, loc.code, loc.name]);
@@ -200,7 +200,7 @@ export async function updateKeywords(accountId: string, plan: string, ids: strin
   if (u.device) {
     // Same rule as a location move: a keyword already tracked on that device in that place is left as it is.
     await pool.query(
-      `UPDATE rt_keywords k SET device = $2, next_check_at = NOW()
+      `UPDATE rt_keywords k SET device = $2, next_check_at = NOW(), location_changed = TRUE
         WHERE k.id = ANY($1::text[]) AND k.device <> $2 AND NOT EXISTS (
           SELECT 1 FROM rt_keywords o WHERE o.website_id = k.website_id AND o.keyword = k.keyword AND o.location_code = k.location_code AND o.device = $2 AND o.id <> k.id)`,
       [own, u.device]);

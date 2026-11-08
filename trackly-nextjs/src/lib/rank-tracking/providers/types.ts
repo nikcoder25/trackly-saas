@@ -6,10 +6,8 @@
  * `fetchSerpPage` is the one required call: one Google results page of
  * 10 organic results (page 1 = positions 1-10, page 2 = 11-20, ...).
  *
- * Queued providers (DataForSEO Standard queue) can also post a page and
- * collect it on a later tick, which is far cheaper than a live call and
- * keeps the cron request short. The scheduler uses submit/ready/collect
- * when a provider has them and falls back to fetchSerpPage otherwise.
+ * Scheduled checks on DataForSEO do not go through this interface: they
+ * use the Standard queue in dataforseo.ts (dfsQueue), one task per keyword.
  */
 export type Device = 'desktop' | 'mobile';
 
@@ -46,12 +44,6 @@ export interface SerpProvider {
   costPerPage: number;
   configured(): boolean;
   fetchSerpPage(req: SerpPageRequest): Promise<SerpPage>;
-  /** Queued providers: post one page, return the provider's task id. */
-  submitPage?(req: SerpPageRequest): Promise<string>;
-  /** Queued providers: ids of finished tasks waiting to be collected. */
-  readyTaskIds?(): Promise<string[]>;
-  /** Queued providers: read a finished task. */
-  collectPage?(taskId: string): Promise<SerpPage>;
 }
 
 export class ProviderError extends Error {

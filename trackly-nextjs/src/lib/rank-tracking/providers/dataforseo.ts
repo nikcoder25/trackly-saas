@@ -1,12 +1,17 @@
 /**
  * DataForSEO Google Organic SERP adapter.
  *
- * Standard queue first: task_post, then tasks_ready + task_get/advanced on
- * a later tick. One task = one results page of 10: page 1 has no
- * search_param, pages 2 and 3 pass "&start=10" / "&start=20". At list
- * price the queue is $0.0006 a page against $0.002 for the live endpoint,
- * so the live endpoint is only used by fetchSerpPage, the synchronous path
- * the scheduler takes when a queued task never comes back.
+ * Scheduled checks use the Standard queue (dfsQueue below): one task per
+ * keyword at the keyword's full depth (30), priority 1, tagged with the
+ * keyword id, up to 100 tasks per task_post request. Results are read with
+ * tasks_ready + task_get/advanced on a later tick. The queue is several
+ * times cheaper than the live endpoint, which is only reachable through
+ * fetchSerpPage (one page, live) and is not used for scheduled checks.
+ *
+ * Google now often wraps organic links as https://google.com/goto?url=...
+ * and DataForSEO then reports domain "google.com". The real site is in the
+ * breadcrumb ("https://site.com › path › page"), so parseOrganic reads it
+ * from there.
  *
  * Also here, because they share the credentials: the location list for
  * the city autocomplete (free) and Google Ads search volume.
@@ -85,6 +90,42 @@ interface RawItem {
   url?: string;
   domain?: string;
   title?: string;
+  breadcrumb?: string;
+}
+
+/** A Google redirect wrapper (google.com/goto?url=, /url?q=) that hides the real result. */
+export function isGoogleWrapper(url: string | null | undefined, domain?: string | null): boolean {
+  const d = normalizeDomain(domain || url);
+  if (!/^google\.[a-z.]+$/.test(d)) return false;
+  if (!url) return true;
+  try {
+    const u = new URL(url);
+    return /^\/(goto|url)\/?$/.test(u.pathname) || !!u.searchParams.get('url') || !!u.searchParams.get('q');
+  } catch {
+    return true;
+  }
+}
+
+/** "https://site.com › pages › stockists" -> https://site.com/pages/stockists. Truncated segments ("...") end the path. Null when it is not a URL ("4k+ followers"). */
+export function urlFromBreadcrumb(breadcrumb: string | null | undefined): string | null {
+  const b = String(breadcrumb || '').trim();
+  const m = b.match(/^(https?:\/\/[^\s›>]+)/i);
+  if (!m) return null;
+  const segs: string[] = [];
+  for (const raw of b.slice(m[1].length).split(/[›>]/)) {
+    const seg = raw.trim();
+    if (!seg) continue;
+    if (/\.\.\.|…/.test(seg) || /\s/.test(seg)) break;
+    segs.push(encodeURI(seg));
+  }
+  return m[1].replace(/\/+$/, '') + (segs.length ? `/${segs.join('/')}` : '/');
+}
+
+/** The result's real URL and domain: url/domain as given, or from the breadcrumb when Google wrapped the link. */
+export function realTarget(i: RawItem): { url: string; domain: string } {
+  if (!isGoogleWrapper(i.url, i.domain)) return { url: String(i.url || ''), domain: normalizeDomain(i.domain || i.url) };
+  const fromCrumb = urlFromBreadcrumb(i.breadcrumb);
+  return fromCrumb ? { url: fromCrumb, domain: normalizeDomain(fromCrumb) } : { url: '', domain: '' };
 }
 
 /**
@@ -97,12 +138,10 @@ export function parseOrganic(items: RawItem[] | null | undefined, page: number):
   const organic = (items || []).filter((i) => i && i.type === 'organic' && i.url);
   organic.sort((a, b) => (a.rank_group || 0) - (b.rank_group || 0));
   const offset = page > 1 && organic.every((i) => (i.rank_group || 0) <= 10) ? (page - 1) * 10 : 0;
-  return organic.map((i, idx) => ({
-    position: (i.rank_group || idx + 1) + offset,
-    url: String(i.url),
-    domain: normalizeDomain(i.domain || i.url),
-    title: String(i.title || ''),
-  }));
+  return organic.map((i, idx) => {
+    const t = realTarget(i);
+    return { position: (i.rank_group || idx + 1) + offset, url: t.url, domain: t.domain, title: String(i.title || '') };
+  });
 }
 
 export const dataForSeoProvider: SerpProvider = {
@@ -114,25 +153,99 @@ export const dataForSeoProvider: SerpProvider = {
     const t = await call<{ items?: RawItem[] }>('/serp/google/organic/live/advanced', [task(req)]);
     return { organic: parseOrganic(t.result?.[0]?.items, req.page), raw: t.result?.[0], cost: Number(t.cost) || 0 };
   },
+};
 
-  async submitPage(req) {
-    const t = await call<unknown>('/serp/google/organic/task_post', [{ ...task(req), tag: `p${req.page}` }]);
-    if (!t.id) throw new ProviderError('dataforseo', 'task_post returned no id');
-    return t.id;
+/* ── Standard queue for scheduled checks ─────────────────────────────── */
+
+/** Task errors worth posting again: per the DataForSEO error list, transient search-engine / parser failures. */
+export const DFS_REPOST_CODES = new Set([40101, 40102, 40106]);
+/** Still being worked on (task_get before the task is done). */
+export const DFS_PENDING_CODES = new Set([40601, 40602]);
+export const DFS_MAX_TASKS_PER_POST = 100;
+
+export interface DfsCheckTask {
+  /** Our keyword id, sent as the task tag. */
+  tag: string;
+  keyword: string;
+  locationCode: number | null;
+  locationName: string;
+  device: 'desktop' | 'mobile';
+  language: string;
+  depth: number;
+}
+
+export interface DfsPosted { tag: string; id: string | null; status: number; message: string; cost: number }
+export interface DfsResult { id: string; tag: string; status: number; message: string; cost: number; organic: OrganicResult[] }
+
+async function envelope<T>(path: string, body?: unknown): Promise<DfsEnvelope<T>> {
+  const a = auth();
+  if (!a) throw new ProviderError('dataforseo', 'not configured', false);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method: body === undefined ? 'GET' : 'POST',
+      headers: { Authorization: a, 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch (e) {
+    throw new ProviderError('dataforseo', `request failed: ${(e as Error).message}`);
+  }
+  if (!res.ok) throw new ProviderError('dataforseo', `HTTP ${res.status}`, res.status === 429 || res.status >= 500);
+  const j = (await res.json()) as DfsEnvelope<T>;
+  if (j.status_code !== OK) throw new ProviderError('dataforseo', j.status_message || `status ${j.status_code}`);
+  return j;
+}
+
+export function checkTaskBody(t: DfsCheckTask): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    keyword: t.keyword, language_code: t.language || 'en', device: t.device, depth: t.depth, priority: 1, tag: t.tag,
+  };
+  if (t.locationCode && t.locationCode > 0) body.location_code = t.locationCode;
+  else body.location_name = t.locationName || 'United States';
+  return body;
+}
+
+type TaskWithData = DfsTask<unknown> & { data?: { tag?: string } };
+
+export const dfsQueue = {
+  configured: () => !!auth(),
+
+  /** Post whole checks, up to 100 per request. One answer per task, in order; a failed request marks its whole batch failed (status 0). */
+  async post(tasks: DfsCheckTask[]): Promise<DfsPosted[]> {
+    const out: DfsPosted[] = [];
+    for (let i = 0; i < tasks.length; i += DFS_MAX_TASKS_PER_POST) {
+      const batch = tasks.slice(i, i + DFS_MAX_TASKS_PER_POST);
+      try {
+        const j = await envelope<unknown>('/serp/google/organic/task_post', batch.map(checkTaskBody));
+        const byTag = new Map((j.tasks || []).map((t) => [String((t as TaskWithData).data?.tag || ''), t]));
+        batch.forEach((b, idx) => {
+          const t = byTag.get(b.tag) || j.tasks?.[idx];
+          const status = Number(t?.status_code) || 0;
+          out.push({ tag: b.tag, id: status === 20100 && t?.id ? String(t.id) : null, status, message: String(t?.status_message || ''), cost: Number(t?.cost) || 0 });
+        });
+      } catch (e) {
+        for (const b of batch) out.push({ tag: b.tag, id: null, status: 0, message: (e as Error).message, cost: 0 });
+      }
+    }
+    return out;
   },
 
-  async readyTaskIds() {
-    const t = await call<{ id?: string }>('/serp/google/organic/tasks_ready');
-    return (t.result || []).map((r) => String(r.id || '')).filter(Boolean);
+  /** Finished tasks not yet collected: id and our tag. */
+  async ready(): Promise<{ id: string; tag: string }[]> {
+    const j = await envelope<{ id?: string; tag?: string }>('/serp/google/organic/tasks_ready');
+    return (j.tasks?.[0]?.result || []).filter((r) => r.id).map((r) => ({ id: String(r.id), tag: String(r.tag || '') }));
   },
 
-  async collectPage(taskId) {
-    const t = await call<{ items?: RawItem[] }>(`/serp/google/organic/task_get/advanced/${encodeURIComponent(taskId)}`);
-    const tag = String((t as { data?: { tag?: string } }).data?.tag || '');
-    const page = Number(tag.replace(/^p/, '')) || 1;
-    // Standard queue is billed when the task is posted; the cost on the
-    // task_get answer is that charge.
-    return { organic: parseOrganic(t.result?.[0]?.items, page), raw: t.result?.[0], cost: Number(t.cost) || DFS_STANDARD_PAGE_COST };
+  /** Read one task. Task-level errors come back as a status, not an exception. */
+  async get(id: string): Promise<DfsResult> {
+    const j = await envelope<{ items?: RawItem[] }>(`/serp/google/organic/task_get/advanced/${encodeURIComponent(id)}`);
+    const t = j.tasks?.[0] as (DfsTask<{ items?: RawItem[] }> & { data?: { tag?: string } }) | undefined;
+    const status = Number(t?.status_code) || 0;
+    return {
+      id, tag: String(t?.data?.tag || ''), status, message: String(t?.status_message || ''), cost: Number(t?.cost) || 0,
+      organic: status === OK ? parseOrganic(t?.result?.[0]?.items, 1) : [],
+    };
   },
 };
 

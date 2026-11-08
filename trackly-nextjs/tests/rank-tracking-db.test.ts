@@ -12,18 +12,24 @@ const RANKS: Record<string, number> = { 'ac repair austin': 4, 'furnace repair a
 const tasks = new Map<string, { task: Record<string, unknown>; collected: boolean }>();
 let server: http.Server;
 
+/** One task = the whole check: `depth` organic results. Google wraps some links (google.com/goto); the site is in the breadcrumb. */
 function serp(task: Record<string, unknown>) {
-  const start = Number(String(task.search_param || '').replace(/\D/g, '')) || 0;
-  const page = start / 10 + 1;
   const pos = RANKS[String(task.keyword)];
-  const items = [{ type: 'paid', rank_group: 1, url: 'https://www.example.com/ad', domain: 'www.example.com' }];
-  for (let i = 1; i <= 10; i++) {
-    const abs = start + i;
-    const mine = abs === pos;
-    items.push({ type: 'organic', rank_group: i, url: mine ? `https://www.example.com/p${abs}/` : `https://other${abs}.com/`, domain: mine ? 'www.example.com' : `other${abs}.com` });
+  const depth = Number(task.depth) || 10;
+  const items: Record<string, unknown>[] = [{ type: 'paid', rank_group: 1, url: 'https://www.example.com/ad', domain: 'www.example.com' }];
+  for (let i = 1; i <= depth; i++) {
+    const mine = i === pos;
+    if (mine && task.keyword === 'furnace repair austin') {
+      items.push({ type: 'organic', rank_group: i, url: 'https://google.com/goto?url=CAESabc', domain: 'google.com', breadcrumb: `https://www.example.com › p${i}` });
+      continue;
+    }
+    items.push({ type: 'organic', rank_group: i, url: mine ? `https://www.example.com/p${i}/` : `https://other${i}.com/`, domain: mine ? 'www.example.com' : `other${i}.com` });
   }
-  return { items, page };
+  return { items };
 }
+/** Keywords whose first task fails with 40102 (to test the repost). */
+const FAIL_ONCE = new Set(['ghost keyword']);
+let posts = 0;
 
 const DB = !!process.env.DATABASE_URL;
 
@@ -52,19 +58,28 @@ describe.skipIf(!DB)('rank tracking with a database', () => {
         const url = req.url || '';
         const t = body ? JSON.parse(body)[0] : {};
         if (url.endsWith('/serp/google/organic/task_post')) {
-          const id = 'task-' + Math.random().toString(36).slice(2);
-          tasks.set(id, { task: t, collected: false });
-          return send({ status_code: 20000, tasks: [{ id, status_code: 20100, cost: 0.0006 }] });
+          posts++;
+          const all = JSON.parse(body) as Record<string, unknown>[];
+          return send({ status_code: 20000, tasks: all.map((task) => {
+            const id = 'task-' + Math.random().toString(36).slice(2);
+            tasks.set(id, { task, collected: false });
+            return { id, status_code: 20100, cost: 0.0006, data: task };
+          }) });
         }
         if (url.endsWith('/serp/google/organic/tasks_ready')) {
-          return send({ status_code: 20000, tasks: [{ status_code: 20000, result: [...tasks].filter(([, v]) => !v.collected).map(([id]) => ({ id })) }] });
+          return send({ status_code: 20000, tasks: [{ status_code: 20000, result: [...tasks].filter(([, v]) => !v.collected).map(([id, v]) => ({ id, tag: v.task.tag })) }] });
         }
         const get = url.match(/task_get\/advanced\/(.+)$/);
         if (get) {
           const rec = tasks.get(decodeURIComponent(get[1]));
           if (!rec) return send({ status_code: 20000, tasks: [{ status_code: 40400, status_message: 'not found' }] });
           rec.collected = true;
-          return send({ status_code: 20000, tasks: [{ status_code: 20000, cost: 0, data: rec.task, result: [{ items: serp(rec.task).items }] }] });
+          const kw = String(rec.task.keyword);
+          if (FAIL_ONCE.has(kw)) {
+            FAIL_ONCE.delete(kw);
+            return send({ status_code: 20000, tasks: [{ id: get[1], status_code: 40102, status_message: 'No Search Results.', cost: 0, data: rec.task, result: null }] });
+          }
+          return send({ status_code: 20000, tasks: [{ id: get[1], status_code: 20000, cost: 0.0006, data: rec.task, result: [{ items: serp(rec.task).items }] }] });
         }
         if (url.endsWith('/serp/google/organic/live/advanced')) return send({ status_code: 20000, tasks: [{ status_code: 20000, cost: 0.002, result: [{ items: serp(t).items }] }] });
         if (url.endsWith('/serp/google/locations')) {
@@ -148,25 +163,33 @@ describe.skipIf(!DB)('rank tracking with a database', () => {
     if (!r.ok) expect(r.status).toBe(402);
   });
 
-  it('checks through the queue and stops early', async () => {
+  it('checks through the Standard queue: one task per keyword, batched, reposted on 40102', async () => {
     const d = await m.sched.dispatchDue(50);
     expect(d.queued).toBe(3);
+    expect(posts).toBe(1); // all three keywords in one task_post
+    const posted = [...tasks.values()].map((t) => t.task);
+    expect(posted.every((t) => t.depth === 30 && t.priority === 1 && typeof t.tag === 'string' && !('search_param' in t))).toBe(true);
+    // A keyword with a cached task id is never posted again.
+    expect((await m.sched.dispatchDue(50, (await m.db.pool.query(`SELECT id FROM rt_keywords WHERE website_id = $1`, [websiteId])).rows.map((r) => r.id))).claimed).toBe(0);
     // Two collectors at once (cron + a first check) must not store a check twice.
-    for (let i = 0; i < 5; i++) await Promise.all([m.sched.collectReady(), m.sched.collectReady()]);
+    for (let i = 0; i < 4; i++) await Promise.all([m.sched.collectReady(), m.sched.collectReady()]);
     const rows = await m.db.pool.query(
-      `SELECT k.keyword, c.rank, c.url, c.pages_fetched, c.cost_usd::float AS cost, c.credits, k.pending_task_id, k.next_check_at
+      `SELECT k.keyword, c.rank, c.url, c.pages_fetched, c.cost_usd::float AS cost, c.credits, c.provider, k.pending_task_id, k.next_check_at
          FROM rt_checks c JOIN rt_keywords k ON k.id = c.keyword_id WHERE k.website_id = $1 ORDER BY k.keyword`, [websiteId]);
     const by = Object.fromEntries(rows.rows.map((r) => [r.keyword, r]));
-    expect(by['ac repair austin']).toMatchObject({ rank: 4, pages_fetched: 1, credits: 1, url: 'https://www.example.com/p4/' });
-    expect(by['furnace repair austin']).toMatchObject({ rank: 17, pages_fetched: 2 });
-    expect(by['ghost keyword']).toMatchObject({ rank: null, pages_fetched: 3 });
-    expect(by['ghost keyword'].cost).toBeCloseTo(0.0018);
+    expect(by['ac repair austin']).toMatchObject({ rank: 4, pages_fetched: 3, credits: 1, url: 'https://www.example.com/p4/', provider: 'dataforseo' });
+    // Google-wrapped link: matched through the breadcrumb.
+    expect(by['furnace repair austin']).toMatchObject({ rank: 17, url: 'https://www.example.com/p17' });
+    // 40102 on the first task: posted again, both posts paid.
+    expect(by['ghost keyword']).toMatchObject({ rank: null });
+    expect(by['ghost keyword'].cost).toBeCloseTo(0.0012);
     expect(rows.rows.every((r) => r.pending_task_id === null)).toBe(true);
     expect(rows.rows).toHaveLength(3);
     const gap = new Date(by['ac repair austin'].next_check_at).getTime() - Date.now();
     expect(gap).toBeGreaterThan(6 * 86400e3);
-    const spend = await m.db.pool.query(`SELECT SUM(units)::int AS pages FROM rt_spend WHERE account_id = $1 AND kind = 'serp'`, [user]);
-    expect(spend.rows[0].pages).toBe(6);
+    const spend = await m.db.pool.query(`SELECT COUNT(*)::int AS n, SUM(cost_usd)::float AS usd FROM rt_spend WHERE account_id = $1 AND kind = 'serp'`, [user]);
+    expect(spend.rows[0]).toMatchObject({ n: 4 });
+    expect(spend.rows[0].usd).toBeCloseTo(0.0024);
   });
 
   it('reads back ranks, AI status and the summary', async () => {
@@ -178,6 +201,24 @@ describe.skipIf(!DB)('rank tracking with a database', () => {
     expect(s.spread).toEqual([0, 1, 1, 0, 1]);
     expect(s.websites[0]).toMatchObject({ domain: 'example.com', keywords: 3, avg: 10.5, sov: 100 });
     expect(s.credits).toMatchObject({ allowance: 4000, committed: 12, usedThisMonth: 3 });
+  });
+
+  it('marks the first check after a location change so it is not compared', async () => {
+    const k = await m.db.pool.query(`SELECT id FROM rt_keywords WHERE website_id = $1 AND keyword = 'furnace repair austin'`, [websiteId]);
+    const id = k.rows[0].id;
+    const fixes = await import('@/lib/rank-tracking/data-fixes');
+    const moved = await fixes.applyRankDataFixes([{ id: 'test-' + user, domain: 'example.com', fromLocation: 'Austin%', rules: [{ contains: 'furnace', code: 1014221, name: 'Denver,Colorado,United States' }] }]);
+    expect(moved['test-' + user]).toBe(1);
+    // Applied once only.
+    expect(await fixes.applyRankDataFixes([{ id: 'test-' + user, domain: 'example.com', fromLocation: 'Austin%', rules: [] }])).toEqual({});
+    await m.db.pool.query(`UPDATE rt_keywords SET next_check_at = NOW() - INTERVAL '1 minute' WHERE id = $1`, [id]);
+    await m.sched.dispatchDue(50, [id]);
+    for (let i = 0; i < 2; i++) await m.sched.collectReady();
+    const d = await m.q.websiteDetail(user, websiteId, 'last');
+    const kw = d?.keywords.find((x) => x.id === id);
+    expect(kw).toMatchObject({ rank: 17, hasPrev: false, change: 0, locationName: 'Denver,Colorado,United States' });
+    const hist = await m.db.pool.query(`SELECT location_change FROM rt_checks WHERE keyword_id = $1 ORDER BY checked_at`, [id]);
+    expect(hist.rows.map((r) => r.location_change)).toEqual([false, true]);
   });
 
   it('fires a rule when a later check enters the top 3', async () => {
