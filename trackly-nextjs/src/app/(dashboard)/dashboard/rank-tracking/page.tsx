@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { PageHead } from '@/app/dashboard-v2/ui';
 import type { ComparePeriod, RankSummary } from '@/lib/rank-tracking/types';
-import { RT, rtFetch, useBrandScope, RankTabs, Toggle, SpreadLegend, fmtDay, btnPrimary, btnSecondary, cardStyle, srOnly } from '@/components/rank-tracking/RankUi';
+import { RT, rtFetch, useBrandScope, RankTabs, Toggle, SpreadLegend, CompareNote, fmtDay, btnPrimary, btnSecondary, cardStyle, srOnly } from '@/components/rank-tracking/RankUi';
 import SummaryKeywordsTable from '@/components/rank-tracking/SummaryKeywordsTable';
 import SummaryWebsitesTable, { siteRow, groupRow, type SummaryRow } from '@/components/rank-tracking/SummaryWebsitesTable';
 
@@ -72,8 +72,10 @@ export default function RankTrackingPage() {
     const q = filter.trim().toLowerCase();
     return q ? all.filter((r) => `${r.domain} ${r.group ?? ''} ${r.city}`.toLowerCase().includes(q)) : all;
   }, [data, view, filter]);
-  // The first row starts open, like the design; after that the user decides.
-  const open = openKey === undefined ? rows[0]?.key ?? null : openKey;
+  // One site (a brand is selected): its keywords stay open, no need to click.
+  // Otherwise the first row starts open and after that the user decides.
+  const single = rows.length === 1;
+  const open = single ? rows[0].key : openKey === undefined ? rows[0]?.key ?? null : openKey;
 
   async function share(r: SummaryRow) {
     setBusyId(r.websiteId);
@@ -203,6 +205,8 @@ export default function RankTrackingPage() {
               )}
             </div>
 
+            <CompareNote c={data.comparison} />
+
             {view === 'keywords' && (
               <div role="group" aria-label="View" style={{ display: 'flex', gap: 4 }}>
                 {VIEWS.map((v) => <ViewButton key={v.value} on={view === v.value} onClick={() => setView(v.value)}>{v.label}</ViewButton>)}
@@ -241,8 +245,8 @@ export default function RankTrackingPage() {
                 )}
 
                 {rows.length > 0 ? (
-                  <SummaryWebsitesTable rows={rows} byGroup={byGroup} busyId={busyId} openKey={open} period={period}
-                    onToggle={(k) => setOpenKey(open === k ? null : k)} onShare={share} onDelete={remove} />
+                  <SummaryWebsitesTable rows={rows} byGroup={byGroup} busyId={busyId} openKey={open} period={period} pinned={single}
+                    onToggle={(k) => { if (!single) setOpenKey(open === k ? null : k); }} onShare={share} onDelete={remove} />
                 ) : (
                   <p style={{ margin: 0, padding: '28px 24px', fontSize: 14, color: RT.muted }}>
                     {filter.trim() ? 'Nothing matches that filter.' : byGroup ? 'No keyword groups yet. Open a website and use Move to group to make one.' : 'No websites yet.'}

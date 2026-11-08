@@ -308,3 +308,26 @@ describe('client access', () => {
     expect(clientCanSee({ scope: 'starred', website_ids: ['w1'], group_ids: [] }, { ...kw, starred: true })).toBe(true);
   });
 });
+
+describe('comparison period note', () => {
+  const day = 86400000;
+  const row = (last: number, prev: number | null, first: number) => ({
+    checked_at: new Date(Date.now() - last * day), prev_checked_at: prev == null ? null : new Date(Date.now() - prev * day),
+    first_checked_at: new Date(Date.now() - first * day),
+  });
+
+  it('flags Week/Month/3 months as limited when the keywords are younger than the period', async () => {
+    const { comparisonOf } = await import('../rank-tracking/queries');
+    const rows = [row(1, 8, 8), row(1, 8, 8)] as never[];
+    expect(comparisonOf(rows, 'last').limited).toBe(false);
+    expect(comparisonOf(rows, '7').limited).toBe(false);
+    expect(comparisonOf(rows, '30')).toMatchObject({ limited: true, historyDays: 7, periodDays: 30 });
+    expect(comparisonOf(rows, '90').limited).toBe(true);
+    expect(comparisonOf(rows, '30').comparedTo).toBe(rows[0].prev_checked_at.toISOString());
+  });
+
+  it('has nothing to compare before the second check', async () => {
+    const { comparisonOf } = await import('../rank-tracking/queries');
+    expect(comparisonOf([row(0, null, 0)] as never[], '7')).toMatchObject({ comparedTo: null, historyDays: 0 });
+  });
+});

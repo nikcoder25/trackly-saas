@@ -40,8 +40,12 @@ export interface GroupSummary extends Omit<WebsiteSummary, 'domain' | 'sov'> {
   name: string;
 }
 
+/** What the change columns compare against. `limited` means the history is shorter than the period asked for. */
+export interface RankComparison { comparedTo: string | null; historyDays: number; periodDays: number | null; limited: boolean }
+
 export interface RankSummary {
   credits: RankCreditStatus;
+  comparison: RankComparison;
   stats: {
     keywords: number; websites: number; avg: number | null; avgChange: number; top3: number; top3Change: number; top10: number; top10Change: number; dropped: number;
     /** Click-weighted share of the clicks the keywords could get (0-100), from Google CTR by position. */
@@ -92,6 +96,7 @@ export interface WebsiteDetail {
   stats: { up: number; down: number; top10: number; ranking: number; total: number; nextCheck: string | null };
   keywords: KeywordDto[];
   sov: number | null;
+  comparison: RankComparison;
 }
 
 export interface HistoryPoint { at: string; rank: number | null }
@@ -100,6 +105,7 @@ export interface KeywordHistory { points: HistoryPoint[]; best: number | null; w
 export interface MoverDto { keywordId: string; websiteId: string; keyword: string; domain: string; rank: number | null; change: number }
 
 export interface RankOverview {
+  comparison: RankComparison;
   stats: { up: number; down: number; upAvg: number; downAvg: number; top10: number; ranking: number; total: number; sov: number | null };
   gainers: MoverDto[];
   losers: MoverDto[];

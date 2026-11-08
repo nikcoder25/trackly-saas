@@ -42,12 +42,14 @@ export const groupRow = (g: GroupSummary): SummaryRow => ({
   avg: g.avg, top3: g.top3, top10: g.top10, change: g.change, spread: g.spread,
 });
 
-export default function SummaryWebsitesTable({ rows, byGroup, busyId, openKey, period, onToggle, onShare, onDelete }: {
+export default function SummaryWebsitesTable({ rows, byGroup, busyId, openKey, period, pinned = false, onToggle, onShare, onDelete }: {
   rows: SummaryRow[];
   byGroup: boolean;
   busyId: string | null;
   openKey: string | null;
   period: ComparePeriod;
+  /** The only row is always open and cannot be collapsed. */
+  pinned?: boolean;
   onToggle: (key: string) => void;
   onShare: (r: SummaryRow) => void;
   onDelete: (r: SummaryRow) => void;
@@ -67,8 +69,8 @@ export default function SummaryWebsitesTable({ rows, byGroup, busyId, openKey, p
           return (
             <div key={r.key} style={{ borderBottom: `1px solid ${RT.line}`, background: open ? '#fcfcff' : '#fff', boxShadow: open ? `inset 3px 0 0 ${RT.indigo}` : undefined }}>
               <div className="rt-row" style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', padding: '12px 18px', fontSize: 14 }}>
-                <button type="button" aria-expanded={open} aria-label={`${open ? 'Hide' : 'Show'} keywords for ${name}`} onClick={() => onToggle(r.key)}
-                  style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${RT.line}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                <button type="button" aria-expanded={open} aria-label={`${open ? 'Hide' : 'Show'} keywords for ${name}`} onClick={() => onToggle(r.key)} disabled={pinned}
+                  style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${RT.line}`, background: '#fff', cursor: pinned ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, visibility: pinned ? 'hidden' : undefined }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={RT.text} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
                     style={{ transform: open ? 'rotate(90deg)' : undefined, transition: 'transform .15s' }}>
                     <path d="M9 6l6 6-6 6" />
@@ -106,7 +108,7 @@ export default function SummaryWebsitesTable({ rows, byGroup, busyId, openKey, p
                   )}
                 </span>
               </div>
-              {open && <SiteKeywords websiteId={r.websiteId} groupId={r.groupId} period={period} />}
+              {open && <SiteKeywords websiteId={r.websiteId} groupId={r.groupId} period={period} flat={pinned} />}
             </div>
           );
         })}
