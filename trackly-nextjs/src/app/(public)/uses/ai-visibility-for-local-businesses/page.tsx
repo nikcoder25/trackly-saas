@@ -174,6 +174,12 @@ export default function AiVisibilityForLocalBusinessesPage() {
             <Link href="/signup">Start free</Link> and run your first local prompts in a few
             minutes. No card needed for the trial.
           </p>
+          <h2>Track your Google rankings too</h2>
+          <p>
+            AI answers are half the picture. See where you rank on Google for the same searches,
+            city by city, with the{' '}
+            <Link href="/uses/rank-tracker-for-local-businesses">rank tracker for local businesses</Link>.
+          </p>
         </LongForm>
       </Section>
 

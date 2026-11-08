@@ -12,7 +12,7 @@ const PATH = '/uses/daily-rank-tracker';
 const PAGE_URL = `https://livesov.com${PATH}`;
 const TITLE = 'Daily Rank Tracker | Google Rankings Checked Every Day | Livesov';
 const DESCRIPTION =
-  'Daily rank tracker for Google. Check keyword positions every day from any city, get alerts when rankings drop, and see every daily position in reports. Free trial.';
+  'Daily rank tracker for Google. Check positions every day from any city, get alerts when rankings drop, and see each daily move in reports. Free trial.';
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },

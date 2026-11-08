@@ -7,7 +7,7 @@ const PATH = '/uses';
 const PAGE_URL = `https://livesov.com${PATH}`;
 const TITLE = 'AI Visibility Use Cases for Local SEO Agencies | Livesov';
 const DESCRIPTION =
-  'AI visibility use cases for local SEO agencies: track how ChatGPT, Gemini and Perplexity recommend local businesses, HVAC, plumbing, roofing and dental, and report it.';
+  'AI visibility use cases for local SEO agencies: see how ChatGPT and Gemini recommend HVAC, plumbing, roofing and dental clients, plus Google rankings.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -71,6 +71,29 @@ const USES = [
   },
 ];
 
+const RANK_USES = [
+  {
+    href: '/rank-tracker',
+    label: 'Google rank tracker',
+    description: 'All rank tracking features: city level, mobile, daily checks and client reports.',
+  },
+  {
+    href: '/uses/rank-tracker-for-agencies',
+    label: 'Rank tracker for agencies',
+    description: 'Every client in one login, with branded reports.',
+  },
+  {
+    href: '/uses/rank-tracker-for-local-businesses',
+    label: 'Rank tracker for local businesses',
+    description: 'Google rankings by service and city, simple to run yourself.',
+  },
+  {
+    href: '/uses/rank-tracker-for-seo-freelancers',
+    label: 'Rank tracker for SEO freelancers',
+    description: 'Every client site from $19 a month, with reports that send themselves.',
+  },
+];
+
 const collectionSchema = {
   '@context': 'https://schema.org',
   '@type': 'CollectionPage',
@@ -78,7 +101,7 @@ const collectionSchema = {
   url: PAGE_URL,
   description: DESCRIPTION,
   isPartOf: { '@type': 'WebSite', name: 'Livesov', url: 'https://livesov.com/' },
-  hasPart: USES.map((u) => ({
+  hasPart: [...USES, ...RANK_USES].map((u) => ({
     '@type': 'WebPage',
     name: u.label,
     url: `https://livesov.com${u.href}`,
@@ -99,6 +122,7 @@ export default function UsesHubPage() {
       />
 
       <PillarLinks title="Use cases" links={USES} />
+      <PillarLinks title="Google rank tracking" links={RANK_USES} />
 
       <Section pad="24px 24px 80px">
         <LongForm>

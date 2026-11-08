@@ -67,6 +67,31 @@ const INDUSTRY_PAGES = [
     description: 'Roof repair, replacement and storm damage keywords.',
   },
   {
+    href: '/uses/rank-tracker-for-electricians',
+    label: 'Rank tracker for electricians',
+    description: 'Panel upgrade, EV charger and emergency keywords.',
+  },
+  {
+    href: '/uses/rank-tracker-for-landscapers',
+    label: 'Rank tracker for landscapers',
+    description: 'Lawn care, design and hardscaping keywords.',
+  },
+  {
+    href: '/uses/rank-tracker-for-moving-companies',
+    label: 'Rank tracker for moving companies',
+    description: 'Local, long distance and office move keywords.',
+  },
+  {
+    href: '/uses/rank-tracker-for-paving-contractors',
+    label: 'Rank tracker for paving contractors',
+    description: 'Driveway, sealcoating and parking lot keywords.',
+  },
+  {
+    href: '/uses/rank-tracker-for-law-firms',
+    label: 'Rank tracker for law firms',
+    description: 'Practice area keywords, reported to partners.',
+  },
+  {
     href: '/uses/rank-tracker-for-dentists',
     label: 'Rank tracker for dentists',
     description: 'Implant, emergency and family dental keywords.',
@@ -136,6 +161,16 @@ const AI_PAGES = [
 
 const AGENCY_PAGES = [
   {
+    href: '/uses/rank-tracker-for-seo-freelancers',
+    label: 'Rank tracker for SEO freelancers',
+    description: 'Every client site from $19 a month, with scheduled reports.',
+  },
+  {
+    href: '/uses/rank-tracker-for-multiple-websites',
+    label: 'Rank tracker for multiple websites',
+    description: 'No limit on websites, credits shared across every site.',
+  },
+  {
     href: '/uses/rank-tracker-for-agencies',
     label: 'Rank tracker for agencies',
     description: 'Every client website, a read-only client login and branded reports.',
@@ -158,6 +193,16 @@ const AGENCY_PAGES = [
 ];
 
 const SWITCH_PAGES = [
+  {
+    href: '/wincher-alternative',
+    label: 'Wincher alternative',
+    description: 'Google rank and AI visibility in one tool, with CSV import.',
+  },
+  {
+    href: '/serprobot-alternative',
+    label: 'SERPROBOT alternative',
+    description: 'City level rank tracking, client reports and AI visibility.',
+  },
   {
     href: '/accuranker-alternative',
     label: 'AccuRanker alternative',
