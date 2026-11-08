@@ -17,6 +17,8 @@ const CSS = `
 .rtc-row:hover{background:#f8f9fd}
 .rtc-menu:hover{background:#f1f5f9}
 .rtc button:focus-visible,.rtc a:focus-visible,.rtc input:focus-visible,.rtc svg:focus-visible{outline:2px solid #6366f1;outline-offset:2px;border-radius:6px}
+.rtc .rtc-chip:focus{outline:none}
+.rtc .rtc-chip:focus-visible{outline:none;border-radius:999px;box-shadow:0 0 0 3px rgba(99,102,241,.3)}
 `;
 
 function fmtWhen(iso: string | null): string {

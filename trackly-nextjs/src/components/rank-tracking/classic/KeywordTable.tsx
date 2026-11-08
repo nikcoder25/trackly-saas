@@ -153,7 +153,7 @@ export default function KeywordTable({ websiteId, domain, reloadKey, onChanged }
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
         <div role="group" aria-label="Show keywords" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {CHIPS.map(([v, l]) => (
-            <button key={v} type="button" aria-pressed={chip === v} onClick={() => setChip(v)} style={chipStyle(chip === v)}>
+            <button key={v} type="button" aria-pressed={chip === v} onClick={() => setChip(v)} className="rtc-chip" style={chipStyle(chip === v)}>
               {l}<span style={{ fontSize: 12, fontWeight: 600, color: chip === v ? C.indigo : C.muted }}>{data ? all.filter(TEST[v]).length : ''}</span>
             </button>
           ))}
