@@ -10,7 +10,7 @@
  *   rt_keywords      a keyword checked from one city on one device; holds
  *                    the schedule (next_check_at) and the state of a check
  *                    that is in flight on a queued provider (pending_*)
- *   rt_checks        one finished check: rank (NULL = not in the depth
+ *   rt_checks        one finished check (append-only history, see the trigger below): rank (NULL = not in the depth
  *                    checked), ranking URL, pages paid for, provider, cost,
  *                    credits charged. The credit ledger for rank tracking.
  *   rt_spend         every paid data call (SERP pages, search volume),
@@ -23,6 +23,7 @@
  */
 import { pool } from '@/lib/db';
 import { schemaOnce } from '@/lib/schema-once';
+import { logger } from '@/lib/logger';
 
 export const ensureRankSchema: () => Promise<void> = schemaOnce(async () => {
   await pool.query(`
@@ -157,4 +158,38 @@ export const ensureRankSchema: () => Promise<void> = schemaOnce(async () => {
     );
     CREATE INDEX IF NOT EXISTS rt_client_users_account_idx ON rt_client_users(account_id);
   `);
+  // rt_checks is the position history: one row per finished check, appended
+  // and never rewritten. The trigger makes that a rule of the database, so no
+  // code path can overwrite an older position. rt_rank_history is the same
+  // rows under the names the history API speaks (it covers every check stored
+  // so far, so nothing needs copying).
+  try {
+    await pool.query(`
+      DO $do$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'rt_checks_append_only') THEN
+          CREATE FUNCTION rt_checks_append_only() RETURNS trigger AS $fn$
+          BEGIN
+            IF NEW.keyword_id IS DISTINCT FROM OLD.keyword_id OR NEW.checked_at IS DISTINCT FROM OLD.checked_at
+               OR NEW.rank IS DISTINCT FROM OLD.rank OR NEW.url IS DISTINCT FROM OLD.url THEN
+              RAISE EXCEPTION 'rt_checks is append-only: insert a new check instead of updating one';
+            END IF;
+            RETURN NEW;
+          END
+          $fn$ LANGUAGE plpgsql;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'rt_checks_append_only_trg') THEN
+          CREATE TRIGGER rt_checks_append_only_trg BEFORE UPDATE ON rt_checks FOR EACH ROW EXECUTE FUNCTION rt_checks_append_only();
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_views WHERE viewname = 'rt_rank_history') THEN
+          CREATE VIEW rt_rank_history AS
+            SELECT id, keyword_id, checked_at, rank AS position, url AS ranking_url, provider FROM rt_checks;
+        END IF;
+      END
+      $do$;
+    `);
+  } catch (e) {
+    // Another instance creating the same objects at the same moment: it wins, nothing is lost.
+    logger.warn('rank.history_guard_skipped', { err: (e as Error).message });
+  }
 });

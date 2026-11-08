@@ -65,7 +65,7 @@ export async function creditStatus(accountId: string, plan: string): Promise<Ran
   };
 }
 
-interface RawKw {
+export interface RawKw {
   id: string; website_id: string; domain: string; keyword: string; group_id: string | null; group_name: string | null; starred: boolean;
   location_name: string; location_code: number | null; device: 'desktop' | 'mobile'; frequency: 'weekly' | 'daily'; depth: number;
   volume: number | null; next_check_at: Date; pending_task_id: string | null; pending_provider: string | null; last_error: string | null;
@@ -73,8 +73,8 @@ interface RawKw {
   first_checked_at: Date | null; best: number | null; spark: (number | null)[] | null;
 }
 
-/** Keyword rows with latest rank, comparison rank, best and last 8 ranks. `where` filters alias k (and w). */
-export async function keywordRows(where: string, params: unknown[], period: ComparePeriod, withBest = true): Promise<RawKw[]> {
+/** Keyword rows with latest rank, comparison rank, best and the last `sparkLen` ranks (default 8). `where` filters alias k (and w). */
+export async function keywordRows(where: string, params: unknown[], period: ComparePeriod, withBest = true, sparkLen = 8): Promise<RawKw[]> {
   await ensureRankSchema();
   const days = periodDays(period);
   const n = params.length;
@@ -97,7 +97,7 @@ export async function keywordRows(where: string, params: unknown[], period: Comp
        LEFT JOIN LATERAL (SELECT MIN(checked_at) AS first_checked_at FROM rt_checks WHERE keyword_id = k.id) f ON TRUE
        ${withBest ? 'LEFT JOIN LATERAL (SELECT MIN(rank) AS best FROM rt_checks WHERE keyword_id = k.id) b ON TRUE' : ''}
        LEFT JOIN LATERAL (SELECT array_agg(rank ORDER BY checked_at) AS spark FROM
-                            (SELECT rank, checked_at FROM rt_checks WHERE keyword_id = k.id ORDER BY checked_at DESC LIMIT 8) x) s ON TRUE
+                            (SELECT rank, checked_at FROM rt_checks WHERE keyword_id = k.id ORDER BY checked_at DESC LIMIT ${Math.max(1, Math.min(100, Math.floor(sparkLen)))}) x) s ON TRUE
       WHERE ${where}
       ORDER BY k.keyword`,
     [...params, days]);
