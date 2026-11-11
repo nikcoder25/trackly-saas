@@ -146,8 +146,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const accessToken = signAccessToken({ id, email: email.toLowerCase(), role: 'user', plan: 'trial' });
-    const refreshToken = await issueSession(pool, id, sessionContextFromRequest(request));
+    const { refreshToken, sessionId } = await issueSession(pool, id, sessionContextFromRequest(request));
+    const accessToken = signAccessToken({ id, email: email.toLowerCase(), role: 'user', plan: 'trial', sid: sessionId });
 
     // Awaited rather than fire-and-forget: the row is small, and losing the
     // attribution for a signup that succeeded is the one outcome this feature

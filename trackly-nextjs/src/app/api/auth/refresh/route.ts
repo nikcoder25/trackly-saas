@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     if (!userResult.rows.length) return Response.json({ error: 'Invalid refresh token' }, { status: 401 });
     const user = userResult.rows[0];
     const effectivePlan = getEffectivePlan(user.plan, user.trial_ends_at);
-    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role || undefined, plan: effectivePlan });
+    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role || undefined, plan: effectivePlan, sid: rotated.sessionId });
 
     const cookieHeaders = createTokenCookieHeaders(accessToken, rotated.refreshToken);
     return jsonWithCookies({ token: accessToken }, cookieHeaders);

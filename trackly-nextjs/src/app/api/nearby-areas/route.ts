@@ -1,4 +1,4 @@
-import { verifyRequestAuth } from '@/lib/auth';
+import { verifyRequestAuthLive } from '@/lib/auth';
 import { queryAI, getDefaultModel, withCacheAndRetry } from '@/lib/ai-platforms';
 import { isSearchEnabled } from '@/lib/response-cache';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
@@ -60,7 +60,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 
 export async function POST(request: Request) {
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
 
   const rl = await rateLimit('nearby:' + user.id, 15 * 60 * 1000, 10);

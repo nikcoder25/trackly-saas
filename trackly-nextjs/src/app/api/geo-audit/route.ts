@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
-import { verifyRequestAuth } from '@/lib/auth';
+import { verifyRequestAuthLive } from '@/lib/auth';
 import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 import { pool } from '@/lib/db';
 import { safeFetch, SSRFError, ssrfErrorToCopy } from '@/lib/safe-fetch';
@@ -351,7 +351,7 @@ export async function POST(req: NextRequest) {
   try {
     // Determine auth status and apply rate limiting
     const ip = getClientIp(req);
-    const user = verifyRequestAuth(req);
+    const user = await verifyRequestAuthLive(req);
 
     let rateLimitKey: string;
     let maxRequests: number;

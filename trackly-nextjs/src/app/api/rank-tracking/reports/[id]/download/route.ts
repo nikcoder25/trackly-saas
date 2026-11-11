@@ -3,7 +3,7 @@
  * Signed in as its owner, or with the signed ?exp=&sig= link a scheduled email carries.
  */
 import { pool } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { verifyRequestAuthLive } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { ensureRankSchema } from '@/lib/rank-tracking/schema';
 import { buildReport, verifyReportLink, type ReportRow } from '@/lib/rank-tracking/reports';
@@ -15,7 +15,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   await ensureRankSchema();
   const url = new URL(request.url);
   const signed = verifyReportLink(id, url.searchParams.get('exp'), url.searchParams.get('sig'));
-  const user = signed ? null : verifyRequestAuth(request);
+  const user = signed ? null : await verifyRequestAuthLive(request);
   if (!signed && !user) return Response.json({ error: 'Authentication required' }, { status: 401 });
   const r = await pool.query<ReportRow>(`SELECT * FROM rt_reports WHERE id = $1`, [id]);
   const rep = r.rows[0];

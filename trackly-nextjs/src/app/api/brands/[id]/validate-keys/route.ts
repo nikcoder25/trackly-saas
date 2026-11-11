@@ -13,7 +13,7 @@
  * the acceptance criteria. The route never logs the plaintext key.
  */
 import { pool, ensureColumns } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { verifyRequestAuthLive } from '@/lib/auth';
 import { getBrandWithAccess, decryptApiKeys } from '@/lib/helpers';
 import { getServerKeys } from '@/lib/server-keys';
 import { resolveKeysForTenant, PROVIDER_SPECS } from '@/lib/tenant-keys';
@@ -37,7 +37,7 @@ interface PerPlatformReport {
 }
 
 export async function POST(request: Request, { params }: Params) {
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return unauthorized('No token');
 
   const { id } = await params;

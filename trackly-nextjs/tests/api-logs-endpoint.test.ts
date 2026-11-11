@@ -25,6 +25,7 @@ const requireVerifiedAuthMock = vi.fn(async () => ({ id: 'u1', email: 'a@b.com' 
 vi.mock('../src/lib/auth', () => ({
   requireVerifiedAuth: (...args: unknown[]) => requireVerifiedAuthMock(...(args as [])),
   verifyRequestAuth: vi.fn(() => ({ id: 'u1', email: 'a@b.com' })),
+  verifyRequestAuthLive: vi.fn(async () => ({ id: 'u1', email: 'a@b.com' })),
 }));
 
 vi.mock('../src/lib/cost-tracker', () => ({

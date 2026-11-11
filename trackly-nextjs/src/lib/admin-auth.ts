@@ -2,7 +2,7 @@
  * Admin backend auth helper - verifies admin role for all admin-backend API routes.
  */
 import { pool } from '@/lib/db';
-import { verifyRequestAuth, type JWTPayload } from '@/lib/auth';
+import { type JWTPayload, verifyRequestAuthLive } from '@/lib/auth';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 export interface AdminUser extends JWTPayload {
@@ -18,7 +18,7 @@ export async function requireAdmin(request: Request): Promise<AdminUser | Respon
   const rl = await rateLimit('admin_backend:' + ip, 15 * 60 * 1000, 60);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return Response.json({ error: 'Authentication required' }, { status: 401 });
 
   const result = await pool.query('SELECT role FROM users WHERE id = $1', [user.id]);

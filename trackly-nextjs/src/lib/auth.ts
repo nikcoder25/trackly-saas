@@ -26,11 +26,13 @@ function getSecret(): string {
 export interface JWTPayload {
   id: string;
   email: string;
+  /** user_sessions.id this access token belongs to. Absent on internal (MCP) tokens. */
+  sid?: string;
   iat?: number;
   exp?: number;
 }
 
-export function signAccessToken(payload: { id: string; email: string; role?: string; plan?: string }): string {
+export function signAccessToken(payload: { id: string; email: string; role?: string; plan?: string; sid?: string }): string {
   return jwt.sign(payload, getSecret(), { expiresIn: '15m', algorithm: 'HS256' });
 }
 
@@ -167,11 +169,41 @@ export async function requireVerifiedAuth(request: Request, pool: { query: (text
 
   const result = await pool.query('SELECT email_verified FROM users WHERE id = $1', [user.id]);
   if (!result.rows.length) return Response.json({ error: 'User not found' }, { status: 401 });
+  // Reject tokens whose session was revoked (logout, device revoke, password
+  // change/reset) instead of letting them live out their 15-minute TTL.
+  if (user.sid && !(await isSessionLive(pool as PoolLike, user))) {
+    return Response.json({ error: 'Session revoked' }, { status: 401 });
+  }
   if (!result.rows[0].email_verified) {
     return Response.json({ error: 'Email verification required. Please verify your email before accessing this resource.' }, { status: 403 });
   }
 
   return user;
+}
+
+/**
+ * True when the token's session (sid) still exists. Tokens with no sid are
+ * internal server-minted tokens (MCP) and pass.
+ */
+export async function isSessionLive(pool: PoolLike, user: JWTPayload): Promise<boolean> {
+  if (!user.sid) return true;
+  const r = await pool.query(
+    'SELECT 1 FROM user_sessions WHERE id = $1 AND user_id = $2',
+    [user.sid, user.id]
+  );
+  return r.rows.length > 0;
+}
+
+/**
+ * Async variant of verifyRequestAuth that also rejects tokens whose session
+ * was revoked (logout, password change, password reset, device revoke).
+ * Use this in every API route that does not go through requireVerifiedAuth.
+ */
+export async function verifyRequestAuthLive(request: Request): Promise<JWTPayload | null> {
+  const user = verifyRequestAuth(request);
+  if (!user) return null;
+  const { pool } = await import('./db');
+  return (await isSessionLive(pool as unknown as PoolLike, user)) ? user : null;
 }
 
 /**
@@ -243,15 +275,16 @@ export async function issueSession(
   pool: PoolLike,
   userId: string,
   ctx: SessionContext = {}
-): Promise<string> {
+): Promise<{ refreshToken: string; sessionId: string }> {
   const refreshToken = crypto.randomBytes(40).toString('hex');
+  const sessionId = newSessionId();
   await pool.query(
     `INSERT INTO user_sessions (id, user_id, refresh_token_hash, user_agent, ip)
      VALUES ($1, $2, $3, $4, $5)`,
-    [newSessionId(), userId, hashToken(refreshToken), ctx.userAgent || null, ctx.ip || null]
+    [sessionId, userId, hashToken(refreshToken), ctx.userAgent || null, ctx.ip || null]
   );
   await pruneExpiredSessionsForUser(pool, userId);
-  return refreshToken;
+  return { refreshToken, sessionId };
 }
 
 /**
@@ -263,7 +296,7 @@ export async function rotateSession(
   pool: PoolLike & { connect?: () => Promise<unknown> },
   oldToken: string,
   ctx: SessionContext = {}
-): Promise<{ userId: string; refreshToken: string } | null> {
+): Promise<{ userId: string; refreshToken: string; sessionId: string } | null> {
   const oldHash = hashToken(oldToken);
   const newToken = crypto.randomBytes(40).toString('hex');
   const result = await pool.query(
@@ -273,13 +306,14 @@ export async function rotateSession(
             user_agent = COALESCE($2, user_agent),
             ip = COALESCE($3, ip)
       WHERE refresh_token_hash = $4
-      RETURNING user_id`,
+      RETURNING id, user_id`,
     [hashToken(newToken), ctx.userAgent || null, ctx.ip || null, oldHash]
   );
   if (!result.rows.length) return null;
   const userId = result.rows[0].user_id as string;
+  const sessionId = result.rows[0].id as string;
   await pruneExpiredSessionsForUser(pool, userId);
-  return { userId, refreshToken: newToken };
+  return { userId, refreshToken: newToken, sessionId };
 }
 
 /** Revoke a single session by its current refresh token (logout on one device). */

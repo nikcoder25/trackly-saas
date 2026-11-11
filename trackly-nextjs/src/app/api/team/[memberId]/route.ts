@@ -1,8 +1,8 @@
 import { pool } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { verifyRequestAuthLive } from '@/lib/auth';
 
 export async function PUT(request: Request, { params }: { params: Promise<{ memberId: string }> }) {
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
   const { memberId } = await params;
   if (!/^\d+$/.test(memberId)) return Response.json({ error: 'Member not found' }, { status: 404 });
@@ -16,7 +16,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ memb
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ memberId: string }> }) {
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
   const { memberId } = await params;
   if (!/^\d+$/.test(memberId)) return Response.json({ error: 'Member not found' }, { status: 404 });

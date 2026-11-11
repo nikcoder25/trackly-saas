@@ -1,9 +1,9 @@
 import { pool } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { verifyRequestAuthLive } from '@/lib/auth';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function GET(request: Request) {
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
 
   const rl = await checkUserIpRateLimit('twofa_status', user.id, getClientIp(request), {

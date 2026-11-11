@@ -1,11 +1,11 @@
 import bcrypt from 'bcryptjs';
 import { pool, auditLog } from '@/lib/db';
-import { verifyRequestAuth, revokeAllSessions } from '@/lib/auth';
+import { revokeAllSessions, verifyRequestAuthLive } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
 
   // Disabling 2FA is a high-value target for attackers who've obtained a

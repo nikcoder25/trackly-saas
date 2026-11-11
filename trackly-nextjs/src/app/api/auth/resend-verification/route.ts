@@ -1,13 +1,13 @@
 import crypto from 'crypto';
 import { pool, ensureColumns } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { verifyRequestAuthLive } from '@/lib/auth';
 import { sendVerificationEmail } from '@/lib/email';
 import { AUTH } from '@/lib/constants';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 
 export async function POST(request: Request) {
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
 
   try {

@@ -8,7 +8,7 @@
  * real outbound HTTP request to OpenAI/Anthropic/etc.
  */
 import { auditLog } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { verifyRequestAuthLive } from '@/lib/auth';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { logError, badRequest, serverError, unauthorized } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
@@ -20,7 +20,7 @@ import {
 } from '@/lib/tenant-keys';
 
 export async function GET(request: Request) {
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return unauthorized('No token');
 
   try {
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return unauthorized('No token');
 
   // Each save runs an outbound provider validation request. 30/hr per

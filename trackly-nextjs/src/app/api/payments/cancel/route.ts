@@ -1,5 +1,5 @@
 import { auditLog, safeConnect } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { verifyRequestAuthLive } from '@/lib/auth';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
@@ -19,7 +19,7 @@ import { recordBillingEvent } from '@/lib/billing-events';
 const ALREADY_CANCELLED_STATUSES = new Set([404, 409, 410]);
 
 export async function POST(request: Request) {
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
 
   const rl = await checkUserIpRateLimit('payments_cancel', user.id, getClientIp(request), {

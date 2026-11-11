@@ -1,11 +1,14 @@
 import bcrypt from 'bcryptjs';
 import { pool, auditLog } from '@/lib/db';
-import { verifyRequestAuth, validatePasswordComplexity, revokeAllSessions } from '@/lib/auth';
-import { AUTH } from '@/lib/constants';
+import {
+  validatePasswordComplexity, revokeAllSessions, verifyRequestAuthLive,
+  issueSession, signAccessToken, sessionContextFromRequest, createTokenCookieHeaders, jsonWithCookies,
+} from '@/lib/auth';
+import { AUTH, getEffectivePlan } from '@/lib/constants';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
 
   // Guards against credential-stuffing against the "current password"
@@ -24,18 +27,26 @@ export async function POST(request: Request) {
   if (pwError) return Response.json({ error: pwError }, { status: 400 });
 
   try {
-    const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [user.id]);
+    const result = await pool.query('SELECT email, role, plan, trial_ends_at, password_hash FROM users WHERE id = $1', [user.id]);
     if (!result.rows.length) return Response.json({ error: 'User not found' }, { status: 404 });
     const ok = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
     if (!ok) return Response.json({ error: 'Current password is incorrect' }, { status: 400 });
     const hash = await bcrypt.hash(newPassword, AUTH.bcryptRounds);
     await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, user.id]);
-    // Revoke every session for this user so a password change kicks all devices
-    // out - existing access tokens still work until their 15-minute TTL expires.
+    // Revoke every session for this user. Access tokens carry their session id
+    // (sid) and are checked against user_sessions on each request, so every
+    // other device is logged out immediately, not after the token TTL.
     await revokeAllSessions(pool, user.id);
+    // Keep the device that made the change signed in with a fresh session.
+    const row = result.rows[0];
+    const { refreshToken, sessionId } = await issueSession(pool, user.id, sessionContextFromRequest(request));
+    const accessToken = signAccessToken({
+      id: user.id, email: row.email, role: row.role || undefined,
+      plan: getEffectivePlan(row.plan, row.trial_ends_at), sid: sessionId,
+    });
     const ip = getClientIp(request);
     auditLog(user.id, 'change_password', 'user', user.id, {}, ip);
-    return Response.json({ message: 'Password updated successfully' });
+    return jsonWithCookies({ message: 'Password updated successfully' }, createTokenCookieHeaders(accessToken, refreshToken));
   } catch {
     return Response.json({ error: 'Failed to change password' }, { status: 500 });
   }

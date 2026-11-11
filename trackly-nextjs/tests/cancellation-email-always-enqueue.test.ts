@@ -81,6 +81,7 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@/lib/auth', () => ({
   verifyRequestAuth: (req: Request) => verifyRequestAuthFn(req),
+  verifyRequestAuthLive: async (req: Request) => verifyRequestAuthFn(req),
 }));
 
 vi.mock('@/lib/rate-limit', () => ({
