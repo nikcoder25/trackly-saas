@@ -6,7 +6,7 @@
  * matches `users.api_keys` and the `tenant_api_keys.platform` column.
  */
 import { auditLog } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { verifyRequestAuthLive } from '@/lib/auth';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { logError, badRequest, serverError, unauthorized, notFound } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
@@ -21,7 +21,7 @@ import {
 type Params = { params: Promise<{ platform: string }> };
 
 export async function PUT(request: Request, { params }: Params) {
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return unauthorized('No token');
 
   const { platform } = await params;
@@ -94,7 +94,7 @@ export async function PUT(request: Request, { params }: Params) {
 }
 
 export async function DELETE(request: Request, { params }: Params) {
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return unauthorized('No token');
 
   const { platform } = await params;
@@ -122,7 +122,7 @@ export async function POST(request: Request, { params }: Params) {
   // Manual re-validation - re-runs validateProviderKey against the
   // provider and refreshes last_validated_at. Used by the "re-validate"
   // button on /dashboard/platforms.
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return unauthorized('No token');
 
   const { platform } = await params;

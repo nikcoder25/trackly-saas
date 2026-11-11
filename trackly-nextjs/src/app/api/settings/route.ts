@@ -1,9 +1,9 @@
 import { pool } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { verifyRequestAuthLive } from '@/lib/auth';
 import { isBlockedIP } from '@/lib/safe-fetch';
 
 export async function GET(request: Request) {
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
   try {
     const result = await pool.query('SELECT settings FROM users WHERE id = $1', [user.id]);
@@ -25,7 +25,7 @@ const SETTINGS_BLOCKED_KEYS = new Set([
 ]);
 
 export async function PUT(request: Request) {
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
   const body = await request.json();
   const allowed: Record<string, string[]> = {

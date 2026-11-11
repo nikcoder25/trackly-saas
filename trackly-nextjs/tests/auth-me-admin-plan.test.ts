@@ -48,6 +48,7 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@/lib/auth', () => ({
   verifyRequestAuth: (req: Request) => verifyRequestAuthFn(req),
+  verifyRequestAuthLive: async (req: Request) => verifyRequestAuthFn(req),
 }));
 
 // safeUser does a lot - encryption, sensitive-key stripping, trial

@@ -1,9 +1,9 @@
 import { pool, ensureColumns } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { verifyRequestAuthLive } from '@/lib/auth';
 import { safeUser } from '@/lib/helpers';
 
 export async function GET(request: Request) {
-  const authUser = verifyRequestAuth(request);
+  const authUser = await verifyRequestAuthLive(request);
   if (!authUser) return Response.json({ error: 'No token' }, { status: 401 });
 
   try {

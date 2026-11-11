@@ -1,5 +1,5 @@
 import { pool, safeConnect, auditLog } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { verifyRequestAuthLive } from '@/lib/auth';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
@@ -28,7 +28,7 @@ const ALLOWED_PLANS = new Set(['starter', 'pro', 'agency', 'enterprise']);
 // (the webhook + reconcile cron already own that path; piggybacking
 // here would risk a fourth duplicate).
 export async function POST(request: Request) {
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
 
   const rl = await checkUserIpRateLimit('payments_refresh', user.id, getClientIp(request), {

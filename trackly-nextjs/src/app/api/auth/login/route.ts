@@ -152,8 +152,8 @@ export async function POST(request: NextRequest) {
     }
 
     const effectivePlan = getEffectivePlan(user.plan, user.trial_ends_at);
-    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role || undefined, plan: effectivePlan });
-    const refreshToken = await issueSession(pool, user.id, sessionContextFromRequest(request));
+    const { refreshToken, sessionId } = await issueSession(pool, user.id, sessionContextFromRequest(request));
+    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role || undefined, plan: effectivePlan, sid: sessionId });
 
     // Reset failed login attempts on successful login
     await pool.query(

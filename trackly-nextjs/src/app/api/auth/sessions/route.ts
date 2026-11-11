@@ -1,16 +1,12 @@
 import { pool } from '@/lib/db';
-import {
-  verifyRequestAuth,
-  getRefreshTokenFromRequest,
-  hashToken,
-} from '@/lib/auth';
+import { getRefreshTokenFromRequest, hashToken, verifyRequestAuthLive } from '@/lib/auth';
 import { logError, serverError, unauthorized } from '@/lib/api-error';
 
 // Device-management list endpoint. Returns the active user_sessions rows for
 // the authenticated user, with the row whose hash matches the current request's
 // refresh cookie flagged so the UI can warn before revoking self.
 export async function GET(request: Request) {
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return unauthorized();
 
   const refreshToken = getRefreshTokenFromRequest(request);

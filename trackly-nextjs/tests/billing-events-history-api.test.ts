@@ -26,6 +26,7 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@/lib/auth', () => ({
   verifyRequestAuth: (req: Request) => verifyRequestAuthFn(req),
+  verifyRequestAuthLive: async (req: Request) => verifyRequestAuthFn(req),
 }));
 
 import { GET as historyGet } from '@/app/api/payments/history/route';

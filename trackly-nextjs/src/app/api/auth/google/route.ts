@@ -142,8 +142,8 @@ export async function POST(request: NextRequest) {
     }
 
     const effectivePlan = getEffectivePlan(user.plan, user.trial_ends_at);
-    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role || undefined, plan: effectivePlan });
-    const newRefreshToken = await issueSession(pool, user.id, sessionContextFromRequest(request));
+    const { refreshToken: newRefreshToken, sessionId } = await issueSession(pool, user.id, sessionContextFromRequest(request));
+    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role || undefined, plan: effectivePlan, sid: sessionId });
 
     auditLog(user.id, 'login', 'user', user.id, { method: 'google' }, ip);
 

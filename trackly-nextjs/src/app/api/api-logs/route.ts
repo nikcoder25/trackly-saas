@@ -42,7 +42,7 @@
  */
 
 import { pool } from '@/lib/db';
-import { requireVerifiedAuth, verifyRequestAuth } from '@/lib/auth';
+import { requireVerifiedAuth, verifyRequestAuthLive } from '@/lib/auth';
 import { currentMonthStart } from '@/lib/credits';
 import { ensureCostEventsTable } from '@/lib/cost-tracker';
 
@@ -227,7 +227,7 @@ export async function DELETE(request: Request) {
   // billing ledger and must not be mutated by user clicks. Keep the
   // endpoint responding 410 so old clients see a clear "gone" rather than
   // a silent 200 against a now-irrelevant table.
-  const user = verifyRequestAuth(request);
+  const user = await verifyRequestAuthLive(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
   return Response.json(
     { error: 'API logs are now backed by the billing ledger and cannot be cleared.' },
