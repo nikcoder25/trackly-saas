@@ -65,6 +65,14 @@ export async function PATCH(request: Request): Promise<Response> {
   if (b.frequency === 'weekly' || b.frequency === 'daily') u.frequency = b.frequency;
   if (Number(b.depth) === 30 || Number(b.depth) === 100) u.depth = Number(b.depth) as 30 | 100;
   if (b.device === 'desktop' || b.device === 'mobile') u.device = b.device;
+  // A location or device change queues a fresh check, so it is limited like a recheck.
+  if (u.location || u.device) {
+    const rl = await checkUserIpRateLimit('rank_keywords_move', c.userId, getClientIp(request), {
+      user: { max: 30, windowMs: 60 * 60 * 1000 },
+      ip: { max: 60, windowMs: 60 * 60 * 1000 },
+    });
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
+  }
   const r = await updateKeywords(c.accountId, c.plan, ids, u);
   return r.ok ? Response.json(r) : Response.json({ error: r.error }, { status: r.status });
 }

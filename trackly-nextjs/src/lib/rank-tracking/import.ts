@@ -15,7 +15,7 @@ import { pool } from '@/lib/db';
 import { uid } from '@/lib/helpers';
 import { ensureRankSchema } from './schema';
 import { normalizeDomain } from './domain';
-import { canAddKeywords, addRefusalMessage } from './credits';
+import { canAddKeywords, addRefusalMessage, monthlyCommitment, TOP100_PLANS } from './credits';
 import { creditStatus } from './queries';
 import { getOrCreateWebsite } from './keywords';
 import { resolveLocation } from './locations';
@@ -119,11 +119,33 @@ export function readSerpfoxCsv(text: string, defaultDomain = ''): { keywords: Im
 
 export interface ImportResult { ok: boolean; error?: string; websites: number; keywords: number; checks: number; skippedLocations: string[] }
 
+/**
+ * The depth an imported keyword is tracked at: top 100 when its history ranked
+ * below 30 and the plan allows top 100 checks, else top 30.
+ */
+export function importDepth(it: Pick<ImportedKeyword, 'history'>, plan: string): 30 | 100 {
+  const deep = it.history.some((h) => h.rank != null && h.rank > 30);
+  return deep && TOP100_PLANS.has(String(plan || 'free').toLowerCase()) ? 100 : 30;
+}
+
+/** Monthly credits the imported keywords commit to, at weekly and the depth each is inserted at. */
+export function importCommitment(items: Pick<ImportedKeyword, 'history'>[], plan: string): number {
+  const deep = items.filter((it) => importDepth(it, plan) === 100).length;
+  return monthlyCommitment([
+    { frequency: 'weekly', depth: 30, count: items.length - deep },
+    { frequency: 'weekly', depth: 100, count: deep },
+  ]);
+}
+
 export async function importKeywords(accountId: string, plan: string, items: ImportedKeyword[], fallbackLocation: string): Promise<ImportResult> {
   await ensureRankSchema();
   const credits = await creditStatus(accountId, plan);
-  const gate = canAddKeywords(plan, credits.committed, items.length, 'weekly', 30);
-  if (!gate.ok) return { ok: false, error: addRefusalMessage(gate), websites: 0, keywords: 0, checks: 0, skippedLocations: [] };
+  const refuse = (error: string): ImportResult => ({ ok: false, error, websites: 0, keywords: 0, checks: 0, skippedLocations: [] });
+  // Plan rules first (no rank tracking at all), then the real commitment at each keyword's depth.
+  const gate = canAddKeywords(plan, credits.committed, 0, 'weekly', 30);
+  if (gate.reason && gate.reason !== 'over_limit') return refuse(addRefusalMessage(gate));
+  const needed = importCommitment(items, plan);
+  if (credits.committed + needed > gate.allowance) return refuse(addRefusalMessage({ ...gate, ok: false, needed, reason: 'over_limit' }));
 
   const locCache = new Map<string, Awaited<ReturnType<typeof resolveLocation>>>();
   const siteCache = new Map<string, string>();
@@ -141,12 +163,11 @@ export async function importKeywords(accountId: string, plan: string, items: Imp
       siteCache.set(it.domain, s.id);
     }
     const websiteId = siteCache.get(it.domain) as string;
-    const deep = it.history.some((h) => h.rank != null && h.rank > 30);
     const k = await pool.query(
       `INSERT INTO rt_keywords (id, website_id, keyword, location_code, location_name, device, depth, next_check_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
        ON CONFLICT (website_id, keyword, location_code, device) DO UPDATE SET keyword = EXCLUDED.keyword RETURNING id`,
-      [uid(), websiteId, it.keyword, loc.code, loc.name, it.device, deep ? 100 : 30]);
+      [uid(), websiteId, it.keyword, loc.code, loc.name, it.device, importDepth(it, plan)]);
     const kid = k.rows[0].id;
     keywords++;
     if (it.history.length) {
