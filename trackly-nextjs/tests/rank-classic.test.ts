@@ -122,6 +122,11 @@ describe.skipIf(!DB)('rank history in the database', () => {
   });
 
   it('queues a re-check', async () => {
-    expect(await sites.queueRecheck(user, [k1, 'nope'])).toEqual([k1]);
+    expect(await sites.queueRecheck(user, 'pro', [k1, 'nope'])).toEqual({ ok: true, queued: [k1] });
+  });
+
+  it('refuses a re-check on a plan with no rank credits', async () => {
+    const r = await sites.queueRecheck(user, 'free', [k1]);
+    expect(r).toMatchObject({ ok: false, status: 402 });
   });
 });
