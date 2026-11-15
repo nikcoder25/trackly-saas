@@ -9,14 +9,12 @@ import {
   tryEnqueueRecoveredCancellationEmail,
 } from '@/lib/email';
 import { recordBillingEvent } from '@/lib/billing-events';
+import { cancelDodoSubscription } from '@/lib/dodo-subscriptions';
 
-// Dodo statuses that mean "already cancelled / not found at provider".
-// We treat all three as cancellation-success when we PATCH /subscriptions/{id}
-// with status='cancelled' - they're idempotent end-states, not real errors,
-// and refusing to downgrade the user locally over them would strand them on
-// a paid plan they cannot escape from. Mirrors the soft-success policy in
-// `cancelOldDodoSubscription` in the webhook handler.
-const ALREADY_CANCELLED_STATUSES = new Set([404, 409, 410]);
+// The Dodo PATCH lives in src/lib/dodo-subscriptions.ts. It treats
+// 404/409/410 as cancellation-success: they're idempotent end-states, not
+// real errors, and refusing to downgrade the user locally over them would
+// strand them on a paid plan they cannot escape from.
 
 export async function POST(request: Request) {
   const user = await verifyRequestAuthLive(request);
@@ -95,57 +93,39 @@ export async function POST(request: Request) {
     }
 
     if (subId) {
-      const apiKey = process.env.DODO_PAYMENTS_API_KEY;
-      if (!apiKey) {
-        await client.query('ROLLBACK');
-        return Response.json({ error: 'Payment system not configured' }, { status: 503 });
-      }
-
-      const env = process.env.DODO_PAYMENTS_ENVIRONMENT || 'test_mode';
-      const baseUrl = env === 'live_mode'
-        ? 'https://live.dodopayments.com'
-        : 'https://test.dodopayments.com';
-
       // PATCH Dodo *inside* the transaction. If anything below this point
       // fails we ROLLBACK so the local DB never claims to have cancelled a
       // subscription that Dodo never heard about. If Dodo fails, ROLLBACK
       // means we never claim it cancelled either - symmetric drift-free.
-      let resp: Response;
-      try {
-        resp = await fetch(`${baseUrl}/subscriptions/${subId}`, {
-          method: 'PATCH',
-          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'cancelled' }),
-        });
-      } catch (fetchErr) {
+      const cancel = await cancelDodoSubscription(subId);
+      if (!cancel.ok) {
         await client.query('ROLLBACK').catch(() => {});
-        logger.error('payments.cancel.provider_network_error', {
-          userId: user.id,
-          error: (fetchErr as Error).message,
-        });
-        return serverError({
-          message: 'Failed to cancel subscription with payment provider. Please try again.',
-        });
-      }
-
-      const alreadyCancelled = ALREADY_CANCELLED_STATUSES.has(resp.status);
-      if (!resp.ok && !alreadyCancelled) {
-        await client.query('ROLLBACK');
-        const text = await resp.text().catch(() => '');
+        if (cancel.reason === 'not_configured') {
+          return Response.json({ error: 'Payment system not configured' }, { status: 503 });
+        }
+        if (cancel.reason === 'network_error') {
+          logger.error('payments.cancel.provider_network_error', {
+            userId: user.id,
+            error: cancel.error,
+          });
+          return serverError({
+            message: 'Failed to cancel subscription with payment provider. Please try again.',
+          });
+        }
         logger.error('payments.cancel.provider_error', {
           userId: user.id,
-          status: resp.status,
-          body_preview: text.slice(0, 200),
+          status: cancel.status,
+          body_preview: cancel.bodyPreview,
         });
         return serverError({
           message: 'Failed to cancel subscription with payment provider. Please contact support or try again.',
         });
       }
 
-      if (alreadyCancelled) {
+      if (cancel.alreadyCancelled) {
         logger.info('payments.cancel.provider_already_cancelled', {
           userId: user.id,
-          status: resp.status,
+          status: cancel.status,
         });
       }
 
