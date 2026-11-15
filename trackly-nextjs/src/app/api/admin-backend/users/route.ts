@@ -1,5 +1,6 @@
 import { pool, auditLog } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
+import { validatePasswordComplexity } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 import { logError, serverError } from '@/lib/api-error';
 import { getClientIp } from '@/lib/rate-limit';
@@ -82,6 +83,12 @@ export async function POST(request: Request) {
     if (!email || !password) {
       return Response.json({ error: 'Email and password are required' }, { status: 400 });
     }
+    // Non-strings used to reach toLowerCase / bcrypt and 500.
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      return Response.json({ error: 'Invalid input' }, { status: 400 });
+    }
+    const pwError = validatePasswordComplexity(password);
+    if (pwError) return Response.json({ error: pwError }, { status: 400 });
 
     // Match the allowlist enforced on PUT so typos or hostile input can't
     // land an unknown plan value (including 'owner', which confers admin

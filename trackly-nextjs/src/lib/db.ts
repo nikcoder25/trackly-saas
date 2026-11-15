@@ -622,6 +622,37 @@ function runMigrations(): Promise<void> {
         console.error('[DB] TOTP encryption migration failed:', (e as Error).message);
       }
 
+      // One-time scrub of plaintext passwords from audit_logs.details.
+      // The admin-backend user PUT used to log the raw request body, which
+      // included the new password. The key is replaced with
+      // passwordChanged: true. Idempotent: once scrubbed no row matches.
+      // details is JSONB in the base schema; an older TEXT column is
+      // handled by casting, limited to rows that look like a JSON object.
+      try {
+        const col = await pool.query(
+          `SELECT data_type FROM information_schema.columns
+            WHERE table_schema = current_schema() AND table_name = 'audit_logs' AND column_name = 'details'`
+        );
+        const type = col.rows[0]?.data_type as string | undefined;
+        if (type === 'jsonb') {
+          await pool.query(`
+            UPDATE audit_logs
+               SET details = (details - 'password') || '{"passwordChanged": true}'::jsonb
+             WHERE jsonb_typeof(details) = 'object' AND details ? 'password'
+          `);
+        } else if (type === 'json' || type === 'text' || type === 'character varying') {
+          await pool.query(`
+            UPDATE audit_logs
+               SET details = ((details::jsonb - 'password') || '{"passwordChanged": true}'::jsonb)::text${type === 'json' ? '::json' : ''}
+             WHERE details::text LIKE '%"password"%'
+               AND details::text ~ '^\\s*\\{'
+               AND details::jsonb ? 'password'
+          `);
+        }
+      } catch (e) {
+        console.error('[DB] audit_logs password scrub failed:', (e as Error).message);
+      }
+
       // One-time backfill of the citations table from historical
       // prompt_runs.citations arrays (last 90 days), so the Citation
       // Decoder has data on day one instead of starting cold. Guarded by
