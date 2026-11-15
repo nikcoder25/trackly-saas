@@ -105,6 +105,10 @@ export async function ensureFixEngineSchema(): Promise<void> {
   // Connector-supplied preview URL once it's staged as a draft revision.
   await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS ship_mode TEXT NOT NULL DEFAULT 'live'`);
   await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS preview_url TEXT`);
+  // Who approved the fix. Edge delivery serves an 'approved' root file only
+  // when a real person is on record here, so an approval with no human
+  // (an old autopilot run, a scripted path) can never reach a live site.
+  await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS approved_by TEXT`);
   // Per-fix outcome measurement: the target page's 28-day GSC metrics at
   // ship time, and again ~28 days later (set by the outcome cron pass).
   await pool.query(`ALTER TABLE fixes ADD COLUMN IF NOT EXISTS gsc_before JSONB`);
@@ -412,6 +416,8 @@ export async function updateFix(
     assignee?: string | null;
     shipMode?: 'live' | 'draft';
     previewUrl?: string | null;
+    /** User id of the person who approved the fix (null clears it). */
+    approvedBy?: string | null;
     gscBefore?: Record<string, unknown> | null;
     gscAfter?: Record<string, unknown> | null;
     /** true → stamp archived_at now; false → clear it (unarchive). */
@@ -436,6 +442,7 @@ export async function updateFix(
   if (patch.assignee !== undefined) { sets.push(`assignee = $${i++}`); values.push(patch.assignee); }
   if (patch.shipMode !== undefined) { sets.push(`ship_mode = $${i++}`); values.push(patch.shipMode); }
   if (patch.previewUrl !== undefined) { sets.push(`preview_url = $${i++}`); values.push(patch.previewUrl); }
+  if (patch.approvedBy !== undefined) { sets.push(`approved_by = $${i++}`); values.push(patch.approvedBy); }
   if (patch.gscBefore !== undefined) { sets.push(`gsc_before = $${i++}`); values.push(patch.gscBefore ? JSON.stringify(patch.gscBefore) : null); }
   if (patch.gscAfter !== undefined) { sets.push(`gsc_after = $${i++}`); values.push(patch.gscAfter ? JSON.stringify(patch.gscAfter) : null); }
   if (patch.archived !== undefined) {
@@ -543,6 +550,10 @@ export async function listPendingConnectorInstructions(
  * a merely `generated` draft (including autopilot output) is NOT served.
  * `approved` is included because on a pure edge-fronted site these Channel-B
  * modules have no Connector to ack a ship, so approval is the human gate.
+ * Because approval IS publication here, an approved row is only served when a
+ * real user approved it: `approved_by` set, or (rows approved before that
+ * column existed) the latest 'approved' audit event carries a user id. A
+ * null-approver approval is skipped, falling back to an older shipped row.
  */
 export async function getLatestRootFileContent(
   brandId: string,
@@ -553,7 +564,15 @@ export async function getLatestRootFileContent(
   const res = await pool.query(
     `SELECT generated, after_snapshot FROM fixes
       WHERE brand_id = $1 AND module_key = $2
-        AND status IN ('approved','shipped','verified')
+        AND (
+          status IN ('shipped','verified')
+          OR (status = 'approved' AND (
+            approved_by IS NOT NULL
+            OR (SELECT e.user_id FROM fix_events e
+                 WHERE e.fix_id = fixes.id AND e.event = 'approved'
+                 ORDER BY e.created_at DESC LIMIT 1) IS NOT NULL
+          ))
+        )
       ORDER BY updated_at DESC LIMIT 1`,
     [brandId, moduleKey],
   );

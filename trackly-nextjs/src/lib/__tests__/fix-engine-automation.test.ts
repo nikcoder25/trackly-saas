@@ -13,6 +13,8 @@ const state = vi.hoisted(() => ({
   detected: [] as any[],
   generated: [] as any[],
   canShip: true,
+  connectorActive: true,
+  unstageable: new Set<string>(),
   shipped: [] as string[],
   staged: [] as string[],
   generatedCalls: [] as string[],
@@ -31,6 +33,7 @@ vi.mock('@/lib/fix-engine/engine', () => ({
   // pass, and engine.shipFix rejects a null one.
   shipFix: vi.fn(async (id: string) => { state.shipped.push(id); return { id, status: 'shipped' }; }),
   stageFix: vi.fn(async (id: string) => { state.staged.push(id); return { id, status: 'staged' }; }),
+  moduleSupportsStaging: vi.fn((key: string) => !state.unstageable.has(key)),
 }));
 vi.mock('@/lib/fix-engine/registry', () => ({
   // free-* modules are deterministic (cost 0), paid-* cost 1
@@ -38,7 +41,8 @@ vi.mock('@/lib/fix-engine/registry', () => ({
   listModules: () => [{ key: 'free-a' }, { key: 'paid-b' }],
 }));
 vi.mock('@/lib/fix-engine/connections', () => ({
-  getConnection: vi.fn(async (_b: string, provider: string) => (provider === 'cms' && state.canShip ? { status: 'active' } : null)),
+  getConnection: vi.fn(async (_b: string, provider: string) => (
+    (provider === 'cms' && state.canShip) || (provider === 'connector' && state.connectorActive) ? { status: 'active' } : null)),
 }));
 
 import { applyAutopilot, MAX_AUTOPILOT_GENERATES_PER_RUN } from '@/lib/fix-engine/automation';
@@ -51,7 +55,7 @@ const baseAuto = {
 beforeEach(() => {
   state.detected = [{ id: 'd1', moduleKey: 'free-a' }, { id: 'd2', moduleKey: 'paid-b' }];
   state.generated = [{ id: 'g-free', moduleKey: 'free-a' }, { id: 'g-paid', moduleKey: 'paid-b' }];
-  state.canShip = true; state.shipped = []; state.staged = []; state.generatedCalls = []; state.approvedCalls = [];
+  state.canShip = true; state.connectorActive = true; state.unstageable = new Set(); state.shipped = []; state.staged = []; state.generatedCalls = []; state.approvedCalls = [];
   vi.clearAllMocks();
 });
 
@@ -87,6 +91,28 @@ describe('auto-pilot', () => {
     await applyAutopilot('b1', { ...baseAuto, autopilotStage: true });
     expect(state.staged).toContain('g-paid');
     expect(state.shipped).toEqual([]);
+  });
+
+  it('never approves a fix: staging goes straight from generated', async () => {
+    await applyAutopilot('b1', { ...baseAuto, autopilotGenerate: true, autopilotStage: true });
+    expect(state.approvedCalls).toEqual([]);
+  });
+
+  it('skips modules that cannot be staged, leaving them for human review', async () => {
+    state.generated = [{ id: 'g-llms', moduleKey: 'llms-txt' }, { id: 'g-paid', moduleKey: 'paid-b' }];
+    state.unstageable = new Set(['llms-txt']);
+    const r = await applyAutopilot('b1', { ...baseAuto, autopilotStage: true });
+    expect(state.staged).toEqual(['g-paid']);
+    expect(r.staged).toBe(1);
+    expect(state.approvedCalls).toEqual([]);
+  });
+
+  it('stages nothing (and approves nothing) without an active Connector', async () => {
+    state.connectorActive = false;
+    const r = await applyAutopilot('b1', { ...baseAuto, autopilotStage: true });
+    expect(state.staged).toEqual([]);
+    expect(state.approvedCalls).toEqual([]);
+    expect(r.staged).toBe(0);
   });
 
   it('does nothing when both auto-pilot toggles are off', async () => {
