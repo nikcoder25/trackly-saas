@@ -67,15 +67,92 @@ function isBlockedIPv4(ip: string): boolean {
   return false;
 }
 
+// Expand an IPv6 literal into its 8 16-bit hextets. Handles `::` compression,
+// an embedded trailing dotted quad (e.g. ::ffff:1.2.3.4) and a zone id
+// (fe80::1%eth0). Returns null when the input is not a well-formed address.
+export function parseIPv6(ip: string): number[] | null {
+  let h = ip.toLowerCase().replace(/^\[|\]$/g, '');
+  const zone = h.indexOf('%');
+  if (zone !== -1) h = h.slice(0, zone);
+  if (!h) return null;
+
+  // Embedded IPv4 in the last 32 bits.
+  let tail: number[] = [];
+  const lastColon = h.lastIndexOf(':');
+  if (lastColon !== -1 && h.slice(lastColon + 1).includes('.')) {
+    const v4 = h.slice(lastColon + 1);
+    const m = v4.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (!m) return null;
+    const o = m.slice(1).map(Number);
+    if (o.some((n) => n > 255)) return null;
+    tail = [(o[0] << 8) | o[1], (o[2] << 8) | o[3]];
+    h = h.slice(0, lastColon + 1);
+    // `::1.2.3.4` leaves `::`, `::ffff:1.2.3.4` leaves `::ffff:`; restore a
+    // parseable form by trimming the dangling single colon.
+    if (h.endsWith(':') && !h.endsWith('::')) h = h.slice(0, -1);
+  }
+
+  const parseGroups = (part: string): number[] | null => {
+    if (part === '') return [];
+    const groups = part.split(':');
+    const out: number[] = [];
+    for (const g of groups) {
+      if (!/^[0-9a-f]{1,4}$/.test(g)) return null;
+      out.push(parseInt(g, 16));
+    }
+    return out;
+  };
+
+  const want = 8 - tail.length;
+  const dbl = h.indexOf('::');
+  let groups: number[];
+  if (dbl !== -1) {
+    if (h.indexOf('::', dbl + 1) !== -1) return null;
+    const head = parseGroups(h.slice(0, dbl));
+    const rest = parseGroups(h.slice(dbl + 2));
+    if (!head || !rest) return null;
+    const fill = want - head.length - rest.length;
+    if (fill < 1) return null;
+    groups = [...head, ...new Array(fill).fill(0), ...rest];
+  } else {
+    const all = parseGroups(h);
+    if (!all || all.length !== want) return null;
+    groups = all;
+  }
+  return [...groups, ...tail];
+}
+
+function hextetsToIPv4(hi: number, lo: number): string {
+  return `${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`;
+}
+
 function isBlockedIPv6(ip: string): boolean {
-  const h = ip.toLowerCase();
-  if (h === '::' || h === '::1') return true;
-  // IPv4-mapped ::ffff:a.b.c.d must be checked against IPv4 rules.
-  const mapped = h.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped) return isBlockedIPv4(mapped[1]);
-  if (/^f[cd]/.test(h)) return true;       // fc00::/7 unique-local
-  if (/^fe[89ab]/.test(h)) return true;    // fe80::/10 link-local
-  if (h.startsWith('ff')) return true;     // ff00::/8 multicast
+  const g = parseIPv6(ip);
+  // Anything we cannot parse is treated as blocked (fail closed).
+  if (!g) return true;
+  const zeroUpTo = (n: number) => g.slice(0, n).every((x) => x === 0);
+
+  // :: (unspecified) and ::1 (loopback).
+  if (zeroUpTo(7) && (g[7] === 0 || g[7] === 1)) return true;
+  // IPv4-mapped ::ffff:0:0/96.
+  if (zeroUpTo(5) && g[5] === 0xffff) return isBlockedIPv4(hextetsToIPv4(g[6], g[7]));
+  // IPv4-translated ::ffff:0:0:0/96 (::ffff:0:a.b.c.d).
+  if (zeroUpTo(4) && g[4] === 0xffff && g[5] === 0) {
+    return isBlockedIPv4(hextetsToIPv4(g[6], g[7]));
+  }
+  // IPv4-compatible ::a.b.c.d (deprecated ::/96).
+  if (zeroUpTo(6)) return isBlockedIPv4(hextetsToIPv4(g[6], g[7]));
+  // NAT64 well-known prefix 64:ff9b::/96 and local-use 64:ff9b:1::/48.
+  if (g[0] === 0x64 && g[1] === 0xff9b) {
+    if (g.slice(2, 6).every((x) => x === 0)) return isBlockedIPv4(hextetsToIPv4(g[6], g[7]));
+    if (g[2] === 1) return true;
+  }
+  // 6to4 2002::/16 embeds the IPv4 in bits 16-48.
+  if (g[0] === 0x2002) return isBlockedIPv4(hextetsToIPv4(g[1], g[2]));
+  if ((g[0] & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
+  if ((g[0] & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
+  if ((g[0] & 0xffc0) === 0xfec0) return true; // fec0::/10 site-local (deprecated)
+  if ((g[0] & 0xff00) === 0xff00) return true; // ff00::/8 multicast
   return false;
 }
 

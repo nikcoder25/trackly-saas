@@ -6,7 +6,7 @@
  */
 import http from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { assertPublicUrl, safeFetch, pinnedLookup, type LookupFn } from '@/lib/safe-fetch';
+import { assertPublicUrl, isBlockedIP, parseIPv6, safeFetch, pinnedLookup, type LookupFn } from '@/lib/safe-fetch';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -25,6 +25,63 @@ describe('assertPublicUrl', () => {
     const res = await assertPublicUrl('https://example.com', ['http:', 'https:'], lookup);
     expect(res.ips).toEqual(['93.184.216.34']);
     expect(res.hostname).toBe('example.com');
+  });
+});
+
+describe('IPv6 SSRF bypasses', () => {
+  const noLookup: LookupFn = async () => {
+    throw new Error('literal IPs must not hit DNS');
+  };
+
+  it.each([
+    'http://[::ffff:127.0.0.1]/',
+    'http://[::ffff:7f00:1]/',
+    'http://[::ffff:169.254.169.254]/latest/meta-data/',
+    'http://[::ffff:a9fe:a9fe]/',
+    'http://[::ffff:0:127.0.0.1]/',
+    'http://[64:ff9b::7f00:1]/',
+    'http://[64:ff9b::169.254.169.254]/',
+    'http://[2002:7f00:1::]/',
+    'http://[2002:a9fe:a9fe::1]/',
+    'http://[::127.0.0.1]/',
+    'http://[::7f00:1]/',
+    'http://[fec0::1]/',
+    'http://[::1]/',
+    'http://[::]/',
+    'http://[fd00::1]/',
+    'http://[fe80::1]/',
+    'http://[ff02::1]/',
+    'http://[0:0:0:0:0:ffff:7f00:1]/',
+  ])('blocks %s', async (url) => {
+    await expect(assertPublicUrl(url, ['http:', 'https:'], noLookup))
+      .rejects.toMatchObject({ code: 'HOST_BLOCKED' });
+  });
+
+  it.each([
+    'https://[2606:4700::1111]/',
+    'https://8.8.8.8/',
+    'https://[2001:4860:4860::8888]/',
+    'https://[::ffff:8.8.8.8]/',
+    'https://[2002:808:808::1]/',
+    'https://[64:ff9b::808:808]/',
+  ])('allows public %s', async (url) => {
+    const res = await assertPublicUrl(url, ['http:', 'https:'], noLookup);
+    expect(res.ips).toHaveLength(1);
+  });
+
+  it('rejects DNS answers that are IPv4-mapped private addresses', async () => {
+    const lookup: LookupFn = async () => ['::ffff:7f00:1'];
+    await expect(assertPublicUrl('http://rebind.example', ['http:', 'https:'], lookup))
+      .rejects.toMatchObject({ code: 'IP_BLOCKED' });
+    expect(isBlockedIP('64:ff9b::a00:1')).toBe(true);
+    expect(isBlockedIP('2606:4700::1111')).toBe(false);
+  });
+
+  it('expands compressed and dotted forms', () => {
+    expect(parseIPv6('::ffff:127.0.0.1')).toEqual([0, 0, 0, 0, 0, 0xffff, 0x7f00, 1]);
+    expect(parseIPv6('2002:7f00:1::')).toEqual([0x2002, 0x7f00, 1, 0, 0, 0, 0, 0]);
+    expect(parseIPv6('1::2::3')).toBeNull();
+    expect(parseIPv6('1:2:3:4:5:6:7:8:9')).toBeNull();
   });
 });
 

@@ -25,6 +25,7 @@
  */
 
 import { logger } from '@/lib/logger';
+import { safeFetch } from '@/lib/safe-fetch';
 
 // Present as a real Chrome "direct navigation" request. Many directories return
 // 403 (or a cloaked 404) to anything that doesn't look like a browser; a full,
@@ -544,12 +545,11 @@ export async function robotsAllows(url: string, ua = 'livesov'): Promise<boolean
   let entry = robotsCache.get(origin);
   if (!entry || Date.now() - entry.at > ROBOTS_TTL_MS) {
     let rules: RobotsRules = { allow: [], disallow: [] };
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), ROBOTS_TIMEOUT_MS);
     try {
-      const res = await fetch(`${origin}/robots.txt`, {
+      const res = await safeFetch(`${origin}/robots.txt`, {
         headers: { 'User-Agent': BROWSER_HEADERS['User-Agent'] },
-        signal: controller.signal,
+        timeoutMs: ROBOTS_TIMEOUT_MS,
+        maxBytes: 512 * 1024,
       });
       // 4xx (including 404) means no restrictions published. A 5xx arguably
       // means "unknown", but treating a flaky server as a blanket disallow
@@ -558,8 +558,6 @@ export async function robotsAllows(url: string, ua = 'livesov'): Promise<boolean
       if (res.ok) rules = parseRobots(await res.text(), ua);
     } catch (e) {
       logger.warn('page_render.robots_fetch_failed', { origin, err: (e as Error).message });
-    } finally {
-      clearTimeout(timer);
     }
     entry = { rules, at: Date.now() };
     robotsCache.set(origin, entry);
