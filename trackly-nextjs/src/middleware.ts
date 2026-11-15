@@ -30,6 +30,12 @@ const CSRF_EXEMPT_PREFIXES = [
   // single-use code server-to-server (no cookies, no Origin header), so the
   // same-origin check would 403 every legitimate exchange.
   '/api/connect/connector/exchange',
+  // Connector plugin runtime API (instruction pull, ack, update-check): the
+  // WordPress plugin calls these server-to-server with its per-brand
+  // connector token in the Authorization header and sends no Origin header.
+  // None of these routes read cookies, so there is no session to ride; the
+  // same-origin check would 403 every ack and leave instructions re-served.
+  '/api/connector/',
   // MCP server: authenticates only with a personal API key in the
   // Authorization header and never reads cookies, so there is no session
   // for a cross-site request to ride. AI clients send no Origin header.

@@ -16,9 +16,12 @@ class Lvx_Patch {
     /**
      * @param object $post  WP_Post (needs ->ID and ->post_content)
      * @param array  $patch Livesov ContentPatch
+     * @param string $fix_id Instruction/fix id. When given, an appended block
+     *                       is marked with it and a re-delivery of the same
+     *                       fix replaces that block instead of adding another.
      * @return array{err:string,state:array,appended:array,native:bool,builder:Lvx_Builder}
      */
-    public static function build($post, $patch) {
+    public static function build($post, $patch, $fix_id = '') {
         $builder  = Lvx_Builders::for_post($post);
         $state    = $builder->read($post);
         $appended = array();
@@ -51,7 +54,14 @@ class Lvx_Patch {
 
         if (isset($patch['bodyAppend'])) {
             $html = (string) $patch['bodyAppend'];
-            $r = $builder->append($state, $html);
+            $id = Lvx_Marker::clean_id($fix_id);
+            $already = false;
+            if ($id !== '') {
+                $html = Lvx_Marker::wrap($id, $html);
+                $m = $builder->replace_marked($state, $id, $html);
+                if ($m['found']) { $state = $m['state']; $already = true; }
+            }
+            $r = $already ? array('ok' => true, 'state' => $state, 'error' => '') : $builder->append($state, $html);
             if ($r['ok']) {
                 $state = $r['state'];
             } elseif ($builder->renders_the_content()) {

@@ -112,3 +112,55 @@ $post = lvx_test_post(110, '', array('_fl_builder_enabled' => 1, '_fl_builder_da
 $r = Lvx_Patch::build($post, array('bodyAppend' => '<h2>FAQ</h2>'));
 T::same('', $r['err'], 'Beaver append still falls back cleanly');
 T::same(array('<h2>FAQ</h2>'), $r['appended'], 'Beaver block queued for the content filter');
+
+/* ── re-delivering the same publish never stacks a second appended block ── */
+
+// Each delivery rebuilds the page from the patch, so the second build must
+// recognise the block the first one wrote (by its fix-id marker) and replace
+// it in place.
+function lvx_test_redeliver($id, $content, $meta, $patch, $fix) {
+    $post = lvx_test_post($id, $content, $meta);
+    $first = Lvx_Patch::build($post, $patch, $fix);
+    $post->post_content = $first['state']['post_content'] === null ? '' : $first['state']['post_content'];
+    $GLOBALS['lvx_test_meta'][$id] = array_merge($meta, $first['state']['meta']);
+    $second = Lvx_Patch::build($post, $patch, $fix);
+    return array($first, $second);
+}
+
+$fix = 'f1a2b3c4-0000-4000-8000-000000000001';
+
+list($a, $b) = lvx_test_redeliver(120, '<p>Intro</p>', array(), array('bodyAppend' => '<h2>FAQ</h2>'), $fix);
+T::contains($a['state']['post_content'], '<!-- lvx-append:' . $fix . ' -->', 'classic append is marked with the fix id');
+T::same($a['state']['post_content'], $b['state']['post_content'], 'classic re-delivery leaves the page unchanged');
+T::same(1, substr_count($b['state']['post_content'], '<h2>FAQ</h2>'), 'classic page holds one copy of the block');
+
+list($a, $b) = lvx_test_redeliver(121, "<!-- wp:paragraph -->\n<p>hi</p>\n<!-- /wp:paragraph -->", array(),
+    array('bodyAppend' => '<h2>FAQ</h2>'), $fix);
+T::same(1, substr_count($b['state']['post_content'], '<h2>FAQ</h2>'), 'Gutenberg re-delivery keeps one block');
+T::same(1, substr_count($b['state']['post_content'], '<!-- wp:html -->'), 'Gutenberg re-delivery adds no wrapper');
+
+list($a, $b) = lvx_test_redeliver(122, 'x', array('_et_pb_use_builder' => 'on'), array('bodyAppend' => '<h2>FAQ</h2>'), $fix);
+T::same(1, substr_count($b['state']['post_content'], '[et_pb_section'), 'Divi re-delivery keeps one section');
+
+$tree = array(array('id' => 's1', 'elType' => 'section', 'elements' => array()));
+list($a, $b) = lvx_test_redeliver(123, '', array('_elementor_edit_mode' => 'builder', '_elementor_data' => json_encode($tree)),
+    array('bodyAppend' => '<h2>FAQ</h2>'), $fix);
+T::same(2, count(json_decode($b['state']['meta']['_elementor_data'], true)), 'Elementor re-delivery keeps one appended section');
+
+list($a, $b) = lvx_test_redeliver(124, '', array('_bricks_page_content_2' => array(
+    array('id' => 'e1', 'name' => 'heading', 'parent' => 0, 'children' => array(), 'settings' => array('text' => 'hi')))),
+    array('bodyAppend' => '<h2>FAQ</h2>'), $fix);
+T::same(2, count($b['state']['meta']['_bricks_page_content_2']), 'Bricks re-delivery keeps one appended element');
+
+// An updated block for the same fix replaces the old one rather than joining it.
+$post = lvx_test_post(125, '<p>Intro</p>');
+$a = Lvx_Patch::build($post, array('bodyAppend' => '<h2>Old FAQ</h2>'), $fix);
+$post->post_content = $a['state']['post_content'];
+$b = Lvx_Patch::build($post, array('bodyAppend' => '<h2>New FAQ</h2>'), $fix);
+T::ok(strpos($b['state']['post_content'], 'Old FAQ') === false, 'changed block replaces the earlier one');
+T::contains($b['state']['post_content'], '<h2>New FAQ</h2>', 'changed block is present');
+
+// A different fix still appends its own block.
+$c = Lvx_Patch::build($post, array('bodyAppend' => '<h2>Other</h2>'), 'other-fix');
+T::contains($c['state']['post_content'], '<h2>Old FAQ</h2>', 'other fix keeps the first block');
+T::contains($c['state']['post_content'], '<h2>Other</h2>', 'other fix appends its own block');
