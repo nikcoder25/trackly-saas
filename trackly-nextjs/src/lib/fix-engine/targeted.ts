@@ -22,6 +22,7 @@ import { getModule } from './registry';
 import { safeFetch } from '@/lib/safe-fetch';
 import { crawlPage, resolveCrawlTargets, type CrawledPage } from './crawl';
 import type { FixSeverity } from './types';
+import { isSameSite } from './same-site';
 
 /** Modules the free-text assistant can route a request to. */
 export type TargetedModuleKey =
@@ -206,6 +207,14 @@ export async function createTargetedFix(args: CreateTargetedArgs): Promise<Creat
   if (!getModule(moduleKey)) throw new Error(`Unknown fix type: ${moduleKey}`);
   // Anchor paths to the brand's site before anything stores or crawls them.
   url = resolveTargetUrl(url, args.website);
+  // A targeted fix may only point at the brand's own site (any subpath,
+  // www-insensitive). Anything else would crawl, and later ship CMS writes
+  // for, a host the user does not own.
+  if (url && !isSameSite(args.website, url)) {
+    throw new Error(args.website
+      ? `That page isn’t on your site (${args.website}). Give a URL on your own website.`
+      : 'Add your website to the brand first, then give a page URL on it.');
+  }
   if (!url && !info.siteLevel) throw new Error('Which page is this about? Add the page URL.');
   if (moduleKey === 'passage-rewrite' && passage.length < 12) {
     throw new Error('Paste the exact paragraph you want rewritten (at least a sentence).');

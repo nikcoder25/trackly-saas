@@ -45,7 +45,13 @@ export async function resolveCmsForBrand(
       },
     };
   }
-  return { adapter, creds: conn.creds as CmsCreds, siteUrl: conn.siteUrl || ctx.brand.website || '' };
+  // creds.site is ONLY the stored connection site_url (never the brand website
+  // or a target URL): adapters that build an authenticated API base from it
+  // (WordPress) must not be steerable to another host.
+  const creds: CmsCreds = { ...(conn.creds as CmsCreds) };
+  if (conn.siteUrl) creds.site = conn.siteUrl;
+  else delete creds.site;
+  return { adapter, creds, siteUrl: conn.siteUrl || ctx.brand.website || '' };
 }
 
 /**

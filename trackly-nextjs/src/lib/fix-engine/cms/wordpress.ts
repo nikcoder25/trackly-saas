@@ -9,7 +9,10 @@
  *
  * Credential shape (stored encrypted in fix_connections.encrypted_creds):
  *   { username: string, appPassword: string }
- * plus fix_connections.site_url = the WP site origin.
+ * plus fix_connections.site_url = the WP site origin, which resolveCmsForBrand
+ * passes in as creds.site. The REST base is ALWAYS built from that stored
+ * origin, never from a target URL: the Basic auth header carries the app
+ * password, so a target on another host must never pick the API host.
  *
  * SEO title/meta live in plugin fields (Yoast / Rank Math). WordPress
  * core has no first-class SEO title or meta-description, so those writes
@@ -22,6 +25,7 @@
  */
 
 import { safeFetch } from '@/lib/safe-fetch';
+import { isSameSite } from '../same-site';
 import type { CmsAdapter, CmsCreds, CmsTarget, CmsWriteResult } from './types';
 import { CmsAuthError } from './types';
 
@@ -43,9 +47,36 @@ function readCreds(raw: CmsCreds): WpCreds {
   return { username: c.username, appPassword: c.appPassword };
 }
 
+function toUrl(raw: string): URL {
+  return new URL(raw.startsWith('http') ? raw : `https://${raw}`);
+}
+
 function apiBase(siteUrl: string): string {
-  const origin = new URL(siteUrl.startsWith('http') ? siteUrl : `https://${siteUrl}`).origin;
-  return `${origin}/wp-json/wp/v2`;
+  return `${toUrl(siteUrl).origin}/wp-json/wp/v2`;
+}
+
+type SiteResolution = { base: string } | { error: CmsWriteResult & { found?: boolean } };
+
+/**
+ * Build the REST base from the connection's stored site URL and refuse any
+ * target that is not on that site, so the app password is only ever sent to
+ * the WordPress install the user actually connected.
+ */
+function resolveSite(rawCreds: CmsCreds, targetUrl?: string): SiteResolution {
+  const site = (rawCreds as { site?: unknown }).site;
+  if (typeof site !== 'string' || !site.trim()) {
+    return { error: { ok: false, found: false, detail: { reason: 'missing_site_url' }, error: 'WordPress connection has no site URL. Reconnect WordPress.' } };
+  }
+  let base: string;
+  try {
+    base = apiBase(site.trim());
+  } catch {
+    return { error: { ok: false, found: false, detail: { reason: 'invalid_site_url' }, error: 'WordPress connection has an invalid site URL. Reconnect WordPress.' } };
+  }
+  if (targetUrl !== undefined && !isSameSite(site.trim(), targetUrl)) {
+    return { error: { ok: false, found: false, detail: { reason: 'target_off_site' }, error: 'Target URL is not on the connected WordPress site.' } };
+  }
+  return { base };
 }
 
 function slugFromUrl(url: string): string {
@@ -177,7 +208,9 @@ export const wordpressAdapter: CmsAdapter = {
 
   async updateTitle(rawCreds, target, title) {
     const creds = readCreds(rawCreds);
-    const base = apiBase(target.url);
+    const site = resolveSite(rawCreds, target.url);
+    if ('error' in site) return site.error;
+    const { base } = site;
     const r = await resolveResource(base, creds, target.url);
     if (!r) return { ok: false, detail: { reason: 'page_not_found_in_wp' } };
     // The SEO <title> is plugin-driven (Yoast / Rank Math), so write those
@@ -200,7 +233,9 @@ export const wordpressAdapter: CmsAdapter = {
 
   async updateMetaDescription(rawCreds, target, description) {
     const creds = readCreds(rawCreds);
-    const base = apiBase(target.url);
+    const site = resolveSite(rawCreds, target.url);
+    if ('error' in site) return site.error;
+    const { base } = site;
     const r = await resolveResource(base, creds, target.url);
     if (!r) return { ok: false, detail: { reason: 'page_not_found_in_wp' } };
     const res = await patchResource(base, creds, r.kind, r.id, {
@@ -225,7 +260,9 @@ export const wordpressAdapter: CmsAdapter = {
 
   async updateBody(rawCreds, target, html, mode) {
     const creds = readCreds(rawCreds);
-    const base = apiBase(target.url);
+    const site = resolveSite(rawCreds, target.url);
+    if ('error' in site) return site.error;
+    const { base } = site;
     const r = await resolveResource(base, creds, target.url);
     if (!r) return { ok: false, detail: { reason: 'page_not_found_in_wp' } };
     if (mode === 'append') {
@@ -257,9 +294,9 @@ export const wordpressAdapter: CmsAdapter = {
     const creds = readCreds(rawCreds);
     // createPage takes a slug, not a full URL, so the site origin is passed
     // through on creds.site by the engine (resolveCmsForBrand supplies it).
-    const site = (rawCreds as { site?: string }).site;
-    if (!site) return { ok: false, detail: { reason: 'missing_site_for_create' } };
-    const base = apiBase(site);
+    const site = resolveSite(rawCreds);
+    if ('error' in site) return { ok: false, detail: { reason: 'missing_site_for_create' }, error: site.error.error };
+    const { base } = site;
     const res = await safeFetch(`${base}/pages`, {
       method: 'POST',
       headers: { Authorization: authHeader(creds), 'Content-Type': 'application/json' },
@@ -286,7 +323,9 @@ export const wordpressAdapter: CmsAdapter = {
 
   async updateCanonical(rawCreds, target, canonical) {
     const creds = readCreds(rawCreds);
-    const base = apiBase(target.url);
+    const site = resolveSite(rawCreds, target.url);
+    if ('error' in site) return site.error;
+    const { base } = site;
     const r = await resolveResource(base, creds, target.url);
     if (!r) return { ok: false, detail: { reason: 'page_not_found_in_wp' } };
     // Canonical is plugin-managed; write both Yoast and Rank Math keys.
@@ -305,7 +344,9 @@ export const wordpressAdapter: CmsAdapter = {
 
   async setIndexable(rawCreds, target) {
     const creds = readCreds(rawCreds);
-    const base = apiBase(target.url);
+    const site = resolveSite(rawCreds, target.url);
+    if ('error' in site) return site.error;
+    const { base } = site;
     const r = await resolveResource(base, creds, target.url);
     if (!r) return { ok: false, detail: { reason: 'page_not_found_in_wp' } };
     // Clear the SEO plugins' per-post noindex. Yoast: '2' = noindex, set
@@ -326,7 +367,9 @@ export const wordpressAdapter: CmsAdapter = {
 
   async replaceInBody(rawCreds, target, find, replace) {
     const creds = readCreds(rawCreds);
-    const base = apiBase(target.url);
+    const site = resolveSite(rawCreds, target.url);
+    if ('error' in site) return site.error;
+    const { base } = site;
     const r = await resolveResource(base, creds, target.url);
     if (!r) return { ok: false, found: false, detail: { reason: 'page_not_found_in_wp' } };
     // Read the raw post body, do an exact in-place replacement, write back.
@@ -345,7 +388,8 @@ export const wordpressAdapter: CmsAdapter = {
       // Passage isn't in the stored body (likely theme-rendered).
       return { ok: false, found: false, detail: { reason: 'passage_not_found_in_body' } };
     }
-    const updated = body.replace(find, replace); // first occurrence only
+    // Function replacement: a string replacement would expand $&, $', $` and $$.
+    const updated = body.replace(find, () => replace); // first occurrence only
     const res = await patchResource(base, creds, r.kind, r.id, { content: updated });
     return { ...res, found: true };
   },

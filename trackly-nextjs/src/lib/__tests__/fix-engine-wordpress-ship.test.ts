@@ -20,7 +20,7 @@ function res(status: number, body: unknown) {
   return { status, ok: status >= 200 && status < 300, json: async () => body, text: async () => JSON.stringify(body) } as unknown as Response;
 }
 
-const creds = { username: 'admin', appPassword: 'app pass word' };
+const creds = { username: 'admin', appPassword: 'app pass word', site: 'https://acme.test' };
 const target = { url: 'https://acme.test/ipamorelin-dosage-chart' };
 
 // resolveResource() looks up pages first — resolve to page id 7.
@@ -139,5 +139,62 @@ describe('WordPress body append read guard', () => {
     const r = await wordpressAdapter.replaceInBody(creds, target, 'find', 'replace');
     expect(r.ok).toBe(false);
     expect(r.detail).toMatchObject({ reason: 'body_read_failed', status: 502 });
+  });
+});
+
+describe('WordPress API host is pinned to the stored connection site', () => {
+  const ops = [
+    ['updateTitle', (t: { url: string }) => wordpressAdapter.updateTitle(creds, t, 'T')],
+    ['updateMetaDescription', (t: { url: string }) => wordpressAdapter.updateMetaDescription(creds, t, 'D')],
+    ['updateBody', (t: { url: string }) => wordpressAdapter.updateBody(creds, t, '<p>x</p>', 'append')],
+    ['injectSchema', (t: { url: string }) => wordpressAdapter.injectSchema(creds, t, '{}')],
+    ['updateCanonical', (t: { url: string }) => wordpressAdapter.updateCanonical(creds, t, 'https://acme.test/c')],
+    ['setIndexable', (t: { url: string }) => wordpressAdapter.setIndexable(creds, t)],
+    ['replaceInBody', (t: { url: string }) => wordpressAdapter.replaceInBody(creds, t, 'a', 'b')],
+  ] as const;
+
+  it.each(ops)('%s refuses an off-site target without sending credentials', async (_name, run) => {
+    const r = await run({ url: 'https://attacker.tld/some-page' });
+    expect(r.ok).toBe(false);
+    expect(r.detail).toMatchObject({ reason: 'target_off_site' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('builds the REST base from creds.site, not the target URL (www-insensitive)', async () => {
+    mockResolveToPage();
+    fetchMock.mockResolvedValueOnce(res(200, { id: 7, meta: { rank_math_title: 'T' } }));
+    const r = await wordpressAdapter.updateTitle(creds, { url: 'https://www.acme.test/blog/post' }, 'T');
+    expect(r.ok).toBe(true);
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(0);
+    for (const [u] of fetchMock.mock.calls) {
+      expect(String(u).startsWith('https://acme.test/wp-json/wp/v2/')).toBe(true);
+    }
+  });
+
+  it('refuses to run without a stored site URL', async () => {
+    const r = await wordpressAdapter.updateTitle({ username: 'a', appPassword: 'b' }, target, 'T');
+    expect(r.ok).toBe(false);
+    expect(r.detail).toMatchObject({ reason: 'missing_site_url' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('createPage targets creds.site', async () => {
+    fetchMock.mockResolvedValueOnce(res(201, { id: 9, link: 'https://acme.test/new' }));
+    const r = await wordpressAdapter.createPage(creds, { title: 't', slug: 'new', html: '<p/>' });
+    expect(r.ok).toBe(true);
+    expect(String(fetchMock.mock.calls[0][0])).toBe('https://acme.test/wp-json/wp/v2/pages');
+  });
+});
+
+describe('WordPress replaceInBody literal replacement', () => {
+  it('does not expand $ patterns in the replacement text', async () => {
+    mockResolveToPage();
+    fetchMock.mockResolvedValueOnce(res(200, { id: 7, content: { raw: '<p>old price</p>' } }));
+    fetchMock.mockResolvedValueOnce(res(200, { id: 7 }));
+    const replacement = "costs $& and $' and $` and $$5";
+    const r = await wordpressAdapter.replaceInBody(creds, target, 'old price', replacement);
+    expect(r.ok).toBe(true);
+    const written = JSON.parse(fetchMock.mock.calls[2][1].body as string).content;
+    expect(written).toBe(`<p>${replacement}</p>`);
   });
 });

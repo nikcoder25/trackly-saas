@@ -314,9 +314,9 @@ export async function safeFetch(
   options: SafeFetchOptions = {},
 ): Promise<Response> {
   const {
-    method = 'GET',
-    headers,
-    body,
+    method: initialMethod = 'GET',
+    headers: initialHeaders,
+    body: initialBody,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     maxRedirects = DEFAULT_MAX_REDIRECTS,
     maxBytes = DEFAULT_MAX_BYTES,
@@ -325,6 +325,11 @@ export async function safeFetch(
   } = options;
 
   let currentUrl = typeof input === 'string' ? input : input.toString();
+  // Per-hop request state: a redirect may rewrite the method, drop the body
+  // or strip credentials before the next hop.
+  let method = initialMethod;
+  let headers: HeadersInit | undefined = initialHeaders;
+  let body: BodyInit | null | undefined = initialBody;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -355,7 +360,12 @@ export async function safeFetch(
         if (hop >= maxRedirects) {
           throw new SSRFError('Too many redirects', 'TOO_MANY_REDIRECTS');
         }
-        currentUrl = new URL(location, currentUrl).toString();
+        const nextUrl = new URL(location, currentUrl);
+        const next = redirectRequest(new URL(currentUrl), nextUrl, response.status, { method, headers, body });
+        method = next.method;
+        headers = next.headers;
+        body = next.body;
+        currentUrl = nextUrl.toString();
         continue;
       }
       const cl = response.headers.get('content-length');
@@ -368,6 +378,42 @@ export async function safeFetch(
   } finally {
     clearTimeout(timer);
   }
+}
+
+const CREDENTIAL_HEADERS = ['authorization', 'cookie', 'proxy-authorization'];
+const BODY_HEADERS = ['content-type', 'content-length', 'content-encoding', 'content-language', 'content-location'];
+
+interface HopRequest {
+  method: string;
+  headers: HeadersInit | undefined;
+  body: BodyInit | null | undefined;
+}
+
+/**
+ * Request state for the hop after a redirect, following the fetch spec's
+ * HTTP-redirect fetch: credentials are not forwarded to a different origin
+ * or over an https to http downgrade, and 303 (any method but GET/HEAD) or
+ * 301/302 after a POST become a bodiless GET. Exported for tests.
+ */
+export function redirectRequest(from: URL, to: URL, status: number, req: HopRequest): HopRequest {
+  let { method, headers, body } = req;
+  const crossOrigin = from.origin !== to.origin;
+  const downgrade = from.protocol === 'https:' && to.protocol === 'http:';
+  const upper = method.toUpperCase();
+  const toGet = (status === 303 && upper !== 'GET' && upper !== 'HEAD')
+    || ((status === 301 || status === 302) && upper === 'POST');
+
+  if (crossOrigin || downgrade || toGet) {
+    const h = new Headers(headers);
+    if (crossOrigin || downgrade) for (const name of CREDENTIAL_HEADERS) h.delete(name);
+    if (toGet) {
+      method = 'GET';
+      body = null;
+      for (const name of BODY_HEADERS) h.delete(name);
+    }
+    headers = h;
+  }
+  return { method, headers, body };
 }
 
 function cappedResponse(response: Response, maxBytes: number): Response {
