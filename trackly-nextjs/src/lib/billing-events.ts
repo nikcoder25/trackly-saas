@@ -25,12 +25,17 @@
  *     the same SERIALIZABLE transaction that mutates users.plan; that's
  *     the only way to keep "plan changed" and "billing event recorded"
  *     atomic. Cancel-route + post-commit callers pass the global pool.
- *   - Never throws: a billing-event write must NEVER roll back the user-
- *     facing operation that triggered it. Errors are logged + swallowed.
- *     For tx-mode callers, swallowing means the OUTER transaction COMMITs
- *     without a billing row - acceptable because audit_logs still
- *     captures the underlying event for ops, and a follow-up backfill
- *     (P4) can recover.
+ *   - A failed billing-event INSERT must NEVER roll back the user-facing
+ *     operation that triggered it. In pool mode errors are logged and
+ *     swallowed. In tx mode (a client is passed) the INSERT runs inside a
+ *     SAVEPOINT: on failure we ROLLBACK TO SAVEPOINT so the outer
+ *     transaction stays usable and COMMITs the plan change without the
+ *     billing row. Without the savepoint a swallowed error would leave
+ *     the outer transaction aborted, so its COMMIT silently became a
+ *     ROLLBACK and the plan change was lost while the webhook returned
+ *     200. Serialization failures (40001 / 40P01) and savepoint errors
+ *     are rethrown so the caller retries or rolls back the whole tx.
+ *     Callers passing `client` MUST be inside a transaction block.
  */
 import crypto from 'crypto';
 import type { PoolClient } from 'pg';
@@ -48,7 +53,10 @@ export type BillingEventType =
   | 'superseded_sub_cancelled';
 
 export interface RecordBillingEventInput {
-  /** When provided, the INSERT runs on this client (joins the caller's transaction). */
+  /**
+   * When provided, the INSERT runs on this client inside a SAVEPOINT
+   * (joins the caller's transaction, which must already be open).
+   */
   client?: { query: PoolClient['query'] };
   userId: string;
   eventType: BillingEventType;
@@ -66,46 +74,80 @@ export interface RecordBillingEventInput {
   details?: Record<string, unknown>;
 }
 
-/**
- * Insert a billing-events row. Returns the inserted id, or null when the
- * insert was a duplicate (ON CONFLICT (dodo_event_id) DO NOTHING) or the
- * write failed. Never throws.
- */
-export async function recordBillingEvent(
-  input: RecordBillingEventInput,
-): Promise<string | null> {
-  const id = crypto.randomUUID();
-  const exec = input.client ?? pool;
-  try {
-    const result = await exec.query<{ id: string }>(
-      `INSERT INTO billing_events
+const BILLING_EVENT_SAVEPOINT = 'billing_event_insert';
+const RETRYABLE_TX_PG_CODES = new Set(['40001', '40P01']);
+
+const INSERT_SQL = `INSERT INTO billing_events
          (id, user_id, event_type, from_plan, to_plan, subscription_id,
           dodo_event_id, source, details)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (dodo_event_id)
          WHERE dodo_event_id IS NOT NULL
          DO NOTHING
-       RETURNING id`,
-      [
-        id,
-        input.userId,
-        input.eventType,
-        input.fromPlan ?? null,
-        input.toPlan ?? null,
-        input.subscriptionId ?? null,
-        input.dodoEventId ?? null,
-        input.source,
-        JSON.stringify(input.details ?? {}),
-      ],
-    );
+       RETURNING id`;
+
+function logRecordFailure(input: RecordBillingEventInput, e: unknown): void {
+  logger.error('billing_events.record_failed', {
+    userId: input.userId,
+    eventType: input.eventType,
+    source: input.source,
+    error: (e as Error)?.message,
+  });
+}
+
+/**
+ * Insert a billing-events row. Returns the inserted id, or null when the
+ * insert was a duplicate (ON CONFLICT (dodo_event_id) DO NOTHING) or the
+ * write failed. In pool mode it never throws. In tx mode it only throws
+ * when the outer transaction itself must be retried or abandoned
+ * (serialization failure, deadlock, or the savepoint cannot be managed).
+ */
+export async function recordBillingEvent(
+  input: RecordBillingEventInput,
+): Promise<string | null> {
+  const id = crypto.randomUUID();
+  const params = [
+    id,
+    input.userId,
+    input.eventType,
+    input.fromPlan ?? null,
+    input.toPlan ?? null,
+    input.subscriptionId ?? null,
+    input.dodoEventId ?? null,
+    input.source,
+    JSON.stringify(input.details ?? {}),
+  ];
+
+  const client = input.client;
+  if (!client) {
+    try {
+      const result = await pool.query<{ id: string }>(INSERT_SQL, params);
+      return result.rows[0]?.id ?? null;
+    } catch (e) {
+      logRecordFailure(input, e);
+      return null;
+    }
+  }
+
+  // Tx mode. If SAVEPOINT itself fails the outer tx is already broken;
+  // let that propagate so the caller rolls back instead of "committing".
+  await client.query(`SAVEPOINT ${BILLING_EVENT_SAVEPOINT}`);
+  try {
+    const result = await client.query<{ id: string }>(INSERT_SQL, params);
+    await client.query(`RELEASE SAVEPOINT ${BILLING_EVENT_SAVEPOINT}`);
     return result.rows[0]?.id ?? null;
   } catch (e) {
-    logger.error('billing_events.record_failed', {
-      userId: input.userId,
-      eventType: input.eventType,
-      source: input.source,
-      error: (e as Error).message,
-    });
+    const code = (e as { code?: string })?.code;
+    if (code && RETRYABLE_TX_PG_CODES.has(code)) {
+      // The whole transaction must be retried; rolling back to the
+      // savepoint would not make the eventual COMMIT safe.
+      throw e;
+    }
+    logRecordFailure(input, e);
+    // Undo only the failed INSERT so the outer tx can still COMMIT. Any
+    // error here propagates: the caller must not believe it committed.
+    await client.query(`ROLLBACK TO SAVEPOINT ${BILLING_EVENT_SAVEPOINT}`);
+    await client.query(`RELEASE SAVEPOINT ${BILLING_EVENT_SAVEPOINT}`);
     return null;
   }
 }
