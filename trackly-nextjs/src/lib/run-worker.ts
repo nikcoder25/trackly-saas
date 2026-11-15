@@ -27,6 +27,7 @@ import { resolveKeysForTenant, recordTenantKeyResult } from './tenant-keys';
 import type { BrandRunJobData } from './job-queue';
 import { applyChatGPTCohortOverride, resolveModelForPlan } from './plan-config';
 import { geminiGroundingWithinBudget } from './gemini-grounding-budget';
+import { billingTenantId, recordCacheHitCredit } from './run-billing';
 import { getEffectivePlan } from './constants';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
@@ -51,6 +52,7 @@ async function processRun(job: Job<BrandRunJobData>) {
     logger.error('worker.run_not_found', { run_id: runId });
     return;
   }
+  // active_runs.user_id is the caller who triggered the run (audit only).
   const userId: string = runRow.rows[0].user_id;
   const totalExpected: number = runRow.rows[0].total_expected || 0;
   const activePlatforms: string[] = Array.isArray(runRow.rows[0].platforms) ? runRow.rows[0].platforms : [];
@@ -68,6 +70,9 @@ async function processRun(job: Job<BrandRunJobData>) {
     ? JSON.parse(brandRow.rows[0].data)
     : (brandRow.rows[0].data || {});
   const brand = { id: brandId, userId: brandRow.rows[0].user_id, ...brandData };
+  // Credits are reserved against the brand owner, so ledger rows, the cost
+  // cap and the grounded-Gemini budget are charged to the owner too.
+  const ownerTenantId = billingTenantId(brand, userId);
 
   const serverKeys = getServerKeys();
 
@@ -95,7 +100,7 @@ async function processRun(job: Job<BrandRunJobData>) {
   // Per-tenant fairness settings (issue #410). Loaded once per run
   // and pinned to the brand owner so team-member triggered runs
   // count against the owner's share.
-  const fairnessTenantId = brand.userId || userId;
+  const fairnessTenantId = ownerTenantId;
   const fairnessSettings = await loadTenantFairnessSettings(fairnessTenantId);
   setTenantFairness(fairnessTenantId, fairnessSettings);
 
@@ -272,7 +277,7 @@ async function processRun(job: Job<BrandRunJobData>) {
         // and returns the original model unchanged - fail-open, never
         // block traffic on a quota-saver.
         // Grounded Gemini: plan-gated and capped per month (gemini-grounding-budget.ts).
-        const geminiGroundingOk = plat === 'Gemini' && await geminiGroundingWithinBudget(userId, ownerPlan);
+        const geminiGroundingOk = plat === 'Gemini' && await geminiGroundingWithinBudget(ownerTenantId, ownerPlan);
         const budgetResolved = await resolveSearchModelWithBudget({
           platform: plat,
           model: smartRoutedModel,
@@ -326,7 +331,7 @@ async function processRun(job: Job<BrandRunJobData>) {
                 {
                   queryId,
                   signal: taskController.signal,
-                  tenantId: userId,
+                  tenantId: ownerTenantId,
                   // Grounded Gemini is Pro-and-above (per-request fee).
                   geminiGrounding: geminiGroundingOk && searchEnabledForTask,
                   runId,
@@ -344,7 +349,14 @@ async function processRun(job: Job<BrandRunJobData>) {
           platFailCount[plat] = 0;
           // Skip key-success/health bookkeeping on cache hits - no provider
           // call was made, so the key wasn't exercised.
-          if (!cached.fromCache) {
+          if (cached.fromCache) {
+            // The reserved credit is still consumed; record it on the ledger
+            // so the credits sweeper does not refund it.
+            await recordCacheHitCredit({
+              tenantId: ownerTenantId, runId, platform: plat,
+              model: result?.model || modelForTask,
+            });
+          } else {
             if (resolved.source === 'server') resetApiKeyFailures(rawKey);
             if (resolved.source === 'tenant' && brand.userId) {
               recordTenantKeyResult(brand.userId, keyName, { ok: true })

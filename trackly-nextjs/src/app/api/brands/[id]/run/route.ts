@@ -33,6 +33,7 @@ import {
 } from '@/lib/credits';
 import { getPlanCredits, isLowBalance, resolveModelForPlan, applyChatGPTCohortOverride } from '@/lib/plan-config';
 import { geminiGroundingWithinBudget } from '@/lib/gemini-grounding-budget';
+import { billingTenantId, recordCacheHitCredit } from '@/lib/run-billing';
 import { sendLowCreditsEmail, sendAutoSkipEmail, sendMonthlyResetEmail } from '@/lib/email';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
@@ -815,11 +816,17 @@ async function executeRunBackgroundInner(
 ) {
   const startTime = Date.now();
   const matcher = buildBrandMatcher(brand);
+  // `userId` is the caller (kept for audit / triggered-by). Everything
+  // billing-related (ledger rows, cost cap, grounded-Gemini budget) is
+  // charged to the brand owner, who is the account the credits were
+  // reserved against.
+  const ownerTenantId = billingTenantId(brand, userId);
   // Child logger that auto-stamps tenantId / brandId / runId / requestId
   // onto every record. Downstream code uses `runLog.*` instead of the
   // bare `logger.*` so a single grep on runId reconstructs the run.
   const runLog = logger.child({
-    tenantId: userId,
+    tenantId: ownerTenantId,
+    triggeredBy: userId,
     brandId,
     runId,
     requestId,
@@ -842,7 +849,7 @@ async function executeRunBackgroundInner(
   // start so hot-path acquirePlatformSlot calls don't hit the DB.
   // The brand owner is the tenant - team-member runs count against
   // the owner's share.
-  const fairnessTenantId = brand.userId || userId;
+  const fairnessTenantId = ownerTenantId;
   const fairnessSettings = await loadTenantFairnessSettings(fairnessTenantId);
   setTenantFairness(fairnessTenantId, fairnessSettings);
 
@@ -1086,7 +1093,7 @@ async function executeRunBackgroundInner(
         // unavailable the helper returns `allowed=true` so quota
         // telemetry never blocks paid traffic.
         // Grounded Gemini: plan-gated and capped per month (gemini-grounding-budget.ts).
-        const geminiGroundingOk = plat === 'Gemini' && await geminiGroundingWithinBudget(userId, ownerPlan);
+        const geminiGroundingOk = plat === 'Gemini' && await geminiGroundingWithinBudget(ownerTenantId, ownerPlan);
         const budgetResolved = await resolveSearchModelWithBudget({
           platform: plat,
           model: smartRoutedModel,
@@ -1143,7 +1150,7 @@ async function executeRunBackgroundInner(
               {
                 signal,
                 queryId: `${runId}:${idx}`,
-                tenantId: userId,
+                tenantId: ownerTenantId,
                 brandId,
                 runId,
                 requestId,
@@ -1208,6 +1215,12 @@ async function executeRunBackgroundInner(
           hardTimeoutPromise,
         ]);
         platFailCount[plat] = 0;
+        if (cached.fromCache) {
+          await recordCacheHitCredit({
+            tenantId: ownerTenantId, runId, platform: plat,
+            model: cached.data?.model || effectiveModel,
+          });
+        }
         processResult(plat, q, cached.data, cached.fromCache);
       } catch (err) {
         const e = err as Error;
