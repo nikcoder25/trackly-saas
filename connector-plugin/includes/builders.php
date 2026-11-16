@@ -138,6 +138,57 @@ class Lvx_Tree {
     }
 }
 
+/**
+ * Marker comments around a block a fix appended to a page.
+ *
+ * A publish can be delivered more than once (a lost ack, a retry, a re-sent
+ * instruction), and each delivery rebuilds the page from the patch. Without a
+ * way to recognise its own earlier block, every delivery appended another
+ * copy. The block is therefore wrapped in comments naming the fix id, and a
+ * later delivery of the same fix swaps the marked region in place.
+ */
+class Lvx_Marker {
+
+    /** Fix ids are uuids; keep only characters that are safe in a comment and a regex. */
+    public static function clean_id($id) {
+        return preg_replace('/[^A-Za-z0-9_-]/', '', (string) $id);
+    }
+
+    public static function wrap($id, $html) {
+        return '<!-- lvx-append:' . $id . ' -->' . "\n" . $html . "\n" . '<!-- /lvx-append:' . $id . ' -->';
+    }
+
+    /**
+     * Replace the marked region for $id inside one string. The first copy is
+     * swapped for $block; any further copies are removed so a page that
+     * already collected duplicates converges back to one.
+     */
+    public static function replace_in($subject, $id, $block, &$found) {
+        $q = preg_quote($id, '/');
+        $re = '/<!-- lvx-append:' . $q . ' -->.*?<!-- \/lvx-append:' . $q . ' -->/s';
+        $seen = 0;
+        $out = preg_replace_callback($re, function () use ($block, &$seen) {
+            $seen++;
+            return $seen === 1 ? $block : '';
+        }, $subject);
+        if ($seen > 0 && is_string($out)) { $found = true; return $out; }
+        return $subject;
+    }
+
+    /** Walk a nested array/object tree applying replace_in() to every string leaf. */
+    public static function replace_deep($node, $id, $block, &$found) {
+        if (is_string($node)) { return self::replace_in($node, $id, $block, $found); }
+        if (is_array($node)) {
+            foreach ($node as $k => $v) { $node[$k] = self::replace_deep($v, $id, $block, $found); }
+            return $node;
+        }
+        if (is_object($node)) {
+            foreach (get_object_vars($node) as $k => $v) { $node->$k = self::replace_deep($v, $id, $block, $found); }
+        }
+        return $node;
+    }
+}
+
 /* ─────────────── Base adapter ─────────────── */
 
 abstract class Lvx_Builder {
@@ -156,6 +207,28 @@ abstract class Lvx_Builder {
     public function append($state, $html) {
         return array('ok' => false, 'state' => $state, 'native' => false,
             'error' => 'this builder has no safe native append');
+    }
+
+    /**
+     * Swap a block this fix appended on an earlier delivery for $block.
+     * Looks in post_content and in structured (array) meta; meta stored as an
+     * encoded string is left to adapters that know how to decode it.
+     *
+     * @return array{found:bool,state:array}
+     */
+    public function replace_marked($state, $id, $block) {
+        $found = false;
+        if (isset($state['post_content']) && is_string($state['post_content'])) {
+            $state['post_content'] = Lvx_Marker::replace_in($state['post_content'], $id, $block, $found);
+        }
+        if (isset($state['meta']) && is_array($state['meta'])) {
+            foreach ($state['meta'] as $k => $v) {
+                if (is_array($v) || is_object($v)) {
+                    $state['meta'][$k] = Lvx_Marker::replace_deep($v, $id, $block, $found);
+                }
+            }
+        }
+        return array('found' => $found, 'state' => $state);
     }
 
     /** Persist a state array to the database. */
@@ -429,6 +502,16 @@ class Lvx_Builder_Elementor extends Lvx_Builder {
         );
         $state['meta'][self::META] = wp_json_encode($tree);
         return array('ok' => true, 'state' => $state, 'native' => true, 'error' => '');
+    }
+
+    /** Elementor keeps the block inside its JSON tree, so decode before looking. */
+    public function replace_marked($state, $id, $block) {
+        $tree = $this->decode($state);
+        if (!is_array($tree)) { return array('found' => false, 'state' => $state); }
+        $found = false;
+        $tree = Lvx_Marker::replace_deep($tree, $id, $block, $found);
+        if ($found) { $state['meta'][self::META] = wp_json_encode($tree); }
+        return array('found' => $found, 'state' => $state);
     }
 
     /**

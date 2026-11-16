@@ -67,15 +67,92 @@ function isBlockedIPv4(ip: string): boolean {
   return false;
 }
 
+// Expand an IPv6 literal into its 8 16-bit hextets. Handles `::` compression,
+// an embedded trailing dotted quad (e.g. ::ffff:1.2.3.4) and a zone id
+// (fe80::1%eth0). Returns null when the input is not a well-formed address.
+export function parseIPv6(ip: string): number[] | null {
+  let h = ip.toLowerCase().replace(/^\[|\]$/g, '');
+  const zone = h.indexOf('%');
+  if (zone !== -1) h = h.slice(0, zone);
+  if (!h) return null;
+
+  // Embedded IPv4 in the last 32 bits.
+  let tail: number[] = [];
+  const lastColon = h.lastIndexOf(':');
+  if (lastColon !== -1 && h.slice(lastColon + 1).includes('.')) {
+    const v4 = h.slice(lastColon + 1);
+    const m = v4.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (!m) return null;
+    const o = m.slice(1).map(Number);
+    if (o.some((n) => n > 255)) return null;
+    tail = [(o[0] << 8) | o[1], (o[2] << 8) | o[3]];
+    h = h.slice(0, lastColon + 1);
+    // `::1.2.3.4` leaves `::`, `::ffff:1.2.3.4` leaves `::ffff:`; restore a
+    // parseable form by trimming the dangling single colon.
+    if (h.endsWith(':') && !h.endsWith('::')) h = h.slice(0, -1);
+  }
+
+  const parseGroups = (part: string): number[] | null => {
+    if (part === '') return [];
+    const groups = part.split(':');
+    const out: number[] = [];
+    for (const g of groups) {
+      if (!/^[0-9a-f]{1,4}$/.test(g)) return null;
+      out.push(parseInt(g, 16));
+    }
+    return out;
+  };
+
+  const want = 8 - tail.length;
+  const dbl = h.indexOf('::');
+  let groups: number[];
+  if (dbl !== -1) {
+    if (h.indexOf('::', dbl + 1) !== -1) return null;
+    const head = parseGroups(h.slice(0, dbl));
+    const rest = parseGroups(h.slice(dbl + 2));
+    if (!head || !rest) return null;
+    const fill = want - head.length - rest.length;
+    if (fill < 1) return null;
+    groups = [...head, ...new Array(fill).fill(0), ...rest];
+  } else {
+    const all = parseGroups(h);
+    if (!all || all.length !== want) return null;
+    groups = all;
+  }
+  return [...groups, ...tail];
+}
+
+function hextetsToIPv4(hi: number, lo: number): string {
+  return `${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`;
+}
+
 function isBlockedIPv6(ip: string): boolean {
-  const h = ip.toLowerCase();
-  if (h === '::' || h === '::1') return true;
-  // IPv4-mapped ::ffff:a.b.c.d must be checked against IPv4 rules.
-  const mapped = h.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped) return isBlockedIPv4(mapped[1]);
-  if (/^f[cd]/.test(h)) return true;       // fc00::/7 unique-local
-  if (/^fe[89ab]/.test(h)) return true;    // fe80::/10 link-local
-  if (h.startsWith('ff')) return true;     // ff00::/8 multicast
+  const g = parseIPv6(ip);
+  // Anything we cannot parse is treated as blocked (fail closed).
+  if (!g) return true;
+  const zeroUpTo = (n: number) => g.slice(0, n).every((x) => x === 0);
+
+  // :: (unspecified) and ::1 (loopback).
+  if (zeroUpTo(7) && (g[7] === 0 || g[7] === 1)) return true;
+  // IPv4-mapped ::ffff:0:0/96.
+  if (zeroUpTo(5) && g[5] === 0xffff) return isBlockedIPv4(hextetsToIPv4(g[6], g[7]));
+  // IPv4-translated ::ffff:0:0:0/96 (::ffff:0:a.b.c.d).
+  if (zeroUpTo(4) && g[4] === 0xffff && g[5] === 0) {
+    return isBlockedIPv4(hextetsToIPv4(g[6], g[7]));
+  }
+  // IPv4-compatible ::a.b.c.d (deprecated ::/96).
+  if (zeroUpTo(6)) return isBlockedIPv4(hextetsToIPv4(g[6], g[7]));
+  // NAT64 well-known prefix 64:ff9b::/96 and local-use 64:ff9b:1::/48.
+  if (g[0] === 0x64 && g[1] === 0xff9b) {
+    if (g.slice(2, 6).every((x) => x === 0)) return isBlockedIPv4(hextetsToIPv4(g[6], g[7]));
+    if (g[2] === 1) return true;
+  }
+  // 6to4 2002::/16 embeds the IPv4 in bits 16-48.
+  if (g[0] === 0x2002) return isBlockedIPv4(hextetsToIPv4(g[1], g[2]));
+  if ((g[0] & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
+  if ((g[0] & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
+  if ((g[0] & 0xffc0) === 0xfec0) return true; // fec0::/10 site-local (deprecated)
+  if ((g[0] & 0xff00) === 0xff00) return true; // ff00::/8 multicast
   return false;
 }
 
@@ -237,9 +314,9 @@ export async function safeFetch(
   options: SafeFetchOptions = {},
 ): Promise<Response> {
   const {
-    method = 'GET',
-    headers,
-    body,
+    method: initialMethod = 'GET',
+    headers: initialHeaders,
+    body: initialBody,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     maxRedirects = DEFAULT_MAX_REDIRECTS,
     maxBytes = DEFAULT_MAX_BYTES,
@@ -248,6 +325,11 @@ export async function safeFetch(
   } = options;
 
   let currentUrl = typeof input === 'string' ? input : input.toString();
+  // Per-hop request state: a redirect may rewrite the method, drop the body
+  // or strip credentials before the next hop.
+  let method = initialMethod;
+  let headers: HeadersInit | undefined = initialHeaders;
+  let body: BodyInit | null | undefined = initialBody;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -278,7 +360,12 @@ export async function safeFetch(
         if (hop >= maxRedirects) {
           throw new SSRFError('Too many redirects', 'TOO_MANY_REDIRECTS');
         }
-        currentUrl = new URL(location, currentUrl).toString();
+        const nextUrl = new URL(location, currentUrl);
+        const next = redirectRequest(new URL(currentUrl), nextUrl, response.status, { method, headers, body });
+        method = next.method;
+        headers = next.headers;
+        body = next.body;
+        currentUrl = nextUrl.toString();
         continue;
       }
       const cl = response.headers.get('content-length');
@@ -291,6 +378,42 @@ export async function safeFetch(
   } finally {
     clearTimeout(timer);
   }
+}
+
+const CREDENTIAL_HEADERS = ['authorization', 'cookie', 'proxy-authorization'];
+const BODY_HEADERS = ['content-type', 'content-length', 'content-encoding', 'content-language', 'content-location'];
+
+interface HopRequest {
+  method: string;
+  headers: HeadersInit | undefined;
+  body: BodyInit | null | undefined;
+}
+
+/**
+ * Request state for the hop after a redirect, following the fetch spec's
+ * HTTP-redirect fetch: credentials are not forwarded to a different origin
+ * or over an https to http downgrade, and 303 (any method but GET/HEAD) or
+ * 301/302 after a POST become a bodiless GET. Exported for tests.
+ */
+export function redirectRequest(from: URL, to: URL, status: number, req: HopRequest): HopRequest {
+  let { method, headers, body } = req;
+  const crossOrigin = from.origin !== to.origin;
+  const downgrade = from.protocol === 'https:' && to.protocol === 'http:';
+  const upper = method.toUpperCase();
+  const toGet = (status === 303 && upper !== 'GET' && upper !== 'HEAD')
+    || ((status === 301 || status === 302) && upper === 'POST');
+
+  if (crossOrigin || downgrade || toGet) {
+    const h = new Headers(headers);
+    if (crossOrigin || downgrade) for (const name of CREDENTIAL_HEADERS) h.delete(name);
+    if (toGet) {
+      method = 'GET';
+      body = null;
+      for (const name of BODY_HEADERS) h.delete(name);
+    }
+    headers = h;
+  }
+  return { method, headers, body };
 }
 
 function cappedResponse(response: Response, maxBytes: number): Response {

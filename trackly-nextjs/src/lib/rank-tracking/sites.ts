@@ -10,7 +10,8 @@ import { pool } from '@/lib/db';
 import { ensureRankSchema } from './schema';
 import { keywordAiStatus } from './ai';
 import { matchesDomain } from './domain';
-import { keywordRows, shortCity, type RawKw } from './queries';
+import { keywordRows, shortCity, usedThisMonthByAccount, type RawKw } from './queries';
+import { canSpendCredits, creditsPerCheck, spendRefusalMessage, type SpendCheck } from './credits';
 import { siteKeywordOrder } from './order';
 import type { RankHistoryRange, RankHistoryRow, RankSiteKeyword, RankSiteKeywords, RankSiteRow } from './types';
 
@@ -124,14 +125,30 @@ export async function rankKeywordHistory(accountId: string, keywordId: string, r
   return { depth: k.rows[0].depth, points: r.rows.map((x) => ({ date: new Date(x.checked_at).toISOString(), position: x.rank, url: x.url })) };
 }
 
-/** Queue the given keywords for a check on the next scheduler tick. Keywords already being checked are left alone. */
-export async function queueRecheck(accountId: string, ids: string[]): Promise<string[]> {
+export type RecheckResult =
+  | { ok: true; queued: string[] }
+  | { ok: false; status: 402; error: string; credit: SpendCheck };
+
+/**
+ * Queue the given keywords for a check on the next scheduler tick. Keywords
+ * already being checked are left alone. Refused (402) when the plan has no
+ * rank allowance or the checks would take this month past it.
+ */
+export async function queueRecheck(accountId: string, plan: string, ids: string[]): Promise<RecheckResult> {
   await ensureRankSchema();
-  if (!ids.length) return [];
+  if (!ids.length) return { ok: true, queued: [] };
+  const want = await pool.query<{ depth: number }>(
+    `SELECT k.depth FROM rt_keywords k JOIN rt_websites w ON w.id = k.website_id
+      WHERE w.account_id = $1 AND k.id = ANY($2::text[]) AND k.pending_task_id IS NULL`, [accountId, ids]);
+  if (!want.rows.length) return { ok: true, queued: [] };
+  const needed = want.rows.reduce((s, k) => s + creditsPerCheck(k.depth), 0);
+  const used = (await usedThisMonthByAccount([accountId])).get(accountId) || 0;
+  const gate = canSpendCredits(plan, used, needed);
+  if (!gate.ok) return { ok: false, status: 402, error: spendRefusalMessage(gate), credit: gate };
   const r = await pool.query<{ id: string }>(
     `UPDATE rt_keywords k SET next_check_at = NOW()
        FROM rt_websites w
       WHERE w.id = k.website_id AND w.account_id = $1 AND k.id = ANY($2::text[]) AND k.pending_task_id IS NULL
       RETURNING k.id`, [accountId, ids]);
-  return r.rows.map((x) => x.id);
+  return { ok: true, queued: r.rows.map((x) => x.id) };
 }

@@ -1,9 +1,11 @@
 import { pool, auditLog } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
-import { revokeAllSessions } from '@/lib/auth';
+import { revokeAllSessions, validatePasswordComplexity } from '@/lib/auth';
+import { redactPasswordForAudit } from '@/lib/audit-redact';
 import bcrypt from 'bcryptjs';
 import { logError, serverError } from '@/lib/api-error';
 import { getClientIp } from '@/lib/rate-limit';
+import { deleteUserAccount } from '@/lib/delete-user';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin(request);
@@ -97,7 +99,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 
     let passwordChanged = false;
-    if (body.password) {
+    if (body.password !== undefined && body.password !== null && body.password !== '') {
+      // Same rules as signup. A non-string used to reach bcrypt and 500.
+      if (typeof body.password !== 'string') {
+        return Response.json({ error: 'Invalid password' }, { status: 400 });
+      }
+      const pwError = validatePasswordComplexity(body.password);
+      if (pwError) return Response.json({ error: pwError }, { status: 400 });
       const hash = await bcrypt.hash(body.password, 12);
       updates.push(`password_hash = $${idx++}`);
       values.push(hash);
@@ -127,7 +135,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       await revokeAllSessions(pool, id);
     }
 
-    auditLog(admin.id, 'admin_update_user', 'user', id, body, ip);
+    // Never write the new plaintext password into the audit log.
+    auditLog(admin.id, 'admin_update_user', 'user', id, redactPasswordForAudit(body), ip);
 
     return Response.json({ user: result.rows[0] });
   } catch (e) {
@@ -156,14 +165,16 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       return Response.json({ error: 'Cannot delete admin users' }, { status: 403 });
     }
 
-    // Delete user and cascade
-    await pool.query('DELETE FROM brands WHERE user_id = $1', [id]);
-    await pool.query('DELETE FROM audit_logs WHERE user_id = $1', [id]);
-    await pool.query('DELETE FROM notifications WHERE user_id = $1', [id]);
-    await pool.query('DELETE FROM api_logs WHERE user_id = $1', [id]);
-    await pool.query('DELETE FROM users WHERE id = $1', [id]);
+    // Cancels the Dodo subscription first, then deletes every user- and
+    // brand-owned row in one transaction. audit_logs are kept: wiping the
+    // deleted user's audit trail would destroy the record of what happened.
+    const deleted = await deleteUserAccount(id);
+    if (!deleted.ok) return Response.json({ error: deleted.error }, { status: deleted.status });
 
-    auditLog(admin.id, 'admin_delete_user', 'user', id, { email: userResult.rows[0].email }, ip);
+    auditLog(admin.id, 'admin_delete_user', 'user', id, {
+      email: userResult.rows[0].email,
+      cancelledSubscriptionId: deleted.cancelledSubscriptionId,
+    }, ip);
 
     return Response.json({ success: true });
   } catch (e) {

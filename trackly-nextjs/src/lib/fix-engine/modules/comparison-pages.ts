@@ -106,9 +106,10 @@ export const comparisonPagesModule: FixModule = {
     const cms = await resolveCmsForBrand(ctx);
     if ('error' in cms) return cms.error;
     const g = draft.generated as { title: string; slug: string; html: string };
-    // Pass the site origin through creds so the adapter can target the API.
+    // resolveCmsForBrand already carries the stored connection site_url on
+    // creds.site, which the adapter uses to target the API.
     const result = await cms.adapter.createPage(
-      { ...cms.creds, site: cms.siteUrl } as Record<string, unknown>,
+      cms.creds,
       { title: g.title, slug: g.slug, html: g.html, status: 'publish' },
     );
     return {

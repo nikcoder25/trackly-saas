@@ -15,7 +15,7 @@ import { pool } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { createBatch, listFixes, logFixEvent } from './schema';
 import { resolveCrawlTargets } from './crawl';
-import { runScan, generateFix, approveFix, stageFix } from './engine';
+import { runScan, generateFix, stageFix, moduleSupportsStaging } from './engine';
 import { generateCost, listModules } from './registry';
 import { getConnection } from './connections';
 import { notifyBrand } from './notify';
@@ -229,8 +229,8 @@ export async function processScheduledScan(brandId: string): Promise<{ scanned: 
 }
 
 /**
- * Auto-pilot: generate detected fixes, and auto-ship ONLY deterministic
- * (cost-0, no-LLM-content) fixes when a ship channel is connected. Each
+ * Auto-pilot: generate detected fixes, and stage stageable ones as draft
+ * previews through the Connector. It never approves or ships anything. Each
  * step is best-effort and isolated so one failure doesn't stop the rest.
  */
 export async function applyAutopilot(brandId: string, auto: Automation): Promise<{ generated: number; staged: number }> {
@@ -259,15 +259,26 @@ export async function applyAutopilot(brandId: string, auto: Automation): Promise
   // page untouched, so the worst case of a bad autopilot run is a preview
   // link nobody clicks. Throttled per run so a big backlog arrives as a
   // reviewable trickle rather than fifty previews at once.
+  //
+  // Autopilot never approves. On an edge-fronted site an approved root file
+  // is served live, so an approval with no human behind it would publish.
+  // stageFix accepts a 'generated' fix directly; anything that cannot be
+  // staged (no ContentPatch, or no Connector to hold the draft) is left in
+  // 'generated' for a person to review.
   if (auto.autopilotStage) {
+    const conn = await getConnection(brandId, 'connector');
+    if (!conn || conn.status !== 'active') {
+      logger.info('fix_engine.autopilot_stage_no_connector', { brandId });
+      return { generated, staged };
+    }
     const generatedFixes = await listFixes(brandId, { status: 'generated' });
     for (const f of generatedFixes) {
       if (staged >= MAX_AUTOPILOT_STAGES_PER_RUN) {
         logger.info('fix_engine.autopilot_stage_throttled', { brandId, cap: MAX_AUTOPILOT_STAGES_PER_RUN });
         break;
       }
+      if (!moduleSupportsStaging(f.moduleKey)) continue;
       try {
-        await approveFix(f.id, brandId, null);
         const after = await stageFix(f.id, brandId, null);
         if (after.status === 'staged') staged++;
       } catch (e) { logger.warn('fix_engine.autopilot_stage_skip', { fixId: f.id, err: (e as Error).message }); }

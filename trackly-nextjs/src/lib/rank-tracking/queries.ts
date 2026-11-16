@@ -5,6 +5,7 @@
  * old (falling back to the oldest when the keyword is younger than that).
  */
 import { pool } from '@/lib/db';
+import { getEffectivePlan } from '@/lib/constants';
 import { ensureRankSchema } from './schema';
 import { keywordAiStatus, shareOfVoice } from './ai';
 import { monthlyCommitment, rankCreditsForPlan, DAILY_PLANS, TOP100_PLANS, type Frequency } from './credits';
@@ -44,21 +45,45 @@ const ctr = (r: number | null) => (r == null ? 0 : r <= 10 ? CTR[r - 1] : r <= 2
 /** Share (0-100) of the clicks the keywords would get if each ranked #1. */
 const visibilityOf = (ranks: (number | null)[]) => (ranks.length ? round1((ranks.reduce<number>((s, r) => s + ctr(r), 0) / (ranks.length * CTR[0])) * 100) : null);
 
+/**
+ * Credits each account's checks charged since the start of the month (the
+ * rt_checks ledger, imports excluded). One query for any number of accounts;
+ * an account with no checks is 0.
+ */
+export async function usedThisMonthByAccount(accountIds: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>(accountIds.map((a) => [a, 0]));
+  if (!accountIds.length) return out;
+  const r = await pool.query<{ account_id: string; n: number }>(
+    `SELECT w.account_id, COALESCE(SUM(c.credits), 0)::int AS n FROM rt_checks c JOIN rt_keywords k ON k.id = c.keyword_id JOIN rt_websites w ON w.id = k.website_id
+      WHERE w.account_id = ANY($1::text[]) AND c.checked_at >= date_trunc('month', NOW()) AND c.provider <> 'import'
+      GROUP BY w.account_id`, [accountIds]);
+  for (const row of r.rows) out.set(row.account_id, Number(row.n) || 0);
+  return out;
+}
+
+/** Each account's effective plan (an expired trial is 'free'); a missing account is 'free'. */
+export async function effectivePlansByAccount(accountIds: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>(accountIds.map((a) => [a, 'free']));
+  if (!accountIds.length) return out;
+  const r = await pool.query<{ id: string; plan: string | null; trial_ends_at: string | Date | null }>(
+    `SELECT id, plan, trial_ends_at FROM users WHERE id = ANY($1::text[])`, [accountIds]);
+  for (const row of r.rows) out.set(row.id, getEffectivePlan(row.plan, row.trial_ends_at));
+  return out;
+}
+
 export async function creditStatus(accountId: string, plan: string): Promise<RankCreditStatus> {
   await ensureRankSchema();
   const load = await pool.query(
     `SELECT k.frequency, k.depth, COUNT(*)::int AS count FROM rt_keywords k JOIN rt_websites w ON w.id = k.website_id
       WHERE w.account_id = $1 GROUP BY 1, 2`, [accountId]);
-  const used = await pool.query(
-    `SELECT COALESCE(SUM(c.credits), 0)::int AS n FROM rt_checks c JOIN rt_keywords k ON k.id = c.keyword_id JOIN rt_websites w ON w.id = k.website_id
-      WHERE w.account_id = $1 AND c.checked_at >= date_trunc('month', NOW()) AND c.provider <> 'import'`, [accountId]);
+  const used = (await usedThisMonthByAccount([accountId])).get(accountId) || 0;
   const now = new Date();
   const p = String(plan || 'free').toLowerCase();
   return {
     plan: p,
     allowance: rankCreditsForPlan(p),
     committed: monthlyCommitment(load.rows.map((r) => ({ frequency: r.frequency as Frequency, depth: r.depth, count: r.count }))),
-    usedThisMonth: used.rows[0]?.n || 0,
+    usedThisMonth: used,
     resetsAt: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString(),
     allowsDaily: DAILY_PLANS.has(p),
     allowsTop100: TOP100_PLANS.has(p),

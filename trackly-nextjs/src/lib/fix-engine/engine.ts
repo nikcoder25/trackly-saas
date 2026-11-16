@@ -287,12 +287,17 @@ export async function generateFix(fixId: string, brandId: string, instruction?: 
 // ── approve ──────────────────────────────────────────────────────
 
 export async function approveFix(fixId: string, brandId: string, userId: string | null): Promise<FixRow> {
+  // On a Worker-fronted site an approved llms.txt / robots fix is served
+  // straight away (see getLatestRootFileContent), so approving is a live
+  // change and needs a person, the same as shipping.
+  requireHumanApproval(userId, 'Approving a fix');
   const fix = await getFix(fixId, brandId);
   if (!fix) throw new Error('Fix not found');
   if (fix.status !== 'generated') throw new Error(`Only a generated fix can be approved (status: ${fix.status})`);
   if (!(await claimFixTransition(fix.id, 'generated', 'approved'))) {
     return (await getFix(fixId, brandId))!;
   }
+  await updateFix(fix.id, { approvedBy: userId });
   await logFixEvent(fix.id, brandId, userId, 'approved', {});
   return (await getFix(fixId, brandId))!;
 }
@@ -506,12 +511,33 @@ export async function shipFix(fixId: string, brandId: string, userId: string | n
 
 // ── stage (ship-as-draft via the Connector) ──────────────────────
 
+/** Statuses a fix may be staged from (see stageFix). */
+const STAGEABLE_FROM: FixRow['status'][] = ['generated', 'approved', 'failed'];
+
+/**
+ * Can this module's fixes be staged as a draft at all? Only modules that
+ * express their change as a ContentPatch can; root-file, head and link
+ * modules (llms-txt, robots-ai-access, schema-markup, og-cards,
+ * internal-linking, ...) cannot and have to be shipped by a person.
+ */
+export function moduleSupportsStaging(moduleKey: string): boolean {
+  return typeof getModule(moduleKey)?.contentPatch === 'function';
+}
+
 /**
  * Stage an approved fix as a DRAFT revision instead of writing it live.
  * Requires (a) the module to express its change as a ContentPatch and
  * (b) an active Connector — the plugin creates a draft revision and returns
  * a preview URL (captured on ack). The fix moves to 'staged'; the user
  * later calls publishStagedFix to promote it live.
+ *
+ * Staging is also allowed straight from 'generated': a draft revision is not
+ * live, and publishStagedFix still needs a person. That lets autopilot stage
+ * previews without first marking the fix approved, which on an edge-fronted
+ * site would itself publish (approved root files are served).
+ *
+ * If any write fails after the fix is claimed, the row is put back exactly
+ * as it was, so a failed stage never strands a fix in 'shipping' or 'staged'.
  */
 export async function stageFix(fixId: string, brandId: string, userId: string | null): Promise<FixRow> {
   const fix = await getFix(fixId, brandId);
@@ -522,7 +548,7 @@ export async function stageFix(fixId: string, brandId: string, userId: string | 
   if (typeof mod.contentPatch !== 'function') {
     throw new Error('This fix type can’t be staged as a draft — ship it live instead.');
   }
-  if (!['approved', 'failed'].includes(fix.status)) {
+  if (!STAGEABLE_FROM.includes(fix.status)) {
     throw new Error(`Cannot stage a fix in status '${fix.status}'`);
   }
   const conn = await getConnection(brandId, 'connector');
@@ -539,18 +565,35 @@ export async function stageFix(fixId: string, brandId: string, userId: string | 
   if (!(await claimFixTransition(fix.id, fix.status, 'shipping'))) {
     return (await getFix(fixId, brandId))!;
   }
-  await updateFix(fix.id, {
-    status: 'staged',
-    shipMode: 'draft',
-    shipResult: { op: 'stage_content', channel: 'draft', delivery: 'connector_pull' },
-    // `content` is the exact string both sides HMAC-sign over (PHP's
-    // wp_json_encode escapes '/' differently from JSON.stringify, so we never
-    // sign the whole payload object for these ops — only this string).
-    afterSnapshot: { url: patch.url, patch, content: JSON.stringify(patch) },
-    previewUrl: null,
-    error: null,
-  });
-  await resetConnectorDelivery(fix.id); // ensure the Connector pulls it
+  try {
+    await updateFix(fix.id, {
+      status: 'staged',
+      shipMode: 'draft',
+      shipResult: { op: 'stage_content', channel: 'draft', delivery: 'connector_pull' },
+      // `content` is the exact string both sides HMAC-sign over (PHP's
+      // wp_json_encode escapes '/' differently from JSON.stringify, so we never
+      // sign the whole payload object for these ops, only this string).
+      afterSnapshot: { url: patch.url, patch, content: JSON.stringify(patch) },
+      previewUrl: null,
+      error: null,
+    });
+    await resetConnectorDelivery(fix.id); // ensure the Connector pulls it
+  } catch (e) {
+    // One UPDATE restores every column the stage touched, status included.
+    try {
+      await updateFix(fix.id, {
+        status: fix.status,
+        shipMode: fix.shipMode,
+        shipResult: fix.shipResult,
+        afterSnapshot: fix.afterSnapshot,
+        previewUrl: fix.previewUrl,
+        error: fix.error,
+      });
+    } catch (re) {
+      logger.error('fix_engine.stage_rollback_failed', { fixId: fix.id, err: (re as Error).message });
+    }
+    throw e;
+  }
   await logFixEvent(fix.id, brandId, userId, 'staged', { url: patch.url });
   return (await getFix(fixId, brandId))!;
 }

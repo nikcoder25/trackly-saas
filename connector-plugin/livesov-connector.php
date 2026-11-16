@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Livesov Connector
  * Description: Applies Livesov Fix Engine instructions (llms.txt, robots.txt, head schema) and page-content edits to your site — including pages built with Elementor, Divi, WPBakery, Beaver Builder, Bricks, or Oxygen. Pulls securely from your Livesov account; no inbound access to your server is required.
- * Version: 1.4.0
+ * Version: 1.4.1
  * Author: Livesov
  * License: GPL-2.0-or-later
  *
@@ -23,7 +23,7 @@
 
 if (!defined('ABSPATH')) { exit; }
 
-define('LVX_CONN_VERSION', '1.4.0');
+define('LVX_CONN_VERSION', '1.4.1');
 define('LVX_CONN_OPT', 'livesov_connector_settings');
 define('LVX_CONN_HEAD_OPT', 'livesov_connector_head');     // set_header_block content
 define('LVX_CONN_ROBOTS_OPT', 'livesov_connector_robots'); // patch_robots content
@@ -444,7 +444,7 @@ function lvx_conn_stage_content($payload, $instruction_id = '') {
     if (!$post) { return array('err' => 'post load failed', 'detail' => array()); }
 
     $patch = isset($payload['patch']) && is_array($payload['patch']) ? $payload['patch'] : array();
-    $built = Lvx_Patch::build($post, $patch);
+    $built = Lvx_Patch::build($post, $patch, $instruction_id);
     if ($built['err'] !== '') { return array('err' => $built['err'], 'detail' => array()); }
 
     $preview = Lvx_Preview::stage($pid, array(
@@ -482,7 +482,7 @@ function lvx_conn_publish_content($payload, $instruction_id = '') {
         if (!$builder) { $builder = Lvx_Builders::for_post($post); }
     } else {
         $patch = isset($payload['patch']) && is_array($payload['patch']) ? $payload['patch'] : array();
-        $built = Lvx_Patch::build($post, $patch);
+        $built = Lvx_Patch::build($post, $patch, $instruction_id);
         if ($built['err'] !== '') { return array('err' => $built['err'], 'detail' => array()); }
         $state    = $built['state'];
         $appended = $built['appended'];

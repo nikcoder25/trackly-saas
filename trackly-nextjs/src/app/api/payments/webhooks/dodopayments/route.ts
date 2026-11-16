@@ -185,6 +185,13 @@ interface SubscriptionEventState {
   // existed don't have it (they fall through to timestamp-only ordering
   // in isStaleSubscriptionEvent).
   last_event_id?: string;
+  // When Dodo created this subscription (from the subscription payload or
+  // GET /subscriptions/{id}). Used to decide which of two subscription ids
+  // is the newer checkout when an event for an unbound id arrives.
+  created_at?: string;
+  // Set when a newer subscription replaced this one as the user's bound
+  // subscription. Lets a later event for this id be recognised as stale.
+  superseded_by?: string;
 }
 
 // Read this user's per-subscription event state. Populated as we
@@ -239,6 +246,125 @@ function isStaleSubscriptionEvent(
   return eventId <= prior.last_event_id;
 }
 
+function dodoApiBaseUrl(): string {
+  const env = process.env.DODO_PAYMENTS_ENVIRONMENT || 'test_mode';
+  return env === 'live_mode'
+    ? 'https://live.dodopayments.com'
+    : 'https://test.dodopayments.com';
+}
+
+function parseDate(value: unknown): Date | null {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+// Subscription creation time carried by the webhook payload itself. Only
+// subscription payloads qualify: a payment payload's created_at is the
+// time of that payment (e.g. a renewal charge), not of the subscription,
+// so trusting it would make a renewal of an old sub look brand new.
+function payloadSubscriptionCreatedAt(eventType: string, eventData: unknown): Date | null {
+  if (!eventData || typeof eventData !== 'object') return null;
+  const data = eventData as Record<string, unknown>;
+  const payloadType = typeof data.payload_type === 'string' ? data.payload_type.toLowerCase() : null;
+  const isSubscriptionPayload = payloadType
+    ? payloadType === 'subscription'
+    : eventType.startsWith('subscription.');
+  if (!isSubscriptionPayload) return null;
+  return parseDate(data.created_at);
+}
+
+// GET /subscriptions/{id} from Dodo and return its created_at. Returns
+// null on any failure (no API key, network error, non-2xx, missing field):
+// callers treat null as "unknown" and fall back to other signals.
+async function fetchDodoSubscriptionCreatedAt(subscriptionId: string): Promise<Date | null> {
+  const apiKey = process.env.DODO_PAYMENTS_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const resp = await fetch(`${dodoApiBaseUrl()}/subscriptions/${subscriptionId}`, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+    });
+    if (!resp.ok) return null;
+    const json = await resp.json().catch(() => null) as Record<string, unknown> | null;
+    return parseDate(json?.created_at);
+  } catch {
+    return null;
+  }
+}
+
+interface IncomingSubscriptionVerdict {
+  // True when the incoming subscription is OLDER than the bound one (a
+  // superseded sub still emitting events), so it must not be rebound.
+  incomingIsSuperseded: boolean;
+  reason:
+    | 'previously_bound'
+    | 'billing_history'
+    | 'created_before_bound'
+    | 'created_after_bound'
+    | 'unknown_assume_new';
+  incomingCreatedAt: Date | null;
+}
+
+// Decide whether an activation-style event for a subscription id that
+// differs from the user's bound one is a genuinely new checkout (rebind)
+// or a superseded old subscription that is still emitting events (e.g.
+// the old sub's renewal after an upgrade whose cancel soft-failed, or a
+// delayed payment.succeeded retry). Signals, strongest first:
+//   1. subscription_events already tracks the incoming id. Every id in
+//      that map was either bound before (and later replaced) or cancelled,
+//      because only the bind path and the cancel paths write it.
+//   2. billing_events already has rows for the incoming id (plan_upgraded
+//      when it was bound, superseded_sub_cancelled when it was replaced).
+//      Covers users whose map predates per-subscription tracking.
+//   3. Dodo created_at of both subscriptions, from the payload when it is
+//      a subscription payload, else stored state, else Dodo's API.
+// When nothing is known we keep the historical behaviour (rebind): a
+// first-ever event for a brand-new checkout has no history by design.
+async function classifyIncomingSubscription(
+  client: { query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[] }> },
+  opts: {
+    userId: string;
+    incomingSubscriptionId: string;
+    boundSubscriptionId: string;
+    userEvents: Record<string, SubscriptionEventState>;
+    eventType: string;
+    eventData: unknown;
+  },
+): Promise<IncomingSubscriptionVerdict> {
+  const { userEvents, incomingSubscriptionId, boundSubscriptionId } = opts;
+  const storedIncomingCreatedAt = parseDate(userEvents[incomingSubscriptionId]?.created_at);
+
+  if (userEvents[incomingSubscriptionId]) {
+    return { incomingIsSuperseded: true, reason: 'previously_bound', incomingCreatedAt: storedIncomingCreatedAt };
+  }
+
+  const history = await client.query(
+    'SELECT 1 FROM billing_events WHERE user_id = $1 AND subscription_id = $2 LIMIT 1',
+    [opts.userId, incomingSubscriptionId],
+  );
+  if (history.rows.length > 0) {
+    return { incomingIsSuperseded: true, reason: 'billing_history', incomingCreatedAt: storedIncomingCreatedAt };
+  }
+
+  const incomingCreatedAt =
+    payloadSubscriptionCreatedAt(opts.eventType, opts.eventData)
+    ?? await fetchDodoSubscriptionCreatedAt(incomingSubscriptionId);
+  if (!incomingCreatedAt) {
+    return { incomingIsSuperseded: false, reason: 'unknown_assume_new', incomingCreatedAt: null };
+  }
+  const boundCreatedAt =
+    parseDate(userEvents[boundSubscriptionId]?.created_at)
+    ?? await fetchDodoSubscriptionCreatedAt(boundSubscriptionId);
+  if (!boundCreatedAt) {
+    return { incomingIsSuperseded: false, reason: 'unknown_assume_new', incomingCreatedAt };
+  }
+  if (incomingCreatedAt.getTime() < boundCreatedAt.getTime()) {
+    return { incomingIsSuperseded: true, reason: 'created_before_bound', incomingCreatedAt };
+  }
+  return { incomingIsSuperseded: false, reason: 'created_after_bound', incomingCreatedAt };
+}
+
 // Cancel a stale Dodo subscription that's been orphaned by a plan
 // upgrade. Mirrors the same PATCH /subscriptions/{id} status='cancelled'
 // call used by /api/payments/cancel.
@@ -259,6 +385,7 @@ async function cancelOldDodoSubscription(opts: {
   userId: string;
   oldSubscriptionId: string;
   newSubscriptionId: string;
+  reason?: string;
 }): Promise<void> {
   const apiKey = process.env.DODO_PAYMENTS_API_KEY;
   if (!apiKey) {
@@ -269,10 +396,7 @@ async function cancelOldDodoSubscription(opts: {
     return;
   }
 
-  const env = process.env.DODO_PAYMENTS_ENVIRONMENT || 'test_mode';
-  const baseUrl = env === 'live_mode'
-    ? 'https://live.dodopayments.com'
-    : 'https://test.dodopayments.com';
+  const baseUrl = dodoApiBaseUrl();
 
   let status = 0;
   let bodyPreview = '';
@@ -292,7 +416,7 @@ async function cancelOldDodoSubscription(opts: {
       auditLog('system', 'old_subscription_cancelled', 'user', opts.userId, {
         oldSubscriptionId: opts.oldSubscriptionId,
         newSubscriptionId: opts.newSubscriptionId,
-        reason: 'plan_upgrade',
+        reason: opts.reason ?? 'plan_upgrade',
       }, 'webhook').catch(() => {});
       return;
     }
@@ -879,17 +1003,102 @@ export async function POST(request: Request) {
                                 // would mean the user paid but doesn't see their plan
                                 // until Dodo's API recovers and the webhook is replayed,
                                 // which is worse UX than a tracked orphan.
+                                //
+                                // A different subscription_id is NOT proof of a new
+                                // checkout: the superseded sub keeps emitting events
+                                // (its renewal payment.succeeded when the cancel above
+                                // soft-failed, or a delayed retry landing after the new
+                                // sub activated). Rebinding on those would cancel the
+                                // user's current sub and drop them back to the old
+                                // plan. Classify first; only a genuinely newer sub
+                                // replaces the binding.
+                                let incomingCreatedAt: Date | null = null;
+                                let supersededSubscriptionId: string | null = null;
                                 if (
                                   existingSubscriptionId
                                   && subscriptionId
                                   && existingSubscriptionId !== subscriptionId
                                   && !SUBSCRIPTION_UPDATE_EVENTS.has(effectiveEventType)
                                 ) {
+                                              const verdict = await classifyIncomingSubscription(client, {
+                                                              userId,
+                                                              incomingSubscriptionId: subscriptionId,
+                                                              boundSubscriptionId: existingSubscriptionId,
+                                                              userEvents,
+                                                              eventType,
+                                                              eventData,
+                                              });
+                                              incomingCreatedAt = verdict.incomingCreatedAt;
+
+                                              if (verdict.incomingIsSuperseded) {
+                                                // Stale sub: leave the bound sub, plan and
+                                                // binding untouched. It should not still be
+                                                // billing, so cancel it at Dodo (404/409/410
+                                                // there are treated as already gone).
+                                                await cancelOldDodoSubscription({
+                                                  userId,
+                                                  oldSubscriptionId: subscriptionId,
+                                                  newSubscriptionId: existingSubscriptionId,
+                                                  reason: 'superseded_sub_event',
+                                                });
+                                                const prior = userEvents[subscriptionId];
+                                                const staleMerge = {
+                                                  subscription_events: {
+                                                    ...userEvents,
+                                                    [subscriptionId]: {
+                                                      ...prior,
+                                                      status: prior?.status === 'cancelled' ? 'cancelled' : 'superseded',
+                                                      last_event_at: (eventTimestamp ?? new Date()).toISOString(),
+                                                      last_event_id: eventId,
+                                                      superseded_by: prior?.superseded_by ?? existingSubscriptionId,
+                                                      ...(verdict.incomingCreatedAt
+                                                        ? { created_at: verdict.incomingCreatedAt.toISOString() }
+                                                        : {}),
+                                                    },
+                                                  },
+                                                };
+                                                await client.query(
+                                                  `UPDATE users SET settings = settings || $1::jsonb WHERE id = $2`,
+                                                  [JSON.stringify(staleMerge), userId],
+                                                );
+                                                await recordBillingEvent({
+                                                  client,
+                                                  userId,
+                                                  eventType: 'superseded_sub_cancelled',
+                                                  fromPlan: null,
+                                                  toPlan: null,
+                                                  subscriptionId,
+                                                  dodoEventId: eventId,
+                                                  source: 'webhook',
+                                                  details: {
+                                                    eventType,
+                                                    effectiveEventType,
+                                                    productId,
+                                                    active_subscription_id: existingSubscriptionId,
+                                                    currentPlan: currentUser.plan,
+                                                    reason: 'stale_superseded_sub_event',
+                                                    classification: verdict.reason,
+                                                  },
+                                                });
+                                                await client.query('COMMIT');
+                                                logger.warn('webhook.dodo.superseded_sub_event_ignored', {
+                                                  userId,
+                                                  eventId,
+                                                  eventType,
+                                                  effectiveEventType,
+                                                  payload_subscription_id: subscriptionId,
+                                                  active_subscription_id: existingSubscriptionId,
+                                                  classification: verdict.reason,
+                                                });
+                                                return Response.json({ received: true, skipped: 'superseded_sub' });
+                                              }
+
                                               await cancelOldDodoSubscription({
                                                               userId,
                                                               oldSubscriptionId: existingSubscriptionId,
                                                               newSubscriptionId: subscriptionId,
                                               });
+                                              supersededSubscriptionId = existingSubscriptionId;
                                 }
 
                         const previousPlan = currentUser.plan;
@@ -941,14 +1150,31 @@ export async function POST(request: Request) {
                         }
                         if (subscriptionId) {
                           const priorEvents = getSubscriptionEvents(currentUser.settings);
-                          settingsUpdate.subscription_events = {
-                            ...priorEvents,
-                            [subscriptionId]: {
-                              status: 'active',
-                              last_event_at: (eventTimestamp ?? new Date()).toISOString(),
-                              last_event_id: eventId,
-                            },
+                          const nextEvents: Record<string, SubscriptionEventState> = { ...priorEvents };
+                          // Remember the replaced sub so its later events are
+                          // recognised as stale instead of rebinding it. Its
+                          // ordering fields are kept; a missing entry gets an
+                          // epoch last_event_at so it never masks real events.
+                          if (supersededSubscriptionId) {
+                            const prior = priorEvents[supersededSubscriptionId];
+                            nextEvents[supersededSubscriptionId] = {
+                              ...prior,
+                              status: prior?.status === 'cancelled' ? 'cancelled' : 'superseded',
+                              last_event_at: prior?.last_event_at ?? new Date(0).toISOString(),
+                              superseded_by: subscriptionId,
+                            };
+                          }
+                          const priorCreatedAt = priorEvents[subscriptionId]?.created_at;
+                          const createdAt = incomingCreatedAt?.toISOString()
+                            ?? priorCreatedAt
+                            ?? payloadSubscriptionCreatedAt(eventType, eventData)?.toISOString();
+                          nextEvents[subscriptionId] = {
+                            status: 'active',
+                            last_event_at: (eventTimestamp ?? new Date()).toISOString(),
+                            last_event_id: eventId,
+                            ...(createdAt ? { created_at: createdAt } : {}),
                           };
+                          settingsUpdate.subscription_events = nextEvents;
                         }
 
                         await client.query(

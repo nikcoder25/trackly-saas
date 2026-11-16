@@ -13,6 +13,7 @@
  */
 
 import { safeFetch } from '@/lib/safe-fetch';
+import { isSameSite } from './same-site';
 
 export interface CrawledPage {
   url: string;
@@ -338,7 +339,9 @@ export async function resolveCrawlTargets(
       const locs = xml.match(/<loc>([\s\S]*?)<\/loc>/g) || [];
       for (const loc of locs) {
         const u = loc.replace(/<\/?loc>/g, '').trim();
-        if (u && !u.endsWith('.xml')) targets.add(u);
+        // Only same-site entries: a sitemap can list any host, and targets
+        // flow into crawls and credentialed CMS writes.
+        if (u && !u.endsWith('.xml') && isSameSite(base, u)) targets.add(u);
         if (targets.size >= cap) break;
       }
     }

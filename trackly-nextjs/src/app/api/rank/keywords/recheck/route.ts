@@ -14,6 +14,7 @@ export async function POST(request: Request): Promise<Response> {
   const b = await jsonBody(request);
   const ids = strList(b?.ids, 5000);
   if (!ids.length) return Response.json({ error: 'ids is required' }, { status: 400 });
-  const queued = await queueRecheck(c.accountId, ids);
-  return Response.json({ queued: queued.length });
+  const r = await queueRecheck(c.accountId, c.plan, ids);
+  if (!r.ok) return Response.json({ error: r.error, credit: r.credit }, { status: r.status });
+  return Response.json({ queued: r.queued.length });
 }

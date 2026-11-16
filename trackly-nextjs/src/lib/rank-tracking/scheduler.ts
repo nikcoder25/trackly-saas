@@ -28,7 +28,8 @@ import { pool } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ensureRankSchema } from './schema';
 import { runCheck, type CheckOutcome, type CheckTarget } from './checker';
-import { creditsPerCheck, type Frequency } from './credits';
+import { checksWithinAllowance, creditsPerCheck, type Frequency } from './credits';
+import { effectivePlansByAccount, usedThisMonthByAccount } from './queries';
 import { nextCheckAt, retryAt } from './schedule';
 import { findRank } from './domain';
 import { fetchPageWithFallback, providerChain } from './providers';
@@ -41,6 +42,8 @@ const STALE_PENDING_MINUTES = 60;
 /** A queued task with no answer after this long is posted again. */
 const LOST_TASK_HOURS = 24;
 const MAX_POSTS = 3;
+/** A due keyword its account cannot pay for waits this long before it is looked at again. */
+const SKIP_HOURS = 24;
 const DFS = 'dataforseo';
 
 export interface KeywordRow {
@@ -213,6 +216,43 @@ async function settleTask(k: KeywordRow, res: { status: number; message: string;
   await failCheck(k, new Error(`dataforseo task ${res.status}: ${res.message || 'no results'}`));
 }
 
+/**
+ * Keep only the claimed keywords whose account can pay for the check: the
+ * effective plan has a rank allowance and this month's ledger plus checks
+ * already in flight leave room. One plan query and two usage queries per
+ * tick, whatever the number of accounts. The rest are released and pushed
+ * out a day, so they are not claimed again every tick.
+ */
+async function withinAllowance(rows: KeywordRow[]): Promise<KeywordRow[]> {
+  if (!rows.length) return rows;
+  const accounts = [...new Set(rows.map((k) => k.account_id))];
+  const claimedIds = rows.map((k) => k.id);
+  const [plans, used, inFlight] = await Promise.all([
+    effectivePlansByAccount(accounts),
+    usedThisMonthByAccount(accounts),
+    pool.query<{ account_id: string; n: number }>(
+      `SELECT w.account_id, COALESCE(SUM(CASE WHEN k.depth = 100 THEN 2 ELSE 1 END), 0)::int AS n
+         FROM rt_keywords k JOIN rt_websites w ON w.id = k.website_id
+        WHERE w.account_id = ANY($1::text[]) AND k.pending_provider IS NOT NULL AND NOT (k.id = ANY($2::text[]))
+        GROUP BY w.account_id`, [accounts, claimedIds]),
+  ]);
+  const flying = new Map(inFlight.rows.map((x) => [x.account_id, Number(x.n) || 0]));
+  const keep: KeywordRow[] = [];
+  const skipped: string[] = [];
+  for (const a of accounts) {
+    const mine = rows.filter((k) => k.account_id === a);
+    const ok = new Set(checksWithinAllowance(plans.get(a) || 'free', (used.get(a) || 0) + (flying.get(a) || 0), mine.map((k) => k.depth)));
+    mine.forEach((k, i) => (ok.has(i) ? keep.push(k) : skipped.push(k.id)));
+  }
+  if (skipped.length) {
+    await pool.query(
+      `UPDATE rt_keywords SET pending_provider = NULL, pending_since = NULL, next_check_at = NOW() + INTERVAL '${SKIP_HOURS} hours'
+        WHERE id = ANY($1::text[]) AND pending_provider = 'claim' AND pending_task_id IS NULL`, [skipped]);
+    logger.info('rank.dispatch_skipped_no_credits', { skipped: skipped.length });
+  }
+  return keep;
+}
+
 /** Claim due keywords and start their checks. `ids` limits it to those keywords (first check after adding). */
 export async function dispatchDue(limit = DISPATCH_PER_TICK, ids?: string[], run: DfsRunCost = newRunCost()): Promise<{ claimed: number; queued: number; sync: number }> {
   const r = await pool.query<KeywordRow>(
@@ -229,7 +269,7 @@ export async function dispatchDue(limit = DISPATCH_PER_TICK, ids?: string[], run
       WHERE k.id = due.id AND w.id = k.website_id
      RETURNING ${KW_SELECT}`,
     [limit, ids && ids.length ? ids : null]);
-  const rows = r.rows;
+  const rows = await withinAllowance(r.rows);
   if (!rows.length) return { claimed: 0, queued: 0, sync: 0 };
   if (useDfsQueue()) {
     const before = run.posted;

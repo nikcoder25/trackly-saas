@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
-import { pool, safeConnect, auditLog } from '@/lib/db';
+import { pool, auditLog } from '@/lib/db';
+import { deleteUserAccount } from '@/lib/delete-user';
 import { verifyRequestAuthLive } from '@/lib/auth';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
@@ -30,37 +31,19 @@ export async function DELETE(request: Request) {
     if (!ok) return Response.json({ error: 'Incorrect password' }, { status: 400 });
 
     const ip = getClientIp(request);
-    auditLog(user.id, 'delete_account', 'user', user.id, { email: user.email }, ip);
 
-    // Cascading delete in a transaction to clean up all related data
-    const client = await safeConnect();
-    try {
-      await client.query('BEGIN');
-      await client.query('DELETE FROM accuracy_issues WHERE brand_id IN (SELECT id FROM brands WHERE user_id = $1)', [user.id]);
-      await client.query('DELETE FROM citations WHERE brand_id IN (SELECT id FROM brands WHERE user_id = $1)', [user.id]);
-      await client.query('DELETE FROM recommendations WHERE brand_id IN (SELECT id FROM brands WHERE user_id = $1)', [user.id]);
-      await client.query('DELETE FROM brand_facts WHERE brand_id IN (SELECT id FROM brands WHERE user_id = $1)', [user.id]);
-      await client.query('DELETE FROM prompt_runs WHERE brand_id IN (SELECT id FROM brands WHERE user_id = $1)', [user.id]);
-      await client.query('DELETE FROM active_runs WHERE user_id = $1', [user.id]);
-      await client.query('DELETE FROM alert_rules WHERE user_id = $1', [user.id]);
-      await client.query('DELETE FROM team_members WHERE owner_id = $1 OR member_id = $1', [user.id]);
-      await client.query('DELETE FROM brands WHERE user_id = $1', [user.id]);
-      await client.query('DELETE FROM notifications WHERE user_id = $1', [user.id]);
-      await client.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [user.id]);
-      // NOTE: webhook_events is intentionally NOT pruned here. Its event_id is
-      // the provider's message id (e.g. 'msg_...'), which never contains the
-      // user id, so the previous `event_id LIKE '%userId%'` matched nothing.
-      // Keeping these rows is also correct: they back the webhook replay-
-      // idempotency guard, so a provider re-delivery after account deletion
-      // still de-dupes instead of being reprocessed.
-      await client.query('DELETE FROM users WHERE id = $1', [user.id]);
-      await client.query('COMMIT');
-    } catch (txErr) {
-      await client.query('ROLLBACK').catch(() => {});
-      throw txErr;
-    } finally {
-      client.release();
-    }
+    // Cancels the Dodo subscription first, then deletes all user- and
+    // brand-owned data in one transaction (audit_logs are kept).
+    // webhook_events is intentionally NOT pruned: its rows back the webhook
+    // replay-idempotency guard, so a provider re-delivery after account
+    // deletion still de-dupes instead of being reprocessed.
+    const deleted = await deleteUserAccount(user.id);
+    if (!deleted.ok) return Response.json({ error: deleted.error }, { status: deleted.status });
+
+    auditLog(user.id, 'delete_account', 'user', user.id, {
+      email: user.email,
+      cancelledSubscriptionId: deleted.cancelledSubscriptionId,
+    }, ip);
     return Response.json({ message: 'Account deleted' });
   } catch {
     return Response.json({ error: 'Failed to delete account' }, { status: 500 });

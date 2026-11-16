@@ -74,6 +74,51 @@ export function canAddKeywords(plan: string, committed: number, count: number, f
   return { ...base, ok: true };
 }
 
+export interface SpendCheck {
+  ok: boolean;
+  needed: number;
+  used: number;
+  allowance: number;
+  remaining: number;
+  reason?: 'plan_no_rank_tracking' | 'out_of_credits';
+}
+
+/**
+ * Whether checks costing `needed` credits may run now, given what the month
+ * already used (the rt_checks ledger, as creditStatus.usedThisMonth counts it).
+ */
+export function canSpendCredits(plan: string, used: number, needed: number): SpendCheck {
+  const allowance = rankCreditsForPlan(plan);
+  const base = { needed, used, allowance, remaining: Math.max(0, allowance - used) };
+  if (allowance <= 0) return { ...base, ok: false, reason: 'plan_no_rank_tracking' };
+  if (used + needed > allowance) return { ...base, ok: false, reason: 'out_of_credits' };
+  return { ...base, ok: true };
+}
+
+export function spendRefusalMessage(c: SpendCheck): string {
+  switch (c.reason) {
+    case 'plan_no_rank_tracking': return 'Rank tracking is not part of your plan. Upgrade to check keywords.';
+    case 'out_of_credits': return `This check needs ${c.needed.toLocaleString('en-US')} credits and you have ${c.remaining.toLocaleString('en-US')} left of ${c.allowance.toLocaleString('en-US')} this month. Wait for the monthly reset or upgrade.`;
+    default: return '';
+  }
+}
+
+/**
+ * Pick which of the given checks fit the plan's remaining credits this month,
+ * in order. Returns the indexes kept; the rest wait for the reset or an upgrade.
+ */
+export function checksWithinAllowance(plan: string, used: number, depths: number[]): number[] {
+  const allowance = rankCreditsForPlan(plan);
+  let left = allowance - used;
+  const keep: number[] = [];
+  if (allowance <= 0) return keep;
+  depths.forEach((d, i) => {
+    const c = creditsPerCheck(d);
+    if (c <= left) { keep.push(i); left -= c; }
+  });
+  return keep;
+}
+
 export function addRefusalMessage(c: AddCheck): string {
   switch (c.reason) {
     case 'plan_no_rank_tracking': return 'Rank tracking is not part of your plan. Upgrade to start tracking keywords.';

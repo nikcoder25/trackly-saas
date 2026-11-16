@@ -18,6 +18,41 @@ const NEG_WORDS = ['avoid', 'complaint', 'poor', 'bad', 'worst', 'unreliable', '
 const POS_RE = new RegExp(POS_WORDS.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi');
 const NEG_RE = new RegExp(NEG_WORDS.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi');
 
+// ── Word-bounded matching helpers ────────────────────────────────
+// Brand and competitor names must stand alone as words: "Square" must not
+// match "Squarespace", "Stripe" must not match "pinstripes". These
+// lookarounds are Unicode-aware (letters and digits in any script) and
+// need the `u` flag.
+const WB_START = '(?<![\\p{L}\\p{N}])';
+const WB_END = '(?![\\p{L}\\p{N}])';
+// Domains also refuse a leading hyphen so "pine-apple.com" is not "apple.com".
+const DOMAIN_START = '(?<![\\p{L}\\p{N}\\-])';
+const DOMAIN_END = '(?![\\p{L}\\p{N}\\-])';
+// Optional plural or possessive tail: "Stripes", "Stripe's", "Stripe\u2019s".
+const PLURAL_TAIL = "(?:['\\u2019]?s)?";
+// Separators allowed between the letters of a collapsed name, so "LiveSov"
+// also matches "Live Sov" and "live-sov".
+const BRAND_SEP = '[\\s\\-_]*';
+const COMP_SEP = "[\\s\\-_'\\u2019]*";
+
+function escapeRe(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Case-insensitive regex for `src` with word boundaries on both sides. */
+function boundedRe(src: string, plural = true): RegExp {
+  return new RegExp(WB_START + '(?:' + src + ')' + (plural ? PLURAL_TAIL : '') + WB_END, 'iu');
+}
+
+function domainRe(domain: string): RegExp {
+  return new RegExp(DOMAIN_START + escapeRe(domain) + DOMAIN_END, 'iu');
+}
+
+/** Pattern matching `collapsed` with optional separators between its characters. */
+function spacedPattern(collapsed: string, sep: string): string {
+  return Array.from(collapsed).map(escapeRe).join(sep);
+}
+
 // ── Domain-aware competitor matching ─────────────────────────────
 // Competitors may be stored as domain names (e.g. "www.metrocars.com")
 // but AI models write natural business names ("Metro Cars").
@@ -136,13 +171,17 @@ function segmentDomainWords(competitor: string): string[] {
   return segments.filter(w => w.length >= 3);
 }
 
-function _makeWordRegex(word: string): RegExp {
-  const esc = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  if (word.length >= 4 && word.endsWith('s')) {
-    const baseEsc = word.slice(0, -1).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp('\\b' + baseEsc + "[''']?s\\b", 'i');
-  }
-  return new RegExp('\\b' + esc + '\\b', 'i');
+function _wordPattern(word: string): string {
+  if (word.length >= 4 && word.endsWith('s')) return escapeRe(word.slice(0, -1)) + "['\\u2019]?s";
+  return escapeRe(word);
+}
+
+// Domain words ("metro", "cars") must appear next to each other and in
+// order, separated only by spaces or light punctuation on the same line.
+// Scattered words ("Metro Airport Taxi ... luxury cars") are not a mention.
+const DOMAIN_WORD_GAP = '[^\\p{L}\\p{N}\\n.,!?;:]{1,4}';
+function _makeDomainPhraseRegex(words: string[]): RegExp {
+  return boundedRe(words.map(_wordPattern).join(DOMAIN_WORD_GAP), false);
 }
 
 interface CompetitorMatcher {
@@ -151,68 +190,53 @@ interface CompetitorMatcher {
   baseDomain: string | null;
   baseDomainClean: string | null;
   baseRe: RegExp | null;
-  domainWordRes: RegExp[];
+  spacedBaseRe: RegExp | null;
+  spacedCleanRe: RegExp | null;
+  domainPhraseRe: RegExp | null;
 }
 
 function _buildCompetitorMatcher(comp: string): CompetitorMatcher | null {
   const cLower = comp.toLowerCase().trim();
   if (cLower.length < 2) return null;
-  const cEsc = cLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const exactRe = new RegExp('\\b' + cEsc + '\\b', 'i');
+  const domainLike = isDomainLike(cLower);
+  const exactRe = domainLike ? domainRe(cLower) : boundedRe(escapeRe(cLower));
 
   let baseDomain: string | null = null;
   let baseDomainClean: string | null = null;
   let baseRe: RegExp | null = null;
-  let domainWordRes: RegExp[] = [];
+  let spacedBaseRe: RegExp | null = null;
+  let spacedCleanRe: RegExp | null = null;
+  let domainPhraseRe: RegExp | null = null;
 
-  if (isDomainLike(cLower)) {
+  if (domainLike) {
     baseDomain = cLower.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
       .replace(/^www\./, '').replace(COMMON_TLDS, '');
-    if (baseDomain.length >= 3) {
-      const baseEsc = baseDomain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      baseRe = new RegExp('\\b' + baseEsc + '\\b', 'i');
-    }
+    if (baseDomain.length >= 3) baseRe = boundedRe(escapeRe(baseDomain));
     const stripped = baseDomain.replace(TRAILING_SUFFIXES, '');
     if (stripped.length >= 3 && stripped !== baseDomain) baseDomainClean = stripped;
-    const words = segmentDomainWords(comp);
-    if (words.length >= 2) domainWordRes = words.filter(w => w.length >= 3).map(w => _makeWordRegex(w));
+    // "metrocars" also matches "Metro Cars" / "metro-cars", still word-bounded.
+    const collapsedBase = baseDomain.replace(/[^a-z0-9]/g, '');
+    if (baseDomain.length >= 5 && collapsedBase.length >= 3) spacedBaseRe = boundedRe(spacedPattern(collapsedBase, COMP_SEP));
+    if (baseDomain.length >= 5 && baseDomainClean) {
+      const collapsedClean = baseDomainClean.replace(/[^a-z0-9]/g, '');
+      if (collapsedClean.length >= 3) spacedCleanRe = boundedRe(spacedPattern(collapsedClean, COMP_SEP));
+    }
+    const words = segmentDomainWords(comp).filter(w => w.length >= 3);
+    if (words.length >= 2) domainPhraseRe = _makeDomainPhraseRegex(words);
   }
 
-  return { name: comp, exactRe, baseDomain, baseDomainClean, baseRe, domainWordRes };
+  return { name: comp, exactRe, baseDomain, baseDomainClean, baseRe, spacedBaseRe, spacedCleanRe, domainPhraseRe };
 }
 
 function _matchCompetitors(text: string, compMatchers: CompetitorMatcher[]): string[] {
   const found: string[] = [];
-  let _collapsed: string | null = null;
-  function getCollapsed() {
-    if (_collapsed === null) _collapsed = text.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return _collapsed;
-  }
   for (const c of compMatchers) {
-    if (c.exactRe.test(text)) { found.push(c.name); continue; }
-    if (c.baseRe && c.baseRe.test(text)) { found.push(c.name); continue; }
-    if (c.baseDomain && c.baseDomain.length >= 5) {
-      const collapsed = getCollapsed();
-      // Also strip hyphens/special chars from baseDomain for fair comparison
-      const collapsedBase = c.baseDomain.replace(/[^a-z0-9]/g, '');
-      if (collapsed.includes(collapsedBase)) { found.push(c.name); continue; }
-      if (c.baseDomainClean) {
-        const collapsedClean = c.baseDomainClean.replace(/[^a-z0-9]/g, '');
-        if (collapsed.includes(collapsedClean)) { found.push(c.name); continue; }
-      }
-    }
-    if (c.domainWordRes.length >= 2) {
-      const positions: number[] = [];
-      let allFound = true;
-      for (const rx of c.domainWordRes) {
-        const m = rx.exec(text);
-        if (m) { positions.push(m.index); }
-        else { allFound = false; break; }
-      }
-      if (allFound && positions.length >= 2) {
-        const span = Math.max(...positions) - Math.min(...positions);
-        if (span <= 120) { found.push(c.name); }
-      }
+    if (c.exactRe.test(text)
+      || (c.baseRe && c.baseRe.test(text))
+      || (c.spacedBaseRe && c.spacedBaseRe.test(text))
+      || (c.spacedCleanRe && c.spacedCleanRe.test(text))
+      || (c.domainPhraseRe && c.domainPhraseRe.test(text))) {
+      found.push(c.name);
     }
   }
   return found;
@@ -229,9 +253,9 @@ export interface BrandInput {
 
 export interface BrandMatcher {
   nameLower: string; exactRe: RegExp; noPuncRe: RegExp | null;
-  nameNoSpace: string; firstWord: string;
+  nameNoSpace: string; noSpaceRe: RegExp | null; firstWord: string;
   sigWords: string[]; sigWordRes: RegExp[];
-  domain: string | null; aliasMatchers: Array<{ exact: RegExp; noPunc: RegExp | null }>;
+  domain: string | null; domainRe: RegExp | null; aliasMatchers: Array<{ exact: RegExp; noPunc: RegExp | null }>;
   positionRes: RegExp[]; allLocations: string[];
   compRes: CompetitorMatcher[]; hasCity: boolean;
 }
@@ -240,31 +264,33 @@ export function buildBrandMatcher(brand: BrandInput): BrandMatcher {
   // Limit length and strip regex-dangerous patterns to prevent ReDoS
   const name = (brand.name || '').trim().slice(0, 200).replace(/[(){}|\\]/g, '');
   const nameLower = name.toLowerCase();
-  const nameEsc = nameLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const exactRe = new RegExp('\\b' + nameEsc + '\\b', 'i');
+  const exactRe = boundedRe(escapeRe(nameLower));
   const nameNoPunc = nameLower.replace(/[''`\-.,&!]/g, '');
-  const noPuncRe = nameNoPunc.length >= 3 ? new RegExp('\\b' + nameNoPunc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i') : null;
+  const noPuncRe = nameNoPunc.length >= 3 ? boundedRe(escapeRe(nameNoPunc)) : null;
   const nameNoSpace = nameLower.replace(/[\s\-_]+/g, '');
+  // Space/hyphen-insensitive match ("LiveSov" = "Live Sov" = "live-sov"),
+  // still bounded on both ends so "Square" never matches "Squarespace".
+  const noSpaceRe = nameNoSpace.length >= 6 ? boundedRe(spacedPattern(nameNoSpace, BRAND_SEP)) : null;
   const firstWord = nameLower.split(/\s+/)[0];
   const sigWords = nameLower.split(/\s+/).filter((w: string) => w.length > 2);
-  const sigWordRes = sigWords.map((w: string) => new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i'));
+  const sigWordRes = sigWords.map((w: string) => boundedRe(escapeRe(w)));
 
   let domain: string | null = null;
   if (brand.website) {
     domain = brand.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase();
     if (domain && domain.length <= 3) domain = null;
   }
+  const brandDomainRe = domain ? domainRe(domain) : null;
 
   const aliasMatchers: Array<{ exact: RegExp; noPunc: RegExp | null }> = [];
   if (brand.aliases?.length) {
     for (const alias of brand.aliases) {
       const aLower = alias.toLowerCase().trim();
       if (aLower.length < 2) continue;
-      const aEsc = aLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const aNoPunc = aLower.replace(/[''`\-.,&!]/g, '');
       aliasMatchers.push({
-        exact: new RegExp('\\b' + aEsc + '\\b', 'i'),
-        noPunc: aNoPunc.length >= 3 ? new RegExp('\\b' + aNoPunc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i') : null,
+        exact: boundedRe(escapeRe(aLower)),
+        noPunc: aNoPunc.length >= 3 ? boundedRe(escapeRe(aNoPunc)) : null,
       });
     }
   }
@@ -287,13 +313,18 @@ export function buildBrandMatcher(brand: BrandInput): BrandMatcher {
   // Optional bold/italic emphasis: `**`, `__`, or `*`.
   const EMPH = '(?:\\*\\*|__|\\*)?';
   for (const bn of allNames) {
-    const bnEsc = bn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // The name itself or its space/hyphen-insensitive form, followed by an
+    // optional plural/possessive and a word boundary, so "1. Squarespace"
+    // is not position 1 for "Square".
+    const bnCollapsed = bn.toLowerCase().replace(/[\s\-_]+/g, '');
+    const bnAlt = bnCollapsed.length >= 6 ? '|' + spacedPattern(bnCollapsed, BRAND_SEP) : '';
+    const bnEsc = '(?:' + escapeRe(bn) + bnAlt + ')' + PLURAL_TAIL + WB_END;
     // Pattern 1: `1.`, `2)`, `3-`, with optional emphasis before the digit,
     // after the punctuation, and immediately before the brand name. Covers
     // `1. Brand`, `**1. Brand**`, `**1.** Brand`, `1. **Brand**`, etc.
     positionRes.push(new RegExp(
       '(?:^|\\n)\\s*' + EMPH + '\\s*(\\d{1,2})[.)\\-]\\s*' + EMPH + '\\s*' + EMPH + '\\s*' + bnEsc,
-      'im',
+      'imu',
     ));
     // Pattern 2: `(1)`, `[1]`, `#1:`, `#4 Brand` and bold variants
     // (`**(6)**`, `**(1) Brand**`, etc.). Emphasis can sit either side
@@ -302,7 +333,7 @@ export function buildBrandMatcher(brand: BrandInput): BrandMatcher {
     // from the brand, so the brand-on-same-line invariant still holds.
     positionRes.push(new RegExp(
       '(?:^|\\n)\\s*' + EMPH + '\\s*[(\\[#]\\s*(\\d{1,2})\\s*[)\\]:.\\-]?' + EMPH + '\\s+' + EMPH + '\\s*' + EMPH + '\\s*' + bnEsc,
-      'im',
+      'imu',
     ));
   }
 
@@ -320,7 +351,7 @@ export function buildBrandMatcher(brand: BrandInput): BrandMatcher {
     }
   }
 
-  return { nameLower, exactRe, noPuncRe, nameNoSpace, firstWord, sigWords, sigWordRes, domain, aliasMatchers, positionRes, allLocations, compRes, hasCity: !!brand.city };
+  return { nameLower, exactRe, noPuncRe, nameNoSpace, noSpaceRe, firstWord, sigWords, sigWordRes, domain, domainRe: brandDomainRe, aliasMatchers, positionRes, allLocations, compRes, hasCity: !!brand.city };
 }
 
 // ── No-knowledge / echo detection ────────────────────────────────
@@ -376,9 +407,11 @@ function _brandIndex(s: string, m: BrandMatcher): number {
   if (exact) return exact.index;
   for (const am of m.aliasMatchers) { const a = am.exact.exec(s); if (a) return a.index; }
   const lower = s.toLowerCase();
-  if (m.domain && lower.includes(m.domain)) return lower.indexOf(m.domain);
+  const dom = m.domainRe ? m.domainRe.exec(s) : null;
+  if (dom) return dom.index;
   if (m.noPuncRe && m.noPuncRe.test(lower.replace(/[''`\-.,&!]/g, ''))) return Math.max(0, lower.indexOf(m.firstWord));
-  if (m.nameNoSpace.length >= 6 && lower.replace(/[\s\-_]+/g, '').includes(m.nameNoSpace)) return Math.max(0, lower.indexOf(m.firstWord));
+  const spaced = m.noSpaceRe ? m.noSpaceRe.exec(s) : null;
+  if (spaced) return spaced.index;
   return -1;
 }
 
@@ -405,7 +438,7 @@ export function isBrandedPrompt(query: string, brandOrMatcher: BrandInput | Bran
   // "easypump pricing" for easypump.co.uk: the bare domain label counts too.
   if (m.domain) {
     const label = m.domain.split('.')[0];
-    if (label.length >= 5 && new RegExp('\\b' + label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i').test(query)) return true;
+    if (label.length >= 5 && boundedRe(escapeRe(label)).test(query)) return true;
   }
   return false;
 }
@@ -427,8 +460,9 @@ export function parseResponse(text: string, brand: BrandInput, query: string, ma
     if (noPuncMatch) { mentioned = true; matchPosition = noPuncMatch.index; }
   }
 
-  if (!mentioned && m.nameNoSpace.length >= 6) {
-    if (lower.replace(/[\s\-_]+/g, '').includes(m.nameNoSpace)) { mentioned = true; matchPosition = lower.indexOf(m.firstWord); }
+  if (!mentioned && m.noSpaceRe) {
+    const spacedMatch = m.noSpaceRe.exec(text);
+    if (spacedMatch) { mentioned = true; matchPosition = spacedMatch.index; }
   }
 
   if (!mentioned) {
@@ -438,7 +472,10 @@ export function parseResponse(text: string, brand: BrandInput, query: string, ma
     }
   }
 
-  if (!mentioned && m.domain && lower.includes(m.domain)) { mentioned = true; matchPosition = lower.indexOf(m.domain); }
+  if (!mentioned && m.domainRe) {
+    const domMatch = m.domainRe.exec(text);
+    if (domMatch) { mentioned = true; matchPosition = domMatch.index; }
+  }
 
   let listPosition: number | null = null;
   if (mentioned) {

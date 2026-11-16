@@ -238,3 +238,26 @@ describe('createTargetedFix — target URL resolution', () => {
     expect(store.last).toBeNull();
   });
 });
+
+describe('createTargetedFix: target must be on the brand site', () => {
+  it('rejects an absolute URL on another host', async () => {
+    await expect(createTargetedFix({ ...base, moduleKey: 'title-rewrite', url: 'https://attacker.tld/wp-admin' }))
+      .rejects.toThrow(/isn’t on your site/);
+    expect(store.last).toBeNull();
+  });
+
+  it('rejects a look-alike host that merely contains the brand host', async () => {
+    await expect(createTargetedFix({ ...base, moduleKey: 'meta-rewrite', url: 'https://acme.test.attacker.tld/p' }))
+      .rejects.toThrow(/isn’t on your site/);
+  });
+
+  it('rejects an absolute URL when the brand has no website', async () => {
+    await expect(createTargetedFix({ brandId: 'b1', ownerId: 'o1', moduleKey: 'meta-rewrite', url: 'https://acme.test/p' }))
+      .rejects.toThrow(/Add your website/);
+  });
+
+  it('accepts the www variant and any subpath', async () => {
+    await createTargetedFix({ ...base, moduleKey: 'meta-rewrite', url: 'https://www.acme.test/blog/deep/post' });
+    expect(store.last!.targetUrl).toBe('https://www.acme.test/blog/deep/post');
+  });
+});

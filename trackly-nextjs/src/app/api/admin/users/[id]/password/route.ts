@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { pool, auditLog } from '@/lib/db';
-import { requireVerifiedAuth, revokeAllSessions } from '@/lib/auth';
+import { requireVerifiedAuth, revokeAllSessions, validatePasswordComplexity } from '@/lib/auth';
 import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { AUTH } from '@/lib/constants';
 import { logError, serverError } from '@/lib/api-error';
@@ -45,12 +45,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }, { status: 400 });
   }
   const password = typeof body.password === 'string' ? body.password : '';
-  if (password.length < 8) {
-    return Response.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
-  }
-  if (password.length > 128) {
-    return Response.json({ error: 'Password too long' }, { status: 400 });
-  }
+  // Same rules as signup.
+  const pwError = validatePasswordComplexity(password);
+  if (pwError) return Response.json({ error: pwError }, { status: 400 });
 
   try {
     const hash = await bcrypt.hash(password, AUTH.bcryptRounds);

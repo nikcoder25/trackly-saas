@@ -14,7 +14,7 @@
  *    so wp-admin shows its normal "update available" row.
  */
 
-export const CONNECTOR_PLUGIN_VERSION = '1.4.0';
+export const CONNECTOR_PLUGIN_VERSION = '1.4.1';
 
 /** Where the built zip is served from (public/, committed, CI-verified). */
 export const CONNECTOR_PLUGIN_ZIP_PATH = '/wordpress-plugin/livesov-connector.zip';

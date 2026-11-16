@@ -11,6 +11,7 @@ const store = vi.hoisted(() => ({
   connectorActive: true,
   events: [] as string[],
   resetCalls: [] as string[],
+  failReset: false,
 }));
 
 vi.mock('next/server', () => ({ after: (fn: () => unknown) => { void fn; } }));
@@ -50,13 +51,20 @@ vi.mock('@/lib/fix-engine/schema', () => ({
     if (r && r.status === from) { r.status = to; return true; }
     return false;
   }),
-  resetConnectorDelivery: vi.fn(async (id: string) => { store.resetCalls.push(id); }),
+  resetConnectorDelivery: vi.fn(async (id: string) => {
+    if (store.failReset) throw new Error('db down');
+    store.resetCalls.push(id);
+  }),
+  listFixes: vi.fn(async (_b: string, f: { status?: string } = {}) =>
+    [...store.fixes.values()].filter((r) => !f.status || r.status === f.status).map((r) => ({ ...r }))),
+  createBatch: vi.fn(async () => 'b'),
   logFixEvent: vi.fn(async (_f: string, _b: string, _u: unknown, event: string) => { store.events.push(event); }),
   getBatch: vi.fn(async () => null), claimBatchForRunning: vi.fn(async () => true), finalizeBatch: vi.fn(async () => {}),
   upsertDetectedFix: vi.fn(async () => 'x'), createBatch: vi.fn(async () => 'b'), findStuckQueuedBatches: vi.fn(async () => []),
 }));
 
-import { stageFix, publishStagedFix } from '@/lib/fix-engine/engine';
+import { stageFix, publishStagedFix, approveFix } from '@/lib/fix-engine/engine';
+import { applyAutopilot } from '@/lib/fix-engine/automation';
 
 function seed(over: Partial<FixRow> = {}): string {
   const id = 'fix1';
@@ -70,7 +78,7 @@ function seed(over: Partial<FixRow> = {}): string {
   return id;
 }
 
-beforeEach(() => { store.fixes.clear(); store.connectorActive = true; store.events = []; store.resetCalls = []; vi.clearAllMocks(); });
+beforeEach(() => { store.fixes.clear(); store.connectorActive = true; store.events = []; store.resetCalls = []; store.failReset = false; vi.clearAllMocks(); });
 
 describe('stageFix', () => {
   it('stages an approved, stageable fix as a draft (queues stage_content)', async () => {
@@ -118,5 +126,77 @@ describe('publishStagedFix', () => {
   it('refuses to publish a fix that is not staged', async () => {
     const id = seed({ status: 'approved' });
     await expect(publishStagedFix(id, 'brand1', 'owner1')).rejects.toThrow(/staged/);
+  });
+});
+
+describe('stageFix rollback and the approval gate', () => {
+  it('stages straight from generated without an approval', async () => {
+    const id = seed({ status: 'generated' });
+    const fix = await stageFix(id, 'brand1', null);
+    expect(fix.status).toBe('staged');
+    expect(store.events).not.toContain('approved');
+  });
+
+  it('restores the previous status and fields when a stage write fails', async () => {
+    const id = seed({ status: 'generated', shipResult: null, afterSnapshot: null, shipMode: 'live', previewUrl: null } as Partial<FixRow>);
+    store.failReset = true;
+    await expect(stageFix(id, 'brand1', null)).rejects.toThrow(/db down/);
+    const row = store.fixes.get(id)!;
+    expect(row.status).toBe('generated');
+    expect(row.shipResult).toBeNull();
+    expect(row.afterSnapshot).toBeNull();
+    expect(row.shipMode).toBe('live');
+    expect(store.events).not.toContain('staged');
+  });
+
+  it('refuses an approval with no human behind it', async () => {
+    const id = seed({ status: 'generated' });
+    await expect(approveFix(id, 'brand1', null)).rejects.toThrow(/needs a person/);
+    expect(store.fixes.get(id)!.status).toBe('generated');
+  });
+
+  it('records who approved a fix', async () => {
+    const id = seed({ status: 'generated' });
+    await approveFix(id, 'brand1', 'owner1');
+    expect(store.fixes.get(id)!.status).toBe('approved');
+    expect(store.fixes.get(id)!.approvedBy).toBe('owner1');
+  });
+});
+
+describe('autopilot against the real engine', () => {
+  const auto = {
+    brandId: 'brand1', scanEnabled: true, scanFrequency: 'weekly' as const, scanModules: [],
+    autopilotGenerate: false, autopilotStage: true, lastScanAt: null, nextScanAt: null,
+  };
+
+  it('leaves an llms-txt fix generated: never approved, never served', async () => {
+    const id = seed({ moduleKey: 'llms-txt', channel: 'B', status: 'generated', generated: { content: 'User-agent: *' } });
+    const r = await applyAutopilot('brand1', auto);
+    expect(r.staged).toBe(0);
+    expect(store.fixes.get(id)!.status).toBe('generated');
+    expect(store.events).not.toContain('approved');
+  });
+
+  it('stages a stageable fix as a draft without approving it', async () => {
+    const id = seed({ status: 'generated' });
+    const r = await applyAutopilot('brand1', auto);
+    expect(r.staged).toBe(1);
+    expect(store.fixes.get(id)!.status).toBe('staged');
+    expect(store.events).not.toContain('approved');
+  });
+
+  it('without a Connector leaves fixes generated instead of approved', async () => {
+    store.connectorActive = false;
+    const id = seed({ status: 'generated' });
+    await applyAutopilot('brand1', auto);
+    expect(store.fixes.get(id)!.status).toBe('generated');
+  });
+
+  it('a failed stage during autopilot leaves the fix where it was', async () => {
+    const id = seed({ status: 'generated' });
+    store.failReset = true;
+    const r = await applyAutopilot('brand1', auto);
+    expect(r.staged).toBe(0);
+    expect(store.fixes.get(id)!.status).toBe('generated');
   });
 });

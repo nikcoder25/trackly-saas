@@ -167,7 +167,10 @@ export interface BulkUpdate {
   device?: 'desktop' | 'mobile';
 }
 
-export async function updateKeywords(accountId: string, plan: string, ids: string[], u: BulkUpdate): Promise<{ ok: true; updated: number } | { ok: false; status: number; error: string }> {
+/** A check in flight (claimed, posted or being collected) for one of the keywords. Its result is for the old place. */
+const NOT_PENDING = `k.pending_provider IS NULL AND k.pending_task_id IS NULL`;
+
+export async function updateKeywords(accountId: string, plan: string, ids: string[], u: BulkUpdate): Promise<{ ok: true; updated: number; busy?: number } | { ok: false; status: number; error: string }> {
   await ensureRankSchema();
   const own = await ownKeywordIds(accountId, ids);
   if (!own.length) return { ok: true, updated: 0 };
@@ -187,13 +190,19 @@ export async function updateKeywords(accountId: string, plan: string, ids: strin
       await pool.query(`UPDATE rt_keywords SET group_id = NULL WHERE id = ANY($1::text[])`, [own]);
     }
   }
+  let busy = 0;
+  if (u.location || u.device) {
+    const b = await pool.query(`SELECT COUNT(*)::int AS n FROM rt_keywords k WHERE k.id = ANY($1::text[]) AND NOT (${NOT_PENDING})`, [own]);
+    busy = Number(b.rows[0]?.n) || 0;
+  }
   if (u.location) {
     const loc = await resolveLocation(u.location);
     if (!loc) return { ok: false, status: 400, error: 'Pick the city, state or country to check from in the list.' };
     // Moving a keyword to a city it is already tracked from on that site would collide: those are left as they are.
+    // A keyword with a check in flight is left as it is too: that result is for the old city and would be stored as the new one's.
     await pool.query(
       `UPDATE rt_keywords k SET location_code = $2, location_name = $3, next_check_at = NOW(), location_changed = TRUE
-        WHERE k.id = ANY($1::text[]) AND NOT EXISTS (
+        WHERE k.id = ANY($1::text[]) AND ${NOT_PENDING} AND NOT EXISTS (
           SELECT 1 FROM rt_keywords o WHERE o.website_id = k.website_id AND o.keyword = k.keyword AND o.device = k.device AND o.location_code = $2 AND o.id <> k.id)`,
       [own, loc.code, loc.name]);
   }
@@ -201,7 +210,7 @@ export async function updateKeywords(accountId: string, plan: string, ids: strin
     // Same rule as a location move: a keyword already tracked on that device in that place is left as it is.
     await pool.query(
       `UPDATE rt_keywords k SET device = $2, next_check_at = NOW(), location_changed = TRUE
-        WHERE k.id = ANY($1::text[]) AND k.device <> $2 AND NOT EXISTS (
+        WHERE k.id = ANY($1::text[]) AND k.device <> $2 AND ${NOT_PENDING} AND NOT EXISTS (
           SELECT 1 FROM rt_keywords o WHERE o.website_id = k.website_id AND o.keyword = k.keyword AND o.location_code = k.location_code AND o.device = $2 AND o.id <> k.id)`,
       [own, u.device]);
   }
@@ -219,7 +228,7 @@ export async function updateKeywords(accountId: string, plan: string, ids: strin
     if (u.frequency) await pool.query(`UPDATE rt_keywords SET frequency = $2 WHERE id = ANY($1::text[])`, [own, u.frequency]);
     if (u.depth) await pool.query(`UPDATE rt_keywords SET depth = $2 WHERE id = ANY($1::text[])`, [own, u.depth]);
   }
-  return { ok: true, updated: own.length };
+  return busy ? { ok: true, updated: own.length, busy } : { ok: true, updated: own.length };
 }
 
 export async function deleteKeywords(accountId: string, ids: string[]): Promise<number> {
