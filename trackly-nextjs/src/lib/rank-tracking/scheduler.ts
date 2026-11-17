@@ -33,7 +33,7 @@ import { effectivePlansByAccount, usedThisMonthByAccount } from './queries';
 import { nextCheckAt, retryAt } from './schedule';
 import { findRank } from './domain';
 import { fetchPageWithFallback, providerChain } from './providers';
-import { dfsQueue, DFS_PENDING_CODES, DFS_REPOST_CODES, type DfsCheckTask } from './providers/dataforseo';
+import { dfsQueue, isDfsAuthError, DFS_PENDING_CODES, DFS_REPOST_CODES, type DfsCheckTask } from './providers/dataforseo';
 import { evaluateAlertsForCheck } from './alerts';
 
 const DISPATCH_PER_TICK = Number(process.env.RANK_DISPATCH_PER_TICK) || 300;
@@ -150,6 +150,21 @@ async function runSync(k: KeywordRow): Promise<void> {
   }
 }
 
+/**
+ * DataForSEO rejected the login (HTTP 401/403) or the balance (402). The
+ * checks run on the synchronous providers (LiteScrape, Serper) instead, so
+ * ranks keep coming in; with none configured they fail with a readable error.
+ */
+async function syncAfterDfsRejected(rows: KeywordRow[], message: string): Promise<void> {
+  logger.error('rank.dataforseo_rejected', { keywords: rows.length, err: message });
+  if (!syncChain().length) {
+    const why = /402/.test(message) ? 'out of balance' : 'login rejected, check DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD';
+    for (const k of rows) await failCheck(k, new Error(`DataForSEO ${why} (${message})`));
+    return;
+  }
+  await pool2(rows, SYNC_CONCURRENCY, (k) => runSync(k));
+}
+
 function dfsTask(k: KeywordRow): DfsCheckTask {
   return { tag: k.id, keyword: k.keyword, locationCode: k.location_code, locationName: k.location_name, device: k.device, language: k.language || 'en', depth: k.depth };
 }
@@ -173,9 +188,12 @@ async function postChecks(rows: KeywordRow[], run: DfsRunCost, isRepost = false)
     const answers = await dfsQueue.post(todo.map(dfsTask));
     const byId = new Map(todo.map((k) => [k.id, k]));
     const again: KeywordRow[] = [];
+    const rejected: KeywordRow[] = [];
     for (const a of answers) {
       const k = byId.get(a.tag);
       if (!k) continue;
+      // DataForSEO refused the account (bad login, no balance): check on the other providers instead.
+      if (!a.id && a.status === 0 && isDfsAuthError(a.message)) { rejected.push(k); continue; }
       const attempts = (k.pending_attempts || 0) + 1;
       if (a.cost > 0) { run.costUsd += a.cost; await logSpend(k.account_id, a.cost, Math.ceil(k.depth / 10)); }
       if (a.id) {
@@ -192,6 +210,7 @@ async function postChecks(rows: KeywordRow[], run: DfsRunCost, isRepost = false)
       }
       await failCheck(k, new Error(`dataforseo task_post ${a.status}: ${a.message}`));
     }
+    if (rejected.length) await syncAfterDfsRejected(rejected, answers.find((a) => isDfsAuthError(a.message))?.message || 'auth');
     todo = again;
   }
 }
