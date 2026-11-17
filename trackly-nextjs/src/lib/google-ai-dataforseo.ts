@@ -7,6 +7,7 @@
  * location names, which the brand's free-text city doesn't match.
  */
 import type { LitescrapeAnswer } from './litescrape';
+import { dataForSeoAuthHeader, dataForSeoCredentials } from './dataforseo-auth';
 
 const API_BASE = 'https://api.dataforseo.com/v3';
 const OK = 20000;
@@ -17,7 +18,7 @@ export const DFS_AI_OVERVIEW_USD = 0.004;
 export const DFS_AI_MODE_USD = 0.004;
 
 export function dataForSeoAiConfigured(): boolean {
-  return !!(process.env.DATAFORSEO_LOGIN && process.env.DATAFORSEO_PASSWORD)
+  return !!dataForSeoCredentials()
     && process.env.GOOGLE_AI_DATAFORSEO_FALLBACK !== 'false';
 }
 
@@ -56,14 +57,13 @@ export function parseAiItems(items: DfsNode[] | null | undefined): LitescrapeAns
 }
 
 async function post(path: string, task: Record<string, unknown>, signal?: AbortSignal): Promise<DfsNode[]> {
-  const login = process.env.DATAFORSEO_LOGIN;
-  const password = process.env.DATAFORSEO_PASSWORD;
-  if (!login || !password) throw new Error('DataForSEO is not configured');
+  const authorization = dataForSeoAuthHeader();
+  if (!authorization) throw new Error('DataForSEO is not configured');
   const timeout = AbortSignal.timeout(TIMEOUT_MS);
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: {
-      Authorization: `Basic ${Buffer.from(`${login}:${password}`).toString('base64')}`,
+      Authorization: authorization,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify([task]),

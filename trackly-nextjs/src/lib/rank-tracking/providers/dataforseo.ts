@@ -16,6 +16,7 @@
  * Also here, because they share the credentials: the location list for
  * the city autocomplete (free) and Google Ads search volume.
  */
+import { dataForSeoAuthHeader } from '@/lib/dataforseo-auth';
 import { normalizeDomain } from '../domain';
 import { ProviderError, type OrganicResult, type SerpPage, type SerpPageRequest, type SerpProvider } from './types';
 
@@ -25,10 +26,12 @@ const TIMEOUT_MS = Number(process.env.DATAFORSEO_TIMEOUT_MS) || 30000;
 export const DFS_STANDARD_PAGE_COST = 0.0006;
 
 function auth(): string | null {
-  const login = process.env.DATAFORSEO_LOGIN;
-  const password = process.env.DATAFORSEO_PASSWORD;
-  if (!login || !password) return null;
-  return `Basic ${Buffer.from(`${login}:${password}`).toString('base64')}`;
+  return dataForSeoAuthHeader();
+}
+
+/** HTTP 401/402/403: bad login, no balance or no access. Posting again will not help. */
+export function isDfsAuthError(message: string): boolean {
+  return /HTTP 40[123]\b/.test(message);
 }
 
 interface DfsTask<T> {

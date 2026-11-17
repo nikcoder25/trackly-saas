@@ -37,6 +37,7 @@
 
 import { logger } from './logger';
 import { safeFetch } from './safe-fetch';
+import { dataForSeoAuthHeader, dataForSeoCredentials } from './dataforseo-auth';
 
 const API_BASE = 'https://api.dataforseo.com/v3';
 
@@ -60,14 +61,11 @@ const REQUEST_TIMEOUT_MS = Number(process.env.DATAFORSEO_TIMEOUT_MS) || 20000;
 export const MAX_KEYWORDS_PER_REQUEST = 1000;
 
 export function isDataForSeoConfigured(): boolean {
-  return !!(process.env.DATAFORSEO_LOGIN && process.env.DATAFORSEO_PASSWORD);
+  return !!dataForSeoCredentials();
 }
 
 function authHeader(): string | null {
-  const login = process.env.DATAFORSEO_LOGIN;
-  const password = process.env.DATAFORSEO_PASSWORD;
-  if (!login || !password) return null;
-  return `Basic ${Buffer.from(`${login}:${password}`).toString('base64')}`;
+  return dataForSeoAuthHeader();
 }
 
 /**

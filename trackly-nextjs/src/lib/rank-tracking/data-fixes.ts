@@ -128,8 +128,26 @@ async function applyFix(c: PoolClient, fix: LocationFix): Promise<number> {
   return moved;
 }
 
+/**
+ * Keywords whose checks failed while DataForSEO rejected the login sit in
+ * a long back-off. Once per database, make them due now so they are
+ * checked again with the fixed credentials or the fallback providers.
+ */
+export const DFS_AUTH_RETRY_FIX_ID = '2026-11-17-dataforseo-401-retry';
+
+async function retryDfsAuthFailures(): Promise<void> {
+  const claim = await pool.query(`INSERT INTO rt_data_fixes (id) VALUES ($1) ON CONFLICT (id) DO NOTHING RETURNING id`, [DFS_AUTH_RETRY_FIX_ID]);
+  if (!claim.rows.length) return;
+  const u = await pool.query(
+    `UPDATE rt_keywords SET next_check_at = NOW(), fail_count = 0
+      WHERE last_error ~ 'HTTP 40[123]' AND pending_provider IS NULL AND pending_task_id IS NULL`);
+  await pool.query(`UPDATE rt_data_fixes SET changed = $2 WHERE id = $1`, [DFS_AUTH_RETRY_FIX_ID, u.rowCount || 0]);
+  logger.info('rank.data_fix_applied', { id: DFS_AUTH_RETRY_FIX_ID, changed: u.rowCount || 0 });
+}
+
 export async function applyRankDataFixes(fixes: LocationFix[] = RANK_DATA_FIXES): Promise<Record<string, number>> {
   await pool.query(`CREATE TABLE IF NOT EXISTS rt_data_fixes (id TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), changed INTEGER NOT NULL DEFAULT 0)`);
+  if (fixes === RANK_DATA_FIXES) await retryDfsAuthFailures();
   const done = await pool.query<{ id: string }>(`SELECT id FROM rt_data_fixes WHERE id = ANY($1::text[])`, [fixes.map((f) => f.id)]);
   const have = new Set(done.rows.map((r) => r.id));
   const out: Record<string, number> = {};
