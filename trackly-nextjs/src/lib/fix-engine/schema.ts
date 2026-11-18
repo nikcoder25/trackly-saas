@@ -320,7 +320,13 @@ export async function findStuckQueuedBatches(olderThanSeconds: number): Promise<
 
 // ── fix row helpers ──────────────────────────────────────────────
 
+// fixes.id is a uuid column: comparing it to a non-uuid string makes Postgres
+// throw `invalid input syntax for type uuid`, which every fix route turned
+// into a 500 for a plain "no such fix" request.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function getFix(fixId: string, brandId: string): Promise<FixRow | null> {
+  if (!UUID_RE.test(fixId)) return null;
   await ensureFixEngineSchema();
   const res = await pool.query(
     `SELECT * FROM fixes WHERE id = $1 AND brand_id = $2`,

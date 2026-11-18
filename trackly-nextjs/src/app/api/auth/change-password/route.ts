@@ -6,6 +6,7 @@ import {
 } from '@/lib/auth';
 import { AUTH, getEffectivePlan } from '@/lib/constants';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 export async function POST(request: Request) {
   const user = await verifyRequestAuthLive(request);
@@ -20,7 +21,9 @@ export async function POST(request: Request) {
   });
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const { currentPassword, newPassword } = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return invalidJsonBody();
+  const { currentPassword, newPassword } = body;
   if (!currentPassword || !newPassword) return Response.json({ error: 'Current and new password required' }, { status: 400 });
   if (typeof newPassword !== 'string') return Response.json({ error: 'Invalid input' }, { status: 400 });
   const pwError = validatePasswordComplexity(newPassword);

@@ -1,6 +1,7 @@
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const authResult = await requireVerifiedAuth(request, pool);
@@ -23,7 +24,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
   if (access.role === 'viewer') return Response.json({ error: 'Viewers cannot edit facts' }, { status: 403 });
 
-  const { facts } = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return invalidJsonBody();
+  const { facts } = body;
   if (!Array.isArray(facts)) return Response.json({ error: 'Facts must be an array' }, { status: 400 });
 
   try {

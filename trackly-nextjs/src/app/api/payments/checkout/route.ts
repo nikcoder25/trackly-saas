@@ -10,6 +10,7 @@ import {
   parseBillingCycle,
   resolveCheckout,
 } from '@/lib/dodo-products';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 // Tells the billing UI which plans can be bought annually and which cycle
 // the user is on now, so the Monthly/Annual toggle only shows when usable.
@@ -36,7 +37,9 @@ export async function POST(request: Request) {
   });
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const { plan: rawPlan, billing: rawBilling } = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return invalidJsonBody();
+  const { plan: rawPlan, billing: rawBilling } = body;
   const plan = typeof rawPlan === 'string' ? rawPlan.toLowerCase() : '';
   if (!plan || !monthlyProductIds()[plan]) return Response.json({ error: 'Invalid plan' }, { status: 400 });
   const billing = parseBillingCycle(rawBilling);

@@ -43,6 +43,11 @@ const ANONYMOUS_ROUTES = [
   'src/app/api/tools/citation-finder/route.ts',
   'src/app/api/tools/competitor-finder/route.ts',
   'src/app/api/tools/nap-checker/route.ts',
+  // Signed-out auth routes: scanners hit these more than anything else.
+  'src/app/api/auth/login/route.ts',
+  'src/app/api/auth/register/route.ts',
+  'src/app/api/auth/forgot-password/route.ts',
+  'src/app/api/auth/reset-password/route.ts',
 ];
 
 describe('anonymous endpoints tolerate malformed JSON bodies', () => {
@@ -73,7 +78,8 @@ describe('anonymous endpoints tolerate malformed JSON bodies', () => {
   });
 
   it('does not let the bare-json() pattern spread further (ratchet)', () => {
-    // 58 AUTHENTICATED routes still have a bare `await req.json()`. They are
+    // 38 matches remain (most are already inside a try/catch that answers 400;
+    // the grep cannot tell). Authenticated routes still with a bare `await req.json()`. They are
     // materially lower risk than the anonymous ones fixed above - a valid
     // session is required to reach them, so they are not scanner-facing and
     // do not inflate the public error rate - and converting all 58 is a large
@@ -84,7 +90,7 @@ describe('anonymous endpoints tolerate malformed JSON bodies', () => {
     // this fails because you added a route, guard its parse with
     // `.catch(() => ({}))` instead of raising the number. When someone does
     // the full sweep, drop this to 0 and restore the `toEqual([])` assertion.
-    const KNOWN_AUTHENTICATED_OFFENDERS = 58;
+    const KNOWN_AUTHENTICATED_OFFENDERS = 38;
 
     const offenders: string[] = [];
     for (const file of routeFiles(API_DIR)) {

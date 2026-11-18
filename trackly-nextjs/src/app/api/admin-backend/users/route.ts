@@ -6,6 +6,7 @@ import { logError, serverError } from '@/lib/api-error';
 import { getClientIp } from '@/lib/rate-limit';
 import { uid } from '@/lib/helpers';
 import { toAdminUserRow } from '@/lib/admin-user-row';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 export async function GET(request: Request) {
   const admin = await requireAdmin(request);
@@ -79,7 +80,9 @@ export async function POST(request: Request) {
   if (admin instanceof Response) return admin;
 
   try {
-    const { email, password, name, plan } = await request.json();
+    const body = await readJsonObject(request);
+    if (!body) return invalidJsonBody();
+    const { email, password, name, plan } = body;
     if (!email || !password) {
       return Response.json({ error: 'Email and password are required' }, { status: 400 });
     }

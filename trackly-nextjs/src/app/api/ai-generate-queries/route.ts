@@ -8,6 +8,7 @@ import { resolveKeysForTenant, PROVIDER_SPECS } from '@/lib/tenant-keys';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
 import { isBrandedPrompt } from '@/lib/parser';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 // Try platforms in this order so we prefer the cheapest / fastest
 // generator first, then fall back. Names match `ProviderSpec.keyName`.
@@ -23,7 +24,9 @@ export async function POST(request: Request) {
   const rl = await rateLimit('aigen:' + user.id, 15 * 60 * 1000, 10);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const { brandName, industry, city, existingQueries, mode } = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return invalidJsonBody();
+  const { brandName, industry, city, existingQueries, mode } = body;
   if (!brandName || !industry) {
     return Response.json({ error: 'Brand name and industry are required' }, { status: 400 });
   }

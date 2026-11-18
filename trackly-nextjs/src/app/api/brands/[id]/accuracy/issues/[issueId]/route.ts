@@ -7,6 +7,9 @@ async function handleToggleFixed(request: Request, params: { id: string; issueId
   if (authResult instanceof Response) return authResult;
   const user = authResult;
   const { id, issueId } = params;
+  // accuracy_issues.id is an integer; a non-numeric id is a missing issue,
+  // not a database error.
+  if (!/^\d{1,15}$/.test(issueId)) return Response.json({ error: 'Issue not found' }, { status: 404 });
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
   if (access.role === 'viewer') return Response.json({ error: 'Viewers cannot modify issues' }, { status: 403 });

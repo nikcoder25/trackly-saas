@@ -4,6 +4,7 @@ import { getBrandWithAccess } from '@/lib/helpers';
 import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 import { gatherAnalytics, generateRecommendations, trackedSet } from '@/lib/recommendations-engine';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 const VALID_STATUSES = ['open', 'in_progress', 'done', 'ignored'] as const;
 const VALID_SEVERITIES = ['critical', 'high', 'medium', 'low'] as const;
@@ -147,7 +148,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return Response.json({ error: 'Viewers cannot update recommendations.' }, { status: 403 });
   }
 
-  const body = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return invalidJsonBody();
   const { id: recId, status } = body;
   if (!recId || !status) return Response.json({ error: 'Missing id or status' }, { status: 400 });
 

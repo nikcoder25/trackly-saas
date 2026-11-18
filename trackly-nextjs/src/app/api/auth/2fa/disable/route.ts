@@ -3,6 +3,7 @@ import { pool, auditLog } from '@/lib/db';
 import { revokeAllSessions, verifyRequestAuthLive } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 export async function POST(request: Request) {
   const user = await verifyRequestAuthLive(request);
@@ -17,7 +18,9 @@ export async function POST(request: Request) {
   });
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const { password } = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return invalidJsonBody();
+  const { password } = body;
   if (!password) return Response.json({ error: 'Password required to disable 2FA' }, { status: 400 });
 
   try {

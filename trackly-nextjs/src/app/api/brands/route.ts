@@ -5,6 +5,7 @@ import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 import { countTrackedPromptsForOwner } from '@/lib/prompt-quota';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 // Trim heavy fields from brand data for list responses
 function trimBrandData(data: Record<string, unknown>) {
@@ -134,7 +135,8 @@ export async function POST(request: Request) {
   const { allowed, retryAfter } = await rateLimit(`brand_create:${user.id}`, 60 * 60 * 1000, 20);
   if (!allowed) return rateLimitResponse(retryAfter);
 
-  const body = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return invalidJsonBody();
   const { name, industry, website, city, country, goal, competitors, queries, nearbyAreas } = body;
 
   if (!name) return Response.json({ error: 'Brand name required' }, { status: 400 });
