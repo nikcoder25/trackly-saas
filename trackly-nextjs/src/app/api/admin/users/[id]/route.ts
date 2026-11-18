@@ -4,6 +4,7 @@ import { requireVerifiedAuth } from '@/lib/auth';
 import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
 import { toAdminUserRow } from '@/lib/admin-user-row';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 async function requireAdmin(request: Request): Promise<{ id: string; email: string } | Response> {
   const authResult = await requireVerifiedAuth(request, pool);
@@ -30,7 +31,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return Response.json({ error: 'Invalid user ID' }, { status: 400 });
   }
 
-  const body = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return invalidJsonBody();
 
   // Enforce single admin: prevent assigning admin role to anyone
   // (admin is set via DB/env, not via API)

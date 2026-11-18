@@ -31,6 +31,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     );
     return Response.json({ competitors: result.rows });
   } catch (e) {
+    // competitor_cooccurrence was created and filled only by the retired
+    // Express app; nothing in this codebase creates or writes it, so on any
+    // database set up since, there is simply no data yet.
+    if ((e as { code?: string }).code === '42P01') return Response.json({ competitors: [] });
     console.error('[CompetitorAnalysis]', (e as Error).message);
     return Response.json({ error: 'Failed to load competitor data' }, { status: 500 });
   }

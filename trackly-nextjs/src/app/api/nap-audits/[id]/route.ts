@@ -120,7 +120,16 @@ export async function PUT(
   const urlText = Array.isArray(body.urls)
     ? (body.urls as unknown[]).filter((u): u is string => typeof u === 'string').join('\n')
     : typeof body.urls === 'string' ? body.urls : '';
-  const urls = extractUrlsFromText(urlText, NAP_MAX_URLS);
+  // Read one past the cap so an oversized list is refused instead of being
+  // cut to the first NAP_MAX_URLS without telling the caller. The dashboard
+  // splits big pastes into several audits before it gets here.
+  const urls = extractUrlsFromText(urlText, NAP_MAX_URLS + 1);
+  if (urls.length > NAP_MAX_URLS) {
+    return Response.json(
+      { error: `An audit can check up to ${NAP_MAX_URLS} URLs. Split the list into several audits.` },
+      { status: 400 },
+    );
+  }
   if (urls.length === 0) return Response.json({ error: 'Add at least one citation URL' }, { status: 400 });
 
   try {

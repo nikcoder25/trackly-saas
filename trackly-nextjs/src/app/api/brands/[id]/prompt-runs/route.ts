@@ -1,4 +1,5 @@
 import { pool } from '@/lib/db';
+import { intParam } from '@/lib/query-params';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { NextRequest } from 'next/server';
@@ -12,8 +13,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
 
-  const limit = Math.min(parseInt(request.nextUrl.searchParams.get('limit') || '20', 10) || 20, 100);
-  const offset = parseInt(request.nextUrl.searchParams.get('offset') || '0', 10) || 0;
+  // Negative LIMIT/OFFSET reach Postgres as a syntax error, so clamp both.
+  const limit = intParam(request.nextUrl.searchParams.get('limit'), 20, 1, 100);
+  const offset = intParam(request.nextUrl.searchParams.get('offset'), 0, 0, 1_000_000);
   const platform = request.nextUrl.searchParams.get('platform');
 
   try {

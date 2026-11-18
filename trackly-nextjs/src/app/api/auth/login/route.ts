@@ -8,12 +8,14 @@ import { verifyTOTP, findBackupCodeIndex } from '@/lib/totp';
 import { decryptValue } from '@/lib/helpers';
 import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 const DUMMY_HASH = '$2a$12$000000000000000000000uGiltNn9J1kOXqSqMpNQHCbSZkHm5mZS';
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
-  const body = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return invalidJsonBody();
   const { email, password, totpCode } = body;
 
   if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {

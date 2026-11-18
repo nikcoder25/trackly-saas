@@ -4,6 +4,7 @@ import { verifyTOTP, generateBackupCodes, hashBackupCode } from '@/lib/totp';
 import { decryptValue } from '@/lib/helpers';
 import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 export async function POST(request: Request) {
   const user = await verifyRequestAuthLive(request);
@@ -12,7 +13,9 @@ export async function POST(request: Request) {
   const rl = await rateLimit('2fa_verify:' + user.id, 15 * 60 * 1000, 5);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const { code } = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return invalidJsonBody();
+  const { code } = body;
   if (!code) return Response.json({ error: '2FA code required' }, { status: 400 });
 
   try {

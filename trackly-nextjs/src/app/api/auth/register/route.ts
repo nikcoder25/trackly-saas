@@ -11,6 +11,7 @@ import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { runSignupAbuseChecks, logSuspiciousSignupPattern } from '@/lib/anti-abuse';
 import { recordSignupAttribution } from '@/lib/attribution-server';
 import { logger } from '@/lib/logger';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 // ─── Anti-spam helpers ──────────────────────────────────────────
 
@@ -69,7 +70,8 @@ export async function POST(request: NextRequest) {
   const rl = await rateLimit('auth_register:' + ip, 60 * 60 * 1000, 5);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const body = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return invalidJsonBody();
   const { email, password, name, username } = body;
 
   if (!email || !password) return Response.json({ error: 'Email and password required' }, { status: 400 });

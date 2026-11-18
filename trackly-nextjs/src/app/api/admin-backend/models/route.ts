@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/admin-auth';
 import { PLATFORM_MODELS, getDefaultModel } from '@/lib/ai-platforms';
 import { logError, serverError } from '@/lib/api-error';
 import { getClientIp } from '@/lib/rate-limit';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 /**
  * GET - Returns available models per platform + current admin selection
@@ -56,7 +57,9 @@ export async function PUT(request: Request) {
   if (admin instanceof Response) return admin;
 
   try {
-    const { models } = await request.json();
+    const body = await readJsonObject(request);
+    if (!body) return invalidJsonBody();
+    const { models } = body;
     if (!models || typeof models !== 'object') {
       return Response.json({ error: 'models object required' }, { status: 400 });
     }

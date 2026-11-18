@@ -6,13 +6,15 @@ import { sendPasswordResetEmail } from '@/lib/email';
 import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { hashToken } from '@/lib/auth';
 import { logger } from '@/lib/logger';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await rateLimit('forgot_password:' + ip, 60 * 60 * 1000, 5);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const body = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return invalidJsonBody();
   const { email, website } = body;
 
   const successMsg = 'If an account exists with that email, a reset link has been sent. Check your inbox and spam folder.';

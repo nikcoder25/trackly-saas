@@ -1,6 +1,7 @@
 import { pool } from '@/lib/db';
 import { verifyRequestAuthLive } from '@/lib/auth';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 export async function POST(request: Request) {
   const user = await verifyRequestAuthLive(request);
@@ -14,7 +15,9 @@ export async function POST(request: Request) {
   });
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const { email, role } = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return invalidJsonBody();
+  const { email, role } = body;
   if (!email || typeof email !== 'string') return Response.json({ error: 'Email required' }, { status: 400 });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return Response.json({ error: 'Invalid email format' }, { status: 400 });
   const validRoles = ['viewer', 'editor'];

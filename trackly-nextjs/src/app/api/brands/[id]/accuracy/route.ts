@@ -3,6 +3,7 @@ import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, decryptApiKeys } from '@/lib/helpers';
 import { runFactCheck, autoDiscoverFacts, NO_BRAND_MENTIONS_MESSAGE } from '@/lib/fact-checker';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 interface FactRow {
   id: string;
@@ -148,7 +149,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
   if (access.role === 'viewer') return Response.json({ error: 'Viewers cannot edit facts' }, { status: 403 });
 
-  const { facts } = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return invalidJsonBody();
+  const { facts } = body;
   if (!Array.isArray(facts)) return Response.json({ error: 'Facts must be an array' }, { status: 400 });
 
   const client = await safeConnect();

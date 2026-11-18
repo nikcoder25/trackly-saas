@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import { logError, serverError } from '@/lib/api-error';
 import { getClientIp } from '@/lib/rate-limit';
 import { deleteUserAccount } from '@/lib/delete-user';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin(request);
@@ -56,7 +57,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const ip = getClientIp(request);
 
   try {
-    const body = await request.json();
+    const body = await readJsonObject(request);
+    if (!body) return invalidJsonBody();
     const updates: string[] = [];
     const values: unknown[] = [];
     let idx = 1;

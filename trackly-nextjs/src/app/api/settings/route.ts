@@ -1,6 +1,7 @@
 import { pool } from '@/lib/db';
 import { verifyRequestAuthLive } from '@/lib/auth';
 import { isBlockedIP } from '@/lib/safe-fetch';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 export async function GET(request: Request) {
   const user = await verifyRequestAuthLive(request);
@@ -27,7 +28,8 @@ const SETTINGS_BLOCKED_KEYS = new Set([
 export async function PUT(request: Request) {
   const user = await verifyRequestAuthLive(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
-  const body = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return invalidJsonBody();
   const allowed: Record<string, string[]> = {
     theme: ['light', 'dark', 'system'],
     emailNotifications: ['true', 'false'],

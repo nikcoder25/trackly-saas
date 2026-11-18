@@ -5,13 +5,16 @@ import { AUTH } from '@/lib/constants';
 import { validatePasswordComplexity, hashToken, revokeAllSessions } from '@/lib/auth';
 import { rateLimit, rateLimitResponse, getClientIp } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
+import { readJsonObject, invalidJsonBody } from '@/lib/read-json';
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await rateLimit('reset_password:' + ip, 60 * 60 * 1000, 10);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const { token, newPassword } = await request.json();
+  const body = await readJsonObject(request);
+  if (!body) return invalidJsonBody();
+  const { token, newPassword } = body;
   if (!token || !newPassword) return Response.json({ error: 'Invalid request' }, { status: 400 });
   if (typeof token !== 'string' || typeof newPassword !== 'string') return Response.json({ error: 'Invalid request' }, { status: 400 });
   // Validate token format (64-char hex string from crypto.randomBytes(32))
