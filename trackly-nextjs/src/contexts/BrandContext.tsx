@@ -1,6 +1,40 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
+
+/**
+ * Which brand a tab shows, in priority order:
+ *   1. `?brand=<id>` in the URL - shareable, bookmarkable, survives refresh.
+ *   2. sessionStorage - this tab's own choice (a link without the param).
+ *   3. localStorage - the last brand picked in any tab (new tabs).
+ * Before this, only localStorage was used, so every tab snapped to the same
+ * brand on refresh and two brands could not be open side by side.
+ */
+const BRAND_PARAM = 'brand';
+const BRAND_KEY = 'livesov_brand';
+const ID_RE = /^[a-z0-9_-]{1,64}$/i;
+
+function readPreferredBrandId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get(BRAND_PARAM);
+    if (fromUrl && ID_RE.test(fromUrl)) return fromUrl;
+  } catch { /* ignore */ }
+  try { const v = sessionStorage.getItem(BRAND_KEY); if (v) return v; } catch { /* ignore */ }
+  try { return localStorage.getItem(BRAND_KEY); } catch { return null; }
+}
+
+/** Keep `?brand=<id>` on the current URL without adding a history entry. */
+function writeBrandToUrl(id: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get(BRAND_PARAM) === id) return;
+    url.searchParams.set(BRAND_PARAM, id);
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+  } catch { /* ignore */ }
+}
 
 interface Brand {
   id: string;
@@ -50,13 +84,27 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const [brandLimit, setBrandLimit] = useState(1);
   const [overLimit, setOverLimit] = useState(false);
 
-  // Persist selected brand to localStorage
+  const pathname = usePathname();
+
+  // Persist the choice for this tab (sessionStorage + URL) and as the default
+  // for new tabs (localStorage).
   const setSelectedBrand = useCallback((brand: Brand | null) => {
     setSelectedBrandState(brand);
     if (brand?.id) {
-      try { localStorage.setItem('livesov_brand', brand.id); } catch {}
+      try { sessionStorage.setItem(BRAND_KEY, brand.id); } catch {}
+      try { localStorage.setItem(BRAND_KEY, brand.id); } catch {}
+      writeBrandToUrl(brand.id);
     }
   }, []);
+
+  // In-app links don't carry the param, so re-add it after each navigation.
+  // Also pins this tab to its brand in sessionStorage on first load.
+  const selectedId = selectedBrand?.id;
+  useEffect(() => {
+    if (!selectedId) return;
+    try { sessionStorage.setItem(BRAND_KEY, selectedId); } catch {}
+    writeBrandToUrl(selectedId);
+  }, [selectedId, pathname]);
 
   const refreshBrands = useCallback(async () => {
     // Fetch brands, transparently refreshing the access token on 401.
@@ -87,8 +135,9 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       setOverLimit(data.overLimit || false);
       setError(null);
       setSelectedBrandState((prev) => {
-        // Try to restore from localStorage if no previous selection
-        const savedId = prev?.id || (() => { try { return localStorage.getItem('livesov_brand'); } catch { return null; } })();
+        // Keep the current selection; on first load restore from the URL,
+        // then this tab's choice, then the last brand used in any tab.
+        const savedId = prev?.id || readPreferredBrandId();
         if (savedId) {
           const found = b.find((brand: Brand) => brand.id === savedId);
           if (found) return found;
