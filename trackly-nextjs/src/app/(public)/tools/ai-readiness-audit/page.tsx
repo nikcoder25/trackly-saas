@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import BaselinePrompt from '@/components/tools/BaselinePrompt';
 import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner, ToolArticle, FaqSection, RelatedTools, AnswerCapsule, KeyTakeaways, ExpertQuote, ArticleSchema } from '@/components/tools/ToolPage';
 
 interface CategoryResult {
@@ -189,6 +190,7 @@ function AiReadinessAuditInner() {
             <div style={{ marginTop: 6, fontSize: 12, color: '#9ca3af' }}>
               {result.meta.wordCount.toLocaleString()} words · fetched in {result.meta.fetchTimeMs}ms
             </div>
+            <BaselinePrompt score={result.overallScore} />
           </div>
 
           <div>

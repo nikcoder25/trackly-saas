@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import BaselinePrompt from '@/components/tools/BaselinePrompt';
 import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner, ToolArticle, FaqSection, RelatedTools, AnswerCapsule, KeyTakeaways, ExpertQuote, ArticleSchema } from '@/components/tools/ToolPage';
 
 interface CategoryResult {
@@ -109,6 +110,8 @@ export default function GeoScoreCheckerPage() {
                 );
               })}
             </div>
+
+            <BaselinePrompt score={score} />
 
             <Link
               href={`/tools/ai-readiness-audit?url=${encodeURIComponent(result.url)}`}

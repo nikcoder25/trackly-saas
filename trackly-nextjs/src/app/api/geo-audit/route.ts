@@ -6,6 +6,7 @@ import { pool } from '@/lib/db';
 import { safeFetch, SSRFError, ssrfErrorToCopy } from '@/lib/safe-fetch';
 import { logError, serverError } from '@/lib/api-error';
 import { normalizeAuditUrl, decodeHtmlEntities } from '@/lib/geo-audit-utils';
+import { recordSnapshot, type Comparison } from '@/lib/page-score-history';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -465,10 +466,26 @@ export async function POST(req: NextRequest) {
     const recommendations = generateRecommendations(categories);
     const meta = extractMeta(html);
 
+    const categoryList = Object.values(categories).map(c => ({ name: c.label, score: c.score, findings: c.findings }));
+
+    // Signed-in audits are saved so the page gets a before / after. Best
+    // effort: a storage hiccup must never fail the audit itself.
+    let comparison: Comparison | null = null;
+    if (user) {
+      try {
+        comparison = await recordSnapshot(user.id, {
+          url: trimmedUrl, overallScore, categories: categoryList, wordCount: wordCount(bodyText),
+        });
+      } catch (e) {
+        logError('geo_audit.snapshot_failed', e);
+      }
+    }
+
     return Response.json({
       url: trimmedUrl,
       overallScore,
-      categories: Object.values(categories).map(c => ({ name: c.label, score: c.score, findings: c.findings })),
+      comparison,
+      categories: categoryList,
       recommendations,
       meta: {
         title: meta.title,

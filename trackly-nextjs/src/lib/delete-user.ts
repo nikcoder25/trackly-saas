@@ -54,6 +54,7 @@ export const DELETE_STATEMENTS: ReadonlyArray<readonly [string, string]> = [
   // cascade alone would miss some.
   ['nap_audits', 'DELETE FROM nap_audits WHERE user_id = $1'],
   ['geo_audits', 'DELETE FROM geo_audits WHERE user_id = $1'],
+  ['page_score_snapshots', 'DELETE FROM page_score_snapshots WHERE user_id = $1'],
 
   // Rank tracking. account_id is the user id and has no FK to users.
   // rt_groups / rt_keywords / rt_checks cascade off rt_websites.
