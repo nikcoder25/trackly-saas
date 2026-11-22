@@ -25,15 +25,12 @@ import { mergeRetryIntoRun } from '@/lib/run-merge';
 // in-process, so a module-level map is enough to hand the target to the
 // background job without widening executeRunBackground's signature.
 const retryMergeTargets = new Map<string, string>();
-<<<<<<< HEAD
 // runId -> exact "platform\u0000query" pairs to run. Set by "Rerun all failed",
 // which retries different prompts on different engines in one scan: running
 // the full queries x platforms grid would re-ask (and bill) combos that
 // already succeeded.
 const retryPairTargets = new Map<string, Set<string>>();
 const pairKey = (plat: string, q: string) => `${plat}\u0000${q}`;
-=======
->>>>>>> f10b8c9b17f23c01ab08c36d17e29ac4b2a2aeed
 import { isQueueAvailable, enqueueBrandRun } from '@/lib/job-queue';
 import { getServerKeys } from '@/lib/server-keys';
 import { resolveKeysForTenant, recordTenantKeyResult } from '@/lib/tenant-keys';
@@ -235,11 +232,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   // Support running only specific queries (e.g. newly added ones) via request body
-<<<<<<< HEAD
   let body: { queries?: string[]; platforms?: string[]; mergeIntoRunId?: string; pairs?: Array<{ platform?: unknown; query?: unknown }> } = {};
-=======
-  let body: { queries?: string[]; platforms?: string[]; mergeIntoRunId?: string } = {};
->>>>>>> f10b8c9b17f23c01ab08c36d17e29ac4b2a2aeed
   try { body = await request.json(); } catch { /* no body or invalid JSON is fine */ }
   // Exact (engine, prompt) pairs: derive the query and platform lists from
   // them; the task list is narrowed to the pairs further down.
@@ -696,12 +689,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     && Array.isArray(brand.runs) && (brand.runs as Array<{ id?: string }>).some(r => r && r.id === body.mergeIntoRunId)
     ? body.mergeIntoRunId : null;
   if (mergeIntoRunId) retryMergeTargets.set(runId, mergeIntoRunId);
-<<<<<<< HEAD
   if (runPairs) retryPairTargets.set(runId, new Set(runPairs.map(pr => pairKey(pr.platform, pr.query))));
   const shouldEnqueue = !mergeIntoRunId && !runPairs && await isQueueAvailable();
-=======
-  const shouldEnqueue = !mergeIntoRunId && await isQueueAvailable();
->>>>>>> f10b8c9b17f23c01ab08c36d17e29ac4b2a2aeed
   const runInProcess = () => {
     after(async () => {
       await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys, requestId, ownerId, reserveKind, ownerPlan, freshBypass, isCronCall);
@@ -775,10 +764,7 @@ async function executeRunBackground(
     );
   } finally {
     retryMergeTargets.delete(runId);
-<<<<<<< HEAD
     retryPairTargets.delete(runId);
-=======
->>>>>>> f10b8c9b17f23c01ab08c36d17e29ac4b2a2aeed
     // Belt-and-suspenders terminal-state guard. If executeRunBackgroundInner
     // returned without writing a 'done' or 'error' status (early return,
     // unhandled crash inside the catch block, etc.), the active_runs row
