@@ -173,6 +173,7 @@ export default function MentionsPage() {
     });
   }
 
+<<<<<<< HEAD
   // Every failed (engine, prompt) pair in this scan, rerun in one go.
   function rerunAllFailed() {
     if (!selectedBrand) return;
@@ -194,6 +195,8 @@ export default function MentionsPage() {
     });
   }
 
+=======
+>>>>>>> f10b8c9b17f23c01ab08c36d17e29ac4b2a2aeed
   async function exportPDF() {
     if (!filtered.length || !selectedBrand || pdfBusy) return;
     if (filtered.length > 500) { toast('Too many rows for one PDF (max 500). Narrow the filters first.', 'error'); return; }
@@ -329,6 +332,7 @@ export default function MentionsPage() {
                 .map(p => ({ p, q: failedQueriesFor(p) }))
                 .filter(x => x.q.length > 0);
               if (!failedEngines.length) return null;
+<<<<<<< HEAD
               const totalFailed = failedEngines.reduce((n, x) => n + x.q.length, 0);
               return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: '0 0 12px', fontSize: 12 }}>
@@ -339,6 +343,11 @@ export default function MentionsPage() {
                     </button>
                   )}
                   <span className="dim">{failedEngines.length > 1 ? 'Or just one engine:' : 'Rerun just that engine:'}</span>
+=======
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: '0 0 12px', fontSize: 12 }}>
+                  <span className="dim">Some engines failed in this scan. Rerun just that engine:</span>
+>>>>>>> f10b8c9b17f23c01ab08c36d17e29ac4b2a2aeed
                   {failedEngines.map(({ p, q }) => (
                     <button key={p} className="btn-d" disabled={live.running} onClick={() => rerun(p, q)} title={`Re-ask ${p} the ${q.length} prompt${q.length > 1 ? 's' : ''} that failed`}>
                       ↻ {p} ({q.length})
