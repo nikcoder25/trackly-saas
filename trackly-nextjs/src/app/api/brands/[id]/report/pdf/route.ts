@@ -3,12 +3,14 @@ import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { getEffectivePlan } from '@/lib/constants';
-import { generateReport } from '@/lib/pdf-report';
+import { generateReport, reportFilename } from '@/lib/pdf-report';
 import { ensureReportSchema, recordReport } from '@/lib/report-builder';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// Chrome cold start + render takes a few seconds.
+export const maxDuration = 60;
 
 // Pro+ feature: download the AI Visibility PDF report for a brand.
 // Ported from the Express handler at routes/brands.js:2254.
@@ -47,22 +49,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       id: string; name?: string;
     };
 
-    const doc = generateReport(brand);
+    // Open fix-list items fill the plan page when the scan data gives fewer
+    // than five steps. Best-effort: the report renders without them.
+    let recommendations: { title: string; description: string | null }[] = [];
+    try {
+      const recs = await pool.query(
+        `SELECT title, description FROM recommendations
+          WHERE brand_id = $1 AND status = 'open'
+          ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, created_at DESC
+          LIMIT 10`,
+        [id],
+      );
+      recommendations = recs.rows;
+    } catch { /* table may not exist yet on a fresh install */ }
 
-    // Drain the PDFKit doc into a Buffer before responding. Next.js route
-    // handlers can't pipe the Node stream directly into the Response, so
-    // we materialise first. Typical reports are <1 MB - fine to buffer.
-    const buffer: Buffer = await new Promise((resolve, reject) => {
-      const chunks: Buffer[] = [];
-      doc.on('data', (c: Buffer) => chunks.push(c));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
-      doc.on('error', reject);
-      // generateReport() already called doc.end()
-    });
+    // HTML template rendered to PDF by headless Chrome (see lib/pdf-report.ts).
+    const buffer = await generateReport(brand, { recommendations });
 
-    const safeName = String(brand.name || 'report').replace(/[^a-zA-Z0-9_\- ]/g, '').replace(/\s+/g, '_');
-    const dateStr = new Date().toISOString().split('T')[0];
-    const filename = `${safeName}_AI_Visibility_Report_${dateStr}.pdf`;
+    const filename = reportFilename(brand.name);
 
     // Record in history (best-effort) so it's re-downloadable from /dashboard/reports.
     // Must never block the download: a schema migration glitch or transient DB

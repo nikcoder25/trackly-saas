@@ -7,6 +7,7 @@
  */
 
 import { cleanCitationCounts } from '@/lib/citation-hosts';
+import { isWinningPrompt } from '@/lib/prompt-status';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type AnyObj = Record<string, any>;
@@ -182,7 +183,8 @@ export function questionSummary(brand: AnyObj, filter: 'all' | 'winning' | 'losi
       question,
       enginesNamingBrand: [...q.named],
       enginesNotNamingBrand: [...q.missed],
-      winning: answered > 0 && q.named.size * 2 >= answered,
+      // Same rule as the dashboard's Overview and Query Tracker (lib/prompt-status).
+      winning: isWinningPrompt(q.named.size, answered),
       rivalsNamedInstead: [...q.rivals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name]) => name),
     };
   });

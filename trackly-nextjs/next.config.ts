@@ -4,11 +4,10 @@ import { withSentryConfig } from '@sentry/nextjs';
 const nextConfig: NextConfig = {
     reactStrictMode: true,
     poweredByHeader: false,
-    // PDFKit reads its font-metric (.afm) data files from disk at runtime.
-    // If it's bundled by webpack those reads fail (ENOENT) and PDF generation
-    // throws ("Failed to generate PDF report"). Keeping it external makes Next
-    // require it from node_modules so the font data loads correctly.
-    serverExternalPackages: ['pdfkit'],
+    // PDFKit (NAP / custom reports) reads font-metric files from disk, and
+    // @sparticuz/chromium unpacks its Chromium binary from node_modules at
+    // runtime. Both break when bundled, so Next requires them from node_modules.
+    serverExternalPackages: ['pdfkit', '@sparticuz/chromium', 'puppeteer-core'],
     // Dashboard pages are client components behind a dynamic layout, so each
     // click used to wait on a fresh server round trip. Reusing a visited
     // page's payload for 30s makes going back and forth between pages

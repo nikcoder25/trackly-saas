@@ -138,7 +138,7 @@ export const TOOLS: ToolDef<McpContext>[] = [
   {
     name: 'get_questions',
     title: 'Get buyer questions',
-    description: 'Per tracked buyer question, which AI engines named the brand in the latest scan and which rivals they named instead. A question is "winning" when at least half the engines named the brand. Filter to the losing ones to find gaps.',
+    description: 'Per tracked buyer question, which AI engines named the brand in the latest scan and which rivals they named instead. A question is "winning" when at least 30% of the engines that answered named the brand (the same rule as the dashboard). Filter to the losing ones to find gaps.',
     inputSchema: {
       type: 'object',
       properties: { brand_id: BRAND_ID, filter: { type: 'string', enum: ['all', 'winning', 'losing'], default: 'all' } },
