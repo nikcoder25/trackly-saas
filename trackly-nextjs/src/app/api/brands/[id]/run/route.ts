@@ -25,6 +25,12 @@ import { mergeRetryIntoRun } from '@/lib/run-merge';
 // in-process, so a module-level map is enough to hand the target to the
 // background job without widening executeRunBackground's signature.
 const retryMergeTargets = new Map<string, string>();
+// runId -> exact "platform\u0000query" pairs to run. Set by "Rerun all failed",
+// which retries different prompts on different engines in one scan: running
+// the full queries x platforms grid would re-ask (and bill) combos that
+// already succeeded.
+const retryPairTargets = new Map<string, Set<string>>();
+const pairKey = (plat: string, q: string) => `${plat}\u0000${q}`;
 import { isQueueAvailable, enqueueBrandRun } from '@/lib/job-queue';
 import { getServerKeys } from '@/lib/server-keys';
 import { resolveKeysForTenant, recordTenantKeyResult } from '@/lib/tenant-keys';
@@ -226,8 +232,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   // Support running only specific queries (e.g. newly added ones) via request body
-  let body: { queries?: string[]; platforms?: string[]; mergeIntoRunId?: string } = {};
+  let body: { queries?: string[]; platforms?: string[]; mergeIntoRunId?: string; pairs?: Array<{ platform?: unknown; query?: unknown }> } = {};
   try { body = await request.json(); } catch { /* no body or invalid JSON is fine */ }
+  // Exact (engine, prompt) pairs: derive the query and platform lists from
+  // them; the task list is narrowed to the pairs further down.
+  const rawPairs = Array.isArray(body.pairs)
+    ? body.pairs.slice(0, 1000).filter(pr => pr && typeof pr.platform === 'string' && typeof pr.query === 'string') as Array<{ platform: string; query: string }>
+    : [];
+  if (rawPairs.length) {
+    body.queries = Array.from(new Set(rawPairs.map(pr => pr.query)));
+    body.platforms = Array.from(new Set(rawPairs.map(pr => pr.platform)));
+  }
   const allQueries: string[] = brand.queries || [];
   // Mirror the case-insensitive dedup applied by PUT /api/brands/[id]
   // (route.ts:147-155). The PUT keeps only the first occurrence of any
@@ -247,6 +262,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const userKeys = decryptApiKeys(planResult.rows[0]?.api_keys || {});
   const serverKeys = getServerKeys();
+
+  // Canonicalize pairs against the brand's stored queries (same casing rule
+  // as `queries` above). Unknown prompts are dropped.
+  const requestedPairs = rawPairs.length
+    ? Array.from(new Map(rawPairs.flatMap(pr => {
+        const q = allQueriesByLower.get(pr.query.toLowerCase().trim());
+        return q ? [[pairKey(pr.platform, q), { platform: pr.platform, query: q }] as const] : [];
+      })).values())
+    : null;
 
   const runnablePlatforms = PLATFORMS.filter(p => {
     const keyName = PLATFORM_KEY_MAP[p];
@@ -409,7 +433,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // so two concurrent clicks can't both pass the check and overspend
   // the monthly cap. Refunded in the worker's terminal handler if any
   // sub-tasks didn't actually dispatch (failed acquisition, breaker open).
-  const totalCredits = queries.length * activePlatforms.length;
+  const runPairs = requestedPairs
+    ? requestedPairs.filter(pr => activePlatforms.includes(pr.platform) && queries.includes(pr.query))
+    : null;
+  if (runPairs && !runPairs.length) {
+    return Response.json({ error: 'Nothing to rerun: those engines or prompts are no longer active for this brand.' }, { status: 400 });
+  }
+  const totalCredits = runPairs ? runPairs.length : queries.length * activePlatforms.length;
   const reserveKind: 'auto' | 'manual' = isCronCall ? 'auto' : 'manual';
 
   // --- First-run daily-cap exemption (onboarding "Create Brand & Run") ---
@@ -577,7 +607,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const runId = uid();
-  const totalExpected = queries.length * activePlatforms.length;
+  const totalExpected = runPairs ? runPairs.length : queries.length * activePlatforms.length;
 
   // Unwind every reservation made above so a rejection AFTER `reserveCredits`
   // doesn't leak. Without this, a trial-budget block or a per-brand lock 409
@@ -659,7 +689,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     && Array.isArray(brand.runs) && (brand.runs as Array<{ id?: string }>).some(r => r && r.id === body.mergeIntoRunId)
     ? body.mergeIntoRunId : null;
   if (mergeIntoRunId) retryMergeTargets.set(runId, mergeIntoRunId);
-  const shouldEnqueue = !mergeIntoRunId && await isQueueAvailable();
+  if (runPairs) retryPairTargets.set(runId, new Set(runPairs.map(pr => pairKey(pr.platform, pr.query))));
+  const shouldEnqueue = !mergeIntoRunId && !runPairs && await isQueueAvailable();
   const runInProcess = () => {
     after(async () => {
       await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys, requestId, ownerId, reserveKind, ownerPlan, freshBypass, isCronCall);
@@ -733,6 +764,7 @@ async function executeRunBackground(
     );
   } finally {
     retryMergeTargets.delete(runId);
+    retryPairTargets.delete(runId);
     // Belt-and-suspenders terminal-state guard. If executeRunBackgroundInner
     // returned without writing a 'done' or 'error' status (early return,
     // unhandled crash inside the catch block, etc.), the active_runs row
@@ -873,6 +905,12 @@ async function executeRunBackgroundInner(
   for (let qi = 0; qi < queries.length; qi++) {
     for (let pi = 0; pi < activePlatforms.length; pi++) {
       tasks.push({ plat: activePlatforms[pi], q: queries[qi] });
+    }
+  }
+  const onlyPairs = retryPairTargets.get(runId);
+  if (onlyPairs) {
+    for (let i = tasks.length - 1; i >= 0; i--) {
+      if (!onlyPairs.has(pairKey(tasks[i].plat, tasks[i].q))) tasks.splice(i, 1);
     }
   }
 
@@ -1287,7 +1325,7 @@ async function executeRunBackgroundInner(
     // Calculate SOV
     const platformStats: Record<string, { queries: number; mentions: number; sov: number; errors: number }> = {};
     for (const plat of activePlatforms) {
-      const platTotal = queries.length;
+      const platTotal = tasks.filter(t => t.plat === plat).length;
       const platMentions = platMentionCount[plat] || 0;
       const platErrors = allResults.filter((r: { platform: string; error?: boolean }) => r.platform === plat && r.error).length;
       // Canonical SOV (PR-8): error-EXCLUDED denominator, matching the
