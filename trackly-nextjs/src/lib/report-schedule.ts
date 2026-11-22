@@ -7,7 +7,7 @@
 import { pool } from './db';
 import { logger } from './logger';
 import { getEffectivePlan } from './constants';
-import { generateReport } from './pdf-report';
+import { generateReport, reportFilename } from './pdf-report';
 import { ensureReportSchema, recordReport, markScheduleRun } from './report-builder';
 
 const PRO_PLANS = new Set(['pro', 'agency', 'enterprise', 'owner']);
@@ -16,15 +16,6 @@ const MIN_GAP_MS: Record<'weekly' | 'monthly', number> = {
   weekly: 6 * 24 * 60 * 60 * 1000,
   monthly: 27 * 24 * 60 * 60 * 1000,
 };
-
-function streamToBuffer(doc: NodeJS.ReadableStream): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    doc.on('data', (c: Buffer) => chunks.push(c));
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
-    doc.on('error', reject);
-  });
-}
 
 export async function runDueReportSchedules(frequency: 'weekly' | 'monthly'): Promise<{ generated: number; skipped: number; failed: number }> {
   await ensureReportSchema();
@@ -58,16 +49,14 @@ export async function runDueReportSchedules(frequency: 'weekly' | 'monthly'): Pr
         if (since < MIN_GAP_MS[frequency]) { skipped++; continue; }
       }
 
-      const data = (row.data || {}) as { name?: string; website?: string; runs?: Array<{ sov?: number }> };
+      const data = (row.data || {}) as { name?: string; website?: string; runs?: Array<{ sov?: number }> } & Record<string, unknown>;
       const runs = Array.isArray(data.runs) ? data.runs : [];
       if (!runs.length) { skipped++; continue; }
 
-      const brand = { id: row.brand_id as string, name: data.name, website: data.website, runs };
-      const buffer = await streamToBuffer(generateReport(brand));
-
-      const safeName = String(data.name || 'report').replace(/[^a-zA-Z0-9_\- ]/g, '').replace(/\s+/g, '_');
-      const dateStr = new Date().toISOString().split('T')[0];
-      const filename = `${safeName}_AI_Visibility_Report_${dateStr}.pdf`;
+      // Full brand blob (city, goal, runs) so the scheduled PDF matches the manual download.
+      const brand = { ...data, id: row.brand_id as string, runs };
+      const buffer = await generateReport(brand);
+      const filename = reportFilename(data.name);
       const lastSov = Math.round(runs[runs.length - 1].sov || 0);
 
       await recordReport(row.brand_id as string, row.user_id as string, 'standard',

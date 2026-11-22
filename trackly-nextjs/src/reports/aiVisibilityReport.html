@@ -1,0 +1,107 @@
+<!doctype html>
+<!--
+  Livesov AI Visibility Report template (A4, 5+ pages, rendered to PDF with headless Chrome).
+  Design source: design-reference/report-reference.html. Keep the CSS in sync with it.
+  Placeholders (double curly braces) are filled by src/lib/report/ai-visibility-render.ts:
+    TITLE = document title, FONTS = base64 @font-face rules, PAGES = all rendered page divs.
+  No brand data lives in this file.
+-->
+<html><head><meta charset="utf-8"><title>{{TITLE}}</title><style>{{FONTS}}
+@page{size:A4;margin:0}
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--iris:#3D2EF5;--ink:#161A33;--paper:#F6F7FB;--fog:#E3E5F0;--mute:#6B7091;--mint:#0FA97A;--coral:#E5484D;--amber:#D98A00}
+body{font-family:Inst;color:var(--ink);font-size:11.5px;line-height:1.5;-webkit-print-color-adjust:exact}
+.page{width:210mm;height:297mm;position:relative;overflow:hidden;page-break-after:always;padding:16mm 16mm 0;background:#fff}
+.lg{font-family:Bric;font-weight:800;letter-spacing:-.4px;font-size:15px}
+.foot{position:absolute;left:16mm;right:16mm;bottom:10mm;display:flex;justify-content:space-between;font-size:9px;color:var(--mute)}
+.foot .lg{font-size:11px;color:var(--iris)} .foot.dk,.foot.dk .lg{color:rgba(255,255,255,.7)}
+/* cover */
+.cover{background:var(--iris);color:#fff;padding:18mm 18mm 0}
+.cover .top{display:flex;justify-content:space-between;align-items:baseline}
+.cover .top .lg{font-size:22px} .cover .top span{font-size:11px;opacity:.75}
+.cover h1{overflow-wrap:anywhere;font-family:Bric;font-weight:800;font-size:96px;letter-spacing:-4px;line-height:.9;margin-top:30mm}
+.cover .meta{font-size:13px;opacity:.75;margin-top:6mm}
+.field{display:grid;grid-template-columns:repeat(13,1fr);gap:7px;width:118mm;margin-top:20mm}
+.field i{aspect-ratio:1;border-radius:50%;display:block}
+.field i.f{background:#fff} .field i.o{border:1.5px solid rgba(255,255,255,.35)}
+.hero{display:flex;gap:12mm;align-items:flex-end}
+.big{font-family:Bric;font-weight:800;font-size:120px;letter-spacing:-6px;line-height:.8}
+.big small{font-size:56px;letter-spacing:-2px}
+.hero p{font-size:14px;line-height:1.45;max-width:52mm;margin-top:5mm;opacity:.9}
+.facts{position:absolute;left:18mm;right:18mm;bottom:24mm;display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid rgba(255,255,255,.3)}
+.facts div{padding:5mm 4mm 0 0} .facts b{font-family:Bric;font-size:30px;font-weight:700;letter-spacing:-1px;display:block;line-height:1.1}
+.facts span{font-size:11px;opacity:.75}
+/* inner */
+.ph{display:flex;justify-content:space-between;align-items:baseline;color:var(--mute);padding-bottom:5mm;border-bottom:1px solid var(--fog)}
+.ph .lg{color:var(--iris)} .pt{font-size:10px}
+h2{font-family:Bric;font-weight:800;font-size:34px;letter-spacing:-1.3px;line-height:1.05;margin-top:9mm}
+.lede{font-size:13px;color:var(--mute);max-width:140mm;margin-top:3mm}
+.chg{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;white-space:nowrap}
+.chg.up{background:#E2F6EF;color:#087A58} .chg.dn{background:#FDE8E8;color:#B4262B} .chg.fl{background:var(--paper);color:var(--mute)}
+.engs{margin-top:9mm}
+.eng{display:grid;grid-template-columns:44mm 1fr 24mm 22mm;align-items:center;gap:6mm;padding:4.2mm 0;border-bottom:1px solid var(--fog)}
+.en{font-weight:600;font-size:13px}
+.eseg{display:grid;grid-template-columns:repeat(20,1fr);gap:2px;position:relative;height:16px}
+.eseg b{background:var(--fog);border-radius:2px}
+.eng.hi .eseg b.on{background:var(--mint)} .eng.md .eseg b.on{background:var(--iris)}
+.eng.lo .eseg b.on{background:var(--amber)} .eng.vl .eseg b.on{background:var(--coral)}
+.mark{position:absolute;top:-5px;bottom:-5px;width:2px;background:var(--ink)}
+.ev{font-family:Bric;font-weight:800;font-size:30px;letter-spacing:-1px;text-align:right} .ev small{font-size:16px}
+.ec{text-align:right}
+.key{display:flex;gap:6mm;font-size:10px;color:var(--mute);margin-top:4mm;align-items:center}
+.key i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.notes{display:grid;grid-template-columns:repeat(3,1fr);gap:6mm;margin-top:12mm}
+.notes div{border-top:3px solid var(--ink);padding-top:3mm}
+.notes b{font-family:Bric;font-size:16px;font-weight:700;display:block;line-height:1.2;margin-bottom:2mm;letter-spacing:-.3px}
+.notes p{color:var(--mute);font-size:11px}
+/* questions */
+table{width:100%;border-collapse:collapse;margin-top:3mm}
+th{font-size:9px;font-weight:600;color:var(--mute);padding:0 0 3mm;text-align:center;width:13.5mm}
+th:first-child{text-align:left;width:auto}
+td{padding:1.15mm 0;line-height:1.25;border-bottom:1px solid var(--fog)}
+td.q{font-weight:600;font-size:11px} .rv{font-weight:400;font-size:9px;color:var(--mute);display:block}
+td.c{text-align:center} td.c i{display:inline-block;width:11px;height:11px;vertical-align:middle;border-radius:50%}
+i.y{background:var(--iris)} i.n{border:1.5px solid var(--fog)}
+tr.miss i.n{border-color:#F5C7C8} tr.miss td.q{color:var(--coral)}
+td.k{font-family:Bric;font-weight:800;font-size:14px;text-align:right;width:12mm} td.k span{font-size:10px;color:var(--mute);font-weight:400}
+tr.gh td{border-bottom:2px solid var(--ink);padding-top:3.5mm;padding-bottom:1.5mm}
+.gn{font-family:Bric;font-weight:800;font-size:17px;letter-spacing:-.4px}
+.gc{font-family:Bric;font-weight:700;font-size:11px;margin-left:6px;padding:1px 7px;border-radius:20px;color:#fff;vertical-align:3px}
+tr.gh.win .gc{background:var(--mint)} tr.gh.weak .gc{background:var(--amber)} tr.gh.miss .gc{background:var(--coral)}
+.gd{color:var(--mute);font-size:10.5px;margin-left:8px}
+/* market */
+.stack{display:flex;height:22mm;border-radius:6px;overflow:hidden;margin-top:7mm}
+.stack div{display:flex;align-items:flex-end;padding:0 0 3mm 3mm}
+.stack span{font-family:Bric;font-weight:800;font-size:20px;letter-spacing:-.6px;color:#fff}
+.stack div:nth-child(n+3) span{color:var(--ink)}
+.stack div.tiny span{display:none}
+.cls.n5{grid-template-columns:repeat(5,1fr)}
+.cls{display:grid;grid-template-columns:repeat(4,1fr);gap:4mm;margin-top:4mm}
+.cl{font-size:11px} .cl i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px} .cl b{display:block;font-weight:600;margin-bottom:1mm}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:12mm;margin-top:4mm}
+h4{font-family:Bric;font-weight:700;font-size:19px;letter-spacing:-.5px;margin-top:10mm}
+.small{color:var(--mute);font-size:11px;margin-top:1mm}
+.tone{display:flex;height:12px;border-radius:6px;overflow:hidden;margin-top:5mm}
+.tl{display:flex;justify-content:space-between;font-size:11px;margin-top:3mm} .tl b{font-family:Bric;font-size:20px;display:block;font-weight:800}
+.s{display:grid;grid-template-columns:34mm 1fr 9mm;gap:3mm;align-items:center;padding:1.6mm 0;font-size:11px}
+.sb{height:9px;background:var(--paper);border-radius:5px} .sb div{height:100%;border-radius:5px;background:#B9B6D3}
+.s.own .sb div{background:var(--iris)} .s.list .sb div{background:var(--amber)}
+.s.own .sn{font-weight:700;color:var(--iris)} .sv{text-align:right;font-weight:700}
+.callout{background:var(--paper);border-radius:8px;padding:5mm;margin-top:5mm;font-size:11.5px}
+.callout b{font-family:Bric;font-size:26px;font-weight:800;display:block;letter-spacing:-.8px;color:var(--amber);line-height:1.1}
+/* steps */
+.st{display:grid;grid-template-columns:16mm 1fr;gap:4mm;padding:6mm 0;border-bottom:1px solid var(--fog)}
+.sn2{font-family:Bric;font-weight:800;font-size:40px;color:var(--iris);line-height:.9;letter-spacing:-2px}
+h3{font-family:Bric;font-weight:700;font-size:18px;letter-spacing:-.4px;line-height:1.2}
+.why{color:var(--mute);margin-top:1.5mm;max-width:150mm} .do{margin-top:1.5mm;max-width:150mm}
+.goal{position:absolute;left:16mm;right:16mm;bottom:22mm;background:var(--ink);color:#fff;border-radius:10px;padding:6mm 7mm;display:flex;justify-content:space-between;align-items:center}
+.goal b{font-family:Bric;font-size:22px;font-weight:700;letter-spacing:-.5px}
+.gbar{width:70mm;height:10px;background:rgba(255,255,255,.15);border-radius:5px;position:relative}
+.gbar div{height:100%;border-radius:5px;background:#fff}
+.gbar span{position:absolute;top:-6px;bottom:-6px;width:2px;background:#9F98FF}
+.gl{font-size:10px;opacity:.7;margin-top:2mm;display:flex;justify-content:space-between;width:70mm}
+.sn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.en{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style></head><body>
+{{PAGES}}
+</body></html>
