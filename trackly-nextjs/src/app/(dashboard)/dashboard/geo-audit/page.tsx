@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, Badge, Bar, Pill, Donut, PageHead } from '@/app/dashboard-v2/ui';
 import { normalizeAuditUrl, pickCategoryFinding, scoreTone } from '@/lib/geo-audit-utils';
@@ -12,9 +12,20 @@ interface CategoryResult {
   label?: string;
 }
 
+interface Snap { id: string; url: string; overallScore: number; categories: { name: string; score: number }[]; wordCount: number; createdAt: string }
+interface Comparison {
+  before: Snap;
+  after: Snap;
+  delta: number;
+  checks: number;
+  categories: { name: string; before: number; after: number; delta: number }[];
+}
+interface TrackedPage { urlKey: string; url: string; checks: number; before: Snap; after: Snap }
+
 interface AuditResult {
   url: string;
   overallScore: number;
+  comparison?: Comparison | null;
   categories: Record<string, CategoryResult> | CategoryResult[];
   recommendations: string[];
   meta: {
@@ -65,6 +76,59 @@ function Find({ ok, warn, bad, children }: any) {
   );
 }
 
+const fmtDay = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+function DeltaChip({ delta }: { delta: number }) {
+  if (delta === 0) return <Badge tone="dim">No change</Badge>;
+  return <Badge tone={delta > 0 ? 'pos' : 'neg'}>{delta > 0 ? '▲ +' : '▼ '}{delta} pts</Badge>;
+}
+
+/** Before vs after for one page: two donuts, the change, and each category. */
+function BeforeAfter({ c }: { c: Comparison }) {
+  if (c.checks < 2) {
+    return (
+      <p className="quiet" style={{ fontSize: 13, margin: 0 }}>
+        This is the first check of this page, so <b>{c.before.overallScore}</b> is saved as your <b>before</b> score ({fmtDay(c.before.createdAt)}).
+        Make your AI SEO changes, then audit the same page again to see the after score.
+      </p>
+    );
+  }
+  return (
+    <div style={{ display: 'grid', gap: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+        <div style={{ textAlign: 'center' }}>
+          <Donut value={c.before.overallScore} size={110} label="Before" />
+          <div className="mono dim" style={{ fontSize: 11, marginTop: 8 }}>{fmtDay(c.before.createdAt)}</div>
+        </div>
+        <div style={{ textAlign: 'center', display: 'grid', gap: 6 }}>
+          <span style={{ fontSize: 22, color: 'var(--mute)' }}>→</span>
+          <DeltaChip delta={c.delta} />
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <Donut value={c.after.overallScore} size={110} label="After" />
+          <div className="mono dim" style={{ fontSize: 11, marginTop: 8 }}>{fmtDay(c.after.createdAt)}</div>
+        </div>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table className="tbl">
+          <thead><tr><th>Category</th><th className="num">Before</th><th className="num">After</th><th>Change</th></tr></thead>
+          <tbody>
+            {c.categories.map(cat => (
+              <tr key={cat.name}>
+                <td>{cat.name}</td>
+                <td className="num">{cat.before}</td>
+                <td className="num"><b>{cat.after}</b></td>
+                <td><DeltaChip delta={cat.delta} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <span className="mono dim" style={{ fontSize: 11 }}>{c.checks} checks saved for this page. Before is the first check; after is the latest.</span>
+    </div>
+  );
+}
+
 export default function DashboardGeoAuditPage() {
   const { user } = useAuth();
   const [url, setUrl] = useState('');
@@ -75,18 +139,42 @@ export default function DashboardGeoAuditPage() {
   const [history, setHistory] = useState<SavedAudit[]>([]);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
-  useEffect(() => {
-    setHistory(loadAudits());
+  const [tracked, setTracked] = useState<TrackedPage[]>([]);
+
+  const loadTracked = useCallback(async () => {
+    try {
+      const res = await fetch('/api/geo-audit/history', { credentials: 'include', cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setTracked(Array.isArray(data.pages) ? data.pages : []);
+    } catch { /* the list is optional */ }
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    setHistory(loadAudits());
+    loadTracked();
+  }, [loadTracked]);
+
+  const resetBaseline = async (pageUrl: string) => {
+    if (!window.confirm('Forget the saved scores for this page? The next audit becomes the new "before" score.')) return;
+    try {
+      await fetch('/api/geo-audit/history?url=' + encodeURIComponent(pageUrl), { method: 'DELETE', credentials: 'include' });
+    } catch { /* ignore */ }
+    loadTracked();
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    runAudit(url);
+  };
+
+  const runAudit = async (rawUrl: string) => {
     setError('');
     setResult(null);
     setLoading(true);
     setProgress(0);
     // Accept bare domains ("livesov.com"): https:// is assumed.
-    const target = normalizeAuditUrl(url);
+    const target = normalizeAuditUrl(rawUrl);
 
     const interval = setInterval(() => {
       setProgress((p) => (p >= 90 ? (clearInterval(interval), 90) : p + Math.random() * 15));
@@ -120,6 +208,7 @@ export default function DashboardGeoAuditPage() {
       };
       saveAudit(saved);
       setHistory(loadAudits());
+      loadTracked();
     } catch {
       setError('Network error. Please try again.');
     } finally {
@@ -134,7 +223,7 @@ export default function DashboardGeoAuditPage() {
     <div className="lvx">
       <PageHead
         title="GEO Audit"
-        sub="Analyze any page for AI visibility optimization. One run, one shareable result."
+        sub="Score any page for AI visibility. The first check is saved as your before score; re-check after your changes to see the after score."
       />
       <div className="page-body">
         {/* New audit */}
@@ -253,6 +342,48 @@ export default function DashboardGeoAuditPage() {
             </div>
           </Card>
         )}
+
+        {/* Before / after for the page just audited */}
+        {result?.comparison && (
+          <Card title="Before and after" right={result.comparison.checks >= 2 ? <DeltaChip delta={result.comparison.delta} /> : <Pill>Baseline saved</Pill>}>
+            <BeforeAfter c={result.comparison} />
+          </Card>
+        )}
+
+        {/* Every tracked page: first score vs latest */}
+        <Card title="Tracked pages: before and after" right={<Pill>{tracked.length} pages</Pill>}>
+          {tracked.length === 0 ? (
+            <p className="quiet" style={{ fontSize: 13, margin: 0 }}>
+              Audit a page to save its before score. Audit it again after your AI SEO work to see the change.
+            </p>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="tbl">
+                <thead>
+                  <tr><th>Page</th><th className="num">Before</th><th className="num">After</th><th>Change</th><th>Checks</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {tracked.map(p => (
+                    <tr key={p.urlKey}>
+                      <td>
+                        <div className="mono" style={{ fontSize: 12, fontWeight: 600, maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.url}>{p.urlKey}</div>
+                        <div className="mono dim" style={{ fontSize: 11 }}>{fmtDay(p.before.createdAt)}{p.checks > 1 ? ` → ${fmtDay(p.after.createdAt)}` : ''}</div>
+                      </td>
+                      <td className="num">{p.before.overallScore}</td>
+                      <td className="num">{p.checks > 1 ? <b>{p.after.overallScore}</b> : <span className="dim">-</span>}</td>
+                      <td>{p.checks > 1 ? <DeltaChip delta={p.after.overallScore - p.before.overallScore} /> : <span className="dim" style={{ fontSize: 12 }}>Not re-checked yet</span>}</td>
+                      <td className="num">{p.checks}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <button className="btn-d" disabled={loading} onClick={() => { setUrl(p.url); window.scrollTo({ top: 0, behavior: 'smooth' }); runAudit(p.url); }}>↻ Re-check</button>
+                        <button className="btn-g" style={{ marginLeft: 6 }} onClick={() => resetBaseline(p.url)} title="Forget saved scores; the next audit becomes the new before score">Reset</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
 
         {/* History */}
         <Card title="Your recent audits" right={<Pill>{history.length} saved</Pill>}>
