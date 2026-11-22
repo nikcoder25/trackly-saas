@@ -1,6 +1,7 @@
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { reconcileStaleRuns } from '@/lib/run-reconciler';
+import { getBrandWithAccess } from '@/lib/helpers';
 
 // URL params go straight to SQL. Shape-check them before any DB call.
 // Matches the output of uid(): base36 timestamp + hex chars.
@@ -34,8 +35,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   let run = result.rows[0];
 
   // Verify ownership and that this run belongs to the requested brand.
-  if (run.user_id !== user.id) return Response.json({ error: 'Forbidden' }, { status: 403 });
   if (run.brand_id !== id) return Response.json({ error: 'Run does not belong to this brand' }, { status: 403 });
+  // The run's starter can always read it. Anyone else needs access to the
+  // brand (owner or team member): a scan started by the cron, the MCP
+  // connector or a teammate must still show its progress here.
+  if (run.user_id !== user.id && !(await getBrandWithAccess(id, user.id))) {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   // Defensive watchdog: if the row has been 'running' with no progress
   // for longer than the stale threshold, finalize it BEFORE returning so

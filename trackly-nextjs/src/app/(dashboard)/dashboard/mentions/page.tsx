@@ -5,6 +5,7 @@ import { renderInlineMarkdown, sanitizeHtml } from '@/lib/sanitize';
 import { getPlanPlatforms } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { csvSafe } from '@/lib/csv';
+import { isBrandedPrompt } from '@/lib/parser';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { KpiCardsSkeleton, TableSkeleton } from '@/components/dashboard/Skeleton';
 import { useBrandData } from '@/hooks/useBrandData';
@@ -14,7 +15,10 @@ import { PLATFORMS, type Platform, PlatformTile, Badge, Card, PageHead, Filter, 
 
 interface Mention { query: string; platform: string; mentioned: boolean; recommended?: boolean; sentiment?: string; position?: number; model?: string; date?: string; snippet?: string; response?: string; error?: string; raw?: string; context?: string; listPosition?: number; errorMessage?: string; }
 interface Run { id?: string; date?: string; created_at?: string; time?: string; sov?: number; allResults?: Mention[]; results?: Mention[]; }
-interface Brand { id: string; name: string; mentions?: Mention[]; runs?: Run[]; }
+interface Brand { id: string; name: string; website?: string; domain?: string; aliases?: string[]; mentions?: Mention[]; runs?: Run[]; }
+// Commercial = a buying-intent keyword with no brand name in it ("best modular
+// home builders in california"). Brand = a question that names the brand.
+type PromptType = 'all' | 'commercial' | 'brand';
 type FilterMode = 'all' | 'mentioned' | 'not_mentioned' | 'recommended' | 'errors';
 
 // Map a real platform name (e.g. "ChatGPT") to the design's Platform tile descriptor.
@@ -29,7 +33,7 @@ export default function MentionsPage() {
   const planPlatforms = getPlanPlatforms(user?.plan || 'free');
   const { brand: rawBrand, loading } = useBrandData({ fullData: true });
   const selectedBrand = rawBrand as Brand | null;
-  const { live, pct: runPct } = useRun();
+  const { live, pct: runPct, startRun } = useRun();
   const { toast } = useToast();
   // Fire a one-shot toast when a 409 ("concurrent") run lands while the
   // user is on this page. RunContext surfaces 409 as
@@ -50,6 +54,8 @@ export default function MentionsPage() {
   const [selectedRunId, setSelectedRunId] = useState<string>('');
   const [filter, setFilter] = useState<FilterMode>('all');
   const [platformFilter, setPlatformFilter] = useState<string>('all');
+  const [promptType, setPromptType] = useState<PromptType>('all');
+  const [pdfBusy, setPdfBusy] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [page, setPage] = useState(0);
@@ -91,9 +97,22 @@ export default function MentionsPage() {
     return pc;
   }, [all]);
 
+  const brandedCache = useMemo(() => new Map<string, boolean>(), [selectedBrand]);
+  const isBranded = (q: string) => {
+    if (!selectedBrand?.name) return false;
+    let v = brandedCache.get(q);
+    if (v === undefined) {
+      try { v = isBrandedPrompt(q, selectedBrand as unknown as Parameters<typeof isBrandedPrompt>[1]); } catch { v = false; }
+      brandedCache.set(q, v);
+    }
+    return v;
+  };
+
   const filtered = useMemo(() => {
     return all.filter(r => {
       if (platformFilter !== 'all' && r.platform !== platformFilter) return false;
+      if (promptType === 'commercial' && isBranded(r.query)) return false;
+      if (promptType === 'brand' && !isBranded(r.query)) return false;
       if (filter === 'mentioned' && !r.mentioned) return false;
       if (filter === 'not_mentioned' && (r.mentioned || r.error)) return false;
       if (filter === 'recommended' && !r.recommended) return false;
@@ -105,12 +124,13 @@ export default function MentionsPage() {
       }
       return true;
     });
-  }, [all, platformFilter, filter, searchQuery]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [all, platformFilter, filter, searchQuery, promptType, brandedCache]);
 
-  useEffect(() => { setPage(0); setExpandedRow(null); }, [filter, platformFilter, searchQuery, selectedRunId]);
+  useEffect(() => { setPage(0); setExpandedRow(null); }, [filter, platformFilter, searchQuery, selectedRunId, promptType]);
 
   // Stats based on filtered results so they update when filters change
-  const statsSource = platformFilter !== 'all' || filter !== 'all' || searchQuery.trim() ? filtered : all;
+  const statsSource = platformFilter !== 'all' || filter !== 'all' || promptType !== 'all' || searchQuery.trim() ? filtered : all;
   const ok = statsSource.filter(r => !r.error);
   const found = statsSource.filter(r => r.mentioned);
   const rec = statsSource.filter(r => r.recommended);
@@ -135,6 +155,64 @@ export default function MentionsPage() {
     a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
     a.download = `livesov-mentions-${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
+  }
+
+  // Re-run failed rows on one engine and merge the answers back into this
+  // same scan, so the rest of the scan's rows stay as they are.
+  function failedQueriesFor(platform: string): string[] {
+    return Array.from(new Set(all.filter(r => r.error && r.platform === platform).map(r => r.query)));
+  }
+  function rerun(platform: string, queries: string[]) {
+    if (!queries.length || !selectedBrand) return;
+    if (live.running) { toast('A scan is already running. Try again when it finishes.', 'error'); return; }
+    startRun(false, {
+      brandId: selectedBrand.id,
+      queries,
+      platforms: [platform],
+      ...(currentRun?.id ? { mergeIntoRunId: currentRun.id } : {}),
+    });
+  }
+
+  async function exportPDF() {
+    if (!filtered.length || !selectedBrand || pdfBusy) return;
+    if (filtered.length > 500) { toast('Too many rows for one PDF (max 500). Narrow the filters first.', 'error'); return; }
+    setPdfBusy(true);
+    try {
+      const runDate = currentRun?.time || currentRun?.date || new Date().toISOString();
+      const mentions = filtered.map(m => {
+        const verdict = m.error ? 'Error' : m.mentioned ? 'Found' : 'Not found';
+        const sent = !m.error && m.mentioned ? (m.sentiment || 'neutral') : '';
+        const pos = m.listPosition || m.position;
+        const meta = [verdict, sent && sent[0].toUpperCase() + sent.slice(1), pos ? `Position ${pos}` : '', m.recommended ? 'Recommended' : '']
+          .filter(Boolean).join(' · ');
+        const tag = m.error ? 'warn' : !m.mentioned ? 'neu' : m.sentiment === 'negative' ? 'neg' : m.sentiment === 'positive' ? 'pos' : 'neu';
+        const answer = m.error ? (m.errorMessage || (typeof m.error === 'string' ? m.error : '') || 'Engine error') : (m.response || m.raw || m.context || m.snippet || '');
+        return { platform: m.platform, query: m.query, tag, meta, answer: answer.slice(0, 2000), sources: [], date: runDate };
+      });
+      const typeLabel = promptType === 'commercial' ? 'Commercial keywords' : promptType === 'brand' ? 'Brand questions' : '';
+      const title = `${selectedBrand.name} - Prompts & answers${typeLabel ? ` (${typeLabel})` : ''}`;
+      const res = await fetch(`/api/brands/${selectedBrand.id}/report/custom`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, mentions }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast(err.error || 'PDF export failed', 'error');
+        return;
+      }
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const safe = selectedBrand.name.replace(/[^a-zA-Z0-9_\- ]/g, '').replace(/\s+/g, '_');
+      a.download = `${safe}_Prompts_and_answers_${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    } catch {
+      toast('PDF export failed', 'error');
+    } finally {
+      setPdfBusy(false);
+    }
   }
 
   if (loading) return (
@@ -176,6 +254,9 @@ export default function MentionsPage() {
               {runs.length === 0 && <option value="">No runs yet</option>}
             </select>
             <button className="btn-d" onClick={exportCSV} disabled={!filtered.length}>⇣ Export CSV</button>
+            <button className="btn-d" onClick={exportPDF} disabled={!filtered.length || pdfBusy} title="PDF of the rows shown with the current filters">
+              {pdfBusy ? 'Building PDF…' : '⇣ Export PDF'}
+            </button>
           </>
         }
       />
@@ -211,11 +292,33 @@ export default function MentionsPage() {
                 { value: 'recommended', label: 'Recommended' },
                 { value: 'errors', label: 'Errors' },
               ]} />
+              <select className="sel" value={promptType} onChange={e => setPromptType(e.target.value as PromptType)} title="Commercial keywords are buying-intent searches without your brand name">
+                <option value="all">All prompts</option>
+                <option value="commercial">Commercial keywords</option>
+                <option value="brand">Brand questions</option>
+              </select>
               <select className="sel" value={platformFilter} onChange={e => setPlatformFilter(e.target.value)}>
                 <option value="all">All engines</option>
                 {planPlatforms.map(p => <option key={p} value={p}>{p}{platformCounts[p]?.t ? '' : ' (0)'}</option>)}
               </select>
             </Filter>
+
+            {!showLive && (() => {
+              const failedEngines = Object.keys(platformCounts)
+                .map(p => ({ p, q: failedQueriesFor(p) }))
+                .filter(x => x.q.length > 0);
+              if (!failedEngines.length) return null;
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: '0 0 12px', fontSize: 12 }}>
+                  <span className="dim">Some engines failed in this scan. Rerun just that engine:</span>
+                  {failedEngines.map(({ p, q }) => (
+                    <button key={p} className="btn-d" disabled={live.running} onClick={() => rerun(p, q)} title={`Re-ask ${p} the ${q.length} prompt${q.length > 1 ? 's' : ''} that failed`}>
+                      ↻ {p} ({q.length})
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
 
             {filtered.length === 0 ? (
               <Card>
@@ -277,6 +380,21 @@ export default function MentionsPage() {
                                     <div className="mono dim" style={{ marginTop: 8, fontSize: 10 }}>
                                       Position: {posLabel} · Sentiment: {r.error ? '-' : (r.sentiment || 'neutral')} · Recommended: {r.error ? '-' : (r.recommended ? 'Yes' : 'No')}
                                     </div>
+                                    {r.error && !showLive && (() => {
+                                      const failed = failedQueriesFor(r.platform);
+                                      return (
+                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                                          <button className="btn-d" disabled={live.running} onClick={e => { e.stopPropagation(); rerun(r.platform, [r.query]); }}>
+                                            ↻ Rerun this prompt on {r.platform}
+                                          </button>
+                                          {failed.length > 1 && (
+                                            <button className="btn-d" disabled={live.running} onClick={e => { e.stopPropagation(); rerun(r.platform, failed); }}>
+                                              ↻ Rerun all {failed.length} failed {r.platform} prompts
+                                            </button>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
                                 </td>
                               </tr>

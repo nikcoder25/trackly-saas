@@ -18,6 +18,13 @@ import { mergeCitations, persistCitations, type CitationBatchRow } from '@/lib/c
 import { persistFanout, type FanoutBatchRow } from '@/lib/fanout';
 import { refreshRecommendationsAfterRun } from '@/lib/recommendations-engine';
 import { after } from 'next/server';
+import { mergeRetryIntoRun } from '@/lib/run-merge';
+
+// runId -> id of the earlier scan a retry run should be merged into
+// (Prompts & answers "Rerun" on failed rows). Retry runs always execute
+// in-process, so a module-level map is enough to hand the target to the
+// background job without widening executeRunBackground's signature.
+const retryMergeTargets = new Map<string, string>();
 import { isQueueAvailable, enqueueBrandRun } from '@/lib/job-queue';
 import { getServerKeys } from '@/lib/server-keys';
 import { resolveKeysForTenant, recordTenantKeyResult } from '@/lib/tenant-keys';
@@ -219,7 +226,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   // Support running only specific queries (e.g. newly added ones) via request body
-  let body: { queries?: string[]; platforms?: string[] } = {};
+  let body: { queries?: string[]; platforms?: string[]; mergeIntoRunId?: string } = {};
   try { body = await request.json(); } catch { /* no body or invalid JSON is fine */ }
   const allQueries: string[] = brand.queries || [];
   // Mirror the case-insensitive dedup applied by PUT /api/brands/[id]
@@ -646,7 +653,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // the host. Only callable by trusted principals because it ties up
   // the HTTP connection for the duration of the scan.
   const syncMode = url.searchParams.get('sync') === '1';
-  const shouldEnqueue = await isQueueAvailable();
+  // Retry of failed rows: merge into the scan being retried, and keep the
+  // job in-process so the merge target travels with it.
+  const mergeIntoRunId = typeof body.mergeIntoRunId === 'string' && /^[a-z0-9_-]{1,64}$/i.test(body.mergeIntoRunId)
+    && Array.isArray(brand.runs) && (brand.runs as Array<{ id?: string }>).some(r => r && r.id === body.mergeIntoRunId)
+    ? body.mergeIntoRunId : null;
+  if (mergeIntoRunId) retryMergeTargets.set(runId, mergeIntoRunId);
+  const shouldEnqueue = !mergeIntoRunId && await isQueueAvailable();
   const runInProcess = () => {
     after(async () => {
       await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys, requestId, ownerId, reserveKind, ownerPlan, freshBypass, isCronCall);
@@ -719,6 +732,7 @@ async function executeRunBackground(
       isCronCall,
     );
   } finally {
+    retryMergeTargets.delete(runId);
     // Belt-and-suspenders terminal-state guard. If executeRunBackgroundInner
     // returned without writing a 'done' or 'error' status (early return,
     // unhandled crash inside the catch block, etc.), the active_runs row
@@ -1382,7 +1396,11 @@ async function executeRunBackgroundInner(
     // (a partial 'watchdogReap' entry), don't add a second entry for the same
     // run. Pairs with the zombie guard above and the status-guarded UPDATE
     // below to keep watchdog-vs-worker races from duplicating history.
-    if (!brandData.runs.some((r: { id?: string }) => r && r.id === runId)) {
+    const mergeTarget = retryMergeTargets.get(runId);
+    const mergedRun = mergeTarget ? mergeRetryIntoRun(brandData.runs, mergeTarget, lightResults) : null;
+    if (mergedRun) {
+      runLog.info('run.retry_merged', { mergeTarget, rows: lightResults.length });
+    } else if (!brandData.runs.some((r: { id?: string }) => r && r.id === runId)) {
       brandData.runs.push({
         id: runId, date: new Date().toISOString().split('T')[0],
         time: new Date().toISOString(), durationMs,
@@ -1397,10 +1415,13 @@ async function executeRunBackgroundInner(
     if (!brandData.sovHistory) brandData.sovHistory = [];
     const today = new Date().toISOString().split('T')[0];
     brandData.sovHistory = brandData.sovHistory.filter((h: { date: string }) => h.date !== today);
-    brandData.sovHistory.push({
-      date: today, overall: overallSov,
-      platforms: Object.fromEntries(Object.entries(platformStats).map(([k, v]) => [k, v.sov])),
-    });
+    // A merged retry updates the day's point from the whole merged scan, not
+    // from the handful of re-run rows.
+    const histSov = mergedRun ? Number(mergedRun.sov) || 0 : overallSov;
+    const histPlatforms = mergedRun
+      ? Object.fromEntries(Object.entries(mergedRun.platforms as Record<string, { sov: number }>).map(([k, v]) => [k, v.sov]))
+      : Object.fromEntries(Object.entries(platformStats).map(([k, v]) => [k, v.sov]));
+    brandData.sovHistory.push({ date: today, overall: histSov, platforms: histPlatforms });
     if (brandData.sovHistory.length > 90) brandData.sovHistory = brandData.sovHistory.slice(-90);
 
     if (!brandData.mentions) brandData.mentions = [];

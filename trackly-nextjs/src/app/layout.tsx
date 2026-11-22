@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
-import { Inter, JetBrains_Mono } from 'next/font/google';
+import localFont from 'next/font/local';
 import '@/styles/globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import ProgressBar from '@/components/ProgressBar';
@@ -11,18 +11,20 @@ import { NonceProvider } from '@/components/NonceProvider';
 import CsrfFetchInterceptor from '@/components/CsrfFetchInterceptor';
 import AttributionTracker from '@/components/AttributionTracker';
 
-const inter = Inter({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
+// Self-hosted (src/fonts) so the build never downloads from Google Fonts.
+const inter = localFont({
+  src: '../fonts/inter-latin-var.woff2',
+  weight: '100 900',
   display: 'swap',
   variable: '--font-inter',
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '700'],
+const jetbrainsMono = localFont({
+  src: '../fonts/jetbrains-mono-latin-var.woff2',
+  weight: '100 800',
   display: 'swap',
   variable: '--font-jetbrains',
+  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {

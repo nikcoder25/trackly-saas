@@ -36,6 +36,20 @@ export default function GlobalRunProgress() {
     (selectedBrand && selectedBrand.id === live.brandId ? selectedBrand : null);
   const runningBrandName = (runningBrand?.name as string) || (selectedBrand?.name as string) || '';
 
+  // Which engines failed and why, so "40 errors" isn't a dead end.
+  const errorsByPlatform = new Map<string, { count: number; msg: string }>();
+  for (const r of live.results || []) {
+    if (!r.error) continue;
+    const cur = errorsByPlatform.get(r.platform) || { count: 0, msg: r.errorMessage || '' };
+    cur.count++;
+    if (!cur.msg && r.errorMessage) cur.msg = r.errorMessage;
+    errorsByPlatform.set(r.platform, cur);
+  }
+  const errorBreakdown = [...errorsByPlatform.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 4)
+    .map(([plat, v]) => `${plat} (${v.count})${v.msg ? ': ' + v.msg.slice(0, 90) : ''}`);
+
   return (
     <div style={{
       marginBottom: 14, padding: '10px 16px',
@@ -79,6 +93,11 @@ export default function GlobalRunProgress() {
       {live.statusText && (
         <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: isError ? 'var(--red)' : 'var(--muted)', marginTop: 4 }}>
           {live.statusText}
+        </div>
+      )}
+      {errorBreakdown.length > 0 && (
+        <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 4 }}>
+          {errorBreakdown.map(line => <div key={line}>{line}</div>)}
         </div>
       )}
       {live.slowWarning && (
