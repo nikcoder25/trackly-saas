@@ -53,6 +53,9 @@ interface StartRunOptions {
   // button to re-run a single failed prompt against only the one platform
   // that failed, so the cost is 1 scan rather than one-per-engine.
   platforms?: string[];
+  // Retry of failed rows: save the results into this earlier scan instead
+  // of creating a new scan that only holds the re-run rows.
+  mergeIntoRunId?: string;
 }
 
 interface RunContextType {
@@ -538,10 +541,11 @@ export function RunProvider({ children }: { children: ReactNode }) {
       // POST to start the run - returns immediately with runId. Forward an
       // explicit queries / platforms scope when present so a single-prompt,
       // single-platform Retry hits only that engine.
-      const runBody = (options?.queries || options?.platforms)
+      const runBody = (options?.queries || options?.platforms || options?.mergeIntoRunId)
         ? JSON.stringify({
             ...(options?.queries ? { queries: options.queries } : {}),
             ...(options?.platforms ? { platforms: options.platforms } : {}),
+            ...(options?.mergeIntoRunId ? { mergeIntoRunId: options.mergeIntoRunId } : {}),
           })
         : undefined;
       const response = await fetch(`/api/brands/${brandId}/run?x=1${forceParam}${autoParam}`, {

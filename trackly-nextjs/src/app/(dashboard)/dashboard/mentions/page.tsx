@@ -33,7 +33,7 @@ export default function MentionsPage() {
   const planPlatforms = getPlanPlatforms(user?.plan || 'free');
   const { brand: rawBrand, loading } = useBrandData({ fullData: true });
   const selectedBrand = rawBrand as Brand | null;
-  const { live, pct: runPct } = useRun();
+  const { live, pct: runPct, startRun } = useRun();
   const { toast } = useToast();
   // Fire a one-shot toast when a 409 ("concurrent") run lands while the
   // user is on this page. RunContext surfaces 409 as
@@ -155,6 +155,22 @@ export default function MentionsPage() {
     a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
     a.download = `livesov-mentions-${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
+  }
+
+  // Re-run failed rows on one engine and merge the answers back into this
+  // same scan, so the rest of the scan's rows stay as they are.
+  function failedQueriesFor(platform: string): string[] {
+    return Array.from(new Set(all.filter(r => r.error && r.platform === platform).map(r => r.query)));
+  }
+  function rerun(platform: string, queries: string[]) {
+    if (!queries.length || !selectedBrand) return;
+    if (live.running) { toast('A scan is already running. Try again when it finishes.', 'error'); return; }
+    startRun(false, {
+      brandId: selectedBrand.id,
+      queries,
+      platforms: [platform],
+      ...(currentRun?.id ? { mergeIntoRunId: currentRun.id } : {}),
+    });
   }
 
   async function exportPDF() {
@@ -287,6 +303,23 @@ export default function MentionsPage() {
               </select>
             </Filter>
 
+            {!showLive && (() => {
+              const failedEngines = Object.keys(platformCounts)
+                .map(p => ({ p, q: failedQueriesFor(p) }))
+                .filter(x => x.q.length > 0);
+              if (!failedEngines.length) return null;
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: '0 0 12px', fontSize: 12 }}>
+                  <span className="dim">Some engines failed in this scan. Rerun just that engine:</span>
+                  {failedEngines.map(({ p, q }) => (
+                    <button key={p} className="btn-d" disabled={live.running} onClick={() => rerun(p, q)} title={`Re-ask ${p} the ${q.length} prompt${q.length > 1 ? 's' : ''} that failed`}>
+                      ↻ {p} ({q.length})
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+
             {filtered.length === 0 ? (
               <Card>
                 <div style={{ textAlign: 'center', padding: '40px 16px' }}>
@@ -347,6 +380,21 @@ export default function MentionsPage() {
                                     <div className="mono dim" style={{ marginTop: 8, fontSize: 10 }}>
                                       Position: {posLabel} · Sentiment: {r.error ? '-' : (r.sentiment || 'neutral')} · Recommended: {r.error ? '-' : (r.recommended ? 'Yes' : 'No')}
                                     </div>
+                                    {r.error && !showLive && (() => {
+                                      const failed = failedQueriesFor(r.platform);
+                                      return (
+                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                                          <button className="btn-d" disabled={live.running} onClick={e => { e.stopPropagation(); rerun(r.platform, [r.query]); }}>
+                                            ↻ Rerun this prompt on {r.platform}
+                                          </button>
+                                          {failed.length > 1 && (
+                                            <button className="btn-d" disabled={live.running} onClick={e => { e.stopPropagation(); rerun(r.platform, failed); }}>
+                                              ↻ Rerun all {failed.length} failed {r.platform} prompts
+                                            </button>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
                                 </td>
                               </tr>
