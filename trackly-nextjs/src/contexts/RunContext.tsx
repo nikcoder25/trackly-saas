@@ -56,6 +56,9 @@ interface StartRunOptions {
   // Retry of failed rows: save the results into this earlier scan instead
   // of creating a new scan that only holds the re-run rows.
   mergeIntoRunId?: string;
+  // Exact (engine, prompt) pairs to run instead of the queries x platforms
+  // grid. Used by "Rerun all failed" so only the failed combos are re-asked.
+  pairs?: Array<{ platform: string; query: string }>;
 }
 
 interface RunContextType {
@@ -509,7 +512,9 @@ export function RunProvider({ children }: { children: ReactNode }) {
       const queriesCount = options?.queries
         ? options.queries.length
         : ((selectedBrand as { queries?: string[] })?.queries?.length ?? 0);
-      const cost = Math.max(1, queriesCount * Math.max(1, platforms || 5));
+      const cost = options?.pairs?.length
+        ? options.pairs.length
+        : Math.max(1, queriesCount * Math.max(1, platforms || 5));
       const proceed = await confirmRun(cost, selectedBrand.name);
       if (!proceed) {
         // User cancelled or was blocked by the modal. Reset run state
@@ -541,8 +546,9 @@ export function RunProvider({ children }: { children: ReactNode }) {
       // POST to start the run - returns immediately with runId. Forward an
       // explicit queries / platforms scope when present so a single-prompt,
       // single-platform Retry hits only that engine.
-      const runBody = (options?.queries || options?.platforms || options?.mergeIntoRunId)
+      const runBody = (options?.queries || options?.platforms || options?.mergeIntoRunId || options?.pairs)
         ? JSON.stringify({
+            ...(options?.pairs ? { pairs: options.pairs } : {}),
             ...(options?.queries ? { queries: options.queries } : {}),
             ...(options?.platforms ? { platforms: options.platforms } : {}),
             ...(options?.mergeIntoRunId ? { mergeIntoRunId: options.mergeIntoRunId } : {}),

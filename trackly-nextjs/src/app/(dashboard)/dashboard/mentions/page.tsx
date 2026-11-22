@@ -173,6 +173,27 @@ export default function MentionsPage() {
     });
   }
 
+  // Every failed (engine, prompt) pair in this scan, rerun in one go.
+  function rerunAllFailed() {
+    if (!selectedBrand) return;
+    if (live.running) { toast('A scan is already running. Try again when it finishes.', 'error'); return; }
+    const seen = new Set<string>();
+    const pairs: Array<{ platform: string; query: string }> = [];
+    for (const r of all) {
+      if (!r.error) continue;
+      const k = `${r.platform}\u0000${r.query}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      pairs.push({ platform: r.platform, query: r.query });
+    }
+    if (!pairs.length) return;
+    startRun(false, {
+      brandId: selectedBrand.id,
+      pairs,
+      ...(currentRun?.id ? { mergeIntoRunId: currentRun.id } : {}),
+    });
+  }
+
   async function exportPDF() {
     if (!filtered.length || !selectedBrand || pdfBusy) return;
     if (filtered.length > 500) { toast('Too many rows for one PDF (max 500). Narrow the filters first.', 'error'); return; }
@@ -308,9 +329,16 @@ export default function MentionsPage() {
                 .map(p => ({ p, q: failedQueriesFor(p) }))
                 .filter(x => x.q.length > 0);
               if (!failedEngines.length) return null;
+              const totalFailed = failedEngines.reduce((n, x) => n + x.q.length, 0);
               return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: '0 0 12px', fontSize: 12 }}>
-                  <span className="dim">Some engines failed in this scan. Rerun just that engine:</span>
+                  <span className="dim">Some engines failed in this scan.</span>
+                  {failedEngines.length > 1 && (
+                    <button className="btn-p" disabled={live.running} onClick={rerunAllFailed} title="Re-ask only the engine + prompt pairs that failed">
+                      ↻ Rerun all failed ({totalFailed})
+                    </button>
+                  )}
+                  <span className="dim">{failedEngines.length > 1 ? 'Or just one engine:' : 'Rerun just that engine:'}</span>
                   {failedEngines.map(({ p, q }) => (
                     <button key={p} className="btn-d" disabled={live.running} onClick={() => rerun(p, q)} title={`Re-ask ${p} the ${q.length} prompt${q.length > 1 ? 's' : ''} that failed`}>
                       ↻ {p} ({q.length})
