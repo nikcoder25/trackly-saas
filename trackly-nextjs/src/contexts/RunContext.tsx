@@ -241,6 +241,13 @@ export function RunProvider({ children }: { children: ReactNode }) {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const runningRef = useRef(false);
   const pollRef = useRef(false); // prevents duplicate poll loops
+  // Generation token: each new poll loop bumps it, and a loop only writes
+  // state while it still owns the current generation. Without this, an old
+  // loop that was mid-fetch when it was stopped (brand switch, 409 attach,
+  // force run) kept writing progress text over the new state, which turned
+  // an error banner into "Scan failed - 138/140 - 42 found".
+  const pollGenRef = useRef(0);
+  const pollRunIdRef = useRef<string | null>(null);
   const pendingQueriesRef = useRef<string[] | null>(null); // queued queries to run after current run
 
   // Live timer
@@ -267,6 +274,8 @@ export function RunProvider({ children }: { children: ReactNode }) {
     prevSelectedBrandIdRef.current = newBrandId;
     if (prevBrandId === null || newBrandId === null || prevBrandId === newBrandId) return;
     pollRef.current = false;
+    pollGenRef.current++;
+    pollRunIdRef.current = null;
     runningRef.current = false;
     if (timerRef.current) clearInterval(timerRef.current);
     setLive(INITIAL_STATE);
@@ -277,8 +286,11 @@ export function RunProvider({ children }: { children: ReactNode }) {
 
   // ── Poll run status from DB ────────────────────────
   const pollRunStatus = useCallback(async (brandId: string, runId: string) => {
-    if (pollRef.current) return; // already polling
+    if (pollRef.current && pollRunIdRef.current === runId) return; // already polling this run
     pollRef.current = true;
+    pollRunIdRef.current = runId;
+    const myGen = ++pollGenRef.current;
+    const isCurrent = () => pollRef.current && pollGenRef.current === myGen;
     let pollErrors = 0;
     const MAX_POLL_ERRORS = 20;
     let pollDelay = 2000;
@@ -296,11 +308,15 @@ export function RunProvider({ children }: { children: ReactNode }) {
 
     // Use iterative loop instead of recursive calls to avoid stack overflow on long runs
     const runPollLoop = async () => {
-      while (pollRef.current) {
+      while (isCurrent()) {
         try {
           const res = await fetch(`/api/brands/${brandId}/run-status/${runId}?since=${lastResultCount}`, { credentials: 'include' });
           if (!res.ok) throw new Error('Poll failed');
           const data = await res.json();
+          // A newer loop took over (or polling was stopped) while this
+          // request was in flight: drop the response so it can't overwrite
+          // the newer state.
+          if (!isCurrent()) return;
           pollErrors = 0;
 
           const newResults: LiveResult[] = (data.results || []).map((r: LiveResult) => ({ ...r, ts: Date.now() }));
@@ -401,6 +417,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
 
           await new Promise(r => setTimeout(r, pollDelay));
         } catch {
+          if (!isCurrent()) return;
           pollErrors++;
           if (pollErrors >= MAX_POLL_ERRORS) {
             pollRef.current = false;
@@ -546,11 +563,33 @@ export function RunProvider({ children }: { children: ReactNode }) {
           //     keys off errorMsg === 'concurrent')
           //   - Pages like /dashboard/mentions can show a toast pointing
           //     the user at force-run / wait
-          runningRef.current = false;
           if (options?.queries && options.queries.length > 0) {
             const existing = pendingQueriesRef.current || [];
             pendingQueriesRef.current = [...new Set([...existing, ...options.queries])];
           }
+          // A scan for this brand is already running (started from another
+          // tab, the MCP connector, the cron, or the auto first-scan). That
+          // is not a failure: attach to it and show its live progress
+          // instead of a red "Scan failed" banner.
+          try {
+            const sres = await fetch(`/api/brands/${brandId}/run-status`, { credentials: 'include', cache: 'no-store' });
+            const sdata = sres.ok ? await sres.json() : null;
+            if (sdata?.status === 'running' && sdata.runId) {
+              const startedMs = sdata.startedAt ? new Date(sdata.startedAt).getTime() : Date.now();
+              localStorage.setItem('livesov_active_run', JSON.stringify({ runId: sdata.runId, brandId, startedAt: startedMs }));
+              setLive(prev => ({
+                ...prev, running: true, status: 'running', errorMsg: null,
+                runId: sdata.runId, brandId,
+                received: sdata.received || 0, totalExpected: sdata.totalExpected || 0,
+                foundCount: sdata.foundCount || 0, errorCount: sdata.errorCount || 0,
+                startTime: Number.isFinite(startedMs) ? startedMs : Date.now(),
+                statusText: 'Scan already running - showing its progress',
+              }));
+              pollRunStatus(brandId, sdata.runId);
+              return;
+            }
+          } catch { /* fall through to the concurrent error below */ }
+          runningRef.current = false;
           const concurrentMsg = errData.error || 'A run is already in progress for this brand. Wait for it to finish or use Force Run.';
           setLive(prev => ({
             ...prev,
